@@ -14,7 +14,7 @@ export const enPrivacy: LegalDocument = {
 			paragraphs: [
 				"Sign-in and profile: We use your mobile number and SMS code for registration, sign-in or password reset. Tencent Cloud SMS processes the information needed to send the code. You can also set a password, display name and avatar.",
 				"Devices and sessions: We record device type, device name and sign-in time to manage sessions. When handling SMS code and password sign-in requests, we use your IP address and store its hash to protect accounts and the service.",
-				"Conversations and providers: We process your messages with your Bot to display conversations and generate replies. To generate replies, we send conversation content to RightCode (rightapi.ai, providing the GLM model) or DeepSeek. You may configure your own provider and key; the key is stored encrypted and used only for calls you initiate.",
+				"Conversations and models: We process your messages with your Bot to display conversations and generate replies. To generate replies, we send necessary conversation content to the service for the selected model. You may configure your own provider and key; the key is stored encrypted and used only for calls you initiate.",
 				"Quota and invitations: We record quota grants, invite rewards and consumption to calculate your quota. Anyone opening your invite link can see your display name and avatar.",
 			],
 		},

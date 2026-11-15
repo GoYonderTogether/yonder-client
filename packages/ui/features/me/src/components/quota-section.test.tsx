@@ -6,17 +6,42 @@ import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
 
 const quota = vi.hoisted(() => ({ balance: 999_906 }));
+const pool = (remaining: number) => ({
+	granted: 1_000_000,
+	used: 1_000_000 - remaining,
+	remaining,
+	remainingPercent: 100,
+});
 vi.mock("@yonder/ui-data", () => ({
-	useQuota: () => ({ data: { balance: quota.balance, granted: 1_000_000, used: 1_000_000 - quota.balance } }),
+	useQuota: () => ({
+		data: {
+			balance: quota.balance,
+			granted: 1_000_000,
+			used: 1_000_000 - quota.balance,
+			pools: {
+				main: pool(quota.balance),
+				background: pool(0),
+				coding: pool(0),
+				external: pool(0),
+			},
+			overflow: {
+				main: { overflow: false, rate: 1, floorPercent: null },
+				background: { overflow: true, rate: 1, floorPercent: 20 },
+				external: { overflow: false, rate: 1, floorPercent: null },
+				coding: { overflow: true, rate: 1.2, floorPercent: null },
+			},
+		},
+	}),
 	useQuotaLedger: () => ({ data: { pages: [] } }),
 	useUsage: () => ({ data: { pages: [] } }),
+	useQuotaRates: () => ({ data: undefined }),
 }));
 
 import { QuotaSection } from "./quota-section.tsx";
 
 test.each([
-	["zh-CN", "剩余额度 · token"],
-	["en", "Balance · tokens"],
+	["zh-CN", "主额度"],
+	["en", "Main"],
 ] as const)("the main balance shows each deduction in %s", (locale, label) => {
 	quota.balance = 999_906;
 	const i18n = createI18n(locale);

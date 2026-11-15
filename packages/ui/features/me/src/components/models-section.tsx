@@ -1,4 +1,4 @@
-import { Button, ListGroup, ListRow, TextField } from "@yonder/ui-components";
+import { Button, ListGroup, ListRow, SearchInput } from "@yonder/ui-components";
 import { useProviderActions, useProviders } from "@yonder/ui-data";
 import { Plus } from "lucide-react";
 import { useState } from "react";
@@ -33,6 +33,8 @@ export function ModelsSection({
 	const [preset, setPreset] = useState<ProviderPreset | null>(null);
 	const [notice, setNotice] = useState<{ id: string; ok: boolean } | null>(null);
 	const [search, setSearch] = useState("");
+	const userProviders = providers.data?.items.filter((provider) => provider.scope === "user") ?? [];
+	const platformModels = providers.data?.platformModels ?? [];
 	if (page === "add") {
 		if (preset)
 			return (
@@ -63,7 +65,7 @@ export function ModelsSection({
 		);
 	}
 	if (page?.startsWith("edit-")) {
-		const provider = providers.data?.items.find((item) => item.id === page.slice(5));
+		const provider = userProviders.find((item) => item.id === page.slice(5));
 		return provider ? (
 			<ProviderEditor
 				key={provider.id}
@@ -79,7 +81,7 @@ export function ModelsSection({
 		);
 	}
 	if (page?.startsWith("duplicate-")) {
-		const provider = providers.data?.items.find((item) => item.id === page.slice(10));
+		const provider = userProviders.find((item) => item.id === page.slice(10));
 		return provider ? (
 			<ProviderEditor
 				key={`duplicate-${provider.id}`}
@@ -103,11 +105,14 @@ export function ModelsSection({
 			<p role="status">{providers.isLoading ? t("app.loading") : t("errors.not_found")}</p>
 		);
 	}
-	const filtered = providers.data?.items.filter((provider) =>
-		[provider.name, provider.note, provider.website, provider.baseUrl].some((value) =>
-			value?.toLowerCase().includes(search.trim().toLowerCase()),
+	const query = search.trim().toLowerCase();
+	const filtered = userProviders.filter((provider) =>
+		[provider.name, provider.note, provider.website, provider.baseUrl, ...provider.models].some((value) =>
+			value?.toLowerCase().includes(query),
 		),
 	);
+	const filteredModels = platformModels.filter((model) => model.name.toLowerCase().includes(query));
+	const total = userProviders.length + platformModels.length;
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)]">
 			<div className="flex justify-end">
@@ -124,9 +129,8 @@ export function ModelsSection({
 					</span>
 				</Button>
 			</div>
-			<TextField
-				label={t("models.search")}
-				type="search"
+			<SearchInput
+				placeholder={t("models.search")}
 				value={search}
 				onChange={(event) => setSearch(event.target.value)}
 			/>
@@ -136,35 +140,55 @@ export function ModelsSection({
 					{t("app.retry")}
 				</Button>
 			) : null}
-			{providers.data?.items.length === 0 ? (
+			{providers.data && total === 0 ? (
 				<p className="text-caption text-[var(--color-text-secondary)]">{t("models.empty")}</p>
 			) : null}
-			{(providers.data?.items.length ?? 0) > 0 && filtered?.length === 0 ? (
+			{total > 0 && filtered.length === 0 && filteredModels.length === 0 ? (
 				<p className="text-caption text-[var(--color-text-secondary)]">{t("models.noMatches")}</p>
 			) : null}
-			<ul className="flex flex-col gap-[var(--spacing-2)]">
-				{filtered?.map((provider) => (
-					<ProviderRow
-						key={provider.id}
-						provider={provider}
-						notice={notice?.id === provider.id ? notice.ok : null}
-						onEdit={() => onOpenPage(`edit-${provider.id}`)}
-						onDefault={() => actions.setDefault.mutate(provider.id)}
-						onDuplicate={() => onOpenPage(`duplicate-${provider.id}`)}
-						onTest={() => {
-							setNotice(null);
-							actions.test.mutate(provider.id, {
-								onSuccess: (result) => setNotice({ id: provider.id, ok: result.ok }),
-								onError: () => setNotice({ id: provider.id, ok: false }),
-							});
-						}}
-						onDelete={() => {
-							if (window.confirm(t("models.deleteConfirm", { name: provider.name })))
-								actions.remove.mutate(provider.id);
-						}}
-					/>
-				))}
-			</ul>
+			{filteredModels.length > 0 ? (
+				<ListGroup title={t("models.catalog")}>
+					{filteredModels.map((model) => (
+						<li
+							key={model.id}
+							className="flex items-center justify-between gap-[var(--spacing-3)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] last:border-0"
+						>
+							<span className="break-words text-body">{model.name}</span>
+							{model.isDefault && model.enabled ? (
+								<span className="shrink-0 text-caption text-[var(--color-accent-text)]">{t("models.inUse")}</span>
+							) : null}
+							{!model.enabled ? (
+								<span className="shrink-0 text-caption text-[var(--color-text-tertiary)]">{t("models.disabled")}</span>
+							) : null}
+						</li>
+					))}
+				</ListGroup>
+			) : null}
+			{filtered.length > 0 ? (
+				<ListGroup title={t("models.custom")}>
+					{filtered.map((provider) => (
+						<ProviderRow
+							key={provider.id}
+							provider={provider}
+							notice={notice?.id === provider.id ? notice.ok : null}
+							onEdit={() => onOpenPage(`edit-${provider.id}`)}
+							onDefault={() => actions.setDefault.mutate(provider.id)}
+							onDuplicate={() => onOpenPage(`duplicate-${provider.id}`)}
+							onTest={() => {
+								setNotice(null);
+								actions.test.mutate(provider.id, {
+									onSuccess: (result) => setNotice({ id: provider.id, ok: result.ok }),
+									onError: () => setNotice({ id: provider.id, ok: false }),
+								});
+							}}
+							onDelete={() => {
+								if (window.confirm(t("models.deleteConfirm", { name: provider.name })))
+									actions.remove.mutate(provider.id);
+							}}
+						/>
+					))}
+				</ListGroup>
+			) : null}
 			{actions.remove.isError || actions.setDefault.isError ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
 					{t("models.saveFailed")}

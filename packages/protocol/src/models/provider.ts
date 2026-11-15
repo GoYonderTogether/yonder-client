@@ -12,6 +12,19 @@ export interface Provider {
 	isDefault: boolean;
 }
 
+/** Public platform catalog: upstream connection details never leave the server. */
+export interface PlatformModel {
+	id: string;
+	name: string;
+	enabled: boolean;
+	isDefault: boolean;
+}
+
+export interface ProviderList {
+	items: Provider[];
+	platformModels: PlatformModel[];
+}
+
 /** Keys only travel from the user's form to the server; they are absent from Provider. */
 export interface SaveProviderRequest {
 	name: string;

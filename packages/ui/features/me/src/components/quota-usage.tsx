@@ -20,8 +20,15 @@ export function QuotaUsage() {
 					>
 						<div className="min-w-0 text-caption text-[var(--color-text-secondary)]">
 							<p className="break-words text-body text-[var(--color-text-primary)]">
-								{entry.provider} · {entry.model}
+								{entry.provider ? `${entry.provider} · ` : ""}
+								{entry.model}
 								{!entry.ok ? ` · ${t("me.quota.callFailed")}` : ""}
+							</p>
+							<p>
+								{t(`me.quota.pools.${entry.pool}`)}
+								{entry.overflow && entry.overflowRate !== null
+									? ` · ${t("me.quota.callOverflow", { rate: entry.overflowRate })}`
+									: ""}
 							</p>
 							<time dateTime={entry.at}>
 								{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(

@@ -21,10 +21,11 @@ export function ProviderRow({
 	onDelete: () => void;
 }) {
 	const { t } = useTranslation();
+	if (provider.scope !== "user") return null;
 	const active = provider.isDefault && provider.enabled && provider.keyConfigured;
 	return (
 		<li
-			className={`flex flex-wrap items-center gap-[var(--spacing-2)] rounded-[var(--radius-card)] border p-[var(--spacing-3)] ${active ? "border-[var(--color-accent)] bg-[var(--color-accent-subtle)]" : "border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"}`}
+			className={`flex flex-wrap items-center gap-[var(--spacing-2)] rounded-[var(--radius-card)] border p-[var(--spacing-3)] ${active ? "border-[var(--color-border-strong)] bg-[var(--color-bg-selected)]" : "border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"}`}
 		>
 			<IconTile>
 				<Boxes size={17} aria-hidden="true" />
@@ -33,7 +34,7 @@ export function ProviderRow({
 				<p className="truncate text-body font-medium">
 					{provider.name}
 					{active ? (
-						<span className="ms-[var(--spacing-2)] text-caption text-[var(--color-accent-text)]">
+						<span className="ms-[var(--spacing-2)] text-caption text-[var(--color-text-primary)]">
 							{t("models.inUse")}
 						</span>
 					) : null}
@@ -41,9 +42,6 @@ export function ProviderRow({
 				<p className="truncate text-caption text-[var(--color-text-secondary)]">
 					{provider.note || provider.website || provider.baseUrl}
 				</p>
-				{provider.scope === "platform" ? (
-					<p className="text-caption text-[var(--color-text-secondary)]">{t("models.platformProvider")}</p>
-				) : null}
 				{provider.models.length > 0 ? (
 					<p className="break-words text-caption text-[var(--color-text-secondary)]">
 						{t("models.availableModels", { models: provider.models.join(", ") })}

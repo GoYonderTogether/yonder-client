@@ -33,6 +33,12 @@ export function useQuotaLedger() {
 	});
 }
 
+/** The published rate card, cached for longer than a balance: prices change when we publish them. */
+export function useQuotaRates() {
+	const api = useApi();
+	return useQuery({ queryKey: keys.quotaRates(), queryFn: () => api.quotaRates(), staleTime: 3_600_000 });
+}
+
 export function useUsage() {
 	const api = useApi();
 	return useInfiniteQuery({
