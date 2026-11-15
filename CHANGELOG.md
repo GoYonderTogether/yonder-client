@@ -6,6 +6,13 @@
 
 ### Fixed
 
+- include the release version consistency check
+- remove server-only workspaces from the public release
+
+## [0.3.26111503] - 2026-11-15
+
+### Fixed
+
 - allow native shells to reach the production API
 - auth：retain shell sessions across restarts
 - refresh OSS upload signatures and handle upstream disconnects

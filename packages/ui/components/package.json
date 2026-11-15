@@ -1,15 +1,15 @@
 {
 	"name": "@yonder/ui-components",
 	"private": true,
-	"version": "0.3.26111502",
+	"version": "0.3.26111503",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/protocol": "0.3.26111502",
-		"@yonder/ui-i18n": "0.3.26111502",
-		"@yonder/ui-tokens": "0.3.26111502",
+		"@yonder/protocol": "0.3.26111503",
+		"@yonder/ui-i18n": "0.3.26111503",
+		"@yonder/ui-tokens": "0.3.26111503",
 		"lucide-react": "1.72.0"
 	},
 	"peerDependencies": {
