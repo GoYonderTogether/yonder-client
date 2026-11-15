@@ -34,6 +34,9 @@ body {
 	background: var(--color-bg-base);
 	color: var(--color-text-primary);
 	font-family: var(--font-sans);
+	font-weight: var(--font-weight-normal);
+	font-variant-numeric: tabular-nums;
+	text-wrap: pretty;
 	font-size: var(--text-body);
 	line-height: var(--text-body--line-height);
 	-webkit-font-smoothing: antialiased;
@@ -54,7 +57,7 @@ time,
 }
 
 ::selection {
-	background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+	background: var(--color-bg-selected);
 }
 
 * {
@@ -74,11 +77,20 @@ time,
 	:focus-visible {
 		outline: 2px solid var(--color-accent);
 		outline-offset: 2px;
-		box-shadow: var(--focus-ring);
 	}
 }
 
 /* Chinese can break between any two characters; English only between words. */
 [lang="zh-CN"] body {
 	word-break: break-word;
+}
+
+/* Shared input frames own the focus outline, so their child input does not draw a second one. */
+:is(input, textarea, select):focus-visible {
+	outline: none;
+}
+
+strong,
+b {
+	font-weight: var(--font-weight-bold);
 }

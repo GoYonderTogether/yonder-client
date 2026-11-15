@@ -58,12 +58,13 @@ export function InputFrame({ children, fieldSize = "md", invalid, disabled, focu
 		<div
 			data-input-frame
 			className={cn(
-				"flex min-w-0 items-center gap-[var(--spacing-2)] border border-transparent bg-[var(--color-bg-subtle)] px-[var(--spacing-4)]",
-				"transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
+				"flex min-w-0 items-center gap-[var(--spacing-2)] px-[var(--spacing-4)]",
+				"transition-colors duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
 				!disabled &&
-					"focus-within:border-[var(--color-accent)] focus-within:bg-[var(--color-bg-surface)] focus-within:shadow-[var(--focus-ring)]",
-				focused && !disabled && "border-[var(--color-accent)] bg-[var(--color-bg-surface)] shadow-[var(--focus-ring)]",
-				invalid && "!border-[var(--color-danger)]",
+					!invalid &&
+					"focus-within:outline-1 focus-within:outline-offset-[-1px] focus-within:outline-[var(--color-accent)]",
+				focused && !disabled && !invalid && "outline-1 outline-offset-[-1px] outline-[var(--color-accent)]",
+				invalid ? "bg-[var(--color-danger-subtle)]" : "bg-[var(--color-bg-subtle)]",
 				disabled && "cursor-not-allowed opacity-60",
 				FRAME_SIZES[fieldSize],
 				className,
@@ -75,20 +76,31 @@ export function InputFrame({ children, fieldSize = "md", invalid, disabled, focu
 }
 
 export const INPUT_CLASS =
-	"min-w-0 w-full flex-1 bg-transparent text-body text-[var(--color-text-primary)] outline-none focus-visible:outline-none focus-visible:shadow-none placeholder:text-[var(--color-text-tertiary)] disabled:cursor-not-allowed";
+	"min-w-0 w-full flex-1 bg-transparent text-body text-[var(--color-text-primary)] outline-none focus-visible:outline-none placeholder:text-[var(--color-text-tertiary)] disabled:cursor-not-allowed";
 
 export interface TextInputProps extends InputHTMLAttributes<HTMLInputElement> {
 	invalid?: boolean;
 	fieldSize?: FieldSize;
+	leading?: ReactNode;
 	trailing?: ReactNode;
 }
 
 /** Backwards-compatible unlabelled field, for callers that provide a Field wrapper. */
-export function TextInput({ invalid = false, trailing, className, id, fieldSize, disabled, ...rest }: TextInputProps) {
+export function TextInput({
+	invalid = false,
+	leading,
+	trailing,
+	className,
+	id,
+	fieldSize,
+	disabled,
+	...rest
+}: TextInputProps) {
 	const generated = useId();
 	const inputId = id ?? generated;
 	return (
 		<InputFrame invalid={invalid} disabled={disabled} fieldSize={fieldSize} className={className}>
+			{leading}
 			<input
 				id={inputId}
 				aria-invalid={invalid || undefined}
@@ -146,10 +158,10 @@ export function TextArea({ invalid = false, className, id, ...rest }: TextAreaPr
 			aria-invalid={invalid || undefined}
 			aria-describedby={`${areaId}-hint`}
 			className={cn(
-				"min-h-[88px] w-full resize-y rounded-[var(--radius-control)] border border-transparent bg-[var(--color-bg-subtle)]",
+				"min-h-[88px] w-full resize-y rounded-[var(--radius-control)]",
 				"px-[var(--spacing-4)] py-[var(--spacing-3)] text-body text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]",
-				"focus:border-[var(--color-accent)] focus:bg-[var(--color-bg-surface)] focus:shadow-[var(--focus-ring)]",
-				invalid && "!border-[var(--color-danger)]",
+				"transition-colors duration-[var(--duration-fast)] focus-visible:outline-none",
+				invalid ? "bg-[var(--color-danger-subtle)]" : "bg-[var(--color-bg-subtle)] focus:bg-[var(--color-bg-surface)]",
 				className,
 			)}
 			{...rest}

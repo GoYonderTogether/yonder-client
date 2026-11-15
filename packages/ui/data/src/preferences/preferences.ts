@@ -5,8 +5,8 @@
 
 import type { Locale } from "@yonder/ui-i18n";
 import { isLocale, resolveLocale } from "@yonder/ui-i18n";
-import type { ThemeChoice } from "@yonder/ui-tokens";
-import { isThemeChoice, resolveTheme } from "@yonder/ui-tokens";
+import type { StyleChoice, ThemeChoice } from "@yonder/ui-tokens";
+import { isStyleChoice, isThemeChoice, resolveTheme } from "@yonder/ui-tokens";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useData } from "../query/provider.tsx";
 import type { Storage } from "../storage/index.ts";
@@ -33,6 +33,8 @@ export interface ThemeControl {
 	choice: ThemeChoice;
 	resolved: "light" | "dark";
 	setChoice: (choice: ThemeChoice) => void;
+	style: StyleChoice;
+	setStyle: (style: StyleChoice) => void;
 }
 
 /*
@@ -41,11 +43,17 @@ export interface ThemeControl {
  */
 const THEME_KEY = "theme";
 const LOCALE_KEY = "locale";
+const STYLE_KEY = "style";
 
 /** Read the stored choice; the inline first-paint script reads the same key. */
 export function readThemeChoice(storage: Pick<Storage, "get">): ThemeChoice {
 	const stored = storage.get(THEME_KEY);
 	return isThemeChoice(stored) ? stored : "system";
+}
+
+export function readStyleChoice(storage: Pick<Storage, "get">): StyleChoice {
+	const stored = storage.get(STYLE_KEY);
+	return isStyleChoice(stored) ? stored : "classic";
 }
 
 export function readLocale(storage: Pick<Storage, "get">): Locale {
@@ -85,10 +93,12 @@ export function useTheme(): ThemeControl {
 	const prefersDark = useSystemPrefersDark();
 	const choice = usePreference(storage, readThemeChoice);
 	const resolved = resolveTheme(choice, prefersDark);
+	const style = usePreference(storage, readStyleChoice);
 
 	useEffect(() => {
 		document.documentElement.dataset.theme = resolved;
-	}, [resolved]);
+		document.documentElement.dataset.style = style;
+	}, [resolved, style]);
 
 	const setChoice = useCallback(
 		(next: ThemeChoice) => {
@@ -98,7 +108,15 @@ export function useTheme(): ThemeControl {
 		[storage],
 	);
 
-	return { choice, resolved, setChoice };
+	const setStyle = useCallback(
+		(next: StyleChoice) => {
+			storage.set(STYLE_KEY, next);
+			notify();
+		},
+		[storage],
+	);
+
+	return { choice, resolved, setChoice, style, setStyle };
 }
 
 export interface LocaleControl {

@@ -23,13 +23,13 @@ export function Checkbox({ children, className, disabled, ref, ...props }: Check
 					ref={ref}
 					type="checkbox"
 					disabled={disabled}
-					className="peer size-[18px] appearance-none rounded-[5px] border-2 border-[var(--color-text-tertiary)] bg-[var(--color-bg-subtle)] checked:border-[var(--color-accent)] checked:bg-[var(--color-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] focus-visible:shadow-[var(--focus-ring)] disabled:cursor-not-allowed"
+					className="peer size-[18px] appearance-none rounded-[5px] border-2 border-[var(--color-text-tertiary)] bg-[var(--color-bg-subtle)] checked:border-[var(--color-text-primary)] checked:bg-[var(--color-bg-selected)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] focus-visible:shadow-[var(--focus-ring)] disabled:cursor-not-allowed"
 				/>
 				<Check
 					aria-hidden
 					size={14}
 					strokeWidth={3}
-					className="pointer-events-none absolute inset-[2px] text-[var(--color-on-accent)] opacity-0 peer-checked:opacity-100"
+					className="pointer-events-none absolute inset-[2px] text-[var(--color-text-primary)] opacity-0 peer-checked:opacity-100"
 				/>
 			</span>
 			{children ? <span>{children}</span> : null}

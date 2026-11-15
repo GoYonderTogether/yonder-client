@@ -3,8 +3,8 @@ import { cn } from "../cn.ts";
 
 /**
  * A row in a chat list, drawn the way Feishu and the WeChat desktop app draw theirs: rows lie flat
- * on the list column with no card or divider, and only the open conversation is lifted onto a white
- * rounded card. Settings lists keep the grouped-card look (`ListGroup`); this is for conversations.
+ * on the list column with no card or divider, and the open conversation uses the selected surface.
+ * Settings lists keep the grouped-card look (`ListGroup`); this is for conversations.
  */
 export interface ConversationRowProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "title"> {
 	/** The avatar. */
@@ -37,10 +37,10 @@ export function ConversationRow({
 				aria-current={selected ? "true" : undefined}
 				className={cn(
 					"flex h-[var(--conversation-row-height)] w-full items-center gap-[var(--spacing-3)] rounded-[var(--radius-control)] px-[var(--spacing-3)] text-start",
-					"transition-[background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
+					"transition-colors duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
 					"focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
 					selected
-						? "bg-[var(--color-bg-surface)] shadow-[var(--shadow-xs)]"
+						? "bg-[var(--color-bg-selected)]"
 						: "hover:bg-[var(--color-bg-hover)] active:bg-[var(--color-bg-active)]",
 					className,
 				)}

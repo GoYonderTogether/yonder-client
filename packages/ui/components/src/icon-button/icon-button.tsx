@@ -1,9 +1,10 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { Button } from "../button/button.tsx";
 import { cn } from "../cn.ts";
 
 export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
 	"aria-label": string;
+	ref?: Ref<HTMLButtonElement>;
 	children: ReactNode;
 	variant?: "ghost" | "secondary";
 	size?: "sm" | "md";

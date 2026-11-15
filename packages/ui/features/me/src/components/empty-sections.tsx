@@ -1,17 +1,9 @@
-import { EmptyState, ListGroup } from "@yonder/ui-components";
+import { ListGroup } from "@yonder/ui-components";
 import { useLocalePreference, useTheme } from "@yonder/ui-data";
 import type { Locale } from "@yonder/ui-i18n";
-import type { ThemeChoice } from "@yonder/ui-tokens";
-import { Check, Laptop } from "lucide-react";
+import { STYLE_CHOICES, THEME_CHOICES } from "@yonder/ui-tokens";
+import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
-
-/**
- * The sections whose feature is not built yet.
- */
-export function DevicesSection() {
-	const { t } = useTranslation();
-	return <EmptyState icon={<Laptop size={24} strokeWidth={1.6} />} title={t("me.devices.emptyTitle")} />;
-}
 
 /** 通用: language and appearance, as checkmark lists — the iOS pattern for "pick one". */
 export function GeneralSection() {
@@ -22,13 +14,24 @@ export function GeneralSection() {
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)]">
 			<ListGroup title={t("common.appearance")}>
-				{(["system", "light", "dark"] as const).map((option) => (
+				{THEME_CHOICES.map((option) => (
 					<Choice
 						key={option}
 						group="theme"
 						selected={theme.choice === option}
-						onSelect={() => theme.setChoice(option as ThemeChoice)}
+						onSelect={() => theme.setChoice(option)}
 						label={t(`common.theme.${option}`)}
+					/>
+				))}
+			</ListGroup>
+			<ListGroup title={t("common.style.title")}>
+				{STYLE_CHOICES.map((option) => (
+					<Choice
+						key={option}
+						group="style"
+						selected={theme.style === option}
+						onSelect={() => theme.setStyle(option)}
+						label={t(`common.style.${option}`)}
 					/>
 				))}
 			</ListGroup>
@@ -71,7 +74,7 @@ function Choice({
 			>
 				{label}
 				{selected ? (
-					<Check size={18} strokeWidth={2.2} className="text-[var(--color-accent-text)]" aria-hidden="true" />
+					<Check size={18} strokeWidth={2.2} className="text-[var(--color-text-primary)]" aria-hidden="true" />
 				) : null}
 			</button>
 			<span className="pointer-events-none absolute end-0 bottom-0 start-[var(--spacing-4)] h-px bg-[var(--color-border-subtle)] group-last/row:hidden" />

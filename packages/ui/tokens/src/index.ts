@@ -3,5 +3,5 @@
  * describe them. No components live here.
  */
 
-export type { ResolvedTheme, ThemeChoice } from "./theme.ts";
-export { isThemeChoice, resolveTheme, THEME_CHOICES } from "./theme.ts";
+export type { ResolvedTheme, StyleChoice, ThemeChoice } from "./theme.ts";
+export { isStyleChoice, isThemeChoice, resolveTheme, STYLE_CHOICES, THEME_CHOICES } from "./theme.ts";

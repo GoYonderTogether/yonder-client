@@ -7,6 +7,7 @@ import { CodeField } from "./code-field.tsx";
 import { Field } from "./field.tsx";
 import { PasswordField } from "./password-field.tsx";
 import { PhoneField } from "./phone-field.tsx";
+import { SearchInput } from "./search-input.tsx";
 import { SelectField } from "./select-field.tsx";
 
 function PhoneForm() {
@@ -115,5 +116,45 @@ test("SelectField shares picker keyboard behaviour and error association", async
 	expect(within(list).getByRole("option", { name: "English" })).toHaveFocus();
 	await user.keyboard("{End}{Enter}");
 	expect(change).toHaveBeenCalledWith("zh");
+	expect(trigger).toHaveFocus();
+});
+
+test("SearchInput places its decorative icon before a named native search field and forwards input props", async () => {
+	const change = vi.fn();
+	const view = render(<SearchInput placeholder="Search contacts" name="q" maxLength={40} onChange={change} />);
+	const search = screen.getByRole("searchbox", { name: "Search contacts" });
+	expect(search).toHaveAttribute("placeholder", "Search contacts");
+	expect(search).toHaveAttribute("name", "q");
+	expect(search).toHaveAttribute("maxlength", "40");
+	expect(search.previousElementSibling).toHaveClass("lucide-search");
+	expect(search.previousElementSibling).toHaveAttribute("aria-hidden", "true");
+	expect(search.nextElementSibling).toBeNull();
+	await userEvent.type(search, "Ada");
+	expect(search).toHaveValue("Ada");
+	expect(change).toHaveBeenCalled();
+	view.rerender(<SearchInput placeholder="Search contacts" aria-label="Find a person" disabled />);
+	expect(screen.getByRole("searchbox", { name: "Find a person" })).toBeDisabled();
+});
+
+test("a long selected label keeps its full accessible name and complete selectable options", async () => {
+	const user = userEvent.setup();
+	const label = "Windows PC · Windows · 2026/11/16 01:23:45 · Work computer in the design studio";
+	const change = vi.fn();
+	render(
+		<SelectField
+			label="Device"
+			value="device-a"
+			options={[
+				{ value: "device-a", label },
+				{ value: "device-b", label: `${label} B` },
+			]}
+			onChange={change}
+		/>,
+	);
+	const trigger = screen.getByRole("button", { name: `Device: ${label}` });
+	await user.click(trigger);
+	expect(screen.getByRole("option", { name: label })).toHaveFocus();
+	await user.click(screen.getByRole("option", { name: `${label} B` }));
+	expect(change).toHaveBeenCalledWith("device-b");
 	expect(trigger).toHaveFocus();
 });

@@ -59,9 +59,9 @@ export function Button({
 				"transition-[background-color,color,transform,scale,opacity] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
 				"motion-safe:enabled:active:scale-[0.97]",
 				"focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]",
-				"focus-visible:shadow-[var(--focus-ring)]",
 				"disabled:cursor-not-allowed disabled:opacity-60",
 				VARIANTS[variant],
+				"aria-pressed:bg-[var(--color-bg-selected)] aria-pressed:text-[var(--color-text-primary)] aria-pressed:enabled:hover:bg-[var(--color-bg-selected)]",
 				SIZES[size],
 				variant === "link" && "px-0!",
 				block && "w-full",
@@ -75,7 +75,9 @@ export function Button({
 					className="absolute size-4 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
 				/>
 			) : null}
-			<span className={loading ? "opacity-0" : undefined}>{children}</span>
+			<span className={cn("inline-flex min-w-0 items-center justify-center gap-[inherit]", loading && "opacity-0")}>
+				{children}
+			</span>
 		</button>
 	);
 }

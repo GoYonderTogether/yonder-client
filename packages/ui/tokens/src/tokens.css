@@ -2,20 +2,25 @@
  * Design tokens: the only place a colour, a size, or a duration is written down.
  * Components read `var(--color-text-primary)`; they never contain `#`, `rgb(` or `hsl(`.
  *
- * 样式规范（02-视觉样式 第二版）：
- *   1. 底色是灰和白：页面是浅灰，承载内容的是白卡片。
+ * 颜色来源：Semi Design default theme，MIT，固定版本 e3c6fc48163e92dcb81df4619fa44ab3cf7525ea。
+ * https://github.com/DouyinFE/semi-design/tree/e3c6fc48163e92dcb81df4619fa44ab3cf7525ea/packages/semi-theme-default/scss
+ *   1. 阅读面使用 Semi bg-0，容器使用 bg-1，浮层使用 bg-2；浅色都是纯白。
  *   2. 黑色只给内容：正文、标题、图标。按钮、背景、分隔线都不用黑。
- *   3. 只有一个强调色，用在「当前选中」「主要按钮」「链接」三处，别的地方不出现。
- *   4. 层次靠底色深浅和圆角，不靠描边和阴影；阴影只给浮起来的东西（弹窗、浮出的列表）。
+ *   3. 强调色用于主要按钮、链接和功能状态；选中项使用 Semi 中性 fill-2 与正文色。
+ *   4. 清爽风格使用 fill-0 外围；晕染风格仅在外围使用 Semi 原始 AI 背景渐变。
  *   控件固定 sm/md/lg 32/40/48，圆角分别为 8/12/12，卡片 16、面板 22。
  *   辅助、错误和链接文字在常用浅深色背景对比度至少 4.5:1；暗色输入底和浮层与内容面有可见层次。
- *   所有交互共用 --focus-ring；13px 正文辅助行使用 20px 行高以容纳 16px 图标。
+ *   键盘按钮焦点使用 outline；13px 正文辅助行使用 20px 行高以容纳 16px 图标。
  */
 
 @theme {
 	--font-sans:
 		-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Segoe UI",
 		"Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+	--font-weight-normal: 400;
+	--font-weight-medium: 500;
+	--font-weight-semibold: 600;
+	--font-weight-bold: 700;
 	--font-mono: "SF Mono", ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, "Noto Sans Mono CJK SC", monospace;
 
 	/* Type scale: eight steps, no ad-hoc sizes. `title` is the large title of a phone's root screen. */
@@ -118,55 +123,57 @@
 /* Semantic variables. A theme swaps these; no component changes. */
 :root,
 [data-theme="light"] {
-	/* Surfaces, from back to front: page → chrome (rail, list) → card → raised. */
-	--color-bg-base: #f5f5f3;
-	--color-bg-chrome: #efefec;
-	--color-bg-subtle: #e9e9e6;
-	--color-bg-subtle-hover: #dcdcd9;
-	--color-bg-surface: #ffffff;
-	--color-bg-raised: #ffffff;
-	--color-bg-dock: rgba(245, 245, 243, 0.86);
-	--color-bg-overlay: rgba(24, 24, 22, 0.28);
-	--color-bg-hover: rgba(24, 24, 22, 0.04);
-	--color-bg-active: rgba(24, 24, 22, 0.07);
-	--color-bg-selected: rgba(24, 24, 22, 0.06);
+	--color-bg-base: #ffffff; /* Semi bg-0 */
+	/* Semi fill-0 composited over bg-0, opaque so nested chrome does not accumulate alpha. */
+	--color-bg-chrome: color-mix(in srgb, #2e3238 5%, #ffffff);
+	--color-bg-chrome-image: none;
+	--color-bg-subtle: rgba(46, 50, 56, 0.05); /* fill-0 */
+	--color-bg-subtle-hover: rgba(46, 50, 56, 0.09); /* fill-1 */
+	--color-bg-surface: #ffffff; /* bg-1 */
+	--color-bg-raised: #ffffff; /* bg-2 */
+	--color-bg-dock: var(--color-bg-base);
+	--color-bg-overlay: rgba(22, 22, 26, 0.6); /* overlay-bg */
+	--color-bg-hover: rgba(46, 50, 56, 0.09); /* fill-1 */
+	--color-bg-active: rgba(46, 50, 56, 0.13); /* fill-2 */
+	--color-bg-selected: rgba(46, 50, 56, 0.13); /* Semi fill-2: neutral selection over the current surface */
 
-	--color-text-primary: #1a1a19;
-	--color-text-secondary: #636360;
-	--color-text-tertiary: #686865;
+	--color-text-primary: #1c1f23; /* text-0 = grey-9 */
+	--color-text-secondary: rgba(28, 31, 35, 0.8); /* text-1 */
+	--color-text-tertiary: rgba(28, 31, 35, 0.62); /* text-2 */
 	--color-text-inverse: #ffffff;
 	--color-on-accent: #ffffff;
 
-	--color-border-subtle: #ebebe8;
-	--color-border-default: #deded9;
-	--color-border-strong: #c9c9c4;
+	--color-border-subtle: rgba(28, 31, 35, 0.08); /* border */
+	--color-border-default: #e6e8ea; /* grey-1 */
+	--color-border-strong: #c6cacd; /* grey-2 */
+	--color-border: var(--color-border-default);
 
-	--color-success: #2f8f5e;
-	--color-warning: #b07a1c;
-	--color-danger: #c03327;
-	--color-danger-subtle: rgba(192, 51, 39, 0.08);
+	/* Deeper Semi palette steps preserve caption contrast; feedback hues are unchanged. */
+	--color-success: #25772f; /* green-7 */
+	--color-warning: #a84a00; /* orange-7 */
+	--color-danger: #d52515; /* red-6 */
+	--color-danger-subtle: #fef2ed; /* danger-light-default = red-0 */
 	--color-danger-inverse: #ffffff;
 
-	/* The one accent. 主色还没定（02 第三节），蓝色先用着；换色只改这四行。 */
-	--color-accent: #1f6feb;
-	--color-accent-hover: #1a60d1;
-	--color-accent-subtle: rgba(31, 111, 235, 0.1);
-	--color-accent-text: #185fca;
+	--color-accent: #0064fa; /* primary = blue-5 */
+	--color-accent-hover: #0062d6; /* primary-hover = blue-6 */
+	--color-accent-subtle: #eaf5ff; /* primary-light-default */
+	--color-accent-text: #0064fa; /* link */
 
 	/* Avatar fallback tints: stable per name, muted so they never compete with the accent. */
-	--color-avatar-1-bg: #e6ecf6;
-	--color-avatar-1-fg: #34507a;
-	--color-avatar-2-bg: #e6f0e9;
-	--color-avatar-2-fg: #33604a;
-	--color-avatar-3-bg: #f3ece3;
-	--color-avatar-3-fg: #6e5034;
-	--color-avatar-4-bg: #ece8f4;
-	--color-avatar-4-fg: #4f4270;
-	--color-avatar-5-bg: #f2e9e8;
-	--color-avatar-5-fg: #70413e;
-	--color-avatar-6-bg: #e5eff0;
-	--color-avatar-6-fg: #315a61;
-	--color-avatar-bot-bg: #1a1a19;
+	--color-avatar-1-bg: #eaf5ff; /* blue-0 / blue-7 */
+	--color-avatar-1-fg: #004fb3;
+	--color-avatar-2-bg: #ecf7ec; /* green-0 / green-7 */
+	--color-avatar-2-fg: #25772f;
+	--color-avatar-3-bg: #fff8ea; /* orange-0 / orange-7 */
+	--color-avatar-3-fg: #a84a00;
+	--color-avatar-4-bg: #f7e9f7; /* purple-0 / purple-7 */
+	--color-avatar-4-fg: #71168a;
+	--color-avatar-5-bg: #fef2ed; /* red-0 / red-7 */
+	--color-avatar-5-fg: #b2140c;
+	--color-avatar-6-bg: #e5f7f8; /* cyan-0 / cyan-7 */
+	--color-avatar-6-fg: #016979;
+	--color-avatar-bot-bg: var(--color-text-primary);
 	/* The app icon looks the same in both themes, like every other icon in the Dock. */
 	--color-app-icon-bg: #ffffff;
 	--color-app-icon-fg: #111315;
@@ -180,56 +187,60 @@
 }
 
 [data-theme="dark"] {
-	--color-bg-base: #111110;
-	--color-bg-chrome: #161615;
-	--color-bg-subtle: #30302f;
-	--color-bg-subtle-hover: #3a3a39;
-	--color-bg-surface: #1f1f1e;
-	--color-bg-raised: #343433;
-	--color-bg-dock: rgba(17, 17, 16, 0.84);
-	--color-bg-overlay: rgba(0, 0, 0, 0.5);
-	--color-bg-hover: rgba(255, 255, 255, 0.05);
-	--color-bg-active: rgba(255, 255, 255, 0.09);
-	--color-bg-selected: rgba(255, 255, 255, 0.07);
+	--font-weight-normal: 360;
+	--font-weight-medium: 460;
+	--font-weight-semibold: 560;
+	--font-weight-bold: 660;
+	--color-bg-base: #16161a; /* Semi bg-0 */
+	--color-bg-chrome: #232429; /* bg-1 */
+	--color-bg-subtle: rgba(255, 255, 255, 0.12); /* fill-0 */
+	--color-bg-subtle-hover: rgba(255, 255, 255, 0.16); /* fill-1 */
+	--color-bg-surface: #232429; /* bg-1 */
+	--color-bg-raised: #35363c; /* bg-2 */
+	--color-bg-dock: var(--color-bg-base);
+	--color-bg-overlay: rgba(22, 22, 26, 0.6);
+	--color-bg-hover: rgba(255, 255, 255, 0.16);
+	--color-bg-active: rgba(255, 255, 255, 0.2);
+	--color-bg-selected: rgba(255, 255, 255, 0.2); /* Semi fill-2 */
 
-	--color-text-primary: #ededea;
-	--color-text-secondary: #b8b8b4;
-	--color-text-tertiary: #a4a4a0;
-	--color-text-inverse: #111110;
-	--color-on-accent: #ffffff;
+	--color-text-primary: #f9f9f9; /* grey-9 */
+	--color-text-secondary: rgba(249, 249, 249, 0.8);
+	--color-text-tertiary: rgba(249, 249, 249, 0.6);
+	--color-text-inverse: #1c1f23; /* grey-0 on bright blue-5 */
+	--color-on-accent: #1c1f23;
 
-	--color-border-subtle: #262625;
-	--color-border-default: #333331;
-	--color-border-strong: #454543;
+	--color-border-subtle: rgba(255, 255, 255, 0.08);
+	--color-border-default: #41464c; /* grey-2 */
+	--color-border-strong: #555b61; /* grey-3 */
 
-	--color-success: #4cae7d;
-	--color-warning: #d6a246;
-	--color-danger: #f67c70;
-	--color-danger-subtle: rgba(246, 124, 112, 0.12);
-	--color-danger-inverse: #111110;
+	--color-success: #5dc264; /* green-5 */
+	--color-warning: #ffae43; /* orange-5 */
+	--color-danger: #fc725a; /* red-5 */
+	--color-danger-subtle: rgba(252, 114, 90, 0.2);
+	--color-danger-inverse: #1c1f23;
 
-	--color-accent: #4b8cff;
-	--color-accent-hover: #6aa0ff;
-	--color-accent-subtle: rgba(75, 140, 255, 0.16);
-	--color-accent-text: #79a9ff;
+	--color-accent: #54a9ff; /* blue-5 */
+	--color-accent-hover: #7fc1ff; /* blue-6 */
+	--color-accent-subtle: rgba(84, 169, 255, 0.2);
+	--color-accent-text: #54a9ff;
 
-	--color-avatar-1-bg: #24324a;
-	--color-avatar-1-fg: #b8cbea;
-	--color-avatar-2-bg: #22382c;
-	--color-avatar-2-fg: #b4d5bf;
-	--color-avatar-3-bg: #392e22;
-	--color-avatar-3-fg: #dfc6a7;
-	--color-avatar-4-bg: #2f293f;
-	--color-avatar-4-fg: #cabde3;
-	--color-avatar-5-bg: #392626;
-	--color-avatar-5-fg: #e1baba;
-	--color-avatar-6-bg: #22373b;
-	--color-avatar-6-fg: #b2d2d8;
-	--color-avatar-bot-bg: #ededea;
+	--color-avatar-1-bg: #053170; /* blue-0 / blue-7 */
+	--color-avatar-1-fg: #a9d7ff;
+	--color-avatar-2-bg: #123c19; /* green-0 / green-7 */
+	--color-avatar-2-fg: #a6e1a8;
+	--color-avatar-3-bg: #551f03; /* orange-0 / orange-7 */
+	--color-avatar-3-fg: #ffdda1;
+	--color-avatar-4-bg: #4a1061; /* purple-0 / purple-7 */
+	--color-avatar-4-fg: #dda0e1;
+	--color-avatar-5-bg: #6c090b; /* red-0 / red-7 */
+	--color-avatar-5-fg: #fdbeac;
+	--color-avatar-6-bg: #04343d; /* cyan-0 / cyan-7 */
+	--color-avatar-6-fg: #91dfe3;
+	--color-avatar-bot-bg: var(--color-text-primary);
 	--color-app-icon-bg: #ffffff;
 	--color-app-icon-fg: #111315;
 	--shadow-app-icon: 0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 1px 3px rgba(0, 0, 0, 0.4);
-	--color-avatar-bot-fg: #111110;
+	--color-avatar-bot-fg: #1c1f23;
 
 	--shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
 	--shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.24);
@@ -237,8 +248,102 @@
 	--shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.44);
 }
 
+/* Semi ai-background-top / ai-background-bottom, copied without changing stops, angles or alpha. */
+[data-style="glow"] {
+	--color-bg-chrome: var(--color-bg-base);
+	--color-bg-chrome-image:
+		linear-gradient(
+			201.15deg,
+			rgba(83, 56, 255, 0.16) 6.58%,
+			rgba(176, 48, 240, 0.096) 32.88%,
+			rgba(231, 45, 255, 0.048) 59.17%,
+			rgba(255, 255, 255, 0) 94.23%
+		),
+		linear-gradient(
+			201.15deg,
+			rgba(255, 255, 255, 0.04) 6.58%,
+			rgba(255, 226, 138, 0.04) 32.88%,
+			rgba(231, 45, 255, 0.04) 67.93%,
+			rgba(0, 115, 255, 0.04) 94.23%
+		);
+}
+
+[data-theme="dark"][data-style="glow"] {
+	--color-bg-chrome-image:
+		linear-gradient(
+			201.15deg,
+			rgba(83, 56, 255, 0.36) 6.58%,
+			rgba(176, 48, 240, 0.216) 32.88%,
+			rgba(154, 0, 174, 0.108) 59.17%,
+			rgba(0, 0, 0, 0) 94.23%
+		),
+		linear-gradient(
+			201.15deg,
+			rgba(255, 226, 138, 0.2) 6.58%,
+			rgba(231, 45, 255, 0.2) 50.4%,
+			rgba(0, 115, 255, 0.2) 94.23%
+		);
+}
+
+.yonder-chrome {
+	background-color: var(--color-bg-chrome);
+	background-image: var(--color-bg-chrome-image);
+}
+
+/* Semi text-2 is too faint at the strongest AI gradient stops; use the existing text-1 role. */
+[data-style="glow"] .yonder-chrome {
+	--color-text-tertiary: var(--color-text-secondary);
+	--color-accent-text: #004fb3; /* Semi light blue-7, primary-active; small text on tinted chrome */
+}
+
+[data-theme="dark"][data-style="glow"] .yonder-chrome {
+	--color-accent-text: #a9d7ff; /* Semi dark blue-7; small links on AI chrome */
+}
+
+/* White fill-2 over the strongest dark AI stop needs text-0 for selected-row captions too. */
+[data-theme="dark"][data-style="glow"] .yonder-chrome :is([aria-current="true"], [aria-current="page"]) {
+	--color-text-secondary: var(--color-text-primary);
+	--color-text-tertiary: var(--color-text-primary);
+}
+
 /* Motion: durations and curves live here so every transition speaks the same language. */
 :root {
+	--message-bubble-width: 90%;
+	--composer-padding: 5px;
+	--composer-button-size: 36px;
+	--composer-radius: calc(var(--composer-button-size) / 2 + var(--composer-padding));
+	--stream-blur: 6px;
+	--system-bar-blur: 20px;
+	--color-mask-solid: #000;
+	--stream-duration: 90ms;
+	--stream-stagger: 30ms;
+	--ease-stream: cubic-bezier(0.215, 0.61, 0.355, 1);
+	--feedback-duration: 600ms;
+	--feedback-reset: 2500ms;
+	/* Unit-mass underdamped spring samples: stiffness 380, damping 18. */
+	--ease-feedback: linear(
+		0,
+		0.1401,
+		0.4426,
+		0.762,
+		1.0093,
+		1.151,
+		1.1948,
+		1.1703,
+		1.1123,
+		1.0496,
+		1.0004,
+		0.9716,
+		0.9621,
+		0.9663,
+		0.9774,
+		0.9897,
+		0.9995,
+		1.0053,
+		1.0074,
+		1.0067,
+		1
+	);
 	--duration-fast: 120ms;
 	--duration-base: 200ms;
 	--duration-slow: 300ms;
@@ -266,7 +371,7 @@
 
 :root,
 [data-theme] {
-	--focus-ring: 0 0 0 4px var(--color-accent-subtle);
+	--focus-ring: none;
 }
 
 [data-density="compact"] {
@@ -279,6 +384,9 @@
 /* 10-质量 第二节: honour the system setting rather than animating anyway. */
 @media (prefers-reduced-motion: reduce) {
 	:root {
+		--stream-duration: 0ms;
+		--stream-stagger: 0ms;
+		--feedback-duration: 0ms;
 		--duration-fast: 0ms;
 		--duration-base: 0ms;
 		--duration-slow: 0ms;

@@ -4,8 +4,14 @@
  */
 export type ThemeChoice = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
+export type StyleChoice = "classic" | "glow";
 
 export const THEME_CHOICES: readonly ThemeChoice[] = ["system", "light", "dark"];
+export const STYLE_CHOICES: readonly StyleChoice[] = ["classic", "glow"];
+
+export function isStyleChoice(value: unknown): value is StyleChoice {
+	return value === "classic" || value === "glow";
+}
 
 export function isThemeChoice(value: unknown): value is ThemeChoice {
 	return value === "system" || value === "light" || value === "dark";

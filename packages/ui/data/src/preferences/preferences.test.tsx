@@ -23,11 +23,29 @@ const storage = createBrowserStorage({
 
 vi.mock("../query/provider.tsx", () => ({ useData: () => ({ storage }) }));
 
-const { useLocalePreference, useTheme } = await import("./preferences.ts");
+const { readStyleChoice, useLocalePreference, useTheme } = await import("./preferences.ts");
 
 const wrapper = ({ children }: { children: ReactNode }) => <>{children}</>;
 
 describe("preferences", () => {
+	test("style defaults safely and stays shared and persistent independently of light/dark", () => {
+		expect(readStyleChoice({ get: () => null })).toBe("classic");
+		expect(readStyleChoice({ get: () => "unknown" })).toBe("classic");
+		const settings = renderHook(() => useTheme(), { wrapper });
+		const app = renderHook(() => useTheme(), { wrapper });
+		act(() => settings.result.current.setChoice("dark"));
+		act(() => settings.result.current.setStyle("glow"));
+		expect(app.result.current).toMatchObject({ style: "glow", choice: "dark", resolved: "dark" });
+		expect(document.documentElement.dataset).toMatchObject({ style: "glow", theme: "dark" });
+		expect(raw.get("yonder.style")).toBe("glow");
+		settings.unmount();
+		const reopened = renderHook(() => useTheme(), { wrapper });
+		expect(reopened.result.current.style).toBe("glow");
+		act(() => reopened.result.current.setStyle("classic"));
+		expect(app.result.current.style).toBe("classic");
+		expect(raw.get("yonder.theme")).toBe("dark");
+	});
+
 	test("a language chosen in one place is seen everywhere", () => {
 		const settings = renderHook(() => useLocalePreference(), { wrapper });
 		const app = renderHook(() => useLocalePreference(), { wrapper });

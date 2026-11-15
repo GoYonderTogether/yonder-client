@@ -91,7 +91,7 @@ export function Segmented({ options, value, onChange, disabled = false, classNam
 						className={cn(
 							"flex items-center rounded-[var(--radius-xs)] px-[var(--spacing-2)] transition-colors duration-[var(--duration-fast)] peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--color-accent)] peer-focus-visible:shadow-[var(--focus-ring)]",
 							value === option.value &&
-								"bg-[var(--color-bg-raised)] text-[var(--color-text-primary)] shadow-[var(--shadow-xs)]",
+								"bg-[var(--color-bg-selected)] text-[var(--color-text-primary)] shadow-[var(--shadow-xs)]",
 						)}
 					>
 						{option.label}

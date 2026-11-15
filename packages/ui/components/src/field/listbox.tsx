@@ -111,7 +111,7 @@ export function Listbox({
 	}
 
 	return (
-		<div ref={root} className={cn("relative", className)}>
+		<div ref={root} className={cn("relative min-w-0", className)}>
 			<button
 				ref={trigger}
 				id={id}
@@ -126,14 +126,14 @@ export function Listbox({
 				onClick={() => (open ? close() : show())}
 				onKeyDown={onKeyDown}
 				className={cn(
-					"inline-flex h-full items-center justify-between gap-[var(--spacing-1)] rounded-[var(--radius-control-sm)] text-body text-[var(--color-text-primary)]",
-					"focus-visible:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:shadow-[var(--focus-ring)] disabled:cursor-not-allowed",
-					"[[data-input-frame]_&]:focus-visible:outline-none [[data-input-frame]_&]:focus-visible:shadow-none",
+					"inline-flex h-full min-w-0 max-w-full items-center justify-between gap-[var(--spacing-1)] rounded-[var(--radius-control-sm)] text-body text-[var(--color-text-primary)]",
+					"focus-visible:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] disabled:cursor-not-allowed",
+					"[[data-input-frame]_&]:focus-visible:outline-none",
 					triggerClassName,
 				)}
 			>
-				{children ?? selected?.label ?? value}
-				<ChevronDown size={16} aria-hidden="true" />
+				{children ?? <span className="min-w-0 flex-1 truncate text-start">{selected?.label ?? value}</span>}
+				<ChevronDown size={16} aria-hidden="true" className="shrink-0" />
 			</button>
 			{open && !disabled ? (
 				<Popover>
@@ -156,7 +156,7 @@ export function Listbox({
 								tabIndex={index === active ? 0 : -1}
 								onClick={() => select(index)}
 								onFocus={() => setActive(index)}
-								className="block w-full rounded-[var(--radius-control-sm)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-left text-body text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] focus-visible:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:shadow-[var(--focus-ring)]"
+								className="block w-full rounded-[var(--radius-control-sm)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-left text-body text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] focus-visible:bg-[var(--color-bg-hover)] aria-selected:bg-[var(--color-bg-selected)] aria-selected:hover:bg-[var(--color-bg-selected)] aria-selected:focus-visible:bg-[var(--color-bg-selected)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 							>
 								{option.label}
 							</button>
