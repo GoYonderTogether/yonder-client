@@ -1,5 +1,18 @@
 use tauri::Manager;
 
+#[cfg(desktop)]
+mod contact_window;
+
+#[cfg(desktop)]
+mod local_files;
+#[cfg(desktop)]
+mod local_files_access;
+#[cfg(desktop)]
+mod local_files_operations;
+
+#[cfg(desktop)]
+mod local_files_store;
+
 #[cfg(target_os = "android")]
 mod android_update;
 
@@ -16,11 +29,28 @@ mod android_update;
 /// exist on mobile; see apps/web/src/lib/keychain.ts for what the mobile shells do instead.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
+    let builder = tauri::Builder::default().plugin(tauri_plugin_meeting_recorder::init());
     #[cfg(target_os = "android")]
     let builder = builder.plugin(android_update::init());
     #[cfg(desktop)]
     let builder = builder
+        .on_window_event(contact_window::on_window_event)
+        .invoke_handler(tauri::generate_handler![
+            contact_window::open_add_contacts,
+            contact_window::request_main_session,
+            contact_window::provide_contacts_session,
+            contact_window::contact_added,
+            contact_window::close_add_contacts,
+            local_files::local_files_activate,
+            local_files::local_files_reset,
+            local_files::local_files_authorize,
+            local_files::local_files_cancel,
+            local_files::local_files_revoke,
+            local_files::local_files_ready,
+            local_files::local_files_execute
+        ])
+        .manage(local_files_store::LocalFilesState::default())
+
         .plugin(tauri_plugin_keyring::init())
         .plugin(tauri_plugin_process::init());
     builder
