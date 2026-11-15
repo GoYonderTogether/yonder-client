@@ -1,17 +1,20 @@
 import Markdown, { type MarkdownToJSX, parser, RuleType } from "markdown-to-jsx";
 import { Fragment } from "react";
+import { MessageCodeBlock } from "./message-code-block.tsx";
+import { StreamingText } from "./streaming-text.tsx";
 import "./message-content.css";
 
 /** Raw HTML and images are not loaded from untrusted model output. */
-export function MessageContent({ body }: { body: string }) {
+export function MessageContent({ body, streaming = false }: { body: string; streaming?: boolean }) {
 	const options: MarkdownToJSX.Options = {
 		disableParsingRawHTML: true,
 		forceWrapper: true,
-		overrides: { img: () => null, table: { props: { tabIndex: 0 } } },
+		overrides: { img: () => null, pre: MessageCodeBlock, table: { props: { tabIndex: 0 } } },
 	};
+	let linkRule: MarkdownToJSX.Options["renderRule"];
 	if (/https?:\/\/[^\s。]*。/i.test(body)) {
 		const explicitLinks = collectExplicitLinks(body);
-		options.renderRule = (next, node, _renderChildren, state) => {
+		linkRule = (next, node, _renderChildren, state) => {
 			if (node.type !== RuleType.link || !node.target || explicitLinks.has(JSON.stringify(node))) return next();
 			const text = node.children.length === 1 && node.children[0]?.type === RuleType.text ? node.children[0].text : "";
 			// ponytail: `。` can be part of a URL; explicit Markdown preserves it. A source-aware
@@ -26,6 +29,26 @@ export function MessageContent({ body }: { body: string }) {
 			);
 		};
 	}
+	options.renderRule = (next, node, renderChildren, state) => {
+		if (streaming && node.type === RuleType.text) return <StreamingText key={state.key} text={node.text} />;
+		if (
+			node.type === RuleType.link &&
+			node.target?.startsWith("/files/") &&
+			node.children.length === 1 &&
+			node.children[0]?.type === RuleType.text
+		) {
+			const name = node.children[0].text;
+			const match = name.match(/^(.+)(\.[^.\s/]+)$/);
+			if (match && !name.includes("/"))
+				return (
+					<a key={state.key} href={node.target} className="message-file-link" title={name} aria-label={name}>
+						<span className="message-file-stem">{match[1]}</span>
+						<span>{match[2]}</span>
+					</a>
+				);
+		}
+		return linkRule ? linkRule(next, node, renderChildren, state) : next();
+	};
 	return (
 		<Markdown className="message-content" options={options}>
 			{body}

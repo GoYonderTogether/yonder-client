@@ -1,4 +1,4 @@
-import { Avatar, Button, ConversationList, ConversationRow, EmptyState } from "@yonder/ui-components";
+import { Button, ConversationList, ConversationRow, EmptyState } from "@yonder/ui-components";
 import {
 	type CachedMessage,
 	useBot,
@@ -10,33 +10,48 @@ import {
 	useSendMessage,
 } from "@yonder/ui-data";
 import { ListFrame, MAIN_CONVERSATION, PageFrame } from "@yonder/ui-shell";
-import { Pin } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { ArrowDown, Pin } from "lucide-react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { MessageContent } from "./message-content.tsx";
+import { ChatActions } from "./chat-actions/index.tsx";
+import { ConversationMessages } from "./conversation-messages.tsx";
+import { ConversationAvatar, conversationTitle, primaryConversation } from "./conversation-presentation.tsx";
 import { messagePreview } from "./message-preview.ts";
+import { useMessageScroll } from "./use-message-scroll.ts";
 
-export function MessagesList({ current, onOpen }: { current: string | null; onOpen: (id: string) => void }) {
+export function MessagesList({
+	current,
+	onOpen,
+	onOpenMeetings,
+}: {
+	current: string | null;
+	onOpen: (id: string) => void;
+	onOpenMeetings?: () => void;
+}) {
 	const { t, i18n } = useTranslation();
 	const bot = useBot();
 	const conversations = useConversations();
+	const person = usePerson();
+	const primary = primaryConversation(conversations.data?.items, bot?.id);
 	return (
-		<ListFrame title={t("nav.messages")}>
+		<ListFrame
+			title={t("nav.messages")}
+			action={<ChatActions onOpen={onOpen} {...(onOpenMeetings ? { onOpenMeetings } : {})} />}
+		>
 			{conversations.isError ? (
 				<Button variant="link" onClick={() => void conversations.refetch()}>
 					{t("app.retry")}
 				</Button>
 			) : null}
 			<ConversationList label={t("nav.messages")}>
-				{conversations.data?.items.map((conversation, index) => {
-					const member = conversation.members.find((item) => item.kind === "bot") ?? bot;
-					if (!member) return null;
-					const selected = current === conversation.id || (current === MAIN_CONVERSATION && index === 0);
+				{conversations.data?.items.map((conversation) => {
+					const selected =
+						current === conversation.id || (current === MAIN_CONVERSATION && conversation.id === primary?.id);
 					return (
 						<ConversationRow
 							key={conversation.id}
-							leading={<Avatar name={member.displayName} src={member.avatarUrl} size={40} kind="bot" face={1} />}
-							title={conversation.title ?? member.displayName}
+							leading={<ConversationAvatar conversation={conversation} personId={person?.id} />}
+							title={conversationTitle(conversation, person?.id)}
 							preview={conversation.lastMessage?.body ? messagePreview(conversation.lastMessage.body) : undefined}
 							meta={
 								conversation.lastMessage?.createdAt
@@ -49,7 +64,7 @@ export function MessagesList({ current, onOpen }: { current: string | null; onOp
 								conversation.pinned ? <Pin size={13} strokeWidth={2} aria-label={t("messages.pinned")} /> : undefined
 							}
 							selected={selected}
-							onClick={() => onOpen(index === 0 ? MAIN_CONVERSATION : conversation.id)}
+							onClick={() => onOpen(conversation.id === primary?.id ? MAIN_CONVERSATION : conversation.id)}
 						/>
 					);
 				})}
@@ -66,8 +81,10 @@ export function ConversationPage({
 	disconnected: boolean;
 }) {
 	const { t } = useTranslation();
-	const bot = useBot();
 	const person = usePerson();
+	const bot = useBot();
+	const conversations = useConversations();
+	const conversation = conversations.data?.items.find((item) => item.id === conversationId);
 	const quota = useQuota();
 	const messages = useMessages(conversationId);
 	const actions = useRunActions();
@@ -81,117 +98,75 @@ export function ConversationPage({
 				| undefined,
 		[messages.data],
 	);
-	const hasItems = Boolean(items?.length);
-	const bottom = useRef<HTMLDivElement>(null);
-	const follow = useRef(true);
-	useEffect(() => {
-		if (!conversationId || !hasItems) return;
-		follow.current = true;
-		const scroll = bottom.current?.closest(".overflow-y-auto");
-		if (!scroll) return;
-		const onScroll = () => {
-			follow.current = scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop < 96;
-		};
-		scroll.addEventListener("scroll", onScroll, { passive: true });
-		return () => scroll.removeEventListener("scroll", onScroll);
-	}, [conversationId, hasItems]);
-	useEffect(() => {
-		if (items?.length && follow.current) bottom.current?.scrollIntoView({ block: "end" });
-	}, [items]);
-	if (!conversationId || !bot) return <PageFrame title={null}>{null}</PageFrame>;
+	const { bottom, showLatest, jumpToLatest } = useMessageScroll(conversationId, items);
+	if (!conversationId || !conversation) return <PageFrame title={null}>{null}</PageFrame>;
 	return (
-		<PageFrame title={bot.displayName} width="full">
-			{quota.data && quota.data.balance <= 0 ? (
-				<p
-					role="status"
-					className="rounded-[var(--radius-control)] bg-[var(--color-bg-subtle)] px-[var(--spacing-4)] py-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]"
-				>
-					{t("chat.quotaExhausted")}
-				</p>
-			) : null}
-			{messages.isLoading ? <p role="status">{t("chat.loadingHistory")}</p> : null}
-			{messages.isError ? (
-				<Button variant="link" onClick={() => void messages.refetch()}>
-					{t("app.retry")}
-				</Button>
-			) : null}
-			{!messages.isLoading && !messages.isError && items?.length === 0 ? (
-				<div className="flex flex-1 items-center justify-center">
-					<EmptyState
-						icon={<Avatar name={bot.displayName} src={bot.avatarUrl} size={48} kind="bot" face={1} />}
-						title={t("chat.emptyTitle")}
-					/>
+		<div className="relative flex min-h-0 flex-1 flex-col">
+			<PageFrame title={conversationTitle(conversation, person?.id)} width="full">
+				{quota.data && quota.data.balance <= 0 ? (
+					<p
+						role="status"
+						className="rounded-[var(--radius-control)] bg-[var(--color-bg-subtle)] px-[var(--spacing-4)] py-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]"
+					>
+						{t("chat.quotaExhausted")}
+					</p>
+				) : null}
+				{messages.isLoading ? <p role="status">{t("chat.loadingHistory")}</p> : null}
+				{messages.isError ? (
+					<Button variant="link" onClick={() => void messages.refetch()}>
+						{t("app.retry")}
+					</Button>
+				) : null}
+				{!messages.isLoading && !messages.isError && items?.length === 0 ? (
+					<div className="flex flex-1 items-center justify-center">
+						<EmptyState
+							icon={<ConversationAvatar conversation={conversation} personId={person?.id} />}
+							title={t("chat.emptyTitle")}
+						/>
+					</div>
+				) : null}
+				{items?.length ? (
+					<div
+						className="mx-auto flex w-full max-w-[680px] flex-col gap-[var(--spacing-4)]"
+						role="log"
+						aria-label={t("nav.messages")}
+					>
+						{messages.hasNextPage ? (
+							<Button size="sm" onClick={() => void messages.fetchNextPage()} loading={messages.isFetchingNextPage}>
+								{t("chat.loadOlder")}
+							</Button>
+						) : null}
+						<ConversationMessages
+							items={items}
+							conversation={conversation}
+							person={person}
+							bot={bot}
+							disconnected={disconnected}
+							retrying={actions.retry.isPending}
+							onResend={(message) =>
+								send.mutate({
+									type: "text",
+									body: message.body ?? "",
+									clientNonce: message.clientNonce ?? "",
+									attachmentIds: message.attachments.map((attachment) => attachment.id),
+									attachments: message.attachments,
+									...(message.skillIds ? { skillIds: message.skillIds } : {}),
+								})
+							}
+							onRetry={(id) => actions.retry.mutate(id)}
+						/>
+						<div ref={bottom} />
+					</div>
+				) : null}
+			</PageFrame>
+			{showLatest ? (
+				<div className="absolute inset-x-0 bottom-[var(--spacing-4)] flex justify-center pointer-events-none">
+					<Button size="sm" onClick={jumpToLatest} className="pointer-events-auto">
+						<ArrowDown size={16} aria-hidden="true" />
+						{t("chat.jumpToLatest")}
+					</Button>
 				</div>
 			) : null}
-			{items?.length ? (
-				<div
-					className="mx-auto flex w-full max-w-[680px] flex-col gap-[var(--spacing-4)]"
-					role="log"
-					aria-label={t("nav.messages")}
-				>
-					{messages.hasNextPage ? (
-						<Button size="sm" onClick={() => void messages.fetchNextPage()} loading={messages.isFetchingNextPage}>
-							{t("chat.loadOlder")}
-						</Button>
-					) : null}
-					{items.map((message) => (
-						<article
-							key={message.id}
-							className={`flex flex-col gap-[var(--spacing-1)] ${message.senderKind === "person" ? "items-end" : "items-start"}`}
-						>
-							{message.body ? (
-								<div className="max-w-full rounded-[var(--radius-card)] bg-[var(--color-bg-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] text-body text-[var(--color-text-primary)]">
-									<MessageContent body={message.body} />
-								</div>
-							) : null}
-							{message.streaming && !message.body && !disconnected ? (
-								<span role="status" className="text-caption text-[var(--color-text-secondary)]">
-									{t("chat.streaming")}
-								</span>
-							) : null}
-							{message.pending ? (
-								<span className="text-caption text-[var(--color-text-secondary)]">{t("chat.sending")}</span>
-							) : null}
-							{message.sendFailed ? (
-								<div
-									role="alert"
-									className="flex items-center gap-[var(--spacing-2)] text-caption text-[var(--color-danger)]"
-								>
-									{t("chat.sendFailed")}{" "}
-									<Button
-										variant="link"
-										size="sm"
-										onClick={() =>
-											send.mutate({ type: "text", body: message.body ?? "", clientNonce: message.clientNonce ?? "" })
-										}
-									>
-										{t("app.retry")}
-									</Button>
-								</div>
-							) : null}
-							{message.run?.status === "failed" ? (
-								<div
-									role="alert"
-									className="flex items-center gap-[var(--spacing-2)] text-caption text-[var(--color-danger)]"
-								>
-									{t(
-										message.run.failureReason === "model_not_configured" ? "chat.modelNotConfigured" : "chat.runFailed",
-									)}{" "}
-									<Button
-										variant="link"
-										size="sm"
-										onClick={() => actions.retry.mutate(message.run?.userMessageId ?? "")}
-										loading={actions.retry.isPending}
-									>
-										{t("app.retry")}
-									</Button>
-								</div>
-							) : null}
-						</article>
-					))}
-					<div ref={bottom} />
-				</div>
-			) : null}
-		</PageFrame>
+		</div>
 	);
 }
