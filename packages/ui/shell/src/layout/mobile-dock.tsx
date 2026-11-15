@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { TabId } from "../navigation/routes.ts";
 import { TABS } from "../navigation/routes.ts";
 import { TAB_ICONS } from "./tab-icons.tsx";
+import { useChromeSize } from "./use-chrome-size.ts";
 
 export interface MobileDockProps {
 	/** The composer, or nothing (「我」 and its settings have none). */
@@ -20,12 +21,22 @@ export interface MobileDockProps {
  * mounted while the tabs change, so a half-typed message survives a tab switch (11 第三节第 2 条).
  */
 export function MobileDock({ composer, showTabs, current, onSelect, labels, ariaLabel }: MobileDockProps) {
+	const ref = useChromeSize("--native-dock-height");
 	if (!composer && !showTabs)
-		return <div className="shrink-0" style={{ height: "var(--dock-bottom-inset, env(safe-area-inset-bottom))" }} />;
+		return (
+			<div
+				data-mobile-dock
+				ref={ref}
+				className="shrink-0"
+				style={{ height: "var(--dock-bottom-inset, var(--safe-area-bottom, env(safe-area-inset-bottom)))" }}
+			/>
+		);
 	return (
 		<div
-			className="relative z-20 shrink-0 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-dock)] backdrop-blur-xl backdrop-saturate-150"
-			style={{ paddingBottom: "var(--dock-bottom-inset, env(safe-area-inset-bottom))" }}
+			data-mobile-dock
+			ref={ref}
+			className="relative z-20 shrink-0 bg-[var(--color-bg-dock)] backdrop-blur-xl backdrop-saturate-150"
+			style={{ paddingBottom: "var(--dock-bottom-inset, var(--safe-area-bottom, env(safe-area-inset-bottom)))" }}
 		>
 			{composer ? (
 				<div className={cn("px-[var(--spacing-3)] pt-[var(--spacing-2)]", !showTabs && "pb-[var(--spacing-2)]")}>

@@ -4,6 +4,25 @@ import { expect, test } from "vitest";
 import { ListFrame } from "./frames.tsx";
 import { ShellProvider } from "./shell-context.tsx";
 
+test("list sections sit below the mobile top bar and stay inside the desktop top bar", () => {
+	const list = (mode: "mobile" | "compact" | "wide") => (
+		<ShellProvider value={{ mode, left: <button type="button">Me</button>, meOpen: false }}>
+			<ListFrame title="Tasks" center={<button type="button">Scheduled</button>}>
+				List content
+			</ListFrame>
+		</ShellProvider>
+	);
+	const { container, rerender } = render(list("mobile"));
+	const header = container.querySelector("header");
+	expect(header).toContainElement(screen.getByRole("button", { name: "Me" }));
+	expect(header).not.toContainElement(screen.getByRole("button", { name: "Scheduled" }));
+	expect(header?.nextElementSibling).toContainElement(screen.getByRole("button", { name: "Scheduled" }));
+	for (const mode of ["compact", "wide"] as const) {
+		rerender(list(mode));
+		expect(container.querySelector("header")).toContainElement(screen.getByRole("button", { name: "Scheduled" }));
+	}
+});
+
 test("restores each tab's list position after a tab switch or pushed page", () => {
 	const positions = { current: {} as Record<string, number> };
 	const list = (key: string) => (

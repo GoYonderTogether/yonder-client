@@ -25,8 +25,10 @@ describe("layoutMode", () => {
 		expect(layoutMode(390)).toBe("mobile");
 	});
 
-	test("the desktop app's minimum window width (720) never becomes the phone layout", () => {
-		expect(layoutMode(720)).not.toBe("mobile");
+	test("phone-width desktop windows keep compact desktop chrome", () => {
+		expect(layoutMode(360, true)).toBe("compact");
+		expect(layoutMode(390, true)).toBe("compact");
+		expect(layoutMode(640, true)).toBe("medium");
 	});
 });
 

@@ -11,9 +11,13 @@ export function useVisualViewport(ref: RefObject<HTMLElement | null>, active: bo
 		const update = () => {
 			element.style.setProperty("--app-height", `${viewport.height}px`);
 			element.style.setProperty("--app-offset-top", `${viewport.offsetTop}px`);
+			const keyboardVisible =
+				document.documentElement.dataset.nativeMobile === "true"
+					? window.innerHeight - viewport.height > 1 || viewport.offsetTop > 1
+					: window.innerHeight - viewport.height - viewport.offsetTop > 1;
 			element.style.setProperty(
 				"--dock-bottom-inset",
-				window.innerHeight - viewport.height - viewport.offsetTop > 1 ? "0px" : "env(safe-area-inset-bottom)",
+				keyboardVisible ? "0px" : "var(--safe-area-bottom, env(safe-area-inset-bottom))",
 			);
 		};
 		update();

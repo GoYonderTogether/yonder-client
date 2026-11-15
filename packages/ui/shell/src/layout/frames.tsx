@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useLayoutEffect, useRef } from "react";
 import { useShellChrome } from "./shell-context.tsx";
 import { TopBar } from "./top-bar.tsx";
+import { useChromeSize } from "./use-chrome-size.ts";
 
 /** Shared list and detail wrappers. Pages provide only the top bar's center and right slots. */
 export function ListFrame({
@@ -26,10 +27,19 @@ export function ListFrame({
 		}
 	}, [positions, scrollKey]);
 	const phone = mode === "mobile";
+	const header = useChromeSize("--frame-header-height");
 	return (
-		<div className="flex min-h-0 flex-1 flex-col">
-			<TopBar left={left} center={center ?? (meOpen ? title : null)} right={action} phone={phone} />
+		<div data-shell-frame className="relative flex min-h-0 flex-1 flex-col">
+			<div ref={header} data-frame-header className="shrink-0">
+				<TopBar left={left} center={(phone ? null : center) ?? (meOpen ? title : null)} right={action} phone={phone} />
+				{phone && center ? (
+					<div className="flex shrink-0 justify-center px-[var(--spacing-4)] pb-[var(--spacing-3)] [&>[role=radiogroup]]:h-auto [&>[role=radiogroup]]:w-full [&>[role=radiogroup]]:rounded-[var(--radius-full)] [&_label]:min-h-[calc(var(--control-lg)-var(--spacing-1))] [&_label]:flex-1 [&_label]:rounded-[var(--radius-full)] [&_label]:text-body [&_label>span]:w-full [&_label>span]:justify-center [&_label>span]:rounded-[var(--radius-full)]">
+						{center}
+					</div>
+				) : null}
+			</div>
 			<div
+				data-frame-scroll
 				ref={scrollRef}
 				onScroll={(event) => {
 					if (scroll) scroll.positions.current[scroll.key] = event.currentTarget.scrollTop;
@@ -60,10 +70,16 @@ export function PageFrame({
 }) {
 	const { mode, left } = useShellChrome();
 	const phone = mode === "mobile";
+	const header = useChromeSize("--frame-header-height");
 	return (
-		<div className="flex min-h-0 flex-1 flex-col">
-			<TopBar left={left} center={title} right={action} phone={phone} />
-			<div className={cn("flex min-h-0 flex-1 flex-col", scroll && "overflow-y-auto overscroll-contain")}>
+		<div data-shell-frame className="relative flex min-h-0 flex-1 flex-col">
+			<div ref={header} data-frame-header className="shrink-0">
+				<TopBar left={left} center={title} right={action} phone={phone} />
+			</div>
+			<div
+				data-frame-scroll
+				className={cn("flex min-h-0 flex-1 flex-col", scroll && "overflow-y-auto overscroll-contain")}
+			>
 				<div
 					className={cn(
 						"flex w-full flex-1 flex-col",

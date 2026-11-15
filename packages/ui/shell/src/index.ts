@@ -5,7 +5,7 @@
  * The shell knows nothing about which features exist. It is handed slots; it decides their shape.
  */
 
-export type { AppShellProps, ShellTab } from "./layout/app-shell.tsx";
+export type { AppShellProps, MeStack, ShellTab } from "./layout/app-shell.tsx";
 export { AppShell } from "./layout/app-shell.tsx";
 export { ListFrame, PageFrame } from "./layout/frames.tsx";
 export type { MobileDockProps } from "./layout/mobile-dock.tsx";
@@ -17,6 +17,8 @@ export { Rail } from "./layout/rail.tsx";
 export type { ShellChrome } from "./layout/shell-context.tsx";
 export { useShellChrome } from "./layout/shell-context.tsx";
 export { TopBar } from "./layout/top-bar.tsx";
+export type { GesturePanelProps } from "./navigation/gesture-panel.tsx";
+export { GesturePanel } from "./navigation/gesture-panel.tsx";
 export type { Layer, RouteEntry, TabId, TabSpec } from "./navigation/routes.ts";
 export { isTab, locate, MAIN_CONVERSATION, ROUTES, TAB_SPECS, TABS, tabPath } from "./navigation/routes.ts";
 export type { SwipeHandlers } from "./navigation/use-dismiss.ts";

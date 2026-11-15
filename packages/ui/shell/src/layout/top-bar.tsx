@@ -14,22 +14,27 @@ export function TopBar({
 }) {
 	return (
 		<header
+			data-shell-topbar
 			data-tauri-drag-region
 			className="shrink-0"
-			style={phone ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
+			style={phone ? { paddingTop: "var(--safe-area-top, env(safe-area-inset-top))" } : undefined}
 		>
 			<div
 				data-tauri-drag-region
-				className="grid h-[var(--titlebar-height)] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-[var(--spacing-3)]"
+				className="grid h-[var(--titlebar-height)] grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(0,1fr)] items-center px-[var(--spacing-3)]"
 			>
 				<div data-tauri-drag-region className="flex min-w-0 items-center justify-start">
 					{left}
 				</div>
 				<div
 					data-tauri-drag-region
-					className="min-w-0 text-center text-h3 font-semibold text-[var(--color-text-primary)]"
+					className="flex min-w-0 items-center justify-center text-center text-h3 font-semibold text-[var(--color-text-primary)]"
 				>
-					{center}
+					{typeof center === "string" || typeof center === "number" ? (
+						<span className="truncate">{center}</span>
+					) : (
+						center
+					)}
 				</div>
 				<div data-tauri-drag-region className="flex min-w-0 items-center justify-end">
 					{right}

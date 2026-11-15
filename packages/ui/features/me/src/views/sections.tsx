@@ -1,4 +1,4 @@
-import { Boxes, Gauge, Gift, Info, Laptop, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { BookOpen, Boxes, Gauge, Gift, Info, Laptop, Plug, ShieldCheck, SlidersHorizontal } from "lucide-react";
 
 /**
  * The 「我」 sections, grouped the way the list shows them (11 第六节). Adding a setting is one row
@@ -11,7 +11,9 @@ export const ME_GROUPS = [
 		sections: [
 			{ id: "quota", icon: Gauge },
 			{ id: "models", icon: Boxes },
+			{ id: "skills", icon: BookOpen },
 			{ id: "devices", icon: Laptop },
+			{ id: "connectors", icon: Plug },
 		],
 	},
 	{ id: "invite", sections: [{ id: "invite", icon: Gift }] },

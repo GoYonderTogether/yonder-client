@@ -36,8 +36,8 @@ export function Rail({
 			aria-label={meLabel}
 			aria-current={meOpen ? "page" : undefined}
 			className={cn(
-				"flex rounded-full p-[3px] transition-shadow duration-[var(--duration-fast)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]",
-				meOpen ? "shadow-[0_0_0_2px_var(--color-accent)]" : "hover:shadow-[0_0_0_2px_var(--color-border-strong)]",
+				"flex items-center justify-center rounded-full p-[3px] transition-colors duration-[var(--duration-fast)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]",
+				meOpen ? "bg-[var(--color-bg-selected)]" : "hover:bg-[var(--color-bg-hover)]",
 			)}
 		>
 			{renderAvatar(32)}
@@ -47,7 +47,7 @@ export function Rail({
 	return (
 		<nav
 			aria-label={ariaLabel}
-			className="flex h-full w-[var(--rail-width)] shrink-0 flex-col items-center bg-[var(--color-bg-chrome)] pb-[var(--spacing-4)]"
+			className="flex h-full w-[var(--rail-width)] shrink-0 flex-col items-center pb-[var(--spacing-4)]"
 		>
 			<div className="w-full">
 				<TopBar center={titlebarInset ? null : avatar} />
@@ -69,7 +69,7 @@ export function Rail({
 									"flex w-14 flex-col items-center gap-[3px] rounded-[var(--radius-md)] py-[var(--spacing-2)]",
 									"transition-colors duration-[var(--duration-fast)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
 									selected
-										? "bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-[var(--shadow-xs)]"
+										? "bg-[var(--color-bg-selected)] text-[var(--color-text-primary)]"
 										: "text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]",
 								)}
 							>

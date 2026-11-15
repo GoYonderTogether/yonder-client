@@ -1,15 +1,15 @@
 /**
- * One exit for every way back: the system back gesture, Esc, a swipe, the on-screen back button.
- * A feature page calls `useDismiss`; it never listens for keys itself (11-布局和页面层级 第四节).
+ * Dispatch Escape to the topmost active layer; buttons, history and gestures use the same callback.
+ * Layout cleanup removes an exiting layer before another Escape can reach its stale callback.
  */
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 const activeLayers: { priority: number }[] = [];
 
 export function useDismiss(active: boolean, onDismiss: () => void, priority = 0): void {
 	const dismiss = useRef(onDismiss);
 	dismiss.current = onDismiss;
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (!active) return;
 		const layer = { priority };
 		activeLayers.push(layer);

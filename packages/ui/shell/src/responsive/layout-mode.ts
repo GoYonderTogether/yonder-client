@@ -1,19 +1,12 @@
-/**
- * Layout is decided by the width of the container, never by what device it is (架构-12 布局第 2 条).
- * Thresholds from 11-布局和页面层级 第四节:
- *
- *   ≥ 1024  wide:   rail, list column, content column
- *   ≥ 640   medium: rail and content; the list floats out from a button (like Today's narrow window)
- *   < 640   mobile: one screen at a time, a bottom dock with the composer and the tab bar
- */
-export type LayoutMode = "wide" | "medium" | "mobile";
+/** Width controls pane arrangement; the host independently selects desktop or phone chrome. */
+export type LayoutMode = "wide" | "medium" | "compact" | "mobile";
 
 export const WIDE_MIN_WIDTH = 1024;
 export const MOBILE_MAX_WIDTH = 640;
 
-export function layoutMode(width: number): LayoutMode {
+export function layoutMode(width: number, desktop = false): LayoutMode {
 	if (width >= WIDE_MIN_WIDTH) return "wide";
-	if (width < MOBILE_MAX_WIDTH) return "mobile";
+	if (width < MOBILE_MAX_WIDTH) return desktop ? "compact" : "mobile";
 	return "medium";
 }
 

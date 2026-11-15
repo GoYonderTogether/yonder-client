@@ -1,37 +1,43 @@
 # @yonder/ui-shell
 
-Layer 3: the frame. Where the panes go, how wide they are, what the top and bottom bars hold, and
-how the three layers are entered and left.
+第三层布局骨架：接收列表、详情和设置内容，负责位置、顶栏、导航层级与手势呈现，不读取业务数据。
 
-The shell knows nothing about which features exist. It is handed slots; it decides their shape.
+## 布局和平台
 
-## What it holds
+容器宽度决定面板是否并排，宿主交互类型决定使用桌面侧栏还是手机底栏。应用通过 `desktop` 传入集中平台判断；桌面浏览器和桌面 Tauri 缩窄后仍是桌面界面。
 
-| file                        | what                                                        |
-| --------------------------- | ----------------------------------------------------------- |
-| `layout/app-shell.tsx`      | picks two-pane / one-pane / mobile from its own width       |
-| `layout/chat-pane.tsx`      | the left pane, collapsible to an avatar strip               |
-| `layout/content-pane.tsx`   | the right pane: top bar, segmented control, scrolling body  |
-| `layout/pane-splitter.tsx`  | the drag handle, keyboard-operable                          |
-| `layout/mobile-tab-bar.tsx` | 对话 / 今天 / 任务 / 记忆                                   |
-| `layout/detail-header.tsx`  | layer two's back control and trail                          |
-| `overlay/overlay.tsx`       | layer three: a dialog on desktop, a bottom sheet on a phone |
-| `responsive/layout-mode.ts` | 900 and 640, and the chat pane's width bounds               |
-| `navigation/routes.ts`      | the route registry: every page's layer, parent and link     |
-| `navigation/use-dismiss.ts` | one exit for Esc, back and swipe                            |
+| 容器宽度   | 桌面                             | 移动交互                           |
+| ---------- | -------------------------------- | ---------------------------------- |
+| ≥1024px    | `wide`：Rail、列表、详情并排     | `wide`                             |
+| 640–1023px | `medium`：Rail 和列表，详情覆盖  | `medium`                           |
+| <640px     | `compact`：Rail 和列表，详情覆盖 | `mobile`：列表与底部导航，详情覆盖 |
 
-## The three layers
+列表是根页面；详情从右进入、向右返回。“我”的根层由头像打开，从左进入、向左退出；具体设置页逐层从右进入、向右返回。展开时保留所需父页面，覆盖中的底层不可交互。
 
-1. **Page** — desktop: the content pane's segments; mobile: the bottom tabs.
-2. **Detail** — advances inside the content pane on desktop, full screen on a phone; one back.
-3. **Overlay** — 「我」 and settings; a centred dialog on desktop, a sheet on a phone.
+## 文件职责
 
-Layout is decided by **width**, never by device. Dragging a window narrow enough to pass 640 gives
-the phone layout, which is the same tree.
+| 文件                                                    | 职责                                                       |
+| ------------------------------------------------------- | ---------------------------------------------------------- |
+| `layout/app-shell.tsx`                                  | 主列表、详情和 Me 层的呈现，保留宽屏分栏                   |
+| `layout/frames.tsx`                                     | 列表与页面的公共顶栏、滚动区域                             |
+| `layout/rail.tsx`                                       | 桌面头像、消息、任务、记忆入口                             |
+| `layout/mobile-dock.tsx`                                | 手机输入框与底部导航                                       |
+| `layout/pane-splitter.tsx`、`layout/use-pane-layout.ts` | 宽屏分栏拖动、键盘调整与收起恢复                           |
+| `navigation/gesture-panel.tsx`                          | 连续指针位移、方向、速度与 Motion 弹簧、覆盖层退出生命周期 |
+| `navigation/use-dismiss.ts`                             | 顶层优先的 Esc 返回                                        |
+| `navigation/routes.ts`                                  | 页面与 tab 的路由登记                                      |
+| `overlay/overlay.tsx`                                   | 宽屏对话框，受限宽度下从右进入的操作层                     |
+| `responsive/layout-mode.ts`                             | 宽度阈值、布局模式与列表宽度边界                           |
 
-## Rules
+URL 和浏览器历史仍由应用的 React Router 管理；骨架只调用传入的返回动作，不创建第二套 URL 路由。已知父历史通过 pop 返回，刷新深链没有已知父历史时 replace 到语义父级。
 
-- Pages draw no margins and no top bars; the shell owns both.
-- `useDismiss` is the only Esc listener; a feature never adds its own.
-- The route registry is the only list of pages. A new page is a row there plus a component.
-- May import tokens, i18n and components — never a feature, never data.
+手势识别横向移动后直接更新位置，释放时才运行弹簧。短拖、取消和被未保存变更拦截的返回应回弹；纵向滚动和输入控件保持可用。已提交的浏览器历史返回不通过反向拖动撤销。
+
+整体分层见 [docs/architecture.md](../../../docs/architecture.md)。
+
+## 分层约定
+
+- 页面通过 `ListFrame` / `PageFrame` 使用骨架提供的顶栏与外边距。
+- 共用 `useDismiss` 处理 Esc，不在功能页重复监听。
+- 新页面同时登记路由和应用装配。
+- 可引用 tokens、i18n、components 与 protocol，不引用 feature 或 data。
