@@ -1,0 +1,32 @@
+import type { meetingRecorderEn } from "./meeting-recorder-en.ts";
+
+export const meetingRecorderZhCN: typeof meetingRecorderEn = {
+	name: "会议录音",
+	defaultTitle: "会议录音",
+	titleLabel: "录音标题",
+	start: "开始录音",
+	microphoneOccupied: "请先结束聊天语音输入，再开始会议录音。",
+	stop: "结束录音",
+	recording: "正在录音",
+	ended: "已保存",
+	interrupted: "已中断",
+	interruptedHelp: "已保存的音频可以播放；再次录制请新建录音。",
+	elapsed: "录制时长",
+	saved: "已保存在本机 · {{duration}}",
+	history: "本机录音",
+	empty: "暂无录音",
+	play: "播放已保存音频",
+	stopPlayback: "停止播放",
+	playFailed: "音频播放失败，请重试。",
+	openActive: "录音中 · {{duration}}",
+	unsupported: "请在 Yonder 应用中录制并在后台保存音频。",
+	errors: {
+		failed: "无法访问录音器，请重试。",
+		permission_denied: "请在系统设置中允许麦克风访问。",
+		notifications_required: "请在系统设置中允许录音通知，以便在后台查看和结束录音。",
+		recording_busy: "麦克风正在使用，请先结束另一段录音。",
+		owner_mismatch: "登录账号已变化，请重新打开录音。",
+		storage_failed: "音频保存失败，请检查可用存储空间。",
+		audio_unavailable: "麦克风不可用，请检查音频设备。",
+	},
+};

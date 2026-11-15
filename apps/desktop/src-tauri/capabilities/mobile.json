@@ -2,5 +2,5 @@
 	"identifier": "mobile",
 	"windows": ["main"],
 	"platforms": ["android", "iOS"],
-	"permissions": ["core:default"]
+	"permissions": ["core:default", "meeting-recorder:default"]
 }

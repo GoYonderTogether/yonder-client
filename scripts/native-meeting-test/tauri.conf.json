@@ -1,0 +1,19 @@
+{
+	"productName": "Yonder Native Meeting Test",
+	"version": "0.1.0",
+	"identifier": "dev.yonder.native-meeting-test",
+	"build": { "frontendDist": "web" },
+	"bundle": { "icon": ["../../apps/desktop/src-tauri/icons/icon.png"], "macOS": { "infoPlist": "Info.plist" } },
+	"app": {
+		"windows": [],
+		"security": {
+			"capabilities": [
+				{
+					"identifier": "meeting-test",
+					"windows": ["main"],
+					"permissions": ["core:default", "meeting-recorder:default"]
+				}
+			]
+		}
+	}
+}
