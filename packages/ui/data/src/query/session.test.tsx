@@ -11,6 +11,7 @@ test("a shell sign-in keeps both tokens while removing the previous account's ca
 	useSessionStore.setState({ booting: true, status: "unknown" });
 	const storage = createMemoryStorage();
 	storage.set("locale", "zh-CN");
+	storage.set("installation-id", "same-installation");
 	const refreshTokenStorage = { get: () => null, set: vi.fn() };
 	const wrapper = ({ children }: { children: ReactNode }) => (
 		<StrictMode>
@@ -29,10 +30,13 @@ test("a shell sign-in keeps both tokens while removing the previous account's ca
 	await waitFor(() => expect(useSessionStore.getState().booting).toBe(false));
 	vi.useFakeTimers();
 	result.result.current.query.setQueryData(keys.me(), { name: "old" });
+	result.result.current.query.setQueryData(keys.contactSearch("a"), ["temporary"]);
 	await act(() => vi.advanceTimersByTimeAsync(1000));
-	expect(JSON.parse(storage.get("yonder.query-cache") ?? "{}").clientState.queries[0].state.data).toEqual({
-		name: "old",
-	});
+	const saved = JSON.parse(storage.get("yonder.query-cache") ?? "{}");
+	expect(saved.clientState.queries.map((query: { queryKey: unknown[] }) => query.queryKey[0])).toContain("me");
+	expect(saved.clientState.queries.map((query: { queryKey: unknown[] }) => query.queryKey[0])).not.toContain(
+		"contact-search",
+	);
 	result.result.current.query.setQueryData(keys.quota(), { balance: 42 });
 	await act(() => result.result.current.startSession({ accessToken: "new-access", refreshToken: "new-refresh" }));
 	expect(result.result.current.client.accessToken).toBe("new-access");
@@ -47,6 +51,6 @@ test("a shell sign-in keeps both tokens while removing the previous account's ca
 	result.unmount();
 	await act(() => vi.advanceTimersByTimeAsync(1000));
 	expect(storage.get("yonder.query-cache")).toBeNull();
-	expect(storage.get("locale")).toBe("zh-CN");
+	expect(storage.get("installation-id")).toBe("same-installation");
 	vi.useRealTimers();
 });

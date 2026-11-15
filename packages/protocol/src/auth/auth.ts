@@ -34,8 +34,10 @@ export interface SignInRequest {
 
 export interface DeviceInfo {
 	name: string;
-	platform: "web" | "macos" | "windows" | "ios" | "android" | "linux";
+	platform: "web" | "macos" | "windows" | "ios" | "android" | "linux" | "miniprogram";
 	appVersion: string;
+	/** Stable within this client installation; separate from its rotating login session. */
+	installationId?: string;
 }
 
 /**
@@ -101,4 +103,19 @@ export interface DeleteAccountRequest {
 export interface DeleteAccountResponse {
 	scheduledFor: string;
 	cancellableUntil: string;
+}
+
+export interface WechatMiniSignInRequest {
+	loginCode: string;
+	agreeTerms: true;
+	device?: DeviceInfo;
+}
+export type WechatMiniSignInResponse =
+	| ({ status: "signed_in" } & SignInResponse)
+	| { status: "phone_required"; ticket: string; expiresIn: number };
+export interface WechatMiniPhoneRequest {
+	ticket: string;
+	phoneCode: string;
+	inviteCode?: string;
+	device?: DeviceInfo;
 }

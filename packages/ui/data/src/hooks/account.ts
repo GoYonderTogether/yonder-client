@@ -86,7 +86,12 @@ export function useRevokeSession() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (id: string) => api.revokeSession(id),
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.sessions() }),
+		onSuccess: async () => {
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: keys.sessions() }),
+				queryClient.invalidateQueries({ queryKey: keys.devices() }),
+			]);
+		},
 	});
 }
 
