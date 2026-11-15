@@ -88,10 +88,15 @@ test("models and memory load on demand and retain the chat draft", async ({ page
 	await nav.getByRole("button", { name: "Me", exact: true }).click();
 	await page.getByRole("button", { name: "Models", exact: true }).click();
 	await expect.poll(() => loaded("models-section")).toBe(true);
+	await expect(page.getByRole("button", { name: "Add provider", exact: true })).toBeVisible();
+	await expect(page.getByLabel("Search providers")).toBeVisible();
+	await expect(page.getByText("Unable to load this page.")).toHaveCount(0);
 	await nav.getByRole("button", { name: "Messages", exact: true }).click();
 	await expect(draft).toHaveValue("Keep this draft");
 	await nav.getByRole("button", { name: "Memory", exact: true }).click();
 	await expect.poll(() => loaded("memory-page")).toBe(true);
+	await expect(page.getByText("No memory yet", { exact: true })).toBeVisible();
+	await expect(page.getByText("Unable to load this page.")).toHaveCount(0);
 	await nav.getByRole("button", { name: "Messages", exact: true }).click();
 	await expect(draft).toHaveValue("Keep this draft");
 });
