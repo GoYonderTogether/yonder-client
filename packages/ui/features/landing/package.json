@@ -1,16 +1,16 @@
 {
 	"name": "@yonder/feature-landing",
 	"private": true,
-	"version": "0.3.26111503",
+	"version": "0.3.26111504",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/ui-components": "0.3.26111503",
-		"@yonder/ui-data": "0.3.26111503",
-		"@yonder/ui-i18n": "0.3.26111503",
-		"@yonder/ui-tokens": "0.3.26111503",
+		"@yonder/ui-components": "0.3.26111504",
+		"@yonder/ui-data": "0.3.26111504",
+		"@yonder/ui-i18n": "0.3.26111504",
+		"@yonder/ui-tokens": "0.3.26111504",
 		"react-i18next": "18.0.1"
 	},
 	"peerDependencies": {

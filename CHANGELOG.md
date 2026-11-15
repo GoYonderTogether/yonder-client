@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26111504] - 2026-11-15
+
+### Added
+
+- keep the public client in step with official app updates
+
 ## [0.3.26111503] - 2026-11-15
 
 ### Fixed
