@@ -1,7 +1,7 @@
 # 发版走 CI：由这里统一包版本、写 CHANGELOG、打 tag、推 main 并建 Release。
 # 顺序固定：发版提交直接接在 main tip 上 → 构建打包 → 原子推送 tag 与 main → 最后建 Release。
 # 任何一步失败都不会留下一个 main 里不存在的正式 Release。
-# 官网部署留在私有运维仓库；公开客户端只发布安装包和 Release。
+# 官网由本仓库 web-deploy.yml 部署，主机与密钥仅在 Actions secrets。
 name: Release
 
 on:
@@ -191,6 +191,12 @@ jobs:
           if [ -n "$failed" ]; then
             echo "::warning::Release v$VERSION is public but these builds were not dispatched:$failed. Rerun them manually with workflow_dispatch on tag v$VERSION; do not create a new release."
           fi
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Dispatch official web deployment
+        continue-on-error: true
+        run: gh workflow run web-deploy.yml --ref "v$VERSION" -f "tag=v$VERSION"
         env:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

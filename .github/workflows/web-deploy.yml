@@ -1,0 +1,165 @@
+# 把某个正式版的网页部署到 yonderbot.net（yonder.zethai.cn 301 到这里）。
+# release.yml 公开 Release 后派发本工作流；也可以手工指定 tag 重新部署。
+#
+# 服务器侧执行器 /opt/yonder-card/bin/yonder-web-deploy：DEPLOY_SSH_KEY 在 authorized_keys 里被
+# command= 固定到它，只能做两件事——回答 `status`，或接收「<版本>-<提交前12位> <tar sha256>」加 tar 流，
+# 校验后原子切换 web/current，并在服务器本地核对 nginx 实际返回的 build-version.json。
+# 它不重启服务、不碰 nginx、不碰后端。托管 runner 在境外，直连公网会被 TLS reset，所以不在 runner 上探公网。
+name: Web deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 正式版 tag，例如 v0.3.26111301
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-deploy
+  cancel-in-progress: false
+
+env:
+  # Deployment credentials and the host key are secrets; public source never includes private keys.
+  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+  DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+
+jobs:
+  deploy:
+    name: Build and publish the web bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: 解析 tag
+        id: args
+        run: |
+          set -eu
+          case "$TAG" in v0.*) : ;; *) echo "::error::tag 必须是正式版 v0.x：'$TAG'"; exit 1 ;; esac
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)
+          {
+            echo "tag=$TAG"
+            echo "sha=$sha"
+            echo "version=${TAG#v}"
+            echo "short=$(printf '%s' "$sha" | cut -c1-12)"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 配置部署 key
+        run: |
+          set -eu
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s %s\n' "$DEPLOY_HOST" "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: 询问线上版本
+        id: live
+        run: |
+          set -eu
+          current=$(printf 'status\n' | ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=20 "root@$DEPLOY_HOST" | head -1) || current=""
+          echo "线上：${current:-（无法读取）}"
+          if [ "$current" = "current=$V-$SHORT" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "线上已是 $V-$SHORT，跳过"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          V: ${{ steps.args.outputs.version }}
+          SHORT: ${{ steps.args.outputs.short }}
+
+      - uses: actions/checkout@v4
+        if: steps.live.outputs.deploy == 'true'
+        with:
+          ref: ${{ steps.args.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: 校验版本
+        if: steps.live.outputs.deploy == 'true'
+        run: |
+          test "$(git rev-parse HEAD)" = "$SHA" || { echo "::error::checkout 提交与 tag 不一致"; exit 1; }
+          test "$(node -p "require('./apps/web/package.json').version")" = "$V" ||
+            { echo "::error::apps/web 版本与 tag 不一致"; exit 1; }
+        env:
+          SHA: ${{ steps.args.outputs.sha }}
+          V: ${{ steps.args.outputs.version }}
+
+      - uses: actions/setup-node@v4
+        if: steps.live.outputs.deploy == 'true'
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: 构建
+        if: steps.live.outputs.deploy == 'true'
+        run: |
+          npm ci
+          npm run build
+
+      # 执行器要求包里有 index.html、version.json、yonder-sw.js；build-version.json 是它部署后在服务器本地核对的文件。
+      - name: 写版本文件
+        if: steps.live.outputs.deploy == 'true'
+        run: |
+          node --input-type=module - "$V" "$SHA" <<'JS'
+          import { existsSync, writeFileSync } from "node:fs";
+          const [version, commit] = process.argv.slice(2);
+          const record = JSON.stringify({ version, commit, builtAt: new Date().toISOString() }) + "\n";
+          writeFileSync("apps/web/dist/version.json", record);
+          writeFileSync("apps/web/dist/build-version.json", record);
+          for (const file of ["index.html", "yonder-sw.js"]) {
+            if (!existsSync(`apps/web/dist/${file}`)) throw new Error(`dist 里缺 ${file}`);
+          }
+          JS
+        env:
+          V: ${{ steps.args.outputs.version }}
+          SHA: ${{ steps.args.outputs.sha }}
+
+      - name: 打包
+        id: bundle
+        if: steps.live.outputs.deploy == 'true'
+        run: |
+          cd apps/web/dist
+          COPYFILE_DISABLE=1 tar --exclude='.DS_Store' --exclude='._*' -czf "$RUNNER_TEMP/web.tar.gz" .
+          sha=$(sha256sum "$RUNNER_TEMP/web.tar.gz" | cut -d' ' -f1)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "bundle $sha ($(stat -c %s "$RUNNER_TEMP/web.tar.gz") bytes)"
+
+      - name: 发布到服务器
+        if: steps.live.outputs.deploy == 'true'
+        run: |
+          { printf '%s %s\n' "$V-$SHORT" "$BUNDLE_SHA"; cat "$RUNNER_TEMP/web.tar.gz"; } |
+            ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+              -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+              "root@$DEPLOY_HOST"
+        env:
+          V: ${{ steps.args.outputs.version }}
+          SHORT: ${{ steps.args.outputs.short }}
+          BUNDLE_SHA: ${{ steps.bundle.outputs.sha }}
+
+      - name: 结果
+        if: always()
+        run: |
+          {
+            echo "### Web 部署"
+            echo "- 版本：$V"
+            echo "- 提交：$SHA"
+            case "$DEPLOY" in
+              true) echo "- 结果：见上一步；成功表示执行器已在服务器本地核对 build-version.json" ;;
+              false) echo "- 结果：线上已是该版本，未重复发布" ;;
+              *) echo "- 结果：没有走到部署步骤" ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          V: ${{ steps.args.outputs.version }}
+          SHA: ${{ steps.args.outputs.sha }}
+          DEPLOY: ${{ steps.live.outputs.deploy }}
