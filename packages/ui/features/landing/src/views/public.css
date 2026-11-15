@@ -3,8 +3,10 @@
 	display: flex;
 	min-height: 100dvh;
 	flex-direction: column;
-	padding: max(var(--spacing-4), env(safe-area-inset-top)) max(var(--spacing-4), env(safe-area-inset-right))
-		max(var(--spacing-4), env(safe-area-inset-bottom)) max(var(--spacing-4), env(safe-area-inset-left));
+	padding: max(var(--spacing-4), var(--safe-area-top, env(safe-area-inset-top)))
+		max(var(--spacing-4), var(--safe-area-right, env(safe-area-inset-right)))
+		max(var(--spacing-4), var(--safe-area-bottom, env(safe-area-inset-bottom)))
+		max(var(--spacing-4), var(--safe-area-left, env(safe-area-inset-left)));
 	background: var(--color-bg-base);
 }
 

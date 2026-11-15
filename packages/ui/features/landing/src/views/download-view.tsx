@@ -6,7 +6,11 @@ import "./downloads.css";
 
 const PLATFORMS: DownloadPlatform[] = ["macos", "windows", "android", "ios", "web"];
 
-export function DownloadView({ version, iosUrl }: PublicViewProps) {
+export function DownloadView({
+	version,
+	iosUrl,
+	connectDevice = false,
+}: PublicViewProps & { connectDevice?: boolean }) {
 	const { t } = useTranslation();
 	const catalog = createDownloadCatalog(version, {
 		...(iosUrl ? { iosUrl } : {}),
@@ -16,6 +20,7 @@ export function DownloadView({ version, iosUrl }: PublicViewProps) {
 		<PublicLayout homeLink>
 			<main className="downloads-main">
 				<h1>{t("landing.allDownloads")}</h1>
+				{connectDevice ? <p>{t("landing.deviceGuide")}</p> : null}
 				<div className="downloads-list">
 					{PLATFORMS.map((platform) => {
 						const entry = catalog[platform];

@@ -1,0 +1,97 @@
+/*
+ * Landing page tokens: the only place a landing colour, face or size is written down.
+ * Daylight paper and a machined terminal: warm sun on the page, Endfield-style signal yellow on dark
+ * instruments. Prefixed `--lp-` so the app's own tokens stay untouched.
+ */
+
+@font-face {
+	font-family: "Tektur";
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url("../assets/tektur-500.woff2") format("woff2");
+	unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212;
+}
+
+@font-face {
+	font-family: "Tektur";
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url("../assets/tektur-600.woff2") format("woff2");
+	unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212;
+}
+
+:root {
+	--lp-paper: oklch(0.972 0.014 82);
+	--lp-paper-2: oklch(0.944 0.024 78);
+	--lp-panel: oklch(0.992 0.006 85);
+	--lp-ink: oklch(0.22 0.012 70);
+	--lp-ink-2: oklch(0.43 0.016 70);
+	--lp-line: oklch(0.22 0.012 70 / 0.12);
+	--lp-line-strong: oklch(0.22 0.012 70 / 0.3);
+	--lp-grid: oklch(0.22 0.012 70 / 0.05);
+	--lp-signal: oklch(0.92 0.19 106);
+	--lp-on-signal: oklch(0.21 0.03 100);
+	--lp-mint: oklch(0.8 0.14 168);
+	--lp-sun: oklch(0.86 0.13 66 / 0.55);
+	--lp-sun-2: oklch(0.88 0.09 32 / 0.45);
+	--lp-haze: oklch(0.99 0.01 90 / 0);
+	--lp-terminal: oklch(0.2 0.012 70);
+	--lp-terminal-2: oklch(0.26 0.014 70);
+	--lp-terminal-ink: oklch(0.96 0.01 85);
+	--lp-terminal-dim: oklch(0.74 0.014 80);
+	--lp-terminal-line: oklch(0.96 0.01 85 / 0.12);
+	--lp-bubble: oklch(0.92 0.19 106 / 0.14);
+	--lp-shadow: oklch(0.35 0.05 60 / 0.18);
+	--lp-focus: oklch(0.5 0.17 255);
+	--lp-card-a: oklch(0.97 0.03 95);
+	--lp-card-b: oklch(0.9 0.07 60);
+	--lp-sheen: oklch(1 0 0 / 0.55);
+	--lp-mask: oklch(0 0 0);
+
+	--lp-font-display: "Tektur", var(--font-sans);
+	--lp-font-body: var(--font-sans);
+
+	--lp-text-hero: clamp(44px, 6.2vw, 92px);
+	--lp-text-head: clamp(32px, 3.8vw, 56px);
+	--lp-text-lead: clamp(17px, 1.35vw, 20px);
+	--lp-text-body: 16px;
+	--lp-text-small: 14px;
+	--lp-text-micro: 12px;
+
+	--lp-container: 1200px;
+	--lp-gutter: clamp(20px, 4vw, 48px);
+	--lp-gap: clamp(24px, 3vw, 40px);
+	--lp-section: clamp(96px, 12vw, 168px);
+	--lp-radius: 14px;
+	--lp-radius-s: 8px;
+	--lp-cut: 18px;
+	--lp-cut-s: 10px;
+	--lp-nav: 68px;
+
+	--lp-ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+	--lp-fast: 160ms;
+	--lp-base: 420ms;
+	--lp-slow: 900ms;
+}
+
+:root[data-theme="dark"] {
+	--lp-paper: oklch(0.17 0.01 70);
+	--lp-paper-2: oklch(0.21 0.014 68);
+	--lp-panel: oklch(0.23 0.012 70);
+	--lp-ink: oklch(0.95 0.01 85);
+	--lp-ink-2: oklch(0.76 0.014 80);
+	--lp-line: oklch(0.95 0.01 85 / 0.12);
+	--lp-line-strong: oklch(0.95 0.01 85 / 0.3);
+	--lp-grid: oklch(0.95 0.01 85 / 0.045);
+	--lp-sun: oklch(0.62 0.12 62 / 0.38);
+	--lp-sun-2: oklch(0.55 0.1 30 / 0.3);
+	--lp-terminal: oklch(0.12 0.01 70);
+	--lp-terminal-2: oklch(0.17 0.012 70);
+	--lp-shadow: oklch(0 0 0 / 0.45);
+	--lp-focus: oklch(0.78 0.13 250);
+	--lp-card-a: oklch(0.3 0.03 90);
+	--lp-card-b: oklch(0.26 0.05 55);
+	--lp-sheen: oklch(1 0 0 / 0.18);
+}
