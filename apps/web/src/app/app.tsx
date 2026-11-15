@@ -6,6 +6,7 @@ import { I18nextProvider } from "react-i18next";
 import { apiBaseUrl, BUILD_VERSION } from "../lib/config.ts";
 import type { KeychainStorage } from "../lib/keychain.ts";
 import { createKeychainStorage, isTauri } from "../lib/keychain.ts";
+import { UpdateProvider } from "../updates/provider.tsx";
 import { AppRouter } from "./router.tsx";
 
 /**
@@ -61,7 +62,9 @@ function Localised() {
 
 	return (
 		<I18nextProvider i18n={i18n}>
-			<AppRouter />
+			<UpdateProvider>
+				<AppRouter />
+			</UpdateProvider>
 		</I18nextProvider>
 	);
 }

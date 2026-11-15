@@ -10,6 +10,7 @@ import {
 	assertNewerManifest,
 	buildManifest,
 	LATEST_OBJECT,
+	parseApkMetadata,
 	publicUrl,
 	readNotes,
 	sha256,
@@ -49,6 +50,8 @@ test("对象键与公开地址", () => {
 test("latest.json 带齐 version、versionCode、url、sha256、size", () => {
 	const manifest = buildManifest({
 		version: "0.3.26110205",
+		versionCode: 26110205,
+		minSupportedVersion: "0.3.26110201",
 		apk: APK,
 		notes: "修好了登录",
 		publishedAt: "2026-11-02T00:00:00.000Z",
@@ -56,6 +59,7 @@ test("latest.json 带齐 version、versionCode、url、sha256、size", () => {
 	assert.deepEqual(manifest, {
 		version: "0.3.26110205",
 		versionCode: 26110205,
+		minSupportedVersion: "0.3.26110201",
 		url: "https://dl.zethai.cn/android/yonder-0.3.26110205.apk",
 		sha256: createHash("sha256").update(APK).digest("hex"),
 		size: APK.length,
@@ -64,9 +68,27 @@ test("latest.json 带齐 version、versionCode、url、sha256、size", () => {
 	});
 	assert.equal(manifest.sha256, sha256(APK));
 	// notes 与 publishedAt 可选；缺省时不写占位文本
-	const bare = buildManifest({ version: "0.3.26110205", apk: APK });
+	const bare = buildManifest({ version: "0.3.26110205", versionCode: 26110205, apk: APK });
 	assert.equal("notes" in bare, false);
 	assert.equal("publishedAt" in bare, false);
+	assert.equal(bare.minSupportedVersion, null);
+});
+
+test("APK versionCode 来自 aapt，必须与发布版本一致", () => {
+	assert.deepEqual(
+		parseApkMetadata("package: name='net.yonderbot.app' versionCode='26110205' versionName='0.3.26110205'"),
+		{
+			versionCode: 26110205,
+			versionName: "0.3.26110205",
+		},
+	);
+	assert.throws(() => parseApkMetadata("package: name='net.yonderbot.app'"), /无法从 APK/);
+	assert.throws(() => buildManifest({ version: "0.3.26110205", versionCode: 7, apk: APK }), /APK versionCode/);
+	assert.throws(
+		() =>
+			buildManifest({ version: "0.3.26110205", versionCode: 26110205, apk: APK, minSupportedVersion: "0.3.26110301" }),
+		/minSupportedVersion/,
+	);
 });
 
 test("新清单的 versionCode 必须严格大于线上清单", () => {
@@ -104,6 +126,7 @@ test("dry-run 只打印清单，不发任何请求", async (t) => {
 	const printed = [];
 	const result = await uploadAndroidRelease({
 		version: "0.3.26110205",
+		versionCode: 26110205,
 		apkPath,
 		credentials: null,
 		dryRun: true,
@@ -132,6 +155,7 @@ test("上传顺序：先比对线上清单，再版本化 APK → 固定名 APK 
 	};
 	const result = await uploadAndroidRelease({
 		version: "0.3.26110205",
+		versionCode: 26110205,
 		apkPath,
 		notes: "说明",
 		credentials: { accessKeyId: "id", accessKeySecret: "secret" },
@@ -161,6 +185,7 @@ test("线上清单更新时拒绝覆盖，且不发任何写请求", async (t) =
 	await assert.rejects(
 		uploadAndroidRelease({
 			version: "0.3.26110205",
+			versionCode: 26110205,
 			apkPath,
 			credentials: { accessKeyId: "id", accessKeySecret: "secret" },
 			log: () => {},
@@ -186,6 +211,7 @@ test("线上 latest.json 不是合法 JSON 时拒绝覆盖", async (t) => {
 	await assert.rejects(
 		uploadAndroidRelease({
 			version: "0.3.26110205",
+			versionCode: 26110205,
 			apkPath,
 			credentials: { accessKeyId: "id", accessKeySecret: "secret" },
 			log: () => {},

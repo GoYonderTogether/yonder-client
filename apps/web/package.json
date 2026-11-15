@@ -10,6 +10,9 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
+		"@tauri-apps/api": "^2.12.4",
+		"@tauri-apps/plugin-process": "^2.4.0",
+		"@tauri-apps/plugin-updater": "^2.14.1",
 		"@yonder/api-client": "0.3.26111503",
 		"@yonder/feature-auth": "0.3.26111503",
 		"@yonder/feature-landing": "0.3.26111503",

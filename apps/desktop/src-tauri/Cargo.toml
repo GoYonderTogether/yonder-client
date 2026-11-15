@@ -13,9 +13,13 @@ tauri-build = { version = "=2.7.4", features = [] }
 
 [dependencies]
 tauri = { version = "=2.12.5", features = [] }
+# `generate_context!` emits serde_json paths when plugin configuration is present.
+serde_json = "=1.0.145"
 
 # The refresh token lives in the OS credential store: Keychain on macOS, Credential Manager on
 # Windows, libsecret on Linux. The webview never persists it (10-质量 第四节). The plugin has no
 # iOS or Android implementation and does not compile there, so it is a desktop-only dependency.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-keyring = "=0.1.0"
+tauri-plugin-process = "=2.3.1"
+tauri-plugin-updater = "=2.14.1"

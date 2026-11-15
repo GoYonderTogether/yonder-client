@@ -1,0 +1,6 @@
+{
+	"identifier": "android-update",
+	"windows": ["main"],
+	"platforms": ["android"],
+	"permissions": ["android-update:default"]
+}

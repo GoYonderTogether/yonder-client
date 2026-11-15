@@ -30,9 +30,10 @@ on:
 permissions:
   contents: write
 
-# 同一版本只跑一次；重跑会覆盖同名产物。
+# 串行推进各平台清单；重跑会覆盖同名产物。
 concurrency:
-  group: desktop-release-${{ inputs.version || github.event.release.tag_name }}
+  # Different release versions must not race while advancing the static manifests.
+  group: desktop-release
   cancel-in-progress: false
 
 jobs:
@@ -99,6 +100,10 @@ jobs:
         run: npm run build
       - name: Install Tauri CLI
         run: npm ci --prefix apps/desktop --no-audit --no-fund
+      - name: Inject updater public key
+        env:
+          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+        run: node scripts/release/tauri-updater-config.mjs --version "$VERSION" --output "$RUNNER_TEMP/yonder-updater-config.json"
       - name: Configure macOS signing
         id: signing
         env:
@@ -148,7 +153,7 @@ jobs:
         run: >-
           npx --no-install tauri build
           --target aarch64-apple-darwin
-          --config "{\"version\":\"$VERSION\"}"
+          --config "$RUNNER_TEMP/yonder-updater-config.json"
           --bundles app,dmg
       - name: Notarize dmg
         if: ${{ steps.signing.outputs.enabled == 'true' }}
@@ -188,7 +193,18 @@ jobs:
             xcrun stapler validate "$app"
           fi
           mkdir -p dist && cp "$bundle/dmg/$name" "dist/$name"
+          # Archive the same signed app Tauri put in the dmg; it is notarized when Apple secrets are configured.
+          tar -czf dist/Yonder.app.tar.gz -C "$bundle/macos" Yonder.app
           echo "file=$name" >> "$GITHUB_OUTPUT"
+      - name: Sign updater archive
+        working-directory: apps/desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ] || { echo '::error::Updater signing secrets are required'; exit 1; }
+          npx --no-install tauri signer sign ../../dist/Yonder.app.tar.gz --app-version "$VERSION"
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -201,6 +217,14 @@ jobs:
           node scripts/release/oss.mjs --put
           --key "desktop/${{ needs.resolve.outputs.version }}/${{ steps.artifact.outputs.file }}"
           --file "dist/${{ steps.artifact.outputs.file }}"
+      - name: Publish updater archive and manifest
+        env:
+          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+          ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
+          ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
+        run: >-
+          node scripts/release/desktop.mjs --version "$VERSION" --target darwin-aarch64
+          --artifact dist/Yonder.app.tar.gz --signature dist/Yonder.app.tar.gz.sig
       - name: Remove macOS signing materials
         if: ${{ always() }}
         run: |
@@ -237,13 +261,16 @@ jobs:
         run: npm run build
       - name: Install Tauri CLI
         run: npm ci --prefix apps/desktop --no-audit --no-fund
+      - name: Inject updater public key
+        shell: pwsh
+        env:
+          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+        run: node scripts/release/tauri-updater-config.mjs --version $env:VERSION --output "$env:RUNNER_TEMP/yonder-updater-config.json"
       - name: Build nsis installer (unsigned)
         working-directory: apps/desktop
         shell: pwsh
-        # PowerShell 的双引号字符串不认 `\"`；拼成单个变量再传，避免参数被拆开。
         run: |
-          $config = '{"version":"' + $env:VERSION + '"}'
-          npx --no-install tauri build --config $config --bundles nsis
+          npx --no-install tauri build --config "$env:RUNNER_TEMP/yonder-updater-config.json" --bundles nsis
       - name: Collect artifact
         id: artifact
         shell: pwsh
@@ -254,17 +281,27 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item $src "dist/$name"
           "file=$name" >> $env:GITHUB_OUTPUT
+      - name: Sign updater installer
+        working-directory: apps/desktop
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_KEY_PASSWORD }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY -or -not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) { throw 'Updater signing secrets are required' }
+          npx --no-install tauri signer sign "../../dist/Yonder_$($env:VERSION)_x64-setup.exe" --app-version $env:VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload to GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${{ needs.resolve.outputs.tag }}" "dist/${{ steps.artifact.outputs.file }}" --clobber
-      - name: Upload to OSS
+      - name: Publish updater installer and manifest
         shell: bash
         env:
+          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
           ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
           ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
         run: >-
-          node scripts/release/oss.mjs --put
-          --key "desktop/${{ needs.resolve.outputs.version }}/${{ steps.artifact.outputs.file }}"
-          --file "dist/${{ steps.artifact.outputs.file }}"
+          node scripts/release/desktop.mjs --version "$VERSION" --target windows-x86_64
+          --artifact "dist/${{ steps.artifact.outputs.file }}" --signature "dist/${{ steps.artifact.outputs.file }}.sig"

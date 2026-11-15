@@ -23,7 +23,13 @@
 			}
 		],
 		"security": {
-			"capabilities": ["desktop", "mobile"]
+			"capabilities": ["desktop", "mobile", "android-update"]
+		}
+	},
+	"plugins": {
+		"updater": {
+			"endpoints": ["https://dl.zethai.cn/desktop/{{target}}.json"],
+			"requireSignedVersion": true
 		}
 	},
 	"bundle": {

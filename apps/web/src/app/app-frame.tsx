@@ -23,6 +23,7 @@ import { MemoryList, MemoryPage } from "../pages/memory-page.tsx";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { TaskPage, TasksList } from "../pages/tasks-page.tsx";
+import { UpdateControls } from "../updates/controls.tsx";
 import { Composer } from "./composer.tsx";
 import { useHasPassword } from "./use-has-password.ts";
 
@@ -116,6 +117,7 @@ export function AppFrame() {
 							onOpenLegal={(document) => navigate(`/${document}`)}
 							appVersion={BUILD_VERSION}
 							serverVersion={health.data?.version ?? null}
+							aboutUpdate={<UpdateControls />}
 							renderChangePassword={(onDone) => (
 								<PasswordSetupForm mode={hasPassword ? "change" : "set"} onDone={onDone} onSkip={onDone} />
 							)}

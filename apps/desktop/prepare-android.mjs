@@ -27,6 +27,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { prepareAndroidUpdate } from "./android/prepare-update.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const android = resolve(root, "src-tauri/gen/android");
@@ -273,3 +274,4 @@ function applyImeInsets() {
 if (mirrors) applyMirrors();
 applySigning();
 applyKeyboardResize();
+prepareAndroidUpdate(android, join(root, "android"));

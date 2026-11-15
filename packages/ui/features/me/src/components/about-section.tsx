@@ -1,4 +1,5 @@
 import { AppIcon, ListGroup, ListRow } from "@yonder/ui-components";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 export interface AboutSectionProps {
@@ -7,12 +8,13 @@ export interface AboutSectionProps {
 	/** What `/v1/health` answered, or null when it could not be reached. */
 	serverVersion: string | null;
 	onOpenLegal: (document: "terms" | "privacy") => void;
+	update?: ReactNode;
 }
 
 /**
  * 关于: the version the user can quote when reporting a problem.
  */
-export function AboutSection({ appVersion, serverVersion, onOpenLegal }: AboutSectionProps) {
+export function AboutSection({ appVersion, serverVersion, onOpenLegal, update }: AboutSectionProps) {
 	const { t } = useTranslation();
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)]">
@@ -28,6 +30,7 @@ export function AboutSection({ appVersion, serverVersion, onOpenLegal }: AboutSe
 					testId="about-server-version"
 				/>
 			</ListGroup>
+			{update}
 			<ListGroup>
 				<ListRow title={t("me.about.terms")} chevron onClick={() => onOpenLegal("terms")} />
 				<ListRow title={t("me.about.privacy")} chevron onClick={() => onOpenLegal("privacy")} />

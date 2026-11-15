@@ -33,8 +33,9 @@ export function compareVersions(left, right) {
 	const [leftParsed, rightParsed] = [parseVersion(left), parseVersion(right)];
 	if (!leftParsed || !rightParsed) throw new Error(`无法比较版本：${left} / ${right}`);
 	if (leftParsed.minor !== rightParsed.minor) return Math.sign(leftParsed.minor - rightParsed.minor);
-	return Math.sign(
-		Number(`${leftParsed.date}${leftParsed.sequence}`) - Number(`${rightParsed.date}${rightParsed.sequence}`),
+	return (
+		Math.sign(Number(leftParsed.date) - Number(rightParsed.date)) ||
+		Math.sign(leftParsed.sequence - rightParsed.sequence)
 	);
 }
 

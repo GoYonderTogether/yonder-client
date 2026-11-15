@@ -1,12 +1,14 @@
 // 安卓发布产物：versionCode 推导、latest.json 清单与 OSS 上传。
 // 版本不读仓库文件：由 --version 传入本次 Release 的版本（apps/desktop 不在 npm workspaces，
 // bump-versions.mjs 不改它的 package.json / tauri.conf.json）。
+
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BUCKET, getObject, PUBLIC_BASE_URL, putObject, REGION_ENDPOINT, readCredentials } from "./oss.mjs";
-import { parseVersion } from "./version.mjs";
+import { compareVersions, parseVersion } from "./version.mjs";
 
 export const APK_OBJECT = "android/yonder-android.apk";
 export const LATEST_OBJECT = "android/latest.json";
@@ -36,13 +38,33 @@ export function sha256(buffer) {
 	return createHash("sha256").update(buffer).digest("hex");
 }
 
-/** latest.json：字段至少 version、versionCode、url、sha256、size，可选 notes 与 publishedAt。 */
-export function buildManifest({ version, apk, notes, publishedAt }) {
-	const versionCode = androidVersionCode(version);
+/** Read metadata from the built APK, never assume Gradle applied the requested version. */
+export function parseApkMetadata(badging) {
+	const line = badging.split("\n").find((entry) => entry.startsWith("package: ")) ?? "";
+	const code = /\bversionCode='(\d+)'/.exec(line)?.[1];
+	const versionName = /\bversionName='([^']+)'/.exec(line)?.[1];
+	if (!code || !versionName) throw new Error("无法从 APK 读取 versionCode/versionName");
+	return { versionCode: Number(code), versionName };
+}
+
+export function readApkMetadata(apkPath, aapt = "aapt") {
+	return parseApkMetadata(execFileSync(aapt, ["dump", "badging", apkPath], { encoding: "utf8" }));
+}
+
+/** latest.json versionCode is taken from the actual APK, and the minimum is opt-in. */
+export function buildManifest({ version, versionCode, apk, minSupportedVersion = null, notes, publishedAt }) {
+	if (versionCode !== androidVersionCode(version)) throw new Error("APK versionCode 与发布版本不一致");
+	if (
+		minSupportedVersion !== null &&
+		(!parseVersion(minSupportedVersion) || compareVersions(minSupportedVersion, version) > 0)
+	) {
+		throw new Error("minSupportedVersion 必须是有效版本且不高于发布版本");
+	}
 	const digest = sha256(apk);
 	const manifest = {
 		version,
 		versionCode,
+		minSupportedVersion,
 		url: publicUrl(versionedApkPath(version)),
 		sha256: digest,
 		size: apk.length,
@@ -80,7 +102,9 @@ export function readNotes(path) {
 
 export async function uploadAndroidRelease({
 	version,
+	versionCode,
 	apkPath,
+	minSupportedVersion = null,
 	notes,
 	credentials,
 	dryRun = false,
@@ -98,7 +122,14 @@ export async function uploadAndroidRelease({
 	transport = { putObject, getObject },
 }) {
 	const apk = readFileSync(apkPath);
-	const manifest = buildManifest({ version, apk, notes, publishedAt: now.toISOString() });
+	const manifest = buildManifest({
+		version,
+		versionCode,
+		apk,
+		minSupportedVersion,
+		notes,
+		publishedAt: now.toISOString(),
+	});
 	if (dryRun) {
 		log(
 			JSON.stringify(
@@ -163,15 +194,19 @@ function main(argv) {
 	try {
 		if (!version || !apkPath) {
 			console.error(
-				"用法：android.mjs --version <版本> --apk <apk 路径> [--notes <文件>] [--rebuild] [--repair] [--dry-run]",
+				"用法：android.mjs --version <版本> --apk <apk 路径> [--aapt <路径>] [--min-supported-version <版本>] [--notes <文件>] [--rebuild] [--repair] [--dry-run]",
 			);
 			return 2;
 		}
 		const dryRun = argv.includes("--dry-run");
+		const metadata = readApkMetadata(apkPath, flag("--aapt") || "aapt");
+		if (metadata.versionName !== version) throw new Error("APK versionName 与发布版本不一致");
 		const credentials = dryRun ? null : readCredentials();
 		return uploadAndroidRelease({
 			version,
+			versionCode: metadata.versionCode,
 			apkPath,
+			minSupportedVersion: flag("--min-supported-version") || null,
 			notes: readNotes(flag("--notes")),
 			repair,
 			rebuild,

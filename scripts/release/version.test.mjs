@@ -40,6 +40,8 @@ test("版本比较按 minor 与日期序号", () => {
 	assert.equal(compareVersions("0.3.26102802", "0.3.26102802"), 0);
 	assert.equal(compareVersions("0.3.26102801", "0.3.26102901"), -1);
 	assert.equal(compareVersions("0.4.26102801", "0.3.26102999"), 1);
+	assert.equal(compareVersions("0.3.26102901", "0.3.26102899"), 1);
+	assert.equal(compareVersions("0.3.26102810", "0.3.26102809"), 1);
 });
 
 test("显式版本必须合法且高于已有 tag", () => {

@@ -18,6 +18,11 @@ on:
         required: false
         default: ""
         type: string
+      min_supported_version:
+        description: 可选的最低支持版本；留空表示不要求升级
+        required: false
+        default: ""
+        type: string
   release:
     types: [published]
 
@@ -183,6 +188,9 @@ jobs:
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
           [ -n "$apksigner" ] || { echo "::error::build-tools 里没有 apksigner，无法核对签名"; exit 1; }
           "$apksigner" verify --print-certs dist-android/yonder-android.apk
+          aapt="$(dirname "$apksigner")/aapt"
+          [ -x "$aapt" ] || { echo "::error::build-tools 里没有 aapt，无法读取 APK 版本"; exit 1; }
+          node scripts/release/android.mjs --version "$VERSION" --apk dist-android/yonder-android.apk --aapt "$aapt" --dry-run
           sha256sum dist-android/yonder-android.apk
           ls -l dist-android/yonder-android.apk
 
@@ -197,6 +205,7 @@ jobs:
           ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          MIN_SUPPORTED_VERSION: ${{ inputs.min_supported_version }}
         run: |
           set -eu
           [ -n "${ALIBABA_CLOUD_ACCESS_KEY_ID:-}" ] || { echo "::error::缺少 secret ALIBABA_CLOUD_ACCESS_KEY_ID"; exit 1; }
@@ -207,8 +216,12 @@ jobs:
           # （只放行「同版本」，降级仍拒绝）。用 --repair 不行，它要求摘要完全一致。
           rebuild=""
           [ -n "$EXPECTED_COMMIT" ] || rebuild="--rebuild"
+          aapt="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          [ -n "$aapt" ] || { echo "::error::build-tools 里没有 aapt，无法读取 APK 版本"; exit 1; }
+          minimum=()
+          [ -z "$MIN_SUPPORTED_VERSION" ] || minimum=(--min-supported-version "$MIN_SUPPORTED_VERSION")
           node scripts/release/android.mjs --version "$VERSION" \
-            --apk dist-android/yonder-android.apk --notes "$notes" $rebuild
+            --apk dist-android/yonder-android.apk --aapt "$aapt" --notes "$notes" "${minimum[@]}" $rebuild
 
       - name: 清理签名材料
         if: ${{ always() }}

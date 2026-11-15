@@ -21,6 +21,7 @@ export interface MeSectionPageProps {
 	onOpenLegal: (document: "terms" | "privacy") => void;
 	appVersion: string;
 	serverVersion: string | null;
+	aboutUpdate?: ReactNode;
 	/** The change-password screen is provided by the app, which owns the auth feature. */
 	renderChangePassword: (onDone: () => void) => ReactNode;
 }
@@ -38,6 +39,7 @@ export function MeSectionPage({
 	onOpenLegal,
 	appVersion,
 	serverVersion,
+	aboutUpdate,
 	renderChangePassword,
 }: MeSectionPageProps) {
 	const { t } = useTranslation();
@@ -80,7 +82,14 @@ export function MeSectionPage({
 			case "general":
 				return <GeneralSection />;
 			case "about":
-				return <AboutSection appVersion={appVersion} serverVersion={serverVersion} onOpenLegal={onOpenLegal} />;
+				return (
+					<AboutSection
+						appVersion={appVersion}
+						serverVersion={serverVersion}
+						onOpenLegal={onOpenLegal}
+						update={aboutUpdate}
+					/>
+				);
 		}
 	}
 }
