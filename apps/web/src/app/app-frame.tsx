@@ -1,30 +1,46 @@
 import { PasswordSetupForm } from "@yonder/feature-auth";
 import { isMeSection, MeList, MeSectionPage } from "@yonder/feature-me";
-import { AppIcon, Avatar } from "@yonder/ui-components";
+import { MeetingRecorderPanel, recordingDuration } from "@yonder/feature-meetings";
+import { AppIcon, Avatar, Button } from "@yonder/ui-components";
 import {
+	keys,
 	useBot,
+	useCompactConversation,
+	useContacts,
 	useConversations,
 	useData,
+	useDataQueryClient,
 	useHealth,
 	useMessages,
 	usePerson,
 	useRunActions,
 	useSendMessage,
+	useSkills,
 } from "@yonder/ui-data";
 import type { LayoutMode, TabId } from "@yonder/ui-shell";
-import { AppShell, locate, MAIN_CONVERSATION, tabPath } from "@yonder/ui-shell";
+import { AppShell, locate, MAIN_CONVERSATION, Overlay, tabPath } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
-import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { useBlocker, useLocation, useNavigate } from "react-router";
 import { BUILD_VERSION } from "../lib/config.ts";
-import { isMacDesktopShell } from "../lib/platform.ts";
+import { listenForContactAdded } from "../lib/contact-window.ts";
+import { useLocalFilesAdapter } from "../lib/local-files.ts";
+import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
+import { conversationTitle, selectedConversation } from "../pages/conversation-presentation.tsx";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
+import { CompactStatus } from "./completion/compact-status.tsx";
+import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
+import { FileDropZone } from "./file-drop-zone.tsx";
+import { useChatDraft } from "./use-chat-draft.ts";
 import { useHasPassword } from "./use-has-password.ts";
+import { useMeEntry } from "./use-me-entry.ts";
+import { useMeetingRecorder } from "./use-meeting-recorder.ts";
+import { usePageNavigation } from "./use-page-navigation.ts";
 
 const MemoryList = lazy(() => import("../pages/memory-page.tsx").then((module) => ({ default: module.MemoryList })));
 const MemoryPage = lazy(() => import("../pages/memory-page.tsx").then((module) => ({ default: module.MemoryPage })));
@@ -33,12 +49,17 @@ const TaskPage = lazy(() => import("../pages/tasks-page.tsx").then((module) => (
 
 /** Assembles the active list and detail; the shell owns their responsive layout. */
 export function AppFrame() {
+	const localFiles = useLocalFilesAdapter();
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const person = usePerson();
 	const bot = useBot();
-	const { realtime } = useData();
+	const recorder = useMeetingRecorder(person?.id ?? null);
+	const [recorderOpen, setRecorderOpen] = useState(false);
+	const [shortVoiceActive, setShortVoiceActive] = useState(false);
+	const activeRecording = recorder.state.recordings.find((recording) => recording.id === recorder.state.activeId);
+	const { realtime, storage } = useData();
 	const connectionStatus = useSyncExternalStore(
 		realtime.subscribe,
 		() => realtime.status,
@@ -48,35 +69,63 @@ export function AppFrame() {
 	const conversations = useConversations();
 	const health = useHealth();
 	const hasPassword = useHasPassword();
-	const [draft, setDraft] = useState("");
-	const [layoutMode, setLayoutMode] = useState<LayoutMode>("wide");
+	const skills = useSkills();
+	const contacts = useContacts();
+	const [layoutMode, setLayoutMode] = useState<LayoutMode | null>(null);
 	const modelDirty = useRef(false);
-	const lastTab = useRef<TabId>("messages");
 	const previousLocation = useRef("/messages");
 
 	const located = locate(location.pathname);
 	const meOpen = located !== null && located.tab === null;
+	const path = `${location.pathname}${location.search}${location.hash}`;
 	useEffect(() => {
-		if (located?.tab) {
-			lastTab.current = located.tab;
-			previousLocation.current = `${location.pathname}${location.search}${location.hash}`;
+		if (located?.tab) previousLocation.current = path;
+	}, [located?.tab, path]);
+	const remembered = (location.state as { tabLocation?: string } | null)?.tabLocation;
+	const tabLocation = meOpen ? remembered || previousLocation.current : path;
+	const base = meOpen ? locate(tabLocation.split(/[?#]/)[0] ?? "/messages") : located;
+	const tab = base?.tab ?? "messages";
+	const [selection = null] = base?.detail ?? [];
+	const [first = null, second = null] = meOpen ? located.detail : [];
+	const section = first && isMeSection(first) ? first : null;
+	const meEntry = useMeEntry(storage, person?.id, section);
+	const splitMe = isDesktopExperience() && layoutMode === "wide";
+	useEffect(() => {
+		if (splitMe && meOpen && !first && person) {
+			navigate(meEntry, { replace: true, state: location.state });
 		}
-	}, [located?.tab, location.pathname, location.search, location.hash]);
-	const tab = located?.tab ?? lastTab.current;
-	const [first = null, second = null] = located?.detail ?? [];
-	const messageSelection = tab === "messages" ? first : null;
-	const conversation =
-		messageSelection && messageSelection !== MAIN_CONVERSATION
-			? conversations.data?.items.find((item) => item.id === messageSelection)
-			: conversations.data?.items[0];
+	}, [splitMe, meOpen, first, person, meEntry, navigate, location.state]);
+	const navigation = usePageNavigation(tabLocation);
+	const queryClient = useDataQueryClient();
+	const contactAdded = useEffectEvent((id: string) => {
+		void queryClient.invalidateQueries({ queryKey: keys.conversations.list() });
+		void queryClient.invalidateQueries({ queryKey: keys.contacts() });
+		navigation.open(`/messages/${encodeURIComponent(id)}`);
+	});
+	useEffect(() => {
+		let disposed = false;
+		let cleanup: (() => void) | undefined;
+		void listenForContactAdded((id) => contactAdded(id)).then((unlisten) => {
+			if (disposed) unlisten();
+			else cleanup = unlisten;
+		});
+		return () => {
+			disposed = true;
+			cleanup?.();
+		};
+	}, []);
+	const messageSelection = tab === "messages" ? selection : null;
+	const conversation = selectedConversation(conversations.data?.items, messageSelection, bot?.id);
+	const draft = useChatDraft(person?.id, conversation?.id);
 	const history = useMessages(conversation?.id ?? null);
 	const send = useSendMessage(conversation?.id ?? null, person?.id);
+	const compact = useCompactConversation(conversation?.id);
 	const actions = useRunActions();
 	const streaming = history.data?.pages
 		.flatMap((page) => page.items)
 		.findLast((message) => message.senderKind === "bot" && message.streaming);
-	const segmentRoot = (tab === "tasks" && first === "scheduled") || (tab === "memory" && first === "files");
-	const detailOpen = meOpen || (first !== null && !segmentRoot);
+	const segmentRoot = (tab === "tasks" && selection === "scheduled") || (tab === "memory" && selection === "files");
+	const detailOpen = selection !== null && !segmentRoot;
 	const blocker = useBlocker(() => modelDirty.current);
 	useEffect(() => {
 		if (blocker.state !== "blocked") return;
@@ -92,91 +141,155 @@ export function AppFrame() {
 		window.addEventListener("beforeunload", warn);
 		return () => window.removeEventListener("beforeunload", warn);
 	}, []);
-	const back = () => {
-		if (!meOpen) return navigate(tabPath(tab));
-		if (second) return navigate(`/me/${first}`);
-		if (first) return navigate("/me");
-		return navigate(previousLocation.current);
+	const currentBack = () => {
+		if (!meOpen) return navigation.back(tabPath(tab));
+		if (second) return navigation.back(`/me/${first}`);
+		if (first && !splitMe) return navigation.back("/me");
+		return navigation.back(tabLocation);
 	};
+	const backRef = useRef(currentBack);
+	backRef.current = currentBack;
+	// Departing animation layers retain their props, so their return must read the current route.
+	const back = useCallback(() => backRef.current(), []);
 
-	const { list, content } = located ? screensFor() : { list: null, content: <NotFoundPage /> };
+	const { list, content } = base ? screensFor() : { list: null, content: <NotFoundPage /> };
+	const me = meOpen
+		? {
+				list: <MeList current={section} onOpen={(id) => navigation.open(`/me/${id}`)} />,
+				pages: first
+					? [
+							{ key: `/me/${first}`, content: deferred(mePage(null)) },
+							...(second ? [{ key: `/me/${first}/${second}`, content: deferred(mePage(second)) }] : []),
+						]
+					: [],
+				onClose: () => navigation.back(tabLocation),
+				closeLabel: t("app.close"),
+			}
+		: undefined;
+
+	function deferred(content: ReactNode): ReactNode {
+		return (
+			<ChunkBoundary resetKey={path}>
+				<Suspense fallback={null}>{content}</Suspense>
+			</ChunkBoundary>
+		);
+	}
+
+	function mePage(page: string | null): ReactNode {
+		return first && !section ? (
+			<NotFoundPage />
+		) : (
+			<MeSectionPage
+				section={section}
+				page={page}
+				onOpenPage={(next) => (next ? navigation.open(`/me/${first}/${next}`) : navigation.back(`/me/${first}`))}
+				onOpenDevices={() => navigation.open("/me/devices")}
+				onAddDevice={() => navigation.open("/download?connect-device=1")}
+				{...(localFiles ? { localFiles } : {})}
+				onModelDirtyChange={(dirty) => {
+					modelDirty.current = dirty;
+				}}
+				onSignedOut={() => navigate("/sign-in", { replace: true })}
+				onOpenLegal={(document) => navigate(`/${document}`, { state: { backgroundLocation: location } })}
+				appVersion={BUILD_VERSION}
+				serverVersion={health.data?.version ?? null}
+				aboutUpdate={<UpdateControls />}
+				renderChangePassword={(onDone) => (
+					<PasswordSetupForm mode={hasPassword ? "change" : "set"} onDone={onDone} onSkip={onDone} />
+				)}
+			/>
+		);
+	}
 
 	function screensFor(): { list: ReactNode | null; content: ReactNode } {
-		if (meOpen) {
-			const section = first && isMeSection(first) ? first : null;
-			return {
-				list: <MeList current={section} onOpen={(id) => navigate(`/me/${id}`)} />,
-				content:
-					first && !section ? (
-						<NotFoundPage />
-					) : (
-						<MeSectionPage
-							section={section}
-							page={second}
-							onOpenPage={(page) => navigate(page ? `/me/${first}/${page}` : `/me/${first}`)}
-							onModelDirtyChange={(dirty) => {
-								modelDirty.current = dirty;
-							}}
-							onSignedOut={() => navigate("/sign-in", { replace: true })}
-							onOpenLegal={(document) => navigate(`/${document}`)}
-							appVersion={BUILD_VERSION}
-							serverVersion={health.data?.version ?? null}
-							aboutUpdate={<UpdateControls />}
-							renderChangePassword={(onDone) => (
-								<PasswordSetupForm mode={hasPassword ? "change" : "set"} onDone={onDone} onSkip={onDone} />
-							)}
-						/>
-					),
-			};
-		}
-
 		switch (tab) {
 			case "messages":
 				return {
-					list: <MessagesList current={first} onOpen={(id) => navigate(`/messages/${encodeURIComponent(id)}`)} />,
+					list: (
+						<MessagesList
+							current={selection}
+							onOpen={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
+							onOpenMeetings={() => setRecorderOpen(true)}
+						/>
+					),
 					content: (
-						<ConversationPage conversationId={first ? (conversation?.id ?? null) : null} disconnected={disconnected} />
+						<ConversationPage
+							conversationId={selection ? (conversation?.id ?? null) : null}
+							disconnected={disconnected}
+						/>
 					),
 				};
 			case "tasks":
 				return {
 					list: (
 						<TasksList
-							scheduled={first === "scheduled"}
-							onChange={(value) => navigate(value ? "/tasks/scheduled" : "/tasks")}
+							scheduled={selection === "scheduled"}
+							onChange={(value) => navigation.open(value ? "/tasks/scheduled" : "/tasks")}
 						/>
 					),
-					content: <TaskPage taskId={segmentRoot ? null : first} />,
+					content: <TaskPage taskId={segmentRoot ? null : selection} />,
 				};
 			case "memory":
 				return {
 					list: (
-						<MemoryList files={first === "files"} onChange={(value) => navigate(value ? "/memory/files" : "/memory")} />
+						<MemoryList
+							files={selection === "files"}
+							onChange={(value) => navigation.open(value ? "/memory/files" : "/memory")}
+						/>
 					),
-					content: <MemoryPage />,
+					content: <MemoryPage files={selection === "files"} />,
 				};
 		}
 	}
 
-	const talkingTo = tab === "messages" && conversation ? bot?.displayName : undefined;
-	const composer = meOpen ? null : (
+	const talkingTo = tab === "messages" && conversation ? conversationTitle(conversation, person?.id) : undefined;
+	const composer = (
 		<Composer
+			microphoneOccupied={Boolean(activeRecording)}
+			onVoiceActivityChange={setShortVoiceActive}
 			recipientName={talkingTo ?? bot?.displayName ?? null}
-			draft={draft}
-			onDraftChange={setDraft}
-			disabled={!conversation || history.isLoading || history.isError || send.isPending || disconnected}
+			draft={draft.text}
+			onDraftChange={draft.setText}
+			readOnly={!draft.loaded}
+			files={draft.files}
+			onFiles={draft.addFiles}
+			onRemoveFile={draft.removeFile}
+			onRetryFile={draft.retryFile}
+			onOriginalFileChange={draft.toggleOriginal}
+			scope={`${person?.id}:${conversation?.id}`}
+			mobilePicker={!isDesktopExperience()}
+			error={draft.error}
+			disabled={
+				!conversation ||
+				!draft.loaded ||
+				history.isLoading ||
+				history.isError ||
+				draft.sending ||
+				send.isPending ||
+				disconnected
+			}
 			disconnected={disconnected}
-			sendOnEnter={layoutMode !== "mobile"}
+			sendOnEnter={isDesktopExperience()}
 			streaming={Boolean(streaming)}
+			completionItems={completionItems(
+				conversation?.members.some((member) => member.kind === "bot") ? (skills.data?.items ?? []) : [],
+				contacts.data?.items ?? [],
+				conversation?.members ?? [],
+				bot,
+				t("skills.compact"),
+			)}
+			selectedSkillIds={draft.skillIds}
+			bindings={draft.bindings ?? []}
+			onAcceptCompletion={draft.acceptCompletion}
+			onCompact={compact.run}
+			commandStatus={<CompactStatus command={compact} />}
 			onStop={() => {
 				if (streaming) actions.stop.mutate(streaming.id);
 			}}
 			onSend={() => {
-				const body = draft.trim();
-				if (!conversation || !body) return;
-				send.mutate({ type: "text", body, clientNonce: crypto.randomUUID() });
-				setDraft("");
-				if (tab !== "messages" || !first) navigate(`/messages/${MAIN_CONVERSATION}`);
+				if (!conversation) return;
+				void draft.submit((input) => send.mutateAsync(input));
+				if (tab !== "messages" || !selection) navigation.open(`/messages/${MAIN_CONVERSATION}`);
 			}}
 		/>
 	);
@@ -187,34 +300,63 @@ export function AppFrame() {
 	};
 
 	return (
-		<AppShell
-			tab={{ current: tab, onSelect: (id) => navigate(tabPath(id)), labels, ariaLabel: t("nav.tabs") }}
-			renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
-			personName={person?.displayName ?? ""}
-			meLabel={t("nav.me")}
-			onOpenMe={() => navigate("/me")}
-			meOpen={meOpen}
-			onBack={back}
-			backLabel={t("app.back")}
-			mobileShowList={meOpen ? !first : !detailOpen}
-			list={
-				<ChunkBoundary resetKey={location.pathname}>
-					<Suspense fallback={null}>{list}</Suspense>
-				</ChunkBoundary>
-			}
-			content={
-				<ChunkBoundary resetKey={location.pathname}>
-					<Suspense fallback={null}>{content}</Suspense>
-				</ChunkBoundary>
-			}
-			detailOpen={detailOpen}
-			composer={composer}
-			titlebarInset={isMacDesktopShell()}
-			brand={<Brand />}
-			labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
-			locationKey={segmentRoot ? tabPath(tab) : location.pathname}
-			onModeChange={setLayoutMode}
-		/>
+		<>
+			<AppShell
+				tab={{
+					current: tab,
+					onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : navigation.open(tabPath(id))),
+					labels,
+					ariaLabel: t("nav.tabs"),
+				}}
+				desktop={isDesktopExperience()}
+				renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
+				personName={person?.displayName ?? ""}
+				meLabel={t("nav.me")}
+				onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
+				meOpen={meOpen}
+				me={me}
+				onBack={back}
+				backLabel={t("app.back")}
+				mobileShowList={!detailOpen}
+				list={deferred(list)}
+				content={
+					tab === "messages" ? (
+						<FileDropZone
+							key={conversation?.id}
+							onFiles={draft.addFiles}
+							disabled={!conversation || !draft.loaded || draft.sending || meOpen}
+						>
+							{deferred(content)}
+						</FileDropZone>
+					) : (
+						deferred(content)
+					)
+				}
+				detailOpen={detailOpen}
+				composer={composer}
+				status={
+					activeRecording ? (
+						<Button variant="ghost" size="sm" onClick={() => setRecorderOpen(true)}>
+							{t("meetingRecorder.openActive", { duration: recordingDuration(activeRecording.durationMs) })}
+						</Button>
+					) : null
+				}
+				titlebarInset={isMacDesktopShell()}
+				brand={<Brand />}
+				labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
+				locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
+				onModeChange={setLayoutMode}
+			/>
+			<Overlay
+				open={recorderOpen}
+				onClose={() => setRecorderOpen(false)}
+				title={t("meetingRecorder.name")}
+				closeLabel={t("app.close")}
+				mode={layoutMode ?? "mobile"}
+			>
+				<MeetingRecorderPanel recorder={recorder} microphoneOccupied={shortVoiceActive} />
+			</Overlay>
+		</>
 	);
 }
 

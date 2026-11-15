@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryStorage, DataProvider } from "@yonder/ui-data";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
@@ -28,9 +28,7 @@ test("both legal routes are public and a direct visit returns to the home route"
 	window.history.pushState({}, "", "/blank");
 	const router = renderAt("/terms");
 	expect(await screen.findByRole("heading", { name: "Terms of Service" }, { timeout: 10000 })).toBeInTheDocument();
-	await act(async () => {
-		await router.navigate("/privacy", { replace: true });
-	});
+	await router.navigate("/privacy", { replace: true });
 	expect(await screen.findByRole("heading", { name: "Privacy Policy" })).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Back" }));
 	await waitFor(() => expect(router.state.location.pathname).toBe("/"));

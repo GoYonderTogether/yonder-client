@@ -10,6 +10,9 @@ import { createBrowserRouter, Navigate, Route, RouterProvider, Routes, useLocati
 import { Splash } from "../pages/splash.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 
+const ContactWindowPage = lazy(() =>
+	import("../pages/chat-actions/contact-window-page.tsx").then((module) => ({ default: module.ContactWindowPage })),
+);
 const DownloadPage = lazy(() =>
 	import("../pages/download-page.tsx").then((module) => ({ default: module.DownloadPage })),
 );
@@ -80,6 +83,7 @@ export function AppRoutes() {
 								element={
 									<RequireSession>
 										<Routes>
+											<Route path="/contacts/add" element={<ContactWindowPage />} />
 											<Route path="/today/*" element={<Navigate to="/messages" replace />} />
 											<Route path="/me/memory/*" element={<Navigate to="/memory" replace />} />
 											{/* The old chat path, from links written before the frame changed. */}
