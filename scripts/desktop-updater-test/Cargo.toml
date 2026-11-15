@@ -1,0 +1,9 @@
+[package]
+name = "yonder-updater-background-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tauri = { version = "=2.12.5", features = ["test"] }
+tauri-plugin-updater = "=2.14.1"
+serde_json = "=1.0.145"
