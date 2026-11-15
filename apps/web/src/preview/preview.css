@@ -1,0 +1,302 @@
+.attachment-preview-layer {
+	position: fixed;
+	inset: 0;
+	z-index: 80;
+	background: var(--color-bg-base);
+}
+.attachment-reader {
+	color: var(--color-text-primary);
+	padding: 0;
+}
+.attachment-reader-header {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: var(--spacing-2);
+	padding: calc(var(--spacing-3) + env(safe-area-inset-top, 0px)) max(var(--spacing-4), env(safe-area-inset-right, 0px))
+		var(--spacing-3) max(var(--spacing-4), env(safe-area-inset-left, 0px));
+	border-bottom: 1px solid var(--color-border-subtle);
+	background: var(--color-bg-surface);
+}
+.attachment-reader-header h2 {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--text-body);
+	font-weight: 600;
+}
+.attachment-reader button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--spacing-1);
+	min-width: var(--control-md);
+	min-height: var(--control-md);
+	padding: var(--spacing-2);
+	border-radius: var(--radius-control-sm);
+	cursor: pointer;
+}
+.attachment-reader button:hover {
+	background: var(--color-bg-hover);
+}
+.attachment-reader button:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+.attachment-reader button:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+.attachment-reader-notice {
+	margin: auto;
+	padding: var(--spacing-8);
+	color: var(--color-text-secondary);
+	text-align: center;
+}
+.attachment-reader-toolbar {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: var(--spacing-1);
+	padding: var(--spacing-1) var(--spacing-2);
+	border-bottom: 1px solid var(--color-border-subtle);
+	background: var(--color-bg-surface);
+	font-size: var(--text-caption);
+}
+.attachment-reader-toolbar output {
+	min-width: var(--spacing-12);
+	text-align: center;
+}
+.attachment-reader-toolbar input {
+	width: var(--spacing-16);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-control-sm);
+	padding: var(--spacing-1);
+	text-align: center;
+	background: var(--color-bg-base);
+}
+.attachment-image-reader,
+.attachment-pdf-reader,
+.attachment-text-reader {
+	display: flex;
+	min-height: 0;
+	flex: 1;
+	flex-direction: column;
+}
+.attachment-image-area {
+	width: 100%;
+	padding: 0;
+	border: 0;
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	touch-action: none;
+	background: var(--color-bg-chrome);
+}
+.attachment-image-area img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+	user-select: none;
+	will-change: transform;
+}
+.attachment-document-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	overscroll-behavior: contain;
+	padding: var(--spacing-6) max(var(--spacing-4), calc((100% - 880px) / 2));
+}
+.attachment-document-content {
+	line-height: 1.7;
+	overflow-wrap: anywhere;
+}
+.attachment-document-content img {
+	max-width: 100%;
+	height: auto;
+}
+.attachment-document-content h1,
+.attachment-document-content h2,
+.attachment-document-content h3 {
+	margin-block: var(--spacing-6) var(--spacing-3);
+	font-weight: 600;
+}
+.attachment-document-content p {
+	margin-block: var(--spacing-3);
+}
+.attachment-document-content table {
+	border-collapse: collapse;
+	display: block;
+	max-width: 100%;
+	overflow: auto;
+}
+.attachment-document-content th,
+.attachment-document-content td {
+	padding: var(--spacing-2) var(--spacing-3);
+	border: 1px solid var(--color-border-subtle);
+}
+.attachment-document-content a {
+	color: var(--color-accent);
+	text-decoration: underline;
+}
+.attachment-reader-kind {
+	margin-bottom: var(--spacing-4);
+	color: var(--color-text-tertiary);
+	font-size: var(--text-caption);
+}
+.attachment-text-content {
+	margin: 0;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	font-family: inherit;
+	line-height: 1.7;
+}
+.attachment-media-reader {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--spacing-4);
+	padding: var(--spacing-4);
+	background: var(--color-bg-chrome);
+}
+.attachment-media-reader audio {
+	width: min(100%, 640px);
+}
+.attachment-media-reader video {
+	max-width: 100%;
+	max-height: calc(100dvh - var(--spacing-16) * 2);
+}
+.attachment-pdf-scroll {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	flex-direction: column;
+	align-items: flex-start;
+	overflow: auto;
+	overscroll-behavior: contain;
+	gap: var(--spacing-4);
+	padding: var(--spacing-4);
+	background: var(--color-bg-chrome);
+}
+.attachment-pdf-page {
+	margin-inline: auto;
+	position: relative;
+	flex: 0 0 auto;
+	background: var(--color-bg-surface);
+	box-shadow: var(--shadow-sm);
+}
+.attachment-pdf-page canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.attachment-pdf-page .textLayer {
+	position: absolute;
+	inset: 0;
+}
+.message-attachment-open {
+	position: relative;
+	display: flex;
+	max-width: 100%;
+	text-align: left;
+	cursor: pointer;
+}
+.message-attachment-open:hover {
+	opacity: 0.9;
+}
+.message-attachment-file {
+	width: min(280px, 70vw);
+	min-height: calc(var(--control-md) * 2);
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--spacing-3);
+	padding: var(--spacing-3);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-control);
+	background: var(--color-bg-surface);
+}
+.message-attachment-caption {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+	gap: var(--spacing-2);
+}
+.message-attachment-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.message-attachment-caption small {
+	color: var(--color-text-tertiary);
+	font-size: var(--text-caption);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.message-attachment-icon {
+	position: relative;
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: var(--control-lg);
+	height: var(--control-lg);
+	border-radius: var(--radius-control-sm);
+	color: var(--color-accent);
+	background: var(--color-bg-subtle);
+}
+.message-attachment-state-badge {
+	position: absolute;
+	inset: auto 0 0 auto;
+	display: flex;
+	padding: calc(var(--spacing-1) / 2);
+	border-radius: var(--radius-full);
+	color: var(--color-text-secondary);
+	background: var(--color-bg-surface);
+}
+.message-attachment-icon-play {
+	position: absolute;
+}
+.message-attachment-media {
+	overflow: hidden;
+	border-radius: var(--radius-card);
+}
+.message-attachment-placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.message-attachment-overlay,
+.attachment-video-play {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+.attachment-video-play svg {
+	color: var(--color-text-primary);
+	padding: var(--spacing-2);
+	box-sizing: content-box;
+	border-radius: var(--radius-full);
+	background: var(--color-bg-raised);
+	box-shadow: var(--shadow-sm);
+}
+.message-attachment-cache-error {
+	position: absolute;
+	inset: var(--spacing-1) var(--spacing-1) auto auto;
+	color: var(--color-danger);
+}
