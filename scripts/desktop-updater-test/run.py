@@ -2,7 +2,8 @@
 
 Run from any directory: python3 scripts/desktop-updater-test/run.py
 Requires the repository's installed Tauri CLI and cached Rust dependencies. This tests the
-real updater with Tauri's MockRuntime; it does not test the web UI or Tauri process relaunch.
+real updater and native AppHandle::restart with Tauri's MockRuntime; it does not test the
+web UI, process plugin IPC, or the normal runtime's restart events.
 """
 
 import ctypes
@@ -20,6 +21,7 @@ import subprocess
 import tarfile
 import tempfile
 import threading
+import time
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
@@ -70,6 +72,22 @@ def check_swap(app, root):
         if renamex(os.fsencode(app), os.fsencode(probe), 2) != 0:  # RENAME_SWAP
             raise OSError(ctypes.get_errno(), "fixture bundle swap preflight failed")
     probe.rmdir()
+
+
+def wait_for(path, seconds=30):
+    deadline = time.monotonic() + seconds
+    while not path.exists():
+        require(time.monotonic() < deadline, f"timed out waiting for {path.name}")
+        time.sleep(0.1)
+
+
+def running_executable(pid):
+    libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
+    libproc.proc_pidpath.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+    libproc.proc_pidpath.restype = ctypes.c_int
+    buffer = ctypes.create_string_buffer(4096)
+    require(libproc.proc_pidpath(pid, buffer, len(buffer)) > 0, "restarted process is not running")
+    return Path(os.fsdecode(buffer.value)).resolve()
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -123,15 +141,34 @@ def main():
             check_swap(old, root)
             executable = old / "Contents/MacOS/updater-test"
             command = [str(executable), str(root), url + "/darwin.json"]
-            subprocess.run(command, cwd=root, env=env, timeout=90, check=True)
+            process = subprocess.Popen(command, cwd=root, env=env)
+            try:
+                require(process.wait(timeout=90) == 0, "original process failed")
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                raise
+            old_event = (root / "started-0.1.0").read_text().splitlines()
+            require(old_event == ["0.1.0", str(process.pid), str(executable)], "original process mismatch")
             with (old / "Contents/Info.plist").open("rb") as f:
                 require(plistlib.load(f)["CFBundleShortVersionString"] == "0.2.0", "installed version mismatch")
             digest = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
             require(digest(executable) == digest(root / "0.2.0.bin") != digest(root / "0.1.0.bin"),
                     "installed executable mismatch")
-            subprocess.run(command, cwd=root, env=env, timeout=30, check=True)
             print("Info.plist version 0.2.0 and replaced binary SHA-256 verified", flush=True)
-            print("Tauri process relaunch was not invoked", flush=True)
+            new_event_path = root / "started-0.2.0"
+            wait_for(new_event_path)
+            new_event = new_event_path.read_text().splitlines()
+            require(len(new_event) == 3 and new_event[0] == "0.2.0", "restarted version mismatch")
+            new_pid = int(new_event[1])
+            require(new_pid != process.pid, "restart did not start a new process")
+            require(new_event[2] == str(executable), "restarted executable path mismatch")
+            require(running_executable(new_pid) == executable, "running process path mismatch")
+            print(f"restarted native executable: {new_event[0]}, pid {new_pid}, path {new_event[2]}", flush=True)
+            (root / "verified").touch()
+            wait_for(root / "restart-complete")
+            require((root / "restart-complete").read_text() == "0.2.0", "restart did not complete")
+            print("native relaunch verified: 0.1.0 -> 0.2.0, distinct process, same executable path", flush=True)
         finally:
             server.shutdown()
             server.server_close()
