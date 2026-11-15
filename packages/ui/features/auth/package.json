@@ -13,7 +13,8 @@
 		"@yonder/ui-i18n": "0.3.26111505",
 		"@yonder/ui-shell": "0.3.26111505",
 		"@yonder/ui-tokens": "0.3.26111505",
-		"lucide-react": "1.72.0"
+		"lucide-react": "1.72.0",
+		"@yonder/auth-presentation": "0.3.26111505"
 	},
 	"peerDependencies": {
 		"react": ">=19"

@@ -1,3 +1,5 @@
+import { AuthActions, AuthConsent, AuthStack, AuthTitle } from "@yonder/auth-presentation";
+import type { DeviceInfo } from "@yonder/protocol";
 import { Button, cn, Field, IconButton, PasswordField, PhoneField } from "@yonder/ui-components";
 import { clearInvite, readInvite, useApi, useData, useResolvedInvite } from "@yonder/ui-data";
 import { X } from "lucide-react";
@@ -15,7 +17,7 @@ export interface SignInFormProps {
 	/** Called after a successful sign-in. `isNewAccount` decides which setup steps follow. */
 	onSignedIn: (result: { isNewAccount: boolean; accessToken: string; refreshToken?: string }) => void;
 	/** The device description sent with the sign-in, for the sessions list. */
-	device: { name: string; platform: "web" | "macos" | "windows" | "ios" | "android" | "linux"; appVersion: string };
+	device: DeviceInfo;
 	initialMode?: AuthMode;
 	onOpenLegal: (document: "terms" | "privacy", trigger: HTMLAnchorElement) => void;
 }
@@ -135,7 +137,7 @@ export function SignInForm({ onSignedIn, device, onOpenLegal, initialMode = "cod
 	return (
 		<form
 			className={cn(
-				"flex w-full max-w-[400px] flex-col gap-[var(--spacing-6)]",
+				"w-full max-w-[400px]",
 				"[&+button]:w-full [&+button]:max-w-[400px] [&+button]:text-left",
 				mode === "code" && "[&+button]:hidden",
 			)}
@@ -146,116 +148,137 @@ export function SignInForm({ onSignedIn, device, onOpenLegal, initialMode = "cod
 				else void submit();
 			}}
 		>
-			<h1 className="text-h1 text-[var(--color-text-primary)]">{t("auth.signInTitle")}</h1>
+			<AuthStack as="div">
+				<AuthTitle as="h1">{t("auth.signInTitle")}</AuthTitle>
 
-			<Field
-				label={t("auth.phoneLabel")}
-				htmlFor="sign-in-phone"
-				error={failure?.field === "target" ? failure.text : undefined}
-			>
-				<PhoneField
-					id="sign-in-phone"
-					type="tel"
-					inputMode="tel"
-					autoComplete="tel-national"
-					value={stage === "phone" ? formatNational(phoneInput) : maskedTarget}
-					onChange={(event) => setPhoneInput(event.target.value)}
-					countryCode={countryCode}
-					onCountryCodeChange={setCountryCode}
-					countryLabel={t("auth.countryLabel")}
-					countries={COUNTRY_CODES.map(({ code: country }) => ({
-						code: country,
-						label: `${t(`auth.countries.${country}`)} ${country}`,
-					}))}
-					fieldSize="lg"
-					disabled={stage === "code"}
-					invalid={failure?.field === "target"}
-					aria-describedby={failure?.field === "target" ? "sign-in-phone-hint" : undefined}
-				/>
-			</Field>
-
-			{mode === "password" ? (
 				<Field
-					label={t("auth.passwordLabel")}
-					htmlFor="sign-in-password"
-					error={failure?.field === "password" ? failure.text : undefined}
+					label={t("auth.phoneLabel")}
+					htmlFor="sign-in-phone"
+					error={failure?.field === "target" ? failure.text : undefined}
 				>
-					<PasswordField
-						id="sign-in-password"
-						showLabel={t("auth.showPassword")}
-						hideLabel={t("auth.hidePassword")}
+					<PhoneField
+						className={failure?.field === "target" ? undefined : "auth-control"}
+						id="sign-in-phone"
+						type="tel"
+						inputMode="tel"
+						autoComplete="tel-national"
+						value={stage === "phone" ? formatNational(phoneInput) : maskedTarget}
+						onChange={(event) => setPhoneInput(event.target.value)}
+						countryCode={countryCode}
+						onCountryCodeChange={setCountryCode}
+						countryLabel={t("auth.countryLabel")}
+						countries={COUNTRY_CODES.map(({ code: country }) => ({
+							code: country,
+							label: `${t(`auth.countries.${country}`)} ${country}`,
+						}))}
 						fieldSize="lg"
-						autoComplete="current-password"
-						value={password}
-						onChange={(event) => setPassword(event.target.value)}
-						invalid={failure?.field === "password"}
+						disabled={stage === "code"}
+						invalid={failure?.field === "target"}
+						aria-describedby={failure?.field === "target" ? "sign-in-phone-hint" : undefined}
 					/>
 				</Field>
-			) : stage === "code" ? (
-				<SignInCodeField
-					code={code}
-					onChange={setCode}
-					onSubmit={submit}
-					onResend={sendCode}
-					secondsLeft={secondsLeft}
-					sending={sending}
-					submitting={submitting}
-					failure={failure}
-				/>
-			) : null}
 
-			{failure && !failure.field ? (
-				<p
-					role="alert"
-					className="rounded-[var(--radius-sm)] bg-[var(--color-bg-subtle)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-caption text-[var(--color-danger)]"
-				>
-					{failure.text}
-				</p>
-			) : null}
-
-			<TermsConsent ref={termsRef} checked={acceptedTerms} onChange={setAcceptedTerms} onOpenLegal={onOpenLegal} />
-
-			<div className="flex flex-col gap-[var(--spacing-2)]">
-				{inviteCode && invite.data?.valid && invite.data.inviter ? (
-					<div className="flex items-center justify-between text-caption text-[var(--color-text-secondary)]">
-						<span>{t("auth.invitedBy", { name: invite.data.inviter.displayName })}</span>
-						<IconButton
-							size="sm"
-							aria-label={t("auth.removeInvite")}
-							onClick={() => {
-								clearInvite(storage);
-								setInviteCode(null);
-							}}
-						>
-							<X size={16} aria-hidden="true" />
-						</IconButton>
-					</div>
-				) : null}
 				{mode === "password" ? (
-					<Button type="submit" variant="primary" size="lg" block loading={submitting}>
-						{t("auth.submitCode")}
-					</Button>
-				) : stage === "phone" ? (
-					<Button type="button" variant="primary" size="lg" block loading={sending} onClick={() => void sendCode()}>
-						{sending ? t("auth.sendingCode") : t("auth.sendCode")}
-					</Button>
-				) : (
-					<Button type="submit" variant="primary" size="lg" block loading={submitting} disabled={code.length !== 6}>
-						{submitting ? t("auth.submitting") : t("auth.submitCode")}
-					</Button>
-				)}
-			</div>
-			<Button
-				variant="link"
-				className="self-start"
-				onClick={() => {
-					setMode(mode === "code" ? "password" : "code");
-					setFailure(null);
-					setStage("phone");
-				}}
-			>
-				{mode === "code" ? t("auth.usePassword") : t("auth.useCode")}
-			</Button>
+					<Field
+						label={t("auth.passwordLabel")}
+						htmlFor="sign-in-password"
+						error={failure?.field === "password" ? failure.text : undefined}
+					>
+						<PasswordField
+							id="sign-in-password"
+							showLabel={t("auth.showPassword")}
+							hideLabel={t("auth.hidePassword")}
+							fieldSize="lg"
+							autoComplete="current-password"
+							value={password}
+							onChange={(event) => setPassword(event.target.value)}
+							invalid={failure?.field === "password"}
+						/>
+					</Field>
+				) : stage === "code" ? (
+					<SignInCodeField
+						code={code}
+						onChange={setCode}
+						onSubmit={submit}
+						onResend={sendCode}
+						secondsLeft={secondsLeft}
+						sending={sending}
+						submitting={submitting}
+						failure={failure}
+					/>
+				) : null}
+
+				{failure && !failure.field ? (
+					<p
+						role="alert"
+						className="rounded-[var(--radius-sm)] bg-[var(--color-bg-subtle)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-caption text-[var(--color-danger)]"
+					>
+						{failure.text}
+					</p>
+				) : null}
+
+				<AuthConsent as="div">
+					<TermsConsent ref={termsRef} checked={acceptedTerms} onChange={setAcceptedTerms} onOpenLegal={onOpenLegal} />
+				</AuthConsent>
+
+				<AuthActions as="div">
+					{inviteCode && invite.data?.valid && invite.data.inviter ? (
+						<div className="flex items-center justify-between text-caption text-[var(--color-text-secondary)]">
+							<span>{t("auth.invitedBy", { name: invite.data.inviter.displayName })}</span>
+							<IconButton
+								size="sm"
+								aria-label={t("auth.removeInvite")}
+								onClick={() => {
+									clearInvite(storage);
+									setInviteCode(null);
+								}}
+							>
+								<X size={16} aria-hidden="true" />
+							</IconButton>
+						</div>
+					) : null}
+					{mode === "password" ? (
+						<Button type="submit" variant="primary" size="lg" className="auth-primary" block loading={submitting}>
+							{t("auth.submitCode")}
+						</Button>
+					) : stage === "phone" ? (
+						<Button
+							type="button"
+							variant="primary"
+							size="lg"
+							className="auth-primary"
+							block
+							loading={sending}
+							onClick={() => void sendCode()}
+						>
+							{sending ? t("auth.sendingCode") : t("auth.sendCode")}
+						</Button>
+					) : (
+						<Button
+							type="submit"
+							variant="primary"
+							size="lg"
+							className="auth-primary"
+							block
+							loading={submitting}
+							disabled={code.length !== 6}
+						>
+							{submitting ? t("auth.submitting") : t("auth.submitCode")}
+						</Button>
+					)}
+				</AuthActions>
+				<Button
+					variant="link"
+					className="self-start"
+					onClick={() => {
+						setMode(mode === "code" ? "password" : "code");
+						setFailure(null);
+						setStage("phone");
+					}}
+				>
+					{mode === "code" ? t("auth.usePassword") : t("auth.useCode")}
+				</Button>
+			</AuthStack>
 		</form>
 	);
 }

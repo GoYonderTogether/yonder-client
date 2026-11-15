@@ -1,9 +1,10 @@
 import { AuthLayout, ForgotPasswordForm, SignInForm } from "@yonder/feature-auth";
 import { useData } from "@yonder/ui-data";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { BUILD_VERSION } from "../lib/config.ts";
+import { deviceInfo } from "../lib/device-info.ts";
 
 /**
  * `/sign-in`. One page for signing in and for creating an account: the server decides which it was
@@ -14,7 +15,8 @@ export function SignInPage() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [params] = useSearchParams();
-	const { startSession } = useData();
+	const { startSession, storage } = useData();
+	const device = useMemo(() => deviceInfo(storage, BUILD_VERSION), [storage]);
 	const [forgot, setForgot] = useState(false);
 	const legalTrigger = useRef<HTMLAnchorElement | null>(null);
 
@@ -62,7 +64,7 @@ export function SignInPage() {
 							legalTrigger.current = trigger;
 							navigate(`/${document}`, { state: { backgroundLocation: location } });
 						}}
-						device={{ name: deviceName(), platform: "web", appVersion: BUILD_VERSION }}
+						device={device}
 						onSignedIn={(result) => void onSignedIn(result)}
 					/>
 					<button
@@ -76,14 +78,4 @@ export function SignInPage() {
 			)}
 		</AuthLayout>
 	);
-}
-
-/** A name a person can recognise in the sessions list, without asking permission for anything. */
-function deviceName(): string {
-	const platform = typeof navigator === "undefined" ? "" : navigator.userAgent;
-	if (/iPhone|iPad/i.test(platform)) return "iPhone";
-	if (/Android/i.test(platform)) return "Android";
-	if (/Macintosh/i.test(platform)) return "Mac";
-	if (/Windows/i.test(platform)) return "Windows PC";
-	return "Web browser";
 }
