@@ -32,4 +32,4 @@ npx playwright test e2e/chunk-loading.spec.ts
 
 浏览器测试隔离 API、WebSocket 和外部网络，检查公开入口不会请求受保护功能 chunk、进入功能时才加载、登录表单及聊天草稿在既有导航路径中保留。性能实测另用真实生产会话，只记录数值，不发送消息或采集聊天正文。
 
-发布沿用 `docs/release.md` 的 CI、Release 和 Web deploy 流程，以线上版本及提交核对部署结果。共享工作树中的其他任务修改保留给后续提交。
+发布沿用 `docs/operations/release.md` 的 CI、Release 和 Web deploy 流程，以线上版本及提交核对部署结果。共享工作树中的其他任务修改保留给后续提交。

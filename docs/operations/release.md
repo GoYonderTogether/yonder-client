@@ -23,7 +23,7 @@ failure never leaves a public Release whose commit is not on `main`.
 | --------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ci.yml`                    | push to main, pull_request, workflow_dispatch                                 | lint, typecheck, test, the three `tools/` checks, changelog check, web build, cloud endpoint smoke, macOS `.app` build; one aggregate `CI` job |
 | `release.yml`               | workflow_dispatch only                                                        | tag, CHANGELOG, GitHub Release, dispatch the platform builds                                                                                   |
-| `desktop-release.yml`       | dispatched by `release.yml` (also `release: published` for manual publishing) | macOS Developer ID-signed, notarized dmg (ad-hoc fallback) + unsigned Windows nsis → Release + OSS `desktop/<version>/`                        |
+| `desktop-release.yml`       | dispatched by `release.yml` (also `release: published` for manual publishing) | macOS Developer ID-signed, notarized dmg (ad-hoc fallback) + unsigned Windows nsis → Release; signed updater artifacts and manifests → OSS     |
 | `android-release.yml`       | dispatched by `release.yml`                                                   | signed APK → Release asset `yonder-android.apk` + OSS `android/`                                                                               |
 | `ios-release.yml`           | dispatched by `release.yml`                                                   | archive, export IPA, upload to TestFlight                                                                                                      |
 | `windows-install-check.yml` | workflow_dispatch (input: release tag)                                        | installs the nsis installer on `windows-2025`, launches it, requires 20 s uptime, screenshots, uninstalls                                      |
@@ -63,13 +63,46 @@ read from the root `package.json`; the date and sequence come from `scripts/rele
 | `IOS_PROVISIONING_PROFILE_BASE64`, `IOS_TEAM_ID`                                       | ios-release                                                          |
 | `MACOS_CERTIFICATE_P12_BASE64`, `MACOS_CERTIFICATE_PASSWORD`, `MACOS_SIGNING_IDENTITY` | desktop-release (Developer ID Application for team `D4UZU32UN9`)     |
 | `ASC_API_ISSUER_ID`, `ASC_API_KEY_ID`, `ASC_API_PRIVATE_KEY_BASE64`                    | ios-release (TestFlight), desktop-release (notarization)             |
-| `DEPLOY_SSH_KEY`                                                                       | web-deploy (restricted key, see `docs/web-deploy.md`)                |
+| `TAURI_UPDATER_PUBKEY`                                                                 | desktop-release (contents of the updater `.pub` file)                |
+| `TAURI_UPDATER_PRIVATE_KEY`, `TAURI_UPDATER_KEY_PASSWORD`                              | desktop-release (Tauri updater artifact signatures)                  |
+| `DEPLOY_SSH_KEY`                                                                       | web-deploy (restricted key, see `docs/operations/web-deploy.md`)     |
 
 `DEPLOY_SSH_KEY` is used by `web-deploy.yml`, which `release.yml` dispatches after the Release is
-public. See `docs/web-deploy.md`.
+public. See `docs/operations/web-deploy.md`.
 
 If any macOS certificate secret is missing, desktop-release warns and builds an ad-hoc dmg without
 notarization. A Developer ID build requires the existing App Store Connect API secrets as well.
+
+## App updates
+
+Desktop updates use Tauri's updater signature, which is independent of Apple code signing,
+notarization, and Windows code signing. Before the first updater-enabled release, the operator
+generates a Tauri signing key pair (for example with `tauri signer generate --write-keys <secure-path>`) and
+sets the three updater secrets above. Keep the private key and its password private and stable: apps
+already shipped with one public key cannot verify releases signed by a different key. Never commit
+the private key or password. The release workflow requires all three values; it writes the public
+key to a temporary config overlay via `scripts/release/tauri-updater-config.mjs` and passes that
+overlay to `tauri build`. Local/CI builds without a key do not register the updater, and update
+checks report an error rather than claiming to be current.
+
+The desktop workflow signs the updater artifact with `tauri signer sign --app-version`, then
+`scripts/release/desktop.mjs` verifies the artifact, signature, public key and version before
+uploading the versioned artifact and finally its static JSON manifest. The current build matrix
+publishes `desktop/darwin.json` for Apple Silicon and `desktop/windows.json` for Windows x64 at
+`https://dl.zethai.cn/`. The macOS updater archive contains the same signed app as the dmg; Apple
+notarization still depends on the Apple secrets described above. Users of builds made before the
+updater was included need to install an updater-enabled build first.
+
+Android publishes `android/latest.json` only after its versioned APK. The publisher reads the
+actual APK `versionCode` and `versionName` with Android build-tools `aapt`, checks them against the
+release version, and records the APK SHA-256. `minSupportedVersion` is `null` by default; the
+optional `min_supported_version` input on a manually dispatched `android-release.yml` run sets it
+to a valid version no newer than the release. Each publication, rebuild or repair uses its own
+input; specify the minimum again to retain it, otherwise it returns to `null`. Existing apps below
+that version are told an update is required but are not blocked. After the user chooses to download, the app verifies the hash and
+opens Android's package installer; the user may need to allow installs from this app in system
+settings and must confirm installation. Android refuses to replace an app signed with a different
+certificate. The web and iOS apps have no in-app updater.
 
 ## Rebuilding a release that failed
 
