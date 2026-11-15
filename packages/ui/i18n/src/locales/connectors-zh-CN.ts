@@ -1,0 +1,38 @@
+export const connectorMessagesZhCN = {
+	title: "连接器",
+	connect: "连接",
+	connected: "已接入",
+	connectedOffline: "已接入 · 设备离线",
+	connectedNotReady: "已接入 · 未就绪",
+	noConnectorsOnDevice: "此设备没有可用连接器",
+	manage: "管理",
+	enable: "启用",
+	save: "保存更改",
+	upgrade: "启用整台电脑读取",
+	usage: "使用说明与数据处理",
+	usageBody:
+		"你的 Bot 会在处理你的请求时使用已启用的能力。读取内容会发送到云端及你使用的模型进行处理，断开后停止后续访问。",
+	legacyScope: "当前仅开放之前选择的文件夹，尚未启用整台电脑读取。",
+	fileToolsScope: "Bot 可以在该设备上创建、编辑和可恢复删除此系统账号可访问的全部文件。",
+	readScope: "启用后，Bot 可以读取、查找和按需索引该设备上此系统账号可访问的全部文件。",
+	disconnect: "断开连接",
+	device: "设备",
+	available: "可用",
+	unavailable: "当前不可用",
+	loadFailed: "连接器加载失败",
+	connectFailed: "连接没有完成，请重试。",
+	disconnectFailed: "没有断开连接，请重试。",
+	viewDevices: "查看设备",
+	onDevice: "请在 {{device}} 的 Yonder 中继续启用此连接器。",
+	needsDesktop: "请在电脑上打开 Yonder，启用此连接器。",
+	localFiles: {
+		name: "读取文件",
+		description: "查找和读取该设备的文件",
+		scope:
+			"你的 Bot 可以列出所选文件夹中的文件并读取文本内容。读取的内容会发送到云端处理，不能修改文件或访问此范围之外的文件。",
+	},
+	computerControl: {
+		name: "修改文件",
+		description: "创建、编辑和可恢复删除文件",
+	},
+} as const;

@@ -1,0 +1,40 @@
+export const connectorMessagesEn = {
+	title: "Connectors",
+	connect: "Connect",
+	connected: "Connected",
+	connectedOffline: "Connected · Device offline",
+	connectedNotReady: "Connected · Not ready",
+	noConnectorsOnDevice: "No connectors available on this device",
+	manage: "Manage",
+	enable: "Enable",
+	save: "Save changes",
+	upgrade: "Enable whole-computer reading",
+	usage: "Usage and data handling",
+	usageBody:
+		"Your Bots use enabled capabilities when carrying out your requests. Retrieved content is sent to the cloud and your chosen model for processing. Disconnecting stops future access.",
+	legacyScope: "Only the previously selected folder is shared. Whole-computer access has not been enabled.",
+	fileToolsScope:
+		"Bots can create, edit and recoverably delete files across the selected device that the current OS account can access.",
+	readScope:
+		"Enabling this shares files across the selected device that the OS account can access for reading, finding and on-demand indexing.",
+	disconnect: "Disconnect",
+	device: "Device",
+	available: "Available",
+	unavailable: "Unavailable",
+	loadFailed: "Could not load connectors",
+	connectFailed: "Could not finish connecting. Try again.",
+	disconnectFailed: "Could not disconnect. Try again.",
+	viewDevices: "View devices",
+	onDevice: "Continue in Yonder on {{device}} to enable this connector.",
+	needsDesktop: "Open Yonder on your computer to enable this connector.",
+	localFiles: {
+		name: "Read files",
+		description: "Find and read files on the selected device",
+		scope:
+			"Your Bots can list files and read text files inside the folder you choose. Read content is sent to the cloud for processing. They cannot modify files or access anything outside that folder.",
+	},
+	computerControl: {
+		name: "Modify files",
+		description: "Create, edit and recoverably delete files",
+	},
+} as const;
