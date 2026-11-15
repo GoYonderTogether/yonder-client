@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26111505] - 2026-11-15
+
+### Changed
+
+- defer web views and coalesce query cache writes
+
 ## [0.3.26111504] - 2026-11-15
 
 ### Added
