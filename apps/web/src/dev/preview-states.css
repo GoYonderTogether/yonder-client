@@ -1,0 +1,62 @@
+/* These dev-only mirrors make transient styles comparable at the same time. */
+.component-preview :is([data-preview-state="hover"], [data-preview-state="active"]) [data-preview-button="primary"] {
+	background: var(--color-accent-hover);
+}
+
+.component-preview :is([data-preview-state="hover"], [data-preview-state="active"]) [data-preview-button="secondary"] {
+	background: var(--color-bg-subtle-hover);
+}
+
+.component-preview :is([data-preview-state="hover"], [data-preview-state="active"]) [data-preview-button="ghost"] {
+	background: var(--color-bg-hover);
+}
+
+.component-preview :is([data-preview-state="hover"], [data-preview-state="active"]) [data-preview-button="danger"] {
+	background: var(--color-danger);
+	color: var(--color-danger-inverse);
+}
+
+.component-preview :is([data-preview-state="hover"], [data-preview-state="active"]) [data-preview-button="link"] {
+	color: var(--color-accent-hover);
+	text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.component-preview [data-preview-state="active"] [data-preview-button],
+	.component-preview [data-preview-state="active"] [role="radiogroup"] label:last-child {
+		scale: 0.97;
+	}
+}
+
+.component-preview [data-preview-state="focus"] :is([data-preview-button], [data-preview-checkbox]) {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+	box-shadow: var(--focus-ring);
+}
+
+.component-preview
+	:is([data-preview-state="hover"], [data-preview-state="active"])
+	[role="radiogroup"]
+	label:last-child {
+	color: var(--color-text-primary);
+}
+
+.component-preview [data-preview-state="focus"] [role="radiogroup"] input:checked + span {
+	outline: 2px solid var(--color-accent);
+	box-shadow: var(--focus-ring);
+}
+
+.component-preview [data-preview-state="focus"] [data-preview-input] [data-input-frame],
+.component-preview
+	[data-preview-state="focus"]
+	[data-preview-code]
+	[aria-hidden="true"]
+	> [data-input-frame]:nth-child(4) {
+	border-color: var(--color-accent);
+	background: var(--color-bg-surface);
+	box-shadow: var(--focus-ring);
+}
+
+.component-preview [data-preview-state="focus"] [data-preview-picker] button[aria-haspopup="listbox"] {
+	background: var(--color-bg-hover);
+}

@@ -1,0 +1,27 @@
+{
+	"files": {
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/node_modules",
+			"!docs/design",
+			"!test-results",
+			"!e2e/report",
+			"!.e2e",
+			"!.kit",
+			"!apps/desktop/src-tauri/gen",
+			"!apps/desktop/src-tauri/target",
+			"!apps/desktop/src-tauri/Cargo.lock"
+		]
+	},
+	"formatter": {
+		"indentStyle": "tab",
+		"lineWidth": 120
+	},
+	"overrides": [
+		{
+			"includes": ["apps/web/**/*.css", "packages/ui/**/*.css"],
+			"css": { "parser": { "tailwindDirectives": true } }
+		}
+	]
+}

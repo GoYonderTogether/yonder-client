@@ -1,0 +1,58 @@
+/**
+ * `@yonder/ui-data` — layer 4. Server state, its cache, the realtime channel, and the platform
+ * seams a feature needs (storage, tokens, theme, language).
+ *
+ * A feature module calls these hooks. It never calls `fetch`, never builds a cache key string, and
+ * never copies server data into component or store state.
+ */
+
+export type { Endpoints, SessionSummary } from "@yonder/api-client";
+// Re-exported so a feature can branch on a failure without depending on the HTTP client package.
+export { ApiError, NetworkError } from "@yonder/api-client";
+
+export type { SessionState, SessionStatus } from "./auth/session-store.ts";
+export { useSessionStore } from "./auth/session-store.ts";
+export { createMemoryTokenStore } from "./auth/token-store.ts";
+export {
+	useBot,
+	useDeleteAccount,
+	useHealth,
+	useMe,
+	usePerson,
+	useResetAccountCache,
+	useRevokeSession,
+	useSessions,
+	useSetPassword,
+	useSignOut,
+	useUpdateMe,
+	useUploadAvatar,
+} from "./hooks/account.ts";
+export type { CachedMessage } from "./hooks/chat.ts";
+export { useConversations, useMessages, useRunActions, useSendMessage } from "./hooks/chat.ts";
+export { useProviderActions, useProviders } from "./hooks/providers.ts";
+export { useInvite, useQuota, useQuotaLedger, useResolvedInvite, useUsage } from "./hooks/quota.ts";
+export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
+export {
+	readLocale,
+	readThemeChoice,
+	useLocalePreference,
+	useSystemPrefersDark,
+	useTheme,
+} from "./preferences/preferences.ts";
+export {
+	CACHE_MAX_AGE_MS,
+	CACHE_STORAGE_KEY,
+	CACHE_VERSION,
+	createPersister,
+	createQueryClient,
+} from "./query/client.ts";
+export { ALL_ROOT_KEYS, keys } from "./query/keys.ts";
+export type { DataContextValue, DataProviderProps } from "./query/provider.tsx";
+export { DataProvider, useApi, useData, useDataQueryClient } from "./query/provider.tsx";
+export type { ConnectionStatus, RealtimeHandlers, RealtimeOptions } from "./realtime/connection.ts";
+export { RealtimeConnection, websocketUrl } from "./realtime/connection.ts";
+export { applyServerEvent } from "./realtime/events.ts";
+export { useRealtimeSync } from "./realtime/use-realtime-sync.ts";
+export type { Storage } from "./storage/index.ts";
+export { createBrowserStorage, createDefaultStorage, createMemoryStorage } from "./storage/index.ts";
+export { clearInvite, readInvite, saveInvite } from "./storage/invite.ts";

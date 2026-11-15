@@ -1,0 +1,275 @@
+#!/usr/bin/env node
+/**
+ * Re-apply local-only settings to the generated Android project.
+ *
+ * `tauri android init` regenerates `src-tauri/gen/android` from scratch and that tree is
+ * gitignored, so anything we add to it by hand is lost. This script re-applies two things
+ * idempotently after `tauri android init` and before `tauri android build`:
+ *
+ *   1. Release signing — writes `keystore.properties` (holds the store path and passwords)
+ *      and inserts the `signingConfigs` block plus the release `signingConfig` line.
+ *      Without a keystore, release builds stay unsigned so a fresh checkout still builds.
+ *   2. Gradle repository mirrors — `dl.google.com` is unreachable from mainland networks and
+ *      the default `google()`/`mavenCentral()` fail with a TLS handshake error. The mirrors
+ *      are prepended and fall back to the originals, so machines that can reach Google are
+ *      unaffected. Skip with `--no-mirrors`.
+ *   3. Keyboard resize — without `adjustResize` the soft keyboard overlays the WebView and the
+ *      page cannot shrink to the visible area. `windowSoftInputMode` and the matching
+ *      `windowSoftInputMode` line are re-applied here because the manifest is regenerated.
+ *
+ *   node apps/desktop/prepare-android.mjs [--keystore <path>] [--alias <name>] [--no-mirrors]
+ *
+ * Without `--keystore` it reads `YONDER_ANDROID_KEYSTORE`, falling back to
+ * `~/.yonder-signing/android/yonder-release.jks`. Passwords come from
+ * `YONDER_ANDROID_KEYSTORE_PASSWORD`, else from `keystore.password` beside the keystore.
+ */
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = dirname(fileURLToPath(import.meta.url));
+const android = resolve(root, "src-tauri/gen/android");
+const appGradle = join(android, "app/build.gradle.kts");
+const rootGradle = join(android, "build.gradle.kts");
+const buildSrcGradle = join(android, "buildSrc/build.gradle.kts");
+const gradleProperties = join(android, "gradle.properties");
+const manifest = join(android, "app/src/main/AndroidManifest.xml");
+const propertiesFile = join(android, "keystore.properties");
+
+const args = process.argv.slice(2);
+const flag = (name) => {
+	const at = args.indexOf(`--${name}`);
+	return at === -1 ? undefined : args[at + 1];
+};
+
+const keystore = resolve(
+	flag("keystore") ??
+		process.env.YONDER_ANDROID_KEYSTORE ??
+		join(homedir(), ".yonder-signing/android/yonder-release.jks"),
+);
+const alias = flag("alias") ?? "yonder";
+const mirrors = !args.includes("--no-mirrors");
+if (!existsSync(android) || !existsSync(appGradle) || !existsSync(rootGradle)) {
+	console.error(`prepare-android: run \`tauri android init\` first (${android} is missing)`);
+	process.exit(1);
+}
+
+function applyMirrors() {
+	// buildSrc resolves its own classpath before any allprojects block applies, so it needs
+	// the mirrors in its own repositories block too.
+	const files = [rootGradle, buildSrcGradle].filter((file) => existsSync(file));
+	const mirror = `        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+`;
+	for (const file of files) {
+		let source = readFileSync(file, "utf8");
+		if (source.includes("maven.aliyun.com")) {
+			console.log(`prepare-android: mirrors already present in ${file.slice(android.length + 1)}`);
+			continue;
+		}
+		const pattern = /(repositories \{\n)/g;
+		const count = (source.match(pattern) ?? []).length;
+		if (count === 0) {
+			console.error(`prepare-android: unexpected layout in ${file} (no \`repositories {\` blocks)`);
+			process.exit(1);
+		}
+		source = source.replace(pattern, `$1${mirror}`);
+		writeFileSync(file, source);
+		console.log(
+			`prepare-android: prepended AliCloud mirrors to ${count} block(s) in ${file.slice(android.length + 1)}`,
+		);
+	}
+
+	// The Android Gradle Plugin probes `dl.google.com/android/repository/addons_list-*.xml`
+	// for SDK add-ons on every configure, even when every package is installed; from mainland
+	// networks that probe fails and takes the whole build down. All required SDK packages are
+	// installed already, so auto-download can be turned off outright.
+	if (existsSync(gradleProperties)) {
+		let props = readFileSync(gradleProperties, "utf8");
+		if (!props.includes("android.builder.sdkDownload")) {
+			if (!props.endsWith("\n")) props += "\n";
+			writeFileSync(gradleProperties, `${props}android.builder.sdkDownload=false\n`);
+			console.log("prepare-android: disabled AGP SDK auto-download (avoids the unreachable add-ons probe)");
+		}
+	}
+}
+
+function applySigning() {
+	if (!existsSync(keystore)) {
+		console.log(`prepare-android: no keystore at ${keystore}; release builds stay unsigned`);
+		return;
+	}
+	const passwordFile = join(dirname(keystore), "keystore.password");
+	const password =
+		process.env.YONDER_ANDROID_KEYSTORE_PASSWORD ??
+		(existsSync(passwordFile) ? readFileSync(passwordFile, "utf8").trim() : "");
+	if (!password) {
+		console.error(
+			"prepare-android: set YONDER_ANDROID_KEYSTORE_PASSWORD or provide keystore.password next to the keystore",
+		);
+		process.exit(1);
+	}
+
+	writeFileSync(
+		propertiesFile,
+		[`storeFile=${keystore}`, `storePassword=${password}`, `keyAlias=${alias}`, `keyPassword=${password}`, ""].join(
+			"\n",
+		),
+		{ mode: 0o600 },
+	);
+
+	let source = readFileSync(appGradle, "utf8");
+
+	const propertiesBlock = `// Release signing: keystore.properties is written by apps/desktop/prepare-android.mjs
+// (or from CI secrets) and never committed. Without it, release builds stay unsigned so
+// local debug builds keep working on machines that hold no key.
+val keystoreProperties = Properties().apply {
+    val propFile = rootProject.file("keystore.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+`;
+	if (!source.includes("val keystoreProperties")) {
+		if (!source.includes("android {\n")) {
+			console.error("prepare-android: unexpected build.gradle.kts layout (no `android {` block)");
+			process.exit(1);
+		}
+		source = source.replace("android {\n", `${propertiesBlock}\nandroid {\n`);
+	}
+
+	const signingBlock = `    signingConfigs {
+        if (keystoreProperties.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+`;
+	if (!source.includes('create("release")')) {
+		if (!source.includes("    buildTypes {\n")) {
+			console.error("prepare-android: unexpected build.gradle.kts layout (no `buildTypes {` block)");
+			process.exit(1);
+		}
+		source = source.replace("    buildTypes {\n", `${signingBlock}    buildTypes {\n`);
+	}
+
+	if (!source.includes('signingConfig = signingConfigs.findByName("release")')) {
+		const release = source.indexOf('getByName("release") {');
+		if (release === -1) {
+			console.error("prepare-android: unexpected build.gradle.kts layout (no release build type)");
+			process.exit(1);
+		}
+		const insertAt = release + 'getByName("release") {'.length;
+		source = `${source.slice(0, insertAt)}\n            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")${source.slice(insertAt)}`;
+	}
+
+	writeFileSync(appGradle, source);
+	console.log(`prepare-android: release signing wired to ${keystore} (alias ${alias})`);
+}
+
+/**
+ * Soft keyboard: `adjustResize` shrinks the activity so the WebView (and the page's
+ * visualViewport) follow the visible area. The default for a Tauri activity leaves the
+ * keyboard overlaying the WebView, which covered the message input and the login form.
+ *
+ * On targetSdk 35+ the app is edge-to-edge and `adjustResize` no longer resizes the window,
+ * so the flag alone proved insufficient on a real device (measured on API 36: IME shown,
+ * page still 915px tall). `MainActivity` also applies the IME inset as bottom padding, and
+ * publishes it to the page as `--keyboard-inset` through a document-start script, so the
+ * web layer's keyboard handling works in the shell exactly as it does in a browser.
+ */
+function applyKeyboardResize() {
+	if (!existsSync(manifest)) {
+		console.log("prepare-android: no AndroidManifest.xml yet; keyboard resize not applied");
+		return;
+	}
+	const source = readFileSync(manifest, "utf8");
+	if (!source.includes("android:windowSoftInputMode")) {
+		const activity = /<activity\b[^>]*android:name="\.MainActivity"/.exec(source);
+		if (!activity) {
+			console.error("prepare-android: unexpected layout in AndroidManifest.xml (no .MainActivity element)");
+			process.exit(1);
+		}
+		const insertAt = activity.index + activity[0].length;
+		const next = `${source.slice(0, insertAt)}\n            android:windowSoftInputMode="adjustResize"${source.slice(insertAt)}`;
+		writeFileSync(manifest, next);
+		console.log("prepare-android: MainActivity uses adjustResize so the keyboard shrinks the page");
+	} else {
+		console.log("prepare-android: keyboard resize already present in AndroidManifest.xml");
+	}
+	applyImeInsets();
+}
+
+/** `MainActivity.kt` 里的键盘 Insets 逻辑；与上面两个重放项一样，`tauri android init` 之后必须重新写入。 */
+const IME_ACTIVITY = `package net.yonderbot.app
+
+import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
+import android.webkit.WebView
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+
+/**
+ * 键盘高度交给页面：targetSdk 35+ 是 edge-to-edge，adjustResize 不再缩放窗口，
+ * 所以这里读 IME Insets，把同一个值写进 CSS 变量 \`--shell-keyboard-inset\`，
+ * 根布局按它收缩（与网页 lib/viewport.ts 的效果一致）。
+ */
+class MainActivity : TauriActivity() {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    enableEdgeToEdge()
+    super.onCreate(savedInstanceState)
+    ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
+      val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+      view.post { publishKeyboardInset(webViewIn(view), ime) }
+      insets
+    }
+  }
+
+  private fun webViewIn(view: View): WebView? = when (view) {
+    is WebView -> view
+    is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { webViewIn(view.getChildAt(it)) }
+    else -> null
+  }
+
+  private fun publishKeyboardInset(web: WebView?, imePx: Int) {
+    if (web == null) return
+    // Insets 是物理像素，CSS 变量是 CSS 像素：按当前密度换算，再写进独立的变量名。
+    // 网页自己也写 --keyboard-inset（浏览器 / iOS 走 visualViewport），两边互不覆盖，
+    // 样式里取两者较大值。
+    val density = resources.displayMetrics.density.takeIf { it > 0f } ?: 1f
+    val cssPx = (imePx / density)
+    val script = if (imePx > 0) {
+      "document.documentElement.style.setProperty('--shell-keyboard-inset','\${cssPx}px')"
+    } else {
+      "document.documentElement.style.removeProperty('--shell-keyboard-inset')"
+    }
+    web.evaluateJavascript(script, null)
+  }
+}
+`;
+
+function applyImeInsets() {
+	const activityPath = join(android, "app/src/main/java/net/yonderbot/app/MainActivity.kt");
+	if (!existsSync(activityPath)) {
+		console.log("prepare-android: no MainActivity.kt yet; keyboard insets not applied");
+		return;
+	}
+	if (readFileSync(activityPath, "utf8") === IME_ACTIVITY) {
+		console.log("prepare-android: keyboard insets already present in MainActivity.kt");
+		return;
+	}
+	writeFileSync(activityPath, IME_ACTIVITY);
+	console.log("prepare-android: MainActivity forwards the IME inset to the page");
+}
+
+if (mirrors) applyMirrors();
+applySigning();
+applyKeyboardResize();

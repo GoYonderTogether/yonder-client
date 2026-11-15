@@ -1,0 +1,34 @@
+name: Feature request
+description: Propose a capability for the shell
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing or awkward today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where should it live?
+      description: The shell stays small. Check whether this belongs in a package, an app, or nowhere yet.
+      options:
+        - apps/web
+        - apps/desktop
+        - packages/protocol
+        - A new package
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

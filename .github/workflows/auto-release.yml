@@ -1,0 +1,35 @@
+# Disabled while the product is rebuilt from zero.
+#
+# This workflow used to fire on a successful CI run for pushes to main and publish a release
+# automatically. Releases must never be published automatically while we rebuild, so the only
+# remaining trigger is a manual workflow_dispatch. It performs no work: it explains why it is
+# inert and exits, so a stray manual run cannot publish anything either.
+#
+# Do not restore a `workflow_run` trigger until the new shell has its own release gate.
+name: Auto release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-release-main
+  cancel-in-progress: false
+
+jobs:
+  disabled:
+    name: Auto release is disabled
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Explain
+        run: |
+          echo "::notice::Automatic releases are disabled during the rebuild. Use the Release workflow (workflow_dispatch) when a release is intended."
+          {
+            echo "### Auto release disabled"
+            echo ""
+            echo "This workflow no longer listens to \`workflow_run\` for CI on \`main\`."
+            echo "Publish releases manually with the **Release** workflow."
+          } >> "$GITHUB_STEP_SUMMARY"

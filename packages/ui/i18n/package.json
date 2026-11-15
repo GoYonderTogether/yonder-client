@@ -1,0 +1,19 @@
+{
+	"name": "@yonder/ui-i18n",
+	"private": true,
+	"version": "0.3.26111502",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"i18next": "27.1.1",
+		"react-i18next": "18.0.1"
+	},
+	"peerDependencies": {
+		"react": ">=19"
+	},
+	"scripts": {
+		"typecheck": "tsc -b"
+	}
+}

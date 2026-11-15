@@ -1,0 +1,20 @@
+.yonder-logo-reverse {
+	display: none;
+}
+
+:root[data-theme="dark"] .yonder-logo-master {
+	display: none;
+}
+
+:root[data-theme="dark"] .yonder-logo-reverse {
+	display: inline;
+}
+
+/* An app icon is white in both themes, so it always uses the light-ground geometry. */
+:root[data-theme="dark"] .yonder-logo-light .yonder-logo-master {
+	display: inline;
+}
+
+:root[data-theme="dark"] .yonder-logo-light .yonder-logo-reverse {
+	display: none;
+}

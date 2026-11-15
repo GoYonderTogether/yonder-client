@@ -1,0 +1,6 @@
+{
+	"identifier": "desktop",
+	"windows": ["main"],
+	"platforms": ["macOS", "windows", "linux"],
+	"permissions": ["core:default", "keyring:default", "core:window:allow-start-dragging"]
+}

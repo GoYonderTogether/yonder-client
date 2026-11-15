@@ -1,0 +1,238 @@
+# Windows 安装验证：把正式 Release 里的 nsis 安装包真的装一遍、启动、截图，再卸载。
+#
+# 本仓没有 Windows 机器，`desktop-release.yml` 只证明「能构建出安装包」，不证明「装得上、起得来」。
+# 这个工作流补上后者：在 windows-2025 runner 上静默安装 → 启动 → 进程存活 20 秒 → 截图存档 → 卸载。
+#
+# 触发：workflow_dispatch，输入是已发布的正式版 tag（例如 v0.3.26111301）。
+# 产物名与 desktop-release.yml 的 Collect artifact 步骤一致：Yonder_<version>_x64-setup.exe。
+#
+# 安装包未签名，SmartScreen 只在交互下载时出现；CI 里直接执行本地文件，不受影响。
+name: Windows install check
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要验证的正式版 tag，例如 v0.3.26111301
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-install-check-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  install:
+    name: Install, launch and uninstall on windows-2025
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 这个工作流不 checkout 仓库，`gh` 无从推断仓库名，必须显式给。
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      # 只认已发布的正式版：草稿或预发布可能没有安装包，也不该被当成「用户能装到的版本」。
+      - name: 解析安装包
+        id: asset
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:TAG -notmatch '^v0\.\d+\.\d{8}$') {
+            throw "tag 必须是 v0.<minor>.<YYMMDDNN>，收到 '$env:TAG'"
+          }
+          $version = $env:TAG.Substring(1)
+          $name = "Yonder_${version}_x64-setup.exe"
+          $release = gh release view $env:TAG --json isDraft,isPrerelease,assets | ConvertFrom-Json
+          if ($release.isDraft -or $release.isPrerelease) { throw "$env:TAG 不是已发布的正式版" }
+          $asset = $release.assets | Where-Object { $_.name -eq $name }
+          if (-not $asset) { throw "Release $env:TAG 里没有 $name" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "name=$name"  >> $env:GITHUB_OUTPUT
+          "size=$($asset.size)" >> $env:GITHUB_OUTPUT
+          Write-Host "安装包 $name（$($asset.size) 字节）"
+
+      - name: 下载安装包
+        id: download
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          gh release download $env:TAG --pattern $env:NAME --dir dist
+          $file = Join-Path dist $env:NAME
+          if (-not (Test-Path $file)) { throw "下载后找不到 $file" }
+          # 记录实际下载到的摘要，报告里可以和 OSS / Release 上的对照。
+          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+          "sha256=$hash" >> $env:GITHUB_OUTPUT
+          Write-Host "sha256 $hash"
+        env:
+          NAME: ${{ steps.asset.outputs.name }}
+
+      # Tauri 的 nsis 安装包默认 installMode=currentUser，`/S` 是它的静默开关。
+      - name: 静默安装
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Join-Path $PWD "dist/$env:NAME"
+          if (-not (Test-Path $installer)) { throw "找不到安装包 $installer" }
+          Write-Host "运行 $installer /S"
+          $process = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "安装程序退出码 $($process.ExitCode)" }
+        env:
+          NAME: ${{ steps.asset.outputs.name }}
+
+      - name: 找到安装后的可执行文件
+        id: app
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $roots = @(
+            (Join-Path $env:LOCALAPPDATA 'Yonder'),
+            (Join-Path $env:ProgramFiles 'Yonder'),
+            (Join-Path ${env:ProgramFiles(x86)} 'Yonder')
+          ) | Where-Object { $_ -and (Test-Path $_) }
+          if ($roots.Count -eq 0) { throw "安装后找不到 Yonder 目录（找过 LOCALAPPDATA / ProgramFiles / ProgramFiles(x86)）" }
+          # 可执行文件名来自 Cargo 包名（apps/desktop/src-tauri/Cargo.toml 的 name），
+          # 不是 productName；先按 tauri.conf.json 的 mainBinaryName 找，找不到再退回目录里唯一的 exe。
+          $candidates = @('Yonder.exe', 'yonder-desktop.exe', 'yonder_desktop.exe')
+          $exe = $null
+          foreach ($name in $candidates) {
+            $exe = Get-ChildItem -Path $roots -Filter $name -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($exe) { break }
+          }
+          if (-not $exe) {
+            $exe = Get-ChildItem -Path $roots -Filter '*.exe' -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -ne 'uninstall.exe' } | Select-Object -First 1
+          }
+          if (-not $exe) {
+            $listing = Get-ChildItem -Path $roots -Recurse -ErrorAction SilentlyContinue | Select-Object -First 40 -ExpandProperty FullName
+            throw "在 $($roots -join ', ') 下找不到应用 exe；目录内容：$($listing -join ' | ')"
+          }
+          $fileVersion = $exe.VersionInfo.FileVersion
+          Write-Host "exe=$($exe.FullName) FileVersion=$fileVersion"
+          # Tauri 把版本写进 FileVersion；有的工具链会补成四段（0.3.x.0），所以只比前缀。
+          if ($fileVersion -and -not $fileVersion.StartsWith($env:VERSION)) {
+            throw "安装出来的 exe 版本是 $fileVersion，Release 是 $env:VERSION"
+          }
+          "path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+          "dir=$($exe.DirectoryName)" >> $env:GITHUB_OUTPUT
+        env:
+          VERSION: ${{ steps.asset.outputs.version }}
+
+      # 进程能起来并且 20 秒不退出，才算安装成功；启动即崩的包在这个检查里会掉出来。
+      - name: 启动并确认进程存活 20 秒
+        id: launch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $process = Start-Process -FilePath $env:EXE -PassThru
+          Write-Host "已启动 pid=$($process.Id)"
+          $deadline = (Get-Date).AddSeconds(20)
+          while ((Get-Date) -lt $deadline) {
+            Start-Sleep -Seconds 1
+            if ($process.HasExited) {
+              throw "应用在 $([int](20 - ($deadline - (Get-Date)).TotalSeconds)) 秒内退出，退出码 $($process.ExitCode)"
+            }
+          }
+          $process.Refresh()
+          $title = $process.MainWindowTitle
+          Write-Host "20 秒后仍在运行；窗口标题 '$title'"
+          "pid=$($process.Id)" >> $env:GITHUB_OUTPUT
+          "title=$title" >> $env:GITHUB_OUTPUT
+        env:
+          EXE: ${{ steps.app.outputs.path }}
+
+      - name: 截图
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          # 先把窗口抬到前台，否则截到的是 runner 桌面而不是应用。
+          $signature = @'
+          [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+          [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+          '@
+          $user32 = Add-Type -MemberDefinition $signature -Name Win32 -Namespace Shell -PassThru
+          $process = Get-Process -Id $env:PID -ErrorAction Stop
+          $handle = $process.MainWindowHandle
+          if ($handle -ne [IntPtr]::Zero) {
+            $null = $user32::ShowWindow($handle, 5)
+            $null = $user32::SetForegroundWindow($handle)
+            Start-Sleep -Seconds 2
+          } else {
+            Write-Warning '进程没有主窗口句柄，截到的可能是整个桌面'
+          }
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          $out = Join-Path $PWD "artifacts/yonder-$env:VERSION-windows.png"
+          $bitmap.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
+          $graphics.Dispose()
+          $bitmap.Dispose()
+          Write-Host "截图 $out（$((Get-Item $out).Length) 字节）"
+        env:
+          PID: ${{ steps.launch.outputs.pid }}
+          VERSION: ${{ steps.asset.outputs.version }}
+
+      - name: 写检查结果
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          {
+            "### Windows 安装检查"
+            ""
+            "- tag：$env:TAG"
+            "- 安装包：${{ steps.asset.outputs.name }}"
+            "- 下载摘要：${{ steps.download.outputs.sha256 }}"
+            "- 安装路径：${{ steps.app.outputs.dir }}"
+            "- 窗口标题：${{ steps.launch.outputs.title }}"
+            "- 结果：${{ job.status }}"
+          } | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      # 截图即使在前面失败也要留下，失败时那张图就是现场。
+      - name: 上传截图
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-screenshot-${{ inputs.tag }}
+          path: artifacts
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: 关闭应用
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          if ($env:PID) {
+            Stop-Process -Id $env:PID -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+          }
+        env:
+          PID: ${{ steps.launch.outputs.pid }}
+
+      - name: 卸载
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = $env:APP_DIR
+          if (-not $dir -or -not (Test-Path $dir)) { Write-Host '没有安装目录，跳过卸载'; exit 0 }
+          $uninstaller = Join-Path $dir 'uninstall.exe'
+          if (-not (Test-Path $uninstaller)) { throw "$dir 下没有 uninstall.exe" }
+          Write-Host "运行 $uninstaller /S"
+          $process = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
+          Write-Host "卸载程序退出码 $($process.ExitCode)"
+          # nsis 卸载是异步的：给进程退出和目录清理留出时间，再确认目录已经消失。
+          for ($i = 0; $i -lt 30; $i++) {
+            if (-not (Test-Path $dir)) { break }
+            Start-Sleep -Seconds 1
+          }
+          if (Test-Path $dir) { throw "卸载后 $dir 仍然存在" }
+          Write-Host '卸载完成，安装目录已移除'
+        env:
+          APP_DIR: ${{ steps.app.outputs.dir }}

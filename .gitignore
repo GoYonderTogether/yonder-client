@@ -1,0 +1,21 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# Tauri build output and generated platform projects
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
+# release attachments written by scripts/release
+dist-release/
+release-notes.md
+
+# End-to-end artifacts
+.e2e/
+test-results/
+playwright-report/
+e2e/report/
+
+# Local development data (object storage under .data/)
+.data/

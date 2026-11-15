@@ -1,0 +1,41 @@
+{
+	"files": [],
+	"references": [
+		{
+			"path": "packages/protocol"
+		},
+		{
+			"path": "packages/api-client"
+		},
+		{
+			"path": "packages/ui/tokens"
+		},
+		{
+			"path": "packages/ui/i18n"
+		},
+		{
+			"path": "packages/ui/components"
+		},
+		{
+			"path": "packages/ui/data"
+		},
+		{
+			"path": "packages/ui/shell"
+		},
+		{
+			"path": "packages/ui/features/auth"
+		},
+		{
+			"path": "packages/ui/features/legal"
+		},
+		{
+			"path": "packages/ui/features/me"
+		},
+		{
+			"path": "packages/ui/features/landing"
+		},
+		{
+			"path": "apps/web"
+		}
+	]
+}

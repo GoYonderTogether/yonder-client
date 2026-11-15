@@ -1,0 +1,206 @@
+.public-page {
+	box-sizing: border-box;
+	display: flex;
+	min-height: 100dvh;
+	flex-direction: column;
+	padding: max(var(--spacing-4), env(safe-area-inset-top)) max(var(--spacing-4), env(safe-area-inset-right))
+		max(var(--spacing-4), env(safe-area-inset-bottom)) max(var(--spacing-4), env(safe-area-inset-left));
+	background: var(--color-bg-base);
+}
+
+.public-header,
+.public-footer {
+	width: min(100%, calc(var(--spacing-16) * 16));
+	margin-inline: auto;
+}
+
+.public-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.public-home {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-2);
+	color: var(--color-text-primary);
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.public-footer {
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	text-align: center;
+}
+
+.landing-main {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	padding-block: var(--spacing-8);
+}
+
+.landing-hero {
+	box-sizing: border-box;
+	display: flex;
+	width: min(100%, calc(var(--spacing-16) * 10));
+	min-height: calc(var(--spacing-16) * 6);
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--spacing-12);
+	padding: var(--spacing-12) var(--spacing-8);
+	border-radius: var(--radius-panel);
+	background: var(--color-bg-surface);
+}
+
+.landing-brand {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--spacing-3);
+}
+
+.landing-brand h1 {
+	margin: 0;
+	font-size: var(--text-display);
+	font-weight: 600;
+	line-height: var(--text-display--line-height);
+}
+
+.landing-controls {
+	display: flex;
+	width: 100%;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--spacing-4);
+	text-align: center;
+}
+
+.landing-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--spacing-3);
+}
+
+.public-action {
+	box-sizing: border-box;
+	display: inline-flex;
+	min-height: var(--control-lg);
+	align-items: center;
+	justify-content: center;
+	padding-inline: var(--spacing-5);
+	border-radius: var(--radius-control);
+	font-size: var(--text-body);
+	font-weight: 500;
+	text-align: center;
+	text-decoration: none;
+	transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.public-action-primary {
+	background: var(--color-accent);
+	color: var(--color-on-accent);
+}
+
+.public-action-primary:hover {
+	background: var(--color-accent-hover);
+}
+
+.public-action-secondary {
+	background: var(--color-bg-subtle);
+	color: var(--color-text-primary);
+}
+
+.public-action-secondary:hover {
+	background: var(--color-bg-subtle-hover);
+}
+
+.landing-hint,
+.landing-note {
+	margin: 0;
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+}
+
+.landing-links {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--spacing-3);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+}
+
+.landing-links a,
+.landing-links summary {
+	color: var(--color-accent-text);
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.landing-links a:hover,
+.landing-links summary:hover {
+	text-decoration: underline;
+}
+
+.landing-links summary {
+	list-style: none;
+}
+
+.landing-links summary::-webkit-details-marker {
+	display: none;
+}
+
+.platform-choices {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--spacing-1);
+	margin-top: var(--spacing-3);
+}
+
+@media (max-width: 40rem) {
+	.public-header button,
+	.public-home,
+	.landing-links a,
+	.landing-links summary,
+	.platform-choices button {
+		min-height: var(--control-lg);
+	}
+
+	.landing-links a,
+	.landing-links summary {
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.landing-main {
+		align-items: stretch;
+		padding-block: var(--spacing-6);
+	}
+
+	.landing-hero {
+		min-height: 0;
+		flex: 1;
+		gap: var(--spacing-8);
+		padding: var(--spacing-8) var(--spacing-6);
+	}
+
+	.landing-brand {
+		flex: 1;
+		justify-content: center;
+		padding-block: var(--spacing-8);
+	}
+
+	.landing-actions {
+		width: 100%;
+		flex-direction: column;
+	}
+}

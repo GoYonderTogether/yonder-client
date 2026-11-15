@@ -1,0 +1,35 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "Yonder",
+	"version": "0.3.26111502",
+	"identifier": "dev.yonder.desktop",
+	"build": {
+		"frontendDist": "../../web/dist"
+	},
+	"app": {
+		"windows": [
+			{
+				"label": "main",
+				"title": "Yonder",
+				"width": 1180,
+				"height": 760,
+				"minWidth": 720,
+				"minHeight": 520,
+				"resizable": true,
+				"fullscreen": false,
+				"titleBarStyle": "Overlay",
+				"hiddenTitle": true,
+				"trafficLightPosition": { "x": 18, "y": 20 }
+			}
+		],
+		"security": {
+			"capabilities": ["desktop", "mobile"]
+		}
+	},
+	"bundle": {
+		"active": true,
+		"targets": ["dmg", "nsis", "deb", "appimage"],
+		"icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+		"resources": []
+	}
+}

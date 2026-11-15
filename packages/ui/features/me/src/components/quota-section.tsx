@@ -1,0 +1,81 @@
+import { Button, ListGroup } from "@yonder/ui-components";
+import { useQuota, useQuotaLedger } from "@yonder/ui-data";
+import { useTranslation } from "react-i18next";
+import { formatExact, QuotaNumber } from "./quota-number.tsx";
+import { QuotaUsage } from "./quota-usage.tsx";
+
+export function QuotaSection() {
+	const { t, i18n } = useTranslation();
+	const quota = useQuota();
+	const ledger = useQuotaLedger();
+	const locale = i18n.resolvedLanguage ?? i18n.language;
+
+	if (!quota.data) {
+		return quota.isError ? (
+			<Button variant="link" onClick={() => void quota.refetch()}>
+				{t("app.retry")}
+			</Button>
+		) : (
+			<p role="status">{t("app.loading")}</p>
+		);
+	}
+
+	const entries = ledger.data?.pages.flatMap((page) => page.items) ?? [];
+	return (
+		<div className="flex flex-col gap-[var(--spacing-6)]">
+			<div className="flex flex-col gap-[var(--spacing-2)]">
+				<p className="text-caption text-[var(--color-text-secondary)]">{t("me.quota.balance")}</p>
+				<p className="break-all text-display font-semibold tabular-nums text-[var(--color-text-primary)]">
+					{formatExact(quota.data.balance, locale)}
+				</p>
+			</div>
+			<div className="flex flex-wrap gap-x-[var(--spacing-8)] gap-y-[var(--spacing-3)] text-body text-[var(--color-text-secondary)]">
+				<p>
+					{t("me.quota.granted")} <QuotaNumber value={quota.data.granted} locale={locale} />
+				</p>
+				<p>
+					{t("me.quota.used")} <QuotaNumber value={quota.data.used} locale={locale} />
+				</p>
+			</div>
+			<ListGroup title={t("me.quota.ledger")}>
+				{entries.map((entry) => (
+					<li
+						key={entry.id}
+						className="flex items-center justify-between gap-[var(--spacing-3)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] last:border-0"
+					>
+						<div className="min-w-0">
+							<p className="text-body text-[var(--color-text-primary)]">{t(`me.quota.kinds.${entry.kind}`)}</p>
+							<time dateTime={entry.at} className="text-caption text-[var(--color-text-secondary)]">
+								{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(
+									new Date(entry.at),
+								)}
+							</time>
+						</div>
+						<span className="shrink-0 text-body text-[var(--color-text-primary)]">
+							<QuotaNumber value={entry.amount} locale={locale} signed />
+						</span>
+					</li>
+				))}
+				{ledger.isLoading ? <li className="p-[var(--spacing-4)] text-caption">{t("app.loading")}</li> : null}
+				{ledger.isError ? (
+					<li className="px-[var(--spacing-4)]">
+						<Button variant="link" onClick={() => void ledger.refetch()}>
+							{t("app.retry")}
+						</Button>
+					</li>
+				) : null}
+				{!ledger.isLoading && !ledger.isError && entries.length === 0 ? (
+					<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">
+						{t("me.quota.ledgerEmpty")}
+					</li>
+				) : null}
+			</ListGroup>
+			{ledger.hasNextPage ? (
+				<Button variant="secondary" onClick={() => void ledger.fetchNextPage()} loading={ledger.isFetchingNextPage}>
+					{t("me.quota.more")}
+				</Button>
+			) : null}
+			<QuotaUsage />
+		</div>
+	);
+}

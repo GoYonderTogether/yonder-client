@@ -1,0 +1,27 @@
+{
+	"name": "@yonder/ui-data",
+	"private": true,
+	"version": "0.3.26111502",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@tanstack/query-sync-storage-persister": "5.107.1",
+		"@tanstack/react-query": "5.107.1",
+		"@tanstack/react-query-persist-client": "5.107.1",
+		"@yonder/api-client": "0.3.26111502",
+		"@yonder/protocol": "0.3.26111502",
+		"@yonder/ui-components": "0.3.26111502",
+		"@yonder/ui-i18n": "0.3.26111502",
+		"@yonder/ui-shell": "0.3.26111502",
+		"@yonder/ui-tokens": "0.3.26111502",
+		"zustand": "5.1.0"
+	},
+	"peerDependencies": {
+		"react": ">=19"
+	},
+	"scripts": {
+		"typecheck": "tsc -b"
+	}
+}

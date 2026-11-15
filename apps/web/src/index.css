@@ -1,0 +1,84 @@
+@import "tailwindcss";
+@import "@yonder/ui-tokens/css";
+
+/* Tailwind scans the app it is built from, but the components live in workspace packages that it
+   reaches through `node_modules` symlinks and therefore skips. Naming them explicitly is what makes
+   a class used only inside `packages/ui/components` exist in the bundle. */
+@source "../../../packages/ui/components/src";
+@source "../../../packages/ui/shell/src";
+@source "../../../packages/ui/features/auth/src";
+@source "../../../packages/ui/features/me/src";
+@source "../../../packages/ui/features/landing/src";
+@source "../../src";
+
+/* The tokens package declares the theme; Tailwind reads it through @theme. Nothing here invents a
+   value — this file only says which global rules apply to the document. */
+
+:root,
+[data-theme="light"] {
+	color-scheme: light;
+}
+
+[data-theme="dark"] {
+	color-scheme: dark;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	background: var(--color-bg-base);
+	color: var(--color-text-primary);
+	font-family: var(--font-sans);
+	font-size: var(--text-body);
+	line-height: var(--text-body--line-height);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+	overflow-wrap: break-word;
+}
+
+/* Stable digits for aligned numbers and optical alignment of inline icons. */
+.tabular-nums,
+.font-mono,
+time,
+[data-num] {
+	font-variant-numeric: tabular-nums;
+}
+
+.lucide {
+	vertical-align: -0.125em;
+}
+
+::selection {
+	background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
+* {
+	scrollbar-color: var(--color-border-strong) transparent;
+	scrollbar-width: thin;
+}
+
+/* iOS Safari zooms fields smaller than 16px when they receive focus. */
+@media (hover: none) and (pointer: coarse) {
+	html :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select) {
+		font-size: 16px;
+	}
+}
+
+/* A visible focus ring for every keyboard user (10-质量 第二节). */
+@layer base {
+	:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+		box-shadow: var(--focus-ring);
+	}
+}
+
+/* Chinese can break between any two characters; English only between words. */
+[lang="zh-CN"] body {
+	word-break: break-word;
+}

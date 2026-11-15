@@ -1,0 +1,40 @@
+{
+	"name": "@yonder/web",
+	"private": true,
+	"version": "0.3.26111502",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"typecheck": "tsc -b"
+	},
+	"dependencies": {
+		"@yonder/api-client": "0.3.26111502",
+		"@yonder/feature-auth": "0.3.26111502",
+		"@yonder/feature-landing": "0.3.26111502",
+		"@yonder/feature-legal": "0.3.26111502",
+		"@yonder/feature-me": "0.3.26111502",
+		"@yonder/protocol": "0.3.26111502",
+		"@yonder/ui-components": "0.3.26111502",
+		"@yonder/ui-data": "0.3.26111502",
+		"@yonder/ui-i18n": "0.3.26111502",
+		"@yonder/ui-shell": "0.3.26111502",
+		"@yonder/ui-tokens": "0.3.26111502",
+		"lucide-react": "1.72.0",
+		"markdown-to-jsx": "9.10.6",
+		"react": "19.3.1",
+		"react-dom": "19.3.1",
+		"react-i18next": "18.0.1",
+		"react-router": "8.5.1",
+		"tauri-plugin-keyring-api": "0.1.1"
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "4.3.5",
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0",
+		"@vitejs/plugin-react": "6.3.0",
+		"tailwindcss": "4.3.5",
+		"vite": "8.3.8"
+	}
+}
