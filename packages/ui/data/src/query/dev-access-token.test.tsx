@@ -28,7 +28,7 @@ test("expiring the access token preserves shell refresh credentials for the next
 					json: async () => ({ accessToken: `access-${refreshes}`, refreshToken: `refresh-${refreshes}` }),
 				};
 			}
-			const authorization = (options.headers as Headers).get("authorization");
+			const authorization = new Headers(options.headers).get("authorization");
 			requests.push(authorization);
 			return authorization
 				? { ok: true, status: 200, json: async () => ({ ok: true }) }

@@ -1,0 +1,16 @@
+{
+	"productName": "Yonder Native Contacts Test",
+	"version": "0.1.0",
+	"identifier": "dev.yonder.native-contacts-test",
+	"bundle": { "icon": ["../../apps/desktop/src-tauri/icons/icon.png"] },
+	"build": { "frontendDist": "../../apps/web/dist" },
+	"app": {
+		"windows": [],
+		"security": {
+			"capabilities": [
+				{ "identifier": "test", "windows": ["main", "add-contacts"], "permissions": ["core:default"] },
+				{ "identifier": "test-keychain", "windows": ["main"], "permissions": ["keyring:default"] }
+			]
+		}
+	}
+}

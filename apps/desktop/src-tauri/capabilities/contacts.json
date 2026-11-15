@@ -1,0 +1,6 @@
+{
+	"identifier": "contacts",
+	"windows": ["add-contacts"],
+	"platforms": ["macOS", "windows", "linux"],
+	"permissions": ["core:default"]
+}

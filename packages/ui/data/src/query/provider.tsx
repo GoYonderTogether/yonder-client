@@ -3,7 +3,7 @@
  * realtime connection and the sign-out sweep, so a feature calls `useMe()` and trusts the rest.
  */
 
-import { useQueryClient } from "@tanstack/react-query";
+import { defaultShouldDehydrateQuery, useQueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import type { Endpoints } from "@yonder/api-client";
 import { ApiClient, createEndpoints } from "@yonder/api-client";
@@ -12,6 +12,7 @@ import { createContext, useContext, useEffect, useMemo } from "react";
 import { useSessionStore } from "../auth/session-store.ts";
 import { createMemoryTokenStore } from "../auth/token-store.ts";
 import { RealtimeConnection } from "../realtime/connection.ts";
+import { clearChatCache } from "../storage/chat-cache.ts";
 import type { Storage } from "../storage/index.ts";
 import { createDefaultStorage } from "../storage/index.ts";
 import { CACHE_MAX_AGE_MS, CACHE_STORAGE_KEY, CACHE_VERSION, createPersister, createQueryClient } from "./client.ts";
@@ -23,6 +24,10 @@ export interface DataProviderProps {
 	clientKind: "web" | "shell";
 	/** A shell supplies keychain-backed storage for the refresh token. */
 	refreshTokenStorage?: { get(): string | null; set(value: string | null): void };
+	/** Access-only session borrowed by an auxiliary shell window. */
+	refreshAccessToken?: () => Promise<string | null>;
+	/** Close auxiliary windows before the account changes. */
+	onSessionChange?: () => void | Promise<void>;
 	/** Override for tests. */
 	storage?: Storage;
 	children: ReactNode;
@@ -48,6 +53,8 @@ export function DataProvider({
 	appVersion,
 	clientKind,
 	refreshTokenStorage,
+	refreshAccessToken,
+	onSessionChange,
 	storage: injectedStorage,
 	children,
 }: DataProviderProps) {
@@ -68,10 +75,14 @@ export function DataProvider({
 			tokens,
 			clientKind,
 			appVersion,
-			onSessionLost: () => setStatus("signed-out"),
+			...(refreshAccessToken ? { refreshAccessToken } : {}),
+			onSessionLost: () => {
+				void onSessionChange?.();
+				setStatus("signed-out");
+			},
 		});
 		return import.meta.env.DEV ? { client, expireAccessTokenForDev: () => tokens.setAccessToken(null) } : { client };
-	}, [baseUrl, clientKind, appVersion, refreshTokenStorage, setStatus]);
+	}, [baseUrl, clientKind, appVersion, refreshTokenStorage, refreshAccessToken, onSessionChange, setStatus]);
 	const { client } = clientParts;
 
 	const api = useMemo(() => createEndpoints(client), [client]);
@@ -87,6 +98,8 @@ export function DataProvider({
 			realtime,
 			storage,
 			async startSession(session) {
+				await onSessionChange?.();
+				await clearChatCache();
 				realtime.stop();
 				queryClient.clear();
 				await persister.removeClient();
@@ -95,6 +108,8 @@ export function DataProvider({
 				setStatus("signed-in");
 			},
 			async signOutLocal() {
+				await onSessionChange?.();
+				await clearChatCache();
 				client.clearTokens();
 				realtime.stop();
 				queryClient.clear();
@@ -105,14 +120,22 @@ export function DataProvider({
 				setStatus("signed-out");
 			},
 		}),
-		[clientParts, client, api, realtime, storage, queryClient, persister, setStatus],
+		[clientParts, client, api, realtime, storage, queryClient, persister, setStatus, onSessionChange],
 	);
 
 	return (
 		<DataContext.Provider value={value}>
 			<PersistQueryClientProvider
 				client={queryClient}
-				persistOptions={{ persister, maxAge: CACHE_MAX_AGE_MS, buster: CACHE_VERSION }}
+				persistOptions={{
+					persister,
+					maxAge: CACHE_MAX_AGE_MS,
+					buster: CACHE_VERSION,
+					dehydrateOptions: {
+						shouldDehydrateQuery: (query) =>
+							query.queryKey[0] !== "contact-search" && defaultShouldDehydrateQuery(query),
+					},
+				}}
 			>
 				<SessionBootstrapper />
 				{children}
