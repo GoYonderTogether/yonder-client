@@ -1,0 +1,100 @@
+.composer-completion {
+	position: absolute;
+	bottom: calc(100% + var(--spacing-2));
+	inset-inline-start: 0;
+	z-index: 50;
+	width: min(100%, calc(var(--control-md) * 11));
+	max-height: min(calc(var(--control-md) * 9), calc(var(--completion-viewport-height, 100dvh) * 0.4));
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-card);
+	background: var(--color-bg-raised);
+	box-shadow: var(--shadow-lg);
+	padding: var(--spacing-1);
+}
+.composer-completion [role="listbox"] {
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+.composer-completion-heading,
+.composer-completion-footer {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--spacing-2);
+	padding: var(--spacing-1) var(--spacing-3);
+	font-size: var(--text-caption);
+	color: var(--color-text-secondary);
+}
+.composer-completion [role="option"] {
+	display: flex;
+	width: 100%;
+	flex-direction: column;
+	gap: var(--spacing-1);
+	padding: var(--spacing-2) var(--spacing-3);
+	border-radius: var(--radius-control-sm);
+	text-align: start;
+}
+.composer-completion [aria-selected="true"],
+.composer-completion [role="option"]:hover {
+	background: var(--color-bg-subtle);
+}
+.composer-completion [role="option"]:disabled {
+	opacity: 0.5;
+}
+.composer-completion-name {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2);
+	font-size: var(--text-body);
+	overflow-wrap: anywhere;
+}
+.composer-completion-name small {
+	margin-inline-start: auto;
+	flex-shrink: 0;
+	font-size: var(--text-micro);
+	color: var(--color-text-tertiary);
+}
+.composer-completion-description,
+.composer-completion > p {
+	font-size: var(--text-caption);
+	color: var(--color-text-secondary);
+	overflow-wrap: anywhere;
+}
+.composer-completion-description {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 1;
+	overflow: hidden;
+	line-height: var(--text-caption--line-height);
+}
+.composer-completion [aria-selected="true"] .composer-completion-description {
+	-webkit-line-clamp: 4;
+}
+.composer-completion-zh {
+	min-width: 0;
+	font-size: var(--text-caption);
+	color: var(--color-text-tertiary);
+}
+.composer-completion > p {
+	padding: var(--spacing-2) var(--spacing-3);
+}
+.composer-completion-pagination {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-2);
+}
+.composer-completion-pagination button {
+	display: flex;
+	min-width: var(--control-sm);
+	min-height: var(--control-sm);
+	align-items: center;
+	justify-content: center;
+}
+.composer-completion-pagination button:disabled {
+	opacity: 0.4;
+}
