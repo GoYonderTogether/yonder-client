@@ -1,0 +1,19 @@
+.mini-conversation-copy {
+	flex: 1;
+	min-width: 0;
+}
+.mini-conversation-title {
+	font-weight: var(--font-weight-semibold);
+}
+.mini-preview {
+	overflow: hidden;
+	display: block;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.mini-badge {
+	background: var(--color-accent);
+	color: var(--color-on-accent);
+	border-radius: var(--radius-full);
+	padding: 0 var(--spacing-2);
+}

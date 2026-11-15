@@ -1,0 +1,8 @@
+{
+	"miniprogramRoot": "dist/",
+	"projectname": "Yonder",
+	"appid": "touristappid",
+	"compileType": "miniprogram",
+	"setting": { "es6": false, "minified": true, "postcss": false, "urlCheck": true },
+	"condition": {}
+}

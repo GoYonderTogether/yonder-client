@@ -1,0 +1,20 @@
+export default defineAppConfig({
+	pages: [
+		"pages/conversations/index",
+		"pages/sign-in/index",
+		"pages/chat/index",
+		"pages/me/index",
+		"pages/profile/index",
+		"pages/account/index",
+		"pages/contacts/index",
+		"pages/models/index",
+		"pages/quota/index",
+		"pages/devices/index",
+		"pages/skills/index",
+		"pages/invite/index",
+		"pages/legal/index",
+	],
+	window: { navigationStyle: "custom", backgroundColor: "#f5f5f3", backgroundTextStyle: "dark" },
+	lazyCodeLoading: "requiredComponents",
+	darkmode: true,
+});

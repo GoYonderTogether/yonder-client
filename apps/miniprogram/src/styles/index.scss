@@ -1,0 +1,176 @@
+@use "./tokens";
+/* biome-ignore lint/correctness/noUnknownTypeSelector: WeChat native page root. */
+page,
+:root {
+	background: var(--color-bg-base);
+	color: var(--color-text-primary);
+	font-family: var(--font-sans);
+	font-size: var(--text-body);
+	--mini-nav-height: 44px;
+}
+button::after {
+	border: 0;
+}
+button {
+	font: inherit;
+}
+.mini-page {
+	min-height: 100vh;
+	box-sizing: border-box;
+	padding-bottom: env(safe-area-inset-bottom);
+}
+.mini-nav {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	background: var(--color-bg-base);
+	padding-left: var(--spacing-4);
+}
+.mini-nav-inner {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2);
+}
+.mini-nav-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--text-h3);
+	font-weight: var(--font-weight-semibold);
+}
+.mini-back {
+	width: var(--control-md);
+	min-width: var(--control-md);
+	flex: none;
+	margin: 0;
+	padding: 0 var(--spacing-3);
+	background: transparent;
+	color: var(--color-text-primary);
+	font-size: var(--text-title);
+	line-height: 1;
+}
+.mini-content {
+	padding: var(--spacing-4);
+}
+.mini-card,
+.card {
+	background: var(--color-bg-surface);
+	border-radius: var(--radius-card);
+	padding: var(--spacing-4);
+	margin-bottom: var(--spacing-4);
+}
+.mini-title,
+.title {
+	display: block;
+	font-size: var(--text-title);
+	font-weight: var(--font-weight-semibold);
+	margin-bottom: var(--spacing-4);
+}
+.mini-subtitle {
+	display: block;
+	font-size: var(--text-h3);
+	font-weight: var(--font-weight-semibold);
+	margin-bottom: var(--spacing-3);
+}
+.mini-muted,
+.muted {
+	display: block;
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+}
+.mini-error {
+	color: var(--color-danger);
+}
+.mini-row,
+.row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--spacing-3);
+	min-height: var(--control-lg, 48px);
+	padding: var(--spacing-2) 0;
+}
+.mini-row-main {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.mini-field {
+	margin-bottom: var(--spacing-4);
+}
+.mini-label {
+	display: block;
+	color: var(--color-text-secondary);
+	margin-bottom: var(--spacing-2);
+}
+.mini-input {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: var(--control-lg, 48px);
+	padding: var(--spacing-3);
+	border-radius: var(--radius-control);
+	background: var(--color-bg-subtle);
+	color: var(--color-text-primary);
+}
+textarea.mini-input {
+	height: var(--spacing-16, 64px);
+}
+.mini-button {
+	display: block;
+	margin: var(--spacing-3) 0;
+	padding: 0 var(--spacing-4);
+	min-height: var(--control-lg, 48px);
+	line-height: var(--control-lg, 48px);
+	border-radius: var(--radius-control);
+	background: var(--color-accent);
+	color: var(--color-on-accent);
+	font-weight: var(--font-weight-medium);
+}
+.mini-button-secondary {
+	background: var(--color-bg-subtle);
+	color: var(--color-text-primary);
+}
+.mini-button-danger {
+	background: var(--color-danger-subtle);
+	color: var(--color-danger);
+}
+.mini-button-disabled {
+	opacity: 0.5;
+}
+.mini-state {
+	text-align: center;
+	padding: var(--spacing-4);
+}
+.mini-avatar {
+	width: var(--control-lg, 48px);
+	height: var(--control-lg, 48px);
+	border-radius: var(--radius-control);
+	background: var(--color-avatar-1-bg);
+	flex-shrink: 0;
+}
+.stack {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-3);
+}
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--spacing-2);
+}
+.actions .mini-button {
+	flex: 1;
+}
+.mini-pre {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	line-height: var(--text-body--line-height);
+}
+.mini-link {
+	color: var(--color-accent-text);
+	text-decoration: underline;
+}

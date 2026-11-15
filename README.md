@@ -2,6 +2,8 @@
 
 Yonder 的官方客户端：Web、macOS、Windows、Android 和 iOS。
 
+微信小程序适配位于 [`apps/miniprogram`](apps/miniprogram/README.md)，使用独立的 Taro/React 依赖，共用现有协议和 API。当前供本机验证，尚未发布；构建、微信开发者工具导入和环境配置见该目录说明。
+
 本仓库以 **GPL-3.0-only** 开源。你可以使用、修改和构建自己的客户端，也可以连接 Yonder 官方服务或兼容的自建服务。修改后公开分发的客户端需要遵守同一许可证并提供对应源代码。
 
 Yonder 名称、标志、官方托管服务及官方签名安装包不由本许可证授权。官方发布由未至之境（武汉）科技有限公司管理。
@@ -74,7 +76,7 @@ npm run e2e
 
 公开仓库的浏览器测试覆盖落地页、下载、协议和未登录导航，不需要私有云端或真实账号。私有服务端的完整数据库及云端端到端测试在私有仓库进行。
 
-发布流程见 [docs/release.md](docs/release.md)。官方发布所需的签名和上传凭证只保存在 GitHub Actions secrets 中； fork 没有这些凭证时仍可进行普通构建和测试。
+发布流程见 [docs/operations/release.md](docs/operations/release.md)。官方发布所需的签名和上传凭证只保存在 GitHub Actions secrets 中； fork 没有这些凭证时仍可进行普通构建和测试。
 
 ## 许可证
 
