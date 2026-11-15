@@ -7,15 +7,23 @@ import { useSessionStore } from "@yonder/ui-data";
 import { lazy, Suspense } from "react";
 import type { Location } from "react-router";
 import { createBrowserRouter, Navigate, Route, RouterProvider, Routes, useLocation } from "react-router";
-import { DownloadPage } from "../pages/download-page.tsx";
-import { InvitePage } from "../pages/invite-page.tsx";
-import { LandingPage } from "../pages/landing-page.tsx";
-import { LegalPage } from "../pages/legal-page.tsx";
-import { SetupPasswordPage } from "../pages/setup-password-page.tsx";
-import { SetupProfilePage } from "../pages/setup-profile-page.tsx";
-import { SignInPage } from "../pages/sign-in-page.tsx";
 import { Splash } from "../pages/splash.tsx";
-import { AppFrame } from "./app-frame.tsx";
+import { ChunkBoundary } from "./chunk-boundary.tsx";
+
+const DownloadPage = lazy(() =>
+	import("../pages/download-page.tsx").then((module) => ({ default: module.DownloadPage })),
+);
+const InvitePage = lazy(() => import("../pages/invite-page.tsx").then((module) => ({ default: module.InvitePage })));
+const LandingPage = lazy(() => import("../pages/landing-page.tsx").then((module) => ({ default: module.LandingPage })));
+const LegalPage = lazy(() => import("../pages/legal-page.tsx").then((module) => ({ default: module.LegalPage })));
+const SetupPasswordPage = lazy(() =>
+	import("../pages/setup-password-page.tsx").then((module) => ({ default: module.SetupPasswordPage })),
+);
+const SetupProfilePage = lazy(() =>
+	import("../pages/setup-profile-page.tsx").then((module) => ({ default: module.SetupProfilePage })),
+);
+const SignInPage = lazy(() => import("../pages/sign-in-page.tsx").then((module) => ({ default: module.SignInPage })));
+const AppFrame = lazy(() => import("./app-frame.tsx").then((module) => ({ default: module.AppFrame })));
 
 const ComponentsPage = import.meta.env.DEV ? lazy(() => import("../dev/components-page.tsx")) : null;
 const DeveloperPanel = import.meta.env.DEV ? lazy(() => import("../dev/panel/index.tsx")) : null;
@@ -32,61 +40,69 @@ export function AppRoutes() {
 	return (
 		<>
 			<div hidden={Boolean(background)}>
-				<Routes location={background ?? location}>
-					{ComponentsPage && (
-						<Route
-							path="/dev/components"
-							element={
-								<Suspense fallback={null}>
-									<ComponentsPage />
-								</Suspense>
-							}
-						/>
-					)}
-					<Route path="/" element={<LandingPage />} />
-					<Route path="/download" element={<DownloadPage />} />
-					<Route path="/sign-in" element={<SignInPage />} />
-					<Route path="/terms" element={<LegalPage kind="terms" />} />
-					<Route path="/privacy" element={<LegalPage kind="privacy" />} />
-					<Route path="/i/:code" element={<InvitePage />} />
-					<Route
-						path="/setup/password"
-						element={
-							<RequireSession>
-								<SetupPasswordPage />
-							</RequireSession>
-						}
-					/>
-					<Route
-						path="/setup/profile"
-						element={
-							<RequireSession>
-								<SetupProfilePage />
-							</RequireSession>
-						}
-					/>
-					<Route
-						path="/*"
-						element={
-							<RequireSession>
-								<Routes>
-									<Route path="/today/*" element={<Navigate to="/messages" replace />} />
-									<Route path="/me/memory/*" element={<Navigate to="/memory" replace />} />
-									{/* The old chat path, from links written before the frame changed. */}
-									<Route path="/chat/*" element={<Navigate to="/messages/main" replace />} />
-									{/* The frame reads the URL itself: tab, then what is open inside it. */}
-									<Route path="*" element={<AppFrame />} />
-								</Routes>
-							</RequireSession>
-						}
-					/>
-				</Routes>
+				<ChunkBoundary resetKey={(background ?? location).pathname}>
+					<Suspense fallback={<Splash />}>
+						<Routes location={background ?? location}>
+							{ComponentsPage && (
+								<Route
+									path="/dev/components"
+									element={
+										<Suspense fallback={null}>
+											<ComponentsPage />
+										</Suspense>
+									}
+								/>
+							)}
+							<Route path="/" element={<LandingPage />} />
+							<Route path="/download" element={<DownloadPage />} />
+							<Route path="/sign-in" element={<SignInPage />} />
+							<Route path="/terms" element={<LegalPage kind="terms" />} />
+							<Route path="/privacy" element={<LegalPage kind="privacy" />} />
+							<Route path="/i/:code" element={<InvitePage />} />
+							<Route
+								path="/setup/password"
+								element={
+									<RequireSession>
+										<SetupPasswordPage />
+									</RequireSession>
+								}
+							/>
+							<Route
+								path="/setup/profile"
+								element={
+									<RequireSession>
+										<SetupProfilePage />
+									</RequireSession>
+								}
+							/>
+							<Route
+								path="/*"
+								element={
+									<RequireSession>
+										<Routes>
+											<Route path="/today/*" element={<Navigate to="/messages" replace />} />
+											<Route path="/me/memory/*" element={<Navigate to="/memory" replace />} />
+											{/* The old chat path, from links written before the frame changed. */}
+											<Route path="/chat/*" element={<Navigate to="/messages/main" replace />} />
+											{/* The frame reads the URL itself: tab, then what is open inside it. */}
+											<Route path="*" element={<AppFrame />} />
+										</Routes>
+									</RequireSession>
+								}
+							/>
+						</Routes>
+					</Suspense>
+				</ChunkBoundary>
 			</div>
 			{background && (
-				<Routes>
-					<Route path="/terms" element={<LegalPage kind="terms" />} />
-					<Route path="/privacy" element={<LegalPage kind="privacy" />} />
-				</Routes>
+				<ChunkBoundary resetKey={location.pathname}>
+					<Suspense fallback={<Splash />}>
+						<Routes>
+							<Route path="/terms" element={<LegalPage kind="terms" />} />
+							<Route path="/privacy" element={<LegalPage kind="privacy" />} />
+						</Routes>
+					</Suspense>
+				</ChunkBoundary>
 			)}
 			{DeveloperPanel && (
 				<Suspense fallback={null}>

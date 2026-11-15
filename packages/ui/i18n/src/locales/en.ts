@@ -8,6 +8,9 @@ export const en = {
 	app: {
 		name: "Yonder",
 		loading: "Loading…",
+		loadFailed: "Unable to load this page.",
+		reload: "Reload page",
+		reloadConfirm: "Reload the page? Unsaved changes may be lost.",
 		retry: "Try again",
 		cancel: "Cancel",
 		save: "Save",

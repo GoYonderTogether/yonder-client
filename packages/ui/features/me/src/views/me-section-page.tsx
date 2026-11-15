@@ -1,15 +1,18 @@
 import { useMe } from "@yonder/ui-data";
 import { PageFrame } from "@yonder/ui-shell";
-import type { ReactNode } from "react";
+import { lazy, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AboutSection } from "../components/about-section.tsx";
 import { AccountSection } from "../components/account-section.tsx";
 import { DevicesSection, GeneralSection } from "../components/empty-sections.tsx";
 import { InviteSection } from "../components/invite-section.tsx";
-import { ModelsSection } from "../components/models-section.tsx";
 import { ProfileEditor } from "../components/profile-editor.tsx";
 import { QuotaSection } from "../components/quota-section.tsx";
 import type { MeSectionId } from "./sections.tsx";
+
+const ModelsSection = lazy(() =>
+	import("../components/models-section.tsx").then((module) => ({ default: module.ModelsSection })),
+);
 
 export interface MeSectionPageProps {
 	section: MeSectionId | null;

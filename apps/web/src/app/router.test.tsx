@@ -27,7 +27,7 @@ afterEach(() => vi.unstubAllGlobals());
 test("both legal routes are public and a direct visit returns to the home route", async () => {
 	window.history.pushState({}, "", "/blank");
 	const router = renderAt("/terms");
-	expect(screen.getByRole("heading", { name: "Terms of Service" })).toBeInTheDocument();
+	expect(await screen.findByRole("heading", { name: "Terms of Service" }, { timeout: 10000 })).toBeInTheDocument();
 	await router.navigate("/privacy", { replace: true });
 	expect(await screen.findByRole("heading", { name: "Privacy Policy" })).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -37,7 +37,9 @@ test("both legal routes are public and a direct visit returns to the home route"
 
 test("opening both legal pages keeps the sign-in draft and restores focus", async () => {
 	const router = renderAt("/sign-in");
-	fireEvent.change(screen.getByLabelText("Phone number"), { target: { value: "13800138000" } });
+	fireEvent.change(await screen.findByLabelText("Phone number", {}, { timeout: 10000 }), {
+		target: { value: "13800138000" },
+	});
 	for (const [label, title] of [
 		["Terms of service", "Terms of Service"],
 		["Privacy policy", "Privacy Policy"],

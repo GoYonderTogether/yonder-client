@@ -14,18 +14,22 @@ import {
 import type { LayoutMode, TabId } from "@yonder/ui-shell";
 import { AppShell, locate, MAIN_CONVERSATION, tabPath } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { useBlocker, useLocation, useNavigate } from "react-router";
 import { BUILD_VERSION } from "../lib/config.ts";
 import { isMacDesktopShell } from "../lib/platform.ts";
-import { MemoryList, MemoryPage } from "../pages/memory-page.tsx";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
-import { TaskPage, TasksList } from "../pages/tasks-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
+import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { Composer } from "./composer.tsx";
 import { useHasPassword } from "./use-has-password.ts";
+
+const MemoryList = lazy(() => import("../pages/memory-page.tsx").then((module) => ({ default: module.MemoryList })));
+const MemoryPage = lazy(() => import("../pages/memory-page.tsx").then((module) => ({ default: module.MemoryPage })));
+const TasksList = lazy(() => import("../pages/tasks-page.tsx").then((module) => ({ default: module.TasksList })));
+const TaskPage = lazy(() => import("../pages/tasks-page.tsx").then((module) => ({ default: module.TaskPage })));
 
 /** Assembles the active list and detail; the shell owns their responsive layout. */
 export function AppFrame() {
@@ -193,8 +197,16 @@ export function AppFrame() {
 			onBack={back}
 			backLabel={t("app.back")}
 			mobileShowList={meOpen ? !first : !detailOpen}
-			list={list}
-			content={content}
+			list={
+				<ChunkBoundary resetKey={location.pathname}>
+					<Suspense fallback={null}>{list}</Suspense>
+				</ChunkBoundary>
+			}
+			content={
+				<ChunkBoundary resetKey={location.pathname}>
+					<Suspense fallback={null}>{content}</Suspense>
+				</ChunkBoundary>
+			}
 			detailOpen={detailOpen}
 			composer={composer}
 			titlebarInset={isMacDesktopShell()}

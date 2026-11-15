@@ -10,6 +10,9 @@ export const zhCN: Messages = {
 	app: {
 		name: "Yonder",
 		loading: "加载中…",
+		loadFailed: "页面加载失败。",
+		reload: "重新加载页面",
+		reloadConfirm: "重新加载页面？未保存的更改可能丢失。",
 		retry: "重试",
 		cancel: "取消",
 		save: "保存",

@@ -54,6 +54,10 @@ export function DataProvider({
 	const storage = useMemo(() => injectedStorage ?? createDefaultStorage(), [injectedStorage]);
 	const queryClient = useMemo(() => createQueryClient(), []);
 	const persister = useMemo(() => createPersister(storage), [storage]);
+	useEffect(() => {
+		persister.activate();
+		return () => persister.dispose();
+	}, [persister]);
 	const setStatus = useSessionStore((state) => state.setStatus);
 
 	const clientParts = useMemo(() => {
