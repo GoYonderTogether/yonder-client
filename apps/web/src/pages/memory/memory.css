@@ -1,0 +1,185 @@
+.memory-card-stack {
+	display: grid;
+	padding-bottom: var(--control-lg);
+}
+.memory-card {
+	grid-area: 1 / 1;
+	min-width: 0;
+	min-height: calc(var(--spacing-16) * 4);
+	border-radius: var(--radius-panel);
+	background: var(--color-bg-surface);
+	color: var(--color-text-primary);
+	transition: transform var(--duration-slow) var(--ease-standard);
+}
+.memory-card-ai {
+	background: var(--color-bg-subtle);
+}
+.memory-card-front {
+	position: relative;
+	z-index: 2;
+}
+.memory-card-back {
+	position: relative;
+	transform: translateY(var(--control-lg));
+}
+.memory-card-switch {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	height: var(--control-lg);
+	padding: var(--spacing-4) var(--spacing-5);
+	border-radius: inherit;
+	font-size: var(--text-caption);
+	color: var(--color-text-secondary);
+	cursor: pointer;
+}
+.memory-card-switch:focus-visible {
+	outline: var(--spacing-1) solid var(--color-accent);
+	outline-offset: calc(-1 * var(--spacing-1));
+}
+.memory-card-stack-expanded {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-4);
+	padding-bottom: 0;
+}
+.memory-card-stack-expanded .memory-card {
+	transform: none;
+}
+.memory-calendar-day {
+	display: flex;
+	min-height: var(--control-lg);
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--spacing-1);
+	border-radius: var(--radius-control-sm);
+	font-size: var(--text-caption);
+	cursor: pointer;
+}
+.memory-calendar-day:hover {
+	background: var(--color-bg-hover);
+}
+.memory-calendar-day:focus-visible {
+	outline: var(--spacing-1) solid var(--color-accent);
+}
+.memory-calendar-selected {
+	background: var(--color-bg-selected);
+	color: var(--color-text-primary);
+}
+.memory-calendar-dot {
+	width: var(--spacing-1);
+	height: var(--spacing-1);
+	border-radius: var(--radius-full);
+}
+.memory-calendar-dot-filled {
+	background: var(--color-accent);
+}
+.memory-day {
+	position: relative;
+	height: calc(var(--spacing-16) * 6);
+	margin-top: var(--spacing-3);
+	margin-bottom: var(--spacing-4);
+}
+.memory-hour {
+	position: absolute;
+	left: 0;
+	right: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-3);
+	color: var(--color-text-secondary);
+	font-size: var(--text-micro);
+}
+.memory-hour > span:first-child {
+	width: var(--spacing-10);
+	flex-shrink: 0;
+}
+.memory-hour-rule {
+	height: calc(var(--spacing-1) / 4);
+	flex: 1;
+	background: var(--color-border-subtle);
+}
+.memory-now {
+	position: absolute;
+	left: calc(var(--spacing-10) + var(--spacing-3));
+	right: 0;
+	z-index: 1;
+	border-top: calc(var(--spacing-1) / 2) solid var(--color-accent);
+}
+.memory-now > span {
+	position: absolute;
+	right: 0;
+	bottom: var(--spacing-1);
+	border-radius: var(--radius-full);
+	background: var(--color-bg-base);
+	color: var(--color-accent-text);
+	padding: 0 var(--spacing-2);
+	font-size: var(--text-micro);
+}
+.memory-day-empty {
+	position: absolute;
+	inset: var(--spacing-6) var(--spacing-2) var(--spacing-6) var(--spacing-16);
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	gap: var(--spacing-3);
+	color: var(--color-text-secondary);
+	text-align: center;
+	font-size: var(--text-caption);
+}
+.memory-flow {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-4);
+}
+.memory-flow-tick {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-3);
+	font-size: var(--text-micro);
+	color: var(--color-text-secondary);
+}
+.memory-flow-tick > span:last-child {
+	flex: 1;
+	height: calc(var(--spacing-1) / 4);
+	background: var(--color-border-subtle);
+}
+.memory-flow-current {
+	color: var(--color-accent-text);
+}
+.memory-flow-current > span:last-child {
+	background: var(--color-accent);
+	height: calc(var(--spacing-1) / 2);
+}
+.memory-flow-event {
+	display: flex;
+	gap: var(--spacing-3);
+	padding-left: var(--spacing-6);
+}
+.memory-flow-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--spacing-8);
+	height: var(--spacing-8);
+	flex-shrink: 0;
+	border-radius: var(--radius-full);
+	background: var(--color-bg-subtle);
+	color: var(--color-text-secondary);
+}
+.memory-moment {
+	min-width: 0;
+	flex: 1;
+	padding: var(--spacing-4);
+	border-radius: var(--radius-card);
+	background: var(--color-bg-surface);
+}
+.memory-moment-upcoming {
+	background: var(--color-bg-subtle);
+}
