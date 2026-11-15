@@ -52,3 +52,31 @@ test("dev observers preserve app handlers and stale socket closes cannot create 
 	connection.stop();
 	window.removeEventListener("yonder-dev-realtime-event", observer);
 });
+
+test("native tool listeners share the account socket without replacing its cache handler", () => {
+	TestSocket.instances = [];
+	const cache = vi.fn();
+	const native = vi.fn();
+	const connection = new RealtimeConnection({
+		baseUrl: "http://localhost",
+		getAccessToken: () => "access",
+		WebSocketImpl: TestSocket as unknown as typeof WebSocket,
+	});
+	connection.setHandlers({ onEvent: cache });
+	const stop = connection.subscribeEvents(native);
+	expect(connection.send({ type: "connector.ready", connectionIds: [] })).toBe(false);
+	connection.connect();
+	const socket = TestSocket.instances[0] as TestSocket;
+	const send = vi.spyOn(socket, "send");
+	const ready = { type: "connector.ready" as const, connectionIds: ["con_a"] };
+	expect(connection.send(ready)).toBe(true);
+	expect(send).toHaveBeenCalledWith(JSON.stringify(ready));
+	const event = { type: "connectors.changed", at: new Date().toISOString(), eventId: "evt_a" };
+	socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(event) }));
+	expect(cache).toHaveBeenCalledWith(event);
+	expect(native).toHaveBeenCalledWith(event);
+	stop();
+	socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(event) }));
+	expect(native).toHaveBeenCalledTimes(1);
+	connection.stop();
+});

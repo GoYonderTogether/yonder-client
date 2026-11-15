@@ -21,3 +21,6 @@ device checks.
 - **A loading button keeps its label**, so the layout does not jump.
 - **One `primary` per region**; `danger` needs a confirmation nearby.
 - A component never reads the query cache. Data arrives as props.
+- `SearchInput` shares the input surface and a left magnifier. Pages provide a short localized
+  placeholder and own the query, submission and results; the placeholder is the accessible name
+  unless the caller provides one.

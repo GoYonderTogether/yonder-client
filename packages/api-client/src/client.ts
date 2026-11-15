@@ -16,16 +16,24 @@ export interface TokenStore {
 	setRefreshToken?(token: string | null): void;
 }
 
+export type ApiResponse = Pick<Response, "status" | "ok" | "json" | "blob"> & {
+	body?: { cancel?: () => void | Promise<void> } | null;
+};
+
 export interface ApiClientOptions {
 	baseUrl: string;
 	tokens: TokenStore;
 	/** `web` uses cookies; `shell` sends `X-Yonder-Client: shell` and keeps the refresh token itself. */
-	clientKind: "web" | "shell";
+	clientKind: "web" | "shell" | "miniprogram";
 	appVersion: string;
 	/** Called when a 401 cannot be recovered: the app returns to the sign-in screen. */
 	onSessionLost?: () => void;
+	/** A secondary shell window borrows an access token from the main window. */
+	refreshAccessToken?: () => Promise<string | null>;
 	/** Injectable for tests. */
-	fetch?: typeof fetch;
+	fetch?: (url: string, init: RequestInit) => Promise<ApiResponse>;
+	/** Native hosts can supply an id without browser crypto. */
+	requestId?: () => string;
 	now?: () => number;
 }
 
@@ -67,7 +75,9 @@ export interface RequestOptions {
 	method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 	body?: unknown;
 	/** `raw` bodies (an avatar) skip JSON encoding. */
-	raw?: { bytes: BodyInit; contentType: string };
+	raw?: { bytes: BodyInit; contentType?: string };
+	responseType?: "blob";
+	range?: string;
 	signal?: AbortSignal;
 	idempotencyKey?: string;
 	/** Send the access token; default true for everything but the auth endpoints. */
@@ -79,6 +89,7 @@ export interface RequestOptions {
 export class ApiClient {
 	readonly #options: ApiClientOptions;
 	#refreshing: Promise<boolean> | null = null;
+	#generation = 0;
 
 	constructor(options: ApiClientOptions) {
 		this.#options = options;
@@ -89,38 +100,52 @@ export class ApiClient {
 	}
 
 	async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+		const generation = this.#generation;
 		const response = await this.#send(path, options);
+		this.#assertSession(generation);
 		if (response.status === 401 && options.authenticated !== false && !options.retried) {
 			const refreshed = await this.#refreshOnce();
+			this.#assertSession(generation);
 			if (refreshed) return this.request<T>(path, { ...options, retried: true });
 			this.#options.onSessionLost?.();
 			throw await toApiError(response);
 		}
 		if (!response.ok) throw await toApiError(response);
+		if (options.range && response.status !== 206) {
+			try {
+				await response.body?.cancel?.();
+			} catch {}
+			throw new ApiError({
+				code: "upstream_unavailable",
+				status: 502,
+				message: "the server did not return a partial attachment",
+			});
+		}
 		if (response.status === 204) return undefined as T;
-		return (await response.json()) as T;
+		return (options.responseType === "blob" ? await response.blob() : await response.json()) as T;
 	}
 
-	async #send(path: string, options: RequestOptions): Promise<Response> {
-		const headers = new Headers();
-		headers.set("accept", "application/json");
-		headers.set("x-request-id", crypto.randomUUID());
-		headers.set("x-client-version", this.#options.appVersion);
-		headers.set("x-client-platform", this.#options.clientKind === "shell" ? "desktop" : "web");
-		if (options.idempotencyKey) headers.set("idempotency-key", options.idempotencyKey);
-		if (this.#options.clientKind === "shell") headers.set("x-yonder-client", "shell");
+	async #send(path: string, options: RequestOptions): Promise<ApiResponse> {
+		const headers: Record<string, string> = {};
+		headers.accept = "application/json";
+		headers["x-request-id"] = this.#options.requestId?.() ?? crypto.randomUUID();
+		headers["x-client-version"] = this.#options.appVersion;
+		headers["x-client-platform"] = this.#options.clientKind === "shell" ? "desktop" : this.#options.clientKind;
+		if (options.idempotencyKey) headers["idempotency-key"] = options.idempotencyKey;
+		if (options.range) headers.range = options.range;
+		if (this.#options.clientKind !== "web") headers["x-yonder-client"] = this.#options.clientKind;
 
 		if (options.authenticated !== false) {
 			const token = this.#options.tokens.getAccessToken();
-			if (token) headers.set("authorization", `Bearer ${token}`);
+			if (token) headers.authorization = `Bearer ${token}`;
 		}
 
 		let body: BodyInit | null = null;
 		if (options.raw) {
-			headers.set("content-type", options.raw.contentType);
+			if (options.raw.contentType) headers["content-type"] = options.raw.contentType;
 			body = options.raw.bytes;
 		} else if (options.body !== undefined) {
-			headers.set("content-type", "application/json");
+			headers["content-type"] = "application/json";
 			body = JSON.stringify(options.body);
 		}
 
@@ -144,15 +169,28 @@ export class ApiClient {
 	 * which would look like reuse and revoke the session.
 	 */
 	#refreshOnce(): Promise<boolean> {
-		this.#refreshing ??= this.#refresh().finally(() => {
-			this.#refreshing = null;
+		if (this.#refreshing) return this.#refreshing;
+		const refreshing = this.#refresh().finally(() => {
+			if (this.#refreshing === refreshing) this.#refreshing = null;
 		});
-		return this.#refreshing;
+		this.#refreshing = refreshing;
+		return refreshing;
 	}
 
 	async #refresh(): Promise<boolean> {
+		const generation = this.#generation;
+		if (this.#options.refreshAccessToken) {
+			try {
+				const token = await this.#options.refreshAccessToken();
+				if (generation !== this.#generation) return false;
+				this.#options.tokens.setAccessToken(token);
+				return token !== null;
+			} catch {
+				return false;
+			}
+		}
 		const refreshToken = this.#options.tokens.getRefreshToken?.() ?? null;
-		if (this.#options.clientKind === "shell" && !refreshToken) return false;
+		if (this.#options.clientKind !== "web" && !refreshToken) return false;
 		try {
 			const response = await this.#send("/v1/auth/refresh", {
 				method: "POST",
@@ -160,25 +198,41 @@ export class ApiClient {
 				authenticated: false,
 				retried: true,
 			});
-			if (!response.ok) return false;
+			if (generation !== this.#generation) return false;
+			if (!response.ok) {
+				if (response.status === 401) {
+					this.#options.tokens.setAccessToken(null);
+					this.#options.tokens.setRefreshToken?.(null);
+				}
+				return false;
+			}
 			const body = (await response.json()) as { accessToken?: string; refreshToken?: string };
-			if (!body.accessToken) return false;
+			if (!body.accessToken || generation !== this.#generation) return false;
 			this.#options.tokens.setAccessToken(body.accessToken);
 			if (body.refreshToken) this.#options.tokens.setRefreshToken?.(body.refreshToken);
 			return true;
-		} catch {
+		} catch (error) {
+			if (error instanceof NetworkError) throw error;
 			return false;
 		}
 	}
 
+	#assertSession(generation: number): void {
+		if (generation !== this.#generation) throw Object.assign(new Error("session changed"), { name: "AbortError" });
+	}
+
 	/** Drop the in-memory token. The refresh cookie is cleared by the sign-out endpoint. */
 	clearTokens(): void {
+		this.#generation += 1;
+		this.#refreshing = null;
 		this.#options.tokens.setAccessToken(null);
 		this.#options.tokens.setRefreshToken?.(null);
 	}
 
 	/** Save the newly authenticated session after the previous account's cache is cleared. */
 	setSession(session: { accessToken: string; refreshToken?: string }): void {
+		this.#generation += 1;
+		this.#refreshing = null;
 		this.#options.tokens.setAccessToken(session.accessToken);
 		this.#options.tokens.setRefreshToken?.(session.refreshToken ?? null);
 	}
@@ -193,11 +247,14 @@ export class ApiClient {
 	 * session" is the normal answer rather than an error.
 	 */
 	async refreshSession(): Promise<boolean> {
-		return this.#refreshOnce();
+		return this.#refreshOnce().catch((error: unknown) => {
+			if (error instanceof NetworkError) return false;
+			throw error;
+		});
 	}
 }
 
-async function toApiError(response: Response): Promise<ApiError> {
+async function toApiError(response: ApiResponse): Promise<ApiError> {
 	let body: ApiErrorBody | null = null;
 	try {
 		body = (await response.json()) as ApiErrorBody;

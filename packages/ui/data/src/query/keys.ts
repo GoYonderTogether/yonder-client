@@ -5,8 +5,11 @@
 export const keys = {
 	me: () => ["me"] as const,
 	sessions: () => ["sessions"] as const,
+	devices: () => ["devices"] as const,
+	deviceRegistration: (installationId: string) => ["device-registration", installationId] as const,
 	health: () => ["health"] as const,
 	quota: () => ["quota"] as const,
+	quotaRates: () => ["quota", "rates"] as const,
 	usage: (range: string) => ["usage", range] as const,
 	ledger: () => ["quota", "ledger"] as const,
 	invite: () => ["invite"] as const,
@@ -22,18 +25,38 @@ export const keys = {
 		latest: (id: string) => ["messages", id, "latest"] as const,
 		page: (id: string, cursor: string) => ["messages", id, "page", cursor] as const,
 	},
+	contacts: () => ["contacts"] as const,
+	contactSearch: (query: string) => ["contact-search", query] as const,
 	providers: () => ["providers"] as const,
+	connectors: {
+		all: () => ["connectors"] as const,
+		catalog: () => ["connectors", "catalog"] as const,
+		list: () => ["connectors", "list"] as const,
+	},
+	skills: {
+		all: () => ["skills"] as const,
+		list: () => ["skills", "list"] as const,
+		detail: (id: string) => ["skills", "detail", id] as const,
+		files: (id: string) => ["skills", "file", id] as const,
+		file: (id: string, revision: string, path: string) => ["skills", "file", id, revision, path] as const,
+	},
 } as const;
 
 /** Root prefixes used when signing out: every key that must be dropped starts with one of these. */
 export const ALL_ROOT_KEYS: readonly string[] = [
 	"me",
 	"sessions",
+	"devices",
+	"device-registration",
 	"health",
 	"quota",
 	"invite",
 	"conversations",
 	"messages",
 	"providers",
+	"contacts",
+	"contact-search",
 	"usage",
+	"skills",
+	"connectors",
 ];

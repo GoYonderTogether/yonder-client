@@ -3,14 +3,24 @@
  * ask "did anything change" — the server says so (08-前端缓存和同步 第一节).
  */
 
-import type { Message, Run } from "../chat/chat.ts";
+import type { Conversation, Message, Run } from "../chat/chat.ts";
+import type { ConnectorCommand } from "../connectors/connectors.ts";
 import type { Member } from "../member/member.ts";
 import type { QuotaResponse } from "../quota/quota.ts";
 
-export type ClientEvent = { type: "ping"; at: string } | { type: "ack"; lastEventId: string };
+export type ClientEvent =
+	| { type: "ping"; at: string }
+	| { type: "ack"; lastEventId: string }
+	| { type: "connector.ready"; connectionIds: string[] }
+	| { type: "connector.ready"; connections: { id: string; revision: number }[] };
 
 /** Events this slice actually sends. A member change is what makes a second tab update. */
 export type ServerEvent =
+	| { type: "connectors.changed"; eventId: string; at: string }
+	| { type: "connector.command"; eventId: string; at: string; command: ConnectorCommand }
+	| { type: "connector.command.cancelled"; eventId: string; at: string; commandId: string }
+	| { type: "devices.changed"; eventId: string; at: string }
+	| { type: "conversation.updated"; eventId: string; at: string; conversation: Conversation }
 	| { type: "member.updated"; eventId: string; at: string; member: Member }
 	| { type: "quota.updated"; eventId: string; at: string; quota: QuotaResponse }
 	| { type: "message.created" | "message.updated"; eventId: string; at: string; message: Message }

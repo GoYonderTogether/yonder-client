@@ -13,6 +13,7 @@ export interface AvatarProps {
 	kind?: "person" | "bot" | undefined;
 	/** Which default face a Bot without a picture shows; the main Bot is 1. */
 	face?: BotFaceId | undefined;
+	color?: string | null | undefined;
 	/** Adds a ring, used when the avatar is the trigger for a menu. */
 	interactive?: boolean | undefined;
 	className?: string;
@@ -40,15 +41,18 @@ export function Avatar({
 	size = 32,
 	kind = "person",
 	face = 1,
+	color,
 	interactive = false,
 	className,
 }: AvatarProps) {
 	const initial = firstCharacter(name);
 	// A Bot without its own picture is an ink tile with a face: it reads as a character, not a person.
 	const tint =
-		kind === "bot"
-			? { background: "var(--color-avatar-bot-bg)", foreground: "var(--color-avatar-bot-fg)" }
-			: tintFor(name);
+		color && /^[1-6]$/.test(color)
+			? { background: `var(--color-avatar-${color}-bg)`, foreground: `var(--color-avatar-${color}-fg)` }
+			: kind === "bot"
+				? { background: "var(--color-avatar-bot-bg)", foreground: "var(--color-avatar-bot-fg)" }
+				: tintFor(name);
 	return (
 		<span
 			className={cn(

@@ -14,7 +14,7 @@ import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
-const DIST = join(ROOT, "apps/web/dist");
+const DIST = resolve(process.env.E2E_DIST ?? join(ROOT, "apps/web/dist"));
 const PORT = Number(process.env.E2E_PORT ?? 4180);
 const API_PORT = Number(process.env.E2E_API_PORT ?? 8090);
 const API_ORIGIN = `http://127.0.0.1:${API_PORT}`;

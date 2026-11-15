@@ -33,7 +33,11 @@ function errorResponse(code: string, status: number, extra: Record<string, unkno
 	);
 }
 
-function client(fetchImpl: typeof fetch, tokens = createMemoryTokenStore(), kind: "web" | "shell" = "web") {
+function client(
+	fetchImpl: typeof fetch,
+	tokens = createMemoryTokenStore(),
+	kind: "web" | "shell" | "miniprogram" = "web",
+) {
 	return new ApiClient({
 		baseUrl: "https://api.test",
 		tokens,
@@ -66,6 +70,14 @@ describe("requests", () => {
 		const headers = new Headers((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].headers);
 		expect(headers.get("x-yonder-client")).toBe("shell");
 		expect(headers.get("x-client-platform")).toBe("desktop");
+	});
+
+	test("a mini program identifies its transport for token delivery", async () => {
+		const fetchImpl = vi.fn(async () => jsonResponse({ ok: true }));
+		await client(fetchImpl as unknown as typeof fetch, createMemoryTokenStore(), "miniprogram").request("/v1/me");
+		const headers = new Headers((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].headers);
+		expect(headers.get("x-yonder-client")).toBe("miniprogram");
+		expect(headers.get("x-client-platform")).toBe("miniprogram");
 	});
 
 	test("an unauthenticated call sends no bearer token", async () => {

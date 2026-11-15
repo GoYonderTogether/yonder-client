@@ -78,7 +78,7 @@ export function ProfileEditor({ person }: ProfileEditorProps) {
 					className="group relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-accent)]"
 				>
 					<Avatar name={person.displayName} src={preview} size={80} />
-					<span className="absolute -end-1 -bottom-1 flex size-8 items-center justify-center rounded-full border-2 border-[var(--color-bg-base)] bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] shadow-[var(--shadow-sm)] transition-transform duration-[var(--duration-fast)] group-hover:scale-105">
+					<span className="absolute -end-1 -bottom-1 flex size-8 items-center justify-center rounded-full border-2 border-[var(--color-bg-base)] bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] transition-transform duration-[var(--duration-fast)] group-hover:scale-105">
 						<Camera size={15} strokeWidth={1.9} aria-hidden="true" />
 					</span>
 				</button>

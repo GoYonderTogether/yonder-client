@@ -37,6 +37,7 @@ export const LAYERS = {
 	"@yonder/protocol": [],
 	"@yonder/api-client": ["@yonder/protocol"],
 	"@yonder/ui-tokens": [],
+	"@yonder/auth-presentation": [],
 	"@yonder/ui-i18n": [],
 	"@yonder/ui-components": ["@yonder/protocol", "@yonder/ui-tokens", "@yonder/ui-i18n"],
 	"@yonder/ui-shell": ["@yonder/protocol", "@yonder/ui-tokens", "@yonder/ui-i18n", "@yonder/ui-components"],
@@ -49,6 +50,7 @@ export const LAYERS = {
 		"@yonder/ui-shell",
 	],
 	"@yonder/feature-auth": [
+		"@yonder/auth-presentation",
 		"@yonder/protocol",
 		"@yonder/ui-tokens",
 		"@yonder/ui-i18n",
@@ -65,6 +67,7 @@ export const LAYERS = {
 		"@yonder/ui-data",
 	],
 	"@yonder/feature-landing": ["@yonder/ui-tokens", "@yonder/ui-i18n", "@yonder/ui-components", "@yonder/ui-data"],
+	"@yonder/feature-meetings": ["@yonder/ui-tokens", "@yonder/ui-i18n", "@yonder/ui-components", "@yonder/ui-shell"],
 	"@yonder/feature-legal": [],
 };
 

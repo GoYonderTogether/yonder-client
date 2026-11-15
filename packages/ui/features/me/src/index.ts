@@ -5,10 +5,13 @@
 
 export { AboutSection } from "./components/about-section.tsx";
 export { AccountSection } from "./components/account-section.tsx";
-export { DevicesSection, GeneralSection } from "./components/empty-sections.tsx";
+export { DevicesSection } from "./components/devices-section.tsx";
+export { GeneralSection } from "./components/empty-sections.tsx";
 export { InviteSection } from "./components/invite-section.tsx";
 export { ProfileEditor } from "./components/profile-editor.tsx";
 export { QuotaSection } from "./components/quota-section.tsx";
+export { ConnectorsSection } from "./connectors/connectors-section.tsx";
+export type { LocalFilesAdapter } from "./connectors/local-files-adapter.ts";
 export type { MeListProps } from "./views/me-list.tsx";
 export { MeList } from "./views/me-list.tsx";
 export type { MeSectionPageProps } from "./views/me-section-page.tsx";

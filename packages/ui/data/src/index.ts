@@ -29,11 +29,17 @@ export {
 } from "./hooks/account.ts";
 export type { CachedMessage } from "./hooks/chat.ts";
 export { useConversations, useMessages, useRunActions, useSendMessage } from "./hooks/chat.ts";
+export { useCompactConversation } from "./hooks/compact.ts";
+export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
+export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
+export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
 export { useProviderActions, useProviders } from "./hooks/providers.ts";
-export { useInvite, useQuota, useQuotaLedger, useResolvedInvite, useUsage } from "./hooks/quota.ts";
+export { useInvite, useQuota, useQuotaLedger, useQuotaRates, useResolvedInvite, useUsage } from "./hooks/quota.ts";
+export { useSkill, useSkillActions, useSkillFile, useSkills } from "./hooks/skills.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
 export {
 	readLocale,
+	readStyleChoice,
 	readThemeChoice,
 	useLocalePreference,
 	useSystemPrefersDark,
@@ -53,6 +59,14 @@ export type { ConnectionStatus, RealtimeHandlers, RealtimeOptions } from "./real
 export { RealtimeConnection, websocketUrl } from "./realtime/connection.ts";
 export { applyServerEvent } from "./realtime/events.ts";
 export { useRealtimeSync } from "./realtime/use-realtime-sync.ts";
+export {
+	attachmentCacheKey,
+	chatCacheGeneration,
+	readChatCache,
+	removeChatCache,
+	updateChatCache,
+	writeChatCache,
+} from "./storage/chat-cache.ts";
 export type { Storage } from "./storage/index.ts";
 export { createBrowserStorage, createDefaultStorage, createMemoryStorage } from "./storage/index.ts";
 export { clearInvite, readInvite, saveInvite } from "./storage/invite.ts";

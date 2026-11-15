@@ -1,10 +1,25 @@
 import { accountMessagesEn } from "./account-en.ts";
+import { composerAttachmentsEn } from "./composer-attachments-en.ts";
+import { connectorMessagesEn } from "./connectors-en.ts";
+import { friendQrEn } from "./friend-qr-en.ts";
+import { inviteExperienceEn } from "./invite-experience-en.ts";
+import { landingPageEn } from "./landing-page-en.ts";
+import { meetingRecorderEn } from "./meeting-recorder-en.ts";
+import { memoryMessagesEn } from "./memory-en.ts";
 import { modelMessagesEn } from "./models-en.ts";
+import { skillMessagesEn } from "./skills-en.ts";
 /**
  * The English table is the reference: its shape is the type every other language must satisfy, so
  * a missing or misspelled key is a compile error rather than a blank label at runtime.
  */
 export const en = {
+	composerAttachments: composerAttachmentsEn,
+	connectors: connectorMessagesEn,
+	inviteExperience: inviteExperienceEn,
+	friendQr: friendQrEn,
+	landingPage: landingPageEn,
+	meetingRecorder: meetingRecorderEn,
+	skills: skillMessagesEn,
 	app: {
 		name: "Yonder",
 		loading: "Loading…",
@@ -30,6 +45,8 @@ export const en = {
 	legal: { version: "Version {{version}}", effectiveDate: "Effective {{date}}" },
 
 	landing: {
+		deviceGuide:
+			"Install Yonder on the device you want to connect and sign in to the same account. It will appear automatically.",
 		allDownloads: "All downloads",
 		backHome: "Yonder home",
 		choosePlatform: "Wrong platform? Choose manually",
@@ -81,12 +98,58 @@ export const en = {
 		myBot: "My Bot",
 	},
 
+	chatActions: {
+		recordMeeting: "Meeting recording",
+		windowFallback: "Could not open a separate window. Continue here.",
+		menu: "New chat",
+		createBot: "Create BOT",
+		addContact: "Add contacts",
+		createGroup: "Start group chat",
+		scan: "Scan QR code",
+		name: "Name",
+		shuffleName: "Another name",
+		avatarColor: "Avatar color",
+		create: "Create",
+		search: "Search",
+		searchPlaceholder: "Search ID or phone",
+		add: "Add",
+		added: "Added",
+		message: "Message",
+		noResults: "No contacts found",
+		contactsEmpty: "No contacts yet",
+		searchContacts: "Search contacts",
+		selectContacts: "Select contacts",
+		selected: "Selected · {{count}}",
+		groupName: "Group name",
+		groupNamePlaceholder: "Optional",
+		groupTitle: "Group chat",
+		failed: "Could not complete. Try again.",
+		color1: "Blue",
+		color2: "Green",
+		color3: "Sand",
+		color4: "Lilac",
+		color5: "Rose",
+		color6: "Teal",
+		scanCamera: "Use camera",
+		scanPhoto: "Scan an image",
+		cameraUnavailable: "Could not access the camera. Check permission and try again.",
+		scanUnsupported: "QR scanning is unavailable on this device.",
+		scanInvalid: "No Yonder contact or invitation QR code found.",
+		scanReady: "Point the camera at a Yonder QR code",
+		scanRetry: "Try again",
+	},
+
 	common: {
 		notBuiltYet: "Not built yet",
 		notBuiltYetBody: "{{feature}} arrives in a later step. Nothing is shown here until it works.",
 		empty: "Nothing here yet",
 		language: "Language",
 		appearance: "Appearance",
+		style: {
+			title: "Interface style",
+			classic: "Clean",
+			glow: "Gradient glow",
+		},
 		theme: {
 			system: "Follow system",
 			light: "Light",
@@ -169,6 +232,30 @@ export const en = {
 	},
 
 	chat: {
+		uploadFiles: "Upload files",
+		uploadImages: "Upload images",
+		removeFile: "Remove {{name}}",
+		uploading: "Uploading…",
+		uploadFailed: "Upload failed. Your file is still here.",
+		dropFiles: "Drop files to attach",
+		fileTooLarge: "Each file must be 20 MiB or smaller.",
+		tooManyFiles: "You can attach up to 10 files.",
+		cacheFailed: "Local storage is unavailable or full. Keep this window open to preserve your draft.",
+		sendPreserved:
+			"Sending was not confirmed. Your draft and files are preserved; retrying will not duplicate this message.",
+		downloadFile: "Download {{name}}",
+		attachmentFailed: "Could not load the attachment",
+		voiceInput: "Voice input",
+		stopRecording: "Stop recording",
+		cancelRecording: "Cancel voice input",
+		recording: "Recording · up to 2 minutes",
+		requestingMicrophone: "Allow microphone access to record",
+		transcribing: "Transcribing…",
+		voiceFailed: "Could not transcribe. Your existing draft is preserved.",
+		voiceUnknown: "Transcription status is unknown. Retrying may be charged again.",
+		voiceUnsupported: "Voice input is unavailable in this browser.",
+		microphoneDenied: "Microphone access was denied. Allow it in system or browser settings.",
+		unknownSender: "Unknown sender",
 		emptyTitle: "No messages yet",
 		composerPlaceholder: "Message your Bot",
 		composerTo: "Message {{name}}",
@@ -182,8 +269,13 @@ export const en = {
 		sendFailed: "Message not sent",
 		runFailed: "The response failed",
 		modelNotConfigured: "No model configured",
-		quotaExhausted: "Your quota is exhausted. You can still chat.",
+		quotaExhausted: "Your quota is exhausted. Sending a message will not start a reply.",
+		quotaMainExhausted: "Main quota is used up, so this message was not answered.",
+		quotaBackgroundExhausted: "Background quota is used up, so this task did not run.",
+		quotaCodingExhausted: "Coding quota is used up, so this task did not run.",
+		quotaExternalExhausted: "External quota is used up, so this message was not answered.",
 		loadingHistory: "Loading messages…",
+		jumpToLatest: "Jump to latest",
 		loadOlder: "Load earlier messages",
 	},
 
@@ -194,12 +286,7 @@ export const en = {
 		emptyScheduled: "No scheduled tasks yet",
 	},
 
-	memory: {
-		title: "Memory",
-		aboutMe: "About me",
-		files: "Files",
-		emptyTitle: "No memory yet",
-	},
+	memory: memoryMessagesEn,
 
 	me: accountMessagesEn.me,
 
@@ -231,6 +318,9 @@ export const en = {
 		internal: "Something went wrong on our side.",
 		sms_not_configured: "This server cannot send SMS yet.",
 		upstream_unavailable: "The provider could not be reached.",
+		compact_busy: "The conversation is replying or compacting. Try again shortly.",
+		compact_unsupported: "Only your private conversation with your own Bot can be compacted.",
+		compact_failed: "Context could not be compacted. Original content is preserved.",
 	},
 
 	notFound: {

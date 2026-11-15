@@ -4,7 +4,7 @@
  * typed wrapper over it.
  */
 
-export type { ApiClientOptions, RequestOptions, TokenStore } from "./client.ts";
+export type { ApiClientOptions, ApiResponse, RequestOptions, TokenStore } from "./client.ts";
 export { ApiClient, ApiError, NetworkError } from "./client.ts";
 export type { Endpoints, SessionSummary } from "./endpoints.ts";
 export { createEndpoints } from "./endpoints.ts";

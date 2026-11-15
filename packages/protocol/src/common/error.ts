@@ -12,6 +12,9 @@ export const ERROR_CODES = [
 	"not_found",
 	"invite_invalid",
 	"conflict_version",
+	"compact_busy",
+	"compact_unsupported",
+	"compact_failed",
 	"code_invalid",
 	"code_expired",
 	"code_rate_limited",
@@ -24,6 +27,9 @@ export const ERROR_CODES = [
 	"rate_limited",
 	"internal",
 	"sms_not_configured",
+	"wechat_not_configured",
+	"wechat_invalid",
+	"wechat_conflict",
 	"upstream_unavailable",
 ] as const;
 

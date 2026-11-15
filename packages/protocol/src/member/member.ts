@@ -13,13 +13,14 @@ export interface Member {
 	displayName: string;
 	/** Content-addressed: the `v` query parameter changes when the image changes. */
 	avatarUrl: string | null;
+	avatarColor?: string | null;
 	bio: string | null;
 	createdAt: string;
 	/** Increments on every change; a client with an older copy replaces it. */
 	version: number;
 }
 
-/** What `/v1/me` answers. The bot is here because every account owns exactly one. */
+/** What `/v1/me` answers. The bot is here because every account has a primary Bot. */
 export interface MeResponse {
 	member: Member;
 	bot: Member;

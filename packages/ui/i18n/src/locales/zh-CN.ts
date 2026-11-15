@@ -1,12 +1,27 @@
 import { accountMessagesZhCN } from "./account-zh-CN.ts";
+import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
+import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
 import type { Messages } from "./en.ts";
+import { friendQrZhCN } from "./friend-qr-zh-CN.ts";
+import { inviteExperienceZhCN } from "./invite-experience-zh-CN.ts";
+import { landingPageZhCN } from "./landing-page-zh-CN.ts";
+import { meetingRecorderZhCN } from "./meeting-recorder-zh-CN.ts";
+import { memoryMessagesZhCN } from "./memory-zh-CN.ts";
 import { modelMessagesZhCN } from "./models-zh-CN.ts";
+import { skillMessagesZhCN } from "./skills-zh-CN.ts";
 
 /**
  * Chinese. Typed against the English table: a missing key fails the build rather than showing a
  * blank label. Wording follows the product's own vocabulary (对话、任务、记忆、我).
  */
 export const zhCN: Messages = {
+	composerAttachments: composerAttachmentsZhCN,
+	connectors: connectorMessagesZhCN,
+	inviteExperience: inviteExperienceZhCN,
+	friendQr: friendQrZhCN,
+	landingPage: landingPageZhCN,
+	meetingRecorder: meetingRecorderZhCN,
+	skills: skillMessagesZhCN,
 	app: {
 		name: "Yonder",
 		loading: "加载中…",
@@ -32,6 +47,7 @@ export const zhCN: Messages = {
 	legal: { version: "版本 {{version}}", effectiveDate: "生效日期 {{date}}" },
 
 	landing: {
+		deviceGuide: "在需要接入的设备安装 Yonder，并登录同一账号，设备会自动出现。",
 		allDownloads: "全部下载",
 		backHome: "Yonder 首页",
 		choosePlatform: "不对？手动选",
@@ -83,12 +99,58 @@ export const zhCN: Messages = {
 		myBot: "我的 Bot",
 	},
 
+	chatActions: {
+		recordMeeting: "会议录音",
+		windowFallback: "未能打开独立窗口，可在这里继续添加。",
+		menu: "发起聊天",
+		createBot: "创建 BOT",
+		addContact: "添加好友",
+		createGroup: "创建群聊",
+		scan: "扫一扫",
+		name: "名字",
+		shuffleName: "换个名字",
+		avatarColor: "头像颜色",
+		create: "创建",
+		search: "搜索",
+		searchPlaceholder: "搜索 ID 或手机号",
+		add: "添加",
+		added: "已添加",
+		message: "发消息",
+		noResults: "没有找到联系人",
+		contactsEmpty: "还没有联系人",
+		searchContacts: "搜索联系人",
+		selectContacts: "选择联系人",
+		selected: "已选 {{count}} 位",
+		groupName: "群聊名称",
+		groupNamePlaceholder: "选填",
+		groupTitle: "群聊",
+		failed: "操作没有完成，请重试。",
+		color1: "蓝色",
+		color2: "绿色",
+		color3: "沙色",
+		color4: "紫色",
+		color5: "粉色",
+		color6: "青色",
+		scanCamera: "使用相机",
+		scanPhoto: "从图片识别",
+		cameraUnavailable: "无法使用相机，请检查权限后重试。",
+		scanUnsupported: "此设备暂不支持识别二维码。",
+		scanInvalid: "没有识别到 Yonder 联系人或邀请二维码。",
+		scanReady: "将相机对准 Yonder 二维码",
+		scanRetry: "重新扫描",
+	},
+
 	common: {
 		notBuiltYet: "还没做",
 		notBuiltYetBody: "{{feature}}会在后面的步骤里做好。在那之前这里不显示任何东西。",
 		empty: "这里还是空的",
 		language: "语言",
 		appearance: "外观",
+		style: {
+			title: "界面风格",
+			classic: "清爽克制",
+			glow: "渐变晕染",
+		},
 		theme: {
 			system: "跟随系统",
 			light: "浅色",
@@ -171,6 +233,29 @@ export const zhCN: Messages = {
 	},
 
 	chat: {
+		uploadFiles: "上传文件",
+		uploadImages: "上传图片",
+		removeFile: "移除 {{name}}",
+		uploading: "上传中…",
+		uploadFailed: "上传失败，文件仍保留在这里。",
+		dropFiles: "松开以添加文件",
+		fileTooLarge: "单个文件不能超过 20 MiB。",
+		tooManyFiles: "每条消息最多添加 10 个文件。",
+		cacheFailed: "本地存储不可用或空间已满，请保持窗口打开以保留草稿。",
+		sendPreserved: "尚未确认发送，草稿和文件已保留；重试不会重复发送这条消息。",
+		downloadFile: "下载 {{name}}",
+		attachmentFailed: "附件加载失败",
+		voiceInput: "语音输入",
+		stopRecording: "停止录音",
+		cancelRecording: "取消语音输入",
+		recording: "正在录音 · 最长 2 分钟",
+		requestingMicrophone: "请允许麦克风访问以开始录音",
+		transcribing: "正在转成文字…",
+		voiceFailed: "语音识别失败，原有草稿已保留。",
+		voiceUnknown: "识别结果尚不确定，再次识别可能重复计费。",
+		voiceUnsupported: "当前浏览器不支持语音输入。",
+		microphoneDenied: "麦克风权限被拒绝，请在系统或浏览器设置中允许访问。",
+		unknownSender: "未知发送者",
 		emptyTitle: "还没有消息",
 		composerPlaceholder: "对 Bot 说点什么",
 		composerTo: "对 {{name}} 说点什么",
@@ -184,8 +269,13 @@ export const zhCN: Messages = {
 		sendFailed: "消息没有发出",
 		runFailed: "回复失败",
 		modelNotConfigured: "模型没有配置",
-		quotaExhausted: "额度已用完，仍可继续聊天。",
+		quotaExhausted: "额度已用完，再发消息也不会开始回复。",
+		quotaMainExhausted: "主额度已用完，这条消息没有回复。",
+		quotaBackgroundExhausted: "后台额度已用完，这个任务没有运行。",
+		quotaCodingExhausted: "编程额度已用完，这个任务没有运行。",
+		quotaExternalExhausted: "对外额度已用完，这条消息没有回复。",
 		loadingHistory: "正在加载消息…",
+		jumpToLatest: "跳至最新",
 		loadOlder: "加载更早的消息",
 	},
 
@@ -196,12 +286,7 @@ export const zhCN: Messages = {
 		emptyScheduled: "还没有定时任务",
 	},
 
-	memory: {
-		title: "记忆",
-		aboutMe: "关于我",
-		files: "文件",
-		emptyTitle: "还没有记忆",
-	},
+	memory: memoryMessagesZhCN,
 
 	me: accountMessagesZhCN.me,
 
@@ -233,6 +318,9 @@ export const zhCN: Messages = {
 		internal: "我们这边出了问题。",
 		sms_not_configured: "这台服务器还不能发短信。",
 		upstream_unavailable: "连不上供应商。",
+		compact_busy: "对话正在回复或压缩，请稍后重试。",
+		compact_unsupported: "只能压缩你与自己 Bot 的私聊。",
+		compact_failed: "上下文压缩失败，原内容已保留。",
 	},
 
 	notFound: {

@@ -6,7 +6,7 @@
  * with a revoked token would loop forever.
  */
 
-import type { ServerEvent } from "@yonder/protocol";
+import type { ClientEvent, ServerEvent } from "@yonder/protocol";
 import {
 	REALTIME_CLOSE_SESSION_REVOKED,
 	REALTIME_CLOSE_UNAUTHORIZED,
@@ -42,6 +42,7 @@ export class RealtimeConnection {
 	#retryHandle: unknown = null;
 	#wanted = false;
 	#statusListeners = new Set<() => void>();
+	#eventListeners = new Set<(event: ServerEvent) => void>();
 
 	constructor(options: RealtimeOptions) {
 		this.#options = options;
@@ -62,6 +63,19 @@ export class RealtimeConnection {
 		this.#statusListeners.add(listener);
 		return () => this.#statusListeners.delete(listener);
 	};
+
+	subscribeEvents(listener: (event: ServerEvent) => void): () => void {
+		this.#eventListeners.add(listener);
+		return () => {
+			this.#eventListeners.delete(listener);
+		};
+	}
+
+	send(event: ClientEvent): boolean {
+		if (this.#socket?.readyState !== 1) return false;
+		this.#socket.send(JSON.stringify(event));
+		return true;
+	}
 
 	connect(): void {
 		// The development panel can call connect repeatedly while a socket is still opening.
@@ -106,6 +120,7 @@ export class RealtimeConnection {
 				const parsed = JSON.parse(String(event.data)) as ServerEvent | { type: "pong" };
 				if (parsed.type === "pong") return;
 				this.#options.onEvent?.(parsed as ServerEvent);
+				for (const listener of this.#eventListeners) listener(parsed as ServerEvent);
 				// A dev panel can observe events without replacing the app's cache/session handler.
 				if (import.meta.env.DEV && typeof window !== "undefined") {
 					window.dispatchEvent(

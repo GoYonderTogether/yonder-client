@@ -3,6 +3,7 @@
  * dependencies, no import from any other workspace package.
  */
 
+export type { AgentMessage, AgentToolCall, AgentToolDefinition } from "./agent/tools.ts";
 export type {
 	DeleteAccountRequest,
 	DeleteAccountResponse,
@@ -17,18 +18,45 @@ export type {
 	SetPasswordRequest,
 	SignInRequest,
 	SignInResponse,
+	WechatMiniPhoneRequest,
+	WechatMiniSignInRequest,
+	WechatMiniSignInResponse,
 } from "./auth/auth.ts";
 export type {
+	AddContactResponse,
+	Attachment,
+	AttachmentTextPreview,
 	Conversation,
 	ConversationMember,
+	CreateBotRequest,
+	CreateBotResponse,
+	CreateGroupRequest,
 	Message,
 	MessagePage,
 	Run,
 	SendMessageRequest,
 	SendMessageResponse,
 } from "./chat/chat.ts";
+export type { CompactConversationRequest, CompactConversationResponse } from "./chat/compaction.ts";
 export type { ApiErrorBody, ErrorCode, Timestamp } from "./common/error.ts";
 export { ERROR_CODES } from "./common/error.ts";
+export type {
+	ConnectorCapabilities,
+	ConnectorCatalogResponse,
+	ConnectorCommand,
+	ConnectorCommandArgs,
+	ConnectorCommandResult,
+	ConnectorDefinition,
+	ConnectorExecutionError,
+	ConnectorInstance,
+	ConnectorListResponse,
+	ConnectorOperation,
+	ConnectorScope,
+	CreateConnectorRequest,
+	LocalFilesResult,
+	UpdateConnectorRequest,
+} from "./connectors/connectors.ts";
+export type { DeviceListResponse, DeviceSummary } from "./devices/devices.ts";
 export type {
 	LocalePreference,
 	Member,
@@ -39,12 +67,25 @@ export type {
 	ThemePreference,
 	UpdateMeRequest,
 } from "./member/member.ts";
-export type { DiscoverModelsRequest, Provider, ProviderModelMetadata, SaveProviderRequest } from "./models/provider.ts";
+export type {
+	DiscoverModelsRequest,
+	PlatformModel,
+	Provider,
+	ProviderList,
+	ProviderModelMetadata,
+	SaveProviderRequest,
+} from "./models/provider.ts";
 export type {
 	InviteResponse,
 	LedgerEntry,
 	QuotaLedgerPage,
+	QuotaLedgerPool,
+	QuotaOverflowRule,
+	QuotaPool,
+	QuotaPoolBalance,
 	QuotaResponse,
+	RateCardEntry,
+	RateCardResponse,
 	ResolveInviteResponse,
 	UsageEntry,
 	UsagePage,
@@ -56,5 +97,12 @@ export {
 	REALTIME_HEARTBEAT_MS,
 	REALTIME_PATH,
 } from "./realtime/realtime.ts";
-
+export type {
+	SaveSkillRequest,
+	SkillDetail,
+	SkillFileResponse,
+	SkillListResponse,
+	SkillSummary,
+	UpdateSkillRequest,
+} from "./skills/skills.ts";
 export type { VersionPayload } from "./version/version-payload.ts";
