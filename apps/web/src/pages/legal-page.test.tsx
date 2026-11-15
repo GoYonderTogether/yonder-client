@@ -28,6 +28,19 @@ test.each([
 	);
 	expect(emphasis.length).toBeGreaterThan(0);
 	expect(container.textContent).not.toContain("**");
+	expect(container.textContent).not.toMatch(/RightCode|rightapi\.ai/i);
+	expect(container.textContent).toContain(
+		locale === "zh-CN"
+			? "我们会将必要的对话内容发送给所选模型对应的服务。"
+			: "we send necessary conversation content to the service for the selected model.",
+	);
+	if (kind === "privacy") {
+		expect(container.textContent).toContain(
+			locale === "zh-CN"
+				? "密钥会加密存储，只用于你发起的调用。"
+				: "the key is stored encrypted and used only for calls you initiate.",
+		);
+	}
 	expect([...container.querySelectorAll("strong")].map((element) => element.textContent)).toEqual(emphasis);
 });
 

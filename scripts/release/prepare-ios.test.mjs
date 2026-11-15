@@ -26,9 +26,38 @@ test("iOS preparation writes export compliance to the project's plist", { skip: 
 			}).trim();
 		run();
 		assert.equal(value(), "false");
+		const scene = JSON.parse(
+			execFileSync("/usr/bin/plutil", ["-extract", "UIApplicationSceneManifest", "json", "-o", "-", plist], {
+				encoding: "utf8",
+			}),
+		);
+		assert.equal(scene.UIApplicationSupportsMultipleScenes, false);
+		assert.equal(
+			scene.UISceneConfigurations.UIWindowSceneSessionRoleApplication[0].UISceneDelegateClassName,
+			"TaoSceneDelegate",
+		);
+		assert.match(
+			execFileSync("/usr/bin/plutil", ["-extract", "NSCameraUsageDescription", "raw", plist], { encoding: "utf8" }),
+			/Scan QR/,
+		);
+		const backgroundModes = () =>
+			JSON.parse(
+				execFileSync("/usr/bin/plutil", ["-extract", "UIBackgroundModes", "json", "-o", "-", plist], {
+					encoding: "utf8",
+				}),
+			);
+		assert.deepEqual(backgroundModes(), ["audio"]);
+		execFileSync("/usr/bin/plutil", [
+			"-replace",
+			"UIBackgroundModes",
+			"-json",
+			'["remote-notification","audio"]',
+			plist,
+		]);
 		execFileSync("/usr/bin/plutil", ["-replace", "ITSAppUsesNonExemptEncryption", "-bool", "true", plist]);
 		run();
 		assert.equal(value(), "false");
+		assert.deepEqual(backgroundModes(), ["remote-notification", "audio"]);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}

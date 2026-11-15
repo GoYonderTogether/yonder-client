@@ -103,3 +103,39 @@ function applyExportCompliance() {
 applyIcons();
 applySigning();
 applyExportCompliance();
+// Tao's scene delegate keeps UIKit and WKWebView safe areas current after rotation.
+execFileSync("/usr/bin/plutil", [
+	"-replace",
+	"UIApplicationSceneManifest",
+	"-json",
+	JSON.stringify({
+		UIApplicationSupportsMultipleScenes: false,
+		UISceneConfigurations: {
+			UIWindowSceneSessionRoleApplication: [
+				{ UISceneConfigurationName: "Default Configuration", UISceneDelegateClassName: "TaoSceneDelegate" },
+			],
+		},
+	}),
+	infoPlist,
+]);
+// WKWebView requests camera access only when the user opens Scan QR Code.
+execFileSync("/usr/bin/plutil", [
+	"-replace",
+	"NSCameraUsageDescription",
+	"-string",
+	"Scan QR codes / 扫描二维码",
+	infoPlist,
+]);
+execFileSync("/usr/bin/plutil", [
+	"-replace",
+	"NSMicrophoneUsageDescription",
+	"-string",
+	"Record meeting audio or turn your voice into an editable message / 录制会议音频或将语音转成可编辑消息",
+	infoPlist,
+]);
+// The native meeting recorder owns capture when the WebView is suspended or the device locks.
+const backgroundModes =
+	JSON.parse(execFileSync("/usr/bin/plutil", ["-convert", "json", "-o", "-", infoPlist], { encoding: "utf8" }))
+		.UIBackgroundModes ?? [];
+if (!backgroundModes.includes("audio")) backgroundModes.push("audio");
+execFileSync("/usr/bin/plutil", ["-replace", "UIBackgroundModes", "-json", JSON.stringify(backgroundModes), infoPlist]);

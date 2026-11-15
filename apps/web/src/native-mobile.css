@@ -1,0 +1,79 @@
+/* Native insets come from the host; Safari/Chrome keep the existing page layout. */
+html[data-native-mobile="true"] {
+	--safe-area-top: var(--native-safe-area-inset-top, env(safe-area-inset-top));
+	--safe-area-right: var(--native-safe-area-inset-right, env(safe-area-inset-right));
+	--safe-area-bottom: var(--native-safe-area-inset-bottom, env(safe-area-inset-bottom));
+	--safe-area-left: var(--native-safe-area-inset-left, env(safe-area-inset-left));
+}
+
+html[data-native-mobile="true"] [data-layout-mode] > div {
+	padding-inline: var(--safe-area-left) var(--safe-area-right);
+}
+
+html[data-native-mobile="true"] [data-shell-topbar] {
+	padding-top: var(--safe-area-top);
+}
+
+html[data-native-mobile="true"] [data-frame-header] {
+	position: absolute;
+	inset: 0 0 auto;
+	z-index: 10;
+}
+
+html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-header])::before {
+	position: absolute;
+	inset: 0 0 calc(-1 * var(--spacing-6));
+	z-index: -1;
+	background: color-mix(in srgb, var(--color-bg-base) 75%, transparent);
+	-webkit-backdrop-filter: blur(var(--system-bar-blur));
+	backdrop-filter: blur(var(--system-bar-blur));
+	-webkit-mask-image: linear-gradient(to bottom, var(--color-mask-solid) calc(100% - var(--spacing-6)), transparent);
+	mask-image: linear-gradient(to bottom, var(--color-mask-solid) calc(100% - var(--spacing-6)), transparent);
+	pointer-events: none;
+	content: "";
+}
+
+html[data-native-mobile="true"] [data-frame-scroll] {
+	padding-top: var(--frame-header-height, calc(var(--safe-area-top) + var(--titlebar-height)));
+	padding-bottom: calc(var(--native-dock-height, var(--safe-area-bottom)) + var(--spacing-6));
+	scroll-padding-top: var(--frame-header-height);
+	scroll-padding-bottom: var(--native-dock-height, var(--safe-area-bottom));
+}
+
+html[data-native-mobile="true"] :is([data-mobile-dock], [data-native-composer]) {
+	position: absolute;
+	inset: auto 0 0;
+}
+
+html[data-native-mobile="true"] [data-native-legal-header] {
+	background: transparent;
+	padding-inline: var(--safe-area-left) var(--safe-area-right);
+}
+
+html[data-native-mobile="true"] [data-native-legal] article {
+	padding-inline: max(var(--spacing-6), var(--safe-area-left)) max(var(--spacing-6), var(--safe-area-right));
+}
+
+html[data-native-mobile="true"] [data-native-composer] {
+	z-index: 20;
+	padding-bottom: max(var(--spacing-4), var(--safe-area-bottom));
+	background: var(--color-bg-dock);
+	-webkit-backdrop-filter: blur(var(--system-bar-blur));
+	backdrop-filter: blur(var(--system-bar-blur));
+}
+
+html[data-native-mobile="true"] [data-page-layer="detail"] {
+	padding-block: 0;
+}
+
+html[data-native-mobile="true"] [data-page-layer="detail"] > main {
+	border-radius: 0;
+}
+
+html[data-native-mobile="true"] [data-native-sheet] {
+	--native-dock-height: 0px;
+}
+
+html[data-native-mobile="true"] [role="dialog"] [data-frame-header] {
+	padding-inline: max(var(--spacing-5), var(--safe-area-left)) max(var(--spacing-5), var(--safe-area-right));
+}

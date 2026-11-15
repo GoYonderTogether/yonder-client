@@ -16,9 +16,10 @@ export function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
 		else navigate("/", { replace: true });
 	};
 	return (
-		<main className="min-h-dvh bg-[var(--color-bg-base)] text-[var(--color-text-primary)]">
+		<main data-native-legal className="min-h-dvh bg-[var(--color-bg-base)] text-[var(--color-text-primary)]">
 			<header
-				className={`sticky top-0 z-10 bg-[var(--color-bg-base)] ${isMacDesktopShell() ? "pt-[var(--spacing-10)]" : "pt-[env(safe-area-inset-top)]"}`}
+				data-native-legal-header
+				className={`sticky top-0 z-10 bg-[var(--color-bg-base)] ${isMacDesktopShell() ? "pt-[var(--spacing-10)]" : "pt-[var(--safe-area-top,env(safe-area-inset-top))]"}`}
 			>
 				<div className="mx-auto w-full max-w-3xl px-[var(--spacing-6)] py-[var(--spacing-2)]">
 					<IconButton aria-label={t("app.back")} onClick={back} autoFocus>
@@ -26,7 +27,7 @@ export function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
 					</IconButton>
 				</div>
 			</header>
-			<article className="mx-auto w-full max-w-3xl px-[var(--spacing-6)] pb-[max(var(--spacing-12),env(safe-area-inset-bottom))]">
+			<article className="mx-auto w-full max-w-3xl px-[var(--spacing-6)] pb-[max(var(--spacing-12),var(--safe-area-bottom,env(safe-area-inset-bottom)))]">
 				<h1 className="mt-[var(--spacing-4)] text-h1 font-normal">{legalDocument.title}</h1>
 				<p className="mt-[var(--spacing-3)] text-caption text-[var(--color-text-secondary)]">
 					{t("legal.version", { version: legalDocument.version })} ·{" "}

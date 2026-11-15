@@ -181,9 +181,8 @@ val keystoreProperties = Properties().apply {
  *
  * On targetSdk 35+ the app is edge-to-edge and `adjustResize` no longer resizes the window,
  * so the flag alone proved insufficient on a real device (measured on API 36: IME shown,
- * page still 915px tall). `MainActivity` also applies the IME inset as bottom padding, and
- * publishes it to the page as `--keyboard-inset` through a document-start script, so the
- * web layer's keyboard handling works in the shell exactly as it does in a browser.
+ * page still 915px tall). MainActivity resizes only for the IME; system-bar and cutout
+ * insets go to the page so scrolling content can extend behind the system bars.
  */
 function applyKeyboardResize() {
 	if (!existsSync(manifest)) {
@@ -211,48 +210,55 @@ function applyKeyboardResize() {
 const IME_ACTIVITY = `package net.yonderbot.app
 
 import android.os.Bundle
-import android.view.View
-import android.view.ViewGroup
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
+import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import org.json.JSONObject
 
-/**
- * 键盘高度交给页面：targetSdk 35+ 是 edge-to-edge，adjustResize 不再缩放窗口，
- * 所以这里读 IME Insets，把同一个值写进 CSS 变量 \`--shell-keyboard-inset\`，
- * 根布局按它收缩（与网页 lib/viewport.ts 的效果一致）。
- */
+/** Draw edge-to-edge while keeping keyboard resizing independent of page safe areas. */
 class MainActivity : TauriActivity() {
+  private var page: WebView? = null
+  @Volatile private var safeInsets = """{"top":0,"right":0,"bottom":0,"left":0}"""
+
+  override fun onWebViewCreate(webView: WebView) {
+    super.onWebViewCreate(webView)
+    page = webView
+    // Read-only geometry also works on WebView versions without CSS safe-area support.
+    webView.addJavascriptInterface(object {
+      @JavascriptInterface fun getInsets(): String = safeInsets
+    }, "YonderInsets")
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
+      val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
       val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-      view.post { publishKeyboardInset(webViewIn(view), ime) }
-      insets
+      view.setPadding(0, 0, 0, ime)
+      val density = resources.displayMetrics.density
+      safeInsets = JSONObject().apply {
+        put("top", bars.top / density)
+        put("right", bars.right / density)
+        put("bottom", if (ime > 0) 0f else bars.bottom / density)
+        put("left", bars.left / density)
+      }.toString()
+      page?.evaluateJavascript("""
+        if (document.documentElement) {
+          Object.entries(${"$"}safeInsets).forEach(([side, value]) =>
+            document.documentElement.style.setProperty('--native-safe-area-inset-' + side, value + 'px'));
+          window.dispatchEvent(new Event('native-insets-change'));
+        }
+      """.trimIndent(), null)
+      // The native root already consumed the keyboard. Zero it for newer WebViews too.
+      WindowInsetsCompat.Builder(insets)
+        .setInsets(WindowInsetsCompat.Type.ime(), Insets.NONE)
+        .setVisible(WindowInsetsCompat.Type.ime(), false)
+        .build()
     }
-  }
-
-  private fun webViewIn(view: View): WebView? = when (view) {
-    is WebView -> view
-    is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { webViewIn(view.getChildAt(it)) }
-    else -> null
-  }
-
-  private fun publishKeyboardInset(web: WebView?, imePx: Int) {
-    if (web == null) return
-    // Insets 是物理像素，CSS 变量是 CSS 像素：按当前密度换算，再写进独立的变量名。
-    // 网页自己也写 --keyboard-inset（浏览器 / iOS 走 visualViewport），两边互不覆盖，
-    // 样式里取两者较大值。
-    val density = resources.displayMetrics.density.takeIf { it > 0f } ?: 1f
-    val cssPx = (imePx / density)
-    val script = if (imePx > 0) {
-      "document.documentElement.style.setProperty('--shell-keyboard-inset','\${cssPx}px')"
-    } else {
-      "document.documentElement.style.removeProperty('--shell-keyboard-inset')"
-    }
-    web.evaluateJavascript(script, null)
   }
 }
 `;
@@ -268,10 +274,28 @@ function applyImeInsets() {
 		return;
 	}
 	writeFileSync(activityPath, IME_ACTIVITY);
-	console.log("prepare-android: MainActivity forwards the IME inset to the page");
+	console.log("prepare-android: MainActivity draws behind system bars and reports safe areas to the page");
 }
 
 if (mirrors) applyMirrors();
 applySigning();
 applyKeyboardResize();
+// getUserMedia prompts through Wry's existing WebChromeClient permission flow.
+if (existsSync(manifest)) {
+	let source = readFileSync(manifest, "utf8");
+	if (!source.includes("android.permission.CAMERA")) {
+		source = source.replace(
+			/<application\b/,
+			'<uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application',
+		);
+		writeFileSync(manifest, source);
+	}
+	if (!source.includes("android.permission.RECORD_AUDIO")) {
+		source = source.replace(
+			/<application\b/,
+			'<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <application',
+		);
+		writeFileSync(manifest, source);
+	}
+}
 prepareAndroidUpdate(android, join(root, "android"));
