@@ -13,7 +13,7 @@ import type { PersistedClient, Persister } from "@tanstack/react-query-persist-c
 import { ApiError, NetworkError } from "@yonder/api-client";
 
 export const CACHE_STORAGE_KEY = "yonder.query-cache";
-export const CACHE_VERSION = "1";
+export const CACHE_VERSION = "2";
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 /** What the persister needs: a string store. `Storage` from `../storage` satisfies it. */
