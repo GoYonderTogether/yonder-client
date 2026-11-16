@@ -7,6 +7,18 @@ import {
 	readMeetingAudio,
 } from "../lib/meeting-recorder.ts";
 
+/** The native state is JSON; a shell without the plugin answers nothing, which is not a recording. */
+function recorderState(value: unknown): MeetingRecorderState {
+	const candidate = value as Partial<MeetingRecorderState> | null | undefined;
+	return candidate && Array.isArray(candidate.recordings)
+		? {
+				supported: Boolean(candidate.supported),
+				activeId: candidate.activeId ?? null,
+				recordings: candidate.recordings,
+			}
+		: EMPTY_RECORDER;
+}
+
 const ERROR_CODES = new Set([
 	"permission_denied",
 	"recording_busy",
@@ -39,7 +51,7 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 	const reload = useCallback(async () => {
 		if (!supported || !ownerId) return;
 		try {
-			const next = await invokeMeetingRecorder<MeetingRecorderState>("set_owner", { ownerId });
+			const next = recorderState(await invokeMeetingRecorder<unknown>("set_owner", { ownerId }));
 			if (owner.current !== ownerId) return;
 			setState(next);
 			setStateOwner(ownerId);
@@ -60,7 +72,9 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		async function observe(first: boolean) {
 			try {
-				const next = await invokeMeetingRecorder<MeetingRecorderState>(first ? "set_owner" : "get_state", { ownerId });
+				const next = recorderState(
+					await invokeMeetingRecorder<unknown>(first ? "set_owner" : "get_state", { ownerId }),
+				);
 				if (disposed) return;
 				setState(next);
 				setStateOwner(ownerId);
@@ -84,7 +98,7 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 		setBusy(true);
 		setError(null);
 		try {
-			const next = await invokeMeetingRecorder<MeetingRecorderState>(command, { ownerId, ...args });
+			const next = recorderState(await invokeMeetingRecorder<unknown>(command, { ownerId, ...args }));
 			if (owner.current === ownerId) setState(next);
 		} catch (cause) {
 			if (owner.current === ownerId) setError(errorCode(cause));

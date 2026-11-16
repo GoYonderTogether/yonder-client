@@ -175,7 +175,9 @@ test("wide Me defaults safely and does not reuse another account's section", asy
 	await page.getByRole("button", { name: "About", exact: true }).click();
 	await expect(page).toHaveURL(/\/me\/about$/);
 	await expect.poll(() => page.evaluate(() => localStorage.getItem("yonder.me-section.person-ui"))).toBe("about");
-	await page.getByRole("button", { name: "Back", exact: true }).last().click();
+	// A wide window keeps the list beside the page, so there is no Back button; Escape is the exit.
+	await expect(page.getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
+	await page.keyboard.press("Escape");
 	await expect(page).toHaveURL(/\/messages$/);
 });
 
@@ -512,31 +514,37 @@ test.describe("phone", () => {
 		await testInfo.attach("actual-transform-frames", { path: capturePath, contentType: "application/json" });
 	});
 
-	test("vertical touch scrolling at the drawer edge does not start a back gesture", async ({ page }) => {
-		await page.setViewportSize({ width: 390, height: 420 });
-		await page.goto("/messages");
-		await page.getByRole("button", { name: "Me", exact: true }).click();
-		const left = panel(page, "left");
-		await settled(left);
-		const session = await page.context().newCDPSession(page);
-		await session.send("Input.dispatchTouchEvent", {
-			type: "touchStart",
-			touchPoints: [{ x: 378, y: 350 }],
-		});
-		for (let index = 1; index <= 12; index += 1) {
+	// A short phone viewport leaves the settings list long enough to scroll. It is declared here
+	// rather than resized after load: Chromium's touch emulation drops the first scroll gesture when
+	// the viewport changes size mid-session, which has nothing to do with the app.
+	test.describe("short phone", () => {
+		test.use({ viewport: { width: 390, height: 420 } });
+
+		test("vertical touch scrolling at the drawer edge does not start a back gesture", async ({ page }) => {
+			await page.goto("/messages");
+			await page.getByRole("button", { name: "Me", exact: true }).click();
+			const left = panel(page, "left");
+			await settled(left);
+			const session = await page.context().newCDPSession(page);
 			await session.send("Input.dispatchTouchEvent", {
-				type: "touchMove",
-				touchPoints: [{ x: 378, y: 350 - index * 16 }],
+				type: "touchStart",
+				touchPoints: [{ x: 378, y: 350 }],
 			});
-			await page.waitForTimeout(16);
-		}
-		await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-		await expect
-			.poll(() =>
-				left.evaluate((element) => Math.max(...[...element.querySelectorAll("div")].map((div) => div.scrollTop))),
-			)
-			.toBeGreaterThan(50);
-		await expect(page).toHaveURL(/\/me$/);
-		await expect.poll(() => translation(left)).toBeCloseTo(0, 0);
+			for (let index = 1; index <= 12; index += 1) {
+				await session.send("Input.dispatchTouchEvent", {
+					type: "touchMove",
+					touchPoints: [{ x: 378, y: 350 - index * 16 }],
+				});
+				await page.waitForTimeout(16);
+			}
+			await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+			await expect
+				.poll(() =>
+					left.evaluate((element) => Math.max(...[...element.querySelectorAll("div")].map((div) => div.scrollTop))),
+				)
+				.toBeGreaterThan(50);
+			await expect(page).toHaveURL(/\/me$/);
+			await expect.poll(() => translation(left)).toBeCloseTo(0, 0);
+		});
 	});
 });

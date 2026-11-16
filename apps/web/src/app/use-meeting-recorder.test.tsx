@@ -45,6 +45,13 @@ test("recovering native state never starts capture, and closing the view never s
 	expect(invoke.mock.calls.map(([command]) => command)).toEqual(["set_owner"]);
 });
 
+test("a shell without the recorder plugin answers nothing and the frame keeps rendering", async () => {
+	invoke.mockResolvedValue(null);
+	const { result } = renderHook(() => useMeetingRecorder("person"));
+	await waitFor(() => expect(result.current.ready).toBe(true));
+	expect(result.current.state).toEqual({ supported: false, activeId: null, recordings: [] });
+});
+
 test("the start button calls the independent native recorder, not speech transcription", async () => {
 	invoke.mockResolvedValue(saved);
 	const { result } = renderHook(() => useMeetingRecorder("person"));

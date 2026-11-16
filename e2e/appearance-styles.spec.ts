@@ -82,6 +82,7 @@ for (const dark of [false, true]) {
 	for (const style of ["classic", "glow"] as const) {
 		test(`desktop ${style} ${dark ? "dark" : "light"} uses Semi surfaces and persists keyboard selection`, async ({
 			page,
+			browser,
 		}, info) => {
 			await page.setViewportSize({ width: 1440, height: 960 });
 			await isolateChat(page, { dark });
@@ -93,12 +94,31 @@ for (const dark of [false, true]) {
 			const segment = page.getByRole("radiogroup").getByRole("radio", { checked: true }).locator("+ span");
 			await expect(segment).toHaveCSS("background-color", neutralSelection(dark));
 			await expect(segment).toHaveCSS("color", neutralText(dark));
-			await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "记忆", exact: true }).click();
-			const pressed = page.locator('button[aria-pressed="true"]').first();
-			await expect(pressed).toHaveCSS("background-color", neutralSelection(dark));
-			await pressed.hover();
-			await expect(pressed).toHaveCSS("background-color", neutralSelection(dark));
-			await expect(pressed).toHaveCSS("color", neutralText(dark));
+			// A pressed Button keeps the neutral selection surface instead of its variant colour. The
+			// signed-in frame no longer has one, so this checks the public platform picker in a guest
+			// context carrying the same theme and style.
+			const guest = await browser.newContext();
+			try {
+				await guest.addInitScript(
+					({ dark, style }) => {
+						localStorage.setItem("yonder.locale", "zh-CN");
+						localStorage.setItem("yonder.theme", dark ? "dark" : "light");
+						localStorage.setItem("yonder.style", style);
+					},
+					{ dark, style },
+				);
+				const guestPage = await guest.newPage();
+				await guestPage.goto("/");
+				await guestPage.locator("summary").first().click();
+				const pressed = guestPage.locator('button[aria-pressed="true"]').first();
+				await expect(pressed).toBeVisible();
+				await expect(pressed).toHaveCSS("background-color", neutralSelection(dark));
+				await pressed.hover();
+				await expect(pressed).toHaveCSS("background-color", neutralSelection(dark));
+				await expect(pressed).toHaveCSS("color", neutralText(dark));
+			} finally {
+				await guest.close();
+			}
 			await page.goto("/sign-in");
 			const checkbox = page.getByRole("checkbox");
 			await checkbox.check();

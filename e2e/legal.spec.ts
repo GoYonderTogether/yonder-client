@@ -43,7 +43,27 @@ test("legal pages open from sign-in and About and return to the original screen"
 	await page.route("**/v1/auth/refresh", (route) =>
 		route.fulfill({ json: { accessToken: "public-ui-test", refreshToken: "public-ui-test" } }),
 	);
-	await page.route("**/v1/me", (route) => route.fulfill({ json: { person: null, bot: null, hasPassword: false } }));
+	const member = {
+		id: "legal-person",
+		kind: "person",
+		handle: "legaltest",
+		displayName: "Legal Test",
+		avatarUrl: null,
+		bio: null,
+		createdAt: "2026-11-15T00:00:00Z",
+		version: 1,
+	};
+	await page.route("**/v1/me", (route) =>
+		route.fulfill({
+			json: {
+				member,
+				bot: { ...member, id: "legal-bot", kind: "bot", handle: "legalbot", displayName: "Legal Bot" },
+				hasPassword: false,
+				signInMethods: [],
+				settings: { locale: "en", theme: "light" },
+			},
+		}),
+	);
 	await page.route("**/v1/health", (route) => route.fulfill({ json: { ok: true, version: "public-ui-test" } }));
 	await page.goto("/me/about");
 	await expect(page.getByRole("button", { name: "Terms of service", exact: true })).toBeVisible();

@@ -152,15 +152,23 @@ export function AppFrame() {
 		window.addEventListener("beforeunload", warn);
 		return () => window.removeEventListener("beforeunload", warn);
 	}, []);
+	/**
+	 * Back, Escape and a swipe are one exit, and a layer that is animating out still holds the props
+	 * it had when the route left it. The exit therefore reads the route the frame is on now, not the
+	 * captured render: two quick Escapes must step back twice, not ask the screen that is already
+	 * leaving to leave again.
+	 */
 	const currentBack = () => {
-		if (!meOpen) return navigation.back(tabPath(tab));
-		if (second) return navigation.back(`/me/${first}`);
-		if (first && !splitMe) return navigation.back("/me");
+		const live = locate(navigation.current());
+		const liveMeOpen = live !== null && live.tab === null;
+		const [liveFirst = null, liveSecond = null] = liveMeOpen ? live.detail : [];
+		if (!liveMeOpen) return navigation.back(tabPath(live?.tab ?? tab));
+		if (liveSecond) return navigation.back(`/me/${liveFirst}`);
+		if (liveFirst && !splitMe) return navigation.back("/me");
 		return navigation.back(tabLocation);
 	};
 	const backRef = useRef(currentBack);
 	backRef.current = currentBack;
-	// Departing animation layers retain their props, so their return must read the current route.
 	const back = useCallback(() => backRef.current(), []);
 
 	const { list, content } = base ? screensFor() : { list: null, content: <NotFoundPage /> };

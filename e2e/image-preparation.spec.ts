@@ -110,6 +110,24 @@ test("default image compression, original choice and text thumbnails survive ref
 	expect(uploads[0]?.bytes.length).toBeLessThan(original.length);
 	const optimized = uploads[0];
 	await image.getByRole("checkbox", { name: /原图/ }).check();
+	// The draft is written to IndexedDB asynchronously; a reload before that write commits loses it.
+	await expect
+		.poll(() =>
+			page.evaluate(async () => {
+				const open = indexedDB.open("yonder-chat", 1);
+				const db = await new Promise<IDBDatabase>((resolve, reject) => {
+					open.onsuccess = () => resolve(open.result);
+					open.onerror = () => reject(open.error);
+				});
+				const value = await new Promise<unknown>((resolve) => {
+					const request = db.transaction("records").objectStore("records").get("draft:chat-person:chat-route-check");
+					request.onsuccess = () => resolve(request.result);
+				});
+				const files = (value as { files?: { name: string; sendOriginal?: boolean }[] } | undefined)?.files ?? [];
+				return files.find((file) => file.name === "photo.jpg")?.sendOriginal ?? false;
+			}),
+		)
+		.toBe(true);
 	await page.reload();
 	await expect(image.getByRole("checkbox", { name: /原图/ })).toBeChecked();
 	await expect(text.locator("pre")).toContainText("这是文档开头的中文内容。");

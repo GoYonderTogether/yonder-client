@@ -11,7 +11,7 @@ import { useTextareaEdit } from "./completion/use-textarea-edit.ts";
 import { ComposerFiles } from "./composer-files.tsx";
 import { isFileDrag } from "./file-drop-zone.tsx";
 import type { DraftFile } from "./use-chat-draft.ts";
-import { useVoiceInput } from "./use-voice-input.ts";
+import { useComposerVoice } from "./use-composer-voice.ts";
 import { VoiceControl } from "./voice-control.tsx";
 import "./composer.css";
 
@@ -91,26 +91,7 @@ export function Composer({
 	const [menu, setMenu] = useState(false);
 	const [expanded, setExpanded] = useState(false);
 	const [dragging, setDragging] = useState(false);
-	const [voiceActive, setVoiceActive] = useState(false);
 	const dragDepth = useRef(0);
-	const voice = useVoiceInput(scope);
-	useLayoutEffect(() => {
-		onVoiceActivityChange?.(voice.isListening);
-	}, [voice.isListening, onVoiceActivityChange]);
-	useLayoutEffect(() => () => onVoiceActivityChange?.(false), [onVoiceActivityChange]);
-	const session = useRef<{
-		start: number;
-		end: number;
-		text: string;
-		expectedStart: number;
-		expectedEnd: number;
-	} | null>(null);
-	const pending = useRef(0);
-	const waitingToSend = useRef(false);
-	const latestDraft = useRef(draft);
-	const latestSend = useRef(onSend);
-	latestDraft.current = draft;
-	latestSend.current = onSend;
 	useLayoutEffect(() => {
 		const editor = input.current;
 		const mirror = highlight.current;
@@ -125,20 +106,6 @@ export function Composer({
 		observer.observe(editor);
 		return () => observer.disconnect();
 	}, []);
-	const voiceRef = useRef(voice);
-	voiceRef.current = voice;
-	// Scope changes must invalidate a session before the new editor is interactive.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: scope owns this cleanup.
-	useLayoutEffect(
-		() => () => {
-			pending.current++;
-			waitingToSend.current = false;
-			session.current = null;
-			setVoiceActive(false);
-			voiceRef.current.cancel();
-		},
-		[scope],
-	);
 	const composing = useRef(false);
 	const compositionEndedAt = useRef(Number.NEGATIVE_INFINITY);
 	const consumeEdit = useTextareaEdit(input, scope);
@@ -178,77 +145,30 @@ export function Composer({
 		observer.observe(editor);
 		return () => observer.disconnect();
 	}, [draft, files.length]);
-	function interrupt() {
-		pending.current++;
-		waitingToSend.current = false;
-		if (session.current) {
-			session.current = null;
-			setVoiceActive(false);
-			voice.cancel();
-		}
-	}
-	function startVoice() {
-		if (microphoneOccupied) return;
-		const editor = input.current;
-		if (!editor) return;
-		interrupt();
-		const start = editor.selectionStart;
-		const end = editor.selectionEnd;
-		const active = { start, end, text: "", expectedStart: start, expectedEnd: end };
-		session.current = active;
-		setVoiceActive(true);
-		void voice.start((text) => {
-			if (session.current !== active || (!text && !active.text)) return;
-			const value = latestDraft.current;
-			const next = value.slice(0, active.start) + text + value.slice(active.end);
-			const edit = { start: active.start, end: active.end };
-			active.end = active.start + text.length;
-			active.text = text;
-			active.expectedStart = active.expectedEnd = active.end;
-			latestDraft.current = next;
-			setDraft(next, edit);
-			// React may commit later; preserve the insertion point after the controlled value updates.
-			requestAnimationFrame(() => {
-				if (session.current === active && input.current) input.current.setSelectionRange(active.end, active.end);
-			});
-		});
-	}
-	function pauseVoice() {
-		const active = session.current;
-		const token = pending.current;
-		void voice.finish().finally(() => {
-			if (session.current === active && pending.current === token) {
-				session.current = null;
-				setVoiceActive(false);
-			}
-		});
-	}
-	function send() {
-		if (sending || waitingToSend.current || disabled || disconnected || streaming || (!canSend && !session.current))
-			return;
-		const active = session.current;
-		if (!active) {
-			onSend();
-			input.current?.focus({ preventScroll: true });
-			return;
-		}
-		const token = ++pending.current;
-		waitingToSend.current = true;
-		let timer: ReturnType<typeof setTimeout>;
-		const deadline = new Promise<void>((resolve) => {
-			timer = setTimeout(resolve, 2000);
-		});
-		void Promise.race([voice.finish(), deadline]).then(() => {
-			clearTimeout(timer);
-			if (pending.current !== token || session.current !== active) return;
-			waitingToSend.current = false;
-			session.current = null;
-			setVoiceActive(false);
-			voice.cancel();
-			if (latestDraft.current.trim() || files.length) latestSend.current();
-			input.current?.focus({ preventScroll: true });
-		});
-	}
+	const {
+		voice,
+		active: voiceActive,
+		interrupt,
+		startVoice,
+		pauseVoice,
+		send,
+		latestDraft,
+		selectionMoved,
+	} = useComposerVoice({
+		scope,
+		draft,
+		onDraftChange: setDraft,
+		onSend,
+		editor: input,
+		sending,
+		disabled,
+		disconnected,
+		streaming,
+		canSend,
+		hasFiles: files.length > 0,
+		microphoneOccupied,
+		onActivityChange: onVoiceActivityChange,
+	});
 
 	return (
 		<div className="relative flex flex-col gap-[var(--spacing-2)]">
@@ -408,13 +328,7 @@ export function Composer({
 								}}
 								onPointerDown={interrupt}
 								onSelect={(event) => {
-									const active = session.current;
-									if (
-										active &&
-										(event.currentTarget.selectionStart !== active.expectedStart ||
-											event.currentTarget.selectionEnd !== active.expectedEnd)
-									)
-										interrupt();
+									if (selectionMoved(event.currentTarget)) interrupt();
 									completion.sync(event.currentTarget, composing.current);
 								}}
 								onPaste={(event) => {

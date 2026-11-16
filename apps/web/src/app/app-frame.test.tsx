@@ -238,6 +238,20 @@ test("a departing page's retained Back callback returns through the current rout
 	router.dispose();
 });
 
+test("a second Escape while the first layer leaves still exits the screen behind it", async () => {
+	const router = createMemoryRouter([{ path: "*", element: <AppFrame /> }], { initialEntries: ["/messages"] });
+	render(<RouterProvider router={router} />);
+	await act(() => fireEvent.click(screen.getByRole("button", { name: "Open me" })));
+	await act(() => router.navigate("/me/account", { state: { tabLocation: "/messages" } }));
+	const exit = capturedShell.back;
+	await act(() => exit?.());
+	expect(router.state.location.pathname).toBe("/me");
+	// The departing section layer still holds its old props; the exit must follow the live route.
+	await act(() => exit?.());
+	expect(router.state.location.pathname).toBe("/messages");
+	router.dispose();
+});
+
 test("an auxiliary contact window can open a chat while the main window is on another tab or Me", async () => {
 	const router = createMemoryRouter([{ path: "*", element: <AppFrame /> }], { initialEntries: ["/tasks"] });
 	render(<RouterProvider router={router} />);
