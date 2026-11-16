@@ -1,0 +1,176 @@
+/*
+ * Chores: five cards. At rest (no motion, small screens) a grid with every drawing drawn and every
+ * card done. With motion on a wide screen the section pins, the row slides sideways with `--p`,
+ * and each card draws its vignette and flips to done as it crosses the middle.
+ */
+.lp-chores {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 16px;
+	width: min(100% - 2 * var(--lp-gutter), var(--lp-container));
+	margin: 0 auto;
+	padding: 0;
+	list-style: none;
+}
+
+.lp-chore {
+	position: relative;
+	display: flex;
+	min-height: 360px;
+	flex-direction: column;
+	gap: 12px;
+	padding: 20px;
+	overflow: hidden;
+	border-radius: var(--lp-radius-panel);
+	background: var(--lp-paper-2);
+}
+
+.lp-art {
+	width: 100%;
+	height: auto;
+	margin-bottom: 4px;
+	color: var(--lp-ink-3);
+}
+
+.lp-art .lp-art-key {
+	color: var(--lp-ink);
+}
+
+.lp-chore-icon {
+	display: inline-grid;
+	width: 36px;
+	height: 36px;
+	place-items: center;
+	border-radius: var(--lp-radius-control);
+	background: var(--lp-panel);
+	color: var(--lp-ink);
+}
+
+.lp-chore h3 {
+	font-size: 18px;
+	line-height: 1.35;
+}
+
+.lp-chore-before,
+.lp-chore-after {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+	font-size: var(--lp-text-small);
+}
+
+.lp-chore-before {
+	color: var(--lp-ink-3);
+}
+
+.lp-chore-after {
+	margin-top: auto;
+	padding-top: 16px;
+	border-top: 1px solid var(--lp-line-strong);
+	color: var(--lp-ink);
+}
+
+.lp-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: var(--lp-panel);
+	color: var(--lp-ink-3);
+	font-size: var(--lp-text-micro);
+}
+
+.lp-chip-done {
+	background: var(--lp-ink);
+	color: var(--lp-paper);
+}
+
+@media (max-width: 70rem) {
+	.lp-chores {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 40rem) {
+	/* Touch: a native swipe row, snapping card by card. */
+	.lp-chores {
+		display: flex;
+		width: 100%;
+		gap: 12px;
+		padding-inline: var(--lp-gutter);
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: none;
+	}
+
+	.lp-chores::-webkit-scrollbar {
+		display: none;
+	}
+
+	.lp-chore {
+		flex: 0 0 78%;
+		min-height: 0;
+		scroll-snap-align: center;
+	}
+}
+
+/* Pinned and scrubbed on wide screens. */
+@media (min-width: 60rem) and (min-height: 40rem) {
+	[data-js] .lp-chores-track {
+		height: 340vh;
+		padding-block: 0;
+	}
+
+	[data-js] .lp-chores-pin {
+		position: sticky;
+		top: var(--lp-nav);
+		display: flex;
+		height: calc(100dvh - var(--lp-nav));
+		flex-direction: column;
+		justify-content: center;
+		overflow: hidden;
+	}
+
+	[data-js] .lp-chores-pin .lp-head {
+		margin-bottom: 40px;
+	}
+
+	[data-js] .lp-chores {
+		--w: 340px;
+		display: flex;
+		width: max-content;
+		gap: 24px;
+		margin: 0;
+		padding-inline: max(var(--lp-gutter), (100% - var(--lp-container)) / 2 + var(--lp-gutter)) 50vw;
+		transform: translate3d(calc(var(--p, 0) * -1 * (var(--n) - 1) * (var(--w) + 24px)), 0, 0);
+	}
+
+	[data-js] .lp-chore {
+		/* 0 when the card is far right, 1 once it has crossed the middle. */
+		--t: clamp(0, (var(--p, 0) * (var(--n) - 1) - var(--i) + 0.6) / 0.6, 1);
+		flex: 0 0 var(--w);
+		min-height: 400px;
+		transform: translateY(calc((1 - var(--t)) * 24px)) scale(calc(0.94 + 0.06 * var(--t)));
+		opacity: calc(0.45 + 0.55 * var(--t));
+	}
+
+	[data-js] .lp-art :is(path, rect, circle):not(.lp-art-dots) {
+		stroke-dasharray: 1;
+		stroke-dashoffset: calc(1 - var(--t));
+	}
+
+	[data-js] .lp-art .lp-art-dots {
+		opacity: var(--t);
+	}
+
+	[data-js] .lp-chore-after {
+		opacity: calc(0.25 + 0.75 * clamp(0, (var(--t) - 0.6) / 0.4, 1));
+	}
+
+	[data-js] .lp-chip-done {
+		transform: scale(calc(0.8 + 0.2 * clamp(0, (var(--t) - 0.8) / 0.2, 1)));
+		opacity: clamp(0, (var(--t) - 0.8) / 0.2, 1);
+	}
+}

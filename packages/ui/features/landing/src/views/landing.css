@@ -1,12 +1,20 @@
-/* Hallmark · shape: sunlit console · genre: atmospheric · theme: custom · job: sign up · idea: "afternoon sun falling on a machined instrument that quietly does your chores" · vibe: "warm daylight, machined terminals, one signal yellow"
- * paper: oklch(0.972 0.014 82) · accent: oklch(0.92 0.19 106) · display: Tektur (latin, numerals, wordmark) · body: the app's system stack (PingFang SC / SF), kept from the project · hero: head and actions on the left, a dark chamfered console running a real chore on the right, chore tags drifting into it under window light · nav: wordmark, section links, language, log in, download · footer: wordmark over two link columns and the scene note · imagery: the product built (console, Bot list, card, group chat), no photographs · signature: the console finishing a chore live on the first screen
- * axes: light/display-tech/chromatic-yellow · posture: warm-tech · contrast: pass · fold: pass · v2.0.0 */
+/* Hallmark · shape: product story · genre: modern-minimal · theme: custom · job: sign up · idea: "the product itself, quiet on white, finishing one chore at a time as you scroll" · vibe: "white, grey, black, calm, exact, alive under the hand"
+ * paper: the app's --color-bg-base · accent: the app's --color-accent (primary actions, the match line) · display: the app's system stack (PingFang SC / SF Pro) · body: same · hero: centred promise and actions, then the app's chat pinned while chores are pulled into the composer and finished · nav: the real logo and name, section links, language, log in, download · footer: logo and name over two link columns and the scene note · imagery: the product built from its own components, line vignettes in SVG, a memory graph and an event network in SVG; no photographs · signature: the pinned chat finishing a chore as you scroll
+ * axes: light/grotesk-system/neutral · posture: product-quiet · contrast: pass · fold: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P2 H2 E1 S2 R2 V2 · weakest: E, the scenes are illustrative by the owner's request, so the footer says so */
 /* waive 46a: the owner asked for illustrative scenes; every person, chat and figure is a demo and the footer states it */
+/* waive craft-parallax: the owner asked for parallax and damped scroll; only product blocks and decoration move, prose never does, and reduced motion, touch and small screens get the static page */
+/* waive F8: four scroll-scrubbed sections (hero, sentence, chores, control) by the owner's request for a scroll story; each is one structure, linear to the spring-smoothed progress */
 @import url("./landing-tokens.css");
-@import url("./landing-console.css");
+@import url("./landing-hero.css");
+@import url("./landing-hero-scrub.css");
+@import url("./landing-story.css");
+@import url("./landing-chores.css");
+@import url("./landing-control.css");
 @import url("./landing-sections.css");
+@import url("./landing-bots.css");
 @import url("./landing-social.css");
+@import url("./landing-graph.css");
 
 :root:has(.lp),
 body:has(.lp) {
@@ -18,7 +26,7 @@ body:has(.lp) {
 	min-height: 100dvh;
 	background: var(--lp-paper);
 	color: var(--lp-ink);
-	font-family: var(--lp-font-body);
+	font-family: var(--lp-font);
 	font-size: var(--lp-text-body);
 	line-height: 1.6;
 	isolation: isolate;
@@ -28,8 +36,7 @@ body:has(.lp) {
 .lp h2,
 .lp h3 {
 	margin: 0;
-	font-family: var(--lp-font-display);
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 	overflow-wrap: break-word;
 	min-width: 0;
 	text-wrap: balance;
@@ -46,8 +53,17 @@ body:has(.lp) {
 
 .lp :focus-visible {
 	outline: 2px solid var(--lp-focus);
-	outline-offset: 3px;
+	outline-offset: 2px;
 	transition: none;
+}
+
+.lp-visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 
 .lp-container {
@@ -58,77 +74,13 @@ body:has(.lp) {
 	padding-inline: var(--lp-gutter);
 }
 
-/* The page-wide light: a fine grid, two warm suns, and window-frame shadows that drift. */
-.lp-light {
-	position: absolute;
-	inset: 0 0 auto;
-	height: 140vh;
-	z-index: -1;
-	overflow: hidden;
-	pointer-events: none;
-	background-image:
-		linear-gradient(var(--lp-grid) 1px, transparent 1px), linear-gradient(90deg, var(--lp-grid) 1px, transparent 1px);
-	background-size: 48px 48px;
-	mask-image: linear-gradient(180deg, var(--lp-mask) 55%, transparent);
-}
-
-.lp-sun {
-	position: absolute;
-	border-radius: 50%;
-	filter: blur(60px);
-}
-
-.lp-sun-a {
-	top: -18%;
-	right: -8%;
-	width: 62%;
-	aspect-ratio: 1;
-	background: radial-gradient(circle, var(--lp-sun), transparent 68%);
-}
-
-.lp-sun-b {
-	top: 30%;
-	left: -18%;
-	width: 48%;
-	aspect-ratio: 1;
-	background: radial-gradient(circle, var(--lp-sun-2), transparent 70%);
-}
-
-.lp-window {
-	position: absolute;
-	top: -20%;
-	right: -10%;
-	width: 75%;
-	height: 120%;
-	background: repeating-linear-gradient(
-		105deg,
-		transparent 0 120px,
-		var(--lp-line) 120px 132px,
-		transparent 132px 260px
-	);
-	filter: blur(14px);
-	opacity: 0.9;
-	transform: skewY(-6deg);
-	translate: 0 calc(var(--lp-scroll, 0) * -0.12px);
-	animation: lp-sway 22s ease-in-out infinite alternate;
-}
-
-@keyframes lp-sway {
-	from {
-		transform: skewY(-6deg) translateX(-2%);
-	}
-	to {
-		transform: skewY(-4deg) translateX(3%);
-	}
-}
-
-/* Navigation */
+/* Navigation: the app's real mark and name, as on the existing public pages. */
 .lp-nav {
 	position: sticky;
 	top: 0;
 	z-index: 10;
-	backdrop-filter: blur(14px) saturate(1.2);
-	background: color-mix(in oklab, var(--lp-paper) 78%, transparent);
+	backdrop-filter: blur(16px) saturate(1.4);
+	background: color-mix(in oklab, var(--lp-paper) 82%, transparent);
 	border-bottom: 1px solid var(--lp-line);
 }
 
@@ -142,14 +94,13 @@ body:has(.lp) {
 .lp-wordmark {
 	display: inline-flex;
 	flex: none;
-	white-space: nowrap;
 	align-items: center;
-	gap: 12px;
-	font-family: var(--lp-font-display);
-	font-size: 22px;
-	font-weight: 600;
-	letter-spacing: -0.01em;
+	gap: 8px;
+	color: var(--lp-ink);
+	font-size: 18px;
+	font-weight: var(--font-weight-semibold);
 	text-decoration: none;
+	white-space: nowrap;
 }
 
 .lp-nav-links {
@@ -165,11 +116,11 @@ body:has(.lp) {
 .lp-nav-tools button,
 .lp-nav-tools > a:not(.lp-action) {
 	display: inline-flex;
-	min-height: 40px;
+	min-height: 36px;
 	align-items: center;
 	padding-inline: 12px;
 	border: 0;
-	border-radius: var(--lp-radius-s);
+	border-radius: var(--lp-radius-control);
 	background: transparent;
 	color: var(--lp-ink-2);
 	font: inherit;
@@ -184,19 +135,19 @@ body:has(.lp) {
 .lp-nav-links a:hover,
 .lp-nav-tools button:hover,
 .lp-nav-tools > a:not(.lp-action):hover {
-	background: var(--lp-line);
+	background: var(--lp-fill);
 	color: var(--lp-ink);
 }
 
 .lp-nav-tools {
 	display: flex;
-	white-space: nowrap;
 	align-items: center;
 	gap: 4px;
 	margin-left: auto;
+	white-space: nowrap;
 }
 
-/* Actions: one primary style, chamfered like the instruments. */
+/* Actions: the app's Button, primary in the accent, secondary in the neutral fill. */
 .lp-actions {
 	display: flex;
 	flex-wrap: wrap;
@@ -204,27 +155,20 @@ body:has(.lp) {
 }
 
 .lp-action {
-	position: relative;
 	box-sizing: border-box;
 	display: inline-flex;
-	min-height: 52px;
+	min-height: var(--lp-control);
 	align-items: center;
 	justify-content: center;
-	padding-inline: 24px;
+	gap: 8px;
+	padding-inline: 20px;
 	border: 0;
+	border-radius: var(--lp-radius-control);
 	font: inherit;
 	font-size: var(--lp-text-body);
-	font-weight: 600;
+	font-weight: var(--font-weight-medium);
 	text-decoration: none;
 	cursor: pointer;
-	clip-path: polygon(
-		var(--lp-cut-s) 0,
-		100% 0,
-		100% calc(100% - var(--lp-cut-s)),
-		calc(100% - var(--lp-cut-s)) 100%,
-		0 100%,
-		0 var(--lp-cut-s)
-	);
 	transition:
 		background-color var(--lp-fast) var(--lp-ease),
 		color var(--lp-fast) var(--lp-ease),
@@ -232,7 +176,7 @@ body:has(.lp) {
 }
 
 .lp-action:active {
-	transform: translateY(1px);
+	transform: scale(0.98);
 }
 
 .lp-action:disabled,
@@ -241,38 +185,34 @@ body:has(.lp) {
 	cursor: not-allowed;
 }
 
-.lp-action:focus-visible {
-	clip-path: none;
-}
-
 .lp-action-primary {
-	background: var(--lp-signal);
-	color: var(--lp-on-signal);
+	background: var(--lp-accent);
+	color: var(--lp-on-accent);
 }
 
 .lp-action-primary:hover {
-	background: color-mix(in oklab, var(--lp-signal) 86%, var(--lp-ink));
+	background: var(--lp-accent-hover);
 }
 
 .lp-action-secondary {
-	background: var(--lp-ink);
-	color: var(--lp-paper);
+	background: var(--lp-fill);
+	color: var(--lp-ink);
 }
 
 .lp-action-secondary:hover {
-	background: color-mix(in oklab, var(--lp-ink) 82%, var(--lp-paper));
+	background: var(--lp-fill-hover);
 }
 
 .lp-action-small {
-	min-height: 40px;
-	padding-inline: 20px;
+	min-height: var(--lp-control-s);
+	padding-inline: 16px;
 	font-size: var(--lp-text-small);
 }
 
 /* Reveal: visible by default; hidden only once the script runs and the block is still below. */
 [data-js] [data-reveal]:not([data-in]) {
 	opacity: 0;
-	transform: translateY(28px);
+	transform: translateY(24px);
 }
 
 [data-reveal] {

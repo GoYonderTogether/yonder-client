@@ -1,0 +1,401 @@
+/* The light field behind the page, the opening, and the pinned chat that finishes one chore. */
+
+/* Light field: drifting grey light, a dot grid that lights up around the pointer. */
+.lp-field {
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.lp-blob {
+	position: absolute;
+	width: 46vmax;
+	aspect-ratio: 1;
+	border-radius: 50%;
+	animation: lp-float 26s ease-in-out infinite alternate;
+}
+
+.lp-blob-a {
+	top: -18vmax;
+	left: -8vmax;
+	background: radial-gradient(circle, var(--lp-blob-a), transparent 66%);
+}
+
+.lp-blob-b {
+	top: 10vmax;
+	right: -16vmax;
+	background: radial-gradient(circle, var(--lp-blob-b), transparent 66%);
+	animation-duration: 32s;
+	animation-delay: -8s;
+}
+
+.lp-blob-c {
+	bottom: -20vmax;
+	left: 24vw;
+	background: radial-gradient(circle, var(--lp-blob-c), transparent 66%);
+	animation-duration: 38s;
+	animation-delay: -16s;
+}
+
+@keyframes lp-float {
+	from {
+		transform: translate3d(0, 0, 0) scale(1);
+	}
+	to {
+		transform: translate3d(6vmax, 4vmax, 0) scale(1.12);
+	}
+}
+
+.lp-dots,
+.lp-dots-lit {
+	position: absolute;
+	inset: 0;
+	background-size: 28px 28px;
+}
+
+.lp-dots {
+	background-image: radial-gradient(var(--lp-dot) 1px, transparent 1.4px);
+	mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, var(--lp-mask), transparent 75%);
+}
+
+.lp-dots-lit {
+	background-image: radial-gradient(var(--lp-dot-lit) 1.2px, transparent 1.6px);
+	mask-image: radial-gradient(220px circle at var(--mx, -400px) var(--my, -400px), var(--lp-mask), transparent 72%);
+}
+
+/* The opening: centred, big, one sentence, the actions. */
+.lp-hero {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 20px;
+	padding-block: clamp(56px, 9vh, 104px) 32px;
+	text-align: center;
+}
+
+.lp-hero h1 {
+	font-size: var(--lp-text-hero);
+	line-height: 1.06;
+	letter-spacing: -0.025em;
+}
+
+.lp-hero-lead {
+	max-width: 32ch;
+	color: var(--lp-ink-2);
+	font-size: var(--lp-text-lead);
+}
+
+.lp-hero .lp-download {
+	align-items: center;
+}
+
+.lp-hero .lp-actions,
+.lp-hero .lp-download-links {
+	justify-content: center;
+}
+
+/* The demo track: tall when motion runs, so the pinned chat can play against the scroll. */
+.lp-demo {
+	position: relative;
+}
+
+.lp-demo-pin {
+	display: grid;
+	place-items: center;
+	padding-block: 24px 64px;
+}
+
+.lp-demo-stage {
+	position: relative;
+	display: grid;
+	width: min(100% - 2 * var(--lp-gutter), var(--lp-container));
+	justify-items: center;
+	padding-block: 40px;
+}
+
+.lp-demo-glow {
+	position: absolute;
+	inset: 6% 18%;
+	border-radius: 50%;
+	background: radial-gradient(closest-side, var(--lp-blob-b), transparent);
+}
+
+.lp-demo-hint {
+	margin-top: 20px;
+	color: var(--lp-ink-3);
+	font-size: var(--lp-text-small);
+}
+
+/* Chores at three depths. The outer li moves (pull and pointer depth); the span drifts. */
+.lp-tags {
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.lp-tag {
+	position: absolute;
+	translate: calc(var(--nx, 0) * -48px * var(--z)) calc(var(--ny, 0) * -32px * var(--z));
+	scale: calc(0.82 + 0.18 * var(--z));
+	opacity: calc(0.45 + 0.55 * var(--z));
+	filter: blur(calc((1 - var(--z)) * 1.5px));
+}
+
+.lp-tag span {
+	display: block;
+	padding: 8px 16px;
+	border-radius: 999px;
+	background: var(--lp-glass);
+	backdrop-filter: blur(12px);
+	box-shadow: var(--lp-shadow-chip);
+	color: var(--lp-ink-2);
+	font-size: var(--lp-text-small);
+	white-space: nowrap;
+	animation: lp-drift 7s ease-in-out infinite alternate;
+	animation-delay: calc(var(--i) * -1.1s);
+}
+
+@keyframes lp-drift {
+	from {
+		transform: translate3d(0, 0, 0);
+	}
+	to {
+		transform: translate3d(6px, -10px, 0);
+	}
+}
+
+/* The chat: the app's column, finished by default. */
+.lp-chat {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	width: min(100%, 560px);
+	flex-direction: column;
+	overflow: hidden;
+	border-radius: var(--lp-radius-panel);
+	background: var(--lp-panel);
+	box-shadow: var(--lp-shadow-panel);
+	translate: calc(var(--nx, 0) * 12px) calc(var(--ny, 0) * 8px);
+}
+
+.lp-chat-head {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--lp-line);
+}
+
+.lp-chat-title {
+	display: flex;
+	flex-direction: column;
+	line-height: 1.3;
+}
+
+.lp-chat-name {
+	font-weight: var(--font-weight-medium);
+}
+
+.lp-chat-state {
+	display: grid;
+	color: var(--lp-ink-3);
+	font-size: var(--lp-text-micro);
+}
+
+.lp-chat-busy,
+.lp-chat-fin {
+	display: inline-flex;
+	grid-area: 1 / 1;
+	align-items: center;
+	gap: 4px;
+}
+
+.lp-chat-busy {
+	opacity: 0;
+}
+
+.lp-chat-fin {
+	color: var(--lp-success);
+}
+
+.lp-spin {
+	animation: lp-spin 1.4s linear infinite;
+}
+
+@keyframes lp-spin {
+	to {
+		transform: rotate(1turn);
+	}
+}
+
+.lp-chat-body {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 20px;
+	text-align: start;
+}
+
+.lp-bubble {
+	max-width: 85%;
+	padding: 12px 16px;
+	border-radius: var(--lp-radius-card);
+	font-size: var(--lp-text-small);
+}
+
+.lp-bubble-in {
+	align-self: flex-start;
+	background: var(--lp-fill);
+}
+
+.lp-bubble-out {
+	align-self: flex-end;
+	background: var(--lp-accent-subtle);
+}
+
+.lp-steps {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 0;
+	padding: 4px 0;
+	list-style: none;
+	color: var(--lp-ink-2);
+	font-size: var(--lp-text-small);
+}
+
+.lp-step {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.lp-step-mark {
+	display: inline-grid;
+	width: 20px;
+	height: 20px;
+	place-items: center;
+	border-radius: 999px;
+	background: var(--lp-fill);
+}
+
+.lp-step-mark svg {
+	grid-area: 1 / 1;
+}
+
+.lp-step-wait {
+	opacity: 0;
+	animation: lp-spin 1.2s linear infinite;
+}
+
+.lp-step-done {
+	color: var(--lp-success);
+}
+
+.lp-result {
+	padding: 16px;
+	border: 1px solid var(--lp-line-strong);
+	border-radius: var(--lp-radius-card);
+}
+
+.lp-result-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: var(--font-weight-medium);
+}
+
+.lp-result-place {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: auto;
+	color: var(--lp-ink-3);
+	font-size: var(--lp-text-micro);
+	font-weight: var(--font-weight-normal);
+}
+
+.lp-result-rows {
+	display: grid;
+	gap: 4px;
+	margin: 12px 0 0;
+	font-size: var(--lp-text-small);
+}
+
+.lp-result-rows div {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.lp-result-rows dt {
+	color: var(--lp-ink-3);
+}
+
+.lp-result-rows dd {
+	margin: 0;
+}
+
+.lp-result-foot {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--lp-line);
+	color: var(--lp-ink-3);
+	font-size: var(--lp-text-micro);
+}
+
+.lp-composer {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 0 12px 12px;
+	padding: 8px 8px 8px 16px;
+	border-radius: var(--lp-radius-card);
+	background: var(--lp-fill);
+	color: var(--lp-ink-3);
+}
+
+.lp-composer-field {
+	display: grid;
+	flex: 1;
+	min-width: 0;
+	font-size: var(--lp-text-small);
+	text-align: start;
+}
+
+.lp-composer-hint,
+.lp-composer-text {
+	grid-area: 1 / 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.lp-composer-text {
+	color: var(--lp-ink);
+	opacity: 0;
+}
+
+.lp-composer-send {
+	display: inline-grid;
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	border-radius: 999px;
+	background: var(--lp-accent);
+	color: var(--lp-on-accent);
+}
+
+@media (max-width: 40rem) {
+	.lp-tags {
+		display: none;
+	}
+
+	.lp-demo-stage {
+		padding-block: 8px;
+	}
+}
