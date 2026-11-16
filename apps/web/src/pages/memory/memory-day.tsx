@@ -1,108 +1,111 @@
-import { cn } from "@yonder/ui-components";
-import { CalendarDays, Flag, Images, MapPin, Mic, Sunrise } from "lucide-react";
+import type { MemoryDay } from "@yonder/protocol";
+import { Button, cn } from "@yonder/ui-components";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { dateKey } from "./timeline-period.ts";
+import { daysAgo, useMemoryFormat } from "./memory-format.ts";
+import { type EntryRow, MemoryEntry, rowTime } from "./memory-rows.tsx";
 
-export interface MemoryMoment {
-	id: string;
-	kind: "recording" | "photos" | "place" | "schedule" | "keyMoment";
-	title: string;
-	startsAt: string;
-	endsAt?: string;
-	location?: string;
-	photos?: string[];
-	audioUrl?: string;
-}
-const KIND_ICONS = { recording: Mic, photos: Images, place: MapPin, schedule: CalendarDays, keyMoment: Flag };
+const RELATIVE: Record<number, string> = {
+	0: "memory.today",
+	1: "memory.yesterday",
+	2: "memory.dayBefore",
+	[-1]: "memory.tomorrow",
+};
 
-export function MemoryDay({ selected, now, moments }: { selected: Date; now: Date; moments: MemoryMoment[] }) {
+/**
+ * One day: a header that pins to the top while the day is on screen (the next day's header pushes
+ * it out), then one row per entry. Days older than a week fold to their one-line summary.
+ */
+export function MemoryDaySection({
+	day,
+	now,
+	full,
+	onExpand,
+	onToday,
+	onOpen,
+}: {
+	day: MemoryDay;
+	now: Date;
+	full: boolean;
+	onExpand: () => void;
+	onToday: () => void;
+	onOpen: (row: EntryRow, day: MemoryDay) => void;
+}) {
 	const { t, i18n } = useTranslation();
-	const isToday = dateKey(selected) === dateKey(now);
-	const time = (date: Date) =>
-		new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
-	if (!moments.length)
-		return (
-			<div className="memory-day">
-				{[0, 6, 12, 18, 24].map((hour) => (
-					<div key={hour} className="memory-hour" style={{ top: `${(hour / 24) * 100}%` }}>
-						<span>{`${String(hour).padStart(2, "0")}:00`}</span>
-						<span className="memory-hour-rule" />
-					</div>
-				))}
-				{isToday ? (
-					<div className="memory-now" style={{ top: `${((now.getHours() * 60 + now.getMinutes()) / 1440) * 100}%` }}>
-						<span>{t("memory.now", { time: time(now) })}</span>
-					</div>
-				) : null}
-				<div className="memory-day-empty">
-					<Sunrise size={24} strokeWidth={1.4} aria-hidden />
-					<p>{t("memory.dayEmpty")}</p>
-				</div>
-			</div>
-		);
-	const nodes: { id: string; at: number; moment?: MemoryMoment; current?: boolean }[] = [
-		...[0, 6, 12, 18, 24].map((hour) => ({
-			id: `hour-${hour}`,
-			at: new Date(selected.getFullYear(), selected.getMonth(), selected.getDate(), hour).getTime(),
-		})),
-		...moments.map((moment) => ({ id: moment.id, at: Date.parse(moment.startsAt), moment })),
-		...(isToday ? [{ id: "now", at: now.getTime(), current: true }] : []),
-	].sort((a, b) => a.at - b.at);
+	const format = useMemoryFormat();
+	const ago = daysAgo(day.date, now);
+	const relative = RELATIVE[ago];
+	const refs = new Map(day.refs.map((ref) => [ref.id, ref]));
+	const entries = day.rows.filter((row): row is EntryRow => row.type !== "move");
+	const header = useStuck<HTMLElement>();
 	return (
-		<ol className="memory-flow">
-			{nodes.map((node) => {
-				const moment = node.moment;
-				if (!moment)
-					return (
-						<li key={node.id} className={cn("memory-flow-tick", node.current && "memory-flow-current")}>
-							<span>
-								{node.current
-									? t("memory.now", { time: time(now) })
-									: node.id === "hour-24"
-										? "24:00"
-										: time(new Date(node.at))}
-							</span>
-							<span />
-						</li>
-					);
-				const Icon = KIND_ICONS[moment.kind];
-				return (
-					<li key={node.id} className="memory-flow-event">
-						<span className="memory-flow-icon">
-							<Icon size={16} aria-hidden />
-						</span>
-						<article className={cn("memory-moment", node.at > now.getTime() && "memory-moment-upcoming")}>
-							<p className="text-caption text-[var(--color-text-secondary)]">
-								<time dateTime={moment.startsAt}>{time(new Date(moment.startsAt))}</time>
-								{moment.endsAt ? ` — ${time(new Date(moment.endsAt))}` : null} · {t(`memory.${moment.kind}`)}
-							</p>
-							<h3 className="break-words text-body font-medium">{moment.title}</h3>
-							{moment.location ? (
-								<p className="text-caption text-[var(--color-text-secondary)]">{moment.location}</p>
-							) : null}
-							{moment.audioUrl ? (
-								<audio controls preload="none" src={moment.audioUrl} className="mt-[var(--spacing-3)] w-full">
-									<track kind="captions" />
-								</audio>
-							) : null}
-							{moment.photos?.length ? (
-								<div className="mt-[var(--spacing-3)] grid grid-cols-3 gap-[var(--spacing-2)]">
-									{moment.photos.map((src) => (
-										<a key={src} href={src} target="_blank" rel="noreferrer">
-											<img
-												src={src}
-												alt={moment.title}
-												loading="lazy"
-												className="aspect-square w-full rounded-[var(--radius-control-sm)] object-cover"
-											/>
-										</a>
-									))}
-								</div>
-							) : null}
-						</article>
-					</li>
-				);
-			})}
-		</ol>
+		<section
+			id={`memory-day-${day.date}`}
+			className={cn("memory-day", ago === 0 && "memory-day-today")}
+			aria-labelledby={`memory-day-title-${day.date}`}
+			data-month={day.date.slice(0, 7)}
+		>
+			<header ref={header.ref} className="memory-day-head" data-stuck={header.stuck || undefined}>
+				<h3 id={`memory-day-title-${day.date}`}>
+					<span className="memory-day-name">
+						{relative ? t(relative) : format.date(day.date, i18n.language, ago > 300)}
+					</span>
+					<span className="memory-day-date">
+						{relative ? `${format.date(day.date, i18n.language, false)} ` : ""}
+						{format.weekday(day.date, i18n.language)}
+					</span>
+				</h3>
+				{ago === 0 ? (
+					<span className="memory-day-now">{t("memory.now", { time: format.time(now, i18n.language) })}</span>
+				) : header.stuck ? (
+					<Button size="sm" variant="link" onClick={onToday}>
+						{t("memory.backToToday")}
+					</Button>
+				) : null}
+			</header>
+			{full ? (
+				<ol className="memory-entries">
+					{entries.map((row) => (
+						<MemoryEntry
+							key={row.id}
+							row={row}
+							refs={refs}
+							upcoming={ago === 0 && rowTime(row) > now.getTime()}
+							onOpen={(entry) => onOpen(entry, day)}
+						/>
+					))}
+				</ol>
+			) : (
+				<button type="button" className="memory-summary" onClick={onExpand}>
+					<span>{day.lede ?? t("memory.expandDay", { count: entries.length })}</span>
+					<span className="memory-summary-count">{t("memory.entryCount", { count: entries.length })}</span>
+				</button>
+			)}
+		</section>
 	);
+}
+
+/** True while a `position: sticky` header is pinned; it sits at `top: -1px` so pinning drops its ratio below 1. */
+function useStuck<T extends HTMLElement>() {
+	const ref = useRef<T>(null);
+	const [stuck, setStuck] = useState(false);
+	useEffect(() => {
+		const element = ref.current;
+		if (!element || typeof IntersectionObserver === "undefined") return;
+		const observer = new IntersectionObserver(
+			([entry]) =>
+				setStuck(
+					Boolean(
+						entry?.isIntersecting &&
+							entry.intersectionRatio < 1 &&
+							entry.boundingClientRect.top <= (entry.rootBounds?.top ?? 0) + 1,
+					),
+				),
+			// 0 catches a jump straight into the pinned state; 1 catches scrolling into it.
+			{ root: element.closest<HTMLElement>("[data-frame-scroll]"), threshold: [0, 1] },
+		);
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, []);
+	return { ref, stuck };
 }

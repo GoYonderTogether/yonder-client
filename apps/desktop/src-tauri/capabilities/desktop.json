@@ -1,13 +1,22 @@
 {
+	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "desktop",
+	"description": "The main window. Each permission below is one the page actually calls; see apps/web/src and src-tauri/src for the call sites. `core:default` is deliberately not used: it would also grant window and webview enumeration, the menu, the tray, the image decoder and the path helpers, none of which this window calls.",
 	"windows": ["main"],
 	"platforms": ["macOS", "windows", "linux"],
 	"permissions": [
-		"core:default",
-		"meeting-recorder:default",
-		"keyring:default",
+		"core:event:allow-listen",
+		"core:event:allow-unlisten",
+		"core:resources:allow-close",
 		"core:window:allow-start-dragging",
-		"updater:default",
+		"core:window:allow-internal-toggle-maximize",
+		"meeting-recorder:default",
+		"keyring:allow-get-password",
+		"keyring:allow-set-password",
+		"keyring:allow-delete-password",
+		"updater:allow-check",
+		"updater:allow-download",
+		"updater:allow-install",
 		"process:allow-restart"
 	]
 }

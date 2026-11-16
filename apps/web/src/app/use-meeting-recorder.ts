@@ -97,7 +97,7 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 		ready: stateOwner === ownerId && ready,
 		busy: stateOwner === ownerId && busy,
 		error: stateOwner === ownerId ? error : null,
-		start: (title) => action("start", { title }),
+		start: (title, conversationId) => action("start", { title, ...(conversationId ? { conversationId } : {}) }),
 		stop: (recordingId) => action("stop", { recordingId }),
 		reload,
 		readAudio: async (recordingId, segmentIndex) => {

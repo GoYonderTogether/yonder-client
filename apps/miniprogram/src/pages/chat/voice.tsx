@@ -1,10 +1,19 @@
+import { Button as NativeButton, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui";
 import { t } from "../../lib/i18n";
 import { transcribeAudio } from "../../lib/runtime";
 
-export function VoiceInput({ onText, onError }: { onText: (text: string) => void; onError: (text: string) => void }) {
+export function VoiceInput({
+	onText,
+	onError,
+	compact = false,
+}: {
+	onText: (text: string) => void;
+	onError: (text: string) => void;
+	compact?: boolean;
+}) {
 	const [state, setState] = useState<"idle" | "recording" | "transcribing">("idle");
 	const recorder = useRef<ReturnType<typeof Taro.getRecorderManager>>();
 	const callbacks = useRef({ onText, onError });
@@ -57,6 +66,29 @@ export function VoiceInput({ onText, onError }: { onText: (text: string) => void
 		}
 	};
 	if (process.env.TARO_ENV === "h5") return null;
+	if (compact)
+		return (
+			<NativeButton
+				className="composer-tool mini-chat-icon-button mini-chat-voice"
+				ariaLabel={
+					state === "recording"
+						? t("结束录音", "Finish recording")
+						: state === "transcribing"
+							? t("正在转录", "Transcribing")
+							: t("语音输入", "Voice input")
+				}
+				disabled={state === "transcribing" ? true : undefined}
+				onClick={() => void toggle()}
+			>
+				{state === "transcribing" ? (
+					<View className="mini-chat-spinner" />
+				) : state === "recording" ? (
+					<View className="mini-chat-recording-icon" />
+				) : (
+					<View className="mini-chat-mic-icon" />
+				)}
+			</NativeButton>
+		);
 	return (
 		<Button secondary loading={state === "transcribing"} onClick={() => void toggle()}>
 			{state === "recording" ? t("结束录音", "Finish recording") : t("语音", "Voice")}

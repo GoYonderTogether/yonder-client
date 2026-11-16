@@ -3,6 +3,7 @@ import { expect, test, vi } from "vitest";
 const mock = vi.hoisted(() => ({ request: vi.fn(), uploadFile: vi.fn() }));
 vi.mock("@tarojs/taro", () => ({ default: mock }));
 
+import { uploadCancellation } from "../pages/chat/upload-cancel";
 import { localFile, miniFetch } from "./transport";
 
 test("JSON and multipart use native tasks while preserving status for shared auth handling", async () => {
@@ -29,7 +30,8 @@ test("JSON and multipart use native tasks while preserving status for shared aut
 	});
 });
 
-test("an aborted upload cancels the native task", async () => {
+test("an aborted upload cancels the native task without AbortController", async () => {
+	vi.stubGlobal("AbortController", undefined);
 	const abort = vi.fn();
 	mock.uploadFile.mockImplementation((options) => {
 		let rejectTask: (error: unknown) => void = () => {};
@@ -44,7 +46,7 @@ test("an aborted upload cancels the native task", async () => {
 			},
 		});
 	});
-	const controller = new AbortController();
+	const controller = uploadCancellation();
 	const pending = miniFetch("https://example.test/upload", {
 		headers: {},
 		body: localFile("/tmp/image.png"),
@@ -53,4 +55,5 @@ test("an aborted upload cancels the native task", async () => {
 	controller.abort();
 	await expect(pending).rejects.toMatchObject({ name: "AbortError" });
 	expect(abort).toHaveBeenCalledOnce();
+	vi.unstubAllGlobals();
 });

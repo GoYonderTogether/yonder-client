@@ -7,6 +7,8 @@ const appVersion = JSON.parse(readFileSync(path.resolve(__dirname, "../../../pac
 
 const preview = process.env.TARO_ENV === "h5";
 const sharedSources = [
+	path.resolve(__dirname, "../../../packages/ui/chat-model"),
+	path.resolve(__dirname, "../../../packages/ui/chat-presentation"),
 	path.resolve(__dirname, "../../../packages/ui/auth-presentation"),
 	path.resolve(__dirname, "../../../packages/api-client"),
 	path.resolve(__dirname, "../../../packages/protocol"),

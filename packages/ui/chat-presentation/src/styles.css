@@ -1,0 +1,261 @@
+.message-run {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--spacing-2);
+	min-width: 0;
+}
+
+.message-run-outgoing {
+	flex-direction: row-reverse;
+}
+
+.message-run-avatar {
+	flex: 0 0 var(--spacing-8);
+	display: flex;
+	justify-content: center;
+}
+
+.message-run-name {
+	display: block;
+	width: 100%;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	text-align: start;
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	color: var(--color-text-secondary);
+}
+
+.message-run-outgoing .message-run-name {
+	text-align: end;
+}
+
+.message-run-messages {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	flex-direction: column;
+	gap: var(--spacing-1);
+}
+
+.message-bubble {
+	box-sizing: border-box;
+	min-width: 0;
+	max-width: var(--message-bubble-width);
+	border-radius: var(--radius-card);
+	padding: var(--spacing-3) var(--spacing-4);
+	color: var(--color-text-primary);
+}
+
+.message-bubble-incoming {
+	background: var(--color-bg-subtle);
+}
+
+.message-bubble-outgoing {
+	background: var(--color-accent-subtle);
+}
+
+.message-run .message-bubble {
+	max-width: 100%;
+}
+
+.composer-box {
+	position: relative;
+	border-radius: var(--composer-radius);
+	background: var(--color-bg-subtle);
+	padding: var(--composer-padding);
+	transition: background var(--duration-fast);
+}
+
+.composer-layout {
+	display: grid;
+	grid-template-columns: var(--composer-button-size) minmax(0, 1fr) var(--composer-button-size) var(
+			--composer-button-size
+		);
+	grid-template-areas: "plus text voice send";
+	gap: var(--spacing-1);
+	align-items: end;
+}
+
+.composer-expanded {
+	grid-template-areas: "text text text text" "plus . voice send";
+}
+
+.composer-file {
+	position: relative;
+	display: flex;
+	width: calc(var(--control-md) * 3);
+	flex-shrink: 0;
+	flex-direction: column;
+	overflow: hidden;
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-control);
+	background: var(--color-bg-surface);
+}
+
+.composer-file-preview {
+	position: relative;
+	display: flex;
+	width: 100%;
+	aspect-ratio: 1;
+	min-width: 0;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	text-align: left;
+}
+
+.composer-file-image {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.message-attachments {
+	display: flex;
+	max-width: 100%;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--spacing-2);
+}
+
+.message-attachment {
+	display: flex;
+	max-width: 100%;
+	flex-direction: column;
+	gap: var(--spacing-1);
+}
+
+.message-attachment-image {
+	display: block;
+	max-width: 100%;
+	width: calc(var(--control-md) * 6);
+	height: calc(var(--control-md) * 4);
+	object-fit: contain;
+	border-radius: var(--radius-card);
+	background: var(--color-bg-subtle);
+}
+
+.message-attachments-self {
+	align-items: flex-end;
+}
+
+.composer-editor {
+	grid-area: text;
+	position: relative;
+	min-width: 0;
+}
+
+.composer-text-style {
+	font-family: var(--font-sans);
+	font-size: var(--text-body);
+	line-height: var(--text-body--line-height);
+	letter-spacing: inherit;
+	padding: calc((var(--composer-button-size) - var(--text-body--line-height)) / 2) var(--spacing-2);
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+	tab-size: 8;
+}
+
+.composer-add {
+	position: relative;
+	grid-area: plus;
+}
+
+.composer-send {
+	grid-area: send;
+}
+
+.composer-tool {
+	display: flex;
+	width: var(--composer-button-size);
+	height: var(--composer-button-size);
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--radius-full);
+	color: var(--color-text-secondary);
+}
+
+.composer-layout > .composer-tool {
+	grid-area: voice;
+}
+
+.composer-files {
+	display: flex;
+	gap: var(--spacing-2);
+	overflow-x: auto;
+	padding: var(--spacing-2);
+}
+
+.composer-file-name {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-1);
+	position: absolute;
+	inset: auto 0 0;
+	padding: var(--spacing-4) var(--spacing-2) var(--spacing-2);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--text-caption);
+	background: linear-gradient(transparent, var(--color-bg-surface) 60%);
+}
+
+.composer-file-remove {
+	position: absolute;
+	top: var(--spacing-1);
+	right: var(--spacing-1);
+	display: flex;
+	width: var(--spacing-6);
+	height: var(--spacing-6);
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--radius-full);
+	background: var(--color-bg-raised);
+	box-shadow: var(--shadow-sm);
+}
+
+.composer-file-state {
+	padding: 0 var(--spacing-2) var(--spacing-1);
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-1);
+	font-size: var(--text-caption);
+}
+
+.composer-file-original {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	gap: var(--spacing-1);
+	padding: 0 var(--spacing-2) var(--spacing-1);
+	font-size: var(--text-caption);
+	white-space: nowrap;
+}
+
+.composer-file-original input {
+	accent-color: var(--color-accent);
+}
+
+.composer-file-original span {
+	margin-inline-start: auto;
+	color: var(--color-text-tertiary);
+}
+
+.composer-box:focus-within {
+	outline: 1px solid var(--color-accent);
+	outline-offset: -1px;
+}
+
+.composer-tool:hover {
+	background: var(--color-bg-base);
+}
+
+.composer-tool:disabled {
+	color: var(--color-text-tertiary);
+	cursor: not-allowed;
+}

@@ -33,8 +33,11 @@ export { useCompactConversation } from "./hooks/compact.ts";
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
 export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
+export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
+export { useMemoryDays, useMemoryMonths, useMemoryRef } from "./hooks/memory.ts";
 export { useProviderActions, useProviders } from "./hooks/providers.ts";
 export { useInvite, useQuota, useQuotaLedger, useQuotaRates, useResolvedInvite, useUsage } from "./hooks/quota.ts";
+export { useScheduleActions, useSchedules } from "./hooks/schedules.ts";
 export { useSkill, useSkillActions, useSkillFile, useSkills } from "./hooks/skills.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
 export {

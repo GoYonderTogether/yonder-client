@@ -14,6 +14,8 @@ pub struct Recording {
     pub id: String,
     pub owner_id: String,
     pub title: String,
+    #[serde(default)]
+    pub conversation_id: Option<String>,
     pub state: String,
     pub started_at: u64,
     pub ended_at: Option<u64>,

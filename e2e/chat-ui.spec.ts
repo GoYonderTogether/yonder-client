@@ -45,18 +45,36 @@ async function assertBubbles(page: Page) {
 		const left = incoming.getBoundingClientRect(),
 			right = outgoing.getBoundingClientRect(),
 			parent = log.getBoundingClientRect();
+		const incomingRun = incoming.closest<HTMLElement>(".message-run");
+		const outgoingRun = outgoing.closest<HTMLElement>(".message-run");
+		const incomingAvatar = incomingRun?.querySelector<HTMLElement>(".message-run-avatar")?.getBoundingClientRect();
+		const outgoingAvatar = outgoingRun?.querySelector<HTMLElement>(".message-run-avatar")?.getBoundingClientRect();
+		const incomingColumn = incomingRun?.querySelector<HTMLElement>(".message-run-messages")?.getBoundingClientRect();
+		const outgoingColumn = outgoingRun?.querySelector<HTMLElement>(".message-run-messages")?.getBoundingClientRect();
+		if (!incomingAvatar || !outgoingAvatar || !incomingColumn || !outgoingColumn)
+			throw new Error("Missing sender layout");
 		return {
 			incomingLeft: left.left,
 			outgoingRight: right.right,
 			logLeft: parent.left,
 			logRight: parent.right,
+			incomingAvatarLeft: incomingAvatar.left,
+			incomingAvatarRight: incomingAvatar.right,
+			outgoingAvatarLeft: outgoingAvatar.left,
+			outgoingAvatarRight: outgoingAvatar.right,
+			incomingColumnLeft: incomingColumn.left,
+			outgoingColumnRight: outgoingColumn.right,
 			incomingColor: getComputedStyle(incoming).backgroundColor,
 			outgoingColor: getComputedStyle(outgoing).backgroundColor,
 			incomingRadius: getComputedStyle(incoming).borderRadius,
 		};
 	});
-	expect(geometry.incomingLeft).toBeCloseTo(geometry.logLeft, 0);
-	expect(geometry.outgoingRight).toBeCloseTo(geometry.logRight, 0);
+	expect(geometry.incomingAvatarLeft).toBeCloseTo(geometry.logLeft, 0);
+	expect(geometry.outgoingAvatarRight).toBeCloseTo(geometry.logRight, 0);
+	expect(geometry.incomingColumnLeft - geometry.incomingAvatarRight).toBeCloseTo(8, 0);
+	expect(geometry.outgoingAvatarLeft - geometry.outgoingColumnRight).toBeCloseTo(8, 0);
+	expect(geometry.incomingLeft).toBeCloseTo(geometry.incomingColumnLeft, 0);
+	expect(geometry.outgoingRight).toBeCloseTo(geometry.outgoingColumnRight, 0);
 	expect(geometry.incomingColor).not.toBe(geometry.outgoingColor);
 	expect(geometry.incomingColor).not.toBe("rgba(0, 0, 0, 0)");
 	expect(geometry.incomingRadius).toBe("16px");
@@ -69,19 +87,21 @@ async function assertComposer(page: Page, onMultiline?: () => Promise<void>) {
 	const single = await input.evaluate((element) => {
 		const area = element as HTMLTextAreaElement;
 		const style = getComputedStyle(area);
-		const button = area.parentElement?.querySelector("button");
+		const button = area.closest(".composer-layout")?.querySelector(".composer-send");
 		if (!button) throw new Error("Expected the actual Composer send button");
 		const a = area.getBoundingClientRect(),
 			b = button.getBoundingClientRect();
 		return {
 			paddingLeft: parseFloat(style.paddingLeft),
 			paddingRight: parseFloat(style.paddingRight),
+			spacing2: parseFloat(getComputedStyle(area).getPropertyValue("--spacing-2")),
 			center: a.y + a.height / 2,
 			buttonCenter: b.y + b.height / 2,
 		};
 	});
-	expect(single.paddingLeft).toBeGreaterThanOrEqual(12);
-	expect(single.paddingRight).toBeGreaterThanOrEqual(12);
+	expect(single.spacing2).toBe(8);
+	expect(single.paddingLeft).toBe(single.spacing2);
+	expect(single.paddingRight).toBe(single.spacing2);
 	expect(single.center).toBeCloseTo(single.buttonCenter, 0);
 	await input.fill("多行文本\n".repeat(30));
 	await expect.poll(async () => (await input.boundingBox())?.height).toBe(160);
@@ -276,6 +296,38 @@ test.describe("actual phone conversation route", () => {
 			await capture(page, testInfo, `phone-${dark ? "dark" : "light"}`);
 		});
 	}
+	test("long Markdown keeps the 390px chat pane in bounds and scrolls code inside its block", async ({ page }) => {
+		await isolateChat(page, {
+			items: [message("message-01", bodies.question, true), message("message-02", bodies.long)],
+		});
+		await openChat(page);
+		const geometry = await page.evaluate(() => {
+			const rect = (selector: string) => {
+				const element = document.querySelector<HTMLElement>(selector);
+				if (!element) throw new Error(`Expected ${selector}`);
+				const { left, right, width } = element.getBoundingClientRect();
+				return { left, right, width };
+			};
+			const code = document.querySelector<HTMLElement>(".message-code-scroll");
+			if (!code) throw new Error("Expected an independently scrollable code block");
+			return {
+				viewportWidth: innerWidth,
+				documentWidth: document.documentElement.scrollWidth,
+				main: rect("main"),
+				dropZone: rect("main fieldset"),
+				log: rect('[role="log"]'),
+				bubble: rect(".message-bubble-incoming"),
+				code: { clientWidth: code.clientWidth, scrollWidth: code.scrollWidth },
+			};
+		});
+		expect(geometry.viewportWidth).toBe(390);
+		expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth);
+		for (const surface of [geometry.main, geometry.dropZone, geometry.log, geometry.bubble]) {
+			expect(surface.left).toBeGreaterThanOrEqual(0);
+			expect(surface.right).toBeLessThanOrEqual(geometry.viewportWidth);
+		}
+		expect(geometry.code.scrollWidth).toBeGreaterThan(geometry.code.clientWidth);
+	});
 	test("long links, code and file names stay inside bubbles at 360px", async ({ page }, testInfo) => {
 		await page.setViewportSize({ width: 360, height: 780 });
 		await isolateChat(page, {

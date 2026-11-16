@@ -63,12 +63,15 @@ class Native:
         result = self.receive(lambda value: "ready" in value, timeout=120)
         assert result.get("ready") is True, result
 
-    def command(self, op, source=None, expect_error=False):
+    def command(self, op, source=None, expect_error=False, private=False):
         self.sequence += 1
         request = {"id": str(self.sequence), "op": op}
         if source is not None:
             request["source"] = source
-        self.transcript.append({"request": request})
+        logged_request = dict(request)
+        if private or (source and "configure_upload" in source):
+            logged_request["source"] = "[private upload configuration]"
+        self.transcript.append({"request": logged_request})
         self.process.stdin.write(json.dumps(request, ensure_ascii=False) + "\n")
         self.process.stdin.flush()
         value = self.receive(lambda item: item.get("id") == request["id"])
@@ -81,7 +84,7 @@ class Native:
     def invoke(self, command, arguments, expect_error=False):
         return self.command("eval", "window.__TAURI_INTERNALS__.invoke(" +
                             json.dumps("plugin:meeting-recorder|" + command) + "," +
-                            json.dumps(arguments) + ")", expect_error)
+                            json.dumps(arguments) + ")", expect_error, private=command == "configure_upload")
 
     def saved(self, owner, recording_id, after_ms=0):
         deadline = time.monotonic() + 30

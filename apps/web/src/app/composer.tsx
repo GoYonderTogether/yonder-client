@@ -1,3 +1,4 @@
+import { ComposerFrame, ComposerLayout } from "@yonder/chat-presentation";
 import { ArrowUp, FileText, Image, Plus, Square } from "lucide-react";
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -23,6 +24,9 @@ export interface ComposerProps {
 	onSend: () => void;
 	onStop: () => void;
 	streaming: boolean;
+	/** A send (upload included) is in flight; the button becomes a working cancel. */
+	sending?: boolean;
+	onCancelSend?: () => void;
 	disabled: boolean;
 	disconnected: boolean;
 	sendOnEnter: boolean;
@@ -56,6 +60,8 @@ export function Composer({
 	onSend,
 	onStop,
 	streaming,
+	sending = false,
+	onCancelSend,
 	disabled,
 	disconnected,
 	sendOnEnter,
@@ -218,7 +224,8 @@ export function Composer({
 		});
 	}
 	function send() {
-		if (waitingToSend.current || disabled || disconnected || streaming || (!canSend && !session.current)) return;
+		if (sending || waitingToSend.current || disabled || disconnected || streaming || (!canSend && !session.current))
+			return;
 		const active = session.current;
 		if (!active) {
 			onSend();
@@ -256,7 +263,6 @@ export function Composer({
 				</p>
 			) : null}
 			<fieldset
-				className={`composer-box ${dragging ? "composer-dragging" : ""}`}
 				aria-label={t("chat.attach")}
 				onDragEnter={(event) => {
 					if (isFileDrag(event) && !disabled) {
@@ -285,200 +291,200 @@ export function Composer({
 					}
 				}}
 			>
-				<CompletionPopup completion={completion} />
-				{files.length ? (
-					<ComposerFiles
-						files={files}
-						disabled={disabled}
-						onRemove={(id) => {
-							interrupt();
-							onRemoveFile?.(id);
-						}}
-						onRetry={(id) => onRetryFile?.(id)}
-						onOriginalChange={(id, original) => {
-							interrupt();
-							onOriginalFileChange?.(id, original);
-						}}
-					/>
-				) : null}
-				{dragging ? (
-					<div className="composer-drop-hint" role="status">
-						<Plus size={24} aria-hidden="true" />
-						{t("chat.dropFiles")}
-					</div>
-				) : null}
-				<div
-					className={`composer-layout ${expanded || draft.includes("\n") || files.length ? "composer-expanded" : ""}`}
-				>
-					<div className="composer-add">
+				<ComposerFrame as="div" dragging={dragging}>
+					<CompletionPopup completion={completion} />
+					{files.length ? (
+						<ComposerFiles
+							files={files}
+							disabled={disabled}
+							onRemove={(id) => {
+								interrupt();
+								onRemoveFile?.(id);
+							}}
+							onRetry={(id) => onRetryFile?.(id)}
+							onOriginalChange={(id, original) => {
+								interrupt();
+								onOriginalFileChange?.(id, original);
+							}}
+						/>
+					) : null}
+					{dragging ? (
+						<div className="composer-drop-hint" role="status">
+							<Plus size={24} aria-hidden="true" />
+							{t("chat.dropFiles")}
+						</div>
+					) : null}
+					<ComposerLayout as="div" expanded={Boolean(expanded || draft.includes("\n") || files.length)}>
+						<div className="composer-add">
+							<button
+								type="button"
+								className="composer-tool"
+								disabled={disabled}
+								aria-label={t("chat.attach")}
+								aria-expanded={mobilePicker ? menu : undefined}
+								onClick={() => (mobilePicker ? setMenu(!menu) : picker.current?.click())}
+							>
+								<Plus size={21} aria-hidden="true" />
+							</button>
+							{menu ? (
+								<fieldset
+									className="composer-add-menu"
+									aria-label={t("chat.attach")}
+									onKeyDown={(event) => {
+										if (event.key === "Escape") setMenu(false);
+									}}
+								>
+									<button
+										type="button"
+										onClick={() => {
+											imagePicker.current?.click();
+											setMenu(false);
+										}}
+									>
+										<Image size={18} aria-hidden="true" />
+										{t("chat.uploadImages")}
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											picker.current?.click();
+											setMenu(false);
+										}}
+									>
+										<FileText size={18} aria-hidden="true" />
+										{t("chat.uploadFiles")}
+									</button>
+								</fieldset>
+							) : null}
+						</div>
+						<input
+							ref={picker}
+							type="file"
+							multiple
+							className="hidden"
+							aria-label={t("chat.uploadFiles")}
+							onChange={(event) => {
+								interrupt();
+								onFiles?.([...(event.target.files ?? [])]);
+								event.target.value = "";
+							}}
+						/>
+						<input
+							ref={imagePicker}
+							type="file"
+							accept="image/*"
+							multiple
+							className="hidden"
+							aria-label={t("chat.uploadImages")}
+							onChange={(event) => {
+								interrupt();
+								onFiles?.([...(event.target.files ?? [])]);
+								event.target.value = "";
+							}}
+						/>
+						<div className="composer-editor">
+							<div ref={highlight} className="composer-highlight composer-text-style" aria-hidden="true">
+								<SkillHighlight text={draft} bindings={bindings} />
+							</div>
+							<textarea
+								ref={input}
+								readOnly={readOnly}
+								value={draft}
+								onChange={(event) => {
+									if (completion.inserting.current) return;
+									interrupt();
+									const edit = consumeEdit(latestDraft.current, event.target.value);
+									latestDraft.current = event.target.value;
+									if (edit) setDraft(event.target.value, edit);
+									else setDraft(event.target.value);
+									completion.sync(event.currentTarget, composing.current);
+								}}
+								onBlur={completion.close}
+								onScroll={(event) => {
+									if (highlight.current) {
+										highlight.current.scrollTop = event.currentTarget.scrollTop;
+										highlight.current.scrollLeft = event.currentTarget.scrollLeft;
+									}
+								}}
+								onPointerDown={interrupt}
+								onSelect={(event) => {
+									const active = session.current;
+									if (
+										active &&
+										(event.currentTarget.selectionStart !== active.expectedStart ||
+											event.currentTarget.selectionEnd !== active.expectedEnd)
+									)
+										interrupt();
+									completion.sync(event.currentTarget, composing.current);
+								}}
+								onPaste={(event) => {
+									interrupt();
+									const files = [...event.clipboardData.files];
+									if (files.length && !disabled) {
+										event.preventDefault();
+										onFiles?.(files);
+									}
+								}}
+								aria-label={placeholder}
+								placeholder={placeholder}
+								rows={1}
+								aria-autocomplete="list"
+								aria-controls={completion.token ? completion.id : undefined}
+								aria-activedescendant={
+									completion.token && completion.matches.length ? `${completion.id}-${completion.active}` : undefined
+								}
+								onCompositionStart={() => {
+									interrupt();
+									composing.current = true;
+									completion.suspend();
+								}}
+								onCompositionEnd={(event) => {
+									composing.current = false;
+									compositionEndedAt.current = performance.now();
+									completion.sync(event.currentTarget);
+								}}
+								onKeyDown={(event) => {
+									if (completion.keyDown(event, composing.current)) return;
+									if (
+										event.key !== "Enter" ||
+										!sendOnEnter ||
+										event.shiftKey ||
+										composing.current ||
+										event.nativeEvent.isComposing ||
+										event.nativeEvent.keyCode === 229
+									)
+										interrupt();
+									if (!sendOnEnter || event.key !== "Enter" || event.shiftKey) return;
+									// Let the IME accept its candidate; suppress only our send action.
+									if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+									event.preventDefault();
+									if (event.repeat || performance.now() - compositionEndedAt.current < 500) return;
+									send();
+								}}
+								className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-button-size)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
+							/>
+						</div>
+						<VoiceControl
+							disabled={disabled || readOnly || (microphoneOccupied && !voice.isListening)}
+							listening={voice.isListening}
+							onStart={startVoice}
+							onPause={pauseVoice}
+						/>
 						<button
 							type="button"
-							className="composer-tool"
-							disabled={disabled}
-							aria-label={t("chat.attach")}
-							aria-expanded={mobilePicker ? menu : undefined}
-							onClick={() => (mobilePicker ? setMenu(!menu) : picker.current?.click())}
+							disabled={sending ? false : disconnected || (!streaming && !canSend && !voiceActive)}
+							onClick={streaming ? onStop : sending ? onCancelSend : send}
+							aria-label={t(streaming ? "chat.stop" : sending ? "chat.stopSend" : "chat.disabledSend")}
+							className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"
 						>
-							<Plus size={21} aria-hidden="true" />
+							{streaming || sending ? (
+								<Square size={15} fill="currentColor" aria-hidden="true" />
+							) : (
+								<ArrowUp size={18} strokeWidth={2.2} aria-hidden="true" />
+							)}
 						</button>
-						{menu ? (
-							<fieldset
-								className="composer-add-menu"
-								aria-label={t("chat.attach")}
-								onKeyDown={(event) => {
-									if (event.key === "Escape") setMenu(false);
-								}}
-							>
-								<button
-									type="button"
-									onClick={() => {
-										imagePicker.current?.click();
-										setMenu(false);
-									}}
-								>
-									<Image size={18} aria-hidden="true" />
-									{t("chat.uploadImages")}
-								</button>
-								<button
-									type="button"
-									onClick={() => {
-										picker.current?.click();
-										setMenu(false);
-									}}
-								>
-									<FileText size={18} aria-hidden="true" />
-									{t("chat.uploadFiles")}
-								</button>
-							</fieldset>
-						) : null}
-					</div>
-					<input
-						ref={picker}
-						type="file"
-						multiple
-						className="hidden"
-						aria-label={t("chat.uploadFiles")}
-						onChange={(event) => {
-							interrupt();
-							onFiles?.([...(event.target.files ?? [])]);
-							event.target.value = "";
-						}}
-					/>
-					<input
-						ref={imagePicker}
-						type="file"
-						accept="image/*"
-						multiple
-						className="hidden"
-						aria-label={t("chat.uploadImages")}
-						onChange={(event) => {
-							interrupt();
-							onFiles?.([...(event.target.files ?? [])]);
-							event.target.value = "";
-						}}
-					/>
-					<div className="composer-editor">
-						<div ref={highlight} className="composer-highlight composer-text-style" aria-hidden="true">
-							<SkillHighlight text={draft} bindings={bindings} />
-						</div>
-						<textarea
-							ref={input}
-							readOnly={readOnly}
-							value={draft}
-							onChange={(event) => {
-								if (completion.inserting.current) return;
-								interrupt();
-								const edit = consumeEdit(latestDraft.current, event.target.value);
-								latestDraft.current = event.target.value;
-								if (edit) setDraft(event.target.value, edit);
-								else setDraft(event.target.value);
-								completion.sync(event.currentTarget, composing.current);
-							}}
-							onBlur={completion.close}
-							onScroll={(event) => {
-								if (highlight.current) {
-									highlight.current.scrollTop = event.currentTarget.scrollTop;
-									highlight.current.scrollLeft = event.currentTarget.scrollLeft;
-								}
-							}}
-							onPointerDown={interrupt}
-							onSelect={(event) => {
-								const active = session.current;
-								if (
-									active &&
-									(event.currentTarget.selectionStart !== active.expectedStart ||
-										event.currentTarget.selectionEnd !== active.expectedEnd)
-								)
-									interrupt();
-								completion.sync(event.currentTarget, composing.current);
-							}}
-							onPaste={(event) => {
-								interrupt();
-								const files = [...event.clipboardData.files];
-								if (files.length && !disabled) {
-									event.preventDefault();
-									onFiles?.(files);
-								}
-							}}
-							aria-label={placeholder}
-							placeholder={placeholder}
-							rows={1}
-							aria-autocomplete="list"
-							aria-controls={completion.token ? completion.id : undefined}
-							aria-activedescendant={
-								completion.token && completion.matches.length ? `${completion.id}-${completion.active}` : undefined
-							}
-							onCompositionStart={() => {
-								interrupt();
-								composing.current = true;
-								completion.suspend();
-							}}
-							onCompositionEnd={(event) => {
-								composing.current = false;
-								compositionEndedAt.current = performance.now();
-								completion.sync(event.currentTarget);
-							}}
-							onKeyDown={(event) => {
-								if (completion.keyDown(event, composing.current)) return;
-								if (
-									event.key !== "Enter" ||
-									!sendOnEnter ||
-									event.shiftKey ||
-									composing.current ||
-									event.nativeEvent.isComposing ||
-									event.nativeEvent.keyCode === 229
-								)
-									interrupt();
-								if (!sendOnEnter || event.key !== "Enter" || event.shiftKey) return;
-								// Let the IME accept its candidate; suppress only our send action.
-								if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
-								event.preventDefault();
-								if (event.repeat || performance.now() - compositionEndedAt.current < 500) return;
-								send();
-							}}
-							className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-button-size)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
-						/>
-					</div>
-					<VoiceControl
-						disabled={disabled || readOnly || (microphoneOccupied && !voice.isListening)}
-						listening={voice.isListening}
-						onStart={startVoice}
-						onPause={pauseVoice}
-					/>
-					<button
-						type="button"
-						disabled={disconnected || (!streaming && !canSend && !voiceActive)}
-						onClick={streaming ? onStop : send}
-						aria-label={t(streaming ? "chat.stop" : "chat.disabledSend")}
-						className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"
-					>
-						{streaming ? (
-							<Square size={15} fill="currentColor" aria-hidden="true" />
-						) : (
-							<ArrowUp size={18} strokeWidth={2.2} aria-hidden="true" />
-						)}
-					</button>
-				</div>
+					</ComposerLayout>
+				</ComposerFrame>
 			</fieldset>
 			{commandStatus}
 		</div>

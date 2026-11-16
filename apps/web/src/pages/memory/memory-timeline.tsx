@@ -1,174 +1,210 @@
-import { Button, cn, IconButton, Segmented } from "@yonder/ui-components";
-import { CalendarDays, ChevronLeft, ChevronRight, Flag, Images, MapPin, Mic } from "lucide-react";
-import { useEffect, useState } from "react";
+import type { MemoryDay, MemoryMonth } from "@yonder/protocol";
+import { Button, EmptyState } from "@yonder/ui-components";
+import { ApiError, useMemoryDays, useMemoryMonths } from "@yonder/ui-data";
+import { History } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MemoryDay, type MemoryMoment } from "./memory-day.tsx";
-import { dateKey, movePeriod, periodDays, type TimelineScale } from "./timeline-period.ts";
+import { MemoryDaySection } from "./memory-day.tsx";
+import { daysAgo, useMemoryFormat, useMinute } from "./memory-format.ts";
+import { MemoryRail } from "./memory-rail.tsx";
+import { MemoryEntrySheet, type OpenEntry } from "./memory-ref-sheet.tsx";
 
-const NO_MOMENTS: MemoryMoment[] = [];
-const KIND_ICONS = { recording: Mic, photos: Images, place: MapPin, schedule: CalendarDays, keyMoment: Flag };
-const SCALES: TimelineScale[] = ["year", "month", "week", "day"];
+/** Days within a week list every entry; older days fold to their one-line summary. */
+const FULL_DAYS = 6;
 
-export function MemoryTimeline({ moments = NO_MOMENTS }: { moments?: MemoryMoment[] }) {
+/**
+ * The page holds only two things: day headers with their entries, and the scroll index on the
+ * right. Sources, quotes and merged raw records open in a sheet when an entry is tapped.
+ */
+export function MemoryTimeline() {
 	const { t, i18n } = useTranslation();
-	const [selected, setSelected] = useState(() => new Date());
-	const [scale, setScale] = useState<TimelineScale>("day");
-	const [filter, setFilter] = useState("all");
-	const [now, setNow] = useState(() => new Date());
+	const format = useMemoryFormat();
+	const now = useMinute();
+	const recent = useMemoryDays();
+	const months = useMemoryMonths();
+	const [openMonths, setOpenMonths] = useState<Set<string>>(() => new Set());
+	const [fullDays, setFullDays] = useState<Set<string>>(() => new Set());
+	const [entry, setEntry] = useState<OpenEntry | null>(null);
+	const [current, setCurrent] = useState<string | null>(null);
+	const [pending, setPending] = useState<{ date: string; rowId?: string } | null>(null);
+	const root = useRef<HTMLElement>(null);
+	const days = recent.data?.items ?? [];
+	const recentMonths = new Set(days.map((day) => day.date.slice(0, 7)));
+	const older = (months.data?.items ?? []).filter((month) => !recentMonths.has(month.month));
+	const year = String(now.getFullYear());
+	const railMonths = [...recentMonths, ...older.map((month) => month.month)].map((key) => ({
+		key,
+		label: format.month(key, i18n.language, !key.startsWith(year)),
+	}));
+	const scroller = () => root.current?.closest<HTMLElement>("[data-frame-scroll]") ?? null;
+	const scrollTo = (element: Element | null, block: ScrollLogicalPosition = "start") =>
+		element?.scrollIntoView({ block, behavior: "auto" });
 	useEffect(() => {
-		const timer = setInterval(() => setNow(new Date()), 60_000);
-		return () => clearInterval(timer);
-	}, []);
-	const format = (date: Date, options: Intl.DateTimeFormatOptions) =>
-		new Intl.DateTimeFormat(i18n.language, options).format(date);
-	const dayMoments = moments
-		.filter(
-			(moment) =>
-				dateKey(new Date(moment.startsAt)) === dateKey(selected) && (filter === "all" || filter === moment.kind),
-		)
-		.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
-	const openDay = (day: Date) => {
-		setSelected(day);
-		setScale("day");
-	};
-	const dateButton = (day: Date) => {
-		const count = moments.filter((moment) => dateKey(new Date(moment.startsAt)) === dateKey(day)).length;
-		return (
-			<button
-				key={dateKey(day)}
-				type="button"
-				aria-label={t("memory.openDay", { date: format(day, { dateStyle: "full" }) })}
-				onClick={() => openDay(day)}
-				className={cn("memory-calendar-day", dateKey(day) === dateKey(selected) && "memory-calendar-selected")}
-			>
-				{scale === "week" ? (
-					<span className="text-micro text-[var(--color-text-secondary)]">{format(day, { weekday: "short" })}</span>
-				) : null}
-				<span>{day.getDate()}</span>
-				<span className={cn("memory-calendar-dot", count > 0 && "memory-calendar-dot-filled")} aria-hidden="true" />
-			</button>
+		if (!pending) return;
+		const target = document.getElementById(
+			pending.rowId ? `memory-row-${pending.rowId}` : `memory-day-${pending.date}`,
 		);
+		if (!target) return;
+		scrollTo(target, pending.rowId ? "center" : "start");
+		target.classList.remove("memory-flash");
+		void target.offsetWidth;
+		target.classList.add("memory-flash");
+		setPending(null);
+	});
+	useEffect(() => {
+		const element = scroller();
+		if (!element) return;
+		const update = () => {
+			const top = element.getBoundingClientRect().top + 8;
+			let month: string | null = null;
+			for (const section of root.current?.querySelectorAll<HTMLElement>("[data-month]") ?? []) {
+				if (section.getBoundingClientRect().top > top) break;
+				month = section.dataset.month ?? null;
+			}
+			setCurrent(month ?? railMonths[0]?.key ?? null);
+		};
+		update();
+		element.addEventListener("scroll", update, { passive: true });
+		return () => element.removeEventListener("scroll", update);
+	});
+	const openRow = (date: string, rowId?: string) => {
+		const month = date.slice(0, 7);
+		if (!recentMonths.has(month)) setOpenMonths((set) => new Set(set).add(month));
+		setFullDays((set) => new Set(set).add(date));
+		setEntry(null);
+		setPending({ date, ...(rowId ? { rowId } : {}) });
 	};
-	return (
-		<section className="memory-timeline flex min-w-0 flex-col gap-[var(--spacing-5)]" aria-label={t("memory.timeline")}>
-			<div className="flex flex-wrap items-center justify-between gap-[var(--spacing-3)]">
-				<h2 className="text-h3 font-semibold">{t("memory.timeline")}</h2>
-				<Button
-					size="sm"
-					variant="ghost"
-					onClick={() => {
-						setSelected(new Date());
-						setScale("day");
-					}}
-				>
-					{t("memory.today")}
-				</Button>
-			</div>
-			<Segmented
-				aria-label={t("memory.timeline")}
-				options={SCALES.map((value) => ({ value, label: t(`memory.${value}`) }))}
-				value={scale}
-				onChange={(value) => setScale(value as TimelineScale)}
-				className="self-start"
+	const toToday = () => {
+		const today = root.current?.querySelector(".memory-day-today");
+		if (today) scrollTo(today);
+		else scroller()?.scrollTo({ top: 0 });
+	};
+	const dayProps = (day: MemoryDay) => ({
+		day,
+		now,
+		full: fullDays.has(day.date) || daysAgo(day.date, now) <= FULL_DAYS,
+		onExpand: () => setFullDays((set) => new Set(set).add(day.date)),
+		onToday: toToday,
+		onOpen: (row: OpenEntry["row"], from: MemoryDay) => setEntry({ row, day: from }),
+	});
+	if (recent.isError)
+		return (
+			<section className="memory-timeline" aria-label={t("memory.timeline")}>
+				<div role="alert" className="memory-error">
+					<p>{t("memory.loadFailed")}</p>
+					<p>{recent.error instanceof ApiError ? t(recent.error.messageKey) : recent.error.message}</p>
+					<Button size="sm" variant="secondary" onClick={() => void recent.refetch()}>
+						{t("app.retry")}
+					</Button>
+				</div>
+			</section>
+		);
+	if (recent.isSuccess && !days.length && !older.length)
+		return (
+			<EmptyState
+				icon={<History size={24} strokeWidth={1.6} />}
+				title={t("memory.timeline")}
+				body={t("memory.timelineEmpty")}
 			/>
-			<div className="flex items-center justify-between gap-[var(--spacing-2)]">
-				<IconButton
-					size="sm"
-					aria-label={t("memory.previous")}
-					onClick={() => setSelected(movePeriod(selected, scale, -1))}
-				>
-					<ChevronLeft size={18} aria-hidden />
-				</IconButton>
-				<label className="relative min-w-0 rounded-[var(--radius-control-sm)] px-[var(--spacing-2)] py-[var(--spacing-2)] text-body font-medium focus-within:outline-2 focus-within:outline-[var(--color-accent)]">
-					{format(
-						selected,
-						scale === "year"
-							? { year: "numeric" }
-							: scale === "month"
-								? { year: "numeric", month: "long" }
-								: { year: "numeric", month: "long", day: "numeric" },
-					)}
-					<input
-						type="date"
-						aria-label={t("memory.pickDate")}
-						value={dateKey(selected)}
-						onChange={(event) => {
-							if (event.target.value) {
-								const [year, month, day] = event.target.value.split("-").map(Number);
-								setSelected(new Date(year as number, (month as number) - 1, day));
-							}
-						}}
-						className="absolute inset-0 size-full cursor-pointer opacity-0"
+		);
+	const byMonth = new Map<string, MemoryDay[]>();
+	for (const day of days) byMonth.set(day.date.slice(0, 7), [...(byMonth.get(day.date.slice(0, 7)) ?? []), day]);
+	const monthTitle = (month: string) => (
+		<h2 className="memory-month-title">{format.month(month, i18n.language, !month.startsWith(year))}</h2>
+	);
+	return (
+		<section ref={root} className="memory-timeline" aria-label={t("memory.timeline")} aria-busy={recent.isPending}>
+			<MemoryRail
+				months={railMonths}
+				current={current}
+				onJump={(month) => scrollTo(document.getElementById(`memory-month-${month}`))}
+			/>
+			{[...byMonth].map(([month, list], index) => (
+				<div key={month} id={`memory-month-${month}`} className="memory-month">
+					{index > 0 ? monthTitle(month) : null}
+					{list.map((day) => (
+						<MemoryDaySection key={day.date} {...dayProps(day)} />
+					))}
+				</div>
+			))}
+			{older.map((month) =>
+				openMonths.has(month.month) ? (
+					<OpenMonth key={month.month} month={month.month} title={monthTitle(month.month)} dayProps={dayProps} />
+				) : (
+					<FoldedMonth
+						key={month.month}
+						month={month}
+						title={monthTitle(month.month)}
+						onOpenMonth={() => setOpenMonths((set) => new Set(set).add(month.month))}
+						onOpenDay={(date) => openRow(date)}
 					/>
-				</label>
-				<IconButton size="sm" aria-label={t("memory.next")} onClick={() => setSelected(movePeriod(selected, scale, 1))}>
-					<ChevronRight size={18} aria-hidden />
-				</IconButton>
-			</div>
-			{scale === "year" ? (
-				<div className="grid grid-cols-3 gap-[var(--spacing-2)]">
-					{Array.from({ length: 12 }, (_, month) => {
-						const date = new Date(selected.getFullYear(), month, 1);
-						const count = moments.filter((moment) => {
-							const day = new Date(moment.startsAt);
-							return day.getFullYear() === selected.getFullYear() && day.getMonth() === month;
-						}).length;
-						return (
-							<button
-								key={dateKey(date)}
-								type="button"
-								aria-label={t("memory.openMonth", { month: format(date, { year: "numeric", month: "long" }) })}
-								onClick={() => {
-									setSelected(date);
-									setScale("month");
-								}}
-								className="flex flex-col gap-[var(--spacing-3)] rounded-[var(--radius-card)] bg-[var(--color-bg-surface)] p-[var(--spacing-4)] text-left hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
-							>
-								<span className="text-body">{format(date, { month: "short" })}</span>
-								<span className="text-micro text-[var(--color-text-secondary)]">
-									{t("memory.momentCount", { count })}
-								</span>
-							</button>
-						);
-					})}
-				</div>
-			) : scale === "month" || scale === "week" ? (
-				<div className="grid grid-cols-7 gap-[var(--spacing-1)]">
-					{scale === "month"
-						? Array.from(
-								{ length: (new Date(selected.getFullYear(), selected.getMonth(), 1).getDay() + 6) % 7 },
-								(_, index) => <span key={dateKey(new Date(selected.getFullYear(), selected.getMonth(), -index))} />,
-							)
-						: null}
-					{periodDays(selected, scale).map(dateButton)}
-				</div>
+				),
+			)}
+			<MemoryEntrySheet entry={entry} onClose={() => setEntry(null)} onPick={openRow} />
+		</section>
+	);
+}
+
+function OpenMonth({
+	month,
+	title,
+	dayProps,
+}: {
+	month: string;
+	title: React.ReactNode;
+	dayProps: (day: MemoryDay) => React.ComponentProps<typeof MemoryDaySection>;
+}) {
+	const { t } = useTranslation();
+	const days = useMemoryDays(month);
+	return (
+		<div id={`memory-month-${month}`} className="memory-month" data-month={month}>
+			{title}
+			{days.isError ? (
+				<p role="alert" className="memory-error">
+					{days.error instanceof ApiError ? t(days.error.messageKey) : days.error.message}
+				</p>
 			) : null}
-			{scale === "day" ? (
-				<>
-					<fieldset
-						className="flex min-w-0 max-w-full gap-[var(--spacing-2)] overflow-x-auto pb-[var(--spacing-1)]"
-						aria-label={t("memory.timeline")}
-					>
-						{(["all", "recording", "photos", "place", "schedule", "keyMoment"] as const).map((kind) => {
-							const Icon = kind === "all" ? null : KIND_ICONS[kind];
-							return (
-								<Button
-									key={kind}
-									size="sm"
-									variant={filter === kind ? "secondary" : "ghost"}
-									aria-pressed={filter === kind}
-									className="shrink-0"
-									onClick={() => setFilter(kind)}
-								>
-									{Icon ? <Icon size={14} aria-hidden /> : null}
-									{t(`memory.${kind}`)}
-								</Button>
-							);
-						})}
-					</fieldset>
-					<MemoryDay selected={selected} now={now} moments={dayMoments} />
-				</>
-			) : null}
+			{days.data?.items.map((day) => (
+				<MemoryDaySection key={day.date} {...dayProps(day)} />
+			))}
+		</div>
+	);
+}
+
+/** An older month: its notable days, one line each, and a way into every day. */
+function FoldedMonth({
+	month,
+	title,
+	onOpenMonth,
+	onOpenDay,
+}: {
+	month: MemoryMonth;
+	title: React.ReactNode;
+	onOpenMonth: () => void;
+	onOpenDay: (date: string) => void;
+}) {
+	const { t, i18n } = useTranslation();
+	const format = useMemoryFormat();
+	return (
+		<section id={`memory-month-${month.month}`} className="memory-month" data-month={month.month}>
+			{title}
+			{month.note ? <p className="memory-month-note">{month.note}</p> : null}
+			<ol className="memory-entries">
+				{month.highlights.map((day) => (
+					<li key={day.date} className="memory-entry">
+						<button type="button" onClick={() => onOpenDay(day.date)}>
+							<time dateTime={day.date}>{format.date(day.date, i18n.language, false)}</time>
+							<span className="memory-entry-text">
+								<span className="memory-entry-title">{day.lede}</span>
+								<span className="memory-entry-note">{format.weekday(day.date, i18n.language)}</span>
+							</span>
+						</button>
+					</li>
+				))}
+			</ol>
+			<Button size="sm" variant="link" className="memory-month-all" onClick={onOpenMonth}>
+				{t("memory.monthAll", { count: month.dayCount })}
+			</Button>
 		</section>
 	);
 }

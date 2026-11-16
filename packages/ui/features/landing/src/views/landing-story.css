@@ -1,0 +1,140 @@
+/* The sentence that lights up, and the two product fragments that drift past it. */
+.lp-story {
+	position: relative;
+	padding-block: var(--lp-section);
+}
+
+.lp-story-inner {
+	position: relative;
+	display: grid;
+	min-height: 60vh;
+	place-items: center;
+}
+
+.lp-story-text {
+	max-width: 22ch;
+	font-size: clamp(32px, 4.6vw, 64px);
+	font-weight: var(--font-weight-semibold);
+	line-height: 1.25;
+	letter-spacing: -0.02em;
+	text-align: center;
+	text-wrap: balance;
+}
+
+:lang(en) .lp-word:not(:last-child)::after {
+	content: " ";
+}
+
+.lp-frag {
+	position: absolute;
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	margin: 0;
+	padding: 12px 16px;
+	border-radius: var(--lp-radius-card);
+	background: var(--lp-glass);
+	backdrop-filter: blur(14px);
+	box-shadow: var(--lp-shadow-card);
+	font-size: var(--lp-text-small);
+}
+
+.lp-frag-memory {
+	top: 4%;
+	left: 2%;
+	rotate: -3deg;
+}
+
+.lp-frag-task {
+	right: 2%;
+	bottom: 4%;
+	rotate: 2deg;
+}
+
+.lp-frag-icon {
+	display: inline-grid;
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	border-radius: var(--lp-radius-control);
+	background: var(--lp-fill);
+}
+
+.lp-frag-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.lp-frag-label {
+	color: var(--lp-ink-3);
+	font-size: var(--lp-text-micro);
+}
+
+.lp-frag-bar {
+	display: block;
+	width: 140px;
+	height: 4px;
+	margin-top: 8px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: var(--lp-fill);
+}
+
+.lp-frag-bar span {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: var(--lp-ink);
+	transform: scaleX(0.75);
+	transform-origin: left;
+}
+
+@media (max-width: 60rem) {
+	.lp-frag {
+		position: static;
+		rotate: none;
+		margin-top: 16px;
+	}
+
+	.lp-story-inner {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+}
+
+/* Pinned and scrubbed: each word lights in turn, the fragments drift at two depths. */
+@media (min-width: 60rem) and (min-height: 40rem) {
+	[data-js] .lp-story {
+		height: 220vh;
+		padding-block: 0;
+	}
+
+	[data-js] .lp-story-pin {
+		position: sticky;
+		top: var(--lp-nav);
+		display: grid;
+		height: calc(100dvh - var(--lp-nav));
+		align-items: center;
+	}
+
+	[data-js] .lp-word {
+		opacity: calc(0.14 + 0.86 * clamp(0, (var(--p, 1) * 1.3 - 0.1 - var(--i) * 0.16) / 0.16, 1));
+		transition: opacity var(--lp-fast) linear;
+	}
+
+	[data-js] .lp-frag-memory {
+		transform: translate3d(0, calc((0.5 - var(--p, 0.5)) * 160px), 0);
+		opacity: clamp(0, var(--p, 1) * 4, 1);
+	}
+
+	[data-js] .lp-frag-task {
+		transform: translate3d(0, calc((0.5 - var(--p, 0.5)) * -220px), 0);
+		opacity: clamp(0, (var(--p, 1) - 0.25) * 4, 1);
+	}
+
+	[data-js] .lp-frag-bar span {
+		transform: scaleX(calc(0.2 + 0.55 * clamp(0, (var(--p, 1) - 0.3) / 0.5, 1)));
+	}
+}

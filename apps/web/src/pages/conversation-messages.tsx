@@ -1,3 +1,5 @@
+import { groupMessages } from "@yonder/chat-model";
+import { MessageBubble, MessageRun } from "@yonder/chat-presentation";
 import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button } from "@yonder/ui-components";
 import type { CachedMessage } from "@yonder/ui-data";
@@ -12,6 +14,7 @@ interface MessageProps {
 	onResend: (message: CachedMessage) => void;
 	onRetry: (userMessageId: string) => void;
 	retrying: boolean;
+	onOpenMeeting?: (id: string) => void;
 }
 
 /** Sender identity belongs to a consecutive run, shared by text and attachment messages. */
@@ -28,12 +31,7 @@ export function ConversationMessages({
 	bot?: Member | undefined;
 }) {
 	const { t } = useTranslation();
-	const runs: CachedMessage[][] = [];
-	for (const message of items) {
-		const last = runs.at(-1);
-		if (last?.[0]?.senderId === message.senderId) last.push(message);
-		else runs.push([message]);
-	}
+	const runs = groupMessages(items);
 	return runs.map((run) => {
 		const first = run[0];
 		if (!first) return null;
@@ -44,13 +42,12 @@ export function ConversationMessages({
 			(self ? person : first.senderId === bot?.id ? bot : undefined);
 		const name = member?.displayName || t("chat.unknownSender");
 		return (
-			<div
+			<MessageRun
+				as="div"
 				key={first.id}
-				data-message-run={first.senderId}
-				data-run-sender={self ? "self" : "other"}
-				className={`message-run ${self ? "message-run-outgoing" : ""}`}
-			>
-				<div data-message-sender-avatar className="message-run-avatar">
+				self={self}
+				senderId={first.senderId}
+				avatar={
 					<Avatar
 						name={name}
 						src={member?.avatarUrl}
@@ -58,9 +55,9 @@ export function ConversationMessages({
 						kind={member?.kind ?? first.senderKind}
 						size={32}
 					/>
-				</div>
-				<div className="message-run-messages">
-					{conversation.kind === "group" ? (
+				}
+				sender={
+					conversation.kind === "group" ? (
 						<div data-message-sender-header>
 							<span
 								data-message-sender-name
@@ -70,15 +67,16 @@ export function ConversationMessages({
 								{name}
 							</span>
 						</div>
-					) : null}
-					{entries}
-				</div>
-			</div>
+					) : null
+				}
+			>
+				{entries}
+			</MessageRun>
 		);
 	});
 }
 
-function MessageEntry({ message, self, disconnected, onResend, onRetry, retrying }: MessageProps) {
+function MessageEntry({ message, self, disconnected, onResend, onRetry, retrying, onOpenMeeting }: MessageProps) {
 	const { t } = useTranslation();
 	return (
 		<article
@@ -88,7 +86,7 @@ function MessageEntry({ message, self, disconnected, onResend, onRetry, retrying
 			className={`flex min-w-0 flex-col gap-[var(--spacing-1)] ${self ? "items-end" : "items-start"}`}
 		>
 			{message.body || message.streaming ? (
-				<div className={`message-bubble ${self ? "message-bubble-outgoing" : "message-bubble-incoming"}`}>
+				<MessageBubble as="div" self={self}>
 					{message.body ? (
 						<MessageContent body={message.body} streaming={message.streaming} />
 					) : (
@@ -96,9 +94,19 @@ function MessageEntry({ message, self, disconnected, onResend, onRetry, retrying
 							{t(disconnected ? "chat.reconnectingReply" : "chat.streaming")}
 						</span>
 					)}
-				</div>
+				</MessageBubble>
 			) : null}
-			<MessageAttachments attachments={message.attachments} />
+			<MessageAttachments attachments={message.attachments} self={self} />
+			{message.meeting && onOpenMeeting ? (
+				<Button
+					size="sm"
+					onClick={() => {
+						if (message.meeting) onOpenMeeting(message.meeting.id);
+					}}
+				>
+					{t("meetingRecorder.openResult", { title: message.meeting.title })}
+				</Button>
+			) : null}
 			{message.pending ? (
 				<span className="text-caption text-[var(--color-text-secondary)]">{t("chat.sending")}</span>
 			) : null}
@@ -116,6 +124,16 @@ function MessageEntry({ message, self, disconnected, onResend, onRetry, retrying
 					<Button variant="link" size="sm" onClick={() => onRetry(message.run?.userMessageId ?? "")} loading={retrying}>
 						{t("app.retry")}
 					</Button>
+				</div>
+			) : null}
+			{message.scheduleNotice ? (
+				<div role="alert" className="flex items-center gap-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
+					{t(scheduleFailureKey(message.scheduleNotice.reason), { title: message.scheduleNotice.title })}
+				</div>
+			) : null}
+			{message.burstNotice ? (
+				<div role="alert" className="text-caption text-[var(--color-danger)]">
+					{t("chat.subtaskBurst")}
 				</div>
 			) : null}
 		</article>
@@ -139,7 +157,28 @@ function runFailureKey(reason: string | null | undefined): string {
 			return "chat.quotaCodingExhausted";
 		case "external_quota_exhausted":
 			return "chat.quotaExternalExhausted";
+		case "idle_timeout":
+			return "chat.idleTimeout";
+		case "subtask_burst":
+			return "chat.subtaskBurst";
 		default:
 			return "chat.runFailed";
+	}
+}
+
+/** A scheduled run that never happened says which plan and why; the reason is the server's own. */
+function scheduleFailureKey(reason: string): string {
+	switch (reason) {
+		case "background_quota_exhausted":
+		case "background_quota_floor":
+			return "chat.quotaBackgroundExhausted";
+		case "schedule_missed":
+			return "chat.scheduleMissed";
+		case "idle_timeout":
+			return "chat.idleTimeout";
+		case "subtask_burst":
+			return "chat.subtaskBurst";
+		default:
+			return "chat.scheduleFailed";
 	}
 }

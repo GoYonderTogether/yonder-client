@@ -25,6 +25,8 @@ apps/web            装配：providers、路由、页面、输入框、预览、
   packages/ui/components    原子组件
   packages/ui/tokens        设计变量（packages/ui/i18n 与它并列）
   packages/ui/auth-presentation   登录页表现层，Web 和小程序共用
+  packages/ui/chat-presentation   聊天/附件/输入区表现与正文解析，Web 和小程序共用
+  packages/ui/chat-model          无 React/CSS 的消息合并、连续发送者分组规则
 
 packages/api-client ─▶ packages/protocol（不依赖任何包）
 ```
@@ -34,6 +36,7 @@ packages/api-client ─▶ packages/protocol（不依赖任何包）
 - 包只能从入口导入（`tools/check-entry-imports.mjs`）。
 - 单文件 300 行警告、500 行失败（`tools/check-file-length.mjs`）。
 - 文案必须同时有 `zh-CN` 和 `en`；颜色、尺寸、圆角只用 tokens；图标用 `lucide-react`。
+- `ui/data` 与小程序消息状态都引用 `chat-model` 的纯规则；`ui/components` 与小程序头像也复用其中的首字、稳定配色和 BotFace 路径数据。数据层不为合并消息导入展示 CSS 或另一版本的 React。`chat-presentation` 兼容 React 18/19，DOM 与 Taro 分别提供元素和原生事件适配。
 
 ## 应用和壳
 
@@ -41,12 +44,13 @@ packages/api-client ─▶ packages/protocol（不依赖任何包）
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/web`                 | 唯一的页面实现。`src/app/` 是外框和输入框（草稿、补全、语音、录音、附件、拖放），`src/pages/` 是各页面，`src/preview/` 是 PDF、docx、图片预览，`src/lib/` 是平台和本机能力的适配，`src/updates/` 是桌面和 Android 更新 |
 | `apps/desktop`             | Tauri 2 壳，同一份 `apps/web` 构建产物。`src-tauri/` 里有本机文件连接器（`local_files*.rs`）、联系人独立窗口、Android 更新；`tauri.ios.conf.json` / `tauri.android.conf.json` 是手机壳                                 |
-| `apps/miniprogram`         | Taro 小程序，独立依赖和 lockfile，不在 npm workspaces 里；登录页复用 `auth-presentation`                                                                                                                               |
-| `plugins/meeting-recorder` | 会议录音 Tauri 插件（Rust 桌面采集、iOS、Android），4 秒分段 WAV、异常恢复；界面在 `features/meetings`                                                                                                                 |
+| `apps/miniprogram`         | Taro 小程序，独立依赖和 lockfile，不在 npm workspaces 里；登录复用 `auth-presentation`，聊天复用 `chat-presentation` 与 `chat-model`，键盘/滚动/文件与预览由宿主适配                                                   |
+| `plugins/meeting-recorder` | 会议录音 Tauri 插件（Rust 桌面采集、iOS、Android），4 秒分段 WAV、异常恢复；桌面原生持久上传队列不依赖 WebView，移动后台上传另列平台交付；界面在 `features/meetings`                                                   |
 
 ## 界面模型
 
 - 三个标签：消息、任务、记忆（`packages/ui/shell/src/navigation/routes.ts` 的 `TABS`）。「我」不是标签，是 detail 层的分组设置页。
+- 会议录音没有独立页面或 Overlay：输入框上方的胶囊显示采集/保存和结束操作，点击原位展开/收起实际转写、纪要与回放；Bot 结果条目打开同一胶囊，界面生命周期不控制原生采集。
 - 三层：tab、detail、overlay。返回、Esc、滑动退出走同一个出口。
 - 布局模式由宽度决定（`layout-mode.ts`：`wide`、`medium`、`compact`、`mobile`）：宽屏三栏，中屏浮动列表，桌面窄窗保持桌面布局，手机单屏加底部 dock（标签和输入框在同一个容器）。手机必须是真正的手机布局，不是缩小的桌面。
 - 公开路由：`/`（落地页）、`/download`、`/sign-in`、`/terms`、`/privacy`、`/i/:code`（邀请）。

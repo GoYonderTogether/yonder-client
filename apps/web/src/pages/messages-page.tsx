@@ -76,9 +76,11 @@ export function MessagesList({
 export function ConversationPage({
 	conversationId,
 	disconnected,
+	onOpenMeeting,
 }: {
 	conversationId: string | null;
 	disconnected: boolean;
+	onOpenMeeting?: (id: string) => void;
 }) {
 	const { t } = useTranslation();
 	const person = usePerson();
@@ -143,6 +145,7 @@ export function ConversationPage({
 							bot={bot}
 							disconnected={disconnected}
 							retrying={actions.retry.isPending}
+							{...(onOpenMeeting ? { onOpenMeeting } : {})}
 							onResend={(message) =>
 								send.mutate({
 									type: "text",

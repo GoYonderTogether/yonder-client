@@ -19,7 +19,7 @@ export function FileDropZone({
 	const [over, setOver] = useState(false);
 	return (
 		<fieldset
-			className="relative flex min-h-0 flex-1 flex-col"
+			className="relative flex min-h-0 min-w-0 flex-1 flex-col"
 			aria-label={t("chat.dropFiles")}
 			onDragEnter={(event) => {
 				if (!isFileDrag(event) || disabled) return;

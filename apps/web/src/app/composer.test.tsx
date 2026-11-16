@@ -158,3 +158,41 @@ test("native candidate confirmation and newline keys keep their browser default;
 	fireEvent.change(input, { target: { value: "pasted\nparagraph" } });
 	expect(props.onDraftChange).toHaveBeenCalledWith("pasted\nparagraph");
 });
+
+test("an in-flight send turns the send arrow into a working cancel", () => {
+	const send = vi.fn();
+	const cancel = vi.fn();
+	const stop = vi.fn();
+	const props = {
+		recipientName: null,
+		draft: "hello",
+		onDraftChange: vi.fn(),
+		onSend: send,
+		onStop: stop,
+		onCancelSend: cancel,
+		streaming: false,
+		disabled: false,
+		disconnected: false,
+		sendOnEnter: true,
+	};
+	const view = render(
+		<I18nextProvider i18n={createI18n("en")}>
+			<Composer {...props} />
+		</I18nextProvider>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Send" }));
+	expect(send).toHaveBeenCalledOnce();
+	view.rerender(
+		<I18nextProvider i18n={createI18n("en")}>
+			<Composer {...props} sending />
+		</I18nextProvider>,
+	);
+	const button = screen.getByRole("button", { name: "Cancel sending" });
+	expect(button).not.toBeDisabled();
+	fireEvent.click(button);
+	expect(cancel).toHaveBeenCalledOnce();
+	expect(send).toHaveBeenCalledOnce();
+	fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+	expect(send).toHaveBeenCalledOnce();
+	expect(stop).not.toHaveBeenCalled();
+});

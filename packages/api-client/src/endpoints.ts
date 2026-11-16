@@ -57,6 +57,9 @@ import type {
 	WechatMiniSignInResponse,
 } from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
+import { meetingEndpoints } from "./meetings.ts";
+import { memoryEndpoints } from "./memory.ts";
+import { scheduleEndpoints } from "./schedules.ts";
 
 export interface SessionSummary {
 	id: string;
@@ -71,6 +74,9 @@ export interface SessionSummary {
 
 export function createEndpoints(client: ApiClient) {
 	return {
+		...meetingEndpoints(client),
+		...memoryEndpoints(client),
+		...scheduleEndpoints(client),
 		openVoiceSocket(): WebSocket {
 			if (!client.accessToken) throw new Error("Missing access token");
 			const url = new URL("/v1/audio/transcriptions/realtime", client.baseUrl || globalThis.location.origin);

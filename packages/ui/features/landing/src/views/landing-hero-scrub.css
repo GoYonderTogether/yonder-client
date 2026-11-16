@@ -1,0 +1,104 @@
+/*
+ * The hero's scroll story. `--p` (0 to 1, spring-smoothed) is written on `.lp-demo` by
+ * useScrollProgress. Everything here sits under `[data-js]`, which the motion hook sets only when
+ * motion is allowed, and only on screens tall and wide enough to pin; anywhere else the chat shows
+ * its finished state.
+ *
+ * Timeline: chores pulled into the composer (0 to 0.24), the ask typed then sent (0.12 to 0.32),
+ * three steps run (0.34 to 0.7), the result rises (0.72), the reply lands (0.84).
+ */
+@media (min-width: 40rem) and (min-height: 40rem) {
+	[data-js] .lp-demo {
+		height: 300vh;
+	}
+
+	[data-js] .lp-demo-pin {
+		position: sticky;
+		top: var(--lp-nav);
+		height: calc(100dvh - var(--lp-nav));
+		padding-block: 0;
+	}
+
+	[data-js] .lp-demo-stage {
+		padding-block: 24px;
+	}
+
+	/* Chores pulled in, staggered by index. */
+	[data-js] .lp-tag {
+		--t: clamp(0, (var(--p, 0) - 0.02 - var(--i) * 0.03) / 0.16, 1);
+		transform: translate(calc(var(--dx, 0px) * var(--t)), calc(var(--dy, 0px) * var(--t)))
+			scale(calc(1 - 0.55 * var(--t)));
+		opacity: calc((0.45 + 0.55 * var(--z)) * (1 - var(--t)));
+	}
+
+	[data-js] .lp-demo-hint {
+		opacity: calc(1 - clamp(0, var(--p, 0) / 0.08, 1));
+	}
+
+	/* The composer fills with the ask, then empties when it is sent. */
+	[data-js] .lp-composer-text {
+		opacity: calc(clamp(0, (var(--p, 0) - 0.12) / 0.06, 1) - clamp(0, (var(--p, 0) - 0.26) / 0.03, 1));
+		clip-path: inset(0 calc(100% - clamp(0, (var(--p, 0) - 0.12) / 0.12, 1) * 100%) 0 0);
+	}
+
+	[data-js] .lp-composer-hint {
+		opacity: calc(1 - clamp(0, (var(--p, 0) - 0.12) / 0.04, 1) + clamp(0, (var(--p, 0) - 0.27) / 0.04, 1));
+	}
+
+	[data-js] .lp-composer-send {
+		scale: calc(1 + 0.18 * clamp(0, (var(--p, 0) - 0.24) / 0.02, 1) - 0.18 * clamp(0, (var(--p, 0) - 0.27) / 0.02, 1));
+	}
+
+	/* The ask lands as a bubble. */
+	[data-js] .lp-ask {
+		--t: clamp(0, (var(--p, 0) - 0.27) / 0.05, 1);
+		opacity: var(--t);
+		transform: translateY(calc((1 - var(--t)) * 16px)) scale(calc(0.96 + 0.04 * var(--t)));
+		transform-origin: bottom right;
+	}
+
+	/* Working, then done, in the header. */
+	[data-js] .lp-chat-busy {
+		opacity: calc(clamp(0, (var(--p, 0) - 0.3) / 0.03, 1) - clamp(0, (var(--p, 0) - 0.86) / 0.03, 1));
+	}
+
+	[data-js] .lp-chat-fin {
+		opacity: clamp(0, (var(--p, 0) - 0.87) / 0.03, 1);
+	}
+
+	/* Three steps, each waiting, then ticked. */
+	[data-js] .lp-step {
+		--start: calc(0.34 + var(--i) * 0.12);
+		opacity: clamp(0, (var(--p, 0) - var(--start)) / 0.04, 1);
+		transform: translateY(calc((1 - clamp(0, (var(--p, 0) - var(--start)) / 0.04, 1)) * 8px));
+	}
+
+	[data-js] .lp-step-wait {
+		opacity: calc(1 - clamp(0, (var(--p, 0) - var(--start) - 0.08) / 0.02, 1));
+	}
+
+	[data-js] .lp-step-done {
+		opacity: clamp(0, (var(--p, 0) - var(--start) - 0.08) / 0.02, 1);
+		scale: calc(0.4 + 0.6 * clamp(0, (var(--p, 0) - var(--start) - 0.08) / 0.03, 1));
+	}
+
+	/* The result rises. */
+	[data-js] .lp-result {
+		--t: clamp(0, (var(--p, 0) - 0.72) / 0.07, 1);
+		opacity: var(--t);
+		transform: translateY(calc((1 - var(--t)) * 24px)) scale(calc(0.97 + 0.03 * var(--t)));
+	}
+
+	/* The one-line reply. */
+	[data-js] .lp-reply {
+		--t: clamp(0, (var(--p, 0) - 0.84) / 0.05, 1);
+		opacity: var(--t);
+		transform: translateY(calc((1 - var(--t)) * 12px));
+	}
+
+	/* The glow breathes up as the job completes. */
+	[data-js] .lp-demo-glow {
+		opacity: calc(0.4 + 0.6 * clamp(0, (var(--p, 0) - 0.7) / 0.2, 1));
+		transform: scale(calc(0.9 + 0.15 * var(--p, 0)));
+	}
+}

@@ -1,2 +1,8 @@
-export { MeetingRecorderPanel, recordingDuration } from "./meeting-recorder-panel.tsx";
-export type { MeetingRecorderController, MeetingRecorderState, MeetingRecording } from "./types.ts";
+export { MeetingRecorderCapsule, recordingDuration } from "./meeting-recorder-capsule.tsx";
+export type {
+	MeetingCloudController,
+	MeetingRecorderController,
+	MeetingRecorderState,
+	MeetingRecording,
+	MeetingUploadJob,
+} from "./types.ts";

@@ -1,7 +1,11 @@
-import type { CSSProperties } from "react";
+import type { ComponentType, CSSProperties, ReactNode } from "react";
 import { Fragment, useEffect, useState } from "react";
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+const graphemes =
+	typeof Intl !== "undefined" && typeof Intl.Segmenter === "function"
+		? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+		: null;
+export type ChatTextHost = ComponentType<{ className?: string; style?: CSSProperties; children?: ReactNode }> | "span";
 
 interface Batch {
 	text: string;
@@ -12,7 +16,18 @@ interface Batch {
 }
 
 /** Settled text returns to one text node; only arriving characters keep animation spans. */
-export function StreamingText({ text }: { text: string }) {
+export function StreamingText({ text, as }: { text: string; as: ChatTextHost }) {
+	return graphemes ? <GraphemeStreaming text={text} as={as} segmenter={graphemes} /> : text;
+}
+function GraphemeStreaming({
+	text,
+	as: Element,
+	segmenter,
+}: {
+	text: string;
+	as: ChatTextHost;
+	segmenter: Intl.Segmenter;
+}) {
 	const [state, setState] = useState(() => ({ source: "", settled: "", batches: [] as Batch[] }));
 	if (state.source !== text) {
 		const append = text.startsWith(state.source);
@@ -20,8 +35,8 @@ export function StreamingText({ text }: { text: string }) {
 		let batches = append ? state.batches : [];
 		let consumed = append ? state.source.length : 0;
 		// A transport chunk can end halfway through an emoji or combining sequence.
-		const previousTail = append ? [...graphemes.segment(state.source)].at(-1) : undefined;
-		const joinedTail = previousTail ? graphemes.segment(text).containing(previousTail.index) : undefined;
+		const previousTail = append ? [...segmenter.segment(state.source)].at(-1) : undefined;
+		const joinedTail = previousTail ? segmenter.segment(text).containing(previousTail.index) : undefined;
 		if (previousTail && joinedTail && joinedTail.segment !== previousTail.segment) {
 			const extension = joinedTail.segment.slice(previousTail.segment.length);
 			consumed += extension.length;
@@ -43,7 +58,7 @@ export function StreamingText({ text }: { text: string }) {
 		const last = batches.at(-1);
 		const now = Date.now();
 		const startAt = Math.max(now, last ? last.startAt + last.characters.length * 30 : now);
-		const characters = [...graphemes.segment(suffix)].map((character, position) => ({
+		const characters = [...segmenter.segment(suffix)].map((character, position) => ({
 			text: character.segment,
 			key: `${consumed}-${character.index}`,
 			position,
@@ -81,13 +96,13 @@ export function StreamingText({ text }: { text: string }) {
 			{state.batches.map((batch) => (
 				<Fragment key={batch.characters[0]?.key}>
 					{batch.characters.map((character) => (
-						<span
+						<Element
 							key={character.key}
 							className="stream-character"
 							style={{ "--character-index": character.position, "--batch-delay": `${batch.delay}ms` } as CSSProperties}
 						>
 							{character.text}
-						</span>
+						</Element>
 					))}
 				</Fragment>
 			))}

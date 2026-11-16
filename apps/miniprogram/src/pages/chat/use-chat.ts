@@ -1,6 +1,7 @@
 import Taro, { useDidShow } from "@tarojs/taro";
 import type { Attachment, Conversation, SendMessageRequest } from "@yonder/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { t } from "../../lib/i18n";
 import { api, newNonce, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
 import { type ChatMessage, mergeMessages, updateRun } from "./model";
 
@@ -8,6 +9,7 @@ export function useChat(id: string) {
 	const { me, status } = useSession();
 	const revision = useRealtimeRevision();
 	const outboxKey = `yonder.mini.outbox.${me?.member.id ?? ""}.${id}`;
+	const messagesOwner = useRef(outboxKey);
 	const [messages, setMessages] = useState<ChatMessage[]>(() => {
 		try {
 			const stored = Taro.getStorageSync(outboxKey);
@@ -23,44 +25,101 @@ export function useChat(id: string) {
 	const [error, setError] = useState("");
 	const [cursor, setCursor] = useState<string | null>(null);
 	const [sending, setSending] = useState(false);
+	const [olderLoading, setOlderLoading] = useState(false);
+	const sendLock = useRef(false);
+	const actionLock = useRef(false);
 	const cursorRef = useRef<string | null>(null);
 	useEffect(() => {
-		if (status !== "signed-in" || !me) return;
-		Taro.setStorageSync(
-			outboxKey,
-			messages.filter((message) => message.pending || message.sendFailed),
-		);
+		if (status !== "signed-in" || !me || messagesOwner.current !== outboxKey) return;
+		try {
+			Taro.setStorageSync(
+				outboxKey,
+				messages.filter((message) => message.pending || message.sendFailed),
+			);
+		} catch {
+			setError(t("无法保存待发送消息，请重试", "Could not save the pending message. Try again."));
+		}
 	}, [messages, outboxKey, status, me]);
 	const active = useRef(true);
 	const epoch = useRef(0);
 	const requests = useRef(new Map<string, SendMessageRequest>());
+	const latestLoad = useRef<{ scope: string; promise: Promise<boolean> } | null>(null);
+	const olderLoad = useRef<{ scope: string; cursor: string; promise: Promise<boolean> } | null>(null);
 	useEffect(() => {
 		active.current = Boolean(id && me?.member.id);
+		cursorRef.current = null;
+		setCursor(null);
+		setOlderLoading(false);
+		setConversation(undefined);
+		setLoading(true);
+		setError("");
+		sendLock.current = false;
+		actionLock.current = false;
+		setSending(false);
+		requests.current.clear();
+		messagesOwner.current = outboxKey;
+		try {
+			const stored = me?.member.id ? Taro.getStorageSync(outboxKey) : [];
+			setMessages(
+				Array.isArray(stored)
+					? stored.map((message: ChatMessage) => ({ ...message, pending: false, sendFailed: true }))
+					: [],
+			);
+		} catch {
+			setMessages([]);
+			setError(t("无法读取待发送消息", "Could not read pending messages."));
+		}
 		return () => {
 			active.current = false;
 			epoch.current++;
 		};
-	}, [id, me?.member.id]);
+	}, [id, me?.member.id, outboxKey]);
 	const load = useCallback(
-		async (older = false) => {
-			if (!id || status !== "signed-in") return;
+		(older = false): Promise<boolean> => {
+			if (!id || status !== "signed-in" || messagesOwner.current !== outboxKey) return Promise.resolve(false);
+			const pageCursor = older ? cursorRef.current : null;
+			if (older && !pageCursor) return Promise.resolve(false);
+			if (older && olderLoad.current?.scope === outboxKey && olderLoad.current.cursor === pageCursor)
+				return olderLoad.current.promise;
+			if (!older && latestLoad.current?.scope === outboxKey) return latestLoad.current.promise;
 			const ticket = epoch.current;
 			setError("");
-			try {
-				const page = await api.messages(id, older ? (cursorRef.current ?? undefined) : undefined);
-				if (!active.current || ticket !== epoch.current) return;
-				setMessages((current) => mergeMessages(current, page.items));
-				if (older || cursorRef.current === null) {
-					cursorRef.current = page.nextCursor;
-					setCursor(page.nextCursor);
+			if (older) setOlderLoading(true);
+			const promise = (async () => {
+				try {
+					const page = await api.messages(id, pageCursor ?? undefined);
+					if (!active.current || ticket !== epoch.current) return false;
+					setMessages((current) => mergeMessages(current, page.items));
+					if (older || cursorRef.current === null) {
+						cursorRef.current = page.nextCursor;
+						setCursor(page.nextCursor);
+					}
+					return true;
+				} catch {
+					if (active.current && ticket === epoch.current)
+						setError(t("消息加载失败，请重试", "Could not load messages. Try again."));
+					return false;
+				} finally {
+					if (active.current && ticket === epoch.current) {
+						if (older) setOlderLoading(false);
+						else setLoading(false);
+					}
 				}
-			} catch (e) {
-				if (active.current) setError(e instanceof Error ? e.message : String(e));
-			} finally {
-				if (active.current) setLoading(false);
+			})();
+			if (older && pageCursor) {
+				olderLoad.current = { scope: outboxKey, cursor: pageCursor, promise };
+				void promise.finally(() => {
+					if (olderLoad.current?.promise === promise) olderLoad.current = null;
+				});
+			} else {
+				latestLoad.current = { scope: outboxKey, promise };
+				void promise.finally(() => {
+					if (latestLoad.current?.promise === promise) latestLoad.current = null;
+				});
 			}
+			return promise;
 		},
-		[id, status],
+		[id, status, outboxKey],
 	);
 	useEffect(() => {
 		void revision;
@@ -73,10 +132,11 @@ export function useChat(id: string) {
 	useEffect(() => {
 		if (status !== "signed-in") return;
 		void load();
+		const ticket = epoch.current;
 		void api
 			.conversations()
 			.then((result) => {
-				if (active.current) setConversation(result.items.find((item) => item.id === id));
+				if (active.current && ticket === epoch.current) setConversation(result.items.find((item) => item.id === id));
 			})
 			.catch(() => {});
 		return subscribeEvents((event) => {
@@ -88,7 +148,8 @@ export function useChat(id: string) {
 		});
 	}, [id, status, load]);
 	const send = async (body: string, attachments: Attachment[], skillIds: string[], retryNonce?: string) => {
-		if (sending || !id) return;
+		if (sendLock.current || !id || messagesOwner.current !== outboxKey) return;
+		sendLock.current = true;
 		const ticket = epoch.current;
 		const nonce = retryNonce ?? newNonce();
 		const request = requests.current.get(nonce) ?? {
@@ -118,6 +179,17 @@ export function useChat(id: string) {
 			pending: true,
 			skillIds: request.skillIds,
 		};
+		try {
+			const stored = Taro.getStorageSync(outboxKey);
+			const existing = Array.isArray(stored) ? stored.filter((item: ChatMessage) => item.clientNonce !== nonce) : [];
+			Taro.setStorageSync(outboxKey, [...existing, pending]);
+		} catch {
+			requests.current.delete(nonce);
+			sendLock.current = false;
+			setSending(false);
+			setError(t("无法保存待发送消息，请重试", "Could not save the pending message. Try again."));
+			return;
+		}
 		setMessages((current) => mergeMessages(current, [pending]));
 		try {
 			const result = await api.sendMessage(id, request);
@@ -125,9 +197,9 @@ export function useChat(id: string) {
 				setMessages((current) => mergeMessages(current, [{ ...result.message, clientNonce: result.clientNonce }]));
 			requests.current.delete(nonce);
 			return true;
-		} catch (e) {
+		} catch {
 			if (active.current && ticket === epoch.current) {
-				setError(e instanceof Error ? e.message : String(e));
+				setError(t("发送失败，请重试", "Could not send. Try again."));
 				setMessages((current) =>
 					current.map((message) =>
 						message.clientNonce === nonce && message.id.startsWith("temp_")
@@ -138,10 +210,16 @@ export function useChat(id: string) {
 			}
 			return false;
 		} finally {
-			if (active.current) setSending(false);
+			if (active.current && ticket === epoch.current) {
+				sendLock.current = false;
+				setSending(false);
+			}
 		}
 	};
 	const action = async (message: ChatMessage) => {
+		if (actionLock.current || messagesOwner.current !== outboxKey) return;
+		actionLock.current = true;
+		const ticket = epoch.current;
 		setError("");
 		try {
 			if (message.sendFailed) {
@@ -151,21 +229,26 @@ export function useChat(id: string) {
 			if (message.streaming || message.run?.status === "running" || message.run?.status === "queued")
 				await api.stopMessage(message.id);
 			else {
-				const result = await api.retryMessage(message.id, newNonce());
-				setMessages((current) => mergeMessages(current, [result.message]));
+				const result = await api.retryMessage(message.run?.userMessageId ?? message.id, newNonce());
+				if (active.current && ticket === epoch.current)
+					setMessages((current) => mergeMessages(current, [result.message]));
 			}
-		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e));
+		} catch {
+			if (active.current && ticket === epoch.current)
+				setError(t("操作失败，请重试", "Could not complete the action. Try again."));
+		} finally {
+			if (active.current && ticket === epoch.current) actionLock.current = false;
 		}
 	};
 	return {
 		me,
-		messages: status === "signed-in" ? messages : [],
-		conversation,
-		loading,
-		error,
-		cursor,
-		sending,
+		messages: status === "signed-in" && messagesOwner.current === outboxKey ? messages : [],
+		conversation: messagesOwner.current === outboxKey ? conversation : undefined,
+		loading: messagesOwner.current === outboxKey ? loading : true,
+		error: messagesOwner.current === outboxKey ? error : "",
+		cursor: messagesOwner.current === outboxKey ? cursor : null,
+		olderLoading: messagesOwner.current === outboxKey && olderLoading,
+		sending: messagesOwner.current === outboxKey && sending,
 		load,
 		send,
 		action,

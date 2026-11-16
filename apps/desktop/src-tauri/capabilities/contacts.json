@@ -1,6 +1,14 @@
 {
+	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "contacts",
+	"description": "The add-contact popup. It borrows an access token from the main window through the app's own commands, so it needs only event listening. No window or webview enumeration, no keyring, no menu, tray or path helpers. The update check is here because the popup mounts the same root component, which checks at start-up and downloads a verified package in the background; it cannot install.",
 	"windows": ["add-contacts"],
 	"platforms": ["macOS", "windows", "linux"],
-	"permissions": ["core:default"]
+	"permissions": [
+		"core:event:allow-listen",
+		"core:event:allow-unlisten",
+		"core:resources:allow-close",
+		"updater:allow-check",
+		"updater:allow-download"
+	]
 }

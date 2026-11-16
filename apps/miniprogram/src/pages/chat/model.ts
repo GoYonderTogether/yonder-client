@@ -1,3 +1,4 @@
+import { mergeMessage } from "@yonder/chat-model";
 import type { Message, Run } from "@yonder/protocol";
 export type ChatMessage = Message & { sendFailed?: boolean; pending?: boolean; skillIds?: string[] };
 export function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
@@ -7,7 +8,7 @@ export function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): 
 			(row) => row.id === item.id || Boolean(item.clientNonce && row.clientNonce === item.clientNonce),
 		);
 		if (index < 0) rows.push(item);
-		else if (rows[index].id.startsWith("temp_") || rows[index].version <= item.version) rows[index] = item;
+		else rows[index] = mergeMessage(rows[index], item);
 	}
 	return rows.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
 }

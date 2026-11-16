@@ -10,11 +10,13 @@ export function Page({
 	back = true,
 	children,
 	publicPage = false,
+	chatLayout = false,
 }: {
 	title: string;
 	back?: boolean;
 	children: ReactNode;
 	publicPage?: boolean;
+	chatLayout?: boolean;
 }) {
 	const { status: sessionStatus } = useSession();
 	const route = useRouter();
@@ -30,11 +32,30 @@ export function Page({
 	const capsule =
 		process.env.TARO_ENV === "h5" ? { top: 0, left: 0, height: 0 } : Taro.getMenuButtonBoundingClientRect();
 	const status = info.statusBarHeight || 0;
-	const { barHeight: height, headerHeight, rightInset } = navigationLayout(info.windowWidth, status, capsule);
+	const layout = navigationLayout(info.windowWidth, status, capsule);
+	const h5Chat = chatLayout && process.env.TARO_ENV === "h5";
+	const height = layout.barHeight;
+	const headerHeight = status + height;
+	const rightInset = h5Chat ? 16 : layout.rightInset;
 	return (
-		<View className="mini-page" style={{ "--mini-header-height": `${headerHeight}px` } as CSSProperties}>
-			<View className="mini-nav" style={{ paddingTop: `${status}px`, paddingRight: `${rightInset}px` }}>
-				<View className="mini-nav-inner" style={{ height: `${height}px` }}>
+		<View
+			className={`mini-page ${chatLayout ? "mini-page-chat" : ""} ${h5Chat ? "mini-page-chat-h5" : ""}`}
+			style={
+				{
+					"--mini-header-height": h5Chat
+						? "calc(var(--titlebar-height) + env(safe-area-inset-top, 0px))"
+						: `${headerHeight}px`,
+				} as CSSProperties
+			}
+		>
+			<View
+				className="mini-nav"
+				style={{
+					paddingTop: h5Chat ? "env(safe-area-inset-top, 0px)" : `${status}px`,
+					paddingRight: `${rightInset}px`,
+				}}
+			>
+				<View className="mini-nav-inner" style={{ height: h5Chat ? "var(--titlebar-height)" : `${height}px` }}>
 					{back && (
 						<NativeButton
 							className="mini-back"
@@ -44,13 +65,13 @@ export function Page({
 								else void Taro.reLaunch({ url: "/pages/conversations/index" });
 							}}
 						>
-							‹
+							{chatLayout ? <View className="mini-chat-back-icon" /> : "‹"}
 						</NativeButton>
 					)}
 					<Text className="mini-nav-title">{title}</Text>
 				</View>
 			</View>
-			<View className="mini-content">
+			<View className={`mini-content ${chatLayout ? "mini-content-chat" : ""}`}>
 				{!protectedPage || sessionStatus === "signed-in" ? children : <State loading />}
 			</View>
 		</View>

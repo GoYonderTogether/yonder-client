@@ -191,10 +191,15 @@ export function useSession() {
 	return { ...snapshot, startSession, signOut, refreshMe };
 }
 
-export function uploadAttachment(filePath: string, clientNonce = newNonce()): Promise<Attachment> {
+export function uploadAttachment(
+	filePath: string,
+	clientNonce = newNonce(),
+	signal?: AbortSignal,
+): Promise<Attachment> {
 	return client.request("/v1/attachments", {
 		raw: { bytes: localFile(filePath, { clientNonce }) },
 		idempotencyKey: clientNonce,
+		...(signal ? { signal } : {}),
 	});
 }
 

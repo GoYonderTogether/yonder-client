@@ -1,0 +1,212 @@
+/* The card's sheen, the memory graph on its back, and the event network. All drawn in the app's ink. */
+.lp-card-sheen {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	background: radial-gradient(260px circle at var(--gx, 30%) var(--gy, 20%), var(--lp-sheen), transparent 70%);
+	opacity: 0;
+	transition: opacity var(--lp-base) var(--lp-ease);
+}
+
+.lp-card-stage:hover .lp-card-sheen {
+	opacity: 1;
+}
+
+.lp-card-front {
+	position: relative;
+}
+
+/* Memory graph: "me" in the middle, four clues joined by curves. */
+.lp-graph {
+	width: 100%;
+	height: auto;
+}
+
+.lp-graph-edge {
+	fill: none;
+	stroke: var(--lp-line-strong);
+	stroke-width: 1.4;
+	stroke-dasharray: 1;
+	stroke-dashoffset: 0;
+}
+
+.lp-graph-me {
+	fill: var(--lp-ink);
+}
+
+.lp-graph-me-text {
+	fill: var(--lp-paper);
+	font-size: 11px;
+	font-weight: var(--font-weight-semibold);
+}
+
+.lp-graph-node circle {
+	fill: var(--lp-ink);
+}
+
+.lp-graph-node text {
+	fill: var(--lp-ink-2);
+	font-size: 11px;
+}
+
+/* Each time the card turns over, the clues draw themselves out from "me". */
+[data-js] .lp-card[data-flipped] .lp-graph-edge {
+	animation: lp-draw 700ms var(--lp-ease) both;
+	animation-delay: calc(400ms + var(--i) * 120ms);
+}
+
+[data-js] .lp-card[data-flipped] .lp-graph-node {
+	animation: lp-pop 360ms var(--lp-ease) both;
+	animation-delay: calc(800ms + var(--i) * 120ms);
+}
+
+@keyframes lp-draw {
+	from {
+		stroke-dashoffset: 1;
+	}
+	to {
+		stroke-dashoffset: 0;
+	}
+}
+
+@keyframes lp-pop {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* Event network: the event Bot in the middle, guests round it, one curve to the match. */
+.lp-events-side {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+}
+
+.lp-net-wrap {
+	margin: 0;
+	padding: 16px;
+	border-radius: var(--lp-radius-panel);
+	background: var(--lp-paper-2);
+}
+
+.lp-net {
+	width: 100%;
+	height: auto;
+}
+
+.lp-net-ring {
+	fill: none;
+	stroke: var(--lp-line-strong);
+	stroke-width: 1;
+	stroke-dasharray: 0.01 0.02;
+}
+
+.lp-net-edge {
+	fill: none;
+	stroke: var(--lp-line-strong);
+	stroke-width: 1.2;
+	stroke-dasharray: 1;
+	stroke-dashoffset: 0;
+}
+
+.lp-net-match {
+	fill: none;
+	stroke: var(--lp-accent);
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-dasharray: 1;
+	stroke-dashoffset: 0;
+}
+
+.lp-net-node {
+	fill: var(--lp-panel);
+	stroke: var(--lp-ink-3);
+	stroke-width: 1.4;
+}
+
+.lp-net-node-match {
+	fill: var(--lp-accent-subtle);
+	stroke: var(--lp-accent);
+	stroke-width: 2;
+}
+
+.lp-net-hub {
+	fill: var(--lp-ink);
+}
+
+.lp-net-hub-text {
+	fill: var(--lp-paper);
+	font-size: 10px;
+	font-weight: var(--font-weight-semibold);
+}
+
+.lp-net-label {
+	fill: var(--lp-accent);
+	font-size: 11px;
+	font-weight: var(--font-weight-medium);
+}
+
+/* Drawn in once on arrival: rings turn, guests connect, then the match. */
+[data-js] .lp-net-wrap .lp-net-edge {
+	transition: stroke-dashoffset 600ms var(--lp-ease);
+	transition-delay: calc(200ms + var(--i) * 90ms);
+}
+
+[data-js] .lp-net-wrap .lp-net-node {
+	transition: opacity 360ms var(--lp-ease);
+	transition-delay: calc(500ms + var(--i) * 90ms);
+}
+
+[data-js] .lp-net-wrap .lp-net-match {
+	transition: stroke-dashoffset 900ms var(--lp-ease) 1300ms;
+}
+
+[data-js] .lp-net-wrap .lp-net-label {
+	transition: opacity 360ms var(--lp-ease) 2000ms;
+}
+
+[data-js] .lp-net-wrap:not([data-in]) .lp-net-edge,
+[data-js] .lp-net-wrap:not([data-in]) .lp-net-match {
+	stroke-dashoffset: 1;
+}
+
+[data-js] .lp-net-wrap:not([data-in]) .lp-net-node,
+[data-js] .lp-net-wrap:not([data-in]) .lp-net-label {
+	opacity: 0;
+}
+
+.lp-net-ring {
+	transform-origin: 180px 112px;
+	animation: lp-turn 60s linear infinite;
+}
+
+.lp-net-ring-b {
+	animation-direction: reverse;
+	animation-duration: 90s;
+}
+
+@keyframes lp-turn {
+	to {
+		transform: rotate(1turn);
+	}
+}
+
+/* Live transcription waveform beside the event Bot. */
+.lp-wave {
+	display: inline-flex;
+	color: var(--lp-accent);
+	animation: lp-live 1.6s ease-in-out infinite;
+}
+
+@keyframes lp-live {
+	50% {
+		opacity: 0.35;
+	}
+}

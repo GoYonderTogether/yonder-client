@@ -14,14 +14,23 @@ export interface MobileDockProps {
 	onSelect: (tab: TabId) => void;
 	labels: Record<TabId, string>;
 	ariaLabel: string;
+	onHeightChange?: (height: number) => void;
 }
 
 /**
  * The phone's bottom container: composer above, tabs below, one translucent surface. It stays
  * mounted while the tabs change, so a half-typed message survives a tab switch (11 第三节第 2 条).
  */
-export function MobileDock({ composer, showTabs, current, onSelect, labels, ariaLabel }: MobileDockProps) {
-	const ref = useChromeSize("--native-dock-height");
+export function MobileDock({
+	composer,
+	showTabs,
+	current,
+	onSelect,
+	labels,
+	ariaLabel,
+	onHeightChange,
+}: MobileDockProps) {
+	const ref = useChromeSize("--native-dock-height", true, onHeightChange);
 	if (!composer && !showTabs)
 		return (
 			<div

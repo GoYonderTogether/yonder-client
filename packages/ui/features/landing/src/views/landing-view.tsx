@@ -2,9 +2,11 @@ import { Logo } from "@yonder/ui-components";
 import { useLocalePreference } from "@yonder/ui-data";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { LandingConsole } from "./landing-console.tsx";
-import { DownloadControls } from "./landing-download.tsx";
-import { BotsSection, CardSection, EventsSection } from "./landing-social.tsx";
+import { BotsSection } from "./landing-bots.tsx";
+import { ClosingSection } from "./landing-closing.tsx";
+import { HeroSection } from "./landing-hero.tsx";
+import { CardSection, EventsSection } from "./landing-social.tsx";
+import { StorySection } from "./landing-story.tsx";
 import { ChoresSection, ControlSection } from "./landing-work.tsx";
 import type { PublicViewProps } from "./public-layout.tsx";
 import { useLandingMotion } from "./use-landing-motion.ts";
@@ -21,16 +23,17 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 
 	return (
 		<div className="lp" ref={root}>
-			<div className="lp-light" aria-hidden="true">
-				<span className="lp-sun lp-sun-a" />
-				<span className="lp-sun lp-sun-b" />
-				<span className="lp-window" />
+			<div className="lp-field" aria-hidden="true">
+				<span className="lp-blob lp-blob-a" />
+				<span className="lp-blob lp-blob-b" />
+				<span className="lp-blob lp-blob-c" />
+				<span className="lp-dots" />
+				<span className="lp-dots-lit" />
 			</div>
-
 			<header className="lp-nav">
 				<div className="lp-container lp-nav-inner">
 					<a className="lp-wordmark" href="/" aria-label={t("landing.backHome")}>
-						<Logo size={28} fit="text" />
+						<Logo size={24} fit="text" />
 						<span>{t("app.name")}</span>
 					</a>
 					<nav aria-label={t("landingPage.nav.label")}>
@@ -49,7 +52,7 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 						<a className="lp-nav-signin" href="/sign-in">
 							{t("landingPage.nav.signIn")}
 						</a>
-						<a className="lp-action lp-action-primary lp-action-small" href="#get">
+						<a className="lp-action lp-action-primary lp-action-small" href="/download">
 							{t("landingPage.nav.download")}
 						</a>
 					</div>
@@ -57,17 +60,8 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 			</header>
 
 			<main>
-				<section className="lp-container lp-hero" data-hero aria-labelledby="lp-hero-title">
-					<div className="lp-hero-copy">
-						<h1 id="lp-hero-title">
-							<span>{t("landingPage.hero.titleA")}</span>
-							<span>{t("landingPage.hero.titleB")}</span>
-						</h1>
-						<p className="lp-hero-lead">{t("landingPage.hero.lead")}</p>
-						<DownloadControls version={version} iosUrl={iosUrl} />
-					</div>
-					<LandingConsole />
-				</section>
+				<HeroSection version={version} iosUrl={iosUrl} />
+				<StorySection />
 
 				<ChoresSection />
 				<ControlSection />
@@ -75,20 +69,7 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 				<CardSection />
 				<EventsSection />
 
-				<section id="get" className="lp-closing" aria-labelledby="lp-get-title">
-					<div className="lp-container lp-closing-inner" data-reveal>
-						<h2 id="lp-get-title">{t("landingPage.closing.title")}</h2>
-						<p className="lp-closing-lead">{t("landingPage.closing.lead")}</p>
-						<div className="lp-actions">
-							<a className="lp-action lp-action-primary" href="/download">
-								{t("landingPage.closing.get")}
-							</a>
-							<a className="lp-action lp-action-secondary" href="/sign-in">
-								{t("landingPage.closing.signIn")}
-							</a>
-						</div>
-					</div>
-				</section>
+				<ClosingSection />
 			</main>
 
 			<footer className="lp-footer">

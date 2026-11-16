@@ -50,136 +50,204 @@
 .memory-card-stack-expanded .memory-card {
 	transform: none;
 }
-.memory-calendar-day {
-	display: flex;
-	min-height: var(--control-lg);
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: var(--spacing-1);
-	border-radius: var(--radius-control-sm);
+
+/*
+ * Timeline: a plain list. Day headers pin to the top; each entry is a time and one sentence,
+ * with at most one quiet line under it. Nothing else lives on the page.
+ */
+.memory-timeline {
+	--memory-time: calc(var(--spacing-10) + var(--spacing-2));
+	position: relative;
+	width: 100%;
+	max-width: calc(var(--spacing-16) * 9);
+	min-width: 0;
+	margin-inline: auto;
+}
+.memory-month-title {
+	padding: var(--spacing-10) 0 var(--spacing-1);
 	font-size: var(--text-caption);
-	cursor: pointer;
+	line-height: var(--text-caption--line-height);
+	font-weight: var(--font-weight-semibold);
+	color: var(--color-text-tertiary);
 }
-.memory-calendar-day:hover {
-	background: var(--color-bg-hover);
-}
-.memory-calendar-day:focus-visible {
-	outline: var(--spacing-1) solid var(--color-accent);
-}
-.memory-calendar-selected {
-	background: var(--color-bg-selected);
-	color: var(--color-text-primary);
-}
-.memory-calendar-dot {
-	width: var(--spacing-1);
-	height: var(--spacing-1);
-	border-radius: var(--radius-full);
-}
-.memory-calendar-dot-filled {
-	background: var(--color-accent);
+.memory-month-note {
+	padding-bottom: var(--spacing-2);
+	font-size: var(--text-caption);
+	color: var(--color-text-secondary);
 }
 .memory-day {
-	position: relative;
-	height: calc(var(--spacing-16) * 6);
-	margin-top: var(--spacing-3);
-	margin-bottom: var(--spacing-4);
+	padding-bottom: var(--spacing-4);
 }
-.memory-hour {
-	position: absolute;
-	left: 0;
-	right: 0;
+
+/* Day header: the big name scrolls up from below and pins until the next day pushes it out. */
+.memory-day-head {
+	position: sticky;
+	top: -1px;
+	z-index: 3;
 	display: flex;
-	align-items: center;
+	align-items: baseline;
+	justify-content: space-between;
 	gap: var(--spacing-3);
-	color: var(--color-text-secondary);
-	font-size: var(--text-micro);
-}
-.memory-hour > span:first-child {
-	width: var(--spacing-10);
-	flex-shrink: 0;
-}
-.memory-hour-rule {
-	height: calc(var(--spacing-1) / 4);
-	flex: 1;
-	background: var(--color-border-subtle);
-}
-.memory-now {
-	position: absolute;
-	left: calc(var(--spacing-10) + var(--spacing-3));
-	right: 0;
-	z-index: 1;
-	border-top: calc(var(--spacing-1) / 2) solid var(--color-accent);
-}
-.memory-now > span {
-	position: absolute;
-	right: 0;
-	bottom: var(--spacing-1);
-	border-radius: var(--radius-full);
+	padding: var(--spacing-5) 0 var(--spacing-2);
 	background: var(--color-bg-base);
-	color: var(--color-accent-text);
-	padding: 0 var(--spacing-2);
-	font-size: var(--text-micro);
+	box-shadow: 0 1px 0 transparent;
+	transition: box-shadow var(--duration-fast) var(--ease-standard);
 }
-.memory-day-empty {
-	position: absolute;
-	inset: var(--spacing-6) var(--spacing-2) var(--spacing-6) var(--spacing-16);
+.memory-day-head[data-stuck] {
+	box-shadow: 0 1px 0 var(--color-border-subtle);
+}
+.memory-day-head h3 {
 	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	gap: var(--spacing-3);
-	color: var(--color-text-secondary);
-	text-align: center;
-	font-size: var(--text-caption);
-}
-.memory-flow {
-	display: flex;
-	flex-direction: column;
-	gap: var(--spacing-4);
-}
-.memory-flow-tick {
-	display: flex;
-	align-items: center;
-	gap: var(--spacing-3);
-	font-size: var(--text-micro);
-	color: var(--color-text-secondary);
-}
-.memory-flow-tick > span:last-child {
-	flex: 1;
-	height: calc(var(--spacing-1) / 4);
-	background: var(--color-border-subtle);
-}
-.memory-flow-current {
-	color: var(--color-accent-text);
-}
-.memory-flow-current > span:last-child {
-	background: var(--color-accent);
-	height: calc(var(--spacing-1) / 2);
-}
-.memory-flow-event {
-	display: flex;
-	gap: var(--spacing-3);
-	padding-left: var(--spacing-6);
-}
-.memory-flow-icon {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: var(--spacing-8);
-	height: var(--spacing-8);
-	flex-shrink: 0;
-	border-radius: var(--radius-full);
-	background: var(--color-bg-subtle);
-	color: var(--color-text-secondary);
-}
-.memory-moment {
+	align-items: baseline;
+	gap: var(--spacing-2);
 	min-width: 0;
-	flex: 1;
+}
+.memory-day-name {
+	font-size: var(--text-h1);
+	line-height: var(--text-h1--line-height);
+	font-weight: var(--font-weight-bold);
+	letter-spacing: -0.01em;
+}
+.memory-day-date {
+	font-size: var(--text-caption);
+	color: var(--color-text-tertiary);
+	white-space: nowrap;
+}
+.memory-day-today .memory-day-name,
+.memory-day-now {
+	color: var(--color-accent-text);
+}
+.memory-day-now {
+	font-size: var(--text-caption);
+	font-weight: var(--font-weight-semibold);
+	white-space: nowrap;
+}
+
+/* Entries: time | sentence. Hairlines start under the text, like an iOS plain list. */
+.memory-entry > button {
+	display: grid;
+	grid-template-columns: var(--memory-time) minmax(0, 1fr);
+	gap: var(--spacing-3);
+	width: 100%;
+	padding: var(--spacing-3) 0;
+	text-align: left;
+	cursor: pointer;
+	border-radius: var(--radius-control-sm);
+}
+.memory-entry + .memory-entry > button {
+	box-shadow: inset 0 1px 0 var(--color-border-subtle);
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+}
+.memory-entry > button:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+.memory-entry time {
+	font-size: var(--text-caption);
+	line-height: var(--text-body--line-height);
+	color: var(--color-text-tertiary);
+	font-variant-numeric: tabular-nums;
+}
+.memory-entry-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+.memory-entry-title {
+	display: flex;
+	align-items: baseline;
+	gap: var(--spacing-1);
+	font-size: var(--text-body);
+	line-height: var(--text-body--line-height);
+	color: var(--color-text-primary);
+}
+.memory-entry-title > svg {
+	flex: none;
+	align-self: center;
+	color: var(--color-text-tertiary);
+}
+.memory-entry-note {
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	color: var(--color-text-secondary);
+}
+/* Places read as where you were, not what you did; key moments carry the weight. */
+.memory-entry-place .memory-entry-title {
+	color: var(--color-text-secondary);
+}
+.memory-entry-key .memory-entry-title {
+	font-weight: var(--font-weight-semibold);
+}
+.memory-entry > button:hover .memory-entry-title {
+	color: var(--color-accent-text);
+}
+.memory-entry-upcoming {
+	opacity: 0.5;
+}
+
+/* An older day folded to its summary. */
+.memory-summary {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--spacing-3);
+	width: 100%;
+	padding: var(--spacing-1) 0 var(--spacing-2);
+	text-align: left;
+	font-size: var(--text-body);
+	line-height: var(--text-body--line-height);
+	color: var(--color-text-primary);
+	cursor: pointer;
+}
+.memory-summary:hover > span:first-child {
+	color: var(--color-accent-text);
+}
+.memory-summary:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+	border-radius: var(--radius-control-sm);
+}
+.memory-summary-count {
+	flex: none;
+	font-size: var(--text-caption);
+	color: var(--color-text-tertiary);
+}
+.memory-month-all {
+	margin-top: var(--spacing-1);
+}
+.memory-entry.memory-flash > button,
+.memory-flash.memory-day {
+	animation: memory-flash 1.6s var(--ease-standard);
+}
+@keyframes memory-flash {
+	0%,
+	30% {
+		background: var(--color-accent-subtle);
+	}
+	100% {
+		background: transparent;
+	}
+}
+.memory-error {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--spacing-2);
 	padding: var(--spacing-4);
 	border-radius: var(--radius-card);
-	background: var(--color-bg-surface);
+	background: var(--color-danger-subtle);
+	color: var(--color-danger);
+	font-size: var(--text-caption);
 }
-.memory-moment-upcoming {
-	background: var(--color-bg-subtle);
+@media (prefers-reduced-motion: reduce) {
+	.memory-entry.memory-flash > button,
+	.memory-flash.memory-day {
+		animation: none;
+	}
 }

@@ -8,6 +8,7 @@ const local = vi.hoisted(() => ({
 	generation: 0,
 	upload: vi.fn(),
 	prepare: vi.fn(),
+	failWrite: vi.fn((_key: string) => false),
 }));
 vi.mock("../lib/prepare-image.ts", () => ({
 	isImageFile: (_name: string, mime: string) => mime.startsWith("image/"),
@@ -19,15 +20,20 @@ vi.mock("@yonder/ui-data", () => ({
 	chatCacheGeneration: () => local.generation,
 	readChatCache: async (key: string) => local.values.get(key),
 	writeChatCache: async (key: string, value: unknown, generation = local.generation) => {
+		if (local.failWrite(key)) throw new Error("quota_exceeded");
 		if (generation === local.generation) local.values.set(key, value);
 	},
 	updateChatCache: async (key: string, update: (value: unknown) => unknown, generation: number) => {
 		if (generation === local.generation) local.values.set(key, update(local.values.get(key)));
 	},
+	removeChatCache: async (key: string) => {
+		local.values.delete(key);
+	},
 }));
 beforeEach(() => {
 	local.values.clear();
 	local.generation = 0;
+	local.failWrite.mockReset().mockReturnValue(false);
 	local.prepare.mockReset().mockResolvedValue(undefined);
 	local.upload
 		.mockReset()
@@ -330,4 +336,103 @@ test("native undo and redo restore the identities of same-name confirmations and
 	expect(hook.result.current.skillIds).toEqual(["a"]);
 	act(() => hook.result.current.setText("/same /same ", { start: 0, end: 11, inputType: "historyRedo" }));
 	expect(hook.result.current.skillIds).toEqual(["a", "b"]);
+});
+
+test("a failed cache write neither blocks the send nor marks a successful upload failed", async () => {
+	local.failWrite.mockReturnValue(true);
+	const result = renderHook(() => useChatDraft("alice", "quota"));
+	await waitFor(() => expect(result.result.current.loaded).toBe(true));
+	act(() => {
+		result.result.current.setText("still sends");
+		result.result.current.addFiles([new File(["text"], "notes.txt", { type: "text/plain" })]);
+	});
+	const send = vi.fn().mockResolvedValue({});
+	await act(() => result.result.current.submit(send));
+	expect(send).toHaveBeenCalledOnce();
+	expect(send.mock.calls[0]?.[0]).toMatchObject({ body: "still sends", attachmentIds: ["att_uploaded"] });
+	expect(local.upload).toHaveBeenCalledOnce();
+	expect(result.result.current.files).toEqual([]);
+});
+
+test("an upload whose cache write fails stays ready instead of turning into a failed file", async () => {
+	const result = renderHook(() => useChatDraft("alice", "blob-quota"));
+	await waitFor(() => expect(result.result.current.loaded).toBe(true));
+	act(() => result.result.current.addFiles([new File(["text"], "notes.txt", { type: "text/plain" })]));
+	local.failWrite.mockImplementation((key) => key.startsWith("blob:"));
+	const send = vi.fn().mockRejectedValue(new Error("network"));
+	await act(() => result.result.current.submit(send));
+	expect(local.upload).toHaveBeenCalledOnce();
+	expect(result.result.current.files[0]?.status).toBe("ready");
+	expect(result.result.current.files[0]?.uploaded).toMatchObject({ id: "att_uploaded" });
+});
+
+test("removing a file from the draft and sending both delete the cached attachment blob", async () => {
+	const result = renderHook(() => useChatDraft("alice", "blob-lifecycle"));
+	await waitFor(() => expect(result.result.current.loaded).toBe(true));
+	act(() =>
+		result.result.current.addFiles([
+			new File(["one"], "one.txt", { type: "text/plain" }),
+			new File(["two"], "two.txt", { type: "text/plain" }),
+		]),
+	);
+	local.upload.mockImplementation((_file: File, nonce: string) =>
+		Promise.resolve({ id: `att_${nonce}`, kind: "file", name: "x.txt", mimeType: "text/plain", size: 3 }),
+	);
+	const failed = vi.fn().mockRejectedValue(new Error("network"));
+	await act(() => result.result.current.submit(failed));
+	const ids = local.upload.mock.calls.map((call) => call[1]);
+	expect(local.values.has(`blob:alice:att_${ids[0]}`)).toBe(true);
+	expect(local.values.has(`blob:alice:att_${ids[1]}`)).toBe(true);
+	act(() => result.result.current.removeFile(ids[0] ?? ""));
+	await waitFor(() => expect(local.values.has(`blob:alice:att_${ids[0]}`)).toBe(false));
+	await act(() => result.result.current.submit(vi.fn().mockResolvedValue({})));
+	await waitFor(() => expect(local.values.has(`blob:alice:att_${ids[1]}`)).toBe(false));
+});
+
+test("cancelling an in-flight upload aborts it, restores the draft and keeps the file ready", async () => {
+	const result = renderHook(() => useChatDraft("alice", "cancel"));
+	await waitFor(() => expect(result.result.current.loaded).toBe(true));
+	act(() => {
+		result.result.current.setText("slow upload");
+		result.result.current.addFiles([new File(["text"], "notes.txt", { type: "text/plain" })]);
+	});
+	let reject!: (error: unknown) => void;
+	let signal!: AbortSignal | undefined;
+	local.upload.mockImplementation(
+		(_file: File, _nonce: string, next?: AbortSignal) =>
+			new Promise((_resolve, fail) => {
+				signal = next;
+				reject = fail;
+			}),
+	);
+	const send = vi.fn();
+	let pending!: Promise<unknown>;
+	act(() => {
+		pending = result.result.current.submit(send);
+	});
+	await waitFor(() => expect(local.upload).toHaveBeenCalledOnce());
+	expect(result.result.current.sending).toBe(true);
+	expect(signal).toBeInstanceOf(AbortSignal);
+	act(() => result.result.current.cancelSend());
+	expect(signal?.aborted).toBe(true);
+	await act(async () => {
+		const abort = new Error("aborted");
+		abort.name = "AbortError";
+		reject(abort);
+		await pending;
+	});
+	expect(send).not.toHaveBeenCalled();
+	expect(result.result.current.sending).toBe(false);
+	expect(result.result.current.text).toBe("slow upload");
+	expect(result.result.current.files[0]?.status).toBe("ready");
+	expect(result.result.current.error).toBe("");
+	local.upload.mockResolvedValue({
+		id: "att_uploaded",
+		kind: "file",
+		name: "notes.txt",
+		mimeType: "text/plain",
+		size: 4,
+	});
+	await act(() => result.result.current.submit(send));
+	expect(send).toHaveBeenCalledOnce();
 });

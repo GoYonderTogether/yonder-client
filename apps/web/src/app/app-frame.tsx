@@ -1,7 +1,7 @@
 import { PasswordSetupForm } from "@yonder/feature-auth";
 import { isMeSection, MeList, MeSectionPage } from "@yonder/feature-me";
-import { MeetingRecorderPanel, recordingDuration } from "@yonder/feature-meetings";
-import { AppIcon, Avatar, Button } from "@yonder/ui-components";
+import { MeetingRecorderCapsule } from "@yonder/feature-meetings";
+import { AppIcon, Avatar } from "@yonder/ui-components";
 import {
 	keys,
 	useBot,
@@ -18,7 +18,7 @@ import {
 	useSkills,
 } from "@yonder/ui-data";
 import type { LayoutMode, TabId } from "@yonder/ui-shell";
-import { AppShell, locate, MAIN_CONVERSATION, Overlay, tabPath } from "@yonder/ui-shell";
+import { AppShell, locate, MAIN_CONVERSATION, tabPath } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
@@ -27,7 +27,8 @@ import { BUILD_VERSION } from "../lib/config.ts";
 import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
-import { conversationTitle, selectedConversation } from "../pages/conversation-presentation.tsx";
+import { conversationTitle, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
+import { MessageContent } from "../pages/message-content.tsx";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
@@ -39,6 +40,7 @@ import { FileDropZone } from "./file-drop-zone.tsx";
 import { useChatDraft } from "./use-chat-draft.ts";
 import { useHasPassword } from "./use-has-password.ts";
 import { useMeEntry } from "./use-me-entry.ts";
+import { useMeetingCloud } from "./use-meeting-cloud.ts";
 import { useMeetingRecorder } from "./use-meeting-recorder.ts";
 import { usePageNavigation } from "./use-page-navigation.ts";
 
@@ -116,6 +118,15 @@ export function AppFrame() {
 	}, []);
 	const messageSelection = tab === "messages" ? selection : null;
 	const conversation = selectedConversation(conversations.data?.items, messageSelection, bot?.id);
+	const recordingTarget = conversation?.members.some((member) => member.memberId === bot?.id)
+		? conversation
+		: primaryConversation(conversations.data?.items, bot?.id);
+	const meetingCloud = useMeetingCloud(
+		person?.id ?? null,
+		recorder,
+		recordingTarget && bot ? { id: recordingTarget.id, name: bot.displayName } : null,
+		recorderOpen,
+	);
 	const draft = useChatDraft(person?.id, conversation?.id);
 	const history = useMessages(conversation?.id ?? null);
 	const send = useSendMessage(conversation?.id ?? null, person?.id);
@@ -209,13 +220,20 @@ export function AppFrame() {
 						<MessagesList
 							current={selection}
 							onOpen={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
-							onOpenMeetings={() => setRecorderOpen(true)}
+							onOpenMeetings={() => {
+								setRecorderOpen(true);
+								if (!selection) navigation.open(`/messages/${MAIN_CONVERSATION}`);
+							}}
 						/>
 					),
 					content: (
 						<ConversationPage
 							conversationId={selection ? (conversation?.id ?? null) : null}
 							disconnected={disconnected}
+							onOpenMeeting={(id) => {
+								meetingCloud.select(id);
+								setRecorderOpen(true);
+							}}
 						/>
 					),
 				};
@@ -300,63 +318,59 @@ export function AppFrame() {
 	};
 
 	return (
-		<>
-			<AppShell
-				tab={{
-					current: tab,
-					onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : navigation.open(tabPath(id))),
-					labels,
-					ariaLabel: t("nav.tabs"),
-				}}
-				desktop={isDesktopExperience()}
-				renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
-				personName={person?.displayName ?? ""}
-				meLabel={t("nav.me")}
-				onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
-				meOpen={meOpen}
-				me={me}
-				onBack={back}
-				backLabel={t("app.back")}
-				mobileShowList={!detailOpen}
-				list={deferred(list)}
-				content={
-					tab === "messages" ? (
-						<FileDropZone
-							key={conversation?.id}
-							onFiles={draft.addFiles}
-							disabled={!conversation || !draft.loaded || draft.sending || meOpen}
-						>
-							{deferred(content)}
-						</FileDropZone>
-					) : (
-						deferred(content)
-					)
-				}
-				detailOpen={detailOpen}
-				composer={composer}
-				status={
-					activeRecording ? (
-						<Button variant="ghost" size="sm" onClick={() => setRecorderOpen(true)}>
-							{t("meetingRecorder.openActive", { duration: recordingDuration(activeRecording.durationMs) })}
-						</Button>
-					) : null
-				}
-				titlebarInset={isMacDesktopShell()}
-				brand={<Brand />}
-				labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
-				locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
-				onModeChange={setLayoutMode}
-			/>
-			<Overlay
-				open={recorderOpen}
-				onClose={() => setRecorderOpen(false)}
-				title={t("meetingRecorder.name")}
-				closeLabel={t("app.close")}
-				mode={layoutMode ?? "mobile"}
-			>
-				<MeetingRecorderPanel recorder={recorder} microphoneOccupied={shortVoiceActive} />
-			</Overlay>
-		</>
+		<AppShell
+			tab={{
+				current: tab,
+				onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : navigation.open(tabPath(id))),
+				labels,
+				ariaLabel: t("nav.tabs"),
+			}}
+			desktop={isDesktopExperience()}
+			renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
+			personName={person?.displayName ?? ""}
+			meLabel={t("nav.me")}
+			onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
+			meOpen={meOpen}
+			me={me}
+			onBack={back}
+			backLabel={t("app.back")}
+			mobileShowList={!detailOpen}
+			list={deferred(list)}
+			content={
+				tab === "messages" ? (
+					<FileDropZone
+						key={conversation?.id}
+						onFiles={draft.addFiles}
+						disabled={!conversation || !draft.loaded || draft.sending || meOpen}
+					>
+						{deferred(content)}
+					</FileDropZone>
+				) : (
+					deferred(content)
+				)
+			}
+			detailOpen={detailOpen}
+			composer={composer}
+			status={
+				<MeetingRecorderCapsule
+					recorder={{
+						...recorder,
+						start: (title) => (recordingTarget ? recorder.start(title, recordingTarget.id) : Promise.resolve()),
+					}}
+					cloud={meetingCloud}
+					canStart={Boolean(recordingTarget)}
+					renderSummary={(body) => <MessageContent body={body} />}
+					microphoneOccupied={shortVoiceActive}
+					expanded={recorderOpen}
+					onToggle={() => setRecorderOpen((open) => !open)}
+				/>
+			}
+			titlebarInset={isMacDesktopShell()}
+			brand={<Brand />}
+			labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
+			locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
+			onModeChange={setLayoutMode}
+		/>
 	);
 }
 

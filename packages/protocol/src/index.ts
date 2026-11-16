@@ -38,6 +38,18 @@ export type {
 	SendMessageResponse,
 } from "./chat/chat.ts";
 export type { CompactConversationRequest, CompactConversationResponse } from "./chat/compaction.ts";
+export type {
+	CreateScheduleRequest,
+	Schedule,
+	ScheduleAction,
+	ScheduleKind,
+	ScheduleListResponse,
+	ScheduleRun,
+	ScheduleRunResult,
+	ScheduleStatus,
+	UpdateScheduleRequest,
+} from "./chat/schedule.ts";
+export type { SubtaskStatus, SubtaskSummary } from "./chat/subtask.ts";
 export type { ApiErrorBody, ErrorCode, Timestamp } from "./common/error.ts";
 export { ERROR_CODES } from "./common/error.ts";
 export type {
@@ -58,6 +70,17 @@ export type {
 } from "./connectors/connectors.ts";
 export type { DeviceListResponse, DeviceSummary } from "./devices/devices.ts";
 export type {
+	CreateMeetingRequest,
+	MeetingBatchState,
+	MeetingRecord,
+	MeetingSegment,
+	MeetingSegmentManifest,
+	MeetingStage,
+	MeetingStatus,
+	MeetingTranscriptBatch,
+	RetryMeetingRequest,
+} from "./meetings/meetings.ts";
+export type {
 	LocalePreference,
 	Member,
 	MemberKind,
@@ -67,6 +90,18 @@ export type {
 	ThemePreference,
 	UpdateMeRequest,
 } from "./member/member.ts";
+export type {
+	MemoryDay,
+	MemoryDayList,
+	MemoryEventKind,
+	MemoryMonth,
+	MemoryMonthList,
+	MemoryRef,
+	MemoryRefDetail,
+	MemoryRefType,
+	MemoryRefUse,
+	MemoryRow,
+} from "./memory/memory.ts";
 export type {
 	DiscoverModelsRequest,
 	PlatformModel,

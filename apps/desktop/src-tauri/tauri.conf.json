@@ -24,6 +24,8 @@
 			}
 		],
 		"security": {
+			"csp": "default-src 'self'; script-src 'self' blob:; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://yonder.zethai.cn; media-src 'self' blob: https://yonder.zethai.cn; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://yonder.zethai.cn wss://yonder.zethai.cn; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+			"devCsp": "default-src 'self'; script-src 'self' blob: 'unsafe-inline' 'unsafe-eval' http://localhost:* http://127.0.0.1:*; script-src-attr 'none'; style-src 'self' 'unsafe-inline' http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob: http://localhost:* http://127.0.0.1:* https://yonder.zethai.cn; media-src 'self' blob: http://localhost:* http://127.0.0.1:* https://yonder.zethai.cn; font-src 'self' data: http://localhost:* http://127.0.0.1:*; connect-src 'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://yonder.zethai.cn wss://yonder.zethai.cn; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'",
 			"capabilities": ["desktop", "contacts", "mobile", "android-update"]
 		}
 	},

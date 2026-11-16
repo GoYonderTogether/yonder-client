@@ -38,10 +38,13 @@ export const LAYERS = {
 	"@yonder/api-client": ["@yonder/protocol"],
 	"@yonder/ui-tokens": [],
 	"@yonder/auth-presentation": [],
+	"@yonder/chat-model": ["@yonder/protocol"],
+	"@yonder/chat-presentation": [],
 	"@yonder/ui-i18n": [],
-	"@yonder/ui-components": ["@yonder/protocol", "@yonder/ui-tokens", "@yonder/ui-i18n"],
+	"@yonder/ui-components": ["@yonder/chat-model", "@yonder/protocol", "@yonder/ui-tokens", "@yonder/ui-i18n"],
 	"@yonder/ui-shell": ["@yonder/protocol", "@yonder/ui-tokens", "@yonder/ui-i18n", "@yonder/ui-components"],
 	"@yonder/ui-data": [
+		"@yonder/chat-model",
 		"@yonder/protocol",
 		"@yonder/api-client",
 		"@yonder/ui-tokens",
@@ -67,7 +70,13 @@ export const LAYERS = {
 		"@yonder/ui-data",
 	],
 	"@yonder/feature-landing": ["@yonder/ui-tokens", "@yonder/ui-i18n", "@yonder/ui-components", "@yonder/ui-data"],
-	"@yonder/feature-meetings": ["@yonder/ui-tokens", "@yonder/ui-i18n", "@yonder/ui-components", "@yonder/ui-shell"],
+	"@yonder/feature-meetings": [
+		"@yonder/protocol",
+		"@yonder/ui-tokens",
+		"@yonder/ui-i18n",
+		"@yonder/ui-components",
+		"@yonder/ui-shell",
+	],
 	"@yonder/feature-legal": [],
 };
 

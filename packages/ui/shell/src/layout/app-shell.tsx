@@ -2,7 +2,7 @@ import { cn, IconButton } from "@yonder/ui-components";
 import { ChevronLeft, X } from "lucide-react";
 import { AnimatePresence, useIsPresent } from "motion/react";
 import type { ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GesturePanel } from "../navigation/gesture-panel.tsx";
 import type { TabId } from "../navigation/routes.ts";
 import type { LayoutMode } from "../responsive/layout-mode.ts";
@@ -81,6 +81,7 @@ export function AppShell({
 	const scrollPositions = useRef<Record<string, number>>({});
 	const wide = mode === "wide";
 	const phone = mode === "mobile";
+	const [dockHeight, setDockHeight] = useState(0);
 	const nativeComposer = useChromeSize("--native-dock-height", !phone && Boolean(composer));
 	const covering = !wide && detailOpen;
 	useVisualViewport(container, phone);
@@ -153,7 +154,8 @@ export function AppShell({
 							) : null}
 							{phone && !covering && !meOpen ? (
 								<MobileDock
-									composer={status ?? null}
+									composer={null}
+									onHeightChange={setDockHeight}
 									showTabs
 									current={tab.current}
 									onSelect={tab.onSelect}
@@ -183,22 +185,23 @@ export function AppShell({
 								<div
 									ref={nativeComposer}
 									data-native-composer
-									className="shrink-0 px-[var(--spacing-4)] pb-[var(--spacing-4)]"
+									className="relative shrink-0 px-[var(--spacing-4)] pb-[var(--spacing-4)]"
 								>
-									<div className="mx-auto w-full max-w-[760px]">
-										{status}
-										{composer}
+									<div
+										data-floating-status
+										className="pointer-events-none absolute inset-x-0 bottom-full px-[var(--spacing-4)]"
+									>
+										<div className="pointer-events-none mx-auto w-full max-w-[760px] [&>*]:pointer-events-auto">
+											{status}
+										</div>
 									</div>
+									<div className="mx-auto w-full max-w-[760px]">{composer}</div>
 								</div>
 							) : null}
 							{phone && !meOpen && (detailOpen || !list) ? (
 								<MobileDock
-									composer={
-										<>
-											{status}
-											{composer}
-										</>
-									}
+									composer={composer}
+									onHeightChange={setDockHeight}
 									showTabs={false}
 									current={tab.current}
 									onSelect={tab.onSelect}
@@ -231,6 +234,15 @@ export function AppShell({
 					</AnimatePresence>
 				</div>
 			</div>
+			{phone && !meOpen ? (
+				<div
+					data-floating-status
+					className="pointer-events-none absolute inset-x-0 z-30"
+					style={{ bottom: dockHeight }}
+				>
+					<div className="pointer-events-none px-[var(--spacing-3)] [&>*]:pointer-events-auto">{status}</div>
+				</div>
+			) : null}
 		</div>
 	);
 }

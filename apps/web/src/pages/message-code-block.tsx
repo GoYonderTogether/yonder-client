@@ -34,7 +34,7 @@ export function MessageCodeBlock({ children, ...props }: HTMLAttributes<HTMLPreE
 		}
 	}
 	return (
-		<div className="message-code-block">
+		<div className="message-code-block message-content-block">
 			<button
 				type="button"
 				className="message-copy"
@@ -51,7 +51,7 @@ export function MessageCodeBlock({ children, ...props }: HTMLAttributes<HTMLPreE
 					{t("landing.copyFailed")}
 				</span>
 			) : null}
-			<pre ref={pre} {...props}>
+			<pre {...props} ref={pre} className={`message-code-scroll ${props.className ?? ""}`}>
 				{children}
 			</pre>
 		</div>

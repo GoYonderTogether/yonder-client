@@ -1,65 +1,73 @@
-import { ScrollView, Text, View } from "@tarojs/components";
+import { Button as NativeButton, ScrollView, Text, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
-import { type MarkdownToJSX, parser, RuleType } from "markdown-to-jsx";
+import { isHttpLink } from "@yonder/chat-model";
+import { type ChatTextHost, parseMessage, StreamingText } from "@yonder/chat-presentation";
+import { type MarkdownToJSX, RuleType } from "markdown-to-jsx";
 import { Fragment, useMemo } from "react";
 import { t } from "../../lib/i18n";
 
 type Node = MarkdownToJSX.ASTNode;
-const nodeKey = (value: unknown, position: number) => JSON.stringify([value, position]);
-function Nodes({ nodes }: { nodes: Node[] }) {
+const nodeKey = (node: Node, position: number) => `${node.type}:${position}`;
+const positionKey = (kind: string, position: number) => `${kind}:${position}`;
+
+function Nodes({ nodes, streaming = false }: { nodes: Node[]; streaming?: boolean }) {
 	return (
 		<>
 			{nodes.map((node, index) => (
 				<Fragment key={nodeKey(node, index)}>
-					<MarkdownNode node={node} />
+					<MarkdownNode node={node} streaming={streaming} />
 				</Fragment>
 			))}
 		</>
 	);
 }
-function MarkdownNode({ node }: { node: Node }) {
+
+function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
 	switch (node.type) {
 		case RuleType.text:
-			return (
+			return streaming ? (
+				<StreamingText as={Text as unknown as ChatTextHost} text={node.text} />
+			) : (
 				<Text selectable userSelect>
 					{node.text}
 				</Text>
 			);
 		case RuleType.paragraph:
 			return (
-				<View className="mini-md-paragraph">
-					<Nodes nodes={node.children} />
+				<View className="message-content-paragraph message-content-block">
+					<Nodes nodes={node.children} streaming={streaming} />
 				</View>
 			);
 		case RuleType.heading:
 			return (
-				<View className="mini-md-heading">
-					<Nodes nodes={node.children} />
+				<View className={`message-content-heading message-content-heading-${node.level} message-content-block`}>
+					<Nodes nodes={node.children} streaming={streaming} />
 				</View>
 			);
 		case RuleType.textFormatted:
 			return (
-				<Text className={`mini-md-${["strong", "em", "del", "s", "mark"].includes(node.tag) ? node.tag : "plain"}`}>
-					<Nodes nodes={node.children} />
+				<Text className={`message-content-${node.tag}`}>
+					<Nodes nodes={node.children} streaming={streaming} />
 				</Text>
 			);
 		case RuleType.codeInline:
 			return (
-				<Text selectable userSelect className="mini-md-code">
-					<Text>{node.text}</Text>
+				<Text selectable userSelect className="message-content-inline-code">
+					{node.text}
 				</Text>
 			);
 		case RuleType.codeBlock:
 			return (
-				<View className="mini-md-codeblock">
-					<View className="row">
-						<Text className="muted">{node.lang || t("代码", "Code")}</Text>
-						<Text className="mini-link" onClick={() => void Taro.setClipboardData({ data: node.text })}>
-							{t("复制", "Copy")}
-						</Text>
-					</View>
-					<ScrollView scrollX>
-						<Text selectable userSelect>
+				<View className="message-code-block message-content-block">
+					<NativeButton
+						className="message-copy mini-chat-copy"
+						ariaLabel={t("复制代码", "Copy code")}
+						onClick={() => void Taro.setClipboardData({ data: node.text })}
+					>
+						<View className="mini-chat-copy-icon" />
+					</NativeButton>
+					<ScrollView className="message-code-scroll" scrollX>
+						<Text selectable userSelect className="message-content-code">
 							{node.text}
 						</Text>
 					</ScrollView>
@@ -67,36 +75,39 @@ function MarkdownNode({ node }: { node: Node }) {
 			);
 		case RuleType.blockQuote:
 			return (
-				<View className="mini-md-quote">
-					<Nodes nodes={node.children} />
+				<View className="message-content-blockquote message-content-block">
+					<Nodes nodes={node.children} streaming={streaming} />
 				</View>
 			);
 		case RuleType.breakLine:
 			return <Text>{"\n"}</Text>;
 		case RuleType.breakThematic:
-			return <View className="mini-md-rule" />;
-		case RuleType.link:
-			return (
-				<Text
-					className="mini-link"
-					onClick={() => {
-						if (node.target && /^https?:\/\//i.test(node.target)) void Taro.setClipboardData({ data: node.target });
-					}}
-				>
-					<Nodes nodes={node.children} />
+			return <View className="message-content-rule message-content-block" />;
+		case RuleType.link: {
+			const target = node.target ?? "";
+			return isHttpLink(target) ? (
+				<Text className="message-content-link" onClick={() => void Taro.setClipboardData({ data: target })}>
+					<Nodes nodes={node.children} streaming={streaming} />
 				</Text>
+			) : (
+				<Nodes nodes={node.children} streaming={streaming} />
 			);
+		}
 		case RuleType.image:
-			return node.alt ? <Text>{node.alt}</Text> : null;
+			return null;
 		case RuleType.orderedList:
 		case RuleType.unorderedList:
 			return (
-				<View>
+				<View
+					className={`message-content-list message-content-block ${node.type === RuleType.orderedList ? "message-content-list-ordered" : "message-content-list-unordered"}`}
+				>
 					{node.items.map((item, index) => (
-						<View className="mini-md-list-item" key={nodeKey(item, index)}>
-							<Text>{node.type === RuleType.orderedList ? `${(node.start ?? 1) + index}.` : "•"}</Text>
-							<View className="mini-md-list-content">
-								<Nodes nodes={item} />
+						<View className="message-content-list-item" key={positionKey("item", index)}>
+							<Text className="message-content-list-marker">
+								{node.type === RuleType.orderedList ? `${(node.start ?? 1) + index}.` : "•"}
+							</Text>
+							<View className="message-content-list-body">
+								<Nodes nodes={item} streaming={streaming} />
 							</View>
 						</View>
 					))}
@@ -104,20 +115,23 @@ function MarkdownNode({ node }: { node: Node }) {
 			);
 		case RuleType.table:
 			return (
-				<ScrollView scrollX>
-					<View className="mini-md-table">
-						<View className="mini-md-table-row">
+				<ScrollView className="message-content-table-scroll message-content-block" scrollX>
+					<View className="message-content-table">
+						<View className="message-content-table-row">
 							{node.header.map((cell, index) => (
-								<View className="mini-md-table-cell mini-md-strong" key={nodeKey(cell, index)}>
-									<Nodes nodes={cell} />
+								<View
+									className="message-content-table-cell message-content-table-head"
+									key={positionKey("header", index)}
+								>
+									<Nodes nodes={cell} streaming={streaming} />
 								</View>
 							))}
 						</View>
 						{node.cells.map((row, index) => (
-							<View className="mini-md-table-row" key={nodeKey(row, index)}>
+							<View className="message-content-table-row" key={positionKey("row", index)}>
 								{row.map((cell, column) => (
-									<View className="mini-md-table-cell" key={nodeKey(cell, column)}>
-										<Nodes nodes={cell} />
+									<View className="message-content-table-cell" key={positionKey("cell", column)}>
+										<Nodes nodes={cell} streaming={streaming} />
 									</View>
 								))}
 							</View>
@@ -131,11 +145,12 @@ function MarkdownNode({ node }: { node: Node }) {
 			return "text" in node ? <Text selectable>{node.text}</Text> : null;
 	}
 }
-export function MessageBody({ body }: { body: string }) {
-	const nodes = useMemo(() => parser(body, { disableParsingRawHTML: true }), [body]);
+
+export function MessageBody({ body, streaming = false }: { body: string; streaming?: boolean }) {
+	const nodes = useMemo(() => parseMessage(body) as Node[], [body]);
 	return (
-		<View className="mini-markdown">
-			<Nodes nodes={nodes} />
+		<View className="message-content">
+			<Nodes nodes={nodes} streaming={streaming} />
 		</View>
 	);
 }

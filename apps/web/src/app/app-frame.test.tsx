@@ -44,6 +44,11 @@ vi.mock("@yonder/ui-data", () => {
 		useHealth: () => ({ data: null }),
 		useMe: () => ({ data: { hasPassword: true } }),
 		useSkills: () => ({ data: { items: [] } }),
+		useMeetings: () => ({ data: { items: [] }, isLoading: false, isError: false, refetch: async () => {} }),
+		useMeeting: () => ({ data: undefined, isLoading: false, isError: false, refetch: async () => {} }),
+		useMeetingActions: () => ({
+			retry: { isPending: false, isError: false, mutateAsync: async () => {} },
+		}),
 		useCompactConversation: () => ({
 			isPending: false,
 			isError: false,

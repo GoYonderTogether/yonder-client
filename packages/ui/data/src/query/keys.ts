@@ -8,6 +8,17 @@ export const keys = {
 	devices: () => ["devices"] as const,
 	deviceRegistration: (installationId: string) => ["device-registration", installationId] as const,
 	health: () => ["health"] as const,
+	meetings: {
+		all: () => ["meetings"] as const,
+		list: (conversationId: string) => ["meetings", "list", conversationId] as const,
+		detail: (id: string) => ["meetings", "detail", id] as const,
+	},
+	memory: {
+		all: () => ["memory"] as const,
+		days: (month: string) => ["memory", "days", month] as const,
+		months: () => ["memory", "months"] as const,
+		ref: (id: string) => ["memory", "ref", id] as const,
+	},
 	quota: () => ["quota"] as const,
 	quotaRates: () => ["quota", "rates"] as const,
 	usage: (range: string) => ["usage", range] as const,
@@ -40,6 +51,10 @@ export const keys = {
 		files: (id: string) => ["skills", "file", id] as const,
 		file: (id: string, revision: string, path: string) => ["skills", "file", id, revision, path] as const,
 	},
+	schedules: {
+		all: () => ["schedules"] as const,
+		list: () => ["schedules", "list"] as const,
+	},
 } as const;
 
 /** Root prefixes used when signing out: every key that must be dropped starts with one of these. */
@@ -59,4 +74,7 @@ export const ALL_ROOT_KEYS: readonly string[] = [
 	"usage",
 	"skills",
 	"connectors",
+	"meetings",
+	"memory",
+	"schedules",
 ];

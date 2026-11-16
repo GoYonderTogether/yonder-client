@@ -14,8 +14,11 @@ for (const mobile of [false, true]) {
 					}
 				: {}),
 		});
-		test("recording is independent of short voice input and survives closing its panel", async ({ page }, info) => {
+		test("recording is independent of short voice input and survives collapsing its capsule", async ({
+			page,
+		}, info) => {
 			await isolateChat(page, { items: [] });
+			await page.route("**/v1/meetings**", (route) => route.fulfill({ json: { items: [] } }));
 			await page.goto("/messages/main");
 			await expect(page.getByRole("button", { name: "语音输入", exact: true })).toBeVisible();
 			await page.evaluate(() => {
@@ -50,6 +53,8 @@ for (const mobile of [false, true]) {
 							if (!command.startsWith("plugin:meeting-recorder|")) return null;
 							const action = command.split("|")[1] ?? "";
 							calls.push(action);
+							if (action === "get_upload_jobs") return [];
+							if (action === "configure_upload") return null;
 							if (action === "start") {
 								activeId = "new-recording";
 								recordings.unshift({
@@ -82,20 +87,29 @@ for (const mobile of [false, true]) {
 				await page.getByRole("menuitem", { name: "会议录音" }).click();
 			}
 			await openRecorder();
-			await expect(page.getByText("中断后保留的会议录音", { exact: true })).toBeVisible();
+			await expect(page.getByRole("heading", { name: "中断后保留的会议录音", exact: true })).toBeVisible();
 			await expect(page.getByRole("button", { name: "播放已保存音频" })).toBeVisible();
 			await page.getByRole("textbox", { name: "录音标题" }).fill("产品讨论会议");
 			await page.getByRole("button", { name: "开始录音", exact: true }).click();
 			await expect(page.getByRole("button", { name: "结束录音", exact: true })).toBeVisible();
 			await expect(page.getByRole("status", { name: "录制时长" })).toHaveText("00:00:12");
-			await page.screenshot({ path: info.outputPath(mobile ? "mock-native-mobile.png" : "mock-native-desktop.png") });
-			await page.getByRole("button", { name: "关闭", exact: true }).last().click();
-			await expect(page.getByRole("button", { name: "录音中 · 00:00:12" })).toBeVisible();
-			if (mobile) await page.getByRole("button", { name: /^界面验收 BOT/ }).click();
+			await page.screenshot({
+				path: info.outputPath(mobile ? "mock-native-mobile-expanded.png" : "mock-native-desktop-expanded.png"),
+			});
+			await expect(page.getByRole("dialog")).toHaveCount(0);
+			await page.locator(".meeting-capsule-toggle:visible").click();
+			await expect(page.getByRole("button", { name: "结束录音", exact: true })).toBeVisible();
+			await expect(page.locator(".meeting-capsule:visible")).toContainText("正在录音");
+			await page.screenshot({
+				path: info.outputPath(mobile ? "mock-native-mobile-collapsed.png" : "mock-native-desktop-collapsed.png"),
+			});
+			if (mobile && (await page.getByRole("button", { name: /^界面验收 BOT/ }).isVisible()))
+				await page.getByRole("button", { name: /^界面验收 BOT/ }).click();
 			await expect(page.getByRole("button", { name: "语音输入", exact: true })).toBeDisabled();
 			if (mobile) await page.getByRole("button", { name: "返回", exact: true }).click();
 			await page.getByRole("button", { name: "任务", exact: true }).click();
-			await expect(page.getByRole("button", { name: "录音中 · 00:00:12" })).toBeVisible();
+			await expect(page.locator(".meeting-capsule:visible")).toHaveCount(1);
+			await expect(page.locator(".meeting-capsule:visible")).toContainText("正在录音");
 			expect(
 				await page.evaluate(() =>
 					(window as unknown as { __meetingRecorderCalls: string[] }).__meetingRecorderCalls.filter(
@@ -103,7 +117,7 @@ for (const mobile of [false, true]) {
 					),
 				),
 			).toEqual([]);
-			await page.getByRole("button", { name: "录音中 · 00:00:12" }).click();
+			await page.locator(".meeting-capsule-toggle:visible").click();
 			await page.getByRole("button", { name: "结束录音", exact: true }).click();
 			await expect(page.getByText("已保存", { exact: true })).toBeVisible();
 			expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

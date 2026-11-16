@@ -35,3 +35,10 @@ describe("mini chat reconciliation", () => {
 		).toEqual([false, false]);
 	});
 });
+
+it("retains a received run when a newer message snapshot omits it", () => {
+	const run = { id: "r", conversationId: "c", messageId: "real", userMessageId: "u", status: "completed" as const };
+	const previous = { ...message("real", 2), run };
+	const next = { ...message("real", 3), body: "final", run: null };
+	expect(mergeMessages([previous], [next])[0]).toMatchObject({ body: "final", run });
+});

@@ -8,13 +8,24 @@ import { listChatCache, outboxCacheKey, removeChatCache, writeChatCache } from "
 export type CachedMessage = Message & { pending?: boolean; sendFailed?: boolean; skillIds?: string[] };
 type SendInput = SendMessageRequest & { attachments?: Attachment[] };
 
-export function mergeOutbox(server: Message[], outbox: CachedMessage[]): CachedMessage[] {
+/** Nonces whose request is still in flight in this tab; a history refresh must not call those failed. */
+const inFlightSends = new Set<string>();
+
+export function mergeOutbox(
+	server: Message[],
+	outbox: CachedMessage[],
+	inFlight: ReadonlySet<string> = inFlightSends,
+): CachedMessage[] {
 	const nonces = new Set(server.map((message) => message.clientNonce).filter(Boolean));
 	return [
 		...server,
 		...outbox
 			.filter((message) => !nonces.has(message.clientNonce))
-			.map((message) => ({ ...message, pending: false, sendFailed: true })),
+			.map((message) =>
+				message.clientNonce && inFlight.has(message.clientNonce)
+					? { ...message, pending: true, sendFailed: false }
+					: { ...message, pending: false, sendFailed: true },
+			),
 	];
 }
 
@@ -74,10 +85,16 @@ export function useSendMessage(conversationId: string | null, personId: string |
 				pending: true,
 				...(body.skillIds ? { skillIds: body.skillIds } : {}),
 			};
-			if (personId) await writeChatCache(outboxCacheKey(personId, conversationId, body.clientNonce), message);
+			if (personId) {
+				// The outbox is a convenience for a reload, not a precondition: a full or blocked store must not
+				// stop the request from going out.
+				if (body.clientNonce) inFlightSends.add(body.clientNonce);
+				void writeChatCache(outboxCacheKey(personId, conversationId, body.clientNonce), message).catch(() => {});
+			}
 			updateMessage(client, message);
 		},
 		onSuccess: (result) => {
+			if (result.clientNonce) inFlightSends.delete(result.clientNonce);
 			if (client.getQueryData<MeResponse>(keys.me())?.member.id !== personId) return;
 			if (personId && conversationId)
 				void removeChatCache(outboxCacheKey(personId, conversationId, result.clientNonce)).catch(() => {});
@@ -85,6 +102,7 @@ export function useSendMessage(conversationId: string | null, personId: string |
 			void client.invalidateQueries({ queryKey: keys.conversations.list() });
 		},
 		onError: (_error, body) => {
+			if (body.clientNonce) inFlightSends.delete(body.clientNonce);
 			if (!conversationId) return;
 			if (client.getQueryData<MeResponse>(keys.me())?.member.id !== personId) return;
 			updateMessage(client, {

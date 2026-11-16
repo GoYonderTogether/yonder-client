@@ -1,3 +1,4 @@
+import { AttachmentTile, MessageAttachmentsFrame } from "@yonder/chat-presentation";
 import type { Attachment } from "@yonder/protocol";
 import { CircleAlert, CloudDownload, LoaderCircle, Play, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -56,7 +57,7 @@ function MessageAttachment({ attachment }: { attachment: Attachment }) {
 		if (blob) setSelected({ ...attachment, blob });
 	}
 	return (
-		<div ref={card} className="message-attachment" data-attachment-id={attachment.id}>
+		<AttachmentTile as="div" elementRef={card} id={attachment.id}>
 			<button
 				type="button"
 				className={`message-attachment-open ${media ? "message-attachment-media" : "message-attachment-file"}`}
@@ -127,16 +128,16 @@ function MessageAttachment({ attachment }: { attachment: Attachment }) {
 				) : null}
 			</button>
 			{selected ? <AttachmentPreview file={selected} onClose={() => setSelected(undefined)} /> : null}
-		</div>
+		</AttachmentTile>
 	);
 }
 
-export function MessageAttachments({ attachments }: { attachments: Attachment[] }) {
+export function MessageAttachments({ attachments, self = false }: { attachments: Attachment[]; self?: boolean }) {
 	return attachments.length ? (
-		<div className="message-attachments">
+		<MessageAttachmentsFrame as="div" self={self}>
 			{attachments.map((attachment) => (
 				<MessageAttachment key={attachment.id} attachment={attachment} />
 			))}
-		</div>
+		</MessageAttachmentsFrame>
 	) : null;
 }

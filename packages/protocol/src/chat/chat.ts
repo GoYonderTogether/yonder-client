@@ -51,7 +51,8 @@ export interface Message {
 	conversationId: string;
 	senderId: string;
 	senderKind: MemberKind;
-	type: "text";
+	/** `task_notice` is a system event about a subtask, not a Bot reply. */
+	type: "text" | "task_notice";
 	body: string | null;
 	attachments: Attachment[];
 	replyToId: string | null;
@@ -60,6 +61,14 @@ export interface Message {
 	streaming: boolean;
 	version: number;
 	clientNonce?: string | null;
+	/** Server-owned reference; opens the inline meeting capsule. */
+	meeting?: { id: string; title: string };
+	/** Present on a `task_notice`: which subtask it is about. */
+	taskNotice?: { id: string; title: string; status: string };
+	/** Present when a scheduled run could not happen: the plan and the real reason, shown as an error. */
+	scheduleNotice?: { id: string; title: string; reason: string };
+	/** Present when a parent run was refused a task for issuing too many in a burst; shown as an error. */
+	burstNotice?: { reason: string };
 	run?: Run | null;
 }
 

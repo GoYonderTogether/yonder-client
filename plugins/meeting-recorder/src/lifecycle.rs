@@ -1,4 +1,4 @@
-use crate::desktop::DesktopRecorder;
+use crate::{desktop::DesktopRecorder, upload::UploadQueue};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
@@ -65,9 +65,14 @@ pub fn recording_indicator<R: Runtime>(app: &AppHandle<R>) -> Option<bool> {
 }
 
 pub fn sync_tray<R: Runtime>(app: &AppHandle<R>, active: bool) {
+    let uploading = app
+        .try_state::<UploadQueue>()
+        .is_some_and(|queue| queue.has_pending());
     if let Some(tray) = app.tray_by_id(TRAY) {
         let _ = tray.set_tooltip(Some(if active {
             "正在录音 / Recording"
+        } else if uploading {
+            "正在上传录音 / Uploading recording"
         } else {
             "录音已停止 / Recording stopped"
         }));
@@ -78,7 +83,7 @@ pub fn sync_tray<R: Runtime>(app: &AppHandle<R>, active: bool) {
         let hidden = app
             .get_webview_window("main")
             .is_some_and(|window| !window.is_visible().unwrap_or(true));
-        let _ = tray.set_visible(active || hidden);
+        let _ = tray.set_visible(active || uploading || hidden);
     }
 }
 
@@ -89,11 +94,14 @@ pub fn on_event<R: Runtime>(app: &AppHandle<R>, event: &RunEvent) {
             event: WindowEvent::CloseRequested { api, .. },
             ..
         } if label == "main" => {
-            if app.state::<DesktopRecorder>().is_recording() {
+            if app.state::<DesktopRecorder>().is_recording()
+                || app.state::<UploadQueue>().has_pending()
+            {
                 api.prevent_close();
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
                 }
+                sync_tray(app, app.state::<DesktopRecorder>().is_recording());
             }
         }
         RunEvent::ExitRequested { .. } => app.state::<DesktopRecorder>().finish(),

@@ -10,7 +10,7 @@ use std::time::Duration;
 enum Action {
     Owner(Option<String>),
     State(String),
-    Start(String, String),
+    Start(String, String, Option<String>),
     Stop(String, String),
     Audio(String, String, usize),
     Finish,
@@ -121,7 +121,18 @@ impl DesktopRecorder {
         self.state_request(Action::State(owner))
     }
     pub fn start(&self, owner: String, title: String) -> Result<RecorderState, String> {
-        self.state_request(Action::Start(owner, title))
+        self.start_for_conversation(owner, title, None)
+    }
+    pub fn start_for_conversation(
+        &self,
+        owner: String,
+        title: String,
+        conversation: Option<String>,
+    ) -> Result<RecorderState, String> {
+        if let Some(id) = &conversation {
+            valid_key(id)?;
+        }
+        self.state_request(Action::Start(owner, title, conversation))
     }
     pub fn stop(&self, owner: String, id: String) -> Result<RecorderState, String> {
         self.state_request(Action::Stop(owner, id))
@@ -190,7 +201,7 @@ impl Worker {
                 }
             }
             Action::State(owner) => self.authorize(&owner)?,
-            Action::Start(owner, title) => {
+            Action::Start(owner, title, conversation) => {
                 self.authorize(&owner)?;
                 if self.active.is_some() {
                     return Err("meeting_already_recording".into());
@@ -199,6 +210,8 @@ impl Worker {
                 let mut recording =
                     self.store
                         .create(&owner, &title, capture.sample_rate, capture.channels)?;
+                recording.conversation_id = conversation;
+                self.store.save(&recording)?;
                 if let Err(error) = capture.play() {
                     self.store.finish(&mut recording, Some(error.clone()))?;
                     return Err(error);

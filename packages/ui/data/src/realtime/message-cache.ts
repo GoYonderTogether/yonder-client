@@ -1,4 +1,5 @@
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
+import { mergeMessage } from "@yonder/chat-model";
 import type { Conversation, MessagePage, Run } from "@yonder/protocol";
 import type { CachedMessage } from "../hooks/chat.ts";
 import { keys } from "../query/keys.ts";
@@ -15,8 +16,7 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 			items: page.items.map((old) => {
 				if (old.id !== message.id && (!message.clientNonce || old.clientNonce !== message.clientNonce)) return old;
 				found = true;
-				if (old.version > message.version && !old.id.startsWith("temp_")) return old;
-				return { ...message, ...(message.run == null && old.run ? { run: old.run } : {}) };
+				return mergeMessage(old, message);
 			}),
 		}));
 		if (!found) next[0]?.items.push(message);

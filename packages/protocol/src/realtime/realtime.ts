@@ -4,6 +4,8 @@
  */
 
 import type { Conversation, Message, Run } from "../chat/chat.ts";
+import type { Schedule } from "../chat/schedule.ts";
+import type { SubtaskSummary } from "../chat/subtask.ts";
 import type { ConnectorCommand } from "../connectors/connectors.ts";
 import type { Member } from "../member/member.ts";
 import type { QuotaResponse } from "../quota/quota.ts";
@@ -25,6 +27,8 @@ export type ServerEvent =
 	| { type: "quota.updated"; eventId: string; at: string; quota: QuotaResponse }
 	| { type: "message.created" | "message.updated"; eventId: string; at: string; message: Message }
 	| { type: "run.updated"; eventId: string; at: string; run: Run }
+	| { type: "subtask.updated"; eventId: string; at: string; subtask: SubtaskSummary }
+	| { type: "schedule.changed"; eventId: string; at: string; schedule: Schedule }
 	| { type: "session.revoked"; eventId: string; at: string; sessionId: string };
 
 export type ServerEventType = ServerEvent["type"];

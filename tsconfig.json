@@ -14,6 +14,12 @@
 			"path": "packages/ui/i18n"
 		},
 		{
+			"path": "packages/ui/chat-model"
+		},
+		{
+			"path": "packages/ui/chat-presentation"
+		},
+		{
 			"path": "packages/ui/auth-presentation"
 		},
 		{

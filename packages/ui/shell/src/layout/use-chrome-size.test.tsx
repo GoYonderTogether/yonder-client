@@ -9,8 +9,8 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-function Frame() {
-	const ref = useChromeSize("--native-dock-height");
+function Frame({ onHeightChange }: { onHeightChange?: (height: number) => void }) {
+	const ref = useChromeSize("--native-dock-height", true, onHeightChange);
 	return (
 		<div data-testid="frame">
 			<div ref={ref}>Composer</div>
@@ -50,4 +50,22 @@ test("browser geometry is left to the existing flex layout", () => {
 	render(<Frame />);
 	expect(observer).not.toHaveBeenCalled();
 	expect(screen.getByTestId("frame").style.getPropertyValue("--native-dock-height")).toBe("");
+});
+
+test("floating status observes browser dock height without changing native scroll clearance", () => {
+	const onHeightChange = vi.fn();
+	const disconnect = vi.fn();
+	vi.stubGlobal(
+		"ResizeObserver",
+		class {
+			observe() {}
+			disconnect = disconnect;
+		},
+	);
+	vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ height: 64 } as DOMRect);
+	const { unmount } = render(<Frame onHeightChange={onHeightChange} />);
+	expect(onHeightChange).toHaveBeenCalledWith(64);
+	expect(screen.getByTestId("frame").style.getPropertyValue("--native-dock-height")).toBe("");
+	unmount();
+	expect(disconnect).toHaveBeenCalledOnce();
 });

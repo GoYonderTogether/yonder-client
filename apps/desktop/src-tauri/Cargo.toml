@@ -25,6 +25,20 @@ tauri-plugin-meeting-recorder = { path = "../../../plugins/meeting-recorder" }
 tauri-plugin-keyring = "=0.1.0"
 tauri-plugin-process = "=2.3.1"
 tauri-plugin-updater = "=2.14.1"
+# Native message box for the local-file grant confirmation, shown by Rust only.
+#
+# `rfd` directly rather than `tauri-plugin-dialog`: the plugin installs an init script that
+# replaces `window.confirm` with a Promise, which is always truthy, and the interface relies on
+# `window.confirm` being synchronous at five destructive sites (discard a provider draft, delete a
+# provider, delete a skill, reload after a chunk error). `rfd` is the same native backend the plugin
+# wraps, without that script.
+#
+# Features mirror what the plugin selects: GTK3 on Linux (Tauri already links GTK there), and
+# `common-controls-v6` on Windows.
+rfd = { version = "=0.17.2", default-features = false, features = ["gtk3", "common-controls-v6"] }
+# The confirmation text follows the language the interface picked at start-up, which defaults to
+# the system locale (apps/web/index.html reads `navigator.language`).
+sys-locale = "=0.3.2"
 sha2 = "=0.10.9"
 
 [target.'cfg(target_os = "macos")'.dependencies]

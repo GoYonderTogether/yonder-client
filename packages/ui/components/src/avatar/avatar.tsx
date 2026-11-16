@@ -1,3 +1,4 @@
+import { firstCharacter, tintFor } from "@yonder/chat-model";
 import { cn } from "../cn.ts";
 import { BotFace, type BotFaceId } from "./bot-face.tsx";
 
@@ -78,30 +79,4 @@ export function Avatar({
 			)}
 		</span>
 	);
-}
-
-function firstCharacter(name: string): string {
-	const trimmed = name.trim();
-	return trimmed === "" ? "?" : ([...trimmed][0] as string).toUpperCase();
-}
-
-/**
- * Six muted tints, defined as tokens so no colour literal lives in a component. Fixed, not random:
- * the same name must get the same colour on every device, and these are neutral enough not to
- * compete with the accent.
- */
-const TINTS = [
-	["var(--color-avatar-1-bg)", "var(--color-avatar-1-fg)"],
-	["var(--color-avatar-2-bg)", "var(--color-avatar-2-fg)"],
-	["var(--color-avatar-3-bg)", "var(--color-avatar-3-fg)"],
-	["var(--color-avatar-4-bg)", "var(--color-avatar-4-fg)"],
-	["var(--color-avatar-5-bg)", "var(--color-avatar-5-fg)"],
-	["var(--color-avatar-6-bg)", "var(--color-avatar-6-fg)"],
-] as const;
-
-function tintFor(name: string): { background: string; foreground: string } {
-	let hash = 0;
-	for (const character of name) hash = (hash * 31 + (character.codePointAt(0) ?? 0)) % 997;
-	const [background, foreground] = TINTS[hash % TINTS.length] as readonly [string, string];
-	return { background, foreground };
 }

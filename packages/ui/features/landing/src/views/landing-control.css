@@ -1,0 +1,251 @@
+/*
+ * One task laid open. At rest: copy and principles on the left, the full task panel on the right,
+ * every part lit. With motion on wide screens: the panel pins while the principles scroll past,
+ * and `data-focus` on the diptych dims every part except the one the current principle is about.
+ */
+.lp-section-grey {
+	background: var(--lp-paper-2);
+}
+
+.lp-diptych {
+	display: grid;
+	grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+	align-items: start;
+	gap: var(--lp-gap);
+}
+
+.lp-diptych-copy {
+	min-width: 0;
+}
+
+.lp-principles {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.lp-principles li {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 4px 16px;
+	padding: 20px;
+	border-radius: var(--lp-radius-card);
+	background: var(--lp-panel);
+	transition:
+		background-color var(--lp-base) var(--lp-ease),
+		opacity var(--lp-base) var(--lp-ease),
+		transform var(--lp-base) var(--lp-ease);
+}
+
+.lp-principle-icon {
+	display: inline-grid;
+	grid-row: span 2;
+	width: 40px;
+	height: 40px;
+	place-items: center;
+	border-radius: var(--lp-radius-control);
+	background: var(--lp-fill);
+	color: var(--lp-ink);
+}
+
+.lp-principles h3 {
+	font-size: 18px;
+}
+
+.lp-principles p {
+	color: var(--lp-ink-2);
+	font-size: var(--lp-text-small);
+}
+
+/* The panel */
+.lp-task {
+	margin: 0;
+	padding: 24px;
+	border-radius: var(--lp-radius-panel);
+	background: var(--lp-panel);
+	box-shadow: var(--lp-shadow-panel);
+}
+
+.lp-task-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--lp-line);
+}
+
+.lp-task-title {
+	font-size: 18px;
+	font-weight: var(--font-weight-semibold);
+}
+
+.lp-task-state {
+	padding: 2px 12px;
+	border-radius: 999px;
+	background: var(--lp-fill);
+	color: var(--lp-ink-2);
+	font-size: var(--lp-text-micro);
+}
+
+.lp-task [data-part] {
+	transition:
+		opacity var(--lp-base) var(--lp-ease),
+		box-shadow var(--lp-base) var(--lp-ease);
+}
+
+.lp-task-summary {
+	margin-top: 16px;
+	padding: 12px 16px;
+	border-radius: var(--lp-radius-control);
+	background: var(--lp-fill);
+	font-size: var(--lp-text-small);
+}
+
+.lp-task-steps {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 12px 0;
+	padding: 0;
+	list-style: none;
+}
+
+.lp-task-steps li {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 12px;
+	border-radius: var(--lp-radius-control);
+	color: var(--lp-ink-3);
+	font-size: var(--lp-text-small);
+}
+
+.lp-task-steps li[data-state="done"] {
+	color: var(--lp-ink-2);
+}
+
+.lp-task-steps li[data-state="ask"] {
+	background: var(--lp-accent-subtle);
+	color: var(--lp-ink);
+}
+
+.lp-task-mark {
+	display: inline-grid;
+	flex: none;
+	width: 22px;
+	height: 22px;
+	place-items: center;
+	border: 1px dashed var(--lp-line-strong);
+	border-radius: 999px;
+}
+
+[data-state="done"] .lp-task-mark {
+	border: 0;
+	background: var(--lp-fill);
+	color: var(--lp-success);
+}
+
+[data-state="ask"] .lp-task-mark {
+	border: 0;
+	background: var(--lp-accent);
+	color: var(--lp-on-accent);
+}
+
+.lp-task-offline {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	color: var(--lp-ink-3);
+	font-size: var(--lp-text-small);
+}
+
+.lp-task-controls {
+	display: flex;
+	gap: 8px;
+	margin: 8px 0 16px;
+}
+
+.lp-task-controls span {
+	display: inline-flex;
+	min-height: 32px;
+	align-items: center;
+	padding-inline: 12px;
+	border-radius: var(--lp-radius-control);
+	background: var(--lp-fill);
+	font-size: var(--lp-text-small);
+}
+
+.lp-task-meta {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+	margin: 0;
+}
+
+.lp-task-meta div {
+	padding: 12px 16px;
+	border-radius: var(--lp-radius-control);
+	background: var(--lp-paper-2);
+}
+
+.lp-task-meta dt {
+	color: var(--lp-ink-3);
+	font-size: var(--lp-text-micro);
+}
+
+.lp-task-meta dd {
+	margin: 4px 0 0;
+	font-size: 20px;
+	font-weight: var(--font-weight-semibold);
+	font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 60rem) {
+	.lp-diptych {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+/* Pinned: the panel holds, principles scroll, the current one lights its part of the panel. */
+@media (min-width: 60rem) and (min-height: 40rem) {
+	[data-js] .lp-diptych-pane {
+		position: sticky;
+		top: calc(var(--lp-nav) + 48px);
+	}
+
+	[data-js] .lp-principles {
+		gap: 0;
+		padding-bottom: 30vh;
+	}
+
+	[data-js] .lp-principles li {
+		min-height: 40vh;
+		align-content: center;
+		background: transparent;
+		opacity: 0.35;
+	}
+
+	[data-js] .lp-principles li[data-on] {
+		background: var(--lp-panel);
+		opacity: 1;
+		transform: translateX(8px);
+	}
+
+	[data-js] .lp-diptych[data-focus] .lp-task [data-part] {
+		opacity: 0.35;
+	}
+
+	[data-js] .lp-diptych[data-focus="brief"] [data-part="brief"],
+	[data-js] .lp-diptych[data-focus="quiet"] [data-part="quiet"],
+	[data-js] .lp-diptych[data-focus="steer"] [data-part="steer"],
+	[data-js] .lp-diptych[data-focus="ledger"] [data-part="ledger"] {
+		opacity: 1;
+		box-shadow: 0 0 0 2px var(--lp-ink);
+		border-radius: var(--lp-radius-control);
+	}
+}

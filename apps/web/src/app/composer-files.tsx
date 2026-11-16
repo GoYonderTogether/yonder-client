@@ -1,3 +1,4 @@
+import { UploadTile } from "@yonder/chat-presentation";
 import { useApi } from "@yonder/ui-data";
 import { LoaderCircle, Play, RotateCcw, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -83,7 +84,7 @@ function DraftFileTile({
 		thumbnail.name,
 	]);
 	return (
-		<div className="composer-file" data-attachment-name={file.name} data-preview-kind={kind}>
+		<UploadTile as="div" name={file.name} kind={kind}>
 			<button
 				type="button"
 				className="composer-file-preview"
@@ -162,7 +163,7 @@ function DraftFileTile({
 			>
 				<X size={14} aria-hidden="true" />
 			</button>
-		</div>
+		</UploadTile>
 	);
 }
 

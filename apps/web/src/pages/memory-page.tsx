@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { MemoryCards } from "./memory/memory-cards.tsx";
 import { MemoryTimeline } from "./memory/memory-timeline.tsx";
 import "./memory/memory.css";
+import "./memory/memory-panels.css";
 
 export function MemoryList({ files, onChange }: { files: boolean; onChange: (files: boolean) => void }) {
 	const { t } = useTranslation();

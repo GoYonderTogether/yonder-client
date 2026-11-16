@@ -1,0 +1,75 @@
+.meeting-capsule {
+	display: flex;
+	flex-direction: column-reverse;
+	margin: 0 auto var(--spacing-2);
+	max-width: calc(var(--control-md) * 10);
+	border: 1px solid var(--color-border-default);
+	border-radius: var(--radius-panel);
+	background: var(--color-bg-raised);
+	box-shadow: var(--shadow-sm);
+	transition: max-width var(--duration-base) var(--ease-standard);
+}
+.meeting-capsule[data-expanded="true"] {
+	max-width: 100%;
+}
+.meeting-capsule-header {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2);
+	padding: var(--spacing-1) var(--spacing-2);
+}
+.meeting-capsule-toggle {
+	display: flex;
+	min-width: 0;
+	min-height: var(--control-md);
+	flex: 1;
+	align-items: center;
+	gap: var(--spacing-2);
+	border-radius: var(--radius-control);
+	padding: 0 var(--spacing-2);
+	font-size: var(--text-caption);
+	text-align: left;
+}
+.meeting-capsule-toggle:focus-visible {
+	outline: 2px solid var(--color-accent);
+}
+.meeting-capsule-chevron {
+	margin-left: auto;
+	flex-shrink: 0;
+	transition: transform var(--duration-base) var(--ease-standard);
+}
+.meeting-capsule[data-expanded="true"] .meeting-capsule-chevron {
+	transform: rotate(180deg);
+}
+.meeting-capsule-reveal {
+	display: grid;
+	grid-template-rows: 0fr;
+	opacity: 0;
+	transition:
+		grid-template-rows var(--duration-base) var(--ease-standard),
+		opacity var(--duration-base) var(--ease-standard);
+}
+.meeting-capsule[data-expanded="true"] .meeting-capsule-reveal {
+	grid-template-rows: 1fr;
+	opacity: 1;
+}
+.meeting-capsule-clip {
+	min-height: 0;
+	overflow: hidden;
+}
+.meeting-capsule-preview {
+	display: flex;
+	max-height: min(45dvh, calc(var(--control-md) * 8));
+	flex-direction: column;
+	gap: var(--spacing-3);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: var(--spacing-2) var(--spacing-4) var(--spacing-4);
+}
+@media (prefers-reduced-motion: reduce) {
+	.meeting-capsule,
+	.meeting-capsule-chevron,
+	.meeting-capsule-reveal {
+		transition: none;
+	}
+}

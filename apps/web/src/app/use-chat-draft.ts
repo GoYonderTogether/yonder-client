@@ -3,6 +3,7 @@ import {
 	attachmentCacheKey,
 	chatCacheGeneration,
 	readChatCache,
+	removeChatCache,
 	updateChatCache,
 	useApi,
 	writeChatCache,
@@ -53,6 +54,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 	const [error, setError] = useState("");
 	const [sending, setSending] = useState(false);
 	const busy = useRef(false);
+	const inFlightSend = useRef<AbortController | null>(null);
 	const bindingHistory = useRef(completionHistory());
 	const preparations = useRef(new Map<string, Promise<PreparedImage | undefined>>());
 	// ponytail: serialize image encoding to bound canvas memory; parallelize only if it becomes a measured wait.
@@ -174,7 +176,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		return operation;
 	}
 
-	async function upload(file: DraftFile, scope: string) {
+	async function upload(file: DraftFile, scope: string, signal?: AbortSignal) {
 		const cacheGeneration = chatCacheGeneration();
 		const optimized =
 			!file.sendOriginal && isImageFile(file.name, file.mimeType) ? await prepare(file, scope) : file.optimized;
@@ -191,8 +193,11 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			const attachment = await api.uploadAttachment(
 				new File([selected.blob], selected.name, { type: selected.mimeType }),
 				selected.nonce,
+				signal,
 			);
-			if (owner) await writeChatCache(attachmentCacheKey(owner, attachment.id), selected.blob, cacheGeneration);
+			// The blob cache only speeds up a resend; a full or blocked store must not fail an upload the server took.
+			if (owner)
+				void writeChatCache(attachmentCacheKey(owner, attachment.id), selected.blob, cacheGeneration).catch(() => {});
 			if (cacheGeneration !== chatCacheGeneration()) return attachment;
 			change(
 				(draft) => ({
@@ -206,10 +211,13 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			return attachment;
 		} catch (error) {
 			if (cacheGeneration !== chatCacheGeneration()) throw error;
+			// A cancelled upload is not a failure: the file stays ready so the draft can be sent again.
 			change(
 				(draft) => ({
 					...draft,
-					files: draft.files.map((item) => (item.id === file.id ? { ...item, status: "failed" } : item)),
+					files: draft.files.map((item) =>
+						item.id === file.id ? { ...item, status: signal?.aborted ? "ready" : "failed" } : item,
+					),
 				}),
 				scope,
 			);
@@ -225,18 +233,21 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		const scope = key;
 		const cacheGeneration = chatCacheGeneration();
 		const nonce = draft.clientNonce ?? crypto.randomUUID();
+		const controller = new AbortController();
+		inFlightSend.current = controller;
 		change((value) => ({ ...value, clientNonce: nonce }), scope);
 		busy.current = true;
 		setSending(true);
 		setError("");
 		try {
-			await writeChatCache(scope, { ...draft, clientNonce: nonce }, cacheGeneration);
+			// The nonce is already persisted by `change`; this copy only hardens a reload mid-send.
+			await writeChatCache(scope, { ...draft, clientNonce: nonce }, cacheGeneration).catch(() => {});
 			const attachments: Attachment[] = [];
 			for (const file of draft.files) {
-				if (cacheGeneration !== chatCacheGeneration()) return;
-				attachments.push(await upload(file, scope));
+				if (cacheGeneration !== chatCacheGeneration() || controller.signal.aborted) return;
+				attachments.push(await upload(file, scope, controller.signal));
 			}
-			if (cacheGeneration !== chatCacheGeneration()) return;
+			if (cacheGeneration !== chatCacheGeneration() || controller.signal.aborted) return;
 			await send({
 				type: "text",
 				body: draft.text.trim(),
@@ -250,6 +261,10 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				(draft.bindings ?? []).filter((binding) => binding.kind === "skill").map((binding) => binding.key),
 			);
 			for (const id of sentIds) preparations.current.delete(id);
+			// The server holds the bytes now, so the resend copy in the blob cache is no longer needed.
+			if (owner)
+				for (const attachment of attachments)
+					void removeChatCache(attachmentCacheKey(owner, attachment.id)).catch(() => {});
 			const clearSent = (value = empty()): Draft => ({
 				text: value.revision === draft.revision ? "" : value.text,
 				files: value.files.filter((file) => !sentIds.has(file.id)),
@@ -264,11 +279,18 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			else await updateChatCache<Draft>(scope, clearSent, cacheGeneration);
 			return true;
 		} catch {
-			if (current.current.key === scope) setError("chat.sendPreserved");
+			// Cancelling keeps the draft silently; any other failure says it was preserved.
+			if (current.current.key === scope && !controller.signal.aborted) setError("chat.sendPreserved");
 		} finally {
+			if (inFlightSend.current === controller) inFlightSend.current = null;
 			busy.current = false;
 			setSending(false);
 		}
+	}
+
+	function cancelSend() {
+		const controller = inFlightSend.current;
+		if (controller && !controller.signal.aborted) controller.abort();
 	}
 
 	const value = state.key === key ? state.value : empty();
@@ -326,6 +348,10 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			})),
 		removeFile: (id: string) => {
 			preparations.current.delete(id);
+			const removed = current.current.value.files.find((file) => file.id === id);
+			// Drop the cached bytes with the draft entry, or they stay in IndexedDB until sign-out.
+			if (owner && removed?.uploaded)
+				void removeChatCache(attachmentCacheKey(owner, removed.uploaded.id)).catch(() => {});
 			change((draft) => ({
 				...draft,
 				revision: draft.revision + 1,
@@ -338,5 +364,6 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			if (file) void upload(file, key).catch(() => setError("chat.uploadFailed"));
 		},
 		submit,
+		cancelSend,
 	};
 }

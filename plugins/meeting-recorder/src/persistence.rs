@@ -48,6 +48,7 @@ impl Store {
             id,
             owner_id: owner.into(),
             title: title.trim().into(),
+            conversation_id: None,
             state: "recording".into(),
             started_at,
             ended_at: None,

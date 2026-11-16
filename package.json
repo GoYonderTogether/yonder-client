@@ -11,6 +11,8 @@
 		"packages/api-client",
 		"packages/ui/tokens",
 		"packages/ui/i18n",
+		"packages/ui/chat-model",
+		"packages/ui/chat-presentation",
 		"packages/ui/auth-presentation",
 		"packages/ui/components",
 		"packages/ui/data",

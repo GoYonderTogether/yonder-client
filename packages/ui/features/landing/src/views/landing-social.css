@@ -1,97 +1,7 @@
-/* Bots, the two-sided card, the event group. */
-.lp-bots {
-	margin: 0;
-	padding: 12px;
-	border-radius: var(--lp-radius);
+/* The two-sided card and the event group: drawn the way the app draws them. */
+/* The card, as on the memory page: white face and a subtle-fill face. */
+.lp-on-grey {
 	background: var(--lp-panel);
-	box-shadow: 0 40px 80px -48px var(--lp-shadow);
-}
-
-.lp-bots ul {
-	margin: 0;
-	padding: 0;
-	list-style: none;
-}
-
-.lp-bot {
-	display: flex;
-	align-items: center;
-	gap: 16px;
-	padding: 12px;
-	border-radius: var(--lp-radius-s);
-	transition: background-color var(--lp-fast) var(--lp-ease);
-}
-
-.lp-bot:first-child {
-	background: var(--lp-paper-2);
-}
-
-.lp-bots .lp-bot {
-	transition:
-		opacity var(--lp-base) var(--lp-ease),
-		transform var(--lp-base) var(--lp-ease);
-	transition-delay: calc(var(--i) * 80ms + 200ms);
-}
-
-[data-js] .lp-bots:not([data-in]) .lp-bot {
-	opacity: 0;
-	transform: translateX(24px);
-}
-
-.lp-bot-text {
-	display: flex;
-	flex: 1;
-	min-width: 0;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.lp-bot-name {
-	display: flex;
-	align-items: baseline;
-	gap: 8px;
-	font-weight: 600;
-}
-
-.lp-bot-note {
-	color: var(--lp-ink-2);
-	font-size: var(--lp-text-micro);
-	font-weight: 400;
-}
-
-.lp-bot-preview {
-	overflow: hidden;
-	color: var(--lp-ink-2);
-	font-size: var(--lp-text-small);
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.lp-bot-time {
-	align-self: flex-start;
-	padding-top: 2px;
-	color: var(--lp-ink-2);
-	font-size: var(--lp-text-micro);
-}
-
-.lp-bots-create {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	margin-top: 8px;
-	padding: 16px 12px;
-	border-top: 1px dashed var(--lp-line-strong);
-	color: var(--lp-ink-2);
-	font-size: var(--lp-text-small);
-}
-
-/* The card */
-.lp-section-warm {
-	background: linear-gradient(180deg, var(--lp-paper), var(--lp-paper-2) 50%, var(--lp-paper));
-}
-
-.lp-split-copy .lp-action {
-	gap: 8px;
 }
 
 .lp-card-stage {
@@ -101,18 +11,25 @@
 	perspective: 1600px;
 }
 
+/* The tilt follows the pointer quickly; the flip inside it keeps its slow turn. */
+.lp-card-tilt {
+	display: grid;
+	width: min(100%, 400px);
+	transform-style: preserve-3d;
+	transform: rotateX(var(--rx, 3deg)) rotateY(var(--ry, -6deg));
+	transition: transform 120ms var(--lp-ease);
+}
+
+.lp-card-stage:not(:hover) .lp-card-tilt {
+	transition-duration: 600ms;
+}
+
 .lp-card {
 	position: relative;
 	display: grid;
-	width: min(100%, 420px);
 	aspect-ratio: 5 / 6;
 	transform-style: preserve-3d;
-	transform: rotateY(-8deg) rotateX(4deg);
 	transition: transform var(--lp-slow) var(--lp-ease);
-}
-
-.lp-card:hover {
-	transform: rotateY(-2deg) rotateX(1deg);
 }
 
 .lp-card[data-flipped] {
@@ -124,35 +41,20 @@
 	display: flex;
 	flex-direction: column;
 	gap: 20px;
-	padding: 28px;
+	padding: 24px;
 	overflow: hidden;
-	border-radius: 22px;
+	border-radius: var(--lp-radius-panel);
 	backface-visibility: hidden;
-	box-shadow: 0 50px 90px -50px var(--lp-shadow);
+	box-shadow: var(--lp-shadow-panel);
 }
 
 .lp-card-front {
-	background:
-		linear-gradient(125deg, transparent 30%, var(--lp-sheen) 48%, transparent 62%),
-		linear-gradient(160deg, var(--lp-card-a), var(--lp-card-b));
-	background-size:
-		250% 100%,
-		auto;
-	animation: lp-sheen 7s var(--lp-ease) infinite;
+	background: var(--lp-panel);
 }
 
-@keyframes lp-sheen {
-	0%,
-	60% {
-		background-position:
-			120% 0,
-			0 0;
-	}
-	100% {
-		background-position:
-			-120% 0,
-			0 0;
-	}
+.lp-card-label {
+	color: var(--lp-ink-3);
+	font-size: var(--lp-text-small);
 }
 
 .lp-card-top {
@@ -162,7 +64,7 @@
 }
 
 .lp-card-top h3 {
-	font-size: 26px;
+	font-size: 22px;
 }
 
 .lp-card-top p {
@@ -181,41 +83,36 @@
 
 .lp-card-chips li {
 	padding: 4px 12px;
-	border: 1px solid var(--lp-line-strong);
 	border-radius: 999px;
+	background: var(--lp-fill);
 	font-size: var(--lp-text-small);
 }
 
 .lp-card-qr {
 	display: flex;
-	align-items: center;
+	align-items: flex-end;
+	justify-content: space-between;
 	gap: 16px;
 	margin-top: auto;
-	padding-top: 20px;
-	border-top: 1px solid var(--lp-line);
 }
 
 .lp-card-qr p {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	color: var(--lp-ink-2);
 	font-size: var(--lp-text-small);
 }
 
 .lp-card-back {
-	background: radial-gradient(80% 60% at 20% 0%, var(--lp-bubble), transparent 70%), var(--lp-terminal);
-	color: var(--lp-terminal-ink);
+	background: var(--lp-raised);
 	transform: rotateY(180deg);
-}
-
-.lp-card-back h3 {
-	font-size: 22px;
 }
 
 .lp-card-back ul {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 8px;
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -223,22 +120,22 @@
 
 .lp-card-back li {
 	padding: 12px 16px;
-	border-left: 2px solid var(--lp-signal);
-	background: var(--lp-terminal-2);
-	color: var(--lp-terminal-ink);
+	border-radius: var(--lp-radius-control);
+	background: var(--lp-fill);
+	color: var(--lp-ink);
 	font-size: var(--lp-text-small);
 }
 
 .lp-card-note {
 	margin-top: auto;
-	color: var(--lp-terminal-dim);
+	color: var(--lp-ink-3);
 	font-size: var(--lp-text-micro);
 }
 
 /* Events */
 .lp-events {
 	display: grid;
-	grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+	grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
 	align-items: start;
 	gap: var(--lp-gap);
 }
@@ -246,9 +143,9 @@
 .lp-group {
 	margin: 0;
 	overflow: hidden;
-	border-radius: var(--lp-radius);
+	border-radius: var(--lp-radius-panel);
 	background: var(--lp-panel);
-	box-shadow: 0 40px 80px -48px var(--lp-shadow);
+	box-shadow: var(--lp-shadow-panel);
 }
 
 .lp-group-head {
@@ -260,19 +157,19 @@
 }
 
 .lp-group-name {
-	font-weight: 600;
+	font-weight: var(--font-weight-medium);
 }
 
 .lp-group-count {
 	margin-left: auto;
-	color: var(--lp-ink-2);
+	color: var(--lp-ink-3);
 	font-size: var(--lp-text-micro);
 }
 
 .lp-group-feed {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 16px;
 	margin: 0;
 	padding: 20px;
 	list-style: none;
@@ -284,36 +181,33 @@
 }
 
 .lp-line > div {
-	position: relative;
 	display: flex;
 	min-width: 0;
 	flex-direction: column;
+	align-items: flex-start;
 	gap: 4px;
 }
 
 .lp-line-who {
-	color: var(--lp-ink-2);
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--lp-ink-3);
 	font-size: var(--lp-text-micro);
 }
 
 .lp-line p {
 	padding: 12px 16px;
-	border-radius: 4px 12px 12px;
-	background: var(--lp-paper-2);
+	border-radius: var(--lp-radius-card);
+	background: var(--lp-fill);
 	font-size: var(--lp-text-small);
 }
 
 .lp-line-mine p {
-	border: 1px solid var(--lp-on-signal);
-	background: var(--lp-signal);
-	color: var(--lp-on-signal);
+	background: var(--lp-accent-subtle);
 }
 
 .lp-live {
-	position: absolute;
-	top: 0;
-	right: 0;
-	color: var(--lp-ink-2);
 	animation: lp-live 1.6s ease-in-out infinite;
 }
 
@@ -330,16 +224,16 @@
 }
 
 .lp-group .lp-line:nth-child(2) {
-	transition-delay: 500ms;
+	transition-delay: 450ms;
 }
 
 .lp-group .lp-line:nth-child(3) {
-	transition-delay: 1100ms;
+	transition-delay: 1000ms;
 }
 
 [data-js] .lp-group:not([data-in]) .lp-line {
 	opacity: 0;
-	transform: translateY(16px);
+	transform: translateY(12px);
 }
 
 .lp-event-steps {
@@ -353,23 +247,27 @@
 .lp-event-steps li {
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr);
-	gap: 4px 20px;
+	gap: 4px 16px;
 	padding-block: 24px;
 	border-top: 1px solid var(--lp-line);
 	transition-delay: calc(var(--i) * 120ms);
 }
 
 .lp-event-index {
+	display: inline-grid;
 	grid-row: span 2;
-	font-family: var(--lp-font-display);
-	font-size: 28px;
-	font-weight: 500;
-	line-height: 1;
-	color: var(--lp-ink-2);
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	border-radius: 999px;
+	background: var(--lp-fill);
+	font-size: var(--lp-text-small);
+	font-weight: var(--font-weight-semibold);
+	font-variant-numeric: tabular-nums;
 }
 
 .lp-event-steps h3 {
-	font-size: 19px;
+	font-size: 18px;
 }
 
 .lp-event-steps p {
