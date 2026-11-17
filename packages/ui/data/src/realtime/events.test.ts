@@ -11,14 +11,17 @@ const person: Member = {
 	displayName: "Old name",
 	avatarUrl: null,
 	bio: null,
+	ownerId: null,
+	isDefault: false,
 	createdAt: "2026-01-01T00:00:00.000Z",
 	version: 1,
 };
 
 const me: MeResponse = {
 	member: person,
-	bot: { ...person, id: "bot_1", kind: "bot", displayName: "Yonder" },
+	bot: { ...person, id: "bot_1", kind: "bot", displayName: "Yonder", ownerId: "mem_1", isDefault: true },
 	signInMethods: [],
+	handleChange: { canChange: true, nextChangeAt: null },
 	hasPassword: false,
 	settings: { locale: "en", theme: "system" },
 };
@@ -170,4 +173,172 @@ test("conversation events insert once and reject older versions", () => {
 		conversation: { ...conversation, title: "old", version: 1 },
 	});
 	expect(client.getQueryData<{ items: Conversation[] }>(keys.conversations.list())?.items).toEqual([conversation]);
+});
+
+test("a system message updates the list preview even though it has no body", () => {
+	const client = new QueryClient();
+	client.setQueryData(keys.conversations.list(), {
+		items: [{ id: "c", lastMessageAt: null, lastMessage: null, members: [], version: 1 }],
+	});
+	const system = {
+		event: "dissolved" as const,
+		actorName: null,
+		targetNames: [],
+	};
+	applyServerEvent(client, {
+		type: "message.created",
+		eventId: "e1",
+		at: "now",
+		message: {
+			id: "m1",
+			conversationId: "c",
+			senderId: "system",
+			senderKind: "person",
+			type: "system",
+			system,
+			body: null,
+			attachments: [],
+			replyToId: null,
+			createdAt: "2026-11-17T00:00:00Z",
+			editedAt: null,
+			streaming: false,
+			version: 1,
+		},
+	});
+	const preview = client.getQueryData<{
+		items: { lastMessage: { type: string; system: typeof system } | null }[];
+	}>(keys.conversations.list())?.items[0]?.lastMessage;
+	expect(preview?.type).toBe("system");
+	expect(preview?.system).toEqual(system);
+});
+
+/** A Bot's name lives in four caches at once; a rename must reach all of them (15 第五节). */
+test("a member update reaches contacts, conversation rows and me.bot, not only me.member", () => {
+	const client = new QueryClient();
+	const yakko = {
+		...person,
+		id: "bot_1",
+		kind: "bot" as const,
+		displayName: "Yonder",
+		ownerId: "mem_1",
+		isDefault: true,
+	};
+	client.setQueryData<MeResponse>(keys.me(), { ...me, bot: yakko });
+	client.setQueryData(keys.contacts(), { items: [person, yakko] });
+	const group: Conversation = {
+		id: "c",
+		kind: "group",
+		title: null,
+		members: [
+			{ memberId: "mem_1", kind: "person", handle: "abc123xyz", displayName: "Old name", avatarUrl: null },
+			{ memberId: "bot_1", kind: "bot", handle: "yonder", displayName: "Yonder", avatarUrl: null, avatarColor: "1" },
+		],
+		lastMessageAt: null,
+		unreadCount: 0,
+		pinned: false,
+		version: 3,
+	};
+	client.setQueryData(keys.conversations.list(), { items: [group] });
+
+	const renamed: Member = {
+		...yakko,
+		displayName: "Researcher",
+		avatarUrl: "https://cdn.example/new.png",
+		version: 2,
+	};
+	let reported: Member | undefined;
+	applyServerEvent(
+		client,
+		{ type: "member.updated", eventId: "e1", at: "now", member: renamed },
+		{ onMemberUpdated: (member) => (reported = member) },
+	);
+
+	expect(client.getQueryData<MeResponse>(keys.me())?.bot.displayName).toBe("Researcher");
+	expect(client.getQueryData<MeResponse>(keys.me())?.member.displayName).toBe("Old name");
+	expect(client.getQueryData<{ items: Member[] }>(keys.contacts())?.items[1]?.displayName).toBe("Researcher");
+	const row = client.getQueryData<{ items: Conversation[] }>(keys.conversations.list())?.items[0];
+	expect(row?.members[1]).toMatchObject({ displayName: "Researcher", avatarUrl: "https://cdn.example/new.png" });
+	expect(row?.members[0]?.displayName).toBe("Old name");
+	expect(reported?.id).toBe("bot_1");
+});
+
+test("an older member payload never replaces the newer copy already cached", () => {
+	const client = new QueryClient();
+	const bot = { ...person, id: "bot_1", kind: "bot" as const, displayName: "Newest", version: 5 };
+	client.setQueryData(keys.contacts(), { items: [bot] });
+	applyServerEvent(client, {
+		type: "member.updated",
+		eventId: "e1",
+		at: "now",
+		member: { ...bot, displayName: "Older", version: 4 },
+	});
+	expect(client.getQueryData<{ items: Member[] }>(keys.contacts())?.items[0]?.displayName).toBe("Newest");
+});
+
+test("a removed member leaves contacts and every conversation it was in", () => {
+	const client = new QueryClient();
+	const bot = { ...person, id: "bot_1", kind: "bot" as const, ownerId: "mem_1" };
+	client.setQueryData(keys.contacts(), { items: [person, bot] });
+	const group: Conversation = {
+		id: "c",
+		kind: "group",
+		title: "Team",
+		members: [
+			{ memberId: "mem_1", kind: "person", handle: "abc123xyz", displayName: "Old name", avatarUrl: null },
+			{ memberId: "bot_1", kind: "bot", handle: "yonder", displayName: "Yonder", avatarUrl: null },
+		],
+		lastMessageAt: null,
+		unreadCount: 0,
+		pinned: false,
+		version: 3,
+	};
+	client.setQueryData(keys.conversations.list(), { items: [group] });
+	let removed: string | undefined;
+	applyServerEvent(
+		client,
+		{ type: "member.removed", eventId: "e1", at: "now", memberId: "bot_1" },
+		{ onMemberRemoved: (id) => (removed = id) },
+	);
+
+	expect(client.getQueryData<{ items: Member[] }>(keys.contacts())?.items.map((item) => item.id)).toEqual(["mem_1"]);
+	expect(
+		client.getQueryData<{ items: Conversation[] }>(keys.conversations.list())?.items[0]?.members.map((m) => m.memberId),
+	).toEqual(["mem_1"]);
+	expect(removed).toBe("bot_1");
+});
+
+test("a removed conversation leaves the list and its cached history, and reports itself", () => {
+	const client = new QueryClient();
+	const conversation: Conversation = {
+		id: "c",
+		kind: "direct",
+		title: null,
+		members: [],
+		lastMessageAt: null,
+		unreadCount: 0,
+		pinned: false,
+		version: 1,
+	};
+	client.setQueryData(keys.conversations.list(), { items: [conversation] });
+	client.setQueryData(keys.messages.latest("c"), { pages: [{ items: [], nextCursor: null, hasMore: false }] });
+	let removed: string | undefined;
+	applyServerEvent(
+		client,
+		{ type: "conversation.removed", eventId: "e1", at: "now", conversationId: "c" },
+		{ onConversationRemoved: (id) => (removed = id) },
+	);
+
+	expect(client.getQueryData<{ items: Conversation[] }>(keys.conversations.list())?.items).toEqual([]);
+	expect(client.getQueryData(keys.messages.latest("c"))).toBeUndefined();
+	expect(removed).toBe("c");
+});
+
+test("a catalog change keeps a copy at the announced version and drops an older one", () => {
+	const client = new QueryClient();
+	const catalog = { version: 3 } as never;
+	client.setQueryData(keys.quotaConfig(), catalog);
+	applyServerEvent(client, { type: "quota.config_changed", eventId: "q1", at: "now", version: 3 });
+	expect(client.getQueryData(keys.quotaConfig())).toEqual(catalog);
+	applyServerEvent(client, { type: "quota.config_changed", eventId: "q2", at: "now", version: 4 });
+	expect(client.getQueryData(keys.quotaConfig())).toBeUndefined();
 });

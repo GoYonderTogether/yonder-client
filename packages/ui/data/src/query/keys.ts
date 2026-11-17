@@ -18,6 +18,7 @@ export const keys = {
 		days: () => ["memory", "days"] as const,
 	},
 	quota: () => ["quota"] as const,
+	quotaConfig: () => ["quota", "config"] as const,
 	quotaRates: () => ["quota", "rates"] as const,
 	usage: (range: string) => ["usage", range] as const,
 	ledger: () => ["quota", "ledger"] as const,
@@ -53,6 +54,9 @@ export const keys = {
 		all: () => ["schedules"] as const,
 		list: () => ["schedules", "list"] as const,
 	},
+	memberProfile: (handle: string) => ["member-profile", handle] as const,
+	publicMemberProfile: (handle: string) => ["member-profile", "public", handle] as const,
+	privacy: () => ["privacy"] as const,
 } as const;
 
 /** Root prefixes used when signing out: every key that must be dropped starts with one of these. */
@@ -75,4 +79,6 @@ export const ALL_ROOT_KEYS: readonly string[] = [
 	"meetings",
 	"memory",
 	"schedules",
+	"member-profile",
+	"privacy",
 ];

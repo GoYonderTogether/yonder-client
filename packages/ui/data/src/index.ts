@@ -15,10 +15,12 @@ export { useSessionStore } from "./auth/session-store.ts";
 export { createMemoryTokenStore } from "./auth/token-store.ts";
 export {
 	useBot,
+	useChangeHandle,
 	useDeleteAccount,
 	useHealth,
 	useMe,
 	usePerson,
+	usePhoneChange,
 	useResetAccountCache,
 	useRevokeSession,
 	useSessions,
@@ -27,18 +29,31 @@ export {
 	useUpdateMe,
 	useUploadAvatar,
 } from "./hooks/account.ts";
+export { ownedBots, useDeleteBot, useUpdateBot, useUploadBotAvatar } from "./hooks/bots.ts";
 export type { CachedMessage } from "./hooks/chat.ts";
 export { useConversations, useMessages, useRunActions, useSendMessage } from "./hooks/chat.ts";
 export { useCompactConversation } from "./hooks/compact.ts";
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
 export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
+export { useGroupActions } from "./hooks/groups.ts";
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
+export { useMemberProfile, usePublicMemberProfile } from "./hooks/members.ts";
 export { deviceTimeZone, useMemoryActions, useMemoryDays } from "./hooks/memory.ts";
+export { usePrivacy, useUpdatePrivacy } from "./hooks/privacy.ts";
 export { useProviderActions, useProviders } from "./hooks/providers.ts";
-export { useInvite, useQuota, useQuotaLedger, useQuotaRates, useResolvedInvite, useUsage } from "./hooks/quota.ts";
+export {
+	useInvite,
+	useQuota,
+	useQuotaConfig,
+	useQuotaLedger,
+	useQuotaRates,
+	useResolvedInvite,
+	useUsage,
+} from "./hooks/quota.ts";
 export { useScheduleActions, useSchedules } from "./hooks/schedules.ts";
 export { useSkill, useSkillActions, useSkillFile, useSkills } from "./hooks/skills.ts";
+export { useStartBotChat, useVisitActions } from "./hooks/visits.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
 export {
 	readLocale,

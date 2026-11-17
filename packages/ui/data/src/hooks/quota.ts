@@ -1,4 +1,6 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { QuotaConfigResponse } from "@yonder/protocol";
+import { CACHE_MAX_AGE_MS } from "../query/client.ts";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
@@ -21,6 +23,41 @@ export function useResolvedInvite(code: string | null, enabled = true) {
 export function useQuota() {
 	const api = useApi();
 	return useQuery({ queryKey: keys.quota(), queryFn: () => api.quota(), staleTime: 30_000 });
+}
+
+/**
+ * The published quota catalog (grant sizes, overflow rules, invite rewards), shared by every screen
+ * that shows more than a balance.
+ *
+ * `configVersion` is the revision the balance was charged under. A request goes out only when the
+ * cached copy is a different revision, or is older than the 24-hour cache lifetime: a balance that
+ * names the revision already held costs no request. `null` is for a screen without a balance (the
+ * signed-out pricing page), where the lifetime alone decides.
+ *
+ * The catalog is public, so it is fetched without a token, and the version doubles as its ETag: a
+ * copy the server still considers current comes back as 304 and the cached one is kept.
+ */
+export function useQuotaConfig(configVersion: number | null = null) {
+	const api = useApi();
+	const queryClient = useQueryClient();
+	const state = queryClient.getQueryState<QuotaConfigResponse>(keys.quotaConfig());
+	const cached = state?.data;
+	const fresh = cached !== undefined && state !== undefined && Date.now() - state.dataUpdatedAt < CACHE_MAX_AGE_MS;
+	const needed = !fresh || (configVersion !== null && cached.version !== configVersion);
+	return useQuery({
+		queryKey: keys.quotaConfig(),
+		queryFn: async () => {
+			const next = await api.quotaConfig(cached ? `"${cached.version}"` : undefined);
+			if (next) return next;
+			if (cached) return cached;
+			throw new Error("the quota catalog answered 304 without a cached copy");
+		},
+		enabled: needed,
+		// Freshness is decided above, from the version and the stored age, so the fetch on a version
+		// change must not be held back by the query's own stale timer.
+		staleTime: 0,
+		gcTime: CACHE_MAX_AGE_MS,
+	});
 }
 
 export function useQuotaLedger() {
