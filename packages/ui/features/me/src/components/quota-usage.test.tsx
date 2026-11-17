@@ -14,7 +14,7 @@ vi.mock("@yonder/ui-data", () => ({
 						{
 							id: "platform-call",
 							at: "2026-11-15T00:00:00Z",
-							model: "glm-5.3-flash",
+							model: "Light",
 							pool: "coding",
 							overflow: true,
 							overflowRate: 1.2,
@@ -29,7 +29,6 @@ vi.mock("@yonder/ui-data", () => ({
 						{
 							id: "user-call",
 							at: "2026-11-15T00:00:00Z",
-							provider: "Personal provider",
 							model: "personal-model",
 							pool: "main",
 							overflow: false,
@@ -51,15 +50,16 @@ vi.mock("@yonder/ui-data", () => ({
 
 import { QuotaUsage } from "./quota-usage.tsx";
 
-test("shows model-only platform usage and retains the user's own provider name", () => {
+test("each call shows only the name the server gave it, with no vendor prefix", () => {
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
 			<QuotaUsage />
 		</I18nextProvider>,
 	);
-	expect(screen.getByText("glm-5.3-flash", { exact: true })).toBeVisible();
-	expect(screen.getByText("Personal provider · personal-model")).toBeVisible();
-	expect(screen.queryByText(/^·/)).toBeNull();
+	expect(screen.getByText("Light", { exact: true })).toBeVisible();
+	expect(screen.getByText("personal-model", { exact: true })).toBeVisible();
+	// No row prefixes the model with a vendor any more, not even the account's own provider.
+	expect(screen.queryByText(/^(Personal provider|DeepSeek) · /)).toBeNull();
 	// A spilled call names its pool and the multiplier it paid; a main-pool call does neither.
 	expect(screen.getByText("Coding · overflow 1.2×")).toBeVisible();
 	expect(screen.getByText("Main", { exact: true })).toBeVisible();

@@ -20,7 +20,6 @@ export function QuotaUsage() {
 					>
 						<div className="min-w-0 text-caption text-[var(--color-text-secondary)]">
 							<p className="break-words text-body text-[var(--color-text-primary)]">
-								{entry.provider ? `${entry.provider} · ` : ""}
 								{entry.model}
 								{!entry.ok ? ` · ${t("me.quota.callFailed")}` : ""}
 							</p>

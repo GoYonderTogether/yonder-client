@@ -113,11 +113,9 @@ export interface UsageEntry {
 	id: string;
 	at: string;
 	/**
-	 * The name the account gave its own provider. Absent for platform calls, which are charged
-	 * under the published catalog and never name the vendor upstream.
+	 * The name shown to the account: a catalog display name for platform calls (`其他` when the
+	 * model has none), or the account's own name for its own provider. Never a vendor or model id.
 	 */
-	provider?: string;
-	/** A catalog display name for platform calls, `其他` when the model has none. */
 	model: string;
 	conversationId: string | null;
 	taskId: string | null;
