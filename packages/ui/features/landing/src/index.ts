@@ -5,3 +5,4 @@ export { detectEnvironment, readPlatformChoice, writePlatformChoice } from "./en
 export { DownloadView } from "./views/download-view.tsx";
 export { LandingView } from "./views/landing-view.tsx";
 export type { PublicViewProps } from "./views/public-layout.tsx";
+export { PublicLayout } from "./views/public-layout.tsx";

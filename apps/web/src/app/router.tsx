@@ -9,6 +9,7 @@ import type { Location } from "react-router";
 import { createBrowserRouter, Navigate, Route, RouterProvider, Routes, useLocation } from "react-router";
 import { Splash } from "../pages/splash.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
+import { MemberCardRoute } from "./member-card-route.tsx";
 
 const ContactWindowPage = lazy(() =>
 	import("../pages/chat-actions/contact-window-page.tsx").then((module) => ({ default: module.ContactWindowPage })),
@@ -19,6 +20,7 @@ const DownloadPage = lazy(() =>
 const InvitePage = lazy(() => import("../pages/invite-page.tsx").then((module) => ({ default: module.InvitePage })));
 const LandingPage = lazy(() => import("../pages/landing-page.tsx").then((module) => ({ default: module.LandingPage })));
 const LegalPage = lazy(() => import("../pages/legal-page.tsx").then((module) => ({ default: module.LegalPage })));
+const PricingPage = lazy(() => import("../pages/pricing-page.tsx").then((module) => ({ default: module.PricingPage })));
 const SetupPasswordPage = lazy(() =>
 	import("../pages/setup-password-page.tsx").then((module) => ({ default: module.SetupPasswordPage })),
 );
@@ -44,58 +46,62 @@ export function AppRoutes() {
 		<>
 			<div hidden={Boolean(background)}>
 				<ChunkBoundary resetKey={(background ?? location).pathname}>
-					<Suspense fallback={<Splash />}>
-						<Routes location={background ?? location}>
-							{ComponentsPage && (
+					{/* `/@对外号` is not a route React Router can express; this guard answers it first (17 3.7). */}
+					<MemberCardRoute pathname={(background ?? location).pathname}>
+						<Suspense fallback={<Splash />}>
+							<Routes location={background ?? location}>
+								{ComponentsPage && (
+									<Route
+										path="/dev/components"
+										element={
+											<Suspense fallback={null}>
+												<ComponentsPage />
+											</Suspense>
+										}
+									/>
+								)}
+								<Route path="/" element={<LandingPage />} />
+								<Route path="/download" element={<DownloadPage />} />
+								<Route path="/sign-in" element={<SignInPage />} />
+								<Route path="/terms" element={<LegalPage kind="terms" />} />
+								<Route path="/privacy" element={<LegalPage kind="privacy" />} />
+								<Route path="/pricing" element={<PricingPage />} />
+								<Route path="/i/:code" element={<InvitePage />} />
 								<Route
-									path="/dev/components"
+									path="/setup/password"
 									element={
-										<Suspense fallback={null}>
-											<ComponentsPage />
-										</Suspense>
+										<RequireSession>
+											<SetupPasswordPage />
+										</RequireSession>
 									}
 								/>
-							)}
-							<Route path="/" element={<LandingPage />} />
-							<Route path="/download" element={<DownloadPage />} />
-							<Route path="/sign-in" element={<SignInPage />} />
-							<Route path="/terms" element={<LegalPage kind="terms" />} />
-							<Route path="/privacy" element={<LegalPage kind="privacy" />} />
-							<Route path="/i/:code" element={<InvitePage />} />
-							<Route
-								path="/setup/password"
-								element={
-									<RequireSession>
-										<SetupPasswordPage />
-									</RequireSession>
-								}
-							/>
-							<Route
-								path="/setup/profile"
-								element={
-									<RequireSession>
-										<SetupProfilePage />
-									</RequireSession>
-								}
-							/>
-							<Route
-								path="/*"
-								element={
-									<RequireSession>
-										<Routes>
-											<Route path="/contacts/add" element={<ContactWindowPage />} />
-											<Route path="/today/*" element={<Navigate to="/messages" replace />} />
-											<Route path="/me/memory/*" element={<Navigate to="/memory" replace />} />
-											{/* The old chat path, from links written before the frame changed. */}
-											<Route path="/chat/*" element={<Navigate to="/messages/main" replace />} />
-											{/* The frame reads the URL itself: tab, then what is open inside it. */}
-											<Route path="*" element={<AppFrame />} />
-										</Routes>
-									</RequireSession>
-								}
-							/>
-						</Routes>
-					</Suspense>
+								<Route
+									path="/setup/profile"
+									element={
+										<RequireSession>
+											<SetupProfilePage />
+										</RequireSession>
+									}
+								/>
+								<Route
+									path="/*"
+									element={
+										<RequireSession>
+											<Routes>
+												<Route path="/contacts/add" element={<ContactWindowPage />} />
+												<Route path="/today/*" element={<Navigate to="/messages" replace />} />
+												<Route path="/me/memory/*" element={<Navigate to="/memory" replace />} />
+												{/* The old chat path, from links written before the frame changed. */}
+												<Route path="/chat/*" element={<Navigate to="/messages/main" replace />} />
+												{/* The frame reads the URL itself: tab, then what is open inside it. */}
+												<Route path="*" element={<AppFrame />} />
+											</Routes>
+										</RequireSession>
+									}
+								/>
+							</Routes>
+						</Suspense>
+					</MemberCardRoute>
 				</ChunkBoundary>
 			</div>
 			{background && (

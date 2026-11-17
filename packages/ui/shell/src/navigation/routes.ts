@@ -31,6 +31,7 @@ export const ROUTES: readonly RouteEntry[] = [
 	{ path: "/sign-in", layer: "tab", public: true },
 	{ path: "/terms", layer: "tab", public: true },
 	{ path: "/privacy", layer: "tab", public: true },
+	{ path: "/pricing", layer: "tab", public: true },
 	{ path: "/setup/password", layer: "tab" },
 	{ path: "/setup/profile", layer: "tab" },
 	{ path: "/messages", layer: "tab", tab: "messages" },
