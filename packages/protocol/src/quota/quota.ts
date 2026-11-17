@@ -9,10 +9,12 @@ export type QuotaPool = "main" | "background" | "external" | "coding";
 export type QuotaLedgerPool = QuotaPool | "legacy";
 
 export interface QuotaPoolBalance {
+	/** This cycle's allowance: what is left plus what this cycle has already spent. */
 	granted: number;
+	/** Spent this cycle, net of refunds. */
 	used: number;
 	remaining: number;
-	/** 0–100; 0 when nothing was granted. */
+	/** 0–100, from `remaining` against this cycle's allowance; 0 when nothing was granted. */
 	remainingPercent: number;
 }
 
@@ -21,8 +23,16 @@ export interface QuotaOverflowRule {
 	overflow: boolean;
 	/** Multiplier applied to the amount drawn from the main pool. */
 	rate: number;
-	/** The main pool may not fall below this share of its granted amount; null when there is no floor. */
-	floorPercent: number | null;
+	/** The main pool may not be drawn below this fixed amount; null when there is no floor. */
+	floor: number | null;
+}
+
+/** The current month cycle: grants land at 00:00 on the 1st, Beijing time. */
+export interface QuotaCycle {
+	/** When this cycle started, ISO. */
+	start: string;
+	/** When the next monthly grant lands, ISO. */
+	resetsAt: string;
 }
 
 export interface QuotaResponse {
@@ -31,7 +41,25 @@ export interface QuotaResponse {
 	granted: number;
 	used: number;
 	pools: Record<QuotaPool, QuotaPoolBalance>;
+	/** The rules currently in force; the catalog itself is `/v1/quota/config`. */
 	overflow: Record<QuotaPool, QuotaOverflowRule>;
+	/** The config revision these figures were charged under; a change means the catalog is stale. */
+	configVersion: number;
+	cycle: QuotaCycle;
+}
+
+/**
+ * The published catalog behind `GET /v1/quota/config`: grant sizes, overflow rules and invite
+ * rewards for the account's tier. It is the same for every account on a tier, so it is cached by
+ * version rather than per account, and it carries no admin-only figures.
+ */
+export interface QuotaConfigResponse {
+	version: number;
+	tier: string;
+	signup: Record<QuotaPool, number>;
+	monthly: Record<QuotaPool, number>;
+	rules: Record<QuotaPool, QuotaOverflowRule>;
+	invite: { inviter: number; invitee: number; maxInvites: number };
 }
 
 export interface InviteResponse {
@@ -55,7 +83,16 @@ export interface ResolveInviteResponse {
 export interface LedgerEntry {
 	id: string;
 	at: string;
-	kind: "grant_signup" | "grant_invite" | "grant_inviter" | "consume" | "adjust" | "refund";
+	kind:
+		| "grant_signup"
+		| "grant_invite"
+		| "grant_inviter"
+		| "grant_monthly"
+		| "grant_admin"
+		| "expire"
+		| "consume"
+		| "adjust"
+		| "refund";
 	pool: QuotaLedgerPool;
 	/** The multiplier applied when this row was drawn from the main pool for another pool. */
 	rate: number;
@@ -75,7 +112,12 @@ export interface QuotaLedgerPage {
 export interface UsageEntry {
 	id: string;
 	at: string;
+	/**
+	 * The name the account gave its own provider. Absent for platform calls, which are charged
+	 * under the published catalog and never name the vendor upstream.
+	 */
 	provider?: string;
+	/** A catalog display name for platform calls, `其他` when the model has none. */
 	model: string;
 	conversationId: string | null;
 	taskId: string | null;
@@ -107,21 +149,24 @@ export interface UsagePage {
 	daily: { date: string; calls: number; cost: number }[];
 }
 
-/** Quota per token for each token category; a price in yuan per million tokens equals this value. */
+/**
+ * One row of the published price list. `name` is the catalog's user-facing name — a tier label
+ * such as 标准 or 轻量 — never a vendor or a model id.
+ */
 export interface RateCardEntry {
-	model: string;
-	displayName: string;
+	name: string;
 	input: number;
 	output: number;
 	cacheWrite: number;
 	cacheRead: number;
-	/** The input price relative to the baseline model, which is 1. */
+	/** The input price relative to the baseline entry, which is 1. */
 	multiple: number;
 }
 
 export interface RateCardResponse {
 	/** How many quota one yuan is worth. */
 	quotaPerYuan: number;
+	/** The `name` of the entry every multiple is relative to. */
 	baseline: string;
 	items: RateCardEntry[];
 }

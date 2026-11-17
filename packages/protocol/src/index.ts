@@ -5,11 +5,13 @@
 
 export type { AgentMessage, AgentToolCall, AgentToolDefinition } from "./agent/tools.ts";
 export type {
+	ChangePhoneRequest,
 	DeleteAccountRequest,
 	DeleteAccountResponse,
 	DeviceInfo,
 	PasswordSignInRequest,
 	PasswordSignInResponse,
+	PhoneChangeCodeRequest,
 	PhoneChannel,
 	RefreshResponse,
 	ResetPasswordRequest,
@@ -24,10 +26,12 @@ export type {
 } from "./auth/auth.ts";
 export type {
 	AddContactResponse,
+	AddGroupMembersRequest,
 	Attachment,
 	AttachmentTextPreview,
 	Conversation,
 	ConversationMember,
+	ConversationVisit,
 	CreateBotRequest,
 	CreateBotResponse,
 	CreateGroupRequest,
@@ -36,6 +40,14 @@ export type {
 	Run,
 	SendMessageRequest,
 	SendMessageResponse,
+	StartVisitRequest,
+	StartVisitResponse,
+	SystemEvent,
+	SystemEventKind,
+	TransferGroupOwnerRequest,
+	UpdateBotRequest,
+	UpdateGroupRequest,
+	VisitState,
 } from "./chat/chat.ts";
 export type { CompactConversationRequest, CompactConversationResponse } from "./chat/compaction.ts";
 export type {
@@ -81,14 +93,21 @@ export type {
 	RetryMeetingRequest,
 } from "./meetings/meetings.ts";
 export type {
+	ChangeHandleRequest,
+	ChangeHandleResponse,
+	HandleChange,
 	LocalePreference,
 	Member,
+	MemberCard,
 	MemberKind,
+	MemberProfileResponse,
 	MemberSettings,
 	MeResponse,
+	PrivacySettings,
 	SignInMethodSummary,
 	ThemePreference,
 	UpdateMeRequest,
+	UpdatePrivacyRequest,
 } from "./member/member.ts";
 export type {
 	MemoryActivity,
@@ -118,6 +137,8 @@ export type {
 export type {
 	InviteResponse,
 	LedgerEntry,
+	QuotaConfigResponse,
+	QuotaCycle,
 	QuotaLedgerPage,
 	QuotaLedgerPool,
 	QuotaOverflowRule,

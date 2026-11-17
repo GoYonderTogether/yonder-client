@@ -23,8 +23,14 @@ export type ServerEvent =
 	| { type: "connector.command.cancelled"; eventId: string; at: string; commandId: string }
 	| { type: "devices.changed"; eventId: string; at: string }
 	| { type: "conversation.updated"; eventId: string; at: string; conversation: Conversation }
+	/** The conversation left this account's list: drop it, with its messages and any open view. */
+	| { type: "conversation.removed"; eventId: string; at: string; conversationId: string }
 	| { type: "member.updated"; eventId: string; at: string; member: Member }
+	/** The member is gone (a deleted Bot): drop it wherever a client is still showing it. */
+	| { type: "member.removed"; eventId: string; at: string; memberId: string }
 	| { type: "quota.updated"; eventId: string; at: string; quota: QuotaResponse }
+	/** The published catalog was edited: the client refetches it when the version differs. */
+	| { type: "quota.config_changed"; eventId: string; at: string; version: number }
 	| { type: "message.created" | "message.updated"; eventId: string; at: string; message: Message }
 	| { type: "run.updated"; eventId: string; at: string; run: Run }
 	| { type: "subtask.updated"; eventId: string; at: string; subtask: SubtaskSummary }

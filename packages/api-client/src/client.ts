@@ -82,6 +82,10 @@ export interface RequestOptions {
 	idempotencyKey?: string;
 	/** Send the access token; default true for everything but the auth endpoints. */
 	authenticated?: boolean;
+	/** An `If-None-Match` validator, for a catalog the server versions with an ETag. */
+	ifNoneMatch?: string;
+	/** Let a 304 resolve to `undefined` rather than throw: the cached copy is still current. */
+	allowNotModified?: boolean;
 	/** Internal: prevents a refresh loop. */
 	retried?: boolean;
 }
@@ -110,7 +114,10 @@ export class ApiClient {
 			this.#options.onSessionLost?.();
 			throw await toApiError(response);
 		}
-		if (!response.ok) throw await toApiError(response);
+		if (!response.ok) {
+			if (options.allowNotModified && response.status === 304) return undefined as T;
+			throw await toApiError(response);
+		}
 		if (options.range && response.status !== 206) {
 			try {
 				await response.body?.cancel?.();
@@ -132,6 +139,7 @@ export class ApiClient {
 		headers["x-client-version"] = this.#options.appVersion;
 		headers["x-client-platform"] = this.#options.clientKind === "shell" ? "desktop" : this.#options.clientKind;
 		if (options.idempotencyKey) headers["idempotency-key"] = options.idempotencyKey;
+		if (options.ifNoneMatch) headers["if-none-match"] = options.ifNoneMatch;
 		if (options.range) headers.range = options.range;
 		if (this.#options.clientKind !== "web") headers["x-yonder-client"] = this.#options.clientKind;
 

@@ -5,8 +5,11 @@
  */
 import type {
 	AddContactResponse,
+	AddGroupMembersRequest,
 	Attachment,
 	AttachmentTextPreview,
+	ChangeHandleResponse,
+	ChangePhoneRequest,
 	CompactConversationRequest,
 	CompactConversationResponse,
 	ConnectorCatalogResponse,
@@ -18,18 +21,23 @@ import type {
 	CreateBotResponse,
 	CreateConnectorRequest,
 	CreateGroupRequest,
+	DeleteAccountRequest,
 	DeleteAccountResponse,
 	DeviceInfo,
 	DeviceListResponse,
 	DiscoverModelsRequest,
 	InviteResponse,
 	Member,
+	MemberProfileResponse,
 	MeResponse,
 	MessagePage,
 	PasswordSignInResponse,
+	PhoneChangeCodeRequest,
+	PrivacySettings,
 	Provider,
 	ProviderList,
 	ProviderModelMetadata,
+	QuotaConfigResponse,
 	QuotaLedgerPage,
 	QuotaResponse,
 	RateCardResponse,
@@ -48,8 +56,14 @@ import type {
 	SkillDetail,
 	SkillFileResponse,
 	SkillListResponse,
+	StartVisitRequest,
+	StartVisitResponse,
+	TransferGroupOwnerRequest,
+	UpdateBotRequest,
 	UpdateConnectorRequest,
+	UpdateGroupRequest,
 	UpdateMeRequest,
+	UpdatePrivacyRequest,
 	UpdateSkillRequest,
 	UsagePage,
 	WechatMiniPhoneRequest,
@@ -134,6 +148,21 @@ export function createEndpoints(client: ApiClient) {
 			return client.request("/v1/bots", { body });
 		},
 
+		updateBot(id: string, body: UpdateBotRequest): Promise<Member> {
+			return client.request(`/v1/bots/${encodeURIComponent(id)}`, { method: "PATCH", body });
+		},
+
+		uploadBotAvatar(id: string, file: Blob): Promise<Member> {
+			return client.request(`/v1/bots/${encodeURIComponent(id)}/avatar`, {
+				raw: { bytes: file, contentType: file.type || "application/octet-stream" },
+			});
+		},
+
+		/** The server answers 204; the default Bot is refused with `default_bot_protected` (409). */
+		deleteBot(id: string): Promise<void> {
+			return client.request(`/v1/bots/${encodeURIComponent(id)}`, { method: "DELETE" });
+		},
+
 		contacts(): Promise<{ items: Member[] }> {
 			return client.request("/v1/contacts");
 		},
@@ -148,6 +177,74 @@ export function createEndpoints(client: ApiClient) {
 
 		createGroup(body: CreateGroupRequest): Promise<Conversation> {
 			return client.request("/v1/conversations/groups", { body });
+		},
+
+		/** Group owner only. Every group call below answers the conversation as the caller now sees it. */
+		updateGroup(conversationId: string, body: UpdateGroupRequest): Promise<Conversation> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}`, { method: "PATCH", body });
+		},
+
+		addGroupMembers(conversationId: string, body: AddGroupMembersRequest): Promise<Conversation> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/members`, { body });
+		},
+
+		/**
+		 * The owner removes someone, or a member removes themself (leaving). A leaver's group drops
+		 * out of their list and the server answers 204; a removed member keeps a read-only copy.
+		 */
+		removeGroupMember(conversationId: string, memberId: string): Promise<void> {
+			return client.request(
+				`/v1/conversations/${encodeURIComponent(conversationId)}/members/${encodeURIComponent(memberId)}`,
+				{ method: "DELETE" },
+			);
+		},
+
+		transferGroupOwner(conversationId: string, body: TransferGroupOwnerRequest): Promise<Conversation> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/owner`, { body });
+		},
+
+		dissolveGroup(conversationId: string): Promise<Conversation> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/dissolve`, { body: {} });
+		},
+
+		/** Open, or find again, the chat with another person's Bot by its public handle (19 第二节). */
+		startVisit(body: StartVisitRequest): Promise<StartVisitResponse> {
+			return client.request("/v1/visits", { body });
+		},
+
+		/** The Bot's owner lets a stranger carry on past the trial. */
+		approveVisit(visitId: string): Promise<Conversation> {
+			return client.request(`/v1/visits/${encodeURIComponent(visitId)}/approve`, { body: {} });
+		},
+
+		denyVisit(visitId: string): Promise<Conversation> {
+			return client.request(`/v1/visits/${encodeURIComponent(visitId)}/deny`, { body: {} });
+		},
+
+		/** The visitor takes over the cost of the rest of the chat: it is charged to their own main quota. */
+		payVisit(visitId: string): Promise<Conversation> {
+			return client.request(`/v1/visits/${encodeURIComponent(visitId)}/pay`, { body: {} });
+		},
+
+		privacy(): Promise<PrivacySettings> {
+			return client.request("/v1/me/privacy");
+		},
+
+		updatePrivacy(body: UpdatePrivacyRequest): Promise<PrivacySettings> {
+			return client.request("/v1/me/privacy", { method: "PATCH", body });
+		},
+
+		/** A card read by someone signed in: carries the relation and the ids the page acts on. */
+		memberProfile(handle: string): Promise<MemberProfileResponse> {
+			return client.request(`/v1/members/${encodeURIComponent(handle)}`);
+		},
+
+		/**
+		 * The same card for someone who is not signed in. It sends no token, so a missing session
+		 * never starts a refresh or reports a lost session.
+		 */
+		publicMemberProfile(handle: string): Promise<MemberProfileResponse> {
+			return client.request(`/v1/members/${encodeURIComponent(handle)}`, { authenticated: false });
 		},
 
 		messages(conversationId: string, cursor?: string): Promise<MessagePage> {
@@ -308,6 +405,21 @@ export function createEndpoints(client: ApiClient) {
 			return client.request("/v1/quota");
 		},
 
+		/**
+		 * The published catalog: grant sizes, overflow rules and invite rewards for a tier. Public,
+		 * like the rate card, so the pricing page works signed out.
+		 *
+		 * `etag` is the cached version as the server quoted it (`"<version>"`). A 304 means the copy
+		 * is still current and this resolves to `undefined`, so the caller keeps what it has.
+		 */
+		quotaConfig(etag?: string): Promise<QuotaConfigResponse | undefined> {
+			return client.request("/v1/quota/config", {
+				authenticated: false,
+				...(etag ? { ifNoneMatch: etag } : {}),
+				allowNotModified: true,
+			});
+		},
+
 		quotaLedger(cursor?: string): Promise<QuotaLedgerPage> {
 			const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
 			return client.request(`/v1/quota/ledger${query}`);
@@ -337,6 +449,19 @@ export function createEndpoints(client: ApiClient) {
 			return client.request("/v1/me/password", { body });
 		},
 
+		changeHandle(handle: string): Promise<ChangeHandleResponse> {
+			return client.request("/v1/me/handle", { body: { handle } });
+		},
+
+		/** Without `target` the code goes to the number the account has now; with it, to the new one. */
+		sendPhoneChangeCode(body: PhoneChangeCodeRequest): Promise<SendCodeResponse> {
+			return client.request("/v1/me/phone/code", { body });
+		},
+
+		changePhone(body: ChangePhoneRequest): Promise<MeResponse> {
+			return client.request("/v1/me/phone", { body });
+		},
+
 		sessions(): Promise<{ items: SessionSummary[] }> {
 			return client.request("/v1/me/sessions");
 		},
@@ -353,7 +478,13 @@ export function createEndpoints(client: ApiClient) {
 			return client.request(`/v1/me/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
 		},
 
-		deleteAccount(body: { confirmHandle: string; reason?: string }): Promise<DeleteAccountResponse> {
+		/** Step one: a code to the account's own number. */
+		sendDeleteAccountCode(): Promise<SendCodeResponse> {
+			return client.request("/v1/me/delete/code", { body: {} });
+		},
+
+		/** Step two: the code and the handle. The account then waits seven days; nothing is erased. */
+		deleteAccount(body: DeleteAccountRequest): Promise<DeleteAccountResponse> {
 			return client.request("/v1/me", { method: "DELETE", body });
 		},
 	};
