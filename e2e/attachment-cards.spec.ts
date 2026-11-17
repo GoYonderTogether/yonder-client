@@ -78,7 +78,14 @@ async function assertCards(page: Page) {
 	const second = await batch.nth(1).boundingBox();
 	if (!first || !second) throw new Error("Missing batch file geometry");
 	expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
-	expect(second.x + second.width).toBeCloseTo(first.x + first.width, 0);
+	// The list pane enters on a spring, and a pointer read during it lands in the pane's moving frame.
+	// Both edges are therefore viewport coordinates; read them again until the pane has settled.
+	await expect
+		.poll(async () => {
+			const [a, b] = await Promise.all([batch.nth(0).boundingBox(), batch.nth(1).boundingBox()]);
+			return Math.abs((b?.x ?? 0) + (b?.width ?? 0) - ((a?.x ?? 0) + (a?.width ?? 0)));
+		}, { timeout: 3000 })
+		.toBeLessThan(0.5);
 	const alignment = await log.evaluate((element) => {
 		const self = [...element.querySelectorAll('[data-message-run][data-run-sender="self"] article')];
 		const other = [...element.querySelectorAll('[data-message-run][data-run-sender="other"] article')];
