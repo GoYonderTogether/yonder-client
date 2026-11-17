@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26111703] - 2026-11-17
+
+### Changed
+
+- memory：remove every automatic trigger; nothing collects or organizes on its own
+
 ## [0.3.26111702] - 2026-11-17
 
 ### Added
