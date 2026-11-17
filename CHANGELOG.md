@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26111702] - 2026-11-17
+
+### Added
+
+- memory：timeline v4 on real days, with sources, delete and day status
+
 ## [0.3.26111701] - 2026-11-17
 
 ### Fixed
