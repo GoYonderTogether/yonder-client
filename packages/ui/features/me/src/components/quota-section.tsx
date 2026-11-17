@@ -1,9 +1,10 @@
 import { Button, ListGroup } from "@yonder/ui-components";
 import { useQuota, useQuotaLedger } from "@yonder/ui-data";
+import { ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { QuotaNumber } from "./quota-number.tsx";
 import { QuotaPools } from "./quota-pools.tsx";
-import { QuotaRates } from "./quota-rates.tsx";
+import { QuotaRatesSection } from "./quota-rates.tsx";
 import { QuotaUsage } from "./quota-usage.tsx";
 
 export function QuotaSection() {
@@ -23,6 +24,7 @@ export function QuotaSection() {
 	}
 
 	const entries = ledger.data?.pages.flatMap((page) => page.items) ?? [];
+	const reset = new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(quota.data.cycle.resetsAt));
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)]">
 			<QuotaPools quota={quota.data} />
@@ -33,6 +35,7 @@ export function QuotaSection() {
 				<p>
 					{t("me.quota.used")} <QuotaNumber value={quota.data.pools.main.used} locale={locale} />
 				</p>
+				<p>{t("me.quota.resetsAt", { date: reset })}</p>
 			</div>
 			<ListGroup title={t("me.quota.ledger")}>
 				{entries.map((entry) => (
@@ -76,7 +79,14 @@ export function QuotaSection() {
 				</Button>
 			) : null}
 			<QuotaUsage />
-			<QuotaRates />
+			<QuotaRatesSection />
+			<a
+				href="/pricing"
+				className="inline-flex items-center gap-[var(--spacing-2)] self-start text-caption text-[var(--color-accent-text)] hover:underline"
+			>
+				<ExternalLink size={16} aria-hidden="true" />
+				{t("me.quota.pricing")}
+			</a>
 		</div>
 	);
 }

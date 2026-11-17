@@ -28,7 +28,8 @@ function PoolBar({ percent, large = false }: { percent: number; large?: boolean 
 
 /**
  * The main pool as one large bar, the other three as one quiet line of percentages. Tapping the
- * line reveals the exact numbers; nothing here is a marketing claim, only the balance.
+ * line reveals the exact numbers and the rule each pool follows; nothing here is a marketing
+ * claim, only the balance and the rule from the published catalog.
  */
 export function QuotaPools({ quota }: { quota: QuotaResponse }) {
 	const { t, i18n } = useTranslation();
@@ -75,9 +76,9 @@ export function QuotaPools({ quota }: { quota: QuotaResponse }) {
 								{quota.overflow[pool].overflow
 									? ` · ${t("me.quota.poolOverflow", { rate: quota.overflow[pool].rate })}`
 									: ` · ${t("me.quota.poolNoOverflow")}`}
-								{quota.overflow[pool].floorPercent === null
+								{quota.overflow[pool].floor === null
 									? ""
-									: ` · ${t("me.quota.poolFloor", { percent: quota.overflow[pool].floorPercent })}`}
+									: ` · ${t("me.quota.poolFloor", { amount: formatExact(quota.overflow[pool].floor, locale) })}`}
 							</p>
 						</li>
 					))}
