@@ -30,7 +30,9 @@ function makeClient(): QueryClient {
 }
 
 function wrapperFor(client: QueryClient) {
-	return ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+	return ({ children }: { children: ReactNode }) => (
+		<QueryClientProvider client={client}>{children}</QueryClientProvider>
+	);
 }
 
 afterEach(() => api.quotaConfig.mockReset());
@@ -74,7 +76,10 @@ test("a cached copy past its 24-hour lifetime is refetched even when the version
 
 	// Age the stored copy past the lifetime the persister keeps it for.
 	const state = client.getQueryState(keys.quotaConfig());
-	client.getQueryCache().find({ queryKey: keys.quotaConfig() })?.setState({ dataUpdatedAt: Date.now() - CACHE_MAX_AGE_MS });
+	client
+		.getQueryCache()
+		.find({ queryKey: keys.quotaConfig() })
+		?.setState({ dataUpdatedAt: Date.now() - CACHE_MAX_AGE_MS });
 	expect(state?.data).toBeDefined();
 	const second = renderHook(() => useQuotaConfig(2), { wrapper });
 	await waitFor(() => expect(api.quotaConfig).toHaveBeenCalledTimes(2));
