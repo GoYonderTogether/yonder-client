@@ -48,8 +48,6 @@ export const memoryMessagesZhCN: { [K in keyof typeof memoryMessagesEn]: string 
 	openFailed: "这个文件打不开",
 	loadFailed: "时间轴没有加载出来",
 	timelineEmpty: "和 Bot 聊过的事、会议录音和后台任务，会按天整理在这里。",
-	organizing: "正在整理",
-	organizeFailed: "这天没有整理出来",
 	delete: "删除这条",
 	deleteConfirm: "确认删除",
 	sourceChat: "对话",

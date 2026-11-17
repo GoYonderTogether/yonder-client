@@ -156,44 +156,6 @@
 	width: var(--spacing-4);
 	height: var(--spacing-4);
 }
-/* Under the title: a quiet line while the day organizes, a real error with one retry when it failed. */
-.memory-day-state {
-	display: flex;
-	align-items: center;
-	gap: var(--spacing-1);
-	padding-bottom: var(--spacing-3);
-	font-size: var(--text-micro);
-	line-height: var(--text-micro--line-height);
-	color: var(--color-text-tertiary);
-}
-.memory-organizing-mark {
-	width: 12px;
-	height: 12px;
-	animation: memory-spin 1.2s linear infinite;
-}
-@keyframes memory-spin {
-	to {
-		transform: rotate(1turn);
-	}
-}
-.memory-day-failed {
-	display: grid;
-	justify-items: start;
-	gap: var(--spacing-2);
-	margin-bottom: var(--spacing-4);
-	padding: var(--spacing-3);
-	border-radius: var(--radius-control);
-	background: var(--color-danger-subtle);
-	font-size: var(--text-caption);
-	line-height: var(--text-caption--line-height);
-	color: var(--color-danger);
-}
-@media (prefers-reduced-motion: reduce) {
-	.memory-organizing-mark {
-		animation: none;
-	}
-}
-
 /* Spine. Stays draw it green while the owner is there; what is still ahead is dashed. */
 .memory-flow,
 .memory-flow ol {

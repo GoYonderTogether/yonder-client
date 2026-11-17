@@ -9,7 +9,6 @@ import { deviceTimeZone, useMemoryActions, useMemoryDays } from "./memory.ts";
 const api = vi.hoisted(() => ({
 	memoryDays: vi.fn(),
 	deleteMemory: vi.fn(),
-	organizeMemoryDay: vi.fn(),
 }));
 vi.mock("../query/provider.tsx", () => ({ useApi: () => api }));
 
@@ -38,7 +37,6 @@ test("every page request carries the device time zone", async () => {
 
 test("deleting and organizing refresh the timeline", async () => {
 	api.deleteMemory.mockResolvedValue({ ok: true });
-	api.organizeMemoryDay.mockResolvedValue({ ok: true });
 	const client = new QueryClient();
 	client.setQueryData(keys.memory.days(), { pages: [page], pageParams: [undefined] });
 	const wrapper = ({ children }: { children: ReactNode }) => <Client client={client}>{children}</Client>;
@@ -46,11 +44,6 @@ test("deleting and organizing refresh the timeline", async () => {
 	act(() => hook.result.current.remove.mutate("entry-1"));
 	await waitFor(() => expect(hook.result.current.remove.isSuccess).toBe(true));
 	expect(api.deleteMemory).toHaveBeenCalledWith("entry-1");
-	expect(client.getQueryState(keys.memory.days())?.isInvalidated).toBe(true);
-	client.setQueryData(keys.memory.days(), { pages: [page], pageParams: [undefined] });
-	act(() => hook.result.current.organize.mutate("2026-11-16"));
-	await waitFor(() => expect(hook.result.current.organize.isSuccess).toBe(true));
-	expect(api.organizeMemoryDay).toHaveBeenCalledWith("2026-11-16");
 	expect(client.getQueryState(keys.memory.days())?.isInvalidated).toBe(true);
 	client.clear();
 });

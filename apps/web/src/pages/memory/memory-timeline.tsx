@@ -26,7 +26,7 @@ export function MemoryTimeline() {
 	// Wide layouts show the timeline on the white detail page; others in the chrome list column.
 	const surface = useShellChrome().mode === "wide" ? "base" : "chrome";
 	const query = useMemoryDays();
-	const { remove, organize } = useMemoryActions();
+	const { remove } = useMemoryActions();
 	const onSource = useSourceNavigation();
 	const [open, setOpen] = useState<string | null>(null);
 	const [preview, setPreview] = useState<PreviewFile>();
@@ -92,11 +92,8 @@ export function MemoryTimeline() {
 		onPreview: setPreview,
 		onSource,
 		onDelete: (id) => remove.mutate(id),
-		onOrganize: (date) => organize.mutate(date),
 		deleting: remove.isPending ? (remove.variables ?? null) : null,
 		deleteError: remove.error ? { id: remove.variables ?? "", error: remove.error } : null,
-		organizing: organize.isPending ? (organize.variables ?? null) : null,
-		organizeError: organize.error ? { date: organize.variables ?? "", error: organize.error } : null,
 	};
 	const railDays: RailDay[] = days.map((day, i) => {
 		const { name, sub } = dayName(day.date, now, t, i18n.language);

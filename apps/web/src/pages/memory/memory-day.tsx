@@ -1,7 +1,6 @@
 import type { MemoryEntry as Entry, MemoryDay, MemoryStay } from "@yonder/protocol";
-import { Button, cn } from "@yonder/ui-components";
-import { ApiError } from "@yonder/ui-data";
-import { ChevronRight, Footprints, Images, LoaderCircle, MapPin } from "lucide-react";
+import { cn } from "@yonder/ui-components";
+import { ChevronRight, Footprints, Images, MapPin } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { type EntryActions, MemoryEntry } from "./memory-entry.tsx";
@@ -10,12 +9,7 @@ import { blockAt, dayName, daysAgo, memoryFormat } from "./memory-format.ts";
 /** Days within a week list every entry; older days fold their one-line entries away. */
 const FULL_DAYS = 6;
 
-export interface DayActions extends EntryActions {
-	/** Organize this day again now, after a failed pass. */
-	onOrganize: (date: string) => void;
-	organizing: string | null;
-	organizeError: { date: string; error: Error } | null;
-}
+export type DayActions = EntryActions;
 
 /**
  * One day: a large title that scrolls with the page (the pinned bar takes over once it reaches the
@@ -49,13 +43,6 @@ export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: D
 				<strong>{name}</strong>
 				<span>{sub}</span>
 			</h3>
-			{day.state === "organizing" ? (
-				<p className="memory-day-state">
-					<OrganizingMark />
-					{t("memory.organizing")}
-				</p>
-			) : null}
-			{day.state === "failed" ? <DayFailure day={day} actions={actions} /> : null}
 			{steps != null || places || photos ? (
 				<p className="memory-digest">
 					{steps != null ? (
@@ -109,32 +96,6 @@ export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: D
 				) : null}
 			</ol>
 		</section>
-	);
-}
-
-/** A spinner beside the caption while the day waits for or runs its organizing pass. */
-function OrganizingMark() {
-	return <LoaderCircle aria-hidden className="memory-organizing-mark" />;
-}
-
-/** A failed organizing pass: the real reason and one retry, in place under the day's title. */
-function DayFailure({ day, actions }: { day: MemoryDay; actions: DayActions }) {
-	const { t } = useTranslation();
-	const error = actions.organizeError?.date === day.date ? actions.organizeError.error : null;
-	const reason = error ? (error instanceof ApiError ? t(error.messageKey) : error.message) : day.failure;
-	return (
-		<div role="alert" className="memory-day-failed">
-			<p>{t("memory.organizeFailed")}</p>
-			{reason ? <p>{reason}</p> : null}
-			<Button
-				size="sm"
-				variant="secondary"
-				loading={actions.organizing === day.date}
-				onClick={() => actions.onOrganize(day.date)}
-			>
-				{t("app.retry")}
-			</Button>
-		</div>
 	);
 }
 

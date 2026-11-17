@@ -25,7 +25,6 @@ const data = vi.hoisted(() => ({
 	next: vi.fn(),
 	refetch: vi.fn(),
 	remove: vi.fn(),
-	organize: vi.fn(),
 	state: { isPending: false, error: null as Error | null, variables: undefined as string | undefined },
 }));
 vi.mock("@yonder/ui-data", async (importOriginal) => {
@@ -42,7 +41,7 @@ vi.mock("@yonder/ui-data", async (importOriginal) => {
 	return {
 		...actual,
 		useMemoryDays: () => data.query,
-		useMemoryActions: () => ({ remove: mutation(data.remove)(), organize: mutation(data.organize)() }),
+		useMemoryActions: () => ({ remove: mutation(data.remove)() }),
 		useConversations: () => ({ data: { items: [{ id: "c-primary", isPrimary: true }] } }),
 		useBot: () => ({ id: "bot-1" }),
 	};
@@ -90,7 +89,6 @@ beforeEach(() => {
 	Element.prototype.scrollIntoView = vi.fn();
 	data.query = pages([today, yesterday, older]);
 	data.remove.mockReset();
-	data.organize.mockReset();
 	data.state = { isPending: false, error: null, variables: undefined };
 	path = "";
 });
@@ -203,22 +201,6 @@ test("a failed delete shows the server's reason inline", () => {
 	expect(within(document.getElementById("memory-drawer-plan") as HTMLElement).getByRole("alert")).toHaveTextContent(
 		"Not found.",
 	);
-});
-
-test("an organizing day says so quietly under its title", () => {
-	data.query = pages([{ ...today, state: "organizing" }]);
-	show();
-	expect(within(screen.getByRole("region", { name: /Today/ })).getByText("Organizing")).toBeVisible();
-});
-
-test("a failed day shows the real reason and retries organizing it", () => {
-	data.query = pages([{ ...today, state: "failed", failure: "The model returned no valid entries" }]);
-	show();
-	const alert = within(screen.getByRole("region", { name: /Today/ })).getByRole("alert");
-	expect(alert).toHaveTextContent("This day was not organized");
-	expect(alert).toHaveTextContent("The model returned no valid entries");
-	fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
-	expect(data.organize).toHaveBeenCalledWith("2026-11-16");
 });
 
 test("a link inside an opened entry jumps to the entry it continues and opens it", () => {

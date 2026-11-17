@@ -46,8 +46,6 @@ export const memoryMessagesEn = {
 	openFailed: "This file could not be opened",
 	loadFailed: "The timeline did not load",
 	timelineEmpty: "Your chats with your Bot, meeting recordings and background tasks are organized here by day.",
-	organizing: "Organizing",
-	organizeFailed: "This day was not organized",
 	delete: "Delete",
 	deleteConfirm: "Confirm delete",
 	sourceChat: "Chat",

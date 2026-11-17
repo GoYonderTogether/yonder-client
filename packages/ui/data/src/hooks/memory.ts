@@ -32,6 +32,5 @@ export function useMemoryActions() {
 	const refresh = () => client.invalidateQueries({ queryKey: keys.memory.days() });
 	return {
 		remove: useMutation({ mutationFn: (id: string) => api.deleteMemory(id), onSuccess: refresh }),
-		organize: useMutation({ mutationFn: (date: string) => api.organizeMemoryDay(date), onSuccess: refresh }),
 	};
 }

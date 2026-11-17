@@ -20,9 +20,5 @@ export function memoryEndpoints(client: ApiClient) {
 		deleteMemory(id: string): Promise<{ ok: true }> {
 			return client.request(`/v1/memory/entries/${encodeURIComponent(id)}`, { method: "DELETE" });
 		},
-		/** Organize this day again now, for example after a failed pass. */
-		organizeMemoryDay(date: string): Promise<{ ok: true }> {
-			return client.request(`/v1/memory/days/${encodeURIComponent(date)}/organize`, { method: "POST" });
-		},
 	};
 }
