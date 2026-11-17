@@ -154,6 +154,7 @@ function runFailureKey(reason: string | null | undefined): string {
 		case "background_quota_floor":
 			return "chat.quotaBackgroundExhausted";
 		case "coding_quota_exhausted":
+		case "coding_quota_floor":
 			return "chat.quotaCodingExhausted";
 		case "external_quota_exhausted":
 			return "chat.quotaExternalExhausted";
