@@ -25,6 +25,7 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 	void queryClient.invalidateQueries({ queryKey: keys.quota() });
 	void queryClient.invalidateQueries({ queryKey: keys.usage("all") });
 	void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
+	void queryClient.invalidateQueries({ queryKey: keys.memory.days() });
 }
 
 export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, handlers: EventHandlers = {}): void {
@@ -84,6 +85,11 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 		case "schedule.changed": {
 			// The plan list carries next times and recent results, so it is refetched rather than patched.
 			void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
+			break;
+		}
+		case "memory.changed": {
+			// A day was organized, edited, deleted or failed; the timeline is one paged query.
+			void queryClient.invalidateQueries({ queryKey: keys.memory.days() });
 			break;
 		}
 	}

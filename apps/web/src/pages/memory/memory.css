@@ -52,202 +52,182 @@
 }
 
 /*
- * Timeline: a plain list. Day headers pin to the top; each entry is a time and one sentence,
- * with at most one quiet line under it. Nothing else lives on the page.
+ * Timeline: one spine for the whole page, newest day first. Each entry takes one of four sizes by
+ * how much it matters; the colour and icon of its node say what kind of material it is.
  */
 .memory-timeline {
-	--memory-time: calc(var(--spacing-10) + var(--spacing-2));
+	--memory-node: var(--spacing-6);
+	--memory-indent: calc(var(--memory-node) + var(--spacing-3));
 	position: relative;
 	width: 100%;
 	max-width: calc(var(--spacing-16) * 9);
 	min-width: 0;
 	margin-inline: auto;
+	padding-bottom: var(--spacing-16);
 }
-.memory-month-title {
+/* The list column sits on chrome with white cards; the desktop page sits on white with chrome cards. */
+.memory-timeline,
+.memory-overlay,
+.memory-rail {
+	--memory-page: var(--color-bg-chrome);
+	--memory-card: var(--color-bg-surface);
+}
+[data-memory-surface="base"] {
+	--memory-page: var(--color-bg-base);
+	--memory-card: var(--color-bg-chrome);
+}
+.memory-kind-place {
+	--memory-dot: var(--color-memory-place);
+	--memory-tint: var(--color-memory-place-bg);
+	--memory-ink: var(--color-memory-place-fg);
+}
+.memory-kind-photo {
+	--memory-dot: var(--color-memory-photo);
+	--memory-tint: var(--color-memory-photo-bg);
+	--memory-ink: var(--color-memory-photo-fg);
+}
+.memory-kind-doc {
+	--memory-dot: var(--color-memory-doc);
+	--memory-tint: var(--color-memory-doc-bg);
+	--memory-ink: var(--color-memory-doc-fg);
+}
+.memory-kind-voice {
+	--memory-dot: var(--color-memory-voice);
+	--memory-tint: var(--color-memory-voice-bg);
+	--memory-ink: var(--color-memory-voice-fg);
+}
+.memory-kind-chat {
+	--memory-dot: var(--color-memory-chat);
+	--memory-tint: var(--color-memory-chat-bg);
+	--memory-ink: var(--color-memory-chat-fg);
+}
+.memory-kind-ai {
+	--memory-dot: var(--color-memory-ai);
+	--memory-tint: var(--color-memory-ai-bg);
+	--memory-ink: var(--color-memory-ai-fg);
+}
+.memory-kind-other {
+	--memory-dot: var(--color-memory-other);
+	--memory-tint: var(--color-memory-other-bg);
+	--memory-ink: var(--color-memory-other-fg);
+}
+
+/* Day: a large title that scrolls with the page, then a quiet digest. */
+.memory-day-title {
+	display: flex;
+	align-items: baseline;
+	gap: var(--spacing-3);
+	min-width: 0;
 	padding: var(--spacing-10) 0 var(--spacing-1);
-	font-size: var(--text-caption);
-	line-height: var(--text-caption--line-height);
-	font-weight: var(--font-weight-semibold);
-	color: var(--color-text-tertiary);
 }
-.memory-month-note {
-	padding-bottom: var(--spacing-2);
-	font-size: var(--text-caption);
-	color: var(--color-text-secondary);
+.memory-day:first-child .memory-day-title {
+	padding-top: 0;
 }
-.memory-day {
-	padding-bottom: var(--spacing-4);
-}
-
-/* Day header: the big name scrolls up from below and pins until the next day pushes it out. */
-.memory-day-head {
-	position: sticky;
-	top: -1px;
-	z-index: 3;
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: var(--spacing-3);
-	padding: var(--spacing-5) 0 var(--spacing-2);
-	background: var(--color-bg-base);
-	box-shadow: 0 1px 0 transparent;
-	transition: box-shadow var(--duration-fast) var(--ease-standard);
-}
-.memory-day-head[data-stuck] {
-	box-shadow: 0 1px 0 var(--color-border-subtle);
-}
-.memory-day-head h3 {
-	display: flex;
-	align-items: baseline;
-	gap: var(--spacing-2);
-	min-width: 0;
-}
-.memory-day-name {
-	font-size: var(--text-h1);
-	line-height: var(--text-h1--line-height);
+.memory-day-title strong {
+	font-size: var(--text-title);
+	line-height: var(--text-title--line-height);
+	letter-spacing: var(--text-title--letter-spacing);
 	font-weight: var(--font-weight-bold);
-	letter-spacing: -0.01em;
 }
-.memory-day-date {
-	font-size: var(--text-caption);
-	color: var(--color-text-tertiary);
-	white-space: nowrap;
-}
-.memory-day-today .memory-day-name,
-.memory-day-now {
-	color: var(--color-accent-text);
-}
-.memory-day-now {
-	font-size: var(--text-caption);
-	font-weight: var(--font-weight-semibold);
-	white-space: nowrap;
-}
-
-/* Entries: time | sentence. Hairlines start under the text, like an iOS plain list. */
-.memory-entry > button {
-	display: grid;
-	grid-template-columns: var(--memory-time) minmax(0, 1fr);
-	gap: var(--spacing-3);
-	width: 100%;
-	padding: var(--spacing-3) 0;
-	text-align: left;
-	cursor: pointer;
-	border-radius: var(--radius-control-sm);
-}
-.memory-entry + .memory-entry > button {
-	box-shadow: inset 0 1px 0 var(--color-border-subtle);
-	border-top-left-radius: 0;
-	border-top-right-radius: 0;
-}
-.memory-entry > button:focus-visible {
-	outline: 2px solid var(--color-accent);
-	outline-offset: 2px;
-}
-.memory-entry time {
-	font-size: var(--text-caption);
-	line-height: var(--text-body--line-height);
-	color: var(--color-text-tertiary);
-	font-variant-numeric: tabular-nums;
-}
-.memory-entry-text {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-}
-.memory-entry-title {
-	display: flex;
-	align-items: baseline;
-	gap: var(--spacing-1);
-	font-size: var(--text-body);
-	line-height: var(--text-body--line-height);
-	color: var(--color-text-primary);
-}
-.memory-entry-title > svg {
-	flex: none;
-	align-self: center;
-	color: var(--color-text-tertiary);
-}
-.memory-entry-note {
-	overflow: hidden;
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
+.memory-day-title span {
 	font-size: var(--text-caption);
 	line-height: var(--text-caption--line-height);
-	color: var(--color-text-secondary);
+	color: var(--color-text-tertiary);
+	white-space: nowrap;
 }
-/* Places read as where you were, not what you did; key moments carry the weight. */
-.memory-entry-place .memory-entry-title {
-	color: var(--color-text-secondary);
-}
-.memory-entry-key .memory-entry-title {
-	font-weight: var(--font-weight-semibold);
-}
-.memory-entry > button:hover .memory-entry-title {
+.memory-day-today .memory-day-title strong {
 	color: var(--color-accent-text);
 }
-.memory-entry-upcoming {
-	opacity: 0.5;
-}
-
-/* An older day folded to its summary. */
-.memory-summary {
+.memory-digest {
 	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: var(--spacing-3);
-	width: 100%;
-	padding: var(--spacing-1) 0 var(--spacing-2);
-	text-align: left;
-	font-size: var(--text-body);
-	line-height: var(--text-body--line-height);
-	color: var(--color-text-primary);
-	cursor: pointer;
-}
-.memory-summary:hover > span:first-child {
-	color: var(--color-accent-text);
-}
-.memory-summary:focus-visible {
-	outline: 2px solid var(--color-accent);
-	outline-offset: 2px;
-	border-radius: var(--radius-control-sm);
-}
-.memory-summary-count {
-	flex: none;
+	flex-wrap: wrap;
+	gap: var(--spacing-1) var(--spacing-4);
+	padding-bottom: var(--spacing-4);
 	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
 	color: var(--color-text-tertiary);
 }
-.memory-month-all {
-	margin-top: var(--spacing-1);
+.memory-digest span {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-1);
 }
-.memory-entry.memory-flash > button,
-.memory-flash.memory-day {
-	animation: memory-flash 1.6s var(--ease-standard);
+.memory-digest svg {
+	width: var(--spacing-4);
+	height: var(--spacing-4);
 }
-@keyframes memory-flash {
-	0%,
-	30% {
-		background: var(--color-accent-subtle);
-	}
-	100% {
-		background: transparent;
-	}
-}
-.memory-error {
+/* Under the title: a quiet line while the day organizes, a real error with one retry when it failed. */
+.memory-day-state {
 	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
+	align-items: center;
+	gap: var(--spacing-1);
+	padding-bottom: var(--spacing-3);
+	font-size: var(--text-micro);
+	line-height: var(--text-micro--line-height);
+	color: var(--color-text-tertiary);
+}
+.memory-organizing-mark {
+	width: 12px;
+	height: 12px;
+	animation: memory-spin 1.2s linear infinite;
+}
+@keyframes memory-spin {
+	to {
+		transform: rotate(1turn);
+	}
+}
+.memory-day-failed {
+	display: grid;
+	justify-items: start;
 	gap: var(--spacing-2);
-	padding: var(--spacing-4);
-	border-radius: var(--radius-card);
+	margin-bottom: var(--spacing-4);
+	padding: var(--spacing-3);
+	border-radius: var(--radius-control);
 	background: var(--color-danger-subtle);
-	color: var(--color-danger);
 	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	color: var(--color-danger);
 }
 @media (prefers-reduced-motion: reduce) {
-	.memory-entry.memory-flash > button,
-	.memory-flash.memory-day {
+	.memory-organizing-mark {
 		animation: none;
 	}
+}
+
+/* Spine. Stays draw it green while the owner is there; what is still ahead is dashed. */
+.memory-flow,
+.memory-flow ol {
+	position: relative;
+	list-style: none;
+}
+.memory-flow::before,
+.memory-stay::before,
+.memory-ahead::before {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: calc(var(--memory-node) / 2 - 1px);
+	width: 2px;
+	border-radius: var(--radius-full);
+	background: var(--color-border-default);
+	content: "";
+}
+.memory-stay,
+.memory-ahead {
+	position: relative;
+}
+.memory-stay::before {
+	z-index: 1;
+	top: var(--spacing-3);
+	bottom: var(--spacing-2);
+	background: color-mix(in srgb, var(--color-memory-place) 45%, transparent);
+}
+.memory-ahead::before {
+	z-index: 1;
+	top: var(--spacing-2);
+	background: repeating-linear-gradient(
+		to bottom,
+		var(--color-border-strong) 0 3px,
+		transparent 3px calc(var(--spacing-2) - 1px)
+	);
 }

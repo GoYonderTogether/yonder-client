@@ -1,0 +1,237 @@
+/*
+ * Overlays drawn over the scroller, never inside it: the pinned day bar across the top, and the
+ * date index on the right edge. Neither takes layout space, so the column never moves.
+ */
+.memory-overlay {
+	position: absolute;
+	left: 0;
+	right: 0;
+	z-index: 5;
+	height: 0;
+	pointer-events: none;
+}
+
+/* Pinned bar: frosted over the page colour (never white), fading out at its lower edge. */
+.memory-pin {
+	position: absolute;
+	inset: 0 0 auto;
+	height: 52px;
+	opacity: 0;
+	transition: opacity var(--duration-base) var(--ease-standard);
+}
+.memory-pin::before {
+	position: absolute;
+	inset: 0 0 calc(-1 * var(--spacing-5));
+	z-index: -1;
+	background: color-mix(in srgb, var(--memory-page) 78%, transparent);
+	-webkit-backdrop-filter: blur(var(--system-bar-blur)) saturate(1.4);
+	backdrop-filter: blur(var(--system-bar-blur)) saturate(1.4);
+	-webkit-mask-image: linear-gradient(to bottom, var(--color-mask-solid) calc(100% - var(--spacing-5)), transparent);
+	mask-image: linear-gradient(to bottom, var(--color-mask-solid) calc(100% - var(--spacing-5)), transparent);
+	content: "";
+}
+.memory-pin-shown {
+	opacity: 1;
+	pointer-events: auto;
+}
+.memory-pin-inner {
+	position: absolute;
+	left: var(--memory-column-left);
+	width: var(--memory-column-width);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--spacing-3);
+	height: 52px;
+	will-change: transform;
+}
+.memory-pin-name {
+	display: flex;
+	align-items: baseline;
+	gap: var(--spacing-2);
+	min-width: 0;
+}
+.memory-pin-name strong {
+	font-size: var(--text-h2);
+	line-height: var(--text-h2--line-height);
+	letter-spacing: -0.01em;
+	font-weight: var(--font-weight-bold);
+}
+.memory-pin-name span {
+	font-size: var(--text-caption);
+	color: var(--color-text-tertiary);
+	white-space: nowrap;
+}
+.memory-pin-today .memory-pin-name strong,
+.memory-pin-side {
+	color: var(--color-accent-text);
+}
+.memory-pin-side {
+	font-size: var(--text-caption);
+	font-weight: var(--font-weight-medium);
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Date index: invisible at rest and above today. */
+.memory-rail {
+	position: absolute;
+	right: 0;
+	z-index: 6;
+	width: var(--spacing-10);
+	outline: none;
+	pointer-events: none;
+}
+.memory-rail-armed {
+	pointer-events: auto;
+}
+.memory-rail-zone {
+	position: absolute;
+	top: calc(-1 * var(--spacing-3));
+	bottom: calc(-1 * var(--spacing-3));
+	right: 0;
+	width: var(--spacing-5);
+	touch-action: pan-y;
+}
+.memory-rail-open .memory-rail-zone {
+	width: calc(var(--spacing-16) * 4);
+	touch-action: none;
+}
+.memory-rail-grip {
+	position: absolute;
+	right: 3px;
+	width: var(--spacing-1);
+	height: var(--spacing-10);
+	border-radius: var(--radius-full);
+	background: var(--color-text-tertiary);
+	opacity: 0;
+	transform: translateY(-50%);
+	transition: opacity var(--duration-base) var(--ease-standard);
+}
+.memory-rail-scrolling .memory-rail-grip {
+	opacity: 0.55;
+}
+.memory-rail-open .memory-rail-grip {
+	opacity: 0;
+}
+.memory-rail-scrim {
+	position: absolute;
+	top: calc(-1 * var(--spacing-10));
+	bottom: calc(-1 * var(--spacing-10));
+	right: 0;
+	width: calc(var(--spacing-16) * 4);
+	background: linear-gradient(
+		to left,
+		var(--memory-page) 35%,
+		color-mix(in srgb, var(--memory-page) 70%, transparent) 70%,
+		transparent
+	);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--duration-base) var(--ease-standard);
+}
+.memory-rail-open .memory-rail-scrim {
+	opacity: 1;
+}
+.memory-rail-items {
+	position: absolute;
+	inset: 0;
+	list-style: none;
+	pointer-events: none;
+}
+.memory-rail-item {
+	position: absolute;
+	right: 0;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--spacing-2);
+	height: 0;
+	white-space: nowrap;
+	opacity: 0;
+	transition:
+		top 90ms linear,
+		opacity var(--duration-base) var(--ease-standard);
+}
+.memory-rail-open .memory-rail-item {
+	opacity: 1;
+}
+.memory-rail-focus {
+	z-index: 1;
+}
+.memory-rail-tick {
+	width: calc(6px + 14px * var(--memory-rail-scale, 0));
+	height: 2px;
+	margin-right: 6px;
+	border-radius: var(--radius-full);
+	background: var(--color-border-strong);
+	transition: width 90ms linear;
+}
+.memory-rail-month .memory-rail-tick {
+	background: var(--color-text-tertiary);
+}
+.memory-rail-moment .memory-rail-tick {
+	height: var(--spacing-1);
+	background: var(--color-memory-place);
+}
+.memory-rail-active .memory-rail-tick {
+	background: var(--color-accent);
+}
+.memory-rail-focus .memory-rail-tick {
+	background: var(--color-text-primary);
+}
+.memory-rail-label {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	width: max-content;
+	font-size: var(--text-micro);
+	line-height: var(--text-micro--line-height);
+	color: var(--color-text-secondary);
+	opacity: var(--memory-rail-label, 0);
+	transform: translateX(calc((1 - var(--memory-rail-scale, 0)) * 10px))
+		scale(calc(0.86 + 0.22 * var(--memory-rail-scale, 0)));
+	transform-origin: right center;
+	transition:
+		transform 90ms linear,
+		opacity 90ms linear;
+	font-variant-numeric: tabular-nums;
+}
+.memory-rail-label b {
+	font-weight: var(--font-weight-semibold);
+	color: var(--color-text-primary);
+}
+.memory-rail-label small {
+	display: none;
+	max-width: calc(var(--spacing-16) * 3);
+	overflow: hidden;
+	font-size: var(--text-micro);
+	color: var(--color-text-tertiary);
+	text-overflow: ellipsis;
+}
+.memory-rail-focus .memory-rail-label {
+	padding: 6px var(--spacing-3);
+	border-radius: var(--radius-control);
+	background: var(--color-bg-raised);
+	box-shadow:
+		var(--shadow-md),
+		0 0 0 0.5px var(--color-border-subtle);
+}
+.memory-rail-focus .memory-rail-label small {
+	display: block;
+}
+.memory-rail-pressing .memory-rail-focus .memory-rail-label {
+	background: var(--color-accent);
+}
+.memory-rail-pressing .memory-rail-focus .memory-rail-label,
+.memory-rail-pressing .memory-rail-focus .memory-rail-label b,
+.memory-rail-pressing .memory-rail-focus .memory-rail-label small {
+	color: var(--color-on-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+	.memory-rail-item,
+	.memory-rail-label,
+	.memory-rail-tick {
+		transition: none;
+	}
+}

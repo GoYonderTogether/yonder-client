@@ -1,0 +1,389 @@
+/* Small icon sizes come first, so the node rules below can refine them. */
+.memory-link svg {
+	width: 13px;
+	height: 13px;
+}
+.memory-chip svg {
+	width: 14px;
+	height: 14px;
+	color: var(--memory-dot);
+}
+.memory-facts svg {
+	width: 13px;
+	height: 13px;
+}
+.memory-fold > button svg {
+	width: 14px;
+	height: 14px;
+	transition: transform var(--duration-base) var(--ease-standard);
+}
+
+/* Nodes: size says how much the entry matters; colour and icon say what kind of material it is. */
+.memory-node {
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 2;
+	display: grid;
+	place-items: center;
+	width: var(--memory-node);
+	height: var(--memory-node);
+}
+.memory-node i {
+	display: grid;
+	place-items: center;
+	border-radius: var(--radius-full);
+	box-shadow: 0 0 0 3px var(--memory-page);
+}
+.memory-node i svg {
+	width: 13px;
+	height: 13px;
+}
+.memory-size-line .memory-node {
+	top: 0;
+	height: var(--text-body--line-height);
+}
+.memory-size-line .memory-node i {
+	width: var(--spacing-2);
+	height: var(--spacing-2);
+	background: var(--memory-dot);
+}
+.memory-size-line .memory-node svg {
+	display: none;
+}
+.memory-size-note .memory-node i,
+.memory-size-media .memory-node i {
+	width: var(--memory-node);
+	height: var(--memory-node);
+	background: var(--memory-tint);
+	color: var(--memory-ink);
+}
+.memory-size-moment .memory-node {
+	top: var(--spacing-3);
+}
+.memory-size-moment .memory-node i {
+	width: calc(var(--memory-node) + var(--spacing-1));
+	height: calc(var(--memory-node) + var(--spacing-1));
+	background: var(--memory-dot);
+	color: var(--color-on-media);
+}
+.memory-size-moment .memory-node svg {
+	width: 15px;
+	height: 15px;
+}
+
+/* Entries and their rhythm: small things sit close; big moments get room around them. */
+.memory-entry {
+	position: relative;
+	isolation: isolate;
+	padding-left: var(--memory-indent);
+}
+.memory-flow > li + li,
+.memory-flow ol > li + li {
+	margin-top: var(--spacing-4);
+}
+.memory-flow .memory-size-line + .memory-size-line {
+	margin-top: var(--spacing-2);
+}
+.memory-flow .memory-size-moment,
+.memory-flow li + .memory-size-moment,
+.memory-flow .memory-size-moment + li {
+	margin-block: var(--spacing-6);
+}
+.memory-hit {
+	position: relative;
+	display: block;
+	width: 100%;
+	min-width: 0;
+	border-radius: var(--radius-control);
+	text-align: left;
+}
+button.memory-hit {
+	cursor: pointer;
+}
+.memory-hit::after {
+	position: absolute;
+	inset: calc(-1 * var(--spacing-2)) calc(-1 * var(--spacing-3));
+	z-index: -1;
+	border-radius: var(--radius-card);
+	background: var(--memory-card);
+	box-shadow: var(--shadow-sm);
+	opacity: 0;
+	transform: scale(0.98);
+	transition:
+		opacity var(--duration-base) var(--ease-standard),
+		transform var(--duration-slow) var(--ease-decelerate);
+	content: "";
+}
+.memory-open > .memory-hit::after {
+	opacity: 1;
+	transform: none;
+}
+@media (hover: hover) {
+	.memory-entry:not(.memory-open, .memory-size-moment) > button.memory-hit:hover::after {
+		opacity: 0.6;
+		box-shadow: none;
+		transform: none;
+	}
+}
+.memory-hit:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: var(--spacing-1);
+}
+.memory-row {
+	display: flex;
+	align-items: baseline;
+	gap: var(--spacing-3);
+}
+.memory-title {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.memory-row time {
+	flex-shrink: 0;
+	font-size: var(--text-micro);
+	line-height: var(--text-caption--line-height);
+	color: var(--color-text-tertiary);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Line: one short sentence and a link. */
+.memory-size-line .memory-title {
+	color: var(--color-text-secondary);
+}
+.memory-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	margin-left: var(--spacing-2);
+	font-size: var(--text-caption);
+	color: var(--memory-ink);
+	white-space: nowrap;
+}
+
+/* Note and media: a medium-weight title over the details. */
+.memory-size-note .memory-title,
+.memory-size-media .memory-title {
+	font-weight: var(--font-weight-medium);
+	line-height: var(--text-h3--line-height);
+}
+.memory-text {
+	display: -webkit-box;
+	margin-top: 2px;
+	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	font-size: var(--text-caption);
+	line-height: var(--text-body--line-height);
+	color: var(--color-text-secondary);
+}
+.memory-open .memory-text {
+	-webkit-line-clamp: unset;
+}
+.memory-chips {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--spacing-2) 6px;
+	margin-top: var(--spacing-2);
+}
+.memory-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	max-width: 100%;
+	height: calc(var(--spacing-6) + 2px);
+	padding: 0 var(--spacing-2) 0 6px;
+	border-radius: var(--radius-control-sm);
+	background: var(--color-bg-subtle);
+	font-size: var(--text-micro);
+	color: var(--color-text-secondary);
+	white-space: nowrap;
+}
+.memory-chip span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.memory-tag {
+	font-size: var(--text-micro);
+	color: var(--color-text-tertiary);
+}
+.memory-thumbs {
+	display: flex;
+	gap: 6px;
+	margin-top: var(--spacing-2);
+}
+
+/* Moment: the day's big occasion, the only entry drawn as a card at rest. */
+.memory-size-moment > .memory-hit {
+	padding: var(--spacing-3) var(--spacing-4) var(--spacing-4);
+}
+.memory-size-moment > .memory-hit::after {
+	inset: 0;
+	opacity: 1;
+	transform: none;
+	box-shadow: none;
+}
+.memory-size-moment .memory-title {
+	font-size: var(--text-h3);
+	line-height: var(--text-h3--line-height);
+	font-weight: var(--font-weight-semibold);
+}
+.memory-mosaic {
+	display: grid;
+	grid-template-columns: 2fr 1fr;
+	grid-template-rows: repeat(2, calc(var(--spacing-16) + var(--spacing-5)));
+	gap: 3px;
+	margin: calc(-1 * var(--spacing-3)) calc(-1 * var(--spacing-4)) var(--spacing-3);
+	overflow: hidden;
+	border-radius: var(--radius-card) var(--radius-card) var(--radius-xs) var(--radius-xs);
+}
+.memory-mosaic-4 {
+	grid-template-columns: 2fr 1fr 1fr;
+}
+.memory-mosaic .memory-thumb {
+	width: auto;
+	height: auto;
+	border-radius: 0;
+}
+.memory-mosaic .memory-thumb:first-child {
+	grid-row: span 2;
+}
+.memory-mosaic-4 .memory-thumb:nth-child(4) {
+	grid-column: span 2;
+}
+.memory-facts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px var(--spacing-3);
+	margin-top: 2px;
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	color: var(--color-text-tertiary);
+}
+.memory-facts span {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-1);
+}
+.memory-facts .memory-fact-place {
+	color: var(--color-memory-place-fg);
+}
+.memory-people {
+	display: flex;
+	align-items: center;
+	margin-top: var(--spacing-3);
+	font-size: var(--text-micro);
+	color: var(--color-text-tertiary);
+}
+.memory-people > :not(:last-child) {
+	margin-right: -5px;
+	box-shadow: 0 0 0 2px var(--memory-card);
+}
+.memory-people > span:last-child {
+	margin-left: var(--spacing-3);
+}
+
+/* Place, now and folded small things. */
+.memory-place {
+	position: relative;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0 var(--spacing-2);
+	min-height: var(--memory-node);
+	margin-bottom: var(--spacing-3);
+	padding-left: var(--memory-indent);
+	font-size: var(--text-caption);
+	font-weight: var(--font-weight-medium);
+	color: var(--color-memory-place-fg);
+}
+.memory-place .memory-node i {
+	width: var(--memory-node);
+	height: var(--memory-node);
+	background: var(--color-memory-place);
+	color: var(--color-on-media);
+}
+.memory-place small {
+	font-size: var(--text-micro);
+	font-weight: var(--font-weight-normal);
+	color: var(--color-text-tertiary);
+	font-variant-numeric: tabular-nums;
+}
+.memory-now {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2);
+	height: var(--spacing-5);
+	padding-left: var(--memory-indent);
+	font-size: var(--text-micro);
+	font-weight: var(--font-weight-semibold);
+	color: var(--color-accent-text);
+	font-variant-numeric: tabular-nums;
+}
+.memory-now::before {
+	position: absolute;
+	left: calc(var(--memory-node) / 2 - 5px);
+	z-index: 2;
+	width: 10px;
+	height: 10px;
+	border-radius: var(--radius-full);
+	background: var(--color-accent);
+	box-shadow:
+		0 0 0 3px var(--memory-page),
+		0 0 0 6px var(--color-accent-subtle);
+	content: "";
+}
+.memory-now::after {
+	flex: 1;
+	height: 1px;
+	background: linear-gradient(to right, var(--color-accent), transparent);
+	opacity: 0.5;
+	content: "";
+}
+.memory-upcoming .memory-title,
+.memory-upcoming time {
+	color: var(--color-text-tertiary);
+}
+.memory-upcoming .memory-node i,
+.memory-fold .memory-node i {
+	background: var(--memory-page);
+	color: var(--color-text-tertiary);
+	box-shadow:
+		inset 0 0 0 2px var(--color-border-strong),
+		0 0 0 3px var(--memory-page);
+}
+.memory-fold {
+	position: relative;
+	padding-left: var(--memory-indent);
+}
+.memory-fold .memory-node {
+	height: var(--text-caption--line-height);
+}
+.memory-fold .memory-node i {
+	width: var(--spacing-2);
+	height: var(--spacing-2);
+}
+.memory-fold > button {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-1);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	color: var(--color-text-tertiary);
+	cursor: pointer;
+}
+.memory-fold.memory-open > button svg {
+	transform: rotate(90deg);
+}
+.memory-fold ol {
+	padding-top: var(--spacing-2);
+}
+.memory-fold .memory-entry {
+	padding-left: 0;
+}
+.memory-fold .memory-entry > .memory-node {
+	left: calc(-1 * var(--memory-indent));
+}

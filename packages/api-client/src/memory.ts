@@ -1,17 +1,28 @@
-import type { MemoryDayList, MemoryMonthList, MemoryRefDetail } from "@yonder/protocol";
+import type { MemoryDayPage, MemoryEntry, UpdateMemoryRequest } from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
 
 export function memoryEndpoints(client: ApiClient) {
 	return {
-		/** Recent days in full; pass `month` (`YYYY-MM`) for one older month. */
-		memoryDays(month?: string): Promise<MemoryDayList> {
-			return client.request(`/v1/memory/days${month ? `?month=${encodeURIComponent(month)}` : ""}`);
+		/**
+		 * Newest days first; pass the previous page's `nextCursor` for older days. `timeZone` is the
+		 * device's IANA zone, which decides which calendar day an event belongs to.
+		 */
+		memoryDays(cursor?: string, timeZone?: string): Promise<MemoryDayPage> {
+			const query = new URLSearchParams();
+			if (cursor) query.set("cursor", cursor);
+			if (timeZone) query.set("tz", timeZone);
+			const search = query.toString();
+			return client.request(`/v1/memory/days${search ? `?${search}` : ""}`);
 		},
-		memoryMonths(): Promise<MemoryMonthList> {
-			return client.request("/v1/memory/months");
+		updateMemory(id: string, patch: UpdateMemoryRequest): Promise<MemoryEntry> {
+			return client.request(`/v1/memory/entries/${encodeURIComponent(id)}`, { method: "PATCH", body: patch });
 		},
-		memoryRef(id: string): Promise<MemoryRefDetail> {
-			return client.request(`/v1/memory/refs/${encodeURIComponent(id)}`);
+		deleteMemory(id: string): Promise<{ ok: true }> {
+			return client.request(`/v1/memory/entries/${encodeURIComponent(id)}`, { method: "DELETE" });
+		},
+		/** Organize this day again now, for example after a failed pass. */
+		organizeMemoryDay(date: string): Promise<{ ok: true }> {
+			return client.request(`/v1/memory/days/${encodeURIComponent(date)}/organize`, { method: "POST" });
 		},
 	};
 }

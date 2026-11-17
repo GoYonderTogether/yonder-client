@@ -6,7 +6,9 @@ import { useTranslation } from "react-i18next";
 import { MemoryCards } from "./memory/memory-cards.tsx";
 import { MemoryTimeline } from "./memory/memory-timeline.tsx";
 import "./memory/memory.css";
-import "./memory/memory-panels.css";
+import "./memory/memory-entry.css";
+import "./memory/memory-drawer.css";
+import "./memory/memory-overlay.css";
 
 export function MemoryList({ files, onChange }: { files: boolean; onChange: (files: boolean) => void }) {
 	const { t } = useTranslation();
@@ -39,7 +41,13 @@ export function MemoryList({ files, onChange }: { files: boolean; onChange: (fil
 	);
 }
 
+/** Wide layouts read the timeline here; narrower ones read it in the list column under the cards. */
 export function MemoryPage({ files = false }: { files?: boolean }) {
 	const { t } = useTranslation();
-	return <PageFrame title={files ? null : t("memory.aboutMe")}>{files ? null : <MemoryTimeline />}</PageFrame>;
+	const { mode } = useShellChrome();
+	return (
+		<PageFrame title={files ? null : t("memory.aboutMe")}>
+			{files || mode !== "wide" ? null : <MemoryTimeline />}
+		</PageFrame>
+	);
 }

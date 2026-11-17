@@ -1,0 +1,142 @@
+import type { MemoryEntry as Entry, MemorySource, MemoryTarget } from "@yonder/protocol";
+import { Button } from "@yonder/ui-components";
+import { ApiError } from "@yonder/ui-data";
+import type { LucideIcon } from "lucide-react";
+import { CornerDownRight, ListChecks, MessageCircle, Mic } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { EntryActions } from "./memory-entry.tsx";
+import { Material } from "./memory-material.tsx";
+import { MemoryThumb } from "./memory-media.tsx";
+
+const SOURCE_ICONS: Record<MemorySource["kind"], LucideIcon> = {
+	chat: MessageCircle,
+	meeting: Mic,
+	task: ListChecks,
+};
+
+const SOURCE_LABELS: Record<MemorySource["kind"], string> = {
+	chat: "memory.sourceChat",
+	meeting: "memory.sourceMeeting",
+	task: "memory.sourceTask",
+};
+
+/** What an entry holds once it is opened: the organized account, media, materials, sources and delete. */
+export function EntryDrawer({ entry, actions }: { entry: Entry; actions: EntryActions }) {
+	return (
+		<div className="memory-drawer-body">
+			{entry.body ? (
+				<p className="memory-drawer-text">{entry.body}</p>
+			) : entry.text && entry.size !== "note" ? (
+				<p className="memory-drawer-text">{entry.text}</p>
+			) : null}
+			{entry.quote ? (
+				<blockquote className="memory-quote">
+					{entry.quote.text}
+					<small>{entry.quote.source}</small>
+				</blockquote>
+			) : null}
+			{entry.media.length ? (
+				<div className={entry.media.length === 1 ? "memory-gallery memory-gallery-one" : "memory-gallery"}>
+					{entry.media.map((media) => (
+						<MemoryThumb key={media.attachment.id} media={media} onOpen={actions.onPreview} />
+					))}
+				</div>
+			) : null}
+			{entry.materials.length ? (
+				<ul className="memory-materials">
+					{entry.materials.map((material) => (
+						<Material key={material.id} material={material} onPreview={actions.onPreview} />
+					))}
+				</ul>
+			) : null}
+			{entry.links.length ? (
+				<div className="memory-links">
+					{entry.links.map((link) => (
+						<button key={`${link.date}-${link.entryId}`} type="button" onClick={() => actions.onLink(link)}>
+							<CornerDownRight aria-hidden />
+							{link.label}
+						</button>
+					))}
+				</div>
+			) : null}
+			{entry.sources.length ? <SourceList sources={entry.sources} onSource={actions.onSource} /> : null}
+			{entry.deletable ? <DeleteEntry id={entry.id} actions={actions} /> : null}
+		</div>
+	);
+}
+
+/**
+ * One row per place the entry was organized from. A row with a target opens the conversation or the
+ * scheduled-task list it came from; a row without one is a plain line.
+ */
+function SourceList({ sources, onSource }: { sources: MemorySource[]; onSource: (target: MemoryTarget) => void }) {
+	const { t } = useTranslation();
+	return (
+		<ul className="memory-sources">
+			{sources.map((source) => {
+				const Icon = SOURCE_ICONS[source.kind];
+				const content = (
+					<>
+						<i>
+							<Icon aria-hidden />
+						</i>
+						<span>{source.title || t(SOURCE_LABELS[source.kind])}</span>
+						{source.kind === "chat" ? <small>{t("memory.sourceMessages", { count: source.count })}</small> : null}
+					</>
+				);
+				// A source has no id of its own: its kind, title and where it goes name it.
+				const key = `${source.kind}|${source.title}|${source.target ? JSON.stringify(source.target) : ""}`;
+				const target = source.target;
+				return (
+					<li key={key}>
+						{target ? (
+							<button type="button" className="memory-source" onClick={() => onSource(target)}>
+								{content}
+							</button>
+						) : (
+							<div className="memory-source">{content}</div>
+						)}
+					</li>
+				);
+			})}
+		</ul>
+	);
+}
+
+/** A quiet delete at the foot of the drawer; the second tap within four seconds does it. */
+function DeleteEntry({ id, actions }: { id: string; actions: EntryActions }) {
+	const { t } = useTranslation();
+	const [armed, setArmed] = useState(false);
+	useEffect(() => {
+		if (!armed) return;
+		const timer = window.setTimeout(() => setArmed(false), 4000);
+		return () => window.clearTimeout(timer);
+	}, [armed]);
+	const error = actions.deleteError?.id === id ? actions.deleteError.error : null;
+	return (
+		<div className="memory-delete">
+			<Button
+				size="sm"
+				variant="link"
+				loading={actions.deleting === id}
+				className={armed ? "memory-delete-armed" : undefined}
+				onClick={() => {
+					if (!armed) {
+						setArmed(true);
+						return;
+					}
+					setArmed(false);
+					actions.onDelete(id);
+				}}
+			>
+				{armed ? t("memory.deleteConfirm") : t("memory.delete")}
+			</Button>
+			{error ? (
+				<p role="alert" className="memory-error-line">
+					{error instanceof ApiError ? t(error.messageKey) : error.message}
+				</p>
+			) : null}
+		</div>
+	);
+}

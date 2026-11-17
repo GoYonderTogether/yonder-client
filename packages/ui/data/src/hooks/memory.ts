@@ -1,29 +1,37 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
-/** Recent days in full when `month` is null; otherwise every day of that older month. */
-export function useMemoryDays(month: string | null = null, enabled = true) {
+/**
+ * The device's IANA zone. It decides which calendar day an event belongs to, and the server keeps
+ * it on the account, so every page request carries it.
+ */
+export function deviceTimeZone(): string | undefined {
+	try {
+		return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/** The memory timeline, newest day first; `fetchNextPage` loads older days. */
+export function useMemoryDays() {
 	const api = useApi();
-	return useQuery({
-		queryKey: keys.memory.days(month ?? "recent"),
-		queryFn: () => api.memoryDays(month ?? undefined),
-		enabled,
+	return useInfiniteQuery({
+		queryKey: keys.memory.days(),
+		initialPageParam: undefined as string | undefined,
+		queryFn: ({ pageParam }) => api.memoryDays(pageParam, deviceTimeZone()),
+		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
 		staleTime: 60_000,
 	});
 }
 
-export function useMemoryMonths() {
+export function useMemoryActions() {
 	const api = useApi();
-	return useQuery({ queryKey: keys.memory.months(), queryFn: () => api.memoryMonths(), staleTime: 5 * 60_000 });
-}
-
-export function useMemoryRef(id: string | null) {
-	const api = useApi();
-	return useQuery({
-		queryKey: keys.memory.ref(id ?? ""),
-		queryFn: () => api.memoryRef(id ?? ""),
-		enabled: Boolean(id),
-		staleTime: 60_000,
-	});
+	const client = useQueryClient();
+	const refresh = () => client.invalidateQueries({ queryKey: keys.memory.days() });
+	return {
+		remove: useMutation({ mutationFn: (id: string) => api.deleteMemory(id), onSuccess: refresh }),
+		organize: useMutation({ mutationFn: (date: string) => api.organizeMemoryDay(date), onSuccess: refresh }),
+	};
 }

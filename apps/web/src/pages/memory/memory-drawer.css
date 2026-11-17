@@ -1,0 +1,299 @@
+/* Icon sizes and the thumbnail base come first, so the contextual rules below can refine them. */
+.memory-links svg,
+.memory-source svg {
+	width: 13px;
+	height: 13px;
+}
+.memory-source svg {
+	flex-shrink: 0;
+}
+.memory-thumb-video svg {
+	fill: currentColor;
+}
+.memory-material > svg {
+	width: var(--spacing-4);
+	height: var(--spacing-4);
+	color: var(--color-text-tertiary);
+}
+.memory-thumb {
+	position: relative;
+	flex: 0 0 auto;
+	display: block;
+	width: var(--spacing-16);
+	height: var(--spacing-12);
+	overflow: hidden;
+	border-radius: var(--radius-control-sm);
+	background: var(--color-bg-subtle);
+}
+
+/* Accordion: an entry opens in place; height animates through grid rows 0fr -> 1fr. */
+.memory-drawer {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows var(--duration-slow) var(--ease-decelerate);
+}
+.memory-drawer > div {
+	min-height: 0;
+	overflow: hidden;
+}
+.memory-open > .memory-drawer {
+	grid-template-rows: 1fr;
+}
+.memory-drawer-body {
+	position: relative;
+	padding: var(--spacing-4) 0 6px;
+	animation: memory-drawer-in var(--duration-slow) var(--ease-decelerate) both;
+}
+@keyframes memory-drawer-in {
+	from {
+		opacity: 0;
+		transform: translateY(-6px);
+	}
+}
+.memory-drawer-body::before {
+	position: absolute;
+	inset: calc(-1 * var(--spacing-2)) calc(-1 * var(--spacing-3));
+	z-index: -1;
+	border-radius: 0 0 var(--radius-card) var(--radius-card);
+	background: var(--memory-card);
+	content: "";
+}
+.memory-size-moment .memory-drawer-body {
+	padding: var(--spacing-1) var(--spacing-4) 0;
+}
+.memory-size-moment .memory-drawer-body::before {
+	inset: 0 0 calc(-1 * var(--spacing-4));
+}
+.memory-drawer-text {
+	font-size: var(--text-caption);
+	line-height: var(--text-body--line-height);
+	color: var(--color-text-secondary);
+}
+.memory-quote {
+	margin-top: var(--spacing-3);
+	padding-left: var(--spacing-3);
+	border-left: 2px solid var(--color-memory-voice);
+	font-size: var(--text-caption);
+	line-height: var(--text-body--line-height);
+}
+.memory-quote small {
+	display: block;
+	margin-top: 2px;
+	font-size: var(--text-micro);
+	color: var(--color-text-tertiary);
+}
+.memory-gallery {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--spacing-1);
+	margin-top: var(--spacing-3);
+}
+.memory-gallery .memory-thumb {
+	width: auto;
+	height: auto;
+	aspect-ratio: 1;
+	border-radius: 6px;
+}
+.memory-gallery-one {
+	grid-template-columns: minmax(0, 1fr);
+}
+.memory-gallery-one .memory-thumb {
+	aspect-ratio: 16 / 9;
+}
+.memory-materials {
+	display: grid;
+	gap: 2px;
+	margin-top: var(--spacing-3);
+	list-style: none;
+}
+.memory-material {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-3);
+	width: calc(100% + var(--spacing-4));
+	margin-inline: calc(-1 * var(--spacing-2));
+	padding: var(--spacing-2);
+	border-radius: var(--radius-control);
+	color: inherit;
+	text-align: left;
+	text-decoration: none;
+}
+:is(button, a).memory-material {
+	cursor: pointer;
+}
+:is(button, a).memory-material:hover {
+	background: var(--color-bg-subtle);
+}
+.memory-material > i {
+	display: grid;
+	place-items: center;
+	flex-shrink: 0;
+	width: var(--control-sm);
+	height: var(--control-sm);
+	border-radius: var(--radius-control-sm);
+	background: var(--memory-tint);
+	color: var(--memory-ink);
+}
+.memory-material > i svg {
+	width: var(--spacing-4);
+	height: var(--spacing-4);
+}
+.memory-material > span {
+	flex: 1;
+	min-width: 0;
+}
+.memory-material b {
+	display: block;
+	overflow: hidden;
+	font-size: var(--text-caption);
+	font-weight: var(--font-weight-medium);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.memory-material small {
+	display: block;
+	font-size: var(--text-micro);
+	line-height: var(--text-micro--line-height);
+	color: var(--color-text-tertiary);
+}
+.memory-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: var(--spacing-3);
+}
+.memory-links button {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-1);
+	height: calc(var(--spacing-6) + var(--spacing-1));
+	padding: 0 var(--spacing-3);
+	border-radius: var(--radius-full);
+	background: var(--color-bg-subtle);
+	font-size: var(--text-micro);
+	color: var(--color-text-secondary);
+	cursor: pointer;
+}
+.memory-links button:hover {
+	background: var(--color-bg-hover);
+}
+.memory-source {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: var(--text-micro);
+	line-height: var(--text-micro--line-height);
+	color: var(--color-text-tertiary);
+	text-align: left;
+}
+/* Sources and delete each open a new band at the foot of the drawer. */
+.memory-sources,
+.memory-delete {
+	margin-top: var(--spacing-3);
+	padding-top: var(--spacing-3);
+	border-top: 1px solid var(--color-border-subtle);
+}
+.memory-sources {
+	display: grid;
+	gap: 2px;
+	list-style: none;
+}
+button.memory-source {
+	gap: var(--spacing-2);
+	width: calc(100% + var(--spacing-4));
+	margin-inline: calc(-1 * var(--spacing-2));
+	padding: var(--spacing-1) var(--spacing-2);
+	border-radius: var(--radius-control-sm);
+	color: var(--color-text-secondary);
+	cursor: pointer;
+}
+button.memory-source:hover {
+	background: var(--color-bg-subtle);
+}
+button.memory-source > span {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.memory-source small {
+	flex-shrink: 0;
+	color: var(--color-text-tertiary);
+	font-variant-numeric: tabular-nums;
+}
+.memory-delete {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-3);
+}
+.memory-delete .memory-delete-armed {
+	color: var(--color-danger);
+}
+.memory-flash > .memory-hit::after {
+	animation: memory-flash 1.4s var(--ease-standard);
+}
+@keyframes memory-flash {
+	0%,
+	40% {
+		opacity: 1;
+		background: var(--color-accent-subtle);
+		transform: none;
+	}
+}
+
+/* Thumbnails: photos and video at about two lines of text tall. */
+button.memory-thumb {
+	cursor: zoom-in;
+}
+.memory-thumb img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.memory-thumb-more {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: var(--color-media-scrim);
+	font-size: var(--text-caption);
+	font-weight: var(--font-weight-semibold);
+	color: var(--color-on-media);
+}
+.memory-thumb-video {
+	position: absolute;
+	right: var(--spacing-1);
+	bottom: 3px;
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	font-size: var(--text-micro);
+	line-height: var(--text-micro--line-height);
+	font-weight: var(--font-weight-semibold);
+	color: var(--color-on-media);
+	filter: drop-shadow(0 1px 2px var(--color-media-scrim));
+}
+
+.memory-more {
+	min-height: 1px;
+}
+.memory-error {
+	display: grid;
+	justify-items: start;
+	gap: var(--spacing-2);
+	padding: var(--spacing-4);
+	border-radius: var(--radius-card);
+	background: var(--color-danger-subtle);
+	font-size: var(--text-caption);
+	color: var(--color-danger);
+}
+.memory-error-line {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2);
+	margin-top: var(--spacing-2);
+	font-size: var(--text-caption);
+	color: var(--color-danger);
+}

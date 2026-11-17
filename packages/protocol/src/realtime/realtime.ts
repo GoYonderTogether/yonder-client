@@ -29,6 +29,8 @@ export type ServerEvent =
 	| { type: "run.updated"; eventId: string; at: string; run: Run }
 	| { type: "subtask.updated"; eventId: string; at: string; subtask: SubtaskSummary }
 	| { type: "schedule.changed"; eventId: string; at: string; schedule: Schedule }
+	/** The memory of these local dates changed: organized, edited, deleted or failed. */
+	| { type: "memory.changed"; eventId: string; at: string; dates: string[] }
 	| { type: "session.revoked"; eventId: string; at: string; sessionId: string };
 
 export type ServerEventType = ServerEvent["type"];

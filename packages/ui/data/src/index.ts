@@ -34,7 +34,7 @@ export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
 export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
-export { useMemoryDays, useMemoryMonths, useMemoryRef } from "./hooks/memory.ts";
+export { deviceTimeZone, useMemoryActions, useMemoryDays } from "./hooks/memory.ts";
 export { useProviderActions, useProviders } from "./hooks/providers.ts";
 export { useInvite, useQuota, useQuotaLedger, useQuotaRates, useResolvedInvite, useUsage } from "./hooks/quota.ts";
 export { useScheduleActions, useSchedules } from "./hooks/schedules.ts";

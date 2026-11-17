@@ -15,9 +15,7 @@ export const keys = {
 	},
 	memory: {
 		all: () => ["memory"] as const,
-		days: (month: string) => ["memory", "days", month] as const,
-		months: () => ["memory", "months"] as const,
-		ref: (id: string) => ["memory", "ref", id] as const,
+		days: () => ["memory", "days"] as const,
 	},
 	quota: () => ["quota"] as const,
 	quotaRates: () => ["quota", "rates"] as const,

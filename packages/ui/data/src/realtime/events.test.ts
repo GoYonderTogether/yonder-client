@@ -61,6 +61,20 @@ describe("applyServerEvent", () => {
 			expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
 		}
 	});
+	test("a memory change invalidates the timeline, and a reconnect reconciles it", () => {
+		const queryClient = new QueryClient();
+		queryClient.setQueryData(keys.memory.days(), { pages: [] });
+		applyServerEvent(queryClient, {
+			type: "memory.changed",
+			eventId: "memory-1",
+			at: "2026-11-16T00:00:00Z",
+			dates: ["2026-11-16"],
+		});
+		expect(queryClient.getQueryState(keys.memory.days())?.isInvalidated).toBe(true);
+		queryClient.setQueryData(keys.memory.days(), { pages: [] });
+		reconcileRealtime(queryClient);
+		expect(queryClient.getQueryState(keys.memory.days())?.isInvalidated).toBe(true);
+	});
 	test("a member update replaces the cached profile in place, with no request", () => {
 		const queryClient = new QueryClient();
 		queryClient.setQueryData(keys.me(), me);
