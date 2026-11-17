@@ -25,6 +25,7 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 	void queryClient.invalidateQueries({ queryKey: keys.quota() });
 	void queryClient.invalidateQueries({ queryKey: keys.usage("all") });
 	void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
+	void queryClient.invalidateQueries({ queryKey: keys.items.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.memory.days() });
 }
 
@@ -80,6 +81,13 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 			updateRun(queryClient, event.run);
 			if (event.run.status === "completed" || event.run.status === "failed" || event.run.status === "cancelled")
 				void queryClient.invalidateQueries({ queryKey: keys.skills.all() });
+			break;
+		}
+		case "subtask.updated": {
+			// A task's state changed. The items page lists it and may have its detail open; the row
+			// carries fields the event does not (the source, the state as the item maps it), so the
+			// two queries are refetched rather than patched.
+			void queryClient.invalidateQueries({ queryKey: keys.items.all() });
 			break;
 		}
 		case "schedule.changed": {

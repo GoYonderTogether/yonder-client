@@ -39,6 +39,14 @@ export type {
 } from "./chat/chat.ts";
 export type { CompactConversationRequest, CompactConversationResponse } from "./chat/compaction.ts";
 export type {
+	ItemDetail,
+	ItemListResponse,
+	ItemSource,
+	ItemState,
+	ItemStep,
+	ItemSummary,
+} from "./chat/items.ts";
+export type {
 	CreateScheduleRequest,
 	Schedule,
 	ScheduleAction,

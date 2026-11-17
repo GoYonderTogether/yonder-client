@@ -171,3 +171,28 @@ test("conversation events insert once and reject older versions", () => {
 	});
 	expect(client.getQueryData<{ items: Conversation[] }>(keys.conversations.list())?.items).toEqual([conversation]);
 });
+
+// A subtask's state changes as it runs; the items page shows it and may have its detail open. The
+// client used to ignore this event, which is why the page stayed empty.
+test("a subtask event refreshes the item list and any open item detail", () => {
+	const client = new QueryClient();
+	const list = keys.items.list(null);
+	const detail = keys.items.detail("run_1");
+	client.setQueryData(list, { pages: [{ items: [], nextCursor: null }], pageParams: [undefined] });
+	client.setQueryData(detail, { id: "run_1", state: "running" });
+	applyServerEvent(client, {
+		type: "subtask.updated",
+		eventId: "subtask-1",
+		at: "2026-11-17T00:00:00.000Z",
+		subtask: {
+			id: "run_1",
+			conversationId: "c",
+			parentRunId: "run_parent",
+			title: "查报销规则",
+			status: "background",
+			createdAt: "2026-11-17T00:00:00.000Z",
+		},
+	});
+	expect(client.getQueryState(list)?.isInvalidated).toBe(true);
+	expect(client.getQueryState(detail)?.isInvalidated).toBe(true);
+});

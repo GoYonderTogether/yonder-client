@@ -18,6 +18,7 @@ import {
 	type TextEditRange,
 } from "./completion/bindings.ts";
 import { completionHistory } from "./completion/history.ts";
+import { type PresetDraft, takePreset, withPreset } from "./draft-preset.ts";
 
 export interface DraftFile {
 	id: string;
@@ -30,6 +31,12 @@ export interface DraftFile {
 	imagePrepared?: boolean;
 	imageError?: boolean;
 	sendOriginal?: boolean;
+}
+
+/** A draft just loaded: a preset aimed at this chat applies now, if the draft is still empty. */
+function withPresetFor(key: string, draft: Draft): Draft {
+	const phrase = takePreset(key, draft as PresetDraft);
+	return phrase ? (withPreset(draft as PresetDraft, phrase) as Draft) : draft;
 }
 
 export function selectedDraftFile(file: DraftFile) {
@@ -75,7 +82,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			void readChatCache<Draft>(key)
 				.then((saved) => {
 					if (!active) return;
-					const value = saved
+					const loaded = saved
 						? {
 								...saved,
 								files: saved.files.map((file) => ({
@@ -84,13 +91,13 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 								})),
 							}
 						: empty();
-					current.current = { key, value, loaded: true };
+					current.current = { key, value: withPresetFor(key, loaded), loaded: true };
 					setState(current.current);
-					resumeImages(value.files, key);
+					resumeImages(current.current.value.files, key);
 				})
 				.catch(() => {
 					if (!active) return;
-					current.current = { key, value: empty(), loaded: true };
+					current.current = { key, value: withPresetFor(key, empty()), loaded: true };
 					setState(current.current);
 					setError("chat.cacheFailed");
 				});

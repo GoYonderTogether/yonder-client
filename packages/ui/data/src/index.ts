@@ -33,6 +33,7 @@ export { useCompactConversation } from "./hooks/compact.ts";
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
 export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
+export { useItem, useItemActions, useItems } from "./hooks/items.ts";
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
 export { deviceTimeZone, useMemoryActions, useMemoryDays } from "./hooks/memory.ts";
 export { useProviderActions, useProviders } from "./hooks/providers.ts";

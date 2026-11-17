@@ -1,14 +1,32 @@
 import type { Schedule, ScheduleStatus } from "@yonder/protocol";
-import { Button, EmptyState, ListGroup, Segmented } from "@yonder/ui-components";
+import { Button, EmptyState, IconButton, ListGroup, Segmented } from "@yonder/ui-components";
 import { ApiError, useScheduleActions, useSchedules } from "@yonder/ui-data";
 import { ListFrame, PageFrame } from "@yonder/ui-shell";
-import { CalendarClock, ListChecks } from "lucide-react";
+import { CalendarClock, ListChecks, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ItemDetailPage } from "./items-detail.tsx";
+import { upcomingOneOffs } from "./items-format.ts";
+import { ItemsList } from "./items-list.tsx";
 import { ScheduleForm } from "./schedule-form.tsx";
 import { describePlan, formatInstant, type Translate } from "./schedule-format.ts";
 
-export function TasksList({ scheduled, onChange }: { scheduled: boolean; onChange: (scheduled: boolean) => void }) {
+/**
+ * 「事项 | 目标」 (16-3 第九节): the items tab is every finished or running piece of work, the goals
+ * tab is what the Bot keeps watching. The plus button on either tab puts a sentence into the main
+ * Bot's message box; nothing is created from a form.
+ */
+export function TasksList({
+	scheduled,
+	onChange,
+	onOpenItem,
+	onAdd,
+}: {
+	scheduled: boolean;
+	onChange: (scheduled: boolean) => void;
+	onOpenItem: (id: string) => void;
+	onAdd: () => void;
+}) {
 	const { t } = useTranslation();
 	return (
 		<ListFrame
@@ -16,44 +34,97 @@ export function TasksList({ scheduled, onChange }: { scheduled: boolean; onChang
 			center={
 				<Segmented
 					options={[
-						{ value: "tasks", label: t("tasks.title") },
-						{ value: "scheduled", label: t("tasks.scheduled") },
+						{ value: "items", label: t("tasks.title") },
+						{ value: "goals", label: t("tasks.goals") },
 					]}
-					value={scheduled ? "scheduled" : "tasks"}
-					onChange={(value) => onChange(value === "scheduled")}
+					value={scheduled ? "goals" : "items"}
+					onChange={(value) => onChange(value === "goals")}
 					aria-label={t("nav.tasks")}
 				/>
 			}
 		>
 			{scheduled ? (
-				<ScheduledList />
+				<GoalsList onAdd={onAdd} />
 			) : (
-				<EmptyState icon={<ListChecks size={24} strokeWidth={1.6} />} title={t("tasks.emptyTitle")} />
+				<div className="flex flex-col gap-[var(--spacing-4)]">
+					<UpcomingOneOffs />
+					<ItemsList onOpen={onOpenItem} onAdd={onAdd} />
+				</div>
 			)}
 		</ListFrame>
 	);
 }
 
-export function TaskPage({ taskId }: { taskId: string | null }) {
+export function TaskPage({
+	taskId,
+	onOpenConversation,
+}: {
+	taskId: string | null;
+	onOpenConversation: (id: string) => void;
+}) {
 	const { t } = useTranslation();
 	return (
-		<PageFrame title={null}>
+		<PageFrame title={taskId ? t("tasks.itemHeading") : null}>
 			{taskId ? (
+				<ItemDetailPage itemId={taskId} onOpenConversation={onOpenConversation} />
+			) : (
 				<div className="flex flex-1 items-center justify-center">
 					<EmptyState icon={<ListChecks size={24} strokeWidth={1.6} />} title={t("tasks.emptyTitle")} />
 				</div>
-			) : null}
+			)}
 		</PageFrame>
 	);
 }
 
-function ScheduledList() {
+/**
+ * A one-off plan has not run yet, so it is not an item until it does. It is still the user's next
+ * thing, so it is listed above the items rather than hidden in a separate tab (16-3 第二节).
+ */
+function UpcomingOneOffs() {
+	const { t, i18n } = useTranslation();
+	const schedules = useSchedules();
+	const locale = i18n.resolvedLanguage ?? i18n.language;
+	const upcoming = upcomingOneOffs(schedules.data?.items ?? []);
+	if (!upcoming.length) return null;
+	return (
+		<ListGroup title={t("tasks.itemUpcoming")}>
+			{upcoming.map((plan) => (
+				<li
+					key={plan.id}
+					className="flex flex-col gap-[var(--spacing-1)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] last:border-0"
+				>
+					<span className="truncate text-body text-[var(--color-text-primary)]">{plan.title}</span>
+					<span className="text-caption text-[var(--color-text-secondary)]">
+						{formatInstant(plan.timezone, plan.nextRunAt ?? plan.at, locale)}
+					</span>
+				</li>
+			))}
+		</ListGroup>
+	);
+}
+
+function GoalsList({ onAdd }: { onAdd: () => void }) {
 	const { t, i18n } = useTranslation();
 	const schedules = useSchedules();
 	const actions = useScheduleActions();
 	const locale = i18n.resolvedLanguage ?? i18n.language;
 	const [creating, setCreating] = useState(false);
 	const items = schedules.data?.items ?? [];
+	// A recurring plan is what the Bot keeps watching; a one-off is an item, listed in the other tab.
+	const tracking = items.filter((plan) => plan.kind !== "once");
+	const busy = actions.pause.isPending || actions.resume.isPending || actions.remove.isPending;
+	// The hooks report success only, so a refused action has to be said here, in its real words.
+	const refused = [actions.pause, actions.resume, actions.remove].find((action) => action.isError);
+	const failure = refused
+		? t(
+				refused === actions.pause
+					? "tasks.actionPauseFailed"
+					: refused === actions.resume
+						? "tasks.actionResumeFailed"
+						: "tasks.actionDeleteFailed",
+				{ reason: refused.error instanceof ApiError ? t(refused.error.messageKey) : t("tasks.actionFailed") },
+			)
+		: null;
 	if (schedules.isLoading)
 		return (
 			<ListGroup>
@@ -75,21 +146,28 @@ function ScheduledList() {
 		);
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)] py-[var(--spacing-3)]">
-			{creating ? (
-				<ScheduleForm onCancel={() => setCreating(false)} onDone={() => setCreating(false)} />
-			) : (
+			<div className="flex items-center justify-between gap-[var(--spacing-2)] px-[var(--spacing-2)]">
 				<Button variant="secondary" onClick={() => setCreating(true)}>
 					{t("tasks.newSchedule")}
 				</Button>
-			)}
-			{items.length ? (
-				<ListGroup>
-					{items.map((item) => (
+				<IconButton aria-label={t("tasks.addGoal")} variant="secondary" onClick={onAdd}>
+					<Plus size={18} strokeWidth={1.8} />
+				</IconButton>
+			</div>
+			{failure ? (
+				<p role="alert" className="px-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
+					{failure}
+				</p>
+			) : null}
+			{creating ? <ScheduleForm onCancel={() => setCreating(false)} onDone={() => setCreating(false)} /> : null}
+			{tracking.length ? (
+				<ListGroup title={t("tasks.tracking")}>
+					{tracking.map((item) => (
 						<ScheduleRow
 							key={item.id}
 							schedule={item}
 							locale={locale}
-							busy={actions.pause.isPending || actions.resume.isPending || actions.remove.isPending}
+							busy={busy}
 							onPause={() => actions.pause.mutate(item.id)}
 							onResume={() => actions.resume.mutate(item.id)}
 							onDelete={() => actions.remove.mutate(item.id)}
@@ -97,7 +175,7 @@ function ScheduledList() {
 					))}
 				</ListGroup>
 			) : !creating ? (
-				<EmptyState icon={<CalendarClock size={24} strokeWidth={1.6} />} title={t("tasks.emptyScheduled")} />
+				<EmptyState icon={<CalendarClock size={24} strokeWidth={1.6} />} title={t("tasks.goalsEmptyTracking")} />
 			) : null}
 		</div>
 	);
