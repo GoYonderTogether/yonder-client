@@ -2,6 +2,42 @@
 
 ## [Unreleased]
 
+## [0.3.26111701] - 2026-11-17
+
+### Fixed
+
+- web：one exit for Back and Escape, tolerate a shell without the recorder, update e2e to the new frame
+- memory：restore memory page files dropped by the previous commit
+
+### Added
+
+- quota：pool usage, invite rewards and scheduled tasks
+- landing：scroll story with damped scrolling, pinned demos and SVG motion
+- web：assemble the new frame and routes
+- quota：show pools, the rate card and the platform model catalog
+- invite：rebuild the invite page with a shareable poster
+- connectors：connect the local device and let the Bot read and write files
+- skills：import, inspect and enable skills from the me section
+- memory：show memory cards and a timeline
+- desktop：open add-contacts in its own window
+- chat：add the new-chat menu, contacts and QR codes
+- chat：rebuild the conversation view with streaming and file messages
+- chat：add the /compact command to the composer
+- composer：add drafts, completion and voice input to the composer
+- attachments：send files with messages and preview them in place
+- devices：register login devices and show them in the account page
+- miniprogram：add the WeChat mini program client
+- meetings：record meetings natively and keep the audio across restarts
+- landing：rebuild the public landing and download pages
+- native：extend content behind system bars and keep controls in the safe area
+- shell：reflow list and detail into covering panes with gestures
+- theme：add the Semi-based classic and glow styles
+
+### Changed
+
+- auth：share the sign-in presentation with the mini program
+- web：defer views and coalesce cache writes
+
 ## [0.3.26111505] - 2026-11-15
 
 ### Changed
