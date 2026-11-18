@@ -100,7 +100,9 @@ export async function isolateChat(
 								? { ok: true, version: "isolated-chat-ui" }
 								: path === "/v1/quota"
 									? quota
-									: { items: [] };
+									: path === "/v1/me/social"
+										? { approved: "", drafts: [] }
+										: { items: [] };
 		await route.fulfill({ json });
 	});
 	await page.routeWebSocket("**/v1/realtime*", (socket) => {
