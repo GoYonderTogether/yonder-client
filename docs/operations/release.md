@@ -106,6 +106,18 @@ certificate. The web and iOS apps have no in-app updater.
 
 ## Rebuilding a release that failed
 
+A signed Android APK that already exists on GitHub can be published to OSS without building or
+signing it again. After the updated workflow is on `main`, dispatch:
+
+```sh
+gh workflow run android-release.yml --ref main -f version=<version> -f reuse_signed_apk=true
+```
+
+The workflow checks the GitHub asset SHA-256, APK signature and embedded version. It uploads large APKs
+in 2 MiB parts and verifies that both APK URLs return the expected SHA-256 without credentials before
+updating `android/latest.json`. Recovery accepts a newer version or the same version with the same APK
+digest. If the release requires a minimum supported version, supply `min_supported_version` on recovery.
+
 A release that fails in a platform workflow leaves a published Release with some artifacts missing.
 Do **not** publish a new version for that: re-run the failed workflow against `main` with the fix
 merged, and it appends to the same Release (`gh release upload --clobber`).

@@ -216,6 +216,41 @@ test("PUT signs every retry again so an old request cannot expire", async () => 
 	for (const request of requests) assert.ok(request.body.equals(Buffer.from("apk")));
 });
 
+test("APK multipart retries only the interrupted part and completes in order", async () => {
+	const { putObject } = await import("./oss.mjs");
+	const size = 2 * 1024 * 1024;
+	const calls = [];
+	await putObject({
+		key: "android/test.apk",
+		body: Buffer.alloc(size + 7, 42),
+		multipart: true,
+		credentials: { accessKeyId: "id", accessKeySecret: "test" },
+		sleepImpl: async () => {},
+		sendImpl: async (request) => {
+			const query = new URL(request.url).search;
+			calls.push([request.method, query]);
+			if (query === "?uploads") {
+				return { status: 200, body: Buffer.from("<UploadId>test-id</UploadId>") };
+			}
+			assert.equal(request.headers["Content-Length"], request.body.length);
+			if (request.method === "PUT") {
+				assert.equal(request.body.length, query.startsWith("?partNumber=1") ? size : 7);
+				if (calls.length === 3) throw Object.assign(new Error("timeout"), { retryable: true });
+				return { status: 200, headers: { etag: `"${"a".repeat(32)}"` } };
+			}
+			assert.ok(request.body.toString().indexOf("<PartNumber>1") < request.body.toString().indexOf("<PartNumber>2"));
+			return { status: 200, body: Buffer.from("<CompleteMultipartUploadResult>") };
+		},
+	});
+	assert.deepEqual(calls, [
+		["POST", "?uploads"],
+		["PUT", "?partNumber=1&uploadId=test-id"],
+		["PUT", "?partNumber=2&uploadId=test-id"],
+		["PUT", "?partNumber=2&uploadId=test-id"],
+		["POST", "?uploadId=test-id"],
+	]);
+});
+
 test("an HTTP error stops the upload without an unhandled EPIPE", async () => {
 	const https = await import("node:https");
 	const { putObject } = await import("./oss.mjs");

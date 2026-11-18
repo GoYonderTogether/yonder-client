@@ -62,11 +62,22 @@ export function readCredentials(env = process.env) {
 }
 
 /** 一次 OSS 请求的完整签名头；纯函数，测试与请求共用同一份计算。 */
-export function signedHeaders({ method, key, body, contentType, ossHeaders = {}, credentials, bucket = BUCKET, date }) {
+export function signedHeaders({
+	method,
+	key,
+	query = "",
+	body,
+	contentType,
+	ossHeaders = {},
+	credentials,
+	bucket = BUCKET,
+	date,
+}) {
 	const headers = {
 		Date: date ?? httpDate(),
 		...(contentType ? { "Content-Type": contentType } : {}),
 		...(body ? { "Content-MD5": contentMd5(body) } : {}),
+		...(body ? { "Content-Length": body.length } : {}),
 		...ossHeaders,
 	};
 	const signature = signatureV1(
@@ -77,7 +88,7 @@ export function signedHeaders({ method, key, body, contentType, ossHeaders = {},
 			contentType: headers["Content-Type"] ?? "",
 			date: headers.Date,
 			ossHeaders: headers,
-			resource: canonicalizedResource(bucket, key),
+			resource: canonicalizedResource(bucket, key) + query,
 		}),
 	);
 	return { ...headers, Authorization: authorization(credentials.accessKeyId, signature) };
@@ -182,23 +193,64 @@ export async function putObject({
 	ossHeaders = {},
 	bucket = BUCKET,
 	endpoint = REGION_ENDPOINT,
+	multipart = false,
 	// Tests inject transport only; production always uses the pinned HTTPS request above.
 	sendImpl = send,
 	sleepImpl = sleep,
 }) {
-	const response = await sendWithRetry(
-		() => ({
-			method: "PUT",
-			url: objectUrl(key, endpoint),
-			body,
-			headers: signedHeaders({ method: "PUT", key, body, contentType, ossHeaders, credentials, bucket }),
-		}),
-		{ send: sendImpl, sleep: sleepImpl },
-	);
-	if (response.status !== 200) {
-		throw new Error(`PUT ${key} 失败：HTTP ${response.status} ${response.body.toString("utf8").slice(0, 300)}`);
+	async function write(method, query, body, contentType, ossHeaders, status = 200) {
+		const response = await sendWithRetry(
+			() => ({
+				method,
+				url: objectUrl(key, endpoint) + query,
+				body,
+				headers: signedHeaders({ method, key, query, body, contentType, ossHeaders, credentials, bucket }),
+			}),
+			{ send: sendImpl, sleep: sleepImpl },
+		);
+		if (response.status !== status) {
+			const code = /<Code>([A-Za-z]+)<\/Code>/.exec(response.body.toString())?.[1];
+			throw new Error(`${method} ${key} 失败：HTTP ${response.status}${code ? ` ${code}` : ""}`);
+		}
+		return response;
 	}
-	return response;
+	const partSize = 2 * 1024 * 1024;
+	if (!multipart || body.length <= partSize) return write("PUT", "", body, contentType, ossHeaders);
+
+	const init = await write("POST", "?uploads", undefined, contentType, ossHeaders);
+	const uploadId = /<UploadId>([\w-]+)<\/UploadId>/.exec(init.body.toString())?.[1];
+	if (!uploadId) throw new Error(`OSS 未返回 ${key} 的 UploadId`);
+	const query = `uploadId=${uploadId}`;
+	try {
+		const parts = [];
+		for (let offset = 0; offset < body.length; offset += partSize) {
+			const number = parts.length + 1;
+			const part = body.subarray(offset, offset + partSize);
+			const response = await write("PUT", `?partNumber=${number}&${query}`, part);
+			const etag = response.headers.etag;
+			if (!/^"[a-f0-9]{32}"$/i.test(etag)) throw new Error(`OSS 未返回 ${key} 第 ${number} 片的 ETag`);
+			parts.push(`<Part><PartNumber>${number}</PartNumber><ETag>${etag}</ETag></Part>`);
+		}
+		const xml = Buffer.from(`<CompleteMultipartUpload>${parts.join("")}</CompleteMultipartUpload>`);
+		const result = await write("POST", `?${query}`, xml, "application/xml");
+		if (!/<CompleteMultipartUploadResult[\s>]/.test(result.body.toString())) {
+			throw new Error(`OSS 未确认 ${key} 分片上传完成`);
+		}
+		return result;
+	} catch (error) {
+		try {
+			await write("DELETE", `?${query}`, undefined, undefined, undefined, 204);
+		} catch (abortError) {
+			throw new Error(`${error.message}；分片清理失败：${abortError.message}`);
+		}
+		throw error;
+	}
+}
+
+export async function getPublicReleaseObject(key) {
+	const response = await sendWithRetry({ method: "GET", url: objectUrl(key, PUBLIC_BASE_URL) });
+	if (response.status !== 200) throw new Error(`公开下载 ${key} 失败：HTTP ${response.status}`);
+	return response.body;
 }
 
 /** 读对象；不存在（404）返回 null，其它错误直接抛出并带上 OSS 的错误码。 */

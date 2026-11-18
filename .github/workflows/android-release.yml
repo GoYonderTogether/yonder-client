@@ -23,6 +23,10 @@ on:
         required: false
         default: ""
         type: string
+      reuse_signed_apk:
+        description: 从已有 GitHub Release 取签名 APK，仅补发 OSS
+        type: boolean
+        default: false
   release:
     types: [published]
 
@@ -30,7 +34,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: android-release-${{ inputs.version || github.event.release.tag_name }}
+  group: android-release
   cancel-in-progress: false
 
 jobs:
@@ -91,9 +95,11 @@ jobs:
           node-version: "22"
       # 工具链与 apps/desktop/rust-toolchain.toml 一致；目标一次装齐，构建中途不再去装。
       - uses: dtolnay/rust-toolchain@1.99.0
+        if: ${{ !inputs.reuse_signed_apk }}
         with:
           targets: aarch64-linux-android
       - name: 定位 Android SDK 与 NDK
+        if: ${{ !inputs.reuse_signed_apk }}
         run: |
           set -eu
           sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
@@ -113,6 +119,7 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "SDK=$sdk，NDK=$ndk"
       - name: 校验构建前提
+        if: ${{ !inputs.reuse_signed_apk }}
         run: |
           set -eu
           test -x "$NDK_BIN/aarch64-linux-android24-clang" || {
@@ -127,6 +134,7 @@ jobs:
           java -version
 
       - name: 还原签名材料
+        if: ${{ !inputs.reuse_signed_apk }}
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -147,29 +155,35 @@ jobs:
 
       # 根 workspace 提供 apps/web 的构建；apps/desktop 单独装它自己的 Tauri CLI。
       - name: 安装依赖
+        if: ${{ !inputs.reuse_signed_apk }}
         run: |
           npm ci
           npm run build
           cd apps/desktop && npm install
       - name: 初始化 Android 工程
+        if: ${{ !inputs.reuse_signed_apk }}
         run: cd apps/desktop && npx tauri android init --ci
       - name: 重放签名与镜像设置
+        if: ${{ !inputs.reuse_signed_apk }}
         run: |
           cd apps/desktop
           node prepare-android.mjs --keystore "$YONDER_ANDROID_KEYSTORE" --alias "$YONDER_ANDROID_KEY_ALIAS"
       # tauri android init 生成的 Gradle 构建任务会回调 `npm run tauri android android-studio-script`；
       # apps/desktop/package.json 一直带着这个脚本，构建前确认一次，缺了就直接失败。
       - name: 确认桌面包暴露 tauri 脚本
+        if: ${{ !inputs.reuse_signed_apk }}
         run: node -p "require('./apps/desktop/package.json').scripts.tauri" | grep -qx tauri
       # versionName/versionCode 只从本次 Release 版本推导：versionCode = YYMMDDNN（235/26103020 同量纲），
       # 用 --config 覆盖，不回写仓库文件。tauri.android.conf.json 的静态值只是本地 debug 的占位。
       - name: 计算 versionCode
+        if: ${{ !inputs.reuse_signed_apk }}
         id: code
         run: |
           version_code="$(node --input-type=module -e "import { androidVersionCode } from './scripts/release/android.mjs'; console.log(androidVersionCode(process.env.VERSION))")"
           echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
           echo "versionCode=$version_code（$VERSION）"
       - name: 构建签名 APK
+        if: ${{ !inputs.reuse_signed_apk }}
         env:
           VERSION_CODE: ${{ steps.code.outputs.version_code }}
         run: |
@@ -177,15 +191,31 @@ jobs:
           npx tauri android build --apk --target aarch64 \
             --config "{\"version\":\"$VERSION\",\"bundle\":{\"android\":{\"versionCode\":${VERSION_CODE}}}}"
 
-      - name: 校验并收集 APK
+      - name: 收集构建产物
+        if: ${{ !inputs.reuse_signed_apk }}
         run: |
           set -eu
           apk="$(find apps/desktop/src-tauri/gen/android/app/build/outputs/apk -name '*release*.apk' | sort | head -1)"
           [ -n "$apk" ] || { echo "::error::没有找到构建出的 APK"; exit 1; }
           mkdir -p dist-android
           cp "$apk" dist-android/yonder-android.apk
+      - name: 下载并校对 GitHub 签名资产
+        if: inputs.reuse_signed_apk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          digest="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name == "yonder-android.apk") | .digest')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          gh release download "$TAG" --pattern yonder-android.apk --dir dist-android
+          printf '%s  %s\n' "${digest#sha256:}" dist-android/yonder-android.apk | sha256sum --check
+
+      - name: 校验 APK
+        run: |
+          set -eu
           # 签名必须来自 release 密钥而不是 debug 兜底：把签名证书打印出来存档，并核对确实已签名。
-          apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          apksigner="$(find "$sdk/build-tools" -name apksigner -type f | sort -V | tail -1)"
           [ -n "$apksigner" ] || { echo "::error::build-tools 里没有 apksigner，无法核对签名"; exit 1; }
           "$apksigner" verify --print-certs dist-android/yonder-android.apk
           aapt="$(dirname "$apksigner")/aapt"
@@ -195,6 +225,7 @@ jobs:
           ls -l dist-android/yonder-android.apk
 
       - name: 上传 GitHub Release 资产
+        if: ${{ !inputs.reuse_signed_apk }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$TAG" dist-android/yonder-android.apk --clobber
@@ -206,6 +237,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
           MIN_SUPPORTED_VERSION: ${{ inputs.min_supported_version }}
+          REUSE_SIGNED_APK: ${{ inputs.reuse_signed_apk }}
         run: |
           set -eu
           [ -n "${ALIBABA_CLOUD_ACCESS_KEY_ID:-}" ] || { echo "::error::缺少 secret ALIBABA_CLOUD_ACCESS_KEY_ID"; exit 1; }
@@ -214,14 +246,19 @@ jobs:
           gh release view "$TAG" --json body --jq .body > "$notes"
           # 手工重建出的是同一个版本号的包：versionCode 不变、APK 摘要不同，所以走 --rebuild
           # （只放行「同版本」，降级仍拒绝）。用 --repair 不行，它要求摘要完全一致。
-          rebuild=""
-          [ -n "$EXPECTED_COMMIT" ] || rebuild="--rebuild"
-          aapt="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)"
+          publication=()
+          if [ "$REUSE_SIGNED_APK" = true ]; then
+            publication=(--reuse)
+          elif [ -z "$EXPECTED_COMMIT" ]; then
+            publication=(--rebuild)
+          fi
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          aapt="$(find "$sdk/build-tools" -name aapt -type f | sort -V | tail -1)"
           [ -n "$aapt" ] || { echo "::error::build-tools 里没有 aapt，无法读取 APK 版本"; exit 1; }
           minimum=()
           [ -z "$MIN_SUPPORTED_VERSION" ] || minimum=(--min-supported-version "$MIN_SUPPORTED_VERSION")
           node scripts/release/android.mjs --version "$VERSION" \
-            --apk dist-android/yonder-android.apk --aapt "$aapt" --notes "$notes" "${minimum[@]}" $rebuild
+            --apk dist-android/yonder-android.apk --aapt "$aapt" --notes "$notes" "${minimum[@]}" "${publication[@]}"
 
       - name: 清理签名材料
         if: ${{ always() }}

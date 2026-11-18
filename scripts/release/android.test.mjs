@@ -152,6 +152,10 @@ test("上传顺序：先比对线上清单，再版本化 APK → 固定名 APK 
 		async putObject({ key, body, contentType }) {
 			calls.push(`PUT ${key} ${contentType} ${body.length}`);
 		},
+		async getPublicReleaseObject(key) {
+			calls.push(`PUBLIC ${key}`);
+			return APK;
+		},
 	};
 	const result = await uploadAndroidRelease({
 		version: "0.3.26110205",
@@ -166,14 +170,41 @@ test("上传顺序：先比对线上清单，再版本化 APK → 固定名 APK 
 		transport,
 	});
 	assert.equal(result.uploaded, true);
-	assert.equal(calls.length, 4);
+	assert.equal(calls.length, 6);
 	assert.equal(calls[0], `GET ${LATEST_OBJECT}`);
 	assert.match(calls[1], /^PUT android\/yonder-0\.3\.26110205\.apk application\/vnd\.android\.package-archive /);
-	assert.match(calls[2], /^PUT android\/yonder-android\.apk /);
+	assert.equal(calls[2], "PUBLIC android/yonder-0.3.26110205.apk");
+	assert.match(calls[3], /^PUT android\/yonder-android\.apk /);
+	assert.equal(calls[4], "PUBLIC android/yonder-android.apk");
 	assert.equal(
-		calls[3],
+		calls[5],
 		`PUT android/latest.json application/json; charset=utf-8 ${Buffer.byteLength(`${JSON.stringify(result.manifest, null, 2)}\n`)}`,
 	);
+});
+
+test("补传拒绝覆盖同版异摘要，公开下载不匹配时不更新清单", async (t) => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "yonder-android-reuse-"));
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const apkPath = path.join(dir, "yonder-android.apk");
+	fs.writeFileSync(apkPath, APK);
+	const writes = [];
+	const current = { versionCode: 26110205, sha256: "different" };
+	const options = {
+		version: "0.3.26110205",
+		versionCode: 26110205,
+		apkPath,
+		reuse: true,
+		transport: {
+			getObject: async () => Buffer.from(JSON.stringify(current)),
+			putObject: async ({ key }) => writes.push(key),
+			getPublicReleaseObject: async () => Buffer.alloc(APK.length),
+		},
+	};
+	await assert.rejects(uploadAndroidRelease(options), /不高于线上/);
+	assert.deepEqual(writes, []);
+	current.sha256 = sha256(APK);
+	await assert.rejects(uploadAndroidRelease(options), /公开下载与待发布 APK 不一致/);
+	assert.deepEqual(writes, ["android/yonder-0.3.26110205.apk"]);
 });
 
 test("线上清单更新时拒绝覆盖，且不发任何写请求", async (t) => {

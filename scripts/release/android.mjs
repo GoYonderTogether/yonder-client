@@ -7,7 +7,15 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BUCKET, getObject, PUBLIC_BASE_URL, putObject, REGION_ENDPOINT, readCredentials } from "./oss.mjs";
+import {
+	BUCKET,
+	getObject,
+	getPublicReleaseObject,
+	PUBLIC_BASE_URL,
+	putObject,
+	REGION_ENDPOINT,
+	readCredentials,
+} from "./oss.mjs";
 import { compareVersions, parseVersion } from "./version.mjs";
 
 export const APK_OBJECT = "android/yonder-android.apk";
@@ -114,12 +122,13 @@ export async function uploadAndroidRelease({
 	// 手工重出同一个版本的安装包：versionCode 不变、APK 摘要会变。只放行「同版本」，
 	// 降级仍然拒绝；与 repair 的区别是不要求摘要一致。
 	rebuild = false,
+	reuse = false,
 	bucket = BUCKET,
 	endpoint = REGION_ENDPOINT,
 	now = new Date(),
 	log = console.log,
 	// 测试注入用的传输层；生产路径直接用 oss.mjs 的实现。
-	transport = { putObject, getObject },
+	transport = { putObject, getObject, getPublicReleaseObject },
 }) {
 	const apk = readFileSync(apkPath);
 	const manifest = buildManifest({
@@ -148,28 +157,26 @@ export async function uploadAndroidRelease({
 		} catch {
 			throw new Error(`${LATEST_OBJECT} 不是合法 JSON，拒绝覆盖`);
 		}
-		if (repair) {
-			const same = parsed.versionCode === manifest.versionCode && parsed.sha256 === manifest.sha256;
-			if (!same) throw new Error("repair 只允许修正同一 versionCode 与同一 APK 摘要的清单");
-		} else assertNewerManifest(manifest, parsed, { rebuild });
+		const same = parsed.versionCode === manifest.versionCode && parsed.sha256 === manifest.sha256;
+		if (repair && !same) throw new Error("repair 只允许修正同一 versionCode 与同一 APK 摘要的清单");
+		if (!repair && !(reuse && same)) assertNewerManifest(manifest, parsed, { rebuild });
 	}
-	// 版本化对象在前、latest.json 在后：清单一旦指向某个 URL，APK 已经可下载。
-	await transport.putObject({
-		key: versionedApkPath(version),
-		body: apk,
-		contentType: "application/vnd.android.package-archive",
-		credentials,
-		bucket,
-		endpoint,
-	});
-	await transport.putObject({
-		key: APK_OBJECT,
-		body: apk,
-		contentType: "application/vnd.android.package-archive",
-		credentials,
-		bucket,
-		endpoint,
-	});
+	for (const key of [versionedApkPath(version), APK_OBJECT]) {
+		await transport.putObject({
+			key,
+			body: apk,
+			contentType: "application/vnd.android.package-archive",
+			multipart: true,
+			credentials,
+			bucket,
+			endpoint,
+		});
+		const downloaded = await transport.getPublicReleaseObject(key);
+		if (downloaded.length !== manifest.size || sha256(downloaded) !== manifest.sha256) {
+			throw new Error(`${key} 公开下载与待发布 APK 不一致`);
+		}
+		log(`公开下载校验通过：${key} SHA-256 ${manifest.sha256}`);
+	}
 	await transport.putObject({
 		key: LATEST_OBJECT,
 		body: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`),
@@ -194,7 +201,7 @@ function main(argv) {
 	try {
 		if (!version || !apkPath) {
 			console.error(
-				"用法：android.mjs --version <版本> --apk <apk 路径> [--aapt <路径>] [--min-supported-version <版本>] [--notes <文件>] [--rebuild] [--repair] [--dry-run]",
+				"用法：android.mjs --version <版本> --apk <apk 路径> [--aapt <路径>] [--min-supported-version <版本>] [--notes <文件>] [--rebuild] [--repair] [--reuse] [--dry-run]",
 			);
 			return 2;
 		}
@@ -210,6 +217,7 @@ function main(argv) {
 			notes: readNotes(flag("--notes")),
 			repair,
 			rebuild,
+			reuse: argv.includes("--reuse"),
 			credentials,
 			dryRun,
 		}).then(
