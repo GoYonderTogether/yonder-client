@@ -117,6 +117,7 @@ export interface AttachmentTextPreview {
 }
 
 export interface Message {
+	connectorRequestId?: string;
 	reaction?: string;
 	outwardRequest?: import("./outward.ts").OutwardRequestCard;
 	channelAttemptId?: string;

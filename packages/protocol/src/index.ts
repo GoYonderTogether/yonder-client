@@ -28,6 +28,7 @@ export type {
 	ChannelAttempt,
 	ChannelConnection,
 	ChannelConversationAction,
+	ChannelProvider,
 	ExternalChannelConversation,
 	ExternalChannelMessagePage,
 } from "./chat/channels.ts";

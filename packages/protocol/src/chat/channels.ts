@@ -1,7 +1,10 @@
+export type ChannelProvider = "feishu" | "wechat";
+
 export interface ChannelConnection {
 	id: string;
 	botId: string;
-	brand: "feishu" | "lark";
+	provider?: ChannelProvider;
+	brand: "feishu" | "lark" | "wechat";
 	name: string | null;
 	enabled: boolean;
 	allowExternalDm: boolean;
@@ -29,6 +32,8 @@ export interface ExternalChannelMessagePage {
 export interface ChannelAttempt {
 	id: string;
 	botId: string;
+	provider?: ChannelProvider;
+	verificationRequired?: boolean;
 	state: "awaiting" | "connecting" | "completed" | "expired" | "cancelled" | "failed";
 	expiresAt: string;
 	connectionId: string | null;

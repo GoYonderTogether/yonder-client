@@ -2,6 +2,7 @@ import type {
 	ChannelAttempt,
 	ChannelConnection,
 	ChannelConversationAction,
+	ChannelProvider,
 	ExternalChannelConversation,
 	ExternalChannelMessagePage,
 } from "@yonder/protocol";
@@ -25,8 +26,13 @@ export function channelEndpoints(client: ApiClient) {
 				method: "PATCH",
 				body: policy,
 			}),
-		channels: () => client.request<{ available: boolean; items: ChannelConnection[] }>("/v1/channels"),
+		channels: () =>
+			client.request<{ available: boolean; wechatAvailable?: boolean; items: ChannelConnection[] }>("/v1/channels"),
 		startChannel: (botId: string) => client.request<ChannelAttempt>("/v1/channels/attempts", { body: { botId } }),
+		startWechat: (botId: string) =>
+			client.request<ChannelAttempt>("/v1/channels/attempts", {
+				body: { botId, provider: "wechat" satisfies ChannelProvider },
+			}),
 		channelAttempt: (id: string) => client.request<ChannelAttempt>(`/v1/channels/attempts/${encodeURIComponent(id)}`),
 		cancelChannelAttempt: (id: string) =>
 			client.request<ChannelAttempt>(`/v1/channels/attempts/${encodeURIComponent(id)}`, { method: "DELETE" }),
