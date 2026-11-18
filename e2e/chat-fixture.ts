@@ -1,5 +1,6 @@
 import type { Page, WebSocketRoute } from "@playwright/test";
 import type { Conversation, Member, Message } from "@yonder/protocol";
+import { quota } from "./fixtures/quota.ts";
 
 // Only the automated browser uses these isolated API records. The product route is unmodified.
 export const person: Member = {
@@ -98,7 +99,7 @@ export async function isolateChat(
 							: path === "/v1/health"
 								? { ok: true, version: "isolated-chat-ui" }
 								: path === "/v1/quota"
-									? { balance: 10, granted: 10, used: 0 }
+									? quota
 									: { items: [] };
 		await route.fulfill({ json });
 	});

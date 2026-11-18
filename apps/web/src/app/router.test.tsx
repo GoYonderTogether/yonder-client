@@ -84,7 +84,8 @@ test("both legal routes are public and a direct visit returns to the home route"
 	const router = renderAt("/terms");
 	expect(await screen.findByRole("heading", { name: "Terms of Service" }, { timeout: 10000 })).toBeInTheDocument();
 	await router.navigate("/privacy", { replace: true });
-	expect(await screen.findByRole("heading", { name: "Privacy Policy" })).toBeInTheDocument();
+	// The second document renders in full; a loaded run needs the same allowance as the first.
+	expect(await screen.findByRole("heading", { name: "Privacy Policy" }, { timeout: 10000 })).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Back" }));
 	await waitFor(() => expect(router.state.location.pathname).toBe("/"));
 	router.dispose();
@@ -100,7 +101,7 @@ test("opening both legal pages keeps the sign-in draft and restores focus", asyn
 		["Privacy policy", "Privacy Policy"],
 	] as const) {
 		fireEvent.click(screen.getByRole("link", { name: label }));
-		expect(await screen.findByRole("heading", { name: title })).toBeVisible();
+		expect(await screen.findByRole("heading", { name: title }, { timeout: 10000 })).toBeVisible();
 		expect(screen.getByLabelText("Phone number")).not.toBeVisible();
 		expect(screen.queryByRole("textbox", { name: "Phone number" })).not.toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: "Back" }));

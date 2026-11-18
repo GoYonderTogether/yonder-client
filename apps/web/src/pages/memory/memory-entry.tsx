@@ -1,27 +1,11 @@
-import type { MemoryEntry as Entry, MemoryLink, MemoryTarget } from "@yonder/protocol";
+import type { MemoryEntry as Entry } from "@yonder/protocol";
 import { Avatar, cn } from "@yonder/ui-components";
 import { Clock, Images, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { PreviewFile } from "../../preview/file-kind.ts";
+import type { EntryActions } from "./memory-actions.ts";
 import { EntryDrawer } from "./memory-drawer.tsx";
 import { entryIcon, KIND_ICONS, memoryFormat } from "./memory-format.ts";
 import { MemoryThumb } from "./memory-media.tsx";
-
-export interface EntryActions {
-	open: string | null;
-	/** The entry a link just landed on, highlighted briefly. */
-	flash: string | null;
-	onToggle: (id: string) => void;
-	onLink: (link: MemoryLink) => void;
-	onPreview: (file: PreviewFile) => void;
-	/** A source row with a target: open the conversation or the scheduled-task list. */
-	onSource: (target: MemoryTarget) => void;
-	onDelete: (id: string) => void;
-	/** The entry being deleted, while its request is in flight. */
-	deleting: string | null;
-	/** The real reason a delete failed, shown under that entry's button. */
-	deleteError: { id: string; error: Error } | null;
-}
 
 /** The node on the spine: its size says how much the entry matters, colour and icon say what it is. */
 export function MemoryNode({ entry }: { entry: Entry }) {

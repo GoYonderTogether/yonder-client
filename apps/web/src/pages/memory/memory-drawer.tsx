@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { CornerDownRight, ListChecks, MessageCircle, Mic } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { EntryActions } from "./memory-entry.tsx";
+import type { EntryActions } from "./memory-actions.ts";
 import { Material } from "./memory-material.tsx";
 import { MemoryThumb } from "./memory-media.tsx";
 

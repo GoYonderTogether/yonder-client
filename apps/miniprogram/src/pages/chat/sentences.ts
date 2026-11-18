@@ -1,4 +1,5 @@
 import { t } from "../../lib/i18n";
+import { runFailureSentence } from "./run-failure";
 import { closureSentence, systemSentence } from "./system";
 
 /**
@@ -11,4 +12,8 @@ export function systemText(event: Parameters<typeof systemSentence>[0]): string 
 
 export function closureText(reason: Parameters<typeof closureSentence>[0]): string {
 	return t(closureSentence(reason, "zh-CN"), closureSentence(reason, "en"));
+}
+
+export function runFailureText(reason: string | null | undefined): string {
+	return t(runFailureSentence(reason, "zh-CN"), runFailureSentence(reason, "en"));
 }

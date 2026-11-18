@@ -53,9 +53,7 @@ export function MemberCardPage({ handle }: { handle: string }) {
 					) : (
 						<PublicMemberCard
 							handle={handle}
-							onSignIn={() =>
-								navigate(`/sign-in?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`)
-							}
+							onSignIn={() => navigate(`/sign-in?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`)}
 							onDownload={() => navigate("/download")}
 							onHome={home}
 						/>

@@ -80,6 +80,8 @@ describe("what an item says", () => {
 	test("a reason code reads as a sentence, and an unknown one still reads as a failure", () => {
 		expect(itemFailureKey("background_quota_exhausted")).toBe("chat.quotaBackgroundExhausted");
 		expect(itemFailureKey("schedule_missed")).toBe("chat.scheduleMissed");
+		expect(itemFailureKey("idle_timeout")).toBe("chat.idleTimeout");
+		expect(itemFailureKey("tool_repeat")).toBe("chat.toolRepeat");
 		expect(itemFailureKey("cancelled_by_bot")).toBe("tasks.itemStateCancelled");
 		expect(itemFailureKey("what_is_this")).toBe("chat.runFailed");
 		expect(itemFailureKey(null)).toBe("chat.runFailed");

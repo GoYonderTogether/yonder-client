@@ -2,10 +2,12 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import type { Attachment, MeResponse, Message, SendMessageRequest } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
+import type { CachedMessage } from "../realtime/cached-message.ts";
 import { updateMessage } from "../realtime/message-cache.ts";
 import { listChatCache, outboxCacheKey, removeChatCache, writeChatCache } from "../storage/chat-cache.ts";
 
-export type CachedMessage = Message & { pending?: boolean; sendFailed?: boolean; skillIds?: string[] };
+export type { CachedMessage };
+
 type SendInput = SendMessageRequest & { attachments?: Attachment[] };
 
 /** Nonces whose request is still in flight in this tab; a history refresh must not call those failed. */

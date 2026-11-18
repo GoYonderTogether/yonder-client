@@ -1,6 +1,12 @@
 import { MemberProfile, memberFailureText } from "@yonder/feature-members";
 import { Button, EmptyState, IconButton } from "@yonder/ui-components";
-import { ApiError, useContactActions, useMemberProfile, usePublicMemberProfile, useStartBotChat } from "@yonder/ui-data";
+import {
+	ApiError,
+	useContactActions,
+	useMemberProfile,
+	usePublicMemberProfile,
+	useStartBotChat,
+} from "@yonder/ui-data";
 import { Settings } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -33,7 +39,10 @@ export function CardNotFound({ onHome }: { onHome: () => void }) {
 function Loading() {
 	const { t } = useTranslation();
 	return (
-		<p role="status" className="px-[var(--spacing-5)] py-[var(--spacing-6)] text-caption text-[var(--color-text-tertiary)]">
+		<p
+			role="status"
+			className="px-[var(--spacing-5)] py-[var(--spacing-6)] text-caption text-[var(--color-text-tertiary)]"
+		>
 			{t("app.loading")}
 		</p>
 	);

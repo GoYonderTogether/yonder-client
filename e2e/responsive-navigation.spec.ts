@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { quota } from "./fixtures/quota.ts";
 
 // These fixtures stay in the isolated browser; no real account, message, or native command is used.
 const member = {
@@ -41,7 +42,7 @@ async function isolate(page: Page) {
 							: path === "/v1/health"
 								? { ok: true, version: "public-ui-test" }
 								: path === "/v1/quota"
-									? { balance: 10 }
+									? quota
 									: { items: [] };
 		await route.fulfill({ json });
 	});
@@ -404,7 +405,7 @@ test.describe("phone", () => {
 		await page.keyboard.press("Escape");
 		await expect(page.locator('[data-page-layer="me"]')).not.toBeVisible();
 		for (const [label, option, path, screenshot] of [
-			["任务", "定时", "/tasks/scheduled", "phone-tasks-zh.png"],
+			["任务", "目标", "/tasks/scheduled", "phone-tasks-zh.png"],
 			["记忆", "文件", "/memory/files", "phone-memory-zh.png"],
 		]) {
 			await page.getByRole("navigation").getByRole("button", { name: label, exact: true }).click();

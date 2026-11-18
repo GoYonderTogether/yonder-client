@@ -1,8 +1,8 @@
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import { mergeMessage } from "@yonder/chat-model";
 import type { Conversation, MessagePage, Run } from "@yonder/protocol";
-import type { CachedMessage } from "../hooks/chat.ts";
 import { keys } from "../query/keys.ts";
+import type { CachedMessage } from "./cached-message.ts";
 
 /** Keep one message per server id (or client nonce while a send is being confirmed). */
 export function updateMessage(client: QueryClient, message: CachedMessage): void {

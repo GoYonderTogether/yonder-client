@@ -205,6 +205,8 @@ function runFailureKey(reason: string | null | undefined): string {
 			return "chat.quotaExternalExhausted";
 		case "idle_timeout":
 			return "chat.idleTimeout";
+		case "tool_repeat":
+			return "chat.toolRepeat";
 		case "subtask_burst":
 			return "chat.subtaskBurst";
 		default:
@@ -222,6 +224,8 @@ function scheduleFailureKey(reason: string): string {
 			return "chat.scheduleMissed";
 		case "idle_timeout":
 			return "chat.idleTimeout";
+		case "tool_repeat":
+			return "chat.toolRepeat";
 		case "subtask_burst":
 			return "chat.subtaskBurst";
 		default:

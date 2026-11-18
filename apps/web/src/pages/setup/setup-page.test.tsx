@@ -94,10 +94,10 @@ test("the name step goes on to the Bot step, whether it was saved or skipped", a
 	const user = userEvent.setup();
 	open("/setup/you");
 	expect(screen.getByRole("heading", { name: "What should the Bot call you?" })).toBeInTheDocument();
-	await user.type(screen.getByLabelText("Name"), "Zoran");
+	await user.type(screen.getByLabelText("Name"), "Test user");
 	await user.click(screen.getByRole("button", { name: "Continue" }));
 	await waitFor(() => expect(location()).toBe("/setup/bot"));
-	expect(world.updateMe).toHaveBeenCalledWith({ displayName: "Zoran" });
+	expect(world.updateMe).toHaveBeenCalledWith({ displayName: "Test user" });
 });
 
 test("the Bot step names the Bot the account already has, and skipping leaves it alone", async () => {

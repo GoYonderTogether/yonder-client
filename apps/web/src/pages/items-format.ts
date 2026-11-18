@@ -67,6 +67,8 @@ export function itemFailureKey(reason: string | null): string {
 			return "chat.scheduleMissed";
 		case "idle_timeout":
 			return "chat.idleTimeout";
+		case "tool_repeat":
+			return "chat.toolRepeat";
 		case "subtask_burst":
 			return "chat.subtaskBurst";
 		case "cancelled":

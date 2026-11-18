@@ -48,18 +48,15 @@ afterEach(() => {
 	useSessionStore.setState({ booting: false, status: "signed-out" });
 });
 
-test.each(["/@abc123xyz", "/@abc123xyz/", "/@ABC"])(
-	"a signed-out reader sees the public card at %s",
-	async (path) => {
-		respond({ card });
-		useSessionStore.setState({ booting: false, status: "signed-out" });
-		const router = renderAt(path);
-		expect(await screen.findByRole("heading", { name: "A person" }, { timeout: 10000 })).toBeVisible();
-		expect(screen.getByRole("button", { name: "Sign in to add" })).toBeVisible();
-		expect(screen.getByRole("button", { name: "Download Yonder" })).toBeVisible();
-		router.dispose();
-	},
-);
+test.each(["/@abc123xyz", "/@abc123xyz/", "/@ABC"])("a signed-out reader sees the public card at %s", async (path) => {
+	respond({ card });
+	useSessionStore.setState({ booting: false, status: "signed-out" });
+	const router = renderAt(path);
+	expect(await screen.findByRole("heading", { name: "A person" }, { timeout: 10000 })).toBeVisible();
+	expect(screen.getByRole("button", { name: "Sign in to add" })).toBeVisible();
+	expect(screen.getByRole("button", { name: "Download Yonder" })).toBeVisible();
+	router.dispose();
+});
 
 test("`/@` alone and an ordinary path are not cards", async () => {
 	respond({ card });

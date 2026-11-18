@@ -23,32 +23,31 @@ import { AppShell, locate, MAIN_CONVERSATION, tabPath } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
-import { useBlocker, useLocation, useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { BUILD_VERSION } from "../lib/config.ts";
 import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
 import { conversationTitle, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
-import { GroupInfoOverlay } from "../pages/group-info-overlay.tsx";
 import { FlyToComposer } from "../pages/items-fly.tsx";
 import { MessageContent } from "../pages/message-content.tsx";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
-import { BotDetailOverlay } from "./bot-detail-overlay.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
-import { draftKey, type PresetOutcome, registerPresetTarget, requestPreset } from "./draft-preset.ts";
 import { FileDropZone } from "./file-drop-zone.tsx";
-import { MemberCardOverlay } from "./member-card-overlay.tsx";
+import { FrameOverlays, useFrameLayers } from "./frame-overlays.tsx";
 import { useChatDraft } from "./use-chat-draft.ts";
 import { useHasPassword } from "./use-has-password.ts";
 import { useMeEntry } from "./use-me-entry.ts";
 import { useMeetingCloud } from "./use-meeting-cloud.ts";
 import { useMeetingRecorder } from "./use-meeting-recorder.ts";
+import { useModelDirtyGuard } from "./use-model-dirty-guard.ts";
 import { usePageNavigation } from "./use-page-navigation.ts";
+import { useTaskPreset } from "./use-task-preset.ts";
 
 const MemoryList = lazy(() => import("../pages/memory-page.tsx").then((module) => ({ default: module.MemoryList })));
 const MemoryPage = lazy(() => import("../pages/memory-page.tsx").then((module) => ({ default: module.MemoryPage })));
@@ -80,9 +79,7 @@ export function AppFrame() {
 	const skills = useSkills();
 	const contacts = useContacts();
 	const [layoutMode, setLayoutMode] = useState<LayoutMode | null>(null);
-	/** The sentence the plus button just put into the message box, while its fly-in is showing. */
-	const [flying, setFlying] = useState<string | null>(null);
-	const modelDirty = useRef(false);
+	const modelDirty = useModelDirtyGuard();
 	const previousLocation = useRef("/messages");
 
 	const located = locate(location.pathname);
@@ -140,30 +137,20 @@ export function AppFrame() {
 	const send = useSendMessage(conversation?.id ?? null, person?.id);
 	const compact = useCompactConversation(conversation?.id);
 	const actions = useRunActions();
-	/**
-	 * The Bot detail is an overlay on top of the frame, opened from the chat header or 「我 › Bot」
-	 * (17 3.5); its own page machinery would fight the phone's page stack.
-	 */
-	const [botDetail, setBotDetail] = useState<string | null>(null);
-	/**
-	 * Anyone else's card is a layer too: a person or a Bot this account does not own opens their
-	 * `/@handle` card here rather than leaving the chat (17 3.1).
-	 */
-	const [memberCard, setMemberCard] = useState<string | null>(null);
-	const [groupInfo, setGroupInfo] = useState(false);
+	const layers = useFrameLayers();
 	const openMember = useEffectEvent((memberId: string) => {
 		const member = contacts.data?.items.find((item) => item.id === memberId);
 		const listed = conversation?.members.find((item) => item.memberId === memberId);
 		const handle = member?.handle ?? listed?.handle;
-		if (member?.kind === "bot" && member.ownerId === person?.id) setBotDetail(member.id);
-		else if (handle) setMemberCard(handle);
+		if (member?.kind === "bot" && member.ownerId === person?.id) layers.setBotDetail(member.id);
+		else if (handle) layers.setMemberCard(handle);
 	});
 	/**
 	 * A deleted Bot's chat leaves the list over the socket; if it is the one on screen, the frame
 	 * goes back to the message list rather than showing an empty page (17 3.1).
 	 */
 	const removedConversation = useEffectEvent((conversationId: string) => {
-		setBotDetail(null);
+		layers.setBotDetail(null);
 		const open = locate(navigation.current());
 		if (open?.tab !== "messages") return;
 		if ([...open.detail].includes(conversationId)) navigation.back("/messages");
@@ -178,36 +165,16 @@ export function AppFrame() {
 	const streaming = history.data?.pages
 		.flatMap((page) => page.items)
 		.findLast((message) => message.senderKind === "bot" && message.streaming);
-	// The plus button on 「事项 | 目标」 hands its sentence to this composer (16-3 第十节). The apply
-	// reads the draft through its own setters, so a draft the user already typed in is never touched.
-	const applyPreset = useEffectEvent((phrase: string): PresetOutcome => {
-		if (!draft.loaded) return "not-ready";
-		if (draft.text.trim()) return "refused";
-		draft.setText(phrase);
-		return "applied";
+	const preset = useTaskPreset({
+		person,
+		bot,
+		conversation,
+		conversations: conversations.data?.items,
+		draft,
+		open: navigation.open,
 	});
-	useEffect(() => {
-		if (!person || !conversation) return;
-		const key = draftKey(person.id, conversation.id);
-		return registerPresetTarget(key, (phrase) => applyPreset(phrase));
-	}, [person, conversation]);
 	const segmentRoot = (tab === "tasks" && selection === "scheduled") || (tab === "memory" && selection === "files");
 	const detailOpen = selection !== null && !segmentRoot;
-	const blocker = useBlocker(() => modelDirty.current);
-	useEffect(() => {
-		if (blocker.state !== "blocked") return;
-		if (window.confirm(t("models.discard"))) {
-			modelDirty.current = false;
-			blocker.proceed();
-		} else blocker.reset();
-	}, [blocker, t]);
-	useEffect(() => {
-		const warn = (event: BeforeUnloadEvent) => {
-			if (modelDirty.current) event.preventDefault();
-		};
-		window.addEventListener("beforeunload", warn);
-		return () => window.removeEventListener("beforeunload", warn);
-	}, []);
 	/**
 	 * Back, Escape and a swipe are one exit, and a layer that is animating out still holds the props
 	 * it had when the route left it. The exit therefore reads the route the frame is on now, not the
@@ -272,24 +239,10 @@ export function AppFrame() {
 				renderChangePassword={(onDone) => (
 					<PasswordSetupForm mode={hasPassword ? "change" : "set"} onDone={onDone} onSkip={onDone} />
 				)}
-				bots={<BotList onOpen={setBotDetail} />}
+				bots={<BotList onOpen={layers.setBotDetail} />}
 				privacy={<PrivacySwitches />}
 			/>
 		);
-	}
-
-	/**
-	 * The plus button (16-3 第十节): navigate to the main Bot's chat and put a preset sentence in its
-	 * draft, never sending it. The navigation comes first, the fill follows at once, and the fly-in is
-	 * only feedback — a draft the user already typed in is never overwritten.
-	 */
-	function addFromTasks(scheduled: boolean) {
-		const primary = primaryConversation(conversations.data?.items, bot?.id);
-		const phrase = t(scheduled ? "tasks.presetGoal" : "tasks.presetItem");
-		navigation.open(`/messages/${MAIN_CONVERSATION}`);
-		if (!person || !primary) return;
-		requestPreset(person.id, primary.id, phrase);
-		setFlying(phrase);
 	}
 
 	function screensFor(): { list: ReactNode | null; content: ReactNode } {
@@ -315,7 +268,7 @@ export function AppFrame() {
 								setRecorderOpen(true);
 							}}
 							onOpenMember={openMember}
-							onOpenGroup={() => setGroupInfo(true)}
+							onOpenGroup={() => layers.setGroupInfo(true)}
 						/>
 					),
 				};
@@ -326,7 +279,7 @@ export function AppFrame() {
 							scheduled={selection === "scheduled"}
 							onChange={(value) => navigation.open(value ? "/tasks/scheduled" : "/tasks")}
 							onOpenItem={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
-							onAdd={() => addFromTasks(selection === "scheduled")}
+							onAdd={() => preset.addFromTasks(selection === "scheduled")}
 						/>
 					),
 					content: (
@@ -471,34 +424,18 @@ export function AppFrame() {
 				locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
 				onModeChange={setLayoutMode}
 			/>
-			{botDetail ? (
-				<BotDetailOverlay
-					memberId={botDetail}
-					mode={layoutMode ?? "wide"}
-					onClose={() => setBotDetail(null)}
-					onDeleted={(chatId) => {
-						setBotDetail(null);
-						if (chatId) removedConversation(chatId);
-					}}
-				/>
-			) : null}
-			{memberCard ? (
-				<MemberCardOverlay handle={memberCard} mode={layoutMode ?? "wide"} onClose={() => setMemberCard(null)} />
-			) : null}
-			{groupInfo && conversation?.kind === "group" ? (
-				<GroupInfoOverlay
-					conversation={conversation}
-					personId={person?.id}
-					mode={layoutMode ?? "wide"}
-					onClose={() => setGroupInfo(false)}
-					onOpenMember={(member) => openMember(member.memberId)}
-					onLeft={() => {
-						setGroupInfo(false);
-						navigation.back("/messages");
-					}}
-				/>
-			) : null}
-			{flying ? <FlyToComposer phrase={flying} onDone={() => setFlying(null)} /> : null}
+			<FrameOverlays
+				layers={layers}
+				conversation={conversation}
+				personId={person?.id}
+				mode={layoutMode}
+				onBotDeleted={(chatId) => {
+					if (chatId) removedConversation(chatId);
+				}}
+				onOpenMember={(member) => openMember(member.memberId)}
+				onLeftGroup={() => navigation.back("/messages")}
+			/>
+			{preset.flying ? <FlyToComposer phrase={preset.flying} onDone={preset.flown} /> : null}
 		</>
 	);
 }

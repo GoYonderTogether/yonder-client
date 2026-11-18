@@ -28,6 +28,8 @@ const bot: Member = {
 	displayName: "我的 Bot",
 	avatarUrl: null,
 	bio: null,
+	ownerId: "person_1",
+	isDefault: true,
 	createdAt: "2026-11-01T00:00:00Z",
 	version: 1,
 };

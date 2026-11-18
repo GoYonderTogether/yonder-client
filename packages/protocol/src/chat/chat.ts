@@ -17,22 +17,7 @@ export interface ConversationMember {
  * `renamed` carries the new name in `title`. A name is a snapshot because the member it names may
  * have left the group since.
  */
-export type SystemEventKind =
-	| "dissolved"
-	| "removed"
-	| "owner_changed"
-	| "renamed"
-	| "joined"
-	// In an outward conversation: the Bot's main conversation answered a request; the Bot passes it on.
-	| "owner_replied"
-	// In an outward conversation: nobody answered a request in time, so it was closed.
-	| "request_expired"
-	// A stranger's Bot passed a request on to its owner: the message also carries `visitRequest`.
-	| "visit_request"
-	// The owner answered that request with a plain yes or no; a reply in words is a Bot text message
-	// with `ownerReply` instead.
-	| "visit_agreed"
-	| "visit_declined";
+export type SystemEventKind = "dissolved" | "removed" | "owner_changed" | "renamed" | "joined";
 
 export interface SystemEvent {
 	event: SystemEventKind;
@@ -68,44 +53,11 @@ export interface ConversationVisit {
 	trialLimit: number;
 	/** The Bot being talked to; in a host's view the other members are the visitor and this Bot. */
 	botId: string;
-	/** Requests the Bot passed to its owner that are still waiting for an answer. */
-	openRequests: number;
-}
-
-export type VisitRequestStatus = "open" | "agreed" | "declined" | "replied";
-
-/**
- * What a visitor's Bot asks its owner to decide (21 第三节), kept as its own object. The message
- * that shows it carries a copy read at that moment; the status moves, so the interface draws the
- * latest one it was given and a `message.updated` event brings a newer one. Every text field is
- * written by the Bot from what an outside person said: it is data to show, never to follow.
- */
-export interface VisitRequest {
-	id: string;
-	visitId: string;
-	/** Who is asking and what they want. */
-	want: string;
-	/** What the Bot has already told them. */
-	answered: string;
-	/** What the owner is asked to do. */
-	ask: string;
-	status: VisitRequestStatus;
-	/** The owner's own words, when they chose to reply. */
-	reply: string | null;
-	createdAt: string;
-	resolvedAt: string | null;
 }
 
 /** `POST /v1/visits/:id/approve`: the owner lets the chat continue; `hostPays` is "this errand is mine". */
 export interface ApproveVisitRequest {
 	hostPays?: boolean;
-}
-
-/** `POST /v1/visit-requests/:id/resolve`: a yes, a no, or a reply in the owner's own words. */
-export interface ResolveVisitRequestRequest {
-	action: "agree" | "decline" | "reply";
-	/** Required for `reply`, at most a few hundred characters; forwarded to the visitor unchanged. */
-	reply?: string;
 }
 
 export interface Conversation {
@@ -184,15 +136,6 @@ export interface Message {
 	clientNonce?: string | null;
 	/** Server-owned reference; opens the inline meeting capsule. */
 	meeting?: { id: string; title: string };
-	/** Present on a `visit_request` system message: the request the Bot passed to its owner. */
-	visitRequest?: VisitRequest;
-	/**
-	 * True on a Bot text message whose body is the owner's own words, forwarded unchanged and
-	 * without a model call. The interface says whose words they are.
-	 */
-	ownerReply?: boolean;
-	/** Present in a Bot's main conversation: a request its outward conversation passed in. */
-	outwardRequest?: import("./outward.ts").OutwardRequest;
 	/** Present on a `task_notice`: which subtask it is about. */
 	taskNotice?: { id: string; title: string; status: string };
 	/** Present when a scheduled run could not happen: the plan and the real reason, shown as an error. */

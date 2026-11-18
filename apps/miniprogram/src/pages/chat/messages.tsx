@@ -9,7 +9,7 @@ import { ChatAvatar } from "./avatar";
 import { senderBotId } from "./bot-entry";
 import { ChatView } from "./host";
 import { MessageBody } from "./markdown";
-import { systemText } from "./sentences";
+import { runFailureText, systemText } from "./sentences";
 import type { useChat } from "./use-chat";
 
 type ChatMessage = ReturnType<typeof useChat>["messages"][number];
@@ -112,7 +112,7 @@ export function renderRun(
 						) : null}
 						{message.run?.status === "failed" ? (
 							<View className="mini-chat-run-error">
-								<Text className="mini-error">{message.run.failureReason || t("生成失败", "Generation failed")}</Text>
+								<Text className="mini-error">{runFailureText(message.run.failureReason)}</Text>
 								<Button secondary onClick={() => void chat.action(message)}>
 									{t("重试", "Retry")}
 								</Button>

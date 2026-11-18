@@ -1,4 +1,5 @@
 import { devices, expect, type Page, test } from "@playwright/test";
+import { quota } from "./fixtures/quota.ts";
 
 async function isolate(page: Page) {
 	await page.emulateMedia({ reducedMotion: "reduce" });
@@ -30,7 +31,7 @@ async function isolate(page: Page) {
 								],
 							}
 						: path === "/v1/quota"
-							? { balance: 100, granted: 100, used: 0 }
+							? quota
 							: path === "/v1/health"
 								? { ok: true, version: "isolated-settings-test" }
 								: { items: [], hasMore: false, nextCursor: null };

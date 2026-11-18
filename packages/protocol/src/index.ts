@@ -38,7 +38,6 @@ export type {
 	CreateGroupRequest,
 	Message,
 	MessagePage,
-	ResolveVisitRequestRequest,
 	Run,
 	SendMessageRequest,
 	SendMessageResponse,
@@ -49,12 +48,9 @@ export type {
 	TransferGroupOwnerRequest,
 	UpdateBotRequest,
 	UpdateGroupRequest,
-	VisitRequest,
-	VisitRequestStatus,
 	VisitState,
 } from "./chat/chat.ts";
 export type { CompactConversationRequest, CompactConversationResponse } from "./chat/compaction.ts";
-export type { OutwardRequest, OutwardRequestListResponse, OutwardRequestState } from "./chat/outward.ts";
 export type {
 	ItemDetail,
 	ItemListResponse,
@@ -94,7 +90,6 @@ export type {
 	UpdateConnectorRequest,
 } from "./connectors/connectors.ts";
 export type { DeviceListResponse, DeviceSummary } from "./devices/devices.ts";
-export type { BotSocialResponse, UpdateBotSocialRequest } from "./member/bot-social.ts";
 export type {
 	CreateMeetingRequest,
 	MeetingBatchState,
@@ -107,12 +102,12 @@ export type {
 	RetryMeetingRequest,
 } from "./meetings/meetings.ts";
 export type {
+	CardBot,
 	ChangeHandleRequest,
 	ChangeHandleResponse,
 	HandleChange,
 	LocalePreference,
 	Member,
-	CardBot,
 	MemberCard,
 	MemberKind,
 	MemberProfileResponse,
@@ -143,13 +138,6 @@ export type {
 	MemoryTarget,
 	UpdateMemoryRequest,
 } from "./memory/memory.ts";
-export type {
-	CreatePublicFactRequest,
-	PublicFact,
-	PublicFactListResponse,
-	PublicFactStatus,
-	UpdatePublicFactRequest,
-} from "./memory/public-facts.ts";
 export type {
 	DiscoverModelsRequest,
 	PlatformModel,

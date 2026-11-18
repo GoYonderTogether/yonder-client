@@ -161,7 +161,7 @@ test("deleting asks first and names the number of plans in the Bot's own chat", 
 	render(localised(<BotDetail bot={bot()} onDeleted={onDeleted} />));
 	fireEvent.click(screen.getByRole("button", { name: "Delete Bot" }));
 	expect(screen.getByText("Its 2 scheduled plans are deleted too.")).toBeInTheDocument();
-	expect(screen.getByText(/hidden from you/)).toBeInTheDocument();
+	expect(screen.getByText("Its chat history will no longer be shown.")).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 	expect(api.deleteBot).toHaveBeenCalledWith("bot_a", expect.anything());
 	// The chat that went with it is named, so the frame can leave that page.

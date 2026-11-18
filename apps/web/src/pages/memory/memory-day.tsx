@@ -3,7 +3,8 @@ import { cn } from "@yonder/ui-components";
 import { ChevronRight, Footprints, Images, MapPin } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { type EntryActions, MemoryEntry } from "./memory-entry.tsx";
+import type { EntryActions } from "./memory-actions.ts";
+import { MemoryEntry } from "./memory-entry.tsx";
 import { blockAt, dayName, daysAgo, memoryFormat } from "./memory-format.ts";
 
 /** Days within a week list every entry; older days fold their one-line entries away. */
