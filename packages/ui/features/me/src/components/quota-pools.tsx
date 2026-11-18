@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatExact, QuotaNumber } from "./quota-number.tsx";
 
-const POOL_ORDER: QuotaPool[] = ["main", "background", "coding", "external"];
+const POOL_ORDER: QuotaPool[] = ["main", "background", "coding", "external", "tools"];
 
 /** A single horizontal bar; the main pool gets a large one, the others a short line each. */
 function PoolBar({ percent, large = false }: { percent: number; large?: boolean }) {
@@ -36,7 +36,9 @@ export function QuotaPools({ quota }: { quota: QuotaResponse }) {
 	const locale = i18n.resolvedLanguage ?? i18n.language;
 	const [expanded, setExpanded] = useState(false);
 	const main = quota.pools.main;
-	const others = POOL_ORDER.filter((pool) => pool !== "main");
+	// A server from before the `tools` pool lists four pools; show the ones it sent.
+	const shown = POOL_ORDER.filter((pool) => pool in quota.pools);
+	const others = shown.filter((pool) => pool !== "main");
 	const percent = (pool: QuotaPool) => `${Math.round(quota.pools[pool].remainingPercent)}%`;
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)]">
@@ -60,7 +62,7 @@ export function QuotaPools({ quota }: { quota: QuotaResponse }) {
 			</Button>
 			{expanded ? (
 				<ul className="flex flex-col gap-[var(--spacing-3)] rounded-[var(--radius-lg)] bg-[var(--color-bg-surface)] p-[var(--spacing-4)]">
-					{POOL_ORDER.map((pool) => (
+					{shown.map((pool) => (
 						<li key={pool} className="flex flex-col gap-[var(--spacing-1)]">
 							<div className="flex items-baseline justify-between gap-[var(--spacing-3)]">
 								<span className="text-body text-[var(--color-text-primary)]">{t(`me.quota.pools.${pool}`)}</span>

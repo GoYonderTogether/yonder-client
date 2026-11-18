@@ -144,6 +144,7 @@ describe("applyServerEvent", () => {
 			background: { granted: 0, used: 0, remaining: 0, remainingPercent: 0 },
 			external: { granted: 0, used: 0, remaining: 0, remainingPercent: 0 },
 			coding: { granted: 0, used: 0, remaining: 0, remainingPercent: 0 },
+			tools: { granted: 0, used: 0, remaining: 0, remainingPercent: 0 },
 		};
 		const quota = {
 			balance: 2,
@@ -155,6 +156,7 @@ describe("applyServerEvent", () => {
 				background: { overflow: true, rate: 1, floor: 4_000_000 },
 				external: { overflow: false, rate: 1, floor: null },
 				coding: { overflow: true, rate: 1.2, floor: 4_000_000 },
+				tools: { overflow: false, rate: 1, floor: null },
 			},
 			configVersion: 1,
 			cycle: { start: "2026-11-01T00:00:00.000Z", resetsAt: "2026-12-01T00:00:00.000Z" },

@@ -5,7 +5,7 @@ import { useQuotaConfig, useQuotaRates } from "@yonder/ui-data";
 import { useTranslation } from "react-i18next";
 import "./pricing-page.css";
 
-const POOL_ORDER: QuotaPool[] = ["main", "background", "coding", "external"];
+const POOL_ORDER: QuotaPool[] = ["main", "background", "coding", "external", "tools"];
 
 /** Quota in the reader's units: exact below ten thousand, a compact figure above it. */
 function quotaAmount(value: number, locale: string): string {
@@ -106,10 +106,35 @@ function PricingBody({
 				</div>
 			</section>
 
+			{Object.keys(config.toolUnits ?? {}).length ? (
+				<section className="pricing-section">
+					<h2>{t("pricing.toolsTitle")}</h2>
+					<div className="pricing-table">
+						<table>
+							<caption className="sr-only">{t("pricing.toolsTitle")}</caption>
+							<thead>
+								<tr>
+									<th scope="col">{t("pricing.tool")}</th>
+									<th scope="col">{t("pricing.perCall")}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{Object.entries(config.toolUnits ?? {}).map(([key, unit]) => (
+									<tr key={key}>
+										<th scope="row">{unit.name}</th>
+										<td>{quotaAmount(unit.price, locale)}</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</section>
+			) : null}
+
 			<section className="pricing-section">
 				<h2>{t("pricing.grantsTitle")}</h2>
 				<div className="pricing-pools">
-					{POOL_ORDER.map((pool) => (
+					{POOL_ORDER.filter((pool) => pool in config.signup).map((pool) => (
 						<div className="pricing-pool" key={pool}>
 							<h3>{t(`me.quota.pools.${pool}`)}</h3>
 							<p>{t(`pricing.purpose.${pool}`)}</p>

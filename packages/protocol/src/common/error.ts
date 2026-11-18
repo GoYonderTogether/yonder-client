@@ -42,6 +42,7 @@ export const ERROR_CODES = [
 	"wechat_invalid",
 	"wechat_conflict",
 	"upstream_unavailable",
+	"tools_quota_exhausted",
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

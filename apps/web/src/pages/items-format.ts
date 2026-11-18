@@ -64,6 +64,8 @@ export function itemFailureKey(reason: string | null): string {
 			return "chat.quotaBackgroundExhausted";
 		case "coding_quota_exhausted":
 			return "chat.quotaCodingExhausted";
+		case "tools_quota_exhausted":
+			return "chat.quotaToolsExhausted";
 		case "schedule_missed":
 			return "chat.scheduleMissed";
 		case "idle_timeout":

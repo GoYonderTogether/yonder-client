@@ -29,15 +29,20 @@ import { PricingPage } from "./pricing-page.tsx";
 const config: QuotaConfigResponse = {
 	version: 7,
 	tier: "standard",
-	signup: { main: 75_000_000, background: 15_000_000, coding: 5_000_000, external: 5_000_000 },
-	monthly: { main: 23_000_000, background: 3_000_000, coding: 1_000_000, external: 2_000_000 },
+	signup: { main: 65_000_000, background: 15_000_000, coding: 5_000_000, external: 5_000_000, tools: 10_000_000 },
+	monthly: { main: 20_000_000, background: 3_000_000, coding: 1_000_000, external: 2_000_000, tools: 3_000_000 },
 	rules: {
 		main: { overflow: false, rate: 1, floor: null },
 		background: { overflow: true, rate: 1, floor: 4_000_000 },
 		coding: { overflow: true, rate: 1.2, floor: 4_000_000 },
 		external: { overflow: false, rate: 1, floor: null },
+		tools: { overflow: false, rate: 1, floor: null },
 	},
 	invite: { inviter: 10_000_000, invitee: 10_000_000, maxInvites: 30 },
+	toolUnits: {
+		web_search: { name: "联网搜索", price: 5_000 },
+		web_read: { name: "网页读取", price: 5_000 },
+	},
 };
 
 const rates: RateCardResponse = {
@@ -65,12 +70,15 @@ test.each(["zh-CN", "en"] as const)("the price page is built only from the publi
 	const { container } = show(locale);
 	const text = container.textContent ?? "";
 	// The tier table carries exactly the catalog's rows, and the baseline sentence names the baseline.
-	const table = screen.getByRole("table");
+	const [table] = screen.getAllByRole("table");
+	if (!table) throw new Error("no tier table");
 	for (const item of rates.items) expect(table).toHaveTextContent(item.name);
 	expect(table).toHaveTextContent(locale === "zh-CN" ? "1 倍 Standard" : "1× Standard");
 	// The grant figures are the catalog's, and no vendor or model id appears anywhere on the page.
 	expect(text).toMatch(/75|万|M/);
 	expect(text).not.toMatch(/DeepSeek|RightCode|deepseek-flash|glm-5\.3-flash|GPT|Claude/i);
+	// The tool units are listed by their display names and per-call price.
+	expect(text).toContain("联网搜索");
 	// Signed out the page still renders: it never asks for a balance or a profile.
 	expect(text).not.toMatch(/sign in|登录/i);
 });

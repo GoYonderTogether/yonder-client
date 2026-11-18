@@ -312,6 +312,8 @@ function runFailureKey(reason: string | null | undefined): string {
 			return "chat.quotaCodingExhausted";
 		case "external_quota_exhausted":
 			return "chat.quotaExternalExhausted";
+		case "tools_quota_exhausted":
+			return "chat.quotaToolsExhausted";
 		case "idle_timeout":
 			return "chat.idleTimeout";
 		case "tool_repeat":

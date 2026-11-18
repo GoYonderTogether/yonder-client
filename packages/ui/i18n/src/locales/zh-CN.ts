@@ -294,6 +294,7 @@ export const zhCN: Messages = {
 		subtaskBurst: "这个任务一分钟内派出了太多子任务，已经暂停，以免继续消耗额度。",
 		quotaCodingExhausted: "编程额度已用完，这个任务没有运行。",
 		quotaExternalExhausted: "对外额度已用完，这条消息没有回复。",
+		quotaToolsExhausted: "工具额度已用完，联网搜索暂时不能用。",
 		loadingHistory: "正在加载消息…",
 		jumpToLatest: "跳至最新",
 		loadOlder: "加载更早的消息",

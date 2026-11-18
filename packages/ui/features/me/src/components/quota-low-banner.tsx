@@ -11,7 +11,7 @@ export interface QuotaLowBannerProps {
 	onOpenUsage: () => void;
 }
 
-const POOL_ORDER: QuotaPool[] = ["main", "background", "coding", "external"];
+const POOL_ORDER: QuotaPool[] = ["main", "background", "coding", "external", "tools"];
 
 /**
  * Which balance is actually stopping a reply. The main pool answers for itself. Another pool
@@ -22,7 +22,7 @@ const POOL_ORDER: QuotaPool[] = ["main", "background", "coding", "external"];
  */
 export function exhaustedPools(quota: QuotaResponse): QuotaPool[] {
 	if (quota.pools.main.remaining <= 0) return ["main"];
-	return POOL_ORDER.filter((pool) => {
+	return POOL_ORDER.filter((pool) => pool in quota.pools).filter((pool) => {
 		if (pool === "main" || pool === "external" || quota.pools[pool].remaining > 0) return false;
 		const rule = quota.overflow[pool];
 		if (!rule.overflow) return true;

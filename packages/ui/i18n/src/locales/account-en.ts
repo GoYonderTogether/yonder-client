@@ -95,6 +95,7 @@ export const accountMessagesEn = {
 				background: "Background",
 				coding: "Coding",
 				external: "External",
+				tools: "Tools",
 				legacy: "Legacy",
 			},
 			poolDetail: "This cycle {{granted}} · used {{used}}",

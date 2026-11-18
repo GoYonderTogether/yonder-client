@@ -3,7 +3,8 @@
  * million tokens" is numerically the same as "quota per token" for the four token categories.
  */
 
-export type QuotaPool = "main" | "background" | "external" | "coding";
+/** `tools` pays for paid upstream calls that are not model calls, such as a web search; it never overflows. */
+export type QuotaPool = "main" | "background" | "external" | "coding" | "tools";
 
 /** `legacy` rows predate the per-pool unit and are shown but never counted in a balance. */
 export type QuotaLedgerPool = QuotaPool | "legacy";
@@ -60,6 +61,8 @@ export interface QuotaConfigResponse {
 	monthly: Record<QuotaPool, number>;
 	rules: Record<QuotaPool, QuotaOverflowRule>;
 	invite: { inviter: number; invitee: number; maxInvites: number };
+	/** Each metered tool: its display name and the quota one charged call takes from `tools`. */
+	toolUnits: Record<string, { name: string; price: number }>;
 }
 
 export interface InviteResponse {
@@ -111,10 +114,13 @@ export interface QuotaLedgerPage {
 
 export interface UsageEntry {
 	id: string;
+	/** `model` is one model call; `tool` is one charged tool call (no tokens, `pool` is `tools`). */
+	kind: "model" | "tool";
 	at: string;
 	/**
 	 * The name shown to the account: a catalog display name for platform calls (`其他` when the
-	 * model has none), or the account's own name for its own provider. Never a vendor or model id.
+	 * model has none), the account's own name for its own provider, or a tool's display name
+	 * (`联网搜索`, `网页读取`). Never a vendor or model id.
 	 */
 	model: string;
 	conversationId: string | null;

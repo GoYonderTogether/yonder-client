@@ -14,15 +14,20 @@ vi.mock("../query/provider.tsx", () => ({ useApi: () => api }));
 const catalog = (version: number): QuotaConfigResponse => ({
 	version,
 	tier: "standard",
-	signup: { main: 75_000_000, background: 15_000_000, coding: 5_000_000, external: 5_000_000 },
-	monthly: { main: 23_000_000, background: 3_000_000, coding: 1_000_000, external: 2_000_000 },
+	signup: { main: 65_000_000, background: 15_000_000, coding: 5_000_000, external: 5_000_000, tools: 10_000_000 },
+	monthly: { main: 20_000_000, background: 3_000_000, coding: 1_000_000, external: 2_000_000, tools: 3_000_000 },
 	rules: {
 		main: { overflow: false, rate: 1, floor: null },
 		background: { overflow: true, rate: 1, floor: 4_000_000 },
 		coding: { overflow: true, rate: 1.2, floor: 4_000_000 },
 		external: { overflow: false, rate: 1, floor: null },
+		tools: { overflow: false, rate: 1, floor: null },
 	},
 	invite: { inviter: 10_000_000, invitee: 10_000_000, maxInvites: 30 },
+	toolUnits: {
+		web_search: { name: "联网搜索", price: 5_000 },
+		web_read: { name: "网页读取", price: 5_000 },
+	},
 });
 
 function makeClient(): QueryClient {

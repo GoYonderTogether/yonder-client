@@ -294,6 +294,7 @@ export const en = {
 		subtaskBurst: "This task issued too many subtasks within a minute, so it was paused before it spent more quota.",
 		quotaCodingExhausted: "Coding quota is used up, so this task did not run.",
 		quotaExternalExhausted: "External quota is used up, so this message was not answered.",
+		quotaToolsExhausted: "Your tools quota is used up, so web search is unavailable for now.",
 		loadingHistory: "Loading messages…",
 		jumpToLatest: "Jump to latest",
 		loadOlder: "Load earlier messages",

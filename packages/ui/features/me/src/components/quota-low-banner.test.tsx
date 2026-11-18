@@ -23,6 +23,7 @@ const quota = (remaining: {
 	background?: number;
 	coding?: number;
 	external?: number;
+	tools?: number;
 }): QuotaResponse => ({
 	balance: remaining.main,
 	granted: 10_000_000,
@@ -32,12 +33,14 @@ const quota = (remaining: {
 		background: pool(remaining.background ?? 1_000_000),
 		coding: pool(remaining.coding ?? 1_000_000),
 		external: pool(remaining.external ?? 1_000_000),
+		tools: pool(remaining.tools ?? 1_000_000),
 	},
 	overflow: {
 		main: { overflow: false, rate: 1, floor: null },
 		background: { overflow: true, rate: 1, floor: 4_000_000 },
 		coding: { overflow: true, rate: 1.2, floor: 4_000_000 },
 		external: { overflow: false, rate: 1, floor: null },
+		tools: { overflow: false, rate: 1, floor: null },
 	},
 	configVersion: 1,
 	cycle: { start: "2026-11-01T00:00:00.000Z", resetsAt: "2026-12-01T00:00:00.000Z" },

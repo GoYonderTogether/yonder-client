@@ -14,6 +14,10 @@ const SENTENCES: Record<string, { zh: string; en: string }> = {
 		zh: "主额度已用完，这条消息没有回复。",
 		en: "Main quota is used up, so this message was not answered.",
 	},
+	tools_quota_exhausted: {
+		zh: "工具额度已用完，联网搜索暂时不能用。",
+		en: "Your tools quota is used up, so web search is unavailable for now.",
+	},
 	external_quota_exhausted: {
 		zh: "对外额度已用完，这条消息没有回复。",
 		en: "External quota is used up, so this message was not answered.",

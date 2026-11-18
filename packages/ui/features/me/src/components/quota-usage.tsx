@@ -34,15 +34,22 @@ export function QuotaUsage() {
 									new Date(entry.at),
 								)}
 							</time>
-							<p>
-								{t("me.quota.callTokens", { input: amount(entry.inputTokens), output: amount(entry.outputTokens) })}
-							</p>
-							<p>
-								{t("me.quota.callCache", {
-									write: amount(entry.cacheWriteTokens),
-									read: amount(entry.cacheReadTokens),
-								})}
-							</p>
+							{entry.kind === "model" ? (
+								<>
+									<p>
+										{t("me.quota.callTokens", {
+											input: amount(entry.inputTokens),
+											output: amount(entry.outputTokens),
+										})}
+									</p>
+									<p>
+										{t("me.quota.callCache", {
+											write: amount(entry.cacheWriteTokens),
+											read: amount(entry.cacheReadTokens),
+										})}
+									</p>
+								</>
+							) : null}
 						</div>
 						<span className="shrink-0 text-body">
 							{entry.usageKnown ? (

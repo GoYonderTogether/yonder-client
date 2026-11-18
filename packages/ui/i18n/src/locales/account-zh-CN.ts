@@ -93,6 +93,7 @@ export const accountMessagesZhCN = {
 				background: "后台",
 				coding: "编程",
 				external: "对外",
+				tools: "工具",
 				legacy: "旧单位",
 			},
 			poolDetail: "本周期额度 {{granted}} · 已用 {{used}}",
