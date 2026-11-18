@@ -17,16 +17,24 @@ export interface ConversationMember {
  * `renamed` carries the new name in `title`. A name is a snapshot because the member it names may
  * have left the group since.
  */
-export type SystemEventKind = "dissolved" | "removed" | "owner_changed" | "renamed" | "joined";
-
-export interface SystemEvent {
-	event: SystemEventKind;
+export interface GroupSystemEvent {
+	event: "dissolved" | "removed" | "owner_changed" | "renamed" | "joined";
 	/** Who did it; null when nobody can be named. */
 	actorName: string | null;
 	/** Who it was done to: the removed, the new owner, the people who joined. */
 	targetNames: string[];
 	title?: string;
 }
+
+export interface MemoryUpdatedSystemEvent {
+	event: "memory_updated";
+	path: string;
+	/** The version written by this update. */
+	version: number;
+}
+
+export type SystemEvent = GroupSystemEvent | MemoryUpdatedSystemEvent;
+export type SystemEventKind = SystemEvent["event"];
 
 /**
  * Where a stranger stands with someone else's Bot (21 第四节: whoever has the errand pays). It is
@@ -128,9 +136,8 @@ export interface Message {
 	senderId: string;
 	senderKind: MemberKind;
 	/**
-	 * `task_notice` is a system event about a subtask, not a Bot reply. `system` is a group
-	 * lifecycle event (dissolved, removed, a new owner, a rename, someone joined): no sender is
-	 * speaking, the interface draws it as a centred line from `system`.
+	 * `task_notice` is a system event about a subtask, not a Bot reply. `system` carries a group
+	 * lifecycle event or a memory update and is displayed as a centred line.
 	 */
 	type: "text" | "task_notice" | "system";
 	system?: SystemEvent;

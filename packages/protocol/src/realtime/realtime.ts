@@ -36,8 +36,8 @@ export type ServerEvent =
 	| { type: "subtask.updated"; eventId: string; at: string; subtask: SubtaskSummary }
 	| { type: "schedule.changed"; eventId: string; at: string; schedule: Schedule }
 	| { type: "goals.changed"; eventId: string; at: string }
-	/** The memory of these local dates changed: organized, edited, deleted or failed. */
-	| { type: "memory.changed"; eventId: string; at: string; dates: string[] }
+	/** Timeline days and/or memory file paths changed. */
+	| { type: "memory.changed"; eventId: string; at: string; dates?: string[]; paths?: string[] }
 	| { type: "session.revoked"; eventId: string; at: string; sessionId: string };
 
 export type ServerEventType = ServerEvent["type"];

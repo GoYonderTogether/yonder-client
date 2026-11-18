@@ -18,6 +18,9 @@ export type MemoryKind = "place" | "photo" | "doc" | "voice" | "chat" | "ai" | "
  */
 export type MemorySize = "line" | "note" | "media" | "moment";
 
+export type MemoryVisibility = "private" | "public" | "secret";
+export type MemoryWeight = 0 | 1 | 2 | 3;
+
 /** A more specific icon for everyday activity; null uses the kind's icon. */
 export type MemoryActivity =
 	| "sleep"
@@ -86,6 +89,8 @@ export interface MemoryLink {
 
 export interface MemoryEntry {
 	id: string;
+	visibility: MemoryVisibility;
+	weight: MemoryWeight;
 	size: MemorySize;
 	kind: MemoryKind;
 	activity: MemoryActivity | null;

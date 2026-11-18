@@ -6,6 +6,7 @@
 import { describe, expect, test, vi } from "vitest";
 import type { TokenStore } from "./client.ts";
 import { ApiClient, ApiError, NetworkError } from "./client.ts";
+import { createEndpoints } from "./endpoints.ts";
 
 /** The token store the web uses: the access token in memory, no refresh token (the cookie has it). */
 function createMemoryTokenStore(): TokenStore {
@@ -94,6 +95,15 @@ describe("requests", () => {
 });
 
 describe("errors", () => {
+	test("an unavailable memory file route exposes the response's real reason", async () => {
+		const fetchImpl = async () => errorResponse("not_found", 404, { message: "Memory file endpoint is unavailable" });
+		const api = createEndpoints(client(fetchImpl));
+		await expect(api.memoryFile("/me/印象.md")).rejects.toMatchObject({
+			status: 404,
+			code: "not_found",
+			message: "Memory file endpoint is unavailable",
+		});
+	});
 	test("a business error is an ApiError with its code, details and request id", async () => {
 		const fetchImpl = async () => errorResponse("code_invalid", 422, { details: { remainingAttempts: 3 } });
 		const failure = await client(fetchImpl as unknown as typeof fetch)
@@ -126,6 +136,48 @@ describe("errors", () => {
 		expect(failure).toBeInstanceOf(ApiError);
 		expect((failure as ApiError).status).toBe(502);
 	});
+});
+
+test("memory routes use the specified HTTP methods, query parameters and bodies", async () => {
+	const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ ok: true }));
+	const api = createEndpoints(client(fetchImpl));
+	const path = "/sources/会议/文 档?#.md";
+	const prefix = "/sources/会议/";
+	const edit = { path, content: "# Notes", expectedVersion: 2 };
+	const visibility = { path, visibility: "public" } as const;
+	const revert = { path, version: 1 };
+	await Promise.all([
+		api.memoryDays("2026-11-18", "Asia/Singapore"),
+		api.memoryFiles(),
+		api.memoryFiles(prefix),
+		api.memoryFile(path),
+		api.updateMemoryFile(edit),
+		api.updateMemoryFileVisibility(visibility),
+		api.deleteMemoryFile(path),
+		api.memoryFileRevisions(path),
+		api.revertMemoryFile(revert),
+	]);
+	expect(
+		fetchImpl.mock.calls.map(([url, init]) => {
+			const { pathname, searchParams } = new URL(String(url));
+			return [
+				init?.method,
+				pathname,
+				Object.fromEntries(searchParams),
+				init?.body ? JSON.parse(String(init.body)) : null,
+			];
+		}),
+	).toEqual([
+		["GET", "/v1/memory/days", { cursor: "2026-11-18", tz: "Asia/Singapore" }, null],
+		["GET", "/v1/memory/files", {}, null],
+		["GET", "/v1/memory/files", { prefix }, null],
+		["GET", "/v1/memory/files/content", { path }, null],
+		["PUT", "/v1/memory/files/content", {}, edit],
+		["PATCH", "/v1/memory/files/visibility", {}, visibility],
+		["DELETE", "/v1/memory/files", { path }, null],
+		["GET", "/v1/memory/files/revisions", { path }, null],
+		["POST", "/v1/memory/files/revert", {}, revert],
+	]);
 });
 
 describe("refresh", () => {
