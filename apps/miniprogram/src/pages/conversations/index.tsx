@@ -2,7 +2,7 @@ import { Image, Input, Text, View } from "@tarojs/components";
 import Taro, { useDidShow, usePullDownRefresh } from "@tarojs/taro";
 import type { Conversation } from "@yonder/protocol";
 import { useCallback, useEffect, useState } from "react";
-import { Button, Page, State } from "../../components/ui";
+import { Button, go, Page, State } from "../../components/ui";
 import { t, useLocale } from "../../lib/i18n";
 import "./style.scss";
 import { patchConversations, removeConversation, removeMemberFromConversations } from "../../lib/member-cache";
@@ -77,6 +77,9 @@ export default function Conversations() {
 				<View className="actions">
 					<Button secondary onClick={() => void Taro.navigateTo({ url: "/pages/contacts/index" })}>
 						{t("联系人 / 新建", "Contacts / New")}
+					</Button>
+					<Button secondary onClick={() => go("memory")}>
+						{t("记忆", "Memory")}
 					</Button>
 					<Button secondary onClick={() => void Taro.navigateTo({ url: "/pages/me/index" })}>
 						{t("我", "Me")}

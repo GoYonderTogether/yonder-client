@@ -19,6 +19,8 @@ export function joinNames(names: readonly string[], locale: Locale): string {
  * the chat, the conversation list and the tests all read the same words.
  */
 export function systemSentence(event: SystemEvent, locale: Locale): string {
+	if (event.event === "memory_updated")
+		return pair(locale, `记忆已更新 · ${event.path}`, `Memory updated · ${event.path}`);
 	const names = joinNames(event.targetNames, locale) || pair(locale, "有人", "someone");
 	const actor = event.actorName || pair(locale, "有人", "Someone");
 	switch (event.event) {

@@ -1,5 +1,6 @@
 const pages = new Set([
 	"conversations",
+	"memory",
 	"chat",
 	"me",
 	"profile",

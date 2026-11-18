@@ -1,0 +1,67 @@
+.mini-memory-segments {
+	display: flex;
+	gap: var(--spacing-1);
+	padding: var(--spacing-1);
+	margin-bottom: var(--spacing-4);
+	border-radius: var(--radius-control);
+	background: var(--color-bg-subtle);
+}
+
+.mini-memory-tab {
+	flex: 1;
+	min-height: var(--control-md);
+	margin: 0;
+	border-radius: var(--radius-control-sm);
+	background: transparent;
+	color: var(--color-text-secondary);
+}
+
+.mini-memory-tab-selected {
+	background: var(--color-bg-surface);
+	color: var(--color-text-primary);
+	font-weight: var(--font-weight-semibold);
+}
+
+.mini-memory-heading {
+	display: flex;
+	justify-content: space-between;
+	align-items: start;
+	gap: var(--spacing-2);
+	margin-bottom: var(--spacing-2);
+}
+
+.mini-memory-title {
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-weight: var(--font-weight-semibold);
+}
+
+.mini-memory-visibility {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: var(--spacing-1);
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+}
+
+.mini-memory-visibility-icon {
+	width: var(--spacing-4);
+	height: var(--spacing-4);
+	background-color: var(--color-text-secondary);
+	mask-position: center;
+	mask-repeat: no-repeat;
+	mask-size: contain;
+}
+
+.mini-memory-private {
+	mask-image: url("./icons/lock-keyhole.svg");
+}
+
+.mini-memory-public {
+	mask-image: url("./icons/globe.svg");
+}
+
+.mini-memory-secret {
+	mask-image: url("./icons/shield-off.svg");
+}

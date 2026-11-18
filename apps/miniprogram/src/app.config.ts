@@ -1,6 +1,7 @@
 export default defineAppConfig({
 	pages: [
 		"pages/conversations/index",
+		"pages/memory/index",
 		"pages/sign-in/index",
 		"pages/chat/index",
 		"pages/me/index",
