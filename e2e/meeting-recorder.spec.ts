@@ -103,8 +103,7 @@ for (const mobile of [false, true]) {
 			await page.screenshot({
 				path: info.outputPath(mobile ? "mock-native-mobile-collapsed.png" : "mock-native-desktop-collapsed.png"),
 			});
-			if (mobile && (await page.getByRole("button", { name: /^界面验收 BOT/ }).isVisible()))
-				await page.getByRole("button", { name: /^界面验收 BOT/ }).click();
+			if (mobile) await expect(page).toHaveURL(/\/messages\/main$/);
 			await expect(page.getByRole("button", { name: "语音输入", exact: true })).toBeDisabled();
 			if (mobile) await page.getByRole("button", { name: "返回", exact: true }).click();
 			await page.getByRole("button", { name: "任务", exact: true }).click();
