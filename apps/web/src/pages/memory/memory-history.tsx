@@ -62,7 +62,7 @@ function MemoryHistory({ path }: { path: string }) {
 								</>
 							}
 							subtitle={`${t("memory.byline", {
-								who: author({ updatedBy: revision.by, updatedByName: null }),
+								who: author({ updatedBy: revision.by, updatedByName: null, path }),
 								when: relativeTime(revision.at, now, locale, t("memory.justNow")),
 							})}${summary(revision, older) ? ` · ${summary(revision, older)}` : ""}`}
 							chevron={!current}

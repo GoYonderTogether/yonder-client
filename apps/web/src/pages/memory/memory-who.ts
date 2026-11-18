@@ -1,19 +1,27 @@
 import type { MemoryFileLimit, MemoryFileSummary } from "@yonder/protocol";
-import { useBot } from "@yonder/ui-data";
+import { useBot, useContacts } from "@yonder/ui-data";
 import { useTranslation } from "react-i18next";
 
+export type MemoryAuthor = Pick<MemoryFileSummary, "updatedBy" | "updatedByName"> & { path?: string };
+
 /**
- * Who last wrote a file, as the owner says it (24 第四节): the Bot's name, 你, or 系统. A checkpoint
- * or a summary is the main Bot's own background run, so it carries the main Bot's name.
+ * Who wrote a file, by name and never by an internal word (23 §18, 24 第四节): a Bot by its own
+ * name, a checkpoint or a summary by the main Bot's name (they are its background runs), a
+ * connector's archive by the connector's name, the owner as 你, onboarding as 系统. The server sends
+ * the name; a revision carries only the raw author, so the client resolves it from contacts, the
+ * main Bot, or the archive's folder, and says "Bot" only when no name can be found.
  */
 export function useAuthorName() {
 	const { t } = useTranslation();
 	const bot = useBot();
-	return (file: Pick<MemoryFileSummary, "updatedBy" | "updatedByName">): string => {
-		const [kind] = file.updatedBy.split(":");
+	const contacts = useContacts();
+	return ({ updatedBy, updatedByName, path }: MemoryAuthor): string => {
+		const [kind, id] = updatedBy.split(":");
 		if (kind === "user") return t("memory.byYou");
-		if (kind === "bot") return file.updatedByName || bot?.displayName || t("memory.byBot");
-		if (kind === "checkpoint" || kind === "digest") return bot?.displayName || t("memory.byBot");
+		if (kind === "bot")
+			return updatedByName || contacts.data?.items.find((member) => member.id === id)?.displayName || t("memory.byBot");
+		if (kind === "checkpoint" || kind === "digest") return updatedByName || bot?.displayName || t("memory.byBot");
+		if (kind === "router") return updatedByName || path?.match(/^\/sources\/([^/]+)\//u)?.[1] || t("memory.bySystem");
 		return t("memory.bySystem");
 	};
 }

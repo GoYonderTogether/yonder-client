@@ -16,7 +16,10 @@ export interface MemoryFileSummary {
 	visibility: MemoryVisibility;
 	updatedAt: Timestamp;
 	updatedBy: MemoryFileAuthor;
-	/** The Bot's display name when `updatedBy` is `bot:<memberId>`; otherwise null. */
+	/**
+	 * The writer's display name (23 §18): the Bot's for `bot:`, the main Bot's for `checkpoint:` and
+	 * `digest:`, the connector's for `router`; null for `user` and `system`.
+	 */
 	updatedByName: string | null;
 	/** The owner edited it by hand; Bots may only append until the owner lifts this. */
 	userEdited: boolean;
