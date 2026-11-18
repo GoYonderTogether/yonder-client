@@ -31,8 +31,24 @@ export function ListFrame({
 	return (
 		<div data-shell-frame className="relative flex min-h-0 flex-1 flex-col">
 			<div ref={header} data-frame-header className="shrink-0">
-				<TopBar left={left} center={(phone ? null : center) ?? (meOpen ? title : null)} right={action} phone={phone} />
-				{phone && center ? (
+				<TopBar
+					left={
+						meOpen ? (
+							left
+						) : (
+							<div className="flex min-w-0 items-center gap-[var(--spacing-3)]">
+								{left}
+								{title ? (
+									<h1 className="truncate text-h3 font-semibold text-[var(--color-text-primary)]">{title}</h1>
+								) : null}
+							</div>
+						)
+					}
+					center={meOpen ? title : null}
+					right={action}
+					phone={phone}
+				/>
+				{center ? (
 					<div className="flex shrink-0 justify-center px-[var(--spacing-4)] pb-[var(--spacing-3)] [&>[role=radiogroup]]:h-auto [&>[role=radiogroup]]:w-full [&>[role=radiogroup]]:rounded-[var(--radius-full)] [&_label]:min-h-[calc(var(--control-lg)-var(--spacing-1))] [&_label]:flex-1 [&_label]:rounded-[var(--radius-full)] [&_label]:text-body [&_label>span]:w-full [&_label>span]:justify-center [&_label>span]:rounded-[var(--radius-full)]">
 						{center}
 					</div>

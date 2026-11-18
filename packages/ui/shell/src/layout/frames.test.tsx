@@ -4,22 +4,28 @@ import { expect, test } from "vitest";
 import { ListFrame } from "./frames.tsx";
 import { ShellProvider } from "./shell-context.tsx";
 
-test("list sections sit below the mobile top bar and stay inside the desktop top bar", () => {
-	const list = (mode: "mobile" | "compact" | "wide") => (
+test("list titles and actions share the first row above full-size capsule tabs on every layout", () => {
+	const list = (mode: "mobile" | "compact" | "medium" | "wide") => (
 		<ShellProvider value={{ mode, left: <button type="button">Me</button>, meOpen: false }}>
-			<ListFrame title="Tasks" center={<button type="button">Scheduled</button>}>
+			<ListFrame
+				title="Tasks"
+				action={<button type="button">Add</button>}
+				center={<button type="button">Scheduled</button>}
+			>
 				List content
 			</ListFrame>
 		</ShellProvider>
 	);
 	const { container, rerender } = render(list("mobile"));
-	const header = container.querySelector("header");
-	expect(header).toContainElement(screen.getByRole("button", { name: "Me" }));
-	expect(header).not.toContainElement(screen.getByRole("button", { name: "Scheduled" }));
-	expect(header?.nextElementSibling).toContainElement(screen.getByRole("button", { name: "Scheduled" }));
-	for (const mode of ["compact", "wide"] as const) {
+	for (const mode of ["mobile", "compact", "medium", "wide"] as const) {
 		rerender(list(mode));
-		expect(container.querySelector("header")).toContainElement(screen.getByRole("button", { name: "Scheduled" }));
+		const header = container.querySelector("header");
+		expect(header).toContainElement(screen.getByRole("heading", { name: "Tasks" }));
+		expect(header).toContainElement(screen.getByRole("button", { name: "Me" }));
+		expect(header).toContainElement(screen.getByRole("button", { name: "Add" }));
+		expect(header).not.toContainElement(screen.getByRole("button", { name: "Scheduled" }));
+		expect(header?.nextElementSibling).toContainElement(screen.getByRole("button", { name: "Scheduled" }));
+		expect(header?.nextElementSibling?.className).toContain("--control-lg");
 	}
 });
 

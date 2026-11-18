@@ -1,7 +1,7 @@
 import type { Member } from "@yonder/protocol";
-import { Button, EmptyState, IconButton, ListGroup } from "@yonder/ui-components";
+import { Button, EmptyState, ListGroup } from "@yonder/ui-components";
 import { ApiError, useContacts, useItems } from "@yonder/ui-data";
-import { ChevronDown, ListChecks, Plus } from "lucide-react";
+import { ChevronDown, ListChecks } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { groupItems, itemGroupKey } from "./items-format.ts";
@@ -11,7 +11,7 @@ import { ItemRow } from "./items-row.tsx";
  * The 事项 tab (16-3 第八节): every item the Bot has worked on, newest first, grouped by day. 更早
  * starts collapsed, because the last few days are what a person checks; the rest is one tap away.
  */
-export function ItemsList({ onOpen, onAdd }: { onOpen: (id: string) => void; onAdd: () => void }) {
+export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 	const { t, i18n } = useTranslation();
 	const query = useItems();
 	const contacts = useContacts();
@@ -39,11 +39,6 @@ export function ItemsList({ onOpen, onAdd }: { onOpen: (id: string) => void; onA
 
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)] py-[var(--spacing-3)]">
-			<div className="flex justify-end px-[var(--spacing-2)]">
-				<IconButton aria-label={t("tasks.addItem")} variant="secondary" onClick={onAdd}>
-					<Plus size={18} strokeWidth={1.8} />
-				</IconButton>
-			</div>
 			{query.isLoading ? (
 				<ListGroup>
 					<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">

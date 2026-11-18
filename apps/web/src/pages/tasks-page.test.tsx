@@ -13,6 +13,8 @@ import { TasksList } from "./tasks-page.tsx";
  */
 const state = vi.hoisted(() => ({
 	schedules: [] as Schedule[],
+	loading: false,
+	loadError: false,
 	pause: vi.fn(),
 	resume: vi.fn(),
 	remove: vi.fn(),
@@ -34,7 +36,12 @@ function mutation(action: "pause" | "resume" | "remove") {
 
 vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@yonder/ui-data")>()),
-	useSchedules: () => ({ data: { items: state.schedules }, isLoading: false, isError: false, refetch: async () => {} }),
+	useSchedules: () => ({
+		data: state.loading || state.loadError ? undefined : { items: state.schedules },
+		isLoading: state.loading,
+		isError: state.loadError,
+		refetch: async () => {},
+	}),
 	useScheduleActions: () => ({
 		create: mutation("pause"),
 		update: mutation("pause"),
@@ -109,3 +116,19 @@ test("the goals tab lists a recurring plan as tracking and keeps a one-off out o
 	expect(screen.queryByText("一次性提醒")).toBeNull();
 	expect(screen.getByText("Tracking")).toBeVisible();
 });
+
+for (const pending of ["loading", "loadError"] as const) {
+	test(`schedule creation remains usable while the list is ${pending}`, () => {
+		state[pending] = true;
+		try {
+			show();
+			fireEvent.click(screen.getByRole("button", { name: "New goal" }));
+			fireEvent.click(screen.getByRole("menuitem", { name: "New scheduled task" }));
+			expect(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
+			fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+			expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+		} finally {
+			state[pending] = false;
+		}
+	});
+}

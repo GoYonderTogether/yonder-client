@@ -300,7 +300,7 @@ export const zhCN: Messages = {
 		title: "事项",
 		scheduled: "目标",
 		goals: "目标",
-		tracking: "关注",
+		tracking: "追踪",
 		emptyTitle: "还没有事项",
 		emptyScheduled: "还没有关注或目标",
 		newSchedule: "新建定时任务",

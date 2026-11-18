@@ -53,7 +53,7 @@ function show(items: ItemSummary[]) {
 	state.contacts = [bot];
 	return render(
 		<I18nextProvider i18n={createI18n("en")}>
-			<ItemsList onOpen={() => {}} onAdd={() => {}} />
+			<ItemsList onOpen={() => {}} />
 		</I18nextProvider>,
 	);
 }
@@ -107,8 +107,7 @@ test("a failure shows the real reason the server recorded, never a made-up succe
 	expect(within(row).queryByText("半截")).toBeNull();
 });
 
-test("an empty account is told so, and the plus button is still there", () => {
+test("an empty account is told so", () => {
 	show([]);
 	expect(screen.getByText("No items yet")).toBeVisible();
-	expect(screen.getByRole("button", { name: "New item" })).toBeVisible();
 });
