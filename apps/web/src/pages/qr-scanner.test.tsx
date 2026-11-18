@@ -2,8 +2,12 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { QrScanner } from "./qr-scanner.tsx";
+
+beforeEach(() => {
+	vi.spyOn(navigator, "userAgent", "get").mockReturnValue("iPhone");
+});
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -81,4 +85,16 @@ test("photo decoding completing after the scanner closes cannot navigate", async
 	await act(async () => decoded());
 	expect(onResult).not.toHaveBeenCalled();
 	expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:photo");
+});
+
+test.each([false, true])("desktop scanner never asks for camera permission (native: %s)", (native) => {
+	vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Macintosh; Intel Mac OS X)");
+	if (native) vi.stubGlobal("__TAURI_INTERNALS__", {});
+	const getUserMedia = vi.fn().mockRejectedValue(new Error("denied"));
+	Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia } });
+	const view = scanner();
+	expect(getUserMedia).not.toHaveBeenCalled();
+	expect(view.container.querySelector("video")).toBeNull();
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(view.container.querySelector('input[type="file"]')).toBeInTheDocument();
 });

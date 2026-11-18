@@ -7,6 +7,7 @@ import type { Conversation, Message, Run } from "../chat/chat.ts";
 import type { Schedule } from "../chat/schedule.ts";
 import type { SubtaskSummary } from "../chat/subtask.ts";
 import type { ConnectorCommand } from "../connectors/connectors.ts";
+import type { FriendRequest } from "../member/friend-request.ts";
 import type { Member } from "../member/member.ts";
 import type { QuotaResponse } from "../quota/quota.ts";
 
@@ -27,6 +28,7 @@ export interface MessageNotification {
 
 /** Events this slice actually sends. A member change is what makes a second tab update. */
 export type ServerEvent =
+	| { type: "friend_request.updated"; eventId: string; at: string; request: FriendRequest }
 	| { type: "connectors.changed"; eventId: string; at: string }
 	| { type: "connector.command"; eventId: string; at: string; command: ConnectorCommand }
 	| { type: "connector.command.cancelled"; eventId: string; at: string; commandId: string }

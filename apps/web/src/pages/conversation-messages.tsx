@@ -9,11 +9,12 @@ import { resolveLocale } from "@yonder/ui-i18n";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
+import { FriendRequestCard } from "./friend-request-card.tsx";
 import { MemoryUpdatedLine } from "./memory-updated-line.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
+import { MessageSources } from "./message-sources.tsx";
 import { AskOwner, OutwardRequestCard } from "./outward-request-card.tsx";
-import { RunActivity } from "./run-activity.tsx";
 import { VoiceMessage } from "./voice-message.tsx";
 
 interface MessageProps {
@@ -67,6 +68,16 @@ export function ConversationMessages({
 		visitRole === "visitor" && conversation.visit?.state !== "denied"
 			? items.findLast((item) => item.senderId === person?.id && !item.pending && !item.sendFailed && item.body?.trim())
 			: null;
+	if (conversation.kind === "system")
+		return items.map((message) => (
+			<div key={message.id} data-message-id={message.id}>
+				{message.friendRequestId ? (
+					<FriendRequestCard id={message.friendRequestId} />
+				) : message.body ? (
+					<MessageContent body={message.body} />
+				) : null}
+			</div>
+		));
 	return groupMessages(delivered.size ? items.filter((item) => !delivered.has(item.id)) : items).map((block) => {
 		if ("time" in block)
 			return (
@@ -84,6 +95,7 @@ export function ConversationMessages({
 		if (first.type === "system") return <SystemLine key={first.id} message={first} />;
 		const self = first.senderId === person?.id;
 		const entries = run.map((message) => {
+			if (message.friendRequestId) return <FriendRequestCard key={message.id} id={message.friendRequestId} />;
 			if (message.channelAttemptId)
 				return (
 					<div key={message.id} data-message-id={message.id}>
@@ -224,7 +236,7 @@ function MessageEntry({
 			) : null}
 			{voice ? null : <MessageAttachments attachments={message.attachments} self={self} />}
 			{message.reaction ? <span>{message.reaction}</span> : null}
-			<RunActivity run={message.run} />
+			<MessageSources run={message.run} />
 			{message.connectorRequestId ? (
 				<ConnectorRequestCard id={message.connectorRequestId} ready={message.run?.status === "completed"} />
 			) : null}

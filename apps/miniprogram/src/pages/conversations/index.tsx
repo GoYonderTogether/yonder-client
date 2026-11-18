@@ -61,7 +61,7 @@ export default function Conversations() {
 		});
 	}, [load]);
 	const title = (item: Conversation) =>
-		item.title ||
+		(item.kind === "system" ? t("系统通知", "System notifications") : item.title) ||
 		item.members
 			.filter((member) => member.memberId !== me?.member.id && !isObserver(member))
 			.map((member) => member.displayName)

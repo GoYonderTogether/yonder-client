@@ -40,6 +40,7 @@ import { VisitBar } from "./visit-bar.tsx";
 function rowPreview(conversation: Conversation, t: Translate): string | undefined {
 	const last = conversation.lastMessage;
 	if (!last) return undefined;
+	if (conversation.kind === "system") return t("friendRequests.title");
 	if (last.type === "system" && last.system) return systemEventText(last.system, t) || undefined;
 	if (last.voice) return t("chat.voiceMessage");
 	return last.body ? messagePreview(last.body) : undefined;
@@ -82,7 +83,11 @@ export function MessagesList({
 							<ConversationRow
 								key={conversation.id}
 								leading={<ConversationAvatar conversation={conversation} personId={person?.id} />}
-								title={conversationTitle(conversation, person?.id)}
+								title={
+									conversation.kind === "system"
+										? t("friendRequests.notifications")
+										: conversationTitle(conversation, person?.id)
+								}
 								preview={rowPreview(conversation, t)}
 								meta={
 									conversation.lastMessage?.createdAt
@@ -178,7 +183,10 @@ export function ConversationPage({
 			</PageFrame>
 		);
 	const peer = conversation.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
-	const title = peer?.displayName || conversationTitle(conversation, person?.id);
+	const title =
+		conversation.kind === "system"
+			? t("friendRequests.notifications")
+			: peer?.displayName || conversationTitle(conversation, person?.id);
 	const agent = peer?.kind === "bot" ? peer : undefined;
 	const status = agent ? agentChatStatus(items, agent.memberId) : undefined;
 	const statusText = status
@@ -263,7 +271,7 @@ export function ConversationPage({
 					>
 						{t("visits.selfPayQuota")}
 					</p>
-				) : quota.data ? (
+				) : quota.data && conversation.kind !== "system" ? (
 					<QuotaLowBanner
 						quota={quota.data}
 						onOpenInvite={() => openSection("/me/invite")}

@@ -2,6 +2,7 @@ import { Text, View } from "@tarojs/components";
 import type { MessageBlock } from "@yonder/chat-model";
 import { MessageAttachmentsFrame, MessageBubble, MessageRun, MessageTimeText } from "@yonder/chat-presentation";
 import type { ReactNode } from "react";
+import { FriendRequestCard } from "../../components/friend-request-card";
 import { Button, go } from "../../components/ui";
 import { type Locale, t } from "../../lib/i18n";
 import { client } from "../../lib/runtime";
@@ -10,6 +11,7 @@ import { ChatAvatar } from "./avatar";
 import { senderBotId } from "./bot-entry";
 import { ChatView } from "./host";
 import { MessageBody } from "./markdown";
+import { MessageSources } from "./message-sources";
 import { runFailureText, systemText } from "./sentences";
 import type { useChat } from "./use-chat";
 import { VoiceMessage } from "./voice-message";
@@ -64,7 +66,29 @@ export function renderMessageBlock(
 	const run = block.run;
 	const first = run[0];
 	if (!first) return null;
-	if (first.type === "system") return <SystemLine key={first.id} message={first} />;
+	// A run of system lines shares no sender; each line stands on its own, centred.
+	if (first.type === "system")
+		return (
+			<>
+				{run.map((message) => (
+					<SystemLine key={message.id} message={message} />
+				))}
+			</>
+		);
+	if (chat.conversation?.kind === "system")
+		return (
+			<>
+				{run.map((message) => (
+					<View key={message.id} id={`message-${message.id}`}>
+						{message.friendRequestId ? (
+							<FriendRequestCard id={message.friendRequestId} />
+						) : (
+							<SystemLine message={message} />
+						)}
+					</View>
+				))}
+			</>
+		);
 	const self = first.senderId === chat.me?.member.id;
 	const sender = chat.conversation?.members.find((member) => member.memberId === first.senderId);
 	const name = sender?.displayName || t("成员", "Member");
@@ -110,9 +134,7 @@ export function renderMessageBlock(
 								</MessageBubble>
 							) : null}
 							{message.reaction ? <Text>{message.reaction}</Text> : null}
-							{message.run?.activity?.length ? (
-								<Text className="mini-muted">{message.run.activity.map((item) => item.label).join(" · ")}</Text>
-							) : null}
+							<MessageSources run={message.run} />
 							{message.options?.map((option) => (
 								<Button
 									key={option}

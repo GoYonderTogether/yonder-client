@@ -26,11 +26,13 @@ import { useLocation, useNavigate } from "react-router";
 import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
+import { ContactsOverlay } from "../pages/contacts-list.tsx";
 import { conversationTitle, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
 import { FlyToComposer } from "../pages/items-fly.tsx";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { BotTabAvatar } from "../pages/unread-badge.tsx";
+import { UpdateReadyButton } from "../updates/ready-button.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
@@ -64,6 +66,7 @@ export function AppFrame() {
 	const bot = useBot();
 	const meeting = useFrameMeeting(person?.id ?? null);
 	const desktop = isDesktopExperience();
+	const [contactsOpen, setContactsOpen] = useState(false);
 	const { realtime, storage } = useData();
 	const connectionStatus = useSyncExternalStore(
 		realtime.subscribe,
@@ -402,7 +405,7 @@ export function AppFrame() {
 	const watchingVisit = conversation?.visit?.role === "host";
 	const closed = Boolean(conversation?.closedReason);
 	const dock =
-		tab !== "messages" || watchingVisit ? null : closed && conversation ? (
+		tab !== "messages" || watchingVisit || conversation?.kind === "system" ? null : closed && conversation ? (
 			<ClosedGroupNotice conversation={conversation} />
 		) : (
 			composer
@@ -432,6 +435,9 @@ export function AppFrame() {
 				personName={person?.displayName ?? ""}
 				meLabel={t("nav.me")}
 				settingsLabel={t("nav.settings")}
+				updateAction={<UpdateReadyButton />}
+				onOpenContacts={() => setContactsOpen(true)}
+				contactsLabel={t("chatActions.contacts")}
 				onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
 				meOpen={meOpen}
 				me={me}
@@ -445,7 +451,7 @@ export function AppFrame() {
 						<FileDropZone
 							key={conversation?.id}
 							onFiles={draft.addFiles}
-							disabled={!conversation || !draft.loaded || draft.sending || meOpen}
+							disabled={!conversation || conversation.kind === "system" || !draft.loaded || draft.sending || meOpen}
 						>
 							{deferred(content)}
 						</FileDropZone>
@@ -457,7 +463,7 @@ export function AppFrame() {
 				composer={preset.drawerOpen ? null : dock}
 				status={preset.drawerOpen ? null : meetingStatus}
 				titlebarInset={isMacDesktopShell()}
-				brand={<Brand />}
+				brand={<AppIcon size={32} title="Yonder" />}
 				labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
 				locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
 				onModeChange={setLayoutMode}
@@ -477,11 +483,8 @@ export function AppFrame() {
 				personId={person?.id}
 				onOpen={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
 			/>
+			<ContactsOverlay open={contactsOpen} onClose={() => setContactsOpen(false)} mode={layoutMode ?? "wide"} />
 			{preset.flying ? <FlyToComposer phrase={preset.flying} onDone={preset.flown} /> : null}
 		</SidePanelProvider>
 	);
-}
-
-function Brand() {
-	return <AppIcon size={32} title="Yonder" />;
 }

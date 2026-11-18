@@ -2,6 +2,7 @@ export { agentChatStatus, isTwoPartyAgentChat } from "./agent-chat.ts";
 export { BOT_FACE_IDS, type BotFaceId, botFaceFor, botFacePaths, firstCharacter, tintFor } from "./avatar.ts";
 export { conversationPeer } from "./conversation-peer.ts";
 export { addableContacts, filterContacts, GROUP_MEMBER_LIMIT, recentContacts } from "./group-invites.ts";
+export { runSources } from "./run-sources.ts";
 
 import type { Message } from "@yonder/protocol";
 

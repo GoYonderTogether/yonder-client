@@ -173,6 +173,8 @@ export const accountMessagesZhCN = {
 			privacy: "隐私政策",
 		},
 		update: {
+			restartConfirm:
+				"现在重启安装更新？这会关闭客户端，可能中断录音、上传及本地任务。请先完成或保存工作。本地操作可能已生效但未回执，请勿自动重试；不能保证任务自动恢复。",
 			check: "检查更新",
 			checking: "正在检查更新…",
 			upToDate: "已是最新版本",

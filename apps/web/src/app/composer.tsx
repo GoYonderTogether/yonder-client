@@ -1,57 +1,19 @@
 import { ComposerFrame, ComposerLayout } from "@yonder/chat-presentation";
 import { ArrowUp, FileAudio, FileText, Image, Keyboard, Mic, Plus, Square, UsersRound } from "lucide-react";
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
-import type { CompletionBinding, CompletionMarker, TextEditRange } from "./completion/bindings.ts";
 import { CompletionPopup } from "./completion/completion-popup.tsx";
 import { CompletionHighlight } from "./completion/highlight.tsx";
-import type { CompletionItem } from "./completion/tokens.ts";
 import { useComposerCompletion } from "./completion/use-composer-completion.ts";
 import { useTextareaEdit } from "./completion/use-textarea-edit.ts";
 import { ComposerFiles } from "./composer-files.tsx";
 import { isFileDrag } from "./file-drop-zone.tsx";
 import { HoldToTalk } from "./hold-to-talk.tsx";
-import type { DraftFile } from "./use-chat-draft.ts";
 import { useComposerVoice } from "./use-composer-voice.ts";
 import { VoiceControl } from "./voice-control.tsx";
 import "./composer.css";
-
-export interface ComposerProps {
-	/** Who the message would go to; the placeholder names them. */
-	recipientName: string | null;
-	/** The draft lives in the frame, so it survives the composer leaving the screen (「我」, a resize). */
-	draft: string;
-	onDraftChange: (value: string, edit?: TextEditRange) => void;
-	onSend: () => void;
-	onSendVoice?: (file: File) => Promise<unknown>;
-	onStop: () => void;
-	streaming: boolean;
-	/** A send (upload included) is in flight; the button becomes a working cancel. */
-	sending?: boolean;
-	onCancelSend?: () => void;
-	disabled: boolean;
-	disconnected: boolean;
-	sendOnEnter: boolean;
-	completionItems?: readonly CompletionItem[];
-	selectedSkillIds?: readonly string[];
-	bindings?: readonly CompletionBinding[];
-	onAcceptCompletion?: (text: string, marker: CompletionMarker, edit: TextEditRange) => void;
-	onCompact?: () => void;
-	commandStatus?: ReactNode;
-	files?: DraftFile[];
-	onFiles?: (files: File[]) => void;
-	onRemoveFile?: (id: string) => void;
-	onRetryFile?: (id: string) => void;
-	onOriginalFileChange?: (id: string, original: boolean) => void;
-	mobilePicker?: boolean;
-	onMeeting?: ((separateSpeakers?: boolean) => void) | undefined;
-	scope?: string;
-	error?: string;
-	readOnly?: boolean;
-	microphoneOccupied?: boolean;
-	onVoiceActivityChange?: (active: boolean) => void;
-}
+import type { ComposerProps } from "./composer-props.ts";
 
 /**
  * The one composer (11 第七节第 3 条). It is mounted once by the frame and stays mounted across tabs,

@@ -1,6 +1,6 @@
 import type { Conversation } from "@yonder/protocol";
 import { Button } from "@yonder/ui-components";
-import { ApiError, useContactActions, usePerson, useVisitActions } from "@yonder/ui-data";
+import { ApiError, useFriendRequestActions, usePerson, useVisitActions } from "@yonder/ui-data";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { conversationPeer } from "./conversation-presentation.tsx";
@@ -16,7 +16,7 @@ export function VisitBar({ conversation }: { conversation: Conversation }) {
 	const person = usePerson();
 	const visit = conversation.visit;
 	const actions = useVisitActions();
-	const contacts = useContactActions();
+	const contacts = useFriendRequestActions();
 	const [addedFor, setAddedFor] = useState<string | null>(null);
 	const [hostPays, setHostPays] = useState(false);
 	const [confirmPay, setConfirmPay] = useState(false);
@@ -28,7 +28,7 @@ export function VisitBar({ conversation }: { conversation: Conversation }) {
 	const owner = host
 		? undefined
 		: conversation.members.find((member) => member.kind === "person" && member.memberId !== person?.id);
-	const failure = actions.approve.error ?? actions.deny.error ?? actions.pay.error ?? contacts.addContact.error;
+	const failure = actions.approve.error ?? actions.deny.error ?? actions.pay.error ?? contacts.request.error;
 
 	const line = (() => {
 		if (host)
@@ -73,14 +73,12 @@ export function VisitBar({ conversation }: { conversation: Conversation }) {
 			) : null}
 			{!host && visit.state === "pending" && owner ? (
 				added ? (
-					<span>{t("visits.added")}</span>
+					<span>{t("friendRequests.sent")}</span>
 				) : (
 					<Button
 						size="sm"
-						loading={contacts.addContact.isPending}
-						onClick={() =>
-							contacts.addContact.mutate(owner.memberId, { onSuccess: () => setAddedFor(conversation.id) })
-						}
+						loading={contacts.request.isPending}
+						onClick={() => contacts.request.mutate(owner.memberId, { onSuccess: () => setAddedFor(conversation.id) })}
 					>
 						{t("visits.addContact")}
 					</Button>

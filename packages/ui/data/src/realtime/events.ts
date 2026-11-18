@@ -7,6 +7,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { Member, QuotaConfigResponse, ServerEvent } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { invalidateMemoryFiles } from "../query/memory-files.ts";
+import { writeFriendRequest } from "./friend-request-cache.ts";
 import { removeConversation, removeMember, writeConversation, writeMember } from "./member-cache.ts";
 import { updateMessage, updateRun } from "./message-cache.ts";
 
@@ -29,6 +30,7 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 	void queryClient.invalidateQueries({ queryKey: keys.conversations.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.messages.root() });
 	void queryClient.invalidateQueries({ queryKey: keys.contacts() });
+	void queryClient.invalidateQueries({ queryKey: keys.friendRequests.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.quota() });
 	void queryClient.invalidateQueries({ queryKey: keys.usage("all") });
 	void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
@@ -38,6 +40,10 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 
 export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, handlers: EventHandlers = {}): void {
 	switch (event.type) {
+		case "friend_request.updated": {
+			writeFriendRequest(queryClient, event.request);
+			break;
+		}
 		case "connectors.changed": {
 			void queryClient.invalidateQueries({ queryKey: keys.goals() });
 			void queryClient.invalidateQueries({ queryKey: keys.connectors.list() });

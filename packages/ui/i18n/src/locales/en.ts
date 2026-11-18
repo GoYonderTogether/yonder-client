@@ -3,7 +3,7 @@ import { botMessagesEn } from "./bots-en.ts";
 import { channelsEn } from "./channels.ts";
 import { composerAttachmentsEn } from "./composer-attachments-en.ts";
 import { connectorMessagesEn } from "./connectors-en.ts";
-import { friendQrEn } from "./friend-qr-en.ts";
+import { friendQrEn, friendRequestsEn } from "./friend-qr-en.ts";
 import { inviteExperienceEn } from "./invite-experience-en.ts";
 import { landingPageEn } from "./landing-page-en.ts";
 import { meetingRecorderEn } from "./meeting-recorder-en.ts";
@@ -121,7 +121,9 @@ export const en = {
 		myBot: "My Bot",
 	},
 
+	friendRequests: friendRequestsEn,
 	chatActions: {
+		contacts: "Contacts",
 		recordMeeting: "Meeting recording",
 		recordMeetingWithSpeakers: "Record with speaker labels",
 		windowFallback: "Could not open a separate window. Continue here.",
@@ -259,6 +261,7 @@ export const en = {
 		settings: "Chat settings",
 		agentStatus: { queued: "Queued…", working: "Working…", replying: "Replying…" },
 		activityMore: "{{count}} activities",
+		sources: "Sources",
 		uploadFiles: "Upload files",
 		uploadImages: "Upload images",
 		removeFile: "Remove {{name}}",

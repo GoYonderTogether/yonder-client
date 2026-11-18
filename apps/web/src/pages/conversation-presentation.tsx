@@ -3,6 +3,7 @@ import { GroupAvatar } from "@yonder/feature-members";
 import type { Conversation } from "@yonder/protocol";
 import { Avatar } from "@yonder/ui-components";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
+import { Bell } from "lucide-react";
 
 export { conversationPeer };
 
@@ -43,6 +44,7 @@ export function ConversationAvatar({
 	conversation: Conversation;
 	personId: string | undefined;
 }) {
+	if (conversation.kind === "system") return <Bell size={24} aria-hidden="true" />;
 	const peer = conversationPeer(conversation, personId);
 	if (conversation.kind !== "group")
 		return (

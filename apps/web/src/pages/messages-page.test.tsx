@@ -22,6 +22,7 @@ vi.mock("@yonder/ui-data", async (original) => ({
 		deny: { mutate: vi.fn(), isPending: false, error: null },
 		pay: { mutate: vi.fn(), isPending: false, error: null },
 	}),
+	useFriendRequestActions: () => ({ request: { mutate: vi.fn(), isPending: false, error: null } }),
 	useContactActions: () => ({ addContact: { mutate: vi.fn(), isPending: false, error: null } }),
 }));
 vi.mock("../pages/chat-actions/index.tsx", () => ({ ChatActions: () => null }));

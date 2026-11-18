@@ -13,7 +13,7 @@ export function isDesktopExperience(): boolean {
 }
 
 export function shouldShowScanner(): boolean {
-	return typeof navigator !== "undefined" && /iPhone|iPad|Android/i.test(navigator.userAgent);
+	return typeof navigator !== "undefined" && !isDesktopExperience();
 }
 
 /**

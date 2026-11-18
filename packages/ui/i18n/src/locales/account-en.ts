@@ -175,6 +175,8 @@ export const accountMessagesEn = {
 			privacy: "Privacy policy",
 		},
 		update: {
+			restartConfirm:
+				"Restart to install the update? This closes the client and may interrupt recordings, uploads and local tasks. Finish or save your work first. Local changes may already have taken effect without a receipt; do not automatically retry them. Task recovery is not guaranteed.",
 			check: "Check for updates",
 			checking: "Checking for updates…",
 			upToDate: "You're up to date",

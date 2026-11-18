@@ -4,7 +4,7 @@ import { channelsZhCN } from "./channels.ts";
 import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
 import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
 import type { Messages } from "./en.ts";
-import { friendQrZhCN } from "./friend-qr-zh-CN.ts";
+import { friendQrZhCN, friendRequestsZhCN } from "./friend-qr-zh-CN.ts";
 import { inviteExperienceZhCN } from "./invite-experience-zh-CN.ts";
 import { landingPageZhCN } from "./landing-page-zh-CN.ts";
 import { meetingRecorderZhCN } from "./meeting-recorder-zh-CN.ts";
@@ -122,7 +122,9 @@ export const zhCN: Messages = {
 		myBot: "我的 Bot",
 	},
 
+	friendRequests: friendRequestsZhCN,
 	chatActions: {
+		contacts: "联系人",
 		recordMeeting: "会议录音",
 		recordMeetingWithSpeakers: "录音并区分发言人",
 		windowFallback: "未能打开独立窗口，可在这里继续添加。",
@@ -260,6 +262,7 @@ export const zhCN: Messages = {
 		settings: "聊天设置",
 		agentStatus: { queued: "排队中…", working: "处理中…", replying: "回复中…" },
 		activityMore: "等 {{count}} 项",
+		sources: "来源",
 		uploadFiles: "上传文件",
 		uploadImages: "上传图片",
 		removeFile: "移除 {{name}}",

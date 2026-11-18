@@ -1,8 +1,9 @@
 import { Avatar, BrandedQrCode, Button, SearchInput } from "@yonder/ui-components";
-import { useContactActions, useContactSearch, usePerson } from "@yonder/ui-data";
+import { useContactActions, useContactSearch, useContacts, useFriendRequestActions, usePerson } from "@yonder/ui-data";
 import { ChevronRight, Gift, ScanLine } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { shouldShowScanner } from "../../lib/platform.ts";
 import { ActionError } from "./action-error.tsx";
 
 export function AddContacts({
@@ -22,6 +23,9 @@ export function AddContacts({
 	const [query, setQuery] = useState(initialQuery.replace(/^@/, ""));
 	const results = useContactSearch(query);
 	const { addContact } = useContactActions();
+	const { request } = useFriendRequestActions();
+	const contacts = useContacts();
+	const [sent, setSent] = useState<Record<string, boolean>>({});
 	const [added, setAdded] = useState<Record<string, string>>({});
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)] p-[var(--spacing-5)]">
@@ -53,7 +57,7 @@ export function AddContacts({
 			</form>
 			{!query && !input.trim() ? (
 				<div className="flex flex-col">
-					{onScan ? (
+					{onScan && shouldShowScanner() ? (
 						<ContactEntry
 							icon={ScanLine}
 							title={t("chatActions.scan")}
@@ -71,7 +75,7 @@ export function AddContacts({
 					) : null}
 				</div>
 			) : null}
-			<ActionError error={results.error ?? addContact.error} />
+			<ActionError error={results.error ?? addContact.error ?? request.error} />
 			{query && results.isSuccess && !results.data.items.length ? (
 				<p role="status" className="text-caption text-[var(--color-text-secondary)]">
 					{t("chatActions.noResults")}
@@ -98,7 +102,9 @@ export function AddContacts({
 							</p>
 						) : null}
 					</div>
-					{added[member.id] ? (
+					{sent[member.id] ? (
+						<span role="status">{t("friendRequests.sent")}</span>
+					) : added[member.id] ? (
 						<Button size="sm" onClick={() => onOpen(added[member.id] as string)}>
 							{t("chatActions.message")}
 						</Button>
@@ -106,14 +112,18 @@ export function AddContacts({
 						<Button
 							size="sm"
 							loading={addContact.isPending && addContact.variables === member.id}
-							disabled={addContact.isPending}
-							onClick={() =>
+							disabled={addContact.isPending || request.isPending}
+							onClick={() => {
+								if (!contacts.data?.items.some((item) => item.id === member.id)) {
+									request.mutate(member.id, { onSuccess: () => setSent((old) => ({ ...old, [member.id]: true })) });
+									return;
+								}
 								addContact.mutate(member.id, {
 									onSuccess: ({ conversation }) => {
 										setAdded((current) => ({ ...current, [member.id]: conversation.id }));
 									},
-								})
-							}
+								});
+							}}
 						>
 							{t("chatActions.add")}
 						</Button>
