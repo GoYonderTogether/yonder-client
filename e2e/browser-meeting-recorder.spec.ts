@@ -7,6 +7,15 @@ test.use({
 });
 
 test("browser recording persists WAV, submits it for processing, and recovers after reload", async ({ page }) => {
+	await page.addInitScript(() => {
+		const request = navigator.locks.request;
+		Object.defineProperty(navigator.locks, "request", {
+			value: (name: string, ...args: unknown[]) => {
+				if (name === "yonder-meeting-microphone") sessionStorage.setItem("meeting-lock-requested", "1");
+				return Reflect.apply(request, navigator.locks, [name, ...args]);
+			},
+		});
+	});
 	await isolateChat(page, { items: [] });
 	let manifest: CreateMeetingRequest | undefined;
 	let submitted = false;
@@ -63,7 +72,15 @@ test("browser recording persists WAV, submits it for processing, and recovers af
 	const start = async (title: string, separateSpeakers = false) => {
 		await open();
 		await page.getByRole("textbox", { name: "录音标题" }).fill(title);
-		await page.getByRole("button", { name: separateSpeakers ? "录音并区分发言人" : "开始录音", exact: true }).click();
+		const startAction = page.getByRole("button", {
+			name: separateSpeakers ? "录音并区分发言人" : "开始录音",
+			exact: true,
+		});
+		if (separateSpeakers) {
+			await expect(startAction).toBeEnabled();
+			expect(await page.evaluate(() => sessionStorage.getItem("meeting-lock-requested"))).toBeNull();
+		}
+		await startAction.click();
 		await expect(page.getByRole("button", { name: "结束录音", exact: true })).toBeVisible();
 	};
 	const savedDuration = () =>

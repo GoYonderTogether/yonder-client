@@ -44,7 +44,8 @@ async function state(requested: string | null): Promise<MeetingRecorderState> {
 	};
 	if (!requested) return result;
 	requireOwner(requested);
-	if (!active && !starting) {
+	result.recordings = await listBrowserMeetings(requested);
+	if (!active && !starting && result.recordings.some((record) => record.state === "recording")) {
 		await navigator.locks.request(LOCK, { ifAvailable: true }, async (lock) => {
 			if (!lock) return;
 			for (const record of await listBrowserMeetings(requested)) {
@@ -58,8 +59,9 @@ async function state(requested: string | null): Promise<MeetingRecorderState> {
 				}
 			}
 		});
+		result.recordings = await listBrowserMeetings(requested);
 	}
-	result.recordings = (await listBrowserMeetings(requested)).sort((a, b) => b.startedAt - a.startedAt);
+	result.recordings.sort((a, b) => b.startedAt - a.startedAt);
 	requireOwner(requested);
 	if (active?.record.ownerId === requested) {
 		result.activeId = active.record.id;

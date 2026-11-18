@@ -69,7 +69,8 @@ export function MeetingRecorderCapsule({
 		if (startDisabled) return;
 		setSelectedId(null);
 		cloud?.select(null);
-		void recorder.start(title.trim() || t("meetingRecorder.defaultTitle"), undefined, separateSpeakers);
+		const name = title.trim() || t("meetingRecorder.defaultTitle");
+		void (separateSpeakers ? recorder.start(name, undefined, true) : recorder.start(name));
 	}
 	if (!expanded && !headline && !meeting && !recorder.error) return null;
 	return (
