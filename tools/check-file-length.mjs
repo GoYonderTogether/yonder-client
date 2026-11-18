@@ -14,7 +14,7 @@ export const WARN_AT = 300;
 export const FAIL_AT = 500;
 
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".css", ".rs"];
-const SKIP_DIRECTORIES = new Set(["node_modules", "dist", "gen", "target", ".git", "build", "icons"]);
+const SKIP_DIRECTORIES = new Set(["node_modules", "dist", "gen", "target", ".git", "build", "icons", "vendor"]);
 const SCANNED_DIRECTORIES = ["packages", "apps", "tools", "scripts"];
 
 /** Line count of `text`, where a trailing newline does not add an empty line. */

@@ -1,4 +1,5 @@
 import { accountMessagesZhCN } from "./account-zh-CN.ts";
+import { botMessagesZhCN } from "./bots-zh-CN.ts";
 import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
 import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
 import type { Messages } from "./en.ts";
@@ -6,22 +7,31 @@ import { friendQrZhCN } from "./friend-qr-zh-CN.ts";
 import { inviteExperienceZhCN } from "./invite-experience-zh-CN.ts";
 import { landingPageZhCN } from "./landing-page-zh-CN.ts";
 import { meetingRecorderZhCN } from "./meeting-recorder-zh-CN.ts";
+import { membersMessagesZhCN } from "./members-zh-CN.ts";
 import { memoryMessagesZhCN } from "./memory-zh-CN.ts";
 import { modelMessagesZhCN } from "./models-zh-CN.ts";
+import { pricingMessagesZhCN } from "./pricing-zh-CN.ts";
+import { setupMessagesZhCN } from "./setup-zh-CN.ts";
 import { skillMessagesZhCN } from "./skills-zh-CN.ts";
+import { visitsMessagesZhCN } from "./visits-zh-CN.ts";
 
 /**
  * Chinese. Typed against the English table: a missing key fails the build rather than showing a
  * blank label. Wording follows the product's own vocabulary (对话、任务、记忆、我).
  */
 export const zhCN: Messages = {
+	bots: botMessagesZhCN,
 	composerAttachments: composerAttachmentsZhCN,
 	connectors: connectorMessagesZhCN,
 	inviteExperience: inviteExperienceZhCN,
 	friendQr: friendQrZhCN,
 	landingPage: landingPageZhCN,
+	pricing: pricingMessagesZhCN,
 	meetingRecorder: meetingRecorderZhCN,
+	members: membersMessagesZhCN,
+	setup: setupMessagesZhCN,
 	skills: skillMessagesZhCN,
+	visits: visitsMessagesZhCN,
 	app: {
 		name: "Yonder",
 		loading: "加载中…",
@@ -344,13 +354,19 @@ export const zhCN: Messages = {
 	auth: accountMessagesZhCN.auth,
 
 	errors: {
+		...visitsMessagesZhCN.errors,
 		invalid_request: "这个请求不对。",
 		unauthenticated: "请先登录。",
 		token_expired: "登录过期了，正在重新登录…",
 		forbidden: "你没有这个权限。",
 		account_suspended: "这个账号已被停用。",
 		account_pending_deletion: "这个账号正在注销中。",
+		account_deleted: "这个账号已注销，不能再登录。",
 		not_found: "没找到。",
+		handle_taken: "这个对外号已经有人用了。",
+		handle_cooldown: "对外号最近刚改过，稍后再改。",
+		handle_reserved: "这个对外号是保留词。",
+		phone_taken: "这个号码已经被别的账号用了。",
 		conflict_version: "别处改过了，刷新再试。",
 		code_invalid: "验证码不对。",
 		code_expired: "验证码过期了。",

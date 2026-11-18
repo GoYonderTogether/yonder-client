@@ -14,7 +14,9 @@ vi.mock("../lib/prepare-image.ts", () => ({
 	isImageFile: (_name: string, mime: string) => mime.startsWith("image/"),
 	prepareImage: local.prepare,
 }));
-vi.mock("@yonder/ui-data", () => ({
+vi.mock("@yonder/ui-data", async () => ({
+	// The real error class, so a refusal the hook recognises is the same one the API client throws.
+	ApiError: (await import("@yonder/api-client")).ApiError,
 	useApi: () => ({ uploadAttachment: local.upload }),
 	attachmentCacheKey: (owner: string, id: string) => `blob:${owner}:${id}`,
 	chatCacheGeneration: () => local.generation,
@@ -435,4 +437,33 @@ test("cancelling an in-flight upload aborts it, restores the draft and keeps the
 	});
 	await act(() => result.result.current.submit(send));
 	expect(send).toHaveBeenCalledOnce();
+});
+
+test("a refused send keeps the draft and shows the server's own reason instead of the generic line", async () => {
+	const { ApiError } = await import("@yonder/api-client");
+	const cases = [
+		["visit_limit", "errors.visit_limit"],
+		["visit_denied", "errors.visit_denied"],
+		["visit_cap", "errors.visit_cap"],
+	] as const;
+	for (const [code, key] of cases) {
+		local.values.clear();
+		const result = renderHook(() => useChatDraft("alice", `refused-${code}`));
+		await waitFor(() => expect(result.result.current.loaded).toBe(true));
+		act(() => result.result.current.setText(`blocked by ${code}`));
+		const send = vi.fn().mockRejectedValue(new ApiError({ code, status: 409, message: code }));
+		await act(() => result.result.current.submit(send));
+		expect(result.result.current.error).toBe(key);
+		expect(result.result.current.text).toBe(`blocked by ${code}`);
+		result.unmount();
+	}
+});
+
+test("an ordinary failure and a plain network error keep the generic preserved-draft line", async () => {
+	const result = renderHook(() => useChatDraft("alice", "generic"));
+	await waitFor(() => expect(result.result.current.loaded).toBe(true));
+	act(() => result.result.current.setText("still here"));
+	await act(() => result.result.current.submit(vi.fn().mockRejectedValue(new Error("network"))));
+	expect(result.result.current.error).toBe("chat.sendPreserved");
+	expect(result.result.current.text).toBe("still here");
 });

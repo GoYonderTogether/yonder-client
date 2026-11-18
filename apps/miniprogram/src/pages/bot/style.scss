@@ -1,0 +1,25 @@
+.mini-bot-preview,
+.mini-bot-colors {
+	display: flex;
+	justify-content: center;
+	gap: var(--spacing-3);
+}
+
+.mini-bot-preview {
+	margin-bottom: var(--spacing-4);
+}
+
+.mini-bot-colors {
+	margin-bottom: var(--spacing-4);
+}
+
+.mini-bot-color {
+	width: var(--control-md);
+	height: var(--control-md);
+	border-radius: var(--radius-full);
+	box-sizing: border-box;
+}
+
+.mini-bot-color-active {
+	border: 2px solid var(--color-text-primary);
+}

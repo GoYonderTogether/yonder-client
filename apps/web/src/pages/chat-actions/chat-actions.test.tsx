@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { Conversation, Member } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
@@ -18,6 +18,9 @@ const { createBot, createGroup, addContact, contactQueries } = vi.hoisted(() => 
 	addContact: vi.fn(),
 	contactQueries: vi.fn(),
 }));
+/** What the create mutation resolves with, so the shared form's `mutateAsync` path can be tested. */
+const created = { bot: { id: "bot-new" }, conversation: { id: "conversation-new" } };
+createBot.mockResolvedValue(created);
 const members: Member[] = ["one", "two"].map((id) => ({
 	id,
 	kind: "bot",
@@ -25,16 +28,20 @@ const members: Member[] = ["one", "two"].map((id) => ({
 	displayName: id,
 	avatarUrl: null,
 	bio: null,
+	ownerId: "self",
+	isDefault: false,
 	createdAt: "2026-11-15T00:00:00Z",
 	version: 1,
 }));
 vi.mock("@yonder/ui-data", async (original) => ({
 	...(await original<typeof import("@yonder/ui-data")>()),
 	useContactActions: () => ({
-		createBot: { mutate: createBot },
+		createBot: { mutate: createBot, mutateAsync: createBot },
 		createGroup: { mutate: createGroup },
 		addContact: { mutate: addContact },
 	}),
+	useUpdateBot: () => ({ mutateAsync: vi.fn() }),
+	useUploadBotAvatar: () => ({ mutateAsync: vi.fn() }),
 	usePerson: () => ({ handle: "myhandle", displayName: "My name" }),
 	useContacts: () => ({ data: { items: members }, isSuccess: true }),
 	useContactSearch: (query: string) => {
@@ -67,17 +74,17 @@ test("desktop menu preserves the requested order and keyboard selection; mobile 
 	expect(screen.getByRole("button", { name: "New chat" })).toHaveFocus();
 });
 
-test("a BOT can be created without editing any field, using a library name and default color", () => {
+test("a BOT can be created without editing any field, using a library name and default color", async () => {
 	const onCreated = vi.fn();
 	render(localised(<CreateBot onCreated={onCreated} />));
 	const name = screen.getByRole("textbox", { name: "Name" }) as HTMLInputElement;
 	expect(BOT_NAMES).toContain(name.value);
 	fireEvent.click(screen.getByRole("button", { name: "Create" }));
-	expect(createBot).toHaveBeenCalledWith({ displayName: name.value, avatarColor: "1" }, expect.anything());
-	createBot.mock.calls[0]?.[1].onSuccess({ conversation: { id: "conversation-new" } });
-	expect(onCreated).toHaveBeenCalledWith("conversation-new");
+	await waitFor(() => expect(onCreated).toHaveBeenCalledWith("conversation-new"));
+	expect(createBot).toHaveBeenCalledWith({ displayName: name.value, avatarColor: "1" });
 	fireEvent.click(screen.getByRole("button", { name: "Lilac" }));
 	fireEvent.click(screen.getByRole("button", { name: "Create" }));
+	await waitFor(() => expect(createBot).toHaveBeenCalledTimes(2));
 	expect(createBot.mock.calls[1]?.[0].avatarColor).toBe("4");
 });
 

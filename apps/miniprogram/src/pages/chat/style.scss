@@ -30,6 +30,10 @@
 	white-space: nowrap;
 }
 
+.mini-page-chat .mini-nav-title-link {
+	display: block;
+}
+
 .mini-page-chat .mini-back {
 	position: absolute;
 	left: 0;
@@ -134,42 +138,51 @@
 	margin-block: var(--spacing-4);
 }
 
-.mini-chat-avatar {
+/* A group-lifecycle line: one centred sentence, no avatar and no bubble. */
+.mini-chat-system {
+	display: flex;
+	justify-content: center;
+	margin-block: var(--spacing-3);
+	padding: 0 var(--spacing-6);
+	text-align: center;
+}
+
+.mini-chat-system-text {
+	color: var(--color-text-tertiary);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+}
+
+/* Where the composer used to be in a closed group: one line with the real reason. */
+.mini-chat-closed {
+	flex: 0 0 auto;
+	padding: var(--spacing-3) var(--spacing-4) calc(var(--spacing-3) + env(safe-area-inset-bottom));
+	border-top: 1px solid var(--color-border-subtle);
+	text-align: center;
+}
+
+/* The visit ladder above the messages: one factual line and the actions its state allows. */
+.mini-chat-visit {
 	display: flex;
 	flex: 0 0 auto;
+	flex-wrap: wrap;
 	align-items: center;
-	justify-content: center;
-	overflow: hidden;
-	border-radius: 50%;
+	gap: var(--spacing-2);
+	margin: 0 var(--spacing-4) var(--spacing-2);
+	padding: var(--spacing-2) var(--spacing-3);
+	border-radius: var(--radius-control);
+	background: var(--color-bg-subtle);
 	font-size: var(--text-caption);
-	font-weight: var(--font-weight-semibold);
+	line-height: var(--text-caption--line-height);
 }
 
-.mini-chat-avatar-bot {
-	border-radius: 30%;
+.mini-chat-visit-actions {
+	display: flex;
+	gap: var(--spacing-2);
 }
 
-.mini-chat-avatar-image {
-	display: block;
-	width: 100%;
-	height: 100%;
-	border-radius: inherit;
-}
-
-.mini-chat-avatar-bot-face {
-	width: 100%;
-	height: 100%;
-	mask-position: center;
-	mask-repeat: no-repeat;
-	mask-size: contain;
-	-webkit-mask-position: center;
-	-webkit-mask-repeat: no-repeat;
-	-webkit-mask-size: contain;
-}
-
-.mini-chat-avatar-initial {
-	color: inherit;
-	font: inherit;
+.mini-chat-visit-actions .mini-button {
+	margin: 0;
 }
 
 .mini-chat-entry {

@@ -20,6 +20,7 @@
 		"packages/ui/features/auth",
 		"packages/ui/features/legal",
 		"packages/ui/features/me",
+		"packages/ui/features/members",
 		"packages/ui/features/landing",
 		"packages/ui/features/meetings"
 	],

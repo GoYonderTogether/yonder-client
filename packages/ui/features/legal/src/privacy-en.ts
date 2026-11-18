@@ -36,7 +36,7 @@ export const enPrivacy: LegalDocument = {
 			paragraphs: [
 				"You may exercise your legal rights to access, copy, correct or delete personal information, withdraw consent, or request account closure. You can edit your profile and sign out devices in the app. You can also make these requests by contacting Wu Bingqi at 186 8073 6501. We will reply within 15 working days.",
 				"**Withdrawing consent may affect use of the related feature, but does not affect processing based on consent before withdrawal.**",
-				"You can request account closure in Me › Account and security. A 30-day cooling-off period follows, and signing in again during it cancels the request. After it ends, we delete or anonymise your personal information within 15 working days, **except where laws or administrative regulations require us to keep it**, for example network logs kept for at least 6 months. Information kept by law is not processed beyond storage and necessary security protection.",
+				"You can request account closure in Me › Account and security. A 30-day cooling-off period follows, and signing in again during it cancels the request. After it ends, we process your personal information within 15 working days, **except where laws or administrative regulations require us to keep it**, for example network logs kept for at least 6 months. Information kept by law is not processed beyond storage and necessary security protection.",
 			],
 		},
 		{

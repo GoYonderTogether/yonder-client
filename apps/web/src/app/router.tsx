@@ -21,12 +21,7 @@ const InvitePage = lazy(() => import("../pages/invite-page.tsx").then((module) =
 const LandingPage = lazy(() => import("../pages/landing-page.tsx").then((module) => ({ default: module.LandingPage })));
 const LegalPage = lazy(() => import("../pages/legal-page.tsx").then((module) => ({ default: module.LegalPage })));
 const PricingPage = lazy(() => import("../pages/pricing-page.tsx").then((module) => ({ default: module.PricingPage })));
-const SetupPasswordPage = lazy(() =>
-	import("../pages/setup-password-page.tsx").then((module) => ({ default: module.SetupPasswordPage })),
-);
-const SetupProfilePage = lazy(() =>
-	import("../pages/setup-profile-page.tsx").then((module) => ({ default: module.SetupProfilePage })),
-);
+const SetupPage = lazy(() => import("../pages/setup/setup-page.tsx").then((module) => ({ default: module.SetupPage })));
 const SignInPage = lazy(() => import("../pages/sign-in-page.tsx").then((module) => ({ default: module.SignInPage })));
 const AppFrame = lazy(() => import("./app-frame.tsx").then((module) => ({ default: module.AppFrame })));
 
@@ -68,18 +63,10 @@ export function AppRoutes() {
 								<Route path="/pricing" element={<PricingPage />} />
 								<Route path="/i/:code" element={<InvitePage />} />
 								<Route
-									path="/setup/password"
+									path="/setup/:step"
 									element={
 										<RequireSession>
-											<SetupPasswordPage />
-										</RequireSession>
-									}
-								/>
-								<Route
-									path="/setup/profile"
-									element={
-										<RequireSession>
-											<SetupProfilePage />
+											<SetupPage />
 										</RequireSession>
 									}
 								/>

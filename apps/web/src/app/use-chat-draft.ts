@@ -1,5 +1,6 @@
 import type { Attachment, SendMessageRequest } from "@yonder/protocol";
 import {
+	ApiError,
 	attachmentCacheKey,
 	chatCacheGeneration,
 	readChatCache,
@@ -35,6 +36,26 @@ export interface DraftFile {
 export function selectedDraftFile(file: DraftFile) {
 	if (file.optimized && !file.sendOriginal) return { ...file.optimized, original: false };
 	return { blob: file.blob, name: file.name, mimeType: file.mimeType, nonce: file.id, original: true };
+}
+
+/**
+ * The message key for a refused send. A visit refusal and a quota refusal are real answers from
+ * the server, so they replace the generic "your draft is preserved" line; anything else, including
+ * a network failure, keeps that line because the draft really is preserved.
+ */
+const SEND_REFUSAL_KEYS = new Set(["visit_limit", "visit_denied", "visit_cap"]);
+
+/**
+ * A dissolved group, or a chat the sender was removed from, refuses every send with one code: the
+ * composer says exactly that, in the members wording, instead of the generic "draft preserved" line
+ * (19 3.2). It is a real refusal from the server, never drawn as something the Bot said.
+ */
+const CONVERSATION_CLOSED_KEY = "members.errors.conversationClosed";
+
+export function sendErrorMessageKey(error: unknown): string {
+	if (!(error instanceof ApiError)) return "chat.sendPreserved";
+	if (error.code === "conversation_closed") return CONVERSATION_CLOSED_KEY;
+	return SEND_REFUSAL_KEYS.has(error.code) ? `errors.${error.code}` : "chat.sendPreserved";
 }
 interface Draft {
 	text: string;
@@ -278,9 +299,10 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			if (current.current.key === scope) change(clearSent, scope);
 			else await updateChatCache<Draft>(scope, clearSent, cacheGeneration);
 			return true;
-		} catch {
-			// Cancelling keeps the draft silently; any other failure says it was preserved.
-			if (current.current.key === scope && !controller.signal.aborted) setError("chat.sendPreserved");
+		} catch (error) {
+			// Cancelling keeps the draft silently; any other failure says it was preserved, and a refusal
+			// the server named says its real reason instead of the generic sentence.
+			if (current.current.key === scope && !controller.signal.aborted) setError(sendErrorMessageKey(error));
 		} finally {
 			if (inFlightSend.current === controller) inFlightSend.current = null;
 			busy.current = false;

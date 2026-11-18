@@ -118,13 +118,38 @@ export function useSetPassword() {
 	});
 }
 
+export function useChangeHandle() {
+	const api = useApi();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (handle: string) => api.changeHandle(handle),
+		onSuccess: (result) => queryClient.setQueryData(keys.me(), result.me),
+	});
+}
+
+export function usePhoneChange() {
+	const api = useApi();
+	const queryClient = useQueryClient();
+	return {
+		sendCode: useMutation({ mutationFn: (target?: string) => api.sendPhoneChangeCode(target ? { target } : {}) }),
+		change: useMutation({
+			mutationFn: (body: Parameters<typeof api.changePhone>[0]) => api.changePhone(body),
+			onSuccess: (me) => queryClient.setQueryData(keys.me(), me),
+		}),
+	};
+}
+
+/** Deleting the account takes a code sent to the account's own number, then the code and the handle. */
 export function useDeleteAccount() {
 	const api = useApi();
 	const { signOutLocal } = useData();
-	return useMutation({
-		mutationFn: (body: { confirmHandle: string }) => api.deleteAccount(body),
-		onSuccess: () => signOutLocal(),
-	});
+	return {
+		sendCode: useMutation({ mutationFn: () => api.sendDeleteAccountCode() }),
+		confirm: useMutation({
+			mutationFn: (body: Parameters<typeof api.deleteAccount>[0]) => api.deleteAccount(body),
+			onSuccess: () => signOutLocal(),
+		}),
+	};
 }
 
 /** Drop the cached profile after a sign-in, so the previous account never flashes. */

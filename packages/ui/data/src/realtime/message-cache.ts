@@ -23,7 +23,11 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 		return { pages: next, pageParams: current.pageParams };
 	});
 
-	if (message.pending || message.sendFailed || !message.body?.trim()) return;
+	if (message.pending || message.sendFailed) return;
+	// A group lifecycle message has no body but still belongs in the list preview: the row renders it
+	// from `system` in the reader's language (19 第三节).
+	const isSystem = message.type === "system";
+	if (!isSystem && !message.body?.trim()) return;
 	client.setQueryData<{ items: Conversation[] }>(keys.conversations.list(), (current) => {
 		if (!current) return current;
 		return {
@@ -36,7 +40,13 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 				return {
 					...conversation,
 					lastMessageAt: message.createdAt,
-					lastMessage: { body: message.body, senderKind: message.senderKind, createdAt: message.createdAt },
+					lastMessage: {
+						body: message.body,
+						senderKind: message.senderKind,
+						createdAt: message.createdAt,
+						type: message.type,
+						...(message.system ? { system: message.system } : {}),
+					},
 				};
 			}),
 		};

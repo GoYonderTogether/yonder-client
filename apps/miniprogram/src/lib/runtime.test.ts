@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 const mock = vi.hoisted(() => ({
 	store: new Map<string, unknown>(),
 	downloadFile: vi.fn(),
+	reLaunch: vi.fn(async () => {}),
 	unlink: vi.fn(),
 	fetch: vi.fn(),
 }));
@@ -16,6 +17,7 @@ vi.mock("@tarojs/taro", () => ({
 		getSystemInfoSync: () => ({ language: "zh-CN", model: "test", system: "iOS" }),
 		getFileSystemManager: () => ({ unlink: mock.unlink, readFileSync: () => new ArrayBuffer(1) }),
 		downloadFile: mock.downloadFile,
+		reLaunch: mock.reLaunch,
 	},
 }));
 vi.mock("./transport", () => ({ miniFetch: mock.fetch, localFile: (filePath: string) => ({ filePath }) }));
@@ -98,4 +100,20 @@ test("switching the API base does not send another service's refresh credential"
 test("identifies this device as a mini program", async () => {
 	const runtime = await import("./runtime");
 	expect(runtime.deviceInfo().platform).toBe("miniprogram");
+});
+
+test("signing out clears the local session even when the server refuses the request", async () => {
+	const runtime = await import("./runtime");
+	const me = { settings: { locale: "zh-CN" } } as MeResponse;
+	await runtime.startSession({ accessToken: "a", refreshToken: "ra", me });
+	mock.store.set("yonder.mini.draft.one", "draft");
+	mock.fetch.mockResolvedValue({
+		status: 500,
+		ok: false,
+		json: async () => ({ error: { code: "internal", message: "boom", messageKey: "errors.internal" } }),
+	});
+	await expect(runtime.signOut()).rejects.toMatchObject({ code: "internal" });
+	expect(runtime.client.accessToken).toBeNull();
+	expect(mock.store.has("yonder.mini.draft.one")).toBe(false);
+	expect(mock.reLaunch).toHaveBeenCalledWith({ url: "/pages/sign-in/index" });
 });

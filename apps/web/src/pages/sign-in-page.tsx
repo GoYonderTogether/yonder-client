@@ -8,7 +8,7 @@ import { deviceInfo } from "../lib/device-info.ts";
 
 /**
  * `/sign-in`. One page for signing in and for creating an account: the server decides which it was
- * and says so with `isNewAccount`, and only a new account sees the two optional setup steps.
+ * and says so with `isNewAccount`, and only a new account goes on to the setup steps.
  */
 export function SignInPage() {
 	const { t } = useTranslation();
@@ -41,7 +41,7 @@ export function SignInPage() {
 		async (result: { isNewAccount: boolean; accessToken: string; refreshToken?: string }) => {
 			// The previous account's cache must not be visible for a moment under the new one.
 			await startSession(result);
-			if (result.isNewAccount) navigate("/setup/password", { replace: true });
+			if (result.isNewAccount) navigate("/setup/you", { replace: true });
 			else navigate(next?.startsWith("/") ? next : "/messages", { replace: true });
 		},
 		[navigate, next, startSession],

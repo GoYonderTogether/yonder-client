@@ -49,6 +49,7 @@ packages/api-client ─▶ packages/protocol（不依赖任何包）
 
 ## 界面模型
 
+- 登录页和落地页的最底层背景是 `ui/components` 的 `AmbientField`：浅色主题是窗光，深色是星轨，两者是 beste-ui 的 WebGL 着色器原样拷贝（MIT，在 `ambient/vendor/` 里，带 `LICENSE` 和 `SOURCE`），不进文件长度和格式检查。页面色按 `--ambient-veil` 盖在上面，浅色 0.9、深色 0.55。
 - 三个标签：消息、任务、记忆（`packages/ui/shell/src/navigation/routes.ts` 的 `TABS`）。「我」不是标签，是 detail 层的分组设置页。
 - 会议录音没有独立页面或 Overlay：输入框上方的胶囊显示采集/保存和结束操作，点击原位展开/收起实际转写、纪要与回放；Bot 结果条目打开同一胶囊，界面生命周期不控制原生采集。
 - 三层：tab、detail、overlay。返回、Esc、滑动退出走同一个出口。

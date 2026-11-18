@@ -12,6 +12,7 @@ export { ProfileEditor } from "./components/profile-editor.tsx";
 export type { QuotaLowBannerProps } from "./components/quota-low-banner.tsx";
 export { exhaustedPools, QuotaLowBanner } from "./components/quota-low-banner.tsx";
 export { QuotaSection } from "./components/quota-section.tsx";
+export { ConnectorSetup, useSetupConnectors } from "./connectors/connector-setup.tsx";
 export { ConnectorsSection } from "./connectors/connectors-section.tsx";
 export type { LocalFilesAdapter } from "./connectors/local-files-adapter.ts";
 export type { MeListProps } from "./views/me-list.tsx";

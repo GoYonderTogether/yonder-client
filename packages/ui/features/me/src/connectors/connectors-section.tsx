@@ -1,9 +1,10 @@
 import type { ConnectorDefinition, DeviceSummary } from "@yonder/protocol";
-import { Button, ListGroup, ListRow } from "@yonder/ui-components";
+import { ListGroup, ListRow } from "@yonder/ui-components";
 import { useConnectorCatalog, useConnectors, useDevices } from "@yonder/ui-data";
-import { FolderSearch, Globe, Laptop, MonitorCog, Smartphone } from "lucide-react";
+import { Globe, Laptop, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ConnectorCard } from "./connector-card.tsx";
 import { ConnectorPanel } from "./connector-panel.tsx";
 import type { LocalFilesAdapter } from "./local-files-adapter.ts";
 
@@ -140,77 +141,15 @@ export function ConnectorsSection({ localFiles, onOpenDevices }: ConnectorsSecti
 							{definitions.length ? (
 								<div className="@container">
 									<div className="grid grid-cols-1 gap-[var(--spacing-3)] @[40rem]:grid-cols-2">
-										{definitions.map((def) => {
-											const key = def.id === "computer-control" ? "computerControl" : "localFiles";
-											const Icon = def.id === "computer-control" ? MonitorCog : FolderSearch;
-											const connected = instances.filter((item) => item.connectorId === def.id);
-											const primary = connected.find((item) => item.scope === "device") ?? connected[0];
-											const status = !primary
-												? "connectors.connect"
-												: device.status === "offline"
-													? "connectors.connectedOffline"
-													: primary.status === "offline"
-														? "connectors.connectedNotReady"
-														: "connectors.connected";
-											return (
-												<section
-													key={def.id}
-													className="overflow-hidden rounded-[var(--radius-lg)] bg-[var(--color-bg-surface)]"
-												>
-													<div className="flex items-center gap-[var(--spacing-3)] p-[var(--spacing-4)]">
-														<button
-															type="button"
-															className="flex min-w-0 flex-1 items-center gap-[var(--spacing-3)] text-start rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
-															onClick={() => open(device, def, primary?.id)}
-														>
-															<Icon size={24} className="shrink-0 text-[var(--color-text-secondary)]" aria-hidden />
-															<span className="min-w-0 flex-1">
-																<span className="block text-body font-medium">{t(`connectors.${key}.name`)}</span>{" "}
-																<span className="block text-caption text-[var(--color-text-tertiary)]">
-																	{t(`connectors.${key}.description`)}
-																</span>
-															</span>
-														</button>
-														<Button
-															size="sm"
-															aria-label={`${t(status)} · ${t(`connectors.${key}.name`)}`}
-															onClick={() => open(device, def, primary?.id)}
-														>
-															{t(status)}
-														</Button>
-													</div>
-													{connected
-														.filter((item) => connected.length > 1 || item.scope === "folder")
-														.map((item) => (
-															<div
-																key={item.id}
-																className="flex items-center gap-[var(--spacing-3)] border-t border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)]"
-															>
-																<div className="min-w-0 flex-1">
-																	<p className="truncate text-body">{item.name}</p>
-																	<p className="text-caption text-[var(--color-text-tertiary)]">
-																		{t(
-																			device.status === "offline"
-																				? "connectors.connectedOffline"
-																				: item.status === "offline"
-																					? "connectors.connectedNotReady"
-																					: "connectors.connected",
-																		)}
-																	</p>
-																</div>
-																<Button
-																	size="sm"
-																	variant="ghost"
-																	aria-label={`${t("connectors.manage")} ${item.name}`}
-																	onClick={() => open(device, def, item.id)}
-																>
-																	{t("connectors.manage")}
-																</Button>
-															</div>
-														))}
-												</section>
-											);
-										})}
+										{definitions.map((def) => (
+											<ConnectorCard
+												key={def.id}
+												definition={def}
+												device={device}
+												instances={instances}
+												onOpen={(definition, instanceId) => open(device, definition, instanceId)}
+											/>
+										))}
 									</div>
 								</div>
 							) : (

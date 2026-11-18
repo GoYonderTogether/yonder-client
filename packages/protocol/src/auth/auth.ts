@@ -93,10 +93,31 @@ export interface RefreshResponse {
 	expiresIn: number;
 }
 
-/** `DELETE /v1/me` — account deletion, a store requirement. */
+/**
+ * `POST /v1/me/phone/code` sends a code for changing the phone number. Without `target` it goes to
+ * the number the account has now (proof that the person holding the session also holds the old
+ * number); with `target` it goes to the new number.
+ */
+export interface PhoneChangeCodeRequest {
+	target?: string;
+}
+
+/** `POST /v1/me/phone` — both codes must be right; answers the refreshed `MeResponse`. */
+export interface ChangePhoneRequest {
+	currentCode: string;
+	newTarget: string;
+	newCode: string;
+}
+
+/**
+ * `DELETE /v1/me` — account deletion, a store requirement. It needs a code sent to the account's own
+ * number first (`POST /v1/me/delete/code`), so a stolen session cannot start a deletion.
+ */
 export interface DeleteAccountRequest {
 	/** Typed by the user; must equal their handle. */
 	confirmHandle: string;
+	/** The six-digit code sent to the account's phone number for this deletion. */
+	code: string;
 	reason?: string;
 }
 

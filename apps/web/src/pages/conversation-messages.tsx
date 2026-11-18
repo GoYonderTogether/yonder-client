@@ -1,5 +1,6 @@
 import { groupMessages } from "@yonder/chat-model";
 import { MessageBubble, MessageRun } from "@yonder/chat-presentation";
+import { systemEventText } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button } from "@yonder/ui-components";
 import type { CachedMessage } from "@yonder/ui-data";
@@ -17,6 +18,26 @@ interface MessageProps {
 	onOpenMeeting?: (id: string) => void;
 }
 
+/** A system event stands alone; consecutive messages by one sender stay one run, as before. */
+type Block = { system: CachedMessage } | { run: CachedMessage[] };
+
+function blocksOf(items: readonly CachedMessage[]): Block[] {
+	const out: Block[] = [];
+	let current: CachedMessage[] = [];
+	const flush = () => {
+		for (const run of groupMessages(current)) out.push({ run });
+		current = [];
+	};
+	for (const item of items) {
+		if (item.type === "system") {
+			flush();
+			out.push({ system: item });
+		} else current.push(item);
+	}
+	flush();
+	return out;
+}
+
 /** Sender identity belongs to a consecutive run, shared by text and attachment messages. */
 export function ConversationMessages({
 	items,
@@ -31,8 +52,10 @@ export function ConversationMessages({
 	bot?: Member | undefined;
 }) {
 	const { t } = useTranslation();
-	const runs = groupMessages(items);
-	return runs.map((run) => {
+	return blocksOf(items).map((block) => {
+		// A group lifecycle message has no sender speaking: one muted centred line, no avatar (19 3.3).
+		if ("system" in block) return <SystemLine key={block.system.id} message={block.system} />;
+		const run = block.run;
 		const first = run[0];
 		if (!first) return null;
 		const self = first.senderId === person?.id;
@@ -74,6 +97,28 @@ export function ConversationMessages({
 			</MessageRun>
 		);
 	});
+}
+
+/**
+ * One group lifecycle event, drawn the way every chat app draws it: a muted centred line with no
+ * bubble, avatar or actions (19 3.3). The sentence comes from the stored event, so the same row
+ * reads correctly in Chinese and in English, and an event nothing can be said about stays out.
+ */
+function SystemLine({ message }: { message: CachedMessage }) {
+	const { t } = useTranslation();
+	const text = message.system ? systemEventText(message.system, t) : "";
+	if (!text) return null;
+	return (
+		<p
+			key={message.id}
+			data-message-id={message.id}
+			data-message-system
+			role="note"
+			className="mx-auto max-w-full px-[var(--spacing-4)] text-center text-caption text-[var(--color-text-tertiary)]"
+		>
+			{text}
+		</p>
+	);
 }
 
 function MessageEntry({ message, self, disconnected, onResend, onRetry, retrying, onOpenMeeting }: MessageProps) {

@@ -69,6 +69,14 @@ export const LAYERS = {
 		"@yonder/ui-shell",
 		"@yonder/ui-data",
 	],
+	"@yonder/feature-members": [
+		"@yonder/protocol",
+		"@yonder/ui-tokens",
+		"@yonder/ui-i18n",
+		"@yonder/ui-components",
+		"@yonder/ui-shell",
+		"@yonder/ui-data",
+	],
 	"@yonder/feature-landing": ["@yonder/ui-tokens", "@yonder/ui-i18n", "@yonder/ui-components", "@yonder/ui-data"],
 	"@yonder/feature-meetings": [
 		"@yonder/protocol",

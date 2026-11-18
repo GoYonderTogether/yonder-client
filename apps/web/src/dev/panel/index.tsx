@@ -11,7 +11,7 @@ type Width = "full" | "390" | "820";
 
 export default function DeveloperPanel() {
 	const { pathname } = useLocation();
-	const onAuthPage = ["/sign-in", "/setup/password", "/setup/profile"].includes(pathname);
+	const onAuthPage = pathname === "/sign-in" || pathname.startsWith("/setup/");
 	const [open, setOpen] = useState(false);
 	const [width, setWidth] = useState<Width>("full");
 	const closeButton = useRef<HTMLButtonElement>(null);

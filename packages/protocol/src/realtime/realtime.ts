@@ -4,6 +4,7 @@
  */
 
 import type { Conversation, Message, Run } from "../chat/chat.ts";
+import type { OutwardRequest } from "../chat/outward.ts";
 import type { Schedule } from "../chat/schedule.ts";
 import type { SubtaskSummary } from "../chat/subtask.ts";
 import type { ConnectorCommand } from "../connectors/connectors.ts";
@@ -37,6 +38,10 @@ export type ServerEvent =
 	| { type: "schedule.changed"; eventId: string; at: string; schedule: Schedule }
 	/** The memory of these local dates changed: organized, edited, deleted or failed. */
 	| { type: "memory.changed"; eventId: string; at: string; dates: string[] }
+	/** The public library changed (written, confirmed, proposed, deleted): refetch it. */
+	| { type: "public_facts.changed"; eventId: string; at: string }
+	/** An outward request was made, answered or expired. */
+	| { type: "outward_request.updated"; eventId: string; at: string; request: OutwardRequest }
 	| { type: "session.revoked"; eventId: string; at: string; sessionId: string };
 
 export type ServerEventType = ServerEvent["type"];

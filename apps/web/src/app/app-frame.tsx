@@ -1,6 +1,7 @@
 import { PasswordSetupForm } from "@yonder/feature-auth";
 import { isMeSection, MeList, MeSectionPage } from "@yonder/feature-me";
 import { MeetingRecorderCapsule } from "@yonder/feature-meetings";
+import { BotList, ClosedGroupNotice, PrivacySwitches } from "@yonder/feature-members";
 import { AppIcon, Avatar } from "@yonder/ui-components";
 import {
 	keys,
@@ -27,16 +28,23 @@ import { BUILD_VERSION } from "../lib/config.ts";
 import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
-import { conversationTitle, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
+import {
+	conversationTitle,
+	primaryConversation,
+	selectedConversation,
+} from "../pages/conversation-presentation.tsx";
+import { GroupInfoOverlay } from "../pages/group-info-overlay.tsx";
 import { MessageContent } from "../pages/message-content.tsx";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
+import { BotDetailOverlay } from "./bot-detail-overlay.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
+import { MemberCardOverlay } from "./member-card-overlay.tsx";
 import { useChatDraft } from "./use-chat-draft.ts";
 import { useHasPassword } from "./use-has-password.ts";
 import { useMeEntry } from "./use-me-entry.ts";
@@ -132,6 +140,41 @@ export function AppFrame() {
 	const send = useSendMessage(conversation?.id ?? null, person?.id);
 	const compact = useCompactConversation(conversation?.id);
 	const actions = useRunActions();
+	/**
+	 * The Bot detail is an overlay on top of the frame, opened from the chat header or 「我 › Bot」
+	 * (17 3.5); its own page machinery would fight the phone's page stack.
+	 */
+	const [botDetail, setBotDetail] = useState<string | null>(null);
+	/**
+	 * Anyone else's card is a layer too: a person or a Bot this account does not own opens their
+	 * `/@handle` card here rather than leaving the chat (17 3.1).
+	 */
+	const [memberCard, setMemberCard] = useState<string | null>(null);
+	const [groupInfo, setGroupInfo] = useState(false);
+	const openMember = useEffectEvent((memberId: string) => {
+		const member = contacts.data?.items.find((item) => item.id === memberId);
+		const listed = conversation?.members.find((item) => item.memberId === memberId);
+		const handle = member?.handle ?? listed?.handle;
+		if (member?.kind === "bot" && member.ownerId === person?.id) setBotDetail(member.id);
+		else if (handle) setMemberCard(handle);
+	});
+	/**
+	 * A deleted Bot's chat leaves the list over the socket; if it is the one on screen, the frame
+	 * goes back to the message list rather than showing an empty page (17 3.1).
+	 */
+	const removedConversation = useEffectEvent((conversationId: string) => {
+		setBotDetail(null);
+		const open = locate(navigation.current());
+		if (open?.tab !== "messages") return;
+		if ([...open.detail].includes(conversationId)) navigation.back("/messages");
+	});
+	useEffect(
+		() =>
+			realtime.subscribeEvents((event) => {
+				if (event.type === "conversation.removed") removedConversation(event.conversationId);
+			}),
+		[realtime],
+	);
 	const streaming = history.data?.pages
 		.flatMap((page) => page.items)
 		.findLast((message) => message.senderKind === "bot" && message.streaming);
@@ -216,6 +259,8 @@ export function AppFrame() {
 				renderChangePassword={(onDone) => (
 					<PasswordSetupForm mode={hasPassword ? "change" : "set"} onDone={onDone} onSkip={onDone} />
 				)}
+				bots={<BotList onOpen={setBotDetail} />}
+				privacy={<PrivacySwitches />}
 			/>
 		);
 	}
@@ -242,6 +287,8 @@ export function AppFrame() {
 								meetingCloud.select(id);
 								setRecorderOpen(true);
 							}}
+							onOpenMember={openMember}
+							onOpenGroup={() => setGroupInfo(true)}
 						/>
 					),
 				};
@@ -324,61 +371,96 @@ export function AppFrame() {
 		tasks: t("nav.tasks"),
 		memory: t("nav.memory"),
 	};
+	// The owner of a Bot a stranger is talking to reads that chat and decides on it; they never
+	// write in it, so the composer is not there at all (19 第 2.3 节). A dissolved group, and one the
+	// viewer was removed from, is read only for the same reason: the notice takes its place (19 3.2).
+	const watchingVisit = conversation?.visit?.role === "host";
+	const closed = Boolean(conversation?.closedReason);
+	const dock = watchingVisit ? null : closed && conversation ? <ClosedGroupNotice conversation={conversation} /> : composer;
 
 	return (
-		<AppShell
-			tab={{
-				current: tab,
-				onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : navigation.open(tabPath(id))),
-				labels,
-				ariaLabel: t("nav.tabs"),
-			}}
-			desktop={isDesktopExperience()}
-			renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
-			personName={person?.displayName ?? ""}
-			meLabel={t("nav.me")}
-			onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
-			meOpen={meOpen}
-			me={me}
-			onBack={back}
-			backLabel={t("app.back")}
-			mobileShowList={!detailOpen}
-			list={deferred(list)}
-			content={
-				tab === "messages" ? (
-					<FileDropZone
-						key={conversation?.id}
-						onFiles={draft.addFiles}
-						disabled={!conversation || !draft.loaded || draft.sending || meOpen}
-					>
-						{deferred(content)}
-					</FileDropZone>
-				) : (
-					deferred(content)
-				)
-			}
-			detailOpen={detailOpen}
-			composer={composer}
-			status={
-				<MeetingRecorderCapsule
-					recorder={{
-						...recorder,
-						start: (title) => (recordingTarget ? recorder.start(title, recordingTarget.id) : Promise.resolve()),
+		<>
+			<AppShell
+				tab={{
+					current: tab,
+					onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : navigation.open(tabPath(id))),
+					labels,
+					ariaLabel: t("nav.tabs"),
+				}}
+				desktop={isDesktopExperience()}
+				renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
+				personName={person?.displayName ?? ""}
+				meLabel={t("nav.me")}
+				onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
+				meOpen={meOpen}
+				me={me}
+				onBack={back}
+				backLabel={t("app.back")}
+				mobileShowList={!detailOpen}
+				list={deferred(list)}
+				content={
+					tab === "messages" ? (
+						<FileDropZone
+							key={conversation?.id}
+							onFiles={draft.addFiles}
+							disabled={!conversation || !draft.loaded || draft.sending || meOpen}
+						>
+							{deferred(content)}
+						</FileDropZone>
+					) : (
+						deferred(content)
+					)
+				}
+				detailOpen={detailOpen}
+				composer={dock}
+				status={
+					<MeetingRecorderCapsule
+						recorder={{
+							...recorder,
+							start: (title) => (recordingTarget ? recorder.start(title, recordingTarget.id) : Promise.resolve()),
+						}}
+						cloud={meetingCloud}
+						canStart={Boolean(recordingTarget)}
+						renderSummary={(body) => <MessageContent body={body} />}
+						microphoneOccupied={shortVoiceActive}
+						expanded={recorderOpen}
+						onToggle={() => setRecorderOpen((open) => !open)}
+					/>
+				}
+				titlebarInset={isMacDesktopShell()}
+				brand={<Brand />}
+				labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
+				locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
+				onModeChange={setLayoutMode}
+			/>
+			{botDetail ? (
+				<BotDetailOverlay
+					memberId={botDetail}
+					mode={layoutMode ?? "wide"}
+					onClose={() => setBotDetail(null)}
+					onDeleted={(chatId) => {
+						setBotDetail(null);
+						if (chatId) removedConversation(chatId);
 					}}
-					cloud={meetingCloud}
-					canStart={Boolean(recordingTarget)}
-					renderSummary={(body) => <MessageContent body={body} />}
-					microphoneOccupied={shortVoiceActive}
-					expanded={recorderOpen}
-					onToggle={() => setRecorderOpen((open) => !open)}
 				/>
-			}
-			titlebarInset={isMacDesktopShell()}
-			brand={<Brand />}
-			labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
-			locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
-			onModeChange={setLayoutMode}
-		/>
+			) : null}
+			{memberCard ? (
+				<MemberCardOverlay handle={memberCard} mode={layoutMode ?? "wide"} onClose={() => setMemberCard(null)} />
+			) : null}
+			{groupInfo && conversation?.kind === "group" ? (
+				<GroupInfoOverlay
+					conversation={conversation}
+					personId={person?.id}
+					mode={layoutMode ?? "wide"}
+					onClose={() => setGroupInfo(false)}
+					onOpenMember={(member) => openMember(member.memberId)}
+					onLeft={() => {
+						setGroupInfo(false);
+						navigation.back("/messages");
+					}}
+				/>
+			) : null}
+		</>
 	);
 }
 

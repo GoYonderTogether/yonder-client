@@ -40,9 +40,19 @@ vi.mock("@yonder/ui-data", () => ({
 		},
 	}),
 	useRevokeSession: () => ({ mutate: state.revoke }),
-	useMe: () => ({ data: { member: { handle: "person" }, signInMethods: [], hasPassword: false } }),
+	useMe: () => ({
+		data: {
+			member: { handle: "person" },
+			signInMethods: [],
+			hasPassword: false,
+			handleChange: { canChange: true, nextChangeAt: null },
+		},
+	}),
 	useSignOut: () => ({}),
-	useDeleteAccount: () => ({}),
+	useDeleteAccount: () => ({ sendCode: { mutate: vi.fn() }, confirm: { mutate: vi.fn() } }),
+	useChangeHandle: () => ({ mutate: vi.fn(), isPending: false }),
+	ApiError: class ApiError extends Error {},
+	NetworkError: class NetworkError extends Error {},
 }));
 
 import { AccountSection } from "./account-section.tsx";
@@ -70,7 +80,12 @@ test("the security list links to devices and signs out only the selected session
 	const open = vi.fn();
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
-			<AccountSection onChangePassword={() => {}} onSignedOut={() => {}} onOpenDevices={open} />
+			<AccountSection
+				onChangePassword={() => {}}
+				onChangePhone={() => {}}
+				onSignedOut={() => {}}
+				onOpenDevices={open}
+			/>
 		</I18nextProvider>,
 	);
 	fireEvent.click(screen.getByRole("button", { name: "View devices" }));

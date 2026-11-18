@@ -173,9 +173,14 @@ export function bootstrapSession(): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
-	await api.signOut();
-	clearLocal();
-	await Taro.reLaunch({ url: "/pages/sign-in/index" });
+	// The local sign-in must go even when the server cannot be reached: a person who chose to sign
+	// out is not left signed in because the network failed or the session was already revoked.
+	try {
+		await api.signOut();
+	} finally {
+		clearLocal();
+		await Taro.reLaunch({ url: "/pages/sign-in/index" });
+	}
 }
 
 export function useSession() {

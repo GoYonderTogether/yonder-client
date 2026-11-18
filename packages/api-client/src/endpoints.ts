@@ -6,6 +6,7 @@
 import type {
 	AddContactResponse,
 	AddGroupMembersRequest,
+	ApproveVisitRequest,
 	Attachment,
 	AttachmentTextPreview,
 	ChangeHandleResponse,
@@ -30,10 +31,12 @@ import type {
 	Member,
 	MemberProfileResponse,
 	MeResponse,
+	Message,
 	MessagePage,
 	PasswordSignInResponse,
 	PhoneChangeCodeRequest,
 	PrivacySettings,
+	ReceptionSetting,
 	Provider,
 	ProviderList,
 	ProviderModelMetadata,
@@ -56,6 +59,7 @@ import type {
 	SkillDetail,
 	SkillFileResponse,
 	SkillListResponse,
+	ResolveVisitRequestRequest,
 	StartVisitRequest,
 	StartVisitResponse,
 	TransferGroupOwnerRequest,
@@ -64,6 +68,7 @@ import type {
 	UpdateGroupRequest,
 	UpdateMeRequest,
 	UpdatePrivacyRequest,
+	UpdateReceptionRequest,
 	UpdateSkillRequest,
 	UsagePage,
 	WechatMiniPhoneRequest,
@@ -73,6 +78,7 @@ import type {
 import type { ApiClient } from "./client.ts";
 import { meetingEndpoints } from "./meetings.ts";
 import { memoryEndpoints } from "./memory.ts";
+import { outwardEndpoints } from "./outward.ts";
 import { scheduleEndpoints } from "./schedules.ts";
 
 export interface SessionSummary {
@@ -90,6 +96,7 @@ export function createEndpoints(client: ApiClient) {
 	return {
 		...meetingEndpoints(client),
 		...memoryEndpoints(client),
+		...outwardEndpoints(client),
 		...scheduleEndpoints(client),
 		openVoiceSocket(): WebSocket {
 			if (!client.accessToken) throw new Error("Missing access token");
@@ -212,18 +219,29 @@ export function createEndpoints(client: ApiClient) {
 			return client.request("/v1/visits", { body });
 		},
 
-		/** The Bot's owner lets a stranger carry on past the trial. */
-		approveVisit(visitId: string): Promise<Conversation> {
-			return client.request(`/v1/visits/${encodeURIComponent(visitId)}/approve`, { body: {} });
+		/**
+		 * The Bot's owner lets a stranger carry on past the trial. `hostPays` is the one advanced
+		 * choice, "this errand is mine": the owner's external pool pays instead of the visitor.
+		 */
+		approveVisit(visitId: string, body: ApproveVisitRequest = {}): Promise<Conversation> {
+			return client.request(`/v1/visits/${encodeURIComponent(visitId)}/approve`, { body });
 		},
 
 		denyVisit(visitId: string): Promise<Conversation> {
 			return client.request(`/v1/visits/${encodeURIComponent(visitId)}/deny`, { body: {} });
 		},
 
-		/** The visitor takes over the cost of the rest of the chat: it is charged to their own main quota. */
+		/**
+		 * The visitor agrees to pay for the rest of the chat from their own main quota. The first
+		 * message after an approval is refused with `visit_confirm` until this is called once.
+		 */
 		payVisit(visitId: string): Promise<Conversation> {
 			return client.request(`/v1/visits/${encodeURIComponent(visitId)}/pay`, { body: {} });
+		},
+
+		/** The owner answers a request the visitor's Bot passed on: agree, decline, or reply in their own words. */
+		resolveVisitRequest(requestId: string, body: ResolveVisitRequestRequest): Promise<Message> {
+			return client.request(`/v1/visit-requests/${encodeURIComponent(requestId)}/resolve`, { body });
 		},
 
 		privacy(): Promise<PrivacySettings> {
@@ -232,6 +250,15 @@ export function createEndpoints(client: ApiClient) {
 
 		updatePrivacy(body: UpdatePrivacyRequest): Promise<PrivacySettings> {
 			return client.request("/v1/me/privacy", { method: "PATCH", body });
+		},
+
+		/** The Bot that receives people who come with a matter; the default Bot until one is chosen. */
+		reception(): Promise<ReceptionSetting> {
+			return client.request("/v1/me/reception");
+		},
+
+		setReception(body: UpdateReceptionRequest): Promise<ReceptionSetting> {
+			return client.request("/v1/me/reception", { method: "PUT", body });
 		},
 
 		/** A card read by someone signed in: carries the relation and the ids the page acts on. */

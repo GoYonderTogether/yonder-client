@@ -1,25 +1,35 @@
 import { accountMessagesEn } from "./account-en.ts";
+import { botMessagesEn } from "./bots-en.ts";
 import { composerAttachmentsEn } from "./composer-attachments-en.ts";
 import { connectorMessagesEn } from "./connectors-en.ts";
 import { friendQrEn } from "./friend-qr-en.ts";
 import { inviteExperienceEn } from "./invite-experience-en.ts";
 import { landingPageEn } from "./landing-page-en.ts";
 import { meetingRecorderEn } from "./meeting-recorder-en.ts";
+import { membersMessagesEn } from "./members-en.ts";
 import { memoryMessagesEn } from "./memory-en.ts";
 import { modelMessagesEn } from "./models-en.ts";
+import { pricingMessagesEn } from "./pricing-en.ts";
+import { setupMessagesEn } from "./setup-en.ts";
 import { skillMessagesEn } from "./skills-en.ts";
+import { visitsMessagesEn } from "./visits-en.ts";
 /**
  * The English table is the reference: its shape is the type every other language must satisfy, so
  * a missing or misspelled key is a compile error rather than a blank label at runtime.
  */
 export const en = {
+	bots: botMessagesEn,
 	composerAttachments: composerAttachmentsEn,
 	connectors: connectorMessagesEn,
 	inviteExperience: inviteExperienceEn,
 	friendQr: friendQrEn,
 	landingPage: landingPageEn,
+	pricing: pricingMessagesEn,
 	meetingRecorder: meetingRecorderEn,
+	members: membersMessagesEn,
+	setup: setupMessagesEn,
 	skills: skillMessagesEn,
+	visits: visitsMessagesEn,
 	app: {
 		name: "Yonder",
 		loading: "Loading…",
@@ -344,13 +354,19 @@ export const en = {
 	auth: accountMessagesEn.auth,
 
 	errors: {
+		...visitsMessagesEn.errors,
 		invalid_request: "That request was not valid.",
 		unauthenticated: "Please sign in.",
 		token_expired: "Your session expired. Signing you in again…",
 		forbidden: "You do not have access to that.",
 		account_suspended: "This account is suspended.",
 		account_pending_deletion: "This account is scheduled for deletion.",
+		account_deleted: "This account has been deleted and can no longer sign in.",
 		not_found: "Not found.",
+		handle_taken: "That handle is already taken.",
+		handle_cooldown: "You changed your handle recently. Try again later.",
+		handle_reserved: "That handle is reserved.",
+		phone_taken: "That number belongs to another account.",
 		conflict_version: "That changed somewhere else. Reload and try again.",
 		code_invalid: "That code is not right.",
 		code_expired: "That code has expired.",

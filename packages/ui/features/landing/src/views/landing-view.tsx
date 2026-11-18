@@ -1,4 +1,4 @@
-import { Logo } from "@yonder/ui-components";
+import { AmbientField, Logo } from "@yonder/ui-components";
 import { useLocalePreference } from "@yonder/ui-data";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -23,10 +23,8 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 
 	return (
 		<div className="lp" ref={root}>
+			<AmbientField />
 			<div className="lp-field" aria-hidden="true">
-				<span className="lp-blob lp-blob-a" />
-				<span className="lp-blob lp-blob-b" />
-				<span className="lp-blob lp-blob-c" />
 				<span className="lp-dots" />
 				<span className="lp-dots-lit" />
 			</div>

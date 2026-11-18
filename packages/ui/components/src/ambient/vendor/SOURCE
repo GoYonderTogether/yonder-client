@@ -1,0 +1,2 @@
+Source: https://github.com/beste-co/beste-ui (registry-components/sun-blinds, star-trails), commit be6d80e5, MIT.
+Only change: the `cn` import points at ../../cn.ts.

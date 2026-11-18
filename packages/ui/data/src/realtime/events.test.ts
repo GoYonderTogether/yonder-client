@@ -132,11 +132,13 @@ describe("applyServerEvent", () => {
 			used: 0,
 			pools,
 			overflow: {
-				main: { overflow: false, rate: 1, floorPercent: null },
-				background: { overflow: true, rate: 1, floorPercent: 20 },
-				external: { overflow: false, rate: 1, floorPercent: null },
-				coding: { overflow: true, rate: 1.2, floorPercent: null },
+				main: { overflow: false, rate: 1, floor: null },
+				background: { overflow: true, rate: 1, floor: 4_000_000 },
+				external: { overflow: false, rate: 1, floor: null },
+				coding: { overflow: true, rate: 1.2, floor: 4_000_000 },
 			},
+			configVersion: 1,
+			cycle: { start: "2026-11-01T00:00:00.000Z", resetsAt: "2026-12-01T00:00:00.000Z" },
 		};
 		queryClient.setQueryData(keys.quota(), { ...quota, balance: 1, granted: 1 });
 		queryClient.setQueryData(keys.ledger(), { pages: [] });

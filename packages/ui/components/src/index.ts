@@ -4,6 +4,8 @@
  * no device checks.
  */
 
+export type { AmbientFieldProps } from "./ambient/ambient-field.tsx";
+export { AmbientField, DEFAULT_VEIL } from "./ambient/ambient-field.tsx";
 export type { AvatarProps, AvatarSize } from "./avatar/avatar.tsx";
 export { Avatar } from "./avatar/avatar.tsx";
 export type { BotFaceId } from "./avatar/bot-face.tsx";

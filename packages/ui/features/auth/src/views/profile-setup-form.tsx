@@ -13,6 +13,8 @@ export interface ProfileSetupFormProps {
 	currentName: string;
 	currentAvatarUrl: string | null;
 	handle: string;
+	/** The primary button's text; the default closes sign-up, so a flow that goes on supplies its own. */
+	submitLabel?: string | undefined;
 }
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -23,7 +25,14 @@ const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
  * from a local preview before the upload finishes, and the name saves as it is typed out of focus
  * (brief rule 4).
  */
-export function ProfileSetupForm({ onDone, onSkip, currentName, currentAvatarUrl, handle }: ProfileSetupFormProps) {
+export function ProfileSetupForm({
+	onDone,
+	onSkip,
+	currentName,
+	currentAvatarUrl,
+	handle,
+	submitLabel,
+}: ProfileSetupFormProps) {
 	const { t } = useTranslation();
 	// The mutation, not the raw endpoint: it writes the new name into the query cache, so the shell
 	// shows it as soon as the step finishes instead of after a refetch.
@@ -136,7 +145,7 @@ export function ProfileSetupForm({ onDone, onSkip, currentName, currentAvatarUrl
 					{t("app.skipStep")}
 				</Button>
 				<Button type="submit" variant="primary" size="lg" className="flex-1 whitespace-nowrap" loading={saving}>
-					{t("auth.finish")}
+					{submitLabel ?? t("auth.finish")}
 				</Button>
 			</div>
 		</form>

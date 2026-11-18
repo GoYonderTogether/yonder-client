@@ -4,19 +4,24 @@ import { useState } from "react";
 import { action, Button, Field, Page, Row } from "../../components/ui";
 import { t } from "../../lib/i18n";
 import { api, useSession } from "../../lib/runtime";
+import { DeleteAccount } from "./delete-account";
+import { accountFailure } from "./failure";
 
 export default function Account() {
 	const { me, refreshMe, signOut } = useSession();
 	const [old, setOld] = useState("");
 	const [password, setPassword] = useState("");
-	const [confirm, setConfirm] = useState("");
 	const [busy, setBusy] = useState(false);
 	return (
 		<Page title={t("账号与安全", "Account & security")}>
 			<View className="mini-card">
-				{me?.signInMethods.map((method) => (
-					<Row key={method.masked} title={t("手机号", "Phone")} detail={method.masked} />
-				))}
+				{me?.signInMethods.map((method) =>
+					method.channel === "sms" ? (
+						<Row key="sms" title={t("手机号", "Phone")} detail={method.masked} />
+					) : (
+						<Row key="wechat" title={t("微信（小程序）", "WeChat (mini program)")} detail={t("已绑定", "Linked")} />
+					),
+				)}
 				{me?.hasPassword && <Field label={t("当前密码", "Current password")} value={old} onInput={setOld} password />}
 				<Field label={t("新密码", "New password")} value={password} onInput={setPassword} password />
 				<Button
@@ -40,33 +45,15 @@ export default function Account() {
 					{t("保存密码", "Save password")}
 				</Button>
 			</View>
-			<View className="mini-card">
-				<Field
-					label={t("输入你的 Yonder 号确认注销", "Enter your Yonder handle to delete account")}
-					value={confirm}
-					onInput={setConfirm}
-				/>
-				<Button
-					danger
-					disabled={!me || confirm !== me.member.handle}
-					onClick={() =>
-						void action(async () => {
-							const result = await Taro.showModal({
-								title: t("注销账号", "Delete account"),
-								content: t("账号将进入注销流程，确认继续？", "Your account will be scheduled for deletion. Continue?"),
-								confirmText: t("确认", "Confirm"),
-								cancelText: t("取消", "Cancel"),
-							});
-							if (result.confirm) {
-								await api.deleteAccount({ confirmHandle: confirm });
-								await signOut();
-							}
-						})
-					}
-				>
-					{t("注销账号", "Delete account")}
-				</Button>
-			</View>
+			<DeleteAccount
+				handle={me?.member.handle ?? ""}
+				sendCode={async () => (await api.sendDeleteAccountCode()).maskedTarget}
+				confirm={async (input) => {
+					await api.deleteAccount(input);
+					await signOut();
+				}}
+				onError={(error) => void Taro.showToast({ title: accountFailure(error), icon: "none" })}
+			/>
 		</Page>
 	);
 }

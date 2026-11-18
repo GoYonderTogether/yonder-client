@@ -19,12 +19,14 @@ export default function Me() {
 			</View>
 			<View className="mini-card">
 				{[
+					["bots", t("Bot", "Bots")],
 					["contacts", t("联系人", "Contacts")],
 					["models", t("模型", "Models")],
 					["skills", t("技能", "Skills")],
 					["quota", t("额度与用量", "Quota & usage")],
 					["devices", t("设备与登录会话", "Devices & sessions")],
 					["invite", t("邀请朋友", "Invite friends")],
+					["privacy", t("账号隐私", "Account privacy")],
 					["account", t("账号与安全", "Account & security")],
 				].map(([page, label]) => (
 					<Row key={page} title={label} onClick={() => go(page)} />

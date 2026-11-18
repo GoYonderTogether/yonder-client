@@ -19,10 +19,21 @@ const person: Member = {
 	displayName: "本人",
 	avatarUrl: "/files/self.svg",
 	bio: null,
+	ownerId: null,
+	isDefault: false,
 	createdAt: "2026-11-15T00:00:00Z",
 	version: 1,
 };
-const bot: Member = { ...person, id: "bot", kind: "bot", handle: "mybot", displayName: "现有 BOT", avatarUrl: null };
+const bot: Member = {
+	...person,
+	id: "bot",
+	kind: "bot",
+	handle: "mybot",
+	displayName: "现有 BOT",
+	avatarUrl: null,
+	ownerId: "self",
+	isDefault: true,
+};
 const conversation: Conversation = {
 	id: "group",
 	kind: "group",

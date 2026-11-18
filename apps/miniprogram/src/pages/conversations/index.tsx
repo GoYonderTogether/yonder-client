@@ -3,12 +3,16 @@ import Taro, { useDidShow, usePullDownRefresh } from "@tarojs/taro";
 import type { Conversation } from "@yonder/protocol";
 import { useCallback, useEffect, useState } from "react";
 import { Button, Page, State } from "../../components/ui";
-import { t } from "../../lib/i18n";
+import { t, useLocale } from "../../lib/i18n";
 import "./style.scss";
+import { patchConversations, removeConversation, removeMemberFromConversations } from "../../lib/member-cache";
 import { api, client, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
+import { directPartner, isObserver } from "../chat/model";
+import { conversationPreview } from "./preview";
 
 export default function Conversations() {
 	const { status, me } = useSession();
+	const { locale } = useLocale();
 	const revision = useRealtimeRevision();
 	const [items, setItems] = useState<Conversation[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -46,12 +50,19 @@ export default function Conversations() {
 					if (previous && previous.version > event.conversation.version) return current;
 					return [event.conversation, ...current.filter((item) => item.id !== event.conversation.id)];
 				});
+			// A deleted Bot's private chat leaves the list; the row and its messages go with it.
+			if (event.type === "conversation.removed")
+				setItems((current) => removeConversation(current, event.conversationId));
+			// A rename or a new avatar is embedded in the row, so the row is patched, not refetched.
+			if (event.type === "member.updated") setItems((current) => patchConversations(current, event.member));
+			if (event.type === "member.removed")
+				setItems((current) => removeMemberFromConversations(current, event.memberId));
 		});
 	}, [load]);
 	const title = (item: Conversation) =>
 		item.title ||
 		item.members
-			.filter((member) => member.memberId !== me?.member.id)
+			.filter((member) => member.memberId !== me?.member.id && !isObserver(member))
 			.map((member) => member.displayName)
 			.join("、") ||
 		t("会话", "Conversation");
@@ -84,7 +95,7 @@ export default function Conversations() {
 					retry={() => void load()}
 				/>
 				{visible.map((item) => {
-					const other = item.members.find((member) => member.memberId !== me?.member.id);
+					const other = directPartner(item.members, me?.member.id);
 					return (
 						<View
 							key={item.id}
@@ -105,8 +116,10 @@ export default function Conversations() {
 									{item.unreadCount > 0 && <Text className="mini-badge">{item.unreadCount}</Text>}
 								</View>
 								<Text className="muted mini-preview">
-									{item.lastMessage?.body ??
-										(item.kind === "group" ? t("群聊", "Group") : t("开始对话", "Start a conversation"))}
+									{conversationPreview(item, locale, {
+										group: t("群聊", "Group"),
+										direct: t("开始对话", "Start a conversation"),
+									})}
 								</Text>
 							</View>
 						</View>

@@ -19,7 +19,19 @@ export function selectedConversation(
 		: primaryConversation(items, botId);
 }
 
+/**
+ * The member a direct chat is *with*. A visit chat has three members — the visitor, someone
+ * else's Bot and its owner watching — so "the first one who is not me" would show the Bot to the
+ * visitor and the Bot to the host alike (19 第 2.4 节). The visit says who is who: the host talks
+ * to the visitor, the visitor talks to the Bot.
+ */
 export function conversationPeer(conversation: Conversation, personId: string | undefined) {
+	const visit = conversation.visit;
+	if (visit && conversation.kind === "direct") {
+		if (visit.role === "host")
+			return conversation.members.find((member) => member.kind === "person" && member.memberId !== personId);
+		return conversation.members.find((member) => member.memberId === visit.botId);
+	}
 	return conversation.members.find((member) => member.memberId !== personId);
 }
 

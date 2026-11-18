@@ -26,7 +26,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => k
 vi.mock("@yonder/feature-auth", () => ({ PasswordSetupForm: () => null }));
 vi.mock("../updates/controls.tsx", () => ({ UpdateControls: () => null }));
 vi.mock("@yonder/ui-data", () => {
-	const realtime = { subscribe: () => () => {}, status: "connected" };
+	const realtime = { subscribe: () => () => {}, subscribeEvents: () => () => {}, status: "connected" };
 	const storage = { get: () => null, set: () => {}, remove: () => {} };
 	return {
 		useApi: () => ({}),

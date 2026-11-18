@@ -1,13 +1,18 @@
-import { Button, Field, ListGroup, ListRow, TextInput } from "@yonder/ui-components";
-import { useDeleteAccount, useDevices, useMe, useRevokeSession, useSessions, useSignOut } from "@yonder/ui-data";
+import { Button, ListGroup, ListRow } from "@yonder/ui-components";
+import { useDevices, useMe, useRevokeSession, useSessions, useSignOut } from "@yonder/ui-data";
 import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DeleteAccountFlow } from "./delete-account-flow.tsx";
 import { DeviceRow } from "./device-row.tsx";
+import { HandleEditor } from "./handle-editor.tsx";
+import { LoginMethods } from "./login-methods.tsx";
 
 export interface AccountSectionProps {
 	/** Opens the change-password page (账号与安全 › 修改密码). */
 	onChangePassword: () => void;
+	/** Opens the change-phone page (账号与安全 › 登录方式 › 手机号). */
+	onChangePhone: () => void;
 	/** After an explicit sign-out the next sign-in starts fresh, not on this page. */
 	onSignedOut: () => void;
 	onOpenDevices?: () => void;
@@ -17,31 +22,25 @@ export interface AccountSectionProps {
  * 账号与安全: the phone number, the password, the devices that are signed in, signing out, and
  * deleting the account. Every action here is real; none of them is a placeholder.
  */
-export function AccountSection({ onChangePassword, onSignedOut, onOpenDevices }: AccountSectionProps) {
+export function AccountSection({ onChangePassword, onChangePhone, onSignedOut, onOpenDevices }: AccountSectionProps) {
 	const { t } = useTranslation();
 	const me = useMe();
 	const sessions = useSessions();
 	const devices = useDevices();
 	const revoke = useRevokeSession();
 	const signOut = useSignOut();
-	const removeAccount = useDeleteAccount();
 
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
-	const [confirmHandle, setConfirmHandle] = useState("");
-	const [deleteError, setDeleteError] = useState<string | null>(null);
 
-	const person = me.data?.member;
 	const hasPassword = me.data?.hasPassword ?? false;
 
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)]">
+			<HandleEditor />
+
+			<LoginMethods onChangePhone={onChangePhone} />
+
 			<ListGroup>
-				<ListRow
-					title={t("me.account.phone")}
-					trailing={<span className="tabular-nums">{me.data?.signInMethods[0]?.masked ?? "—"}</span>}
-					disabled
-					className="hover:bg-transparent"
-				/>
 				<ListRow
 					title={hasPassword ? t("me.account.changePassword") : t("me.account.setPassword")}
 					trailing={hasPassword ? t("me.account.passwordSet") : t("me.account.passwordNotSet")}
@@ -120,42 +119,7 @@ export function AccountSection({ onChangePassword, onSignedOut, onOpenDevices }:
 
 			<div className="flex flex-col gap-[var(--spacing-3)]">
 				{confirmingDelete ? (
-					<div className="flex flex-col gap-[var(--spacing-4)] rounded-[var(--radius-lg)] bg-[var(--color-bg-surface)] p-[var(--spacing-4)]">
-						<p className="text-caption text-[var(--color-text-secondary)]">{t("me.account.deleteAccountBody")}</p>
-						<Field
-							label={t("me.account.deleteAccountConfirmLabel", { handle: person?.handle ?? "" })}
-							htmlFor="confirm-handle"
-							error={deleteError ?? undefined}
-						>
-							<TextInput
-								id="confirm-handle"
-								value={confirmHandle}
-								onChange={(event) => setConfirmHandle(event.target.value)}
-								autoComplete="off"
-								invalid={Boolean(deleteError)}
-							/>
-						</Field>
-						<div className="flex gap-[var(--spacing-2)]">
-							<Button type="button" variant="secondary" onClick={() => setConfirmingDelete(false)}>
-								{t("app.cancel")}
-							</Button>
-							<Button
-								type="button"
-								variant="danger"
-								loading={removeAccount.isPending}
-								disabled={confirmHandle.trim() !== (person?.handle ?? "")}
-								onClick={() => {
-									setDeleteError(null);
-									removeAccount.mutate(
-										{ confirmHandle: confirmHandle.trim() },
-										{ onError: () => setDeleteError(t("me.account.deleteAccountConfirmMismatch")) },
-									);
-								}}
-							>
-								{t("me.account.deleteAccount")}
-							</Button>
-						</div>
-					</div>
+					<DeleteAccountFlow onCancel={() => setConfirmingDelete(false)} />
 				) : (
 					<button
 						type="button"

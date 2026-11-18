@@ -41,6 +41,9 @@
 			"path": "packages/ui/features/me"
 		},
 		{
+			"path": "packages/ui/features/members"
+		},
+		{
 			"path": "packages/ui/features/landing"
 		},
 		{

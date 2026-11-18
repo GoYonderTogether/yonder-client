@@ -4,6 +4,7 @@ import { lazy, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AboutSection } from "../components/about-section.tsx";
 import { AccountSection } from "../components/account-section.tsx";
+import { ChangePhoneForm } from "../components/change-phone-form.tsx";
 import { DevicesSection } from "../components/devices-section.tsx";
 import { GeneralSection } from "../components/empty-sections.tsx";
 import { InviteSection } from "../components/invite-section.tsx";
@@ -37,6 +38,16 @@ export interface MeSectionPageProps {
 	aboutUpdate?: ReactNode;
 	/** The change-password screen is provided by the app, which owns the auth feature. */
 	renderChangePassword: (onDone: () => void) => ReactNode;
+	/**
+	 * The Bot list belongs to `feature-members`, which this package may not import (dependency map);
+	 * the app passes the rendered list in, the way it already passes the password screen.
+	 */
+	bots?: ReactNode;
+	/**
+	 * The three privacy switches likewise live in `feature-members`; the app passes the rendered
+	 * switches in, the same way it passes the Bot list.
+	 */
+	privacy?: ReactNode;
 }
 
 /**
@@ -57,6 +68,8 @@ export function MeSectionPage({
 	serverVersion,
 	aboutUpdate,
 	renderChangePassword,
+	bots,
+	privacy,
 }: MeSectionPageProps) {
 	const { t } = useTranslation();
 	const me = useMe();
@@ -69,6 +82,22 @@ export function MeSectionPage({
 		return (
 			<PageFrame title={me.data?.hasPassword ? t("me.account.changePassword") : t("me.account.setPassword")}>
 				{renderChangePassword(() => onOpenPage(null))}
+			</PageFrame>
+		);
+	}
+
+	if (section === "bots") {
+		return <PageFrame title={t("bots.title")}>{bots ?? null}</PageFrame>;
+	}
+
+	if (section === "privacy") {
+		return <PageFrame title={t("members.privacy.title")}>{privacy ?? null}</PageFrame>;
+	}
+
+	if (section === "account" && page === "phone") {
+		return (
+			<PageFrame title={t("me.phoneChange.title")}>
+				<ChangePhoneForm onDone={() => onOpenPage(null)} />
 			</PageFrame>
 		);
 	}
@@ -95,6 +124,7 @@ export function MeSectionPage({
 				return (
 					<AccountSection
 						onChangePassword={() => onOpenPage("password")}
+						onChangePhone={() => onOpenPage("phone")}
 						onSignedOut={onSignedOut}
 						{...(onOpenDevices ? { onOpenDevices } : {})}
 					/>

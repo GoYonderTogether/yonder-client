@@ -2,7 +2,7 @@ import { Avatar, cn, IconTile, ListGroup, ListRow } from "@yonder/ui-components"
 import { useMe } from "@yonder/ui-data";
 import { ListFrame, useShellChrome } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
-import { ME_GROUPS } from "./sections.tsx";
+import { ME_GROUPS, sectionLabelKey } from "./sections.tsx";
 
 const SIDEBAR_ROW =
 	"flex min-h-[var(--control-sm)] w-full items-center gap-[var(--spacing-3)] rounded-[var(--radius-control-sm)] px-[var(--spacing-3)] py-[var(--spacing-1)] text-start text-body text-[var(--color-text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]";
@@ -70,7 +70,7 @@ export function MeList({ current, onOpen }: MeListProps) {
 													aria-hidden="true"
 													className="shrink-0 text-[var(--color-text-secondary)]"
 												/>
-												<span className="truncate">{t(`me.sections.${section.id}`)}</span>
+												<span className="truncate">{t(sectionLabelKey(section))}</span>
 											</button>
 										</li>
 									);
@@ -110,7 +110,7 @@ export function MeList({ current, onOpen }: MeListProps) {
 											<Icon size={17} strokeWidth={1.8} />
 										</IconTile>
 									}
-									title={t(`me.sections.${section.id}`)}
+									title={t(sectionLabelKey(section))}
 									chevron
 									selected={current === section.id}
 									onClick={() => onOpen(section.id)}

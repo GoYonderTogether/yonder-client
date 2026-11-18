@@ -18,6 +18,7 @@
 		"@yonder/feature-landing": "0.3.26111703",
 		"@yonder/feature-legal": "0.3.26111703",
 		"@yonder/feature-me": "0.3.26111703",
+		"@yonder/feature-members": "0.3.26111703",
 		"@yonder/feature-meetings": "0.3.26111703",
 		"@yonder/protocol": "0.3.26111703",
 		"@yonder/ui-components": "0.3.26111703",

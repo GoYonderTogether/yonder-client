@@ -1,16 +1,45 @@
 import { Text, View } from "@tarojs/components";
 import { MessageAttachmentsFrame, MessageBubble, MessageRun } from "@yonder/chat-presentation";
-import { Button } from "../../components/ui";
+import type { ReactNode } from "react";
+import { Button, go } from "../../components/ui";
 import { t } from "../../lib/i18n";
 import { client } from "../../lib/runtime";
 import { MessageAttachment } from "./attachment";
 import { ChatAvatar } from "./avatar";
+import { senderBotId } from "./bot-entry";
 import { ChatView } from "./host";
 import { MessageBody } from "./markdown";
+import { systemText } from "./sentences";
 import type { useChat } from "./use-chat";
 
 type ChatMessage = ReturnType<typeof useChat>["messages"][number];
 type RunMessage = ChatMessage[];
+
+/** The Bot's avatar in a one-to-one chat opens its page, as its name in the title does. */
+function BotAvatarLink({ id, children }: { id: string; children: ReactNode }) {
+	return (
+		<View
+			onClick={() => go(`/pages/bot/index?id=${encodeURIComponent(id)}`)}
+			ariaRole="button"
+			ariaLabel={t("打开 Bot", "Open bot")}
+		>
+			{children}
+		</View>
+	);
+}
+
+/**
+ * A group-lifecycle line: nobody is speaking, so it is one centred sentence with no avatar, no
+ * bubble and no grouping (`systemSentence` makes the words). A `task_notice` keeps its own bubble.
+ */
+export function SystemLine({ message }: { message: ChatMessage }) {
+	const text = message.system ? systemText(message.system) : (message.body ?? "");
+	return (
+		<View className="mini-chat-system" id={`message-${message.id}`}>
+			<Text className="mini-chat-system-text">{text}</Text>
+		</View>
+	);
+}
 
 export function renderRun(
 	run: RunMessage,
@@ -20,10 +49,20 @@ export function renderRun(
 ) {
 	const first = run[0];
 	if (!first) return null;
+	// A run of system lines shares no sender; each line stands on its own, centred.
+	if (first.type === "system")
+		return (
+			<>
+				{run.map((message) => (
+					<SystemLine key={message.id} message={message} />
+				))}
+			</>
+		);
 	const self = first.senderId === chat.me?.member.id;
 	const sender = chat.conversation?.members.find((member) => member.memberId === first.senderId);
 	const name = sender?.displayName || t("成员", "Member");
 	const avatarUrl = sender?.avatarUrl;
+	const botId = senderBotId(chat.conversation, first.senderId);
 	const avatar = (
 		<ChatAvatar
 			name={name}
@@ -38,7 +77,7 @@ export function renderRun(
 				as={ChatView}
 				self={self}
 				senderId={first.senderId}
-				avatar={avatar}
+				avatar={botId ? <BotAvatarLink id={botId}>{avatar}</BotAvatarLink> : avatar}
 				sender={isGroup ? <View className="message-run-name">{name}</View> : null}
 			>
 				{run.map((message) => (

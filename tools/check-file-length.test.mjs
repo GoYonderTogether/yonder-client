@@ -67,9 +67,14 @@ describe("check-file-length", () => {
 		expect(() => run(root)).toThrow(/file-length check failed: 1 file\(s\) over 500 lines/);
 	});
 
-	test("skips build output and generated projects", () => {
+	test("skips build output, generated projects and vendored third-party code", () => {
 		const root = fixture();
-		for (const path of ["apps/web/dist/bundle.js", "apps/desktop/src-tauri/gen/App.ts", "apps/web/node_modules/x.js"]) {
+		for (const path of [
+			"apps/web/dist/bundle.js",
+			"apps/desktop/src-tauri/gen/App.ts",
+			"apps/web/node_modules/x.js",
+			"packages/ui/components/src/ambient/vendor/shader.tsx",
+		]) {
 			mkdirSync(join(root, path, ".."), { recursive: true });
 			writeFileSync(join(root, path), fileOf(900));
 		}

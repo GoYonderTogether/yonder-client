@@ -1,0 +1,53 @@
+/*
+ * Ambient background layer. The page colour is laid over the effect (`--ambient-veil`) so the light
+ * reads as a faint blur on the ground. The vendored components use Tailwind utility classes, which the
+ * host app's `@source` scan of this package generates.
+ */
+.ambient-field {
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	overflow: hidden;
+	pointer-events: none;
+	background: var(--color-bg-base);
+}
+
+.ambient-field::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: var(--color-bg-base);
+	opacity: var(--ambient-veil, 0.9);
+}
+
+.ambient-layer {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
+/*
+ * The sign-in and setup frame paints its own page colour; with the layer beside it, the frame lets the
+ * light through and its column becomes a frosted panel, and the fields get a hairline so they stay
+ * readable over a moving background.
+ */
+.ambient-field ~ .auth-frame {
+	background: transparent;
+}
+
+.ambient-field ~ .auth-frame .auth-column {
+	box-sizing: border-box;
+	padding: var(--spacing-6);
+	border-radius: var(--radius-panel);
+	border: 1px solid var(--color-border-subtle);
+	background: color-mix(in srgb, var(--color-bg-surface) 70%, transparent);
+	-webkit-backdrop-filter: blur(18px);
+	backdrop-filter: blur(18px);
+	box-shadow: var(--shadow-sm);
+}
+
+.ambient-field ~ .auth-frame .auth-control {
+	background: color-mix(in srgb, var(--color-bg-surface) 80%, transparent);
+	box-shadow: inset 0 0 0 1px var(--color-border-default);
+}

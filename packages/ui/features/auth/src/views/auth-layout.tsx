@@ -1,5 +1,5 @@
 import { AuthFrame } from "@yonder/auth-presentation";
-import { Button, Logo } from "@yonder/ui-components";
+import { AmbientField, Button, Logo } from "@yonder/ui-components";
 import { useLocalePreference } from "@yonder/ui-data";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,6 +13,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
 	const { t } = useTranslation();
 	return (
 		<main>
+			<AmbientField />
 			<AuthFrame
 				as="div"
 				locale={

@@ -11,12 +11,15 @@ export function Page({
 	children,
 	publicPage = false,
 	chatLayout = false,
+	onTitleClick,
 }: {
 	title: string;
 	back?: boolean;
 	children: ReactNode;
 	publicPage?: boolean;
 	chatLayout?: boolean;
+	/** Makes the title open the chat's detail page (a group's info, a person's card). */
+	onTitleClick?: () => void;
 }) {
 	const { status: sessionStatus } = useSession();
 	const route = useRouter();
@@ -68,7 +71,13 @@ export function Page({
 							{chatLayout ? <View className="mini-chat-back-icon" /> : "‹"}
 						</NativeButton>
 					)}
-					<Text className="mini-nav-title">{title}</Text>
+					{onTitleClick ? (
+						<View className="mini-nav-title mini-nav-title-link" onClick={onTitleClick} ariaRole="button">
+							<Text>{title}</Text>
+						</View>
+					) : (
+						<Text className="mini-nav-title">{title}</Text>
+					)}
 				</View>
 			</View>
 			<View className={`mini-content ${chatLayout ? "mini-content-chat" : ""}`}>

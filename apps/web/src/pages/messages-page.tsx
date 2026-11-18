@@ -1,4 +1,5 @@
 import { exhaustedPools, QuotaLowBanner } from "@yonder/feature-me";
+import { systemEventText, type Translate } from "@yonder/feature-members";
 import type { Conversation } from "@yonder/protocol";
 import { Avatar, Button, ConversationList, ConversationRow, EmptyState } from "@yonder/ui-components";
 import {
@@ -27,6 +28,17 @@ import {
 import { messagePreview } from "./message-preview.ts";
 import { useMessageScroll } from "./use-message-scroll.ts";
 import { VisitBar } from "./visit-bar.tsx";
+
+/**
+ * A group lifecycle message stores an event, not a sentence, so the row builds its words here in
+ * the reader's language (19 3.3); every other last message keeps the ordinary preview.
+ */
+function rowPreview(conversation: Conversation, t: Translate): string | undefined {
+	const last = conversation.lastMessage;
+	if (!last) return undefined;
+	if (last.type === "system" && last.system) return systemEventText(last.system, t) || undefined;
+	return last.body ? messagePreview(last.body) : undefined;
+}
 
 export function MessagesList({
 	current,
@@ -61,7 +73,7 @@ export function MessagesList({
 							key={conversation.id}
 							leading={<ConversationAvatar conversation={conversation} personId={person?.id} />}
 							title={conversationTitle(conversation, person?.id)}
-							preview={conversation.lastMessage?.body ? messagePreview(conversation.lastMessage.body) : undefined}
+							preview={rowPreview(conversation, t)}
 							meta={
 								conversation.lastMessage?.createdAt
 									? new Intl.DateTimeFormat(i18n.resolvedLanguage, { hour: "numeric", minute: "2-digit" }).format(
@@ -90,11 +102,31 @@ export function MessagesList({
 
 /**
  * The chat header is the way into a member's page: a direct chat's avatar and name open the peer,
- * a group's title opens the group (17 3.1). Only a direct chat with one member gets the button.
+ * a group's title opens the group (17 3.1). The viewer's own Bot detail stays with the frame, so a
+ * header without a handler is a plain title rather than a dead button.
  */
-function chatHeader(conversation: Conversation, personId: string | undefined, onOpenMember?: (id: string) => void) {
+function chatHeader(
+	conversation: Conversation,
+	personId: string | undefined,
+	groupLabel: string,
+	onOpenMember?: (id: string) => void,
+	onOpenGroup?: () => void,
+) {
 	const title = conversationTitle(conversation, personId);
-	const peer = conversation.kind === "direct" ? conversationPeer(conversation, personId) : undefined;
+	if (conversation.kind === "group") {
+		if (!onOpenGroup) return title;
+		return (
+			<button
+				type="button"
+				onClick={onOpenGroup}
+				aria-label={groupLabel}
+				className="flex min-w-0 items-center justify-center gap-[var(--spacing-2)] rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+			>
+				<span className="truncate">{title}</span>
+			</button>
+		);
+	}
+	const peer = conversationPeer(conversation, personId);
 	if (!peer || !onOpenMember) return title;
 	return (
 		<button
@@ -113,12 +145,15 @@ export function ConversationPage({
 	disconnected,
 	onOpenMeeting,
 	onOpenMember,
+	onOpenGroup,
 }: {
 	conversationId: string | null;
 	disconnected: boolean;
 	onOpenMeeting?: (id: string) => void;
 	/** A member id; the frame decides whether it opens a profile or a Bot detail. */
 	onOpenMember?: (memberId: string) => void;
+	/** A group's title opens its group info (17 3.1). */
+	onOpenGroup?: () => void;
 }) {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
@@ -147,7 +182,10 @@ export function ConversationPage({
 	if (!conversationId || !conversation) return <PageFrame title={null}>{null}</PageFrame>;
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
-			<PageFrame title={chatHeader(conversation, person?.id, onOpenMember)} width="full">
+			<PageFrame
+				title={chatHeader(conversation, person?.id, t("members.group.title"), onOpenMember, onOpenGroup)}
+				width="full"
+			>
 				<VisitBar conversation={conversation} />
 				{conversation.visit?.role === "visitor" &&
 				conversation.visit.state === "self_pay" &&

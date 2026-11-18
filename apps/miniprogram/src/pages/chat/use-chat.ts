@@ -1,9 +1,13 @@
 import Taro, { useDidShow } from "@tarojs/taro";
+import { ApiError } from "@yonder/api-client";
 import type { Attachment, Conversation, SendMessageRequest } from "@yonder/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../lib/i18n";
+import { patchConversation } from "../../lib/member-cache";
 import { api, newNonce, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
 import { type ChatMessage, mergeMessages, updateRun } from "./model";
+import { closureText } from "./sentences";
+import { isVisitErrorCode, visitErrorSentence } from "./visits";
 
 export function useChat(id: string) {
 	const { me, status } = useSession();
@@ -23,6 +27,10 @@ export function useChat(id: string) {
 	const [conversation, setConversation] = useState<Conversation>();
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
+	/** A send refused because the group is closed; a real error, never a Bot line. */
+	const [closedError, setClosedError] = useState("");
+	/** A send the visit ladder refused (`visit_limit`, `visit_denied`, `visit_cap`): the server's reason. */
+	const [visitError, setVisitError] = useState("");
 	const [cursor, setCursor] = useState<string | null>(null);
 	const [sending, setSending] = useState(false);
 	const [olderLoading, setOlderLoading] = useState(false);
@@ -45,6 +53,16 @@ export function useChat(id: string) {
 	const requests = useRef(new Map<string, SendMessageRequest>());
 	const latestLoad = useRef<{ scope: string; promise: Promise<boolean> } | null>(null);
 	const olderLoad = useRef<{ scope: string; cursor: string; promise: Promise<boolean> } | null>(null);
+	/** The visit ladder changes on the server (approved, paid, refused), so a refused send re-reads it. */
+	const refresh = useCallback((): Promise<void> => {
+		const ticket = epoch.current;
+		return api
+			.conversations()
+			.then((result) => {
+				if (active.current && ticket === epoch.current) setConversation(result.items.find((item) => item.id === id));
+			})
+			.catch(() => {});
+	}, [id]);
 	useEffect(() => {
 		active.current = Boolean(id && me?.member.id);
 		cursorRef.current = null;
@@ -53,6 +71,8 @@ export function useChat(id: string) {
 		setConversation(undefined);
 		setLoading(true);
 		setError("");
+		setClosedError("");
+		setVisitError("");
 		sendLock.current = false;
 		actionLock.current = false;
 		setSending(false);
@@ -132,21 +152,24 @@ export function useChat(id: string) {
 	useEffect(() => {
 		if (status !== "signed-in") return;
 		void load();
-		const ticket = epoch.current;
-		void api
-			.conversations()
-			.then((result) => {
-				if (active.current && ticket === epoch.current) setConversation(result.items.find((item) => item.id === id));
-			})
-			.catch(() => {});
+		void refresh();
 		return subscribeEvents((event) => {
 			if ((event.type === "message.created" || event.type === "message.updated") && event.message.conversationId === id)
 				setMessages((current) => mergeMessages(current, [event.message]));
 			if (event.type === "run.updated" && event.run.conversationId === id)
 				setMessages((current) => updateRun(current, event.run));
 			if (event.type === "conversation.updated" && event.conversation.id === id) setConversation(event.conversation);
+			// A rename or a new avatar is embedded in the conversation's members, so the copy is patched.
+			if (event.type === "member.updated")
+				setConversation((current) => (current ? patchConversation(current, event.member) : current));
+			// The Bot was deleted elsewhere: its private chat left the account's list, so this open
+			// view has nothing left to show and returns to the list (08 第六节, the web client's rule).
+			if (event.type === "conversation.removed" && event.conversationId === id) {
+				if (Taro.getCurrentPages().length > 1) void Taro.navigateBack();
+				else void Taro.reLaunch({ url: "/pages/conversations/index" });
+			}
 		});
-	}, [id, status, load]);
+	}, [id, status, load, refresh]);
 	const send = async (body: string, attachments: Attachment[], skillIds: string[], retryNonce?: string) => {
 		if (sendLock.current || !id || messagesOwner.current !== outboxKey) return;
 		sendLock.current = true;
@@ -162,6 +185,8 @@ export function useChat(id: string) {
 		requests.current.set(nonce, request);
 		setSending(true);
 		setError("");
+		setClosedError("");
+		setVisitError("");
 		const pending: ChatMessage = {
 			id: `temp_${nonce}`,
 			conversationId: id,
@@ -197,16 +222,39 @@ export function useChat(id: string) {
 				setMessages((current) => mergeMessages(current, [{ ...result.message, clientNonce: result.clientNonce }]));
 			requests.current.delete(nonce);
 			return true;
-		} catch {
+		} catch (cause) {
 			if (active.current && ticket === epoch.current) {
-				setError(t("发送失败，请重试", "Could not send. Try again."));
-				setMessages((current) =>
-					current.map((message) =>
-						message.clientNonce === nonce && message.id.startsWith("temp_")
-							? { ...message, pending: false, sendFailed: true }
-							: message,
-					),
-				);
+				// A closed group says so, with the real reason, instead of pretending to retry.
+				if (cause instanceof ApiError && cause.code === "conversation_closed") {
+					setClosedError(closureText(conversation?.closedReason));
+					Taro.removeStorageSync(outboxKey);
+					setMessages((current) => current.filter((message) => message.clientNonce !== nonce));
+				} else if (cause instanceof ApiError && isVisitErrorCode(cause.code)) {
+					// The visit ladder refused it: the server stored nothing, so the pending row goes too, and
+					// the refusal is shown as its own red line rather than as something the Bot said.
+					setVisitError(t(visitErrorSentence(cause.code, "zh-CN"), visitErrorSentence(cause.code, "en")));
+					void refresh();
+					try {
+						const stored = Taro.getStorageSync(outboxKey);
+						if (Array.isArray(stored))
+							Taro.setStorageSync(
+								outboxKey,
+								stored.filter((item: ChatMessage) => item.clientNonce !== nonce),
+							);
+					} catch {
+						// The request was refused either way; a full store must not turn it into a send error.
+					}
+					setMessages((current) => current.filter((message) => message.clientNonce !== nonce));
+				} else {
+					setError(t("发送失败，请重试", "Could not send. Try again."));
+					setMessages((current) =>
+						current.map((message) =>
+							message.clientNonce === nonce && message.id.startsWith("temp_")
+								? { ...message, pending: false, sendFailed: true }
+								: message,
+						),
+					);
+				}
 			}
 			return false;
 		} finally {
@@ -240,17 +288,46 @@ export function useChat(id: string) {
 			if (active.current && ticket === epoch.current) actionLock.current = false;
 		}
 	};
+	/** The owner's decision, or the visitor paying for the rest; the answer is the whole conversation. */
+	const visitAction = async (action: "approve" | "deny" | "pay") => {
+		const visitId = conversation?.visit?.id;
+		if (actionLock.current || !visitId || !id) return;
+		actionLock.current = true;
+		const ticket = epoch.current;
+		setError("");
+		try {
+			const next =
+				action === "approve"
+					? await api.approveVisit(visitId)
+					: action === "deny"
+						? await api.denyVisit(visitId)
+						: await api.payVisit(visitId);
+			if (active.current && ticket === epoch.current) setConversation(next);
+		} catch (cause) {
+			if (active.current && ticket === epoch.current)
+				setError(
+					cause instanceof ApiError && isVisitErrorCode(cause.code)
+						? t(visitErrorSentence(cause.code, "zh-CN"), visitErrorSentence(cause.code, "en"))
+						: t("操作失败，请重试", "Could not complete the action. Try again."),
+				);
+		} finally {
+			if (active.current && ticket === epoch.current) actionLock.current = false;
+		}
+	};
 	return {
 		me,
 		messages: status === "signed-in" && messagesOwner.current === outboxKey ? messages : [],
 		conversation: messagesOwner.current === outboxKey ? conversation : undefined,
 		loading: messagesOwner.current === outboxKey ? loading : true,
 		error: messagesOwner.current === outboxKey ? error : "",
+		closedError: messagesOwner.current === outboxKey ? closedError : "",
+		visitError: messagesOwner.current === outboxKey ? visitError : "",
 		cursor: messagesOwner.current === outboxKey ? cursor : null,
 		olderLoading: messagesOwner.current === outboxKey && olderLoading,
 		sending: messagesOwner.current === outboxKey && sending,
 		load,
 		send,
 		action,
+		visitAction,
 	};
 }
