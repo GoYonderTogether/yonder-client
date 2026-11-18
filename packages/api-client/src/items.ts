@@ -24,5 +24,8 @@ export function itemEndpoints(client: ApiClient) {
 		resumeItem(id: string): Promise<ItemSummary> {
 			return client.request(`/v1/items/${encodeURIComponent(id)}/resume`, { body: {} });
 		},
+		transferItem(id: string, botId: string): Promise<ItemSummary> {
+			return client.request(`/v1/items/${encodeURIComponent(id)}/transfer`, { body: { botId } });
+		},
 	};
 }

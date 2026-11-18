@@ -20,6 +20,7 @@ export interface Goal {
 	system: "onboarding" | null;
 	milestones?: GoalProgress;
 	changedAt: string;
+	transfers?: { from: string; to: string; at: string }[];
 }
 
 export interface GoalChange {

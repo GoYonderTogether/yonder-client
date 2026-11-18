@@ -39,12 +39,20 @@ export function accountEndpoints(client: ApiClient) {
 			return client.request("/v1/me/onboarding/complete", { body: { skippedSteps } });
 		},
 
-		goals(): Promise<{ items: Goal[] }> {
+		goals(): Promise<{ items: Goal[]; onboarding: { version: number; disabled: boolean } }> {
 			return client.request("/v1/goals");
 		},
 
 		changeGoal(id: string, body: GoalChange): Promise<Goal> {
 			return client.request(`/v1/goals/${encodeURIComponent(id)}`, { method: "PATCH", body });
+		},
+
+		transferGoal(id: string, botId: string): Promise<Goal> {
+			return client.request(`/v1/goals/${encodeURIComponent(id)}/transfer`, { body: { botId } });
+		},
+
+		disableOnboarding(): Promise<{ ok: true }> {
+			return client.request("/v1/me/onboarding/disable", { method: "POST" });
 		},
 
 		invite(): Promise<InviteResponse> {
