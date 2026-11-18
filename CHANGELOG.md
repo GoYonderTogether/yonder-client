@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.3.26111801] - 2026-11-18
+
+### Added
+
+- quota：show the coding floor refusal as the coding quota being used up
+- quota：a public price page built only from the published endpoints
+- quota：the usage list shows only the name the server gives each call
+- quota：read the cycle, fixed floor and catalog names on the quota page
+- quota：a low-quota banner that names the pool and the reset date
+- tasks：事项 | 目标 页，接入合并事项列表
+- quota：fetch the quota catalog only when its version changes
+- quota：version the quota catalog and drop vendor names from prices
+
 ## [0.3.26111703] - 2026-11-17
 
 ### Changed
