@@ -9,6 +9,7 @@ import { UpdateProvider } from "./provider.tsx";
 import { createUpdater, type UpdateCandidate } from "./state.ts";
 
 afterEach(() => {
+	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 	Reflect.deleteProperty(window, "__TAURI_INTERNALS__");
 });
@@ -41,6 +42,7 @@ test("web and iOS have no updater controls or check", () => {
 });
 
 test("desktop shows the downloaded version and a user-controlled restart", async () => {
+	const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
 	const install = vi.fn(async () => {});
 	const candidate: UpdateCandidate = { version: "0.3.12", required: false, download: async () => {}, install };
 	const updater = createUpdater({ platform: "desktop", check: async () => candidate });
@@ -48,6 +50,9 @@ test("desktop shows the downloaded version and a user-controlled restart", async
 	fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
 	expect(await screen.findByText("版本 0.3.12 已下载")).toBeInTheDocument();
 	expect(install).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "重启并安装" }));
+	expect(install).not.toHaveBeenCalled();
+	confirm.mockReturnValue(true);
 	fireEvent.click(screen.getByRole("button", { name: "重启并安装" }));
 	await waitFor(() => expect(install).toHaveBeenCalledOnce());
 });

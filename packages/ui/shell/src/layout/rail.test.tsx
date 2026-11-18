@@ -15,8 +15,12 @@ test("the macOS inset reserves a draggable 52px row above the avatar", () => {
 			meOpen={false}
 			meLabel="Me"
 			settingsLabel="Settings"
+			updateAction={<button type="button">Update ready</button>}
 			titlebarInset
 		/>,
+	);
+	expect(screen.getByRole("button", { name: "Update ready" }).nextElementSibling).toBe(
+		screen.getByRole("button", { name: "Settings" }),
 	);
 	const rail = screen.getByRole("navigation", { name: "Tabs" });
 	const header = container.querySelector("header");

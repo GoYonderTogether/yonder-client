@@ -35,6 +35,7 @@ import { MessageContent } from "../pages/message-content.tsx";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
+import { UpdateReadyButton } from "../updates/ready-button.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
@@ -432,6 +433,7 @@ export function AppFrame() {
 				personName={person?.displayName ?? ""}
 				meLabel={t("nav.me")}
 				settingsLabel={t("nav.settings")}
+				updateAction={<UpdateReadyButton />}
 				onOpenContacts={() => setContactsOpen(true)}
 				contactsLabel={t("chatActions.contacts")}
 				onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}

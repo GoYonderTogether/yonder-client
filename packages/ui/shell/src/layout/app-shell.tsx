@@ -38,6 +38,7 @@ export interface AppShellProps {
 	personName: string;
 	meLabel: string;
 	settingsLabel: string;
+	updateAction?: ReactNode;
 	onOpenContacts?: (() => void) | undefined;
 	contactsLabel?: string | undefined;
 	onOpenMe: () => void;
@@ -68,6 +69,7 @@ export function AppShell({
 	personName,
 	meLabel,
 	settingsLabel,
+	updateAction,
 	onOpenContacts,
 	contactsLabel,
 	onOpenMe,
@@ -142,6 +144,7 @@ export function AppShell({
 							meOpen={meOpen}
 							meLabel={meLabel}
 							settingsLabel={settingsLabel}
+							updateAction={updateAction}
 							{...(onOpenContacts ? { onOpenContacts, contactsLabel: contactsLabel ?? "" } : {})}
 							titlebarInset={titlebarInset}
 						/>
