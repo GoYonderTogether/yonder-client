@@ -39,8 +39,8 @@ import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
-import { FrameOverlays, useFrameLayers } from "./frame-overlays.tsx";
 import { ReceptionSetting } from "./reception-setting.tsx";
+import { useFrameLayers, useSideStack } from "./side-panel.tsx";
 import { SocialSettings } from "./social-settings.tsx";
 import { useChatDraft } from "./use-chat-draft.ts";
 import { useHasPassword } from "./use-has-password.ts";
@@ -140,19 +140,25 @@ export function AppFrame() {
 	const compact = useCompactConversation(conversation?.id);
 	const actions = useRunActions();
 	const layers = useFrameLayers();
-	const openMember = useEffectEvent((memberId: string) => {
+	/** From the chat a member replaces the side panel; from inside it (group info) one stacks on it. */
+	const openMember = useEffectEvent((memberId: string, stacked = false) => {
 		const member = contacts.data?.items.find((item) => item.id === memberId);
 		const listed = conversation?.members.find((item) => item.memberId === memberId);
 		const handle = member?.handle ?? listed?.handle;
-		if (member?.kind === "bot" && member.ownerId === person?.id) layers.setBotDetail(member.id);
-		else if (handle) layers.setMemberCard(handle);
+		const entry =
+			member?.kind === "bot" && member.ownerId === person?.id
+				? ({ kind: "bot", id: member.id } as const)
+				: handle
+					? ({ kind: "member", handle } as const)
+					: null;
+		if (entry) (stacked ? layers.push : layers.open)(entry);
 	});
 	/**
 	 * A deleted Bot's chat leaves the list over the socket; if it is the one on screen, the frame
 	 * goes back to the message list rather than showing an empty page (17 3.1).
 	 */
 	const removedConversation = useEffectEvent((conversationId: string) => {
-		layers.setBotDetail(null);
+		layers.close();
 		const open = locate(navigation.current());
 		if (open?.tab !== "messages") return;
 		if ([...open.detail].includes(conversationId)) navigation.back("/messages");
@@ -167,6 +173,22 @@ export function AppFrame() {
 	const streaming = history.data?.pages
 		.flatMap((page) => page.items)
 		.findLast((message) => message.senderKind === "bot" && message.streaming);
+	const side = useSideStack({
+		layers,
+		conversation,
+		personId: person?.id,
+		contacts: contacts.data?.items,
+		onBotDeleted: (chatId) => {
+			if (chatId) removedConversation(chatId);
+		},
+		onOpenMember: (member) => openMember(member.memberId, true),
+		onLeftGroup: () => navigation.back("/messages"),
+	});
+	// The panel belongs to what is on screen: moving to another chat, tab or page closes it.
+	const closeSide = useEffectEvent(() => layers.close());
+	useEffect(() => {
+		if (location.pathname) closeSide();
+	}, [location.pathname]);
 	const preset = useTaskPreset({
 		person,
 		bot,
@@ -246,7 +268,7 @@ export function AppFrame() {
 				bots={
 					<>
 						<ReceptionSetting />
-						<BotList onOpen={layers.setBotDetail} />
+						<BotList onOpen={layers.openBot} />
 						<SocialSettings />
 					</>
 				}
@@ -278,7 +300,7 @@ export function AppFrame() {
 								setRecorderOpen(true);
 							}}
 							onOpenMember={openMember}
-							onOpenGroup={() => layers.setGroupInfo(true)}
+							onOpenGroup={layers.openGroup}
 						/>
 					),
 				};
@@ -401,6 +423,7 @@ export function AppFrame() {
 				onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
 				meOpen={meOpen}
 				me={me}
+				side={side}
 				onBack={back}
 				backLabel={t("app.back")}
 				mobileShowList={!detailOpen}
@@ -439,17 +462,6 @@ export function AppFrame() {
 				labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
 				locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
 				onModeChange={setLayoutMode}
-			/>
-			<FrameOverlays
-				layers={layers}
-				conversation={conversation}
-				personId={person?.id}
-				mode={layoutMode}
-				onBotDeleted={(chatId) => {
-					if (chatId) removedConversation(chatId);
-				}}
-				onOpenMember={(member) => openMember(member.memberId)}
-				onLeftGroup={() => navigation.back("/messages")}
 			/>
 			{preset.flying ? <FlyToComposer phrase={preset.flying} onDone={preset.flown} /> : null}
 		</>

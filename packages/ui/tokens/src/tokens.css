@@ -407,6 +407,9 @@
 	   header lines up with it. */
 	--titlebar-height: 52px;
 	--rail-width: 76px;
+	/* The right-hand side panel on a wide window: group info, Bot detail, a member's card. Wide enough
+	   for the member grid and the Bot form without wrapping, narrow enough to leave the chat in view. */
+	--side-panel-width: 400px;
 	--tabbar-height: 54px;
 
 	/* Control sizes are fixed; density only affects rows and surrounding space. */

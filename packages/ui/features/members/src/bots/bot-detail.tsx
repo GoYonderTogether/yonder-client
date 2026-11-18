@@ -39,23 +39,25 @@ export function BotDetail({ bot, onDeleted }: BotDetailProps) {
 	const { t } = useTranslation();
 	const [confirming, setConfirming] = useState(false);
 	return (
-		<div className="flex flex-col gap-[var(--spacing-6)]">
+		<div className="flex flex-col">
 			<BotForm mode="edit" bot={bot} />
-			<ListGroup>
-				<li className="flex min-h-[var(--row-height)] items-center justify-between gap-[var(--spacing-3)] px-[var(--spacing-4)]">
-					<span className="text-body text-[var(--color-text-secondary)]">{t("bots.handle")}</span>
-					<span className="truncate text-body text-[var(--color-text-primary)]">@{bot.handle}</span>
-				</li>
-			</ListGroup>
-			{/* The default Bot has no delete button, and no sentence explaining why (15 第二节第 1 条). */}
-			{bot.isDefault ? null : confirming ? (
-				<BotDelete bot={bot} onCancel={() => setConfirming(false)} {...(onDeleted ? { onDeleted } : {})} />
-			) : (
-				<Button variant="danger" block onClick={() => setConfirming(true)}>
-					<Trash2 size={16} aria-hidden="true" />
-					{t("bots.deleteBot")}
-				</Button>
-			)}
+			<div className="flex flex-col gap-[var(--spacing-6)] px-[var(--spacing-6)] pb-[var(--spacing-6)]">
+				<ListGroup>
+					<li className="flex min-h-[var(--row-height)] items-center justify-between gap-[var(--spacing-3)] px-[var(--spacing-4)]">
+						<span className="text-body text-[var(--color-text-secondary)]">{t("bots.handle")}</span>
+						<span className="truncate text-body text-[var(--color-text-primary)]">@{bot.handle}</span>
+					</li>
+				</ListGroup>
+				{/* The default Bot has no delete button, and no sentence explaining why (15 第二节第 1 条). */}
+				{bot.isDefault ? null : confirming ? (
+					<BotDelete bot={bot} onCancel={() => setConfirming(false)} {...(onDeleted ? { onDeleted } : {})} />
+				) : (
+					<Button variant="danger" block onClick={() => setConfirming(true)}>
+						<Trash2 size={16} aria-hidden="true" />
+						{t("bots.deleteBot")}
+					</Button>
+				)}
+			</div>
 		</div>
 	);
 }

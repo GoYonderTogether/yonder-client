@@ -13,6 +13,8 @@ import { MobileDock } from "./mobile-dock.tsx";
 import { PaneSplitter } from "./pane-splitter.tsx";
 import { Rail } from "./rail.tsx";
 import { ShellProvider } from "./shell-context.tsx";
+import type { SideStack } from "./side-layers.tsx";
+import { SideLayers } from "./side-layers.tsx";
 import { useChromeSize } from "./use-chrome-size.ts";
 import { usePaneLayout } from "./use-pane-layout.ts";
 
@@ -39,6 +41,8 @@ export interface AppShellProps {
 	onOpenMe: () => void;
 	meOpen: boolean;
 	me?: MeStack | undefined;
+	/** The right-hand side panel; the frame's top layer while it has a page. */
+	side?: SideStack | undefined;
 	desktop?: boolean;
 	onBack: () => void;
 	backLabel: string;
@@ -65,6 +69,7 @@ export function AppShell({
 	onOpenMe,
 	meOpen,
 	me,
+	side,
 	desktop = false,
 	onBack,
 	backLabel,
@@ -86,6 +91,7 @@ export function AppShell({
 	const [dockHeight, setDockHeight] = useState(0);
 	const nativeComposer = useChromeSize("--native-dock-height", !phone && Boolean(composer));
 	const covering = !wide && detailOpen;
+	const sideOpen = Boolean(side?.pages.length);
 	useVisualViewport(container, phone);
 	useEffect(() => onModeChange?.(mode), [mode, onModeChange]);
 	const backButton = (
@@ -139,8 +145,8 @@ export function AppShell({
 				<div ref={pane.panes} className="relative flex min-w-0 flex-1">
 					{list ? (
 						<aside
-							inert={meOpen || covering}
-							aria-hidden={meOpen || covering || undefined}
+							inert={meOpen || covering || sideOpen}
+							aria-hidden={meOpen || covering || sideOpen || undefined}
 							className="relative flex h-full shrink-0 flex-col"
 							style={{ width: wide && !pane.collapsed ? pane.width : "100%" }}
 						>
@@ -156,7 +162,7 @@ export function AppShell({
 									label={labels.resizeList}
 								/>
 							) : null}
-							{phone && !covering && !meOpen ? (
+							{phone && !covering && !meOpen && !sideOpen ? (
 								<MobileDock
 									composer={null}
 									onHeightChange={setDockHeight}
@@ -172,7 +178,7 @@ export function AppShell({
 					<GesturePanel
 						open={detailOpen || !list}
 						inline={wide}
-						active={!meOpen && !(wide && pane.collapsed)}
+						active={!meOpen && !sideOpen && !(wide && pane.collapsed)}
 						layerKey="detail"
 						onBack={onBack}
 						label={backLabel}
@@ -223,6 +229,9 @@ export function AppShell({
 						/>
 					) : null}
 					<AnimatePresence>
+						{side && sideOpen ? <SideLayers key="side" side={side} mode={mode} /> : null}
+					</AnimatePresence>
+					<AnimatePresence>
 						{meOpen && me ? (
 							<MeLayers
 								key="me"
@@ -238,7 +247,7 @@ export function AppShell({
 					</AnimatePresence>
 				</div>
 			</div>
-			{phone && !meOpen ? (
+			{phone && !meOpen && !sideOpen ? (
 				<div
 					data-floating-status
 					className="pointer-events-none absolute inset-x-0 z-30"

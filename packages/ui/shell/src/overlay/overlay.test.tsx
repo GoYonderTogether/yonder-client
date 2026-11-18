@@ -84,12 +84,12 @@ describe("Overlay", () => {
 
 	test("a click on the backdrop closes it", () => {
 		const onClose = vi.fn();
-		const { container } = render(
+		render(
 			<Overlay open onClose={onClose} title="Me" mode="wide">
 				<p>content</p>
 			</Overlay>,
 		);
-		const backdrop = container.querySelector('button[aria-label="close"]') as HTMLElement;
+		const backdrop = document.body.querySelector('button[aria-label="close"]') as HTMLElement;
 		fireEvent.click(backdrop);
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});

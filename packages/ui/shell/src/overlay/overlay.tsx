@@ -2,6 +2,7 @@ import { cn } from "@yonder/ui-components";
 import { ChevronLeft, X } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useChromeSize } from "../layout/use-chrome-size.ts";
 import { GesturePanel } from "../navigation/gesture-panel.tsx";
 import { useDismiss } from "../navigation/use-dismiss.ts";
@@ -19,7 +20,11 @@ export interface OverlayProps {
 	mobilePresentation?: "page" | "sheet";
 }
 
-/** Dialogs retain desktop geometry; constrained windows share the right-hand navigation surface. */
+/**
+ * Dialogs retain desktop geometry; constrained windows share the right-hand navigation surface.
+ * Rendered into `document.body`: a dialog opened from inside the side panel or a sliding page must
+ * not be clipped by, or positioned against, that panel's transform.
+ */
 export function Overlay({
 	open,
 	onClose,
@@ -35,7 +40,8 @@ export function Overlay({
 	const sheet = !centered && mobilePresentation === "sheet";
 	const header = useChromeSize("--frame-header-height", open && !centered);
 	useDismiss(open && centered, onClose, 20);
-	return (
+	if (typeof document === "undefined") return null;
+	return createPortal(
 		<AnimatePresence>
 			{open ? (
 				<div className="fixed inset-0 z-50 flex" role="presentation">
@@ -127,6 +133,7 @@ export function Overlay({
 					</GesturePanel>
 				</div>
 			) : null}
-		</AnimatePresence>
+		</AnimatePresence>,
+		document.body,
 	);
 }
