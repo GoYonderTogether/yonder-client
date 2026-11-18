@@ -6,7 +6,7 @@
 		"text-px": 4,
 		"radius-raw": 6,
 		"font-weight-number": 9,
-		"window-confirm": 5
+		"window-confirm": 6
 	},
 	"files": {
 		"apps/web/src/app/chunk-boundary.tsx": {
@@ -43,6 +43,9 @@
 		},
 		"packages/ui/components/src/logo/logo.tsx": {
 			"radius-raw": 1
+		},
+		"packages/ui/features/me/src/channels/feishu-channel.tsx": {
+			"window-confirm": 1
 		},
 		"packages/ui/features/me/src/components/models-section.tsx": {
 			"window-confirm": 1
