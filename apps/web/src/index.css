@@ -3,12 +3,16 @@
 
 /* Tailwind scans the app it is built from, but the components live in workspace packages that it
    reaches through `node_modules` symlinks and therefore skips. Naming them explicitly is what makes
-   a class used only inside `packages/ui/components` exist in the bundle. */
+   a class used only inside `packages/ui/components` exist in the bundle.
+   `tools/check-tailwind-sources.mjs` fails when a workspace UI package is not covered here; every
+   feature is reached through their parent directory so a new feature cannot be forgotten. A glob
+   whose last segment is `src` would match files named `src`, not the directories. */
 @source "../../../packages/ui/components/src";
 @source "../../../packages/ui/shell/src";
-@source "../../../packages/ui/features/auth/src";
-@source "../../../packages/ui/features/me/src";
-@source "../../../packages/ui/features/landing/src";
+@source "../../../packages/ui/chat-presentation/src";
+@source "../../../packages/ui/auth-presentation/src";
+@source "../../../packages/ui/chat-model/src";
+@source "../../../packages/ui/features";
 @source "../../src";
 
 /* The tokens package declares the theme; Tailwind reads it through @theme. Nothing here invents a

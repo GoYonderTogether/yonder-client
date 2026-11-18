@@ -37,6 +37,7 @@ jobs:
       - run: node tools/check-entry-imports.mjs
       - run: node tools/check-dependency-direction.mjs
       - run: node tools/check-file-length.mjs
+      - run: node tools/check-tailwind-sources.mjs
       - run: node scripts/release/changelog.mjs --check
       - run: npm run build
       - uses: actions/upload-artifact@v4
