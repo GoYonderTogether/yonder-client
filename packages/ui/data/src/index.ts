@@ -50,6 +50,7 @@ export { useCompactConversation } from "./hooks/compact.ts";
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
 export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
+export { useFriendRequest, useFriendRequestActions, useFriendRequests } from "./hooks/friend-requests.ts";
 export { useChangeGoal, useGoalSettings, useGoals } from "./hooks/goals.ts";
 export { useGroupActions } from "./hooks/groups.ts";
 export { useItem, useItemActions, useItems } from "./hooks/items.ts";

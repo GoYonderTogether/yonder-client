@@ -111,7 +111,15 @@ export const en = {
 		myBot: "My Bot",
 	},
 
+	friendRequests: {
+		title: "Friend requests",
+		accepted: "Accepted",
+		accept: "Accept",
+		sent: "Request sent",
+		notifications: "System notifications",
+	},
 	chatActions: {
+		contacts: "Contacts",
 		recordMeeting: "Meeting recording",
 		windowFallback: "Could not open a separate window. Continue here.",
 		menu: "New chat",

@@ -1,5 +1,5 @@
 import { cn } from "@yonder/ui-components";
-import { Settings } from "lucide-react";
+import { ContactRound, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 import type { TabId } from "../navigation/routes.ts";
 import { TABS } from "../navigation/routes.ts";
@@ -17,6 +17,8 @@ export interface RailProps {
 	meLabel: string;
 	settingsLabel: string;
 	titlebarInset: boolean;
+	onOpenContacts?: () => void;
+	contactsLabel?: string;
 }
 
 /** The 52px traffic-light row belongs to the rail; the avatar is above the tabs. */
@@ -31,6 +33,8 @@ export function Rail({
 	meLabel,
 	settingsLabel,
 	titlebarInset,
+	onOpenContacts,
+	contactsLabel,
 }: RailProps) {
 	const avatar = (
 		<button
@@ -82,6 +86,20 @@ export function Rail({
 						</li>
 					);
 				})}
+				{onOpenContacts ? (
+					<li>
+						<button
+							type="button"
+							onClick={onOpenContacts}
+							aria-label={contactsLabel}
+							title={contactsLabel}
+							className="flex min-h-11 min-w-11 flex-col items-center justify-center gap-[var(--spacing-1)] rounded-[var(--radius-md)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+						>
+							<ContactRound size={20} aria-hidden="true" />
+							<span className="text-micro">{contactsLabel}</span>
+						</button>
+					</li>
+				) : null}
 			</ul>
 			<button
 				type="button"

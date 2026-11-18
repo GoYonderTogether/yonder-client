@@ -1,15 +1,26 @@
 import { Image, Switch, Text, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import type { Member } from "@yonder/protocol";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { FriendRequestCard } from "../../components/friend-request-card";
 import { qrTarget } from "../../components/qr-target";
 import { action, Button, Field, go, Page, State } from "../../components/ui";
+import { useFriendRequests } from "../../components/use-friend-requests";
 import { useResource } from "../../components/use-resource";
 import { t } from "../../lib/i18n";
 import { api, client } from "../../lib/runtime";
 
 export default function Contacts() {
+	const requests = useFriendRequests();
 	const { data, loading, error, reload } = useResource(() => api.contacts());
+	const accepted = requests.items
+		.filter((item) => item.status === "accepted")
+		.map((item) => item.id)
+		.join(",");
+	useEffect(() => {
+		if (accepted) void reload();
+	}, [accepted, reload]);
+	const [sent, setSent] = useState<string[]>([]);
 	const [query, setQuery] = useState("");
 	const [results, setResults] = useState<Member[]>([]);
 	const [name, setName] = useState("");
@@ -17,6 +28,15 @@ export default function Contacts() {
 	const open = (id: string) => go(`/pages/chat/index?id=${encodeURIComponent(id)}`);
 	return (
 		<Page title={t("联系人", "Contacts")}>
+			<State loading={requests.loading} error={requests.error} retry={() => void requests.reload()} />
+			{requests.items.length ? (
+				<View>
+					<Text>{t("好友申请", "Friend requests")}</Text>
+					{requests.items.map((request) => (
+						<FriendRequestCard key={request.id} id={request.id} />
+					))}
+				</View>
+			) : null}
 			<View className="mini-card">
 				<Field label={t("搜索 Yonder 号或昵称", "Search handle or name")} value={query} onInput={setQuery} />
 				<Button
@@ -33,14 +53,15 @@ export default function Contacts() {
 						</View>
 						<Button
 							secondary
+							disabled={sent.includes(member.id)}
 							onClick={() =>
 								void action(async () => {
-									const result = await api.addContact(member.id);
-									open(result.conversation.id);
+									await requests.request(member.id);
+									setSent((old) => [...old, member.id]);
 								})
 							}
 						>
-							{t("添加并聊天", "Add & chat")}
+							{sent.includes(member.id) ? t("已发送申请", "Request sent") : t("发送好友申请", "Send friend request")}
 						</Button>
 					</View>
 				))}

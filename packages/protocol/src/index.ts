@@ -114,6 +114,7 @@ export type {
 	MeetingTranscriptBatch,
 	RetryMeetingRequest,
 } from "./meetings/meetings.ts";
+export type { FriendRequest } from "./member/friend-request.ts";
 export type {
 	CardBot,
 	ChangeHandleRequest,

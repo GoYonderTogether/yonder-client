@@ -19,7 +19,7 @@ import {
 	useSkills,
 } from "@yonder/ui-data";
 import type { LayoutMode, TabId } from "@yonder/ui-shell";
-import { AppShell, locate, MAIN_CONVERSATION, SidePanelProvider, tabPath } from "@yonder/ui-shell";
+import { AppShell, locate, MAIN_CONVERSATION, Overlay, SidePanelProvider, tabPath } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
@@ -28,6 +28,7 @@ import { BUILD_VERSION } from "../lib/config.ts";
 import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
+import { ContactsList } from "../pages/contacts-list.tsx";
 import { conversationTitle, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
 import { FlyToComposer } from "../pages/items-fly.tsx";
 import { MessageContent } from "../pages/message-content.tsx";
@@ -66,6 +67,7 @@ export function AppFrame() {
 	const person = usePerson();
 	const bot = useBot();
 	const recorder = useMeetingRecorder(person?.id ?? null);
+	const [contactsOpen, setContactsOpen] = useState(false);
 	const [recorderOpen, setRecorderOpen] = useState(false);
 	const [shortVoiceActive, setShortVoiceActive] = useState(false);
 	const activeRecording = recorder.state.recordings.find((recording) => recording.id === recorder.state.activeId);
@@ -409,11 +411,12 @@ export function AppFrame() {
 	// viewer was removed from, is read only for the same reason: the notice takes its place (19 3.2).
 	const watchingVisit = conversation?.visit?.role === "host";
 	const closed = Boolean(conversation?.closedReason);
-	const dock = watchingVisit ? null : closed && conversation ? (
-		<ClosedGroupNotice conversation={conversation} />
-	) : (
-		composer
-	);
+	const dock =
+		watchingVisit || (tab === "messages" && conversation?.kind === "system") ? null : closed && conversation ? (
+			<ClosedGroupNotice conversation={conversation} />
+		) : (
+			composer
+		);
 
 	return (
 		<SidePanelProvider value={layers.controls}>
@@ -429,6 +432,8 @@ export function AppFrame() {
 				personName={person?.displayName ?? ""}
 				meLabel={t("nav.me")}
 				settingsLabel={t("nav.settings")}
+				onOpenContacts={() => setContactsOpen(true)}
+				contactsLabel={t("chatActions.contacts")}
 				onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
 				meOpen={meOpen}
 				me={me}
@@ -442,7 +447,7 @@ export function AppFrame() {
 						<FileDropZone
 							key={conversation?.id}
 							onFiles={draft.addFiles}
-							disabled={!conversation || !draft.loaded || draft.sending || meOpen}
+							disabled={!conversation || conversation.kind === "system" || !draft.loaded || draft.sending || meOpen}
 						>
 							{deferred(content)}
 						</FileDropZone>
@@ -467,16 +472,26 @@ export function AppFrame() {
 					/>
 				}
 				titlebarInset={isMacDesktopShell()}
-				brand={<Brand />}
+				brand={<AppIcon size={32} title="Yonder" />}
 				labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
 				locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
 				onModeChange={setLayoutMode}
 			/>
+			<Overlay
+				open={contactsOpen}
+				onClose={() => setContactsOpen(false)}
+				title={t("chatActions.contacts")}
+				closeLabel={t("app.close")}
+				mode={layoutMode ?? "wide"}
+			>
+				<ContactsList
+					onOpen={(handle) => {
+						setContactsOpen(false);
+						navigate(`/@${encodeURIComponent(handle)}`);
+					}}
+				/>
+			</Overlay>
 			{preset.flying ? <FlyToComposer phrase={preset.flying} onDone={preset.flown} /> : null}
 		</SidePanelProvider>
 	);
-}
-
-function Brand() {
-	return <AppIcon size={32} title="Yonder" />;
 }

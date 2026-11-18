@@ -72,7 +72,7 @@ export default function Chat() {
 		? chat.conversation?.members.find((member) => member.kind === "person" && member.memberId !== chat.me?.member.id)
 		: undefined;
 	const visitLine = visit ? visitSentence(visit, visitor?.displayName ?? "", locale) : null;
-	const watching = visit?.role === "host";
+	const watching = visit?.role === "host" || chat.conversation?.kind === "system";
 	const partner = visit
 		? visit.role === "host"
 			? visitor
@@ -207,11 +207,13 @@ export default function Chat() {
 		<Page
 			back
 			chatLayout
-			onTitleClick={chat.conversation ? openDetails : undefined}
+			onTitleClick={chat.conversation && chat.conversation.kind !== "system" ? openDetails : undefined}
 			title={
 				chat.conversation
 					? (visit ? partner?.displayName : undefined) ||
-						conversationTitle(chat.conversation.members, chat.me?.member.id, chat.conversation.title) ||
+						(chat.conversation.kind === "system"
+							? t("系统通知", "System notifications")
+							: conversationTitle(chat.conversation.members, chat.me?.member.id, chat.conversation.title)) ||
 						t("聊天", "Chat")
 					: t("聊天", "Chat")
 			}

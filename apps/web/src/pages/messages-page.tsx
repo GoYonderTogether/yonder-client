@@ -36,6 +36,7 @@ import { VisitBar } from "./visit-bar.tsx";
 function rowPreview(conversation: Conversation, t: Translate): string | undefined {
 	const last = conversation.lastMessage;
 	if (!last) return undefined;
+	if (conversation.kind === "system") return t("friendRequests.title");
 	if (last.type === "system" && last.system) return systemEventText(last.system, t) || undefined;
 	return last.body ? messagePreview(last.body) : undefined;
 }
@@ -72,7 +73,11 @@ export function MessagesList({
 						<ConversationRow
 							key={conversation.id}
 							leading={<ConversationAvatar conversation={conversation} personId={person?.id} />}
-							title={conversationTitle(conversation, person?.id)}
+							title={
+								conversation.kind === "system"
+									? t("friendRequests.notifications")
+									: conversationTitle(conversation, person?.id)
+							}
 							preview={rowPreview(conversation, t)}
 							meta={
 								conversation.lastMessage?.createdAt
@@ -183,7 +188,11 @@ export function ConversationPage({
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
 			<PageFrame
-				title={chatHeader(conversation, person?.id, t("members.group.title"), onOpenMember, onOpenGroup)}
+				title={
+					conversation.kind === "system"
+						? t("friendRequests.notifications")
+						: chatHeader(conversation, person?.id, t("members.group.title"), onOpenMember, onOpenGroup)
+				}
 				width="full"
 			>
 				<VisitBar conversation={conversation} />
@@ -198,7 +207,7 @@ export function ConversationPage({
 					>
 						{t("visits.selfPayQuota")}
 					</p>
-				) : quota.data ? (
+				) : quota.data && conversation.kind !== "system" ? (
 					<QuotaLowBanner
 						quota={quota.data}
 						onOpenInvite={() => openSection("/me/invite")}

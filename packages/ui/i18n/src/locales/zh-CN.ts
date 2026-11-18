@@ -112,7 +112,15 @@ export const zhCN: Messages = {
 		myBot: "我的 Bot",
 	},
 
+	friendRequests: {
+		title: "好友申请",
+		accepted: "已同意",
+		accept: "同意",
+		sent: "已发送申请",
+		notifications: "系统通知",
+	},
 	chatActions: {
+		contacts: "联系人",
 		recordMeeting: "会议录音",
 		windowFallback: "未能打开独立窗口，可在这里继续添加。",
 		menu: "发起聊天",

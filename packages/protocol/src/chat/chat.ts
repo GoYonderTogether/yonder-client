@@ -84,7 +84,7 @@ export interface ApproveVisitRequest {
 
 export interface Conversation {
 	id: string;
-	kind: "direct" | "group";
+	kind: "direct" | "group" | "system";
 	isPrimary?: boolean;
 	title: string | null;
 	members: ConversationMember[];
@@ -139,6 +139,7 @@ export interface AttachmentTextPreview {
 }
 
 export interface Message {
+	friendRequestId?: string;
 	connectorRequestId?: string;
 	reaction?: string;
 	outwardRequest?: import("./outward.ts").OutwardRequestCard;

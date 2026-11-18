@@ -40,6 +40,7 @@ vi.mock("@yonder/ui-data", async (original) => ({
 		createGroup: { mutate: createGroup },
 		addContact: { mutate: addContact },
 	}),
+	useFriendRequestActions: () => ({ request: { mutate: vi.fn() } }),
 	useUpdateBot: () => ({ mutateAsync: vi.fn() }),
 	useUploadBotAvatar: () => ({ mutateAsync: vi.fn() }),
 	usePerson: () => ({ handle: "myhandle", displayName: "My name" }),
@@ -73,6 +74,7 @@ test("desktop menu preserves the requested order and keyboard selection; mobile 
 	view.rerender(localised(<ChatMenu mobile onSelect={select} />));
 	fireEvent.click(screen.getByRole("button", { name: "New chat" }));
 	expect(screen.getAllByRole("menuitem")[0]).toHaveTextContent("Scan QR code");
+	expect(screen.getByRole("menuitem", { name: "Contacts" })).toBeInTheDocument();
 	fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 	expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 	expect(screen.getByRole("button", { name: "New chat" })).toHaveFocus();

@@ -3,6 +3,7 @@ import { Button, EmptyState, IconButton } from "@yonder/ui-components";
 import {
 	ApiError,
 	useContactActions,
+	useFriendRequestActions,
 	useMemberProfile,
 	usePublicMemberProfile,
 	useStartBotChat,
@@ -77,6 +78,8 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 	const { t } = useTranslation();
 	const profile = useMemberProfile(handle);
 	const contacts = useContactActions();
+	const requests = useFriendRequestActions();
+	const [sent, setSent] = useState(false);
 	const startChat = useStartBotChat();
 	const [failure, setFailure] = useState<string | null>(null);
 	const fail = (error: unknown) => setFailure(memberFailureText(error, t));
@@ -108,10 +111,7 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 	const add = () => {
 		setFailure(null);
 		if (!memberId) return;
-		contacts.addContact.mutate(memberId, {
-			onSuccess: ({ conversation }) => handlers.onOpenConversation(conversation.id),
-			onError: fail,
-		});
+		requests.request.mutate(memberId, { onSuccess: () => setSent(true), onError: fail });
 	};
 	const chat = () => {
 		setFailure(null);
@@ -144,14 +144,15 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 					</IconButton>
 				</div>
 			) : null}
+			{sent ? <p role="status">{t("friendRequests.sent")}</p> : null}
 			<MemberProfile
 				profile={profile.data}
 				{...(self ? {} : { onMessage: message })}
-				{...(card.kind === "bot" ? { onChat: chat } : { onAddContact: add })}
+				{...(card.kind === "bot" ? { onChat: chat } : { onAddContact: sent ? undefined : add })}
 				{...(reception ? { onMatter: matter } : {})}
 				onOpenOwner={handlers.onOpenOwner}
 				error={failure}
-				busy={contacts.addContact.isPending || startChat.isPending}
+				busy={contacts.addContact.isPending || startChat.isPending || requests.request.isPending}
 			/>
 		</div>
 	);

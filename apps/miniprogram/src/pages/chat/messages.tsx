@@ -1,6 +1,7 @@
 import { Text, View } from "@tarojs/components";
 import { MessageAttachmentsFrame, MessageBubble, MessageRun } from "@yonder/chat-presentation";
 import type { ReactNode } from "react";
+import { FriendRequestCard } from "../../components/friend-request-card";
 import { Button, go } from "../../components/ui";
 import { t } from "../../lib/i18n";
 import { client } from "../../lib/runtime";
@@ -56,6 +57,20 @@ export function renderRun(
 			<>
 				{run.map((message) => (
 					<SystemLine key={message.id} message={message} />
+				))}
+			</>
+		);
+	if (chat.conversation?.kind === "system")
+		return (
+			<>
+				{run.map((message) => (
+					<View key={message.id} id={`message-${message.id}`}>
+						{message.friendRequestId ? (
+							<FriendRequestCard id={message.friendRequestId} />
+						) : (
+							<SystemLine message={message} />
+						)}
+					</View>
 				))}
 			</>
 		);

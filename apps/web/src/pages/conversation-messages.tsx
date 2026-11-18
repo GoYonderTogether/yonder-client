@@ -8,6 +8,7 @@ import type { CachedMessage } from "@yonder/ui-data";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
+import { FriendRequestCard } from "./friend-request-card.tsx";
 import { MemoryUpdatedLine } from "./memory-updated-line.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
@@ -83,6 +84,16 @@ export function ConversationMessages({
 		visitRole === "visitor" && conversation.visit?.state !== "denied"
 			? items.findLast((item) => item.senderId === person?.id && !item.pending && !item.sendFailed && item.body?.trim())
 			: null;
+	if (conversation.kind === "system")
+		return items.map((message) => (
+			<div key={message.id} data-message-id={message.id}>
+				{message.friendRequestId ? (
+					<FriendRequestCard id={message.friendRequestId} />
+				) : message.body ? (
+					<MessageContent body={message.body} />
+				) : null}
+			</div>
+		));
 	return blocksOf(delivered.size ? items.filter((item) => !delivered.has(item.id)) : items).map((block) => {
 		// A group lifecycle message has no sender speaking: one muted centred line, no avatar (19 3.3).
 		if ("system" in block) return <SystemLine key={block.system.id} message={block.system} />;
@@ -91,6 +102,7 @@ export function ConversationMessages({
 		if (!first) return null;
 		const self = first.senderId === person?.id;
 		const entries = run.map((message) => {
+			if (message.friendRequestId) return <FriendRequestCard key={message.id} id={message.friendRequestId} />;
 			if (message.channelAttemptId)
 				return (
 					<div key={message.id} data-message-id={message.id}>

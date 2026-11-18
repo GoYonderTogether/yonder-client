@@ -3,6 +3,7 @@ import { useRouter } from "@tarojs/taro";
 import type { MemberProfileResponse } from "@yonder/protocol";
 import { useState } from "react";
 import { action, Button, go, Page, State } from "../../components/ui";
+import { useFriendProfileRefresh, useFriendRequests } from "../../components/use-friend-requests";
 import { useResource } from "../../components/use-resource";
 import { t } from "../../lib/i18n";
 import { api, client } from "../../lib/runtime";
@@ -15,7 +16,9 @@ import { botChatStarter } from "./start-chat";
  * the same idempotent contact call makes it (and is a no-op for someone already a contact).
  */
 function CardButton({ profile }: { profile: MemberProfileResponse }) {
+	const requests = useFriendRequests();
 	const [busy, setBusy] = useState(false);
+	const [sent, setSent] = useState(false);
 	const chat = cardAction(profile);
 	const startBotChat = botChatStarter();
 	const openChat = (id: string) => go(`/pages/chat/index?id=${encodeURIComponent(id)}`);
@@ -27,19 +30,26 @@ function CardButton({ profile }: { profile: MemberProfileResponse }) {
 		return (
 			<Button
 				loading={busy}
-				disabled={!profile.memberId}
+				disabled={!profile.memberId || sent}
 				onClick={() =>
 					void action(async () => {
 						setBusy(true);
 						try {
-							openChat((await api.addContact(profile.memberId ?? "")).conversation.id);
+							if (chat.kind === "add_contact") {
+								await requests.request(profile.memberId ?? "");
+								setSent(true);
+							} else openChat((await api.addContact(profile.memberId ?? "")).conversation.id);
 						} finally {
 							setBusy(false);
 						}
 					})
 				}
 			>
-				{chat.kind === "add_contact" ? t("加为联系人", "Add as contact") : t("发消息", "Message")}
+				{sent
+					? t("已发送申请", "Request sent")
+					: chat.kind === "add_contact"
+						? t("发送好友申请", "Send friend request")
+						: t("发消息", "Message")}
 			</Button>
 		);
 	if (chat.kind === "start_chat" && startBotChat) {
@@ -76,6 +86,7 @@ function MatterButton({ profile }: { profile: MemberProfileResponse }) {
 export default function Member() {
 	const handle = decodeURIComponent(useRouter().params.handle ?? "");
 	const { data, loading, error, reload } = useResource(() => loadCard(() => api.memberProfile(handle)));
+	useFriendProfileRefresh(reload);
 	const card = data && "profile" in data ? data.profile.card : undefined;
 	const avatar = card?.avatarUrl;
 	const owner = card?.owner;

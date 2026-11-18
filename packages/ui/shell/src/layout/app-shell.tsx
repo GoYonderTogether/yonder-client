@@ -38,6 +38,8 @@ export interface AppShellProps {
 	personName: string;
 	meLabel: string;
 	settingsLabel: string;
+	onOpenContacts?: (() => void) | undefined;
+	contactsLabel?: string | undefined;
 	onOpenMe: () => void;
 	meOpen: boolean;
 	me?: MeStack | undefined;
@@ -66,6 +68,8 @@ export function AppShell({
 	personName,
 	meLabel,
 	settingsLabel,
+	onOpenContacts,
+	contactsLabel,
 	onOpenMe,
 	meOpen,
 	me,
@@ -138,6 +142,7 @@ export function AppShell({
 							meOpen={meOpen}
 							meLabel={meLabel}
 							settingsLabel={settingsLabel}
+							{...(onOpenContacts ? { onOpenContacts, contactsLabel: contactsLabel ?? "" } : {})}
 							titlebarInset={titlebarInset}
 						/>
 					</div>
