@@ -304,7 +304,7 @@ test("compact chat actions use the shared right layer and restore focus", async 
 	await checkChatAction(page);
 });
 
-test("desktop task and memory sections remain in the top bar", async ({ page }) => {
+test("desktop task and memory sections use large capsules below the title row", async ({ page }) => {
 	for (const width of [390, 1280]) {
 		await page.setViewportSize({ width, height: 844 });
 		for (const [path, label] of [
@@ -312,15 +312,27 @@ test("desktop task and memory sections remain in the top bar", async ({ page }) 
 			["/memory", "Memory"],
 		]) {
 			await page.goto(path);
-			const sections = page.locator("header").getByRole("radiogroup", { name: label, exact: true });
+			const header = page.locator("[data-frame-header]").filter({
+				has: page.getByRole("radiogroup", { name: label, exact: true }),
+			});
+			const sections = header.getByRole("radiogroup", { name: label, exact: true });
+			await expect(header.getByRole("heading", { name: label, exact: true })).toBeVisible();
 			await expect(sections).toBeVisible();
-			expect((await sections.boundingBox())?.height).toBe(32);
-			expect(await sections.evaluate((element) => getComputedStyle(element).borderTopLeftRadius)).toBe("8px");
-			expect(
-				await sections
-					.locator("input:checked + span")
-					.evaluate((element) => getComputedStyle(element).borderTopLeftRadius),
-			).toBe("4px");
+			const titleRow = await header.locator("header").boundingBox();
+			const bounds = await sections.boundingBox();
+			if (!titleRow || !bounds) throw new Error("Expected the title row and capsule");
+			expect(bounds.y).toBeGreaterThanOrEqual(titleRow.y + titleRow.height);
+			expect(bounds.height).toBe(52);
+			const radios = await sections.getByRole("radio").all();
+			const targets = await Promise.all(radios.map((radio) => radio.boundingBox()));
+			expect(targets[0]?.width).toBeCloseTo(targets[1]?.width ?? 0, 0);
+			for (const target of targets) expect(target?.height).toBe(44);
+			for (const pill of [sections, sections.locator("input:checked + span")]) {
+				const radius = await pill.evaluate((element) =>
+					Number.parseFloat(getComputedStyle(element).borderTopLeftRadius),
+				);
+				expect(radius).toBeGreaterThanOrEqual(26);
+			}
 		}
 	}
 });

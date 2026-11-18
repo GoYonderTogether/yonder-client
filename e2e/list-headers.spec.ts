@@ -57,7 +57,10 @@ for (const width of [1280, 820, 390]) {
 		if (!titleBox || !tabBox) throw new Error("List header must be visible");
 		expect(tabBox.y).toBeGreaterThan(titleBox.y + titleBox.height);
 		expect(tabBox.height).toBeGreaterThanOrEqual(44);
-		await group.getByRole("radio", { name: "目标", exact: true }).check();
+		// Selection is controlled by an asynchronous router transition, not native radio state.
+		await group.getByRole("radio", { name: "目标", exact: true }).click();
+		await expect(page).toHaveURL(/\/tasks\/scheduled$/);
+		await expect(group.getByRole("radio", { name: "目标", exact: true })).toBeChecked();
 		await header.getByRole("button", { name: "新建目标" }).click();
 		await expect(page.getByRole("menuitem", { name: "新建目标" })).toBeVisible();
 		await page.getByRole("menuitem", { name: "新建定时任务" }).click();
@@ -84,7 +87,9 @@ test.describe("phone header", () => {
 			.filter({ has: page.getByRole("heading", { name: "任务", exact: true }) });
 		await expect(header.getByRole("button", { name: "新建事项" })).toBeVisible();
 		await expect(header.getByRole("radiogroup", { name: "任务" })).toBeVisible();
-		await header.getByRole("radio", { name: "目标", exact: true }).check();
+		await header.getByRole("radio", { name: "目标", exact: true }).click();
+		await expect(page).toHaveURL(/\/tasks\/scheduled$/);
+		await expect(header.getByRole("radio", { name: "目标", exact: true })).toBeChecked();
 		await header.getByRole("button", { name: "新建目标" }).click();
 		await expect(page.getByRole("menuitem", { name: "新建定时任务" })).toBeVisible();
 	});
