@@ -25,6 +25,13 @@ export type {
 	WechatMiniSignInResponse,
 } from "./auth/auth.ts";
 export type {
+	ChannelAttempt,
+	ChannelConnection,
+	ChannelConversationAction,
+	ExternalChannelConversation,
+	ExternalChannelMessagePage,
+} from "./chat/channels.ts";
+export type {
 	AddContactResponse,
 	AddGroupMembersRequest,
 	ApproveVisitRequest,
@@ -51,6 +58,7 @@ export type {
 	VisitState,
 } from "./chat/chat.ts";
 export type { CompactConversationRequest, CompactConversationResponse } from "./chat/compaction.ts";
+export type { Goal, GoalAction, GoalChange, GoalProgress, GoalState, OnboardingStep } from "./chat/goals.ts";
 export type {
 	ItemDetail,
 	ItemListResponse,
@@ -59,6 +67,7 @@ export type {
 	ItemStep,
 	ItemSummary,
 } from "./chat/items.ts";
+export type { OutwardRequestAction, OutwardRequestCard, OutwardRequestState } from "./chat/outward.ts";
 export type {
 	CreateScheduleRequest,
 	Schedule,

@@ -5,8 +5,11 @@ import type {
 	DeleteAccountResponse,
 	DeviceInfo,
 	DeviceListResponse,
+	Goal,
+	GoalChange,
 	InviteResponse,
 	MeResponse,
+	OnboardingStep,
 	PhoneChangeCodeRequest,
 	SendCodeResponse,
 	SetPasswordRequest,
@@ -30,6 +33,18 @@ export function accountEndpoints(client: ApiClient) {
 	return {
 		me(): Promise<MeResponse> {
 			return client.request("/v1/me");
+		},
+
+		completeOnboarding(skippedSteps: OnboardingStep[] = []): Promise<{ conversationId: string }> {
+			return client.request("/v1/me/onboarding/complete", { body: { skippedSteps } });
+		},
+
+		goals(): Promise<{ items: Goal[] }> {
+			return client.request("/v1/goals");
+		},
+
+		changeGoal(id: string, body: GoalChange): Promise<Goal> {
+			return client.request(`/v1/goals/${encodeURIComponent(id)}`, { method: "PATCH", body });
 		},
 
 		invite(): Promise<InviteResponse> {

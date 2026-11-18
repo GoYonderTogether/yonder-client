@@ -5,6 +5,7 @@
  */
 import { accountEndpoints } from "./account.ts";
 import { authEndpoints } from "./auth.ts";
+import { channelEndpoints } from "./channels.ts";
 import type { ApiClient } from "./client.ts";
 import { connectorEndpoints } from "./connectors.ts";
 import { conversationEndpoints } from "./conversations.ts";
@@ -28,6 +29,7 @@ export function createEndpoints(client: ApiClient) {
 		...itemEndpoints(client),
 		...conversationEndpoints(client),
 		...connectorEndpoints(client),
+		...channelEndpoints(client),
 		...skillEndpoints(client),
 		...memberEndpoints(client),
 		...providerEndpoints(client),

@@ -73,6 +73,7 @@ export interface Conversation {
 	 * dissolved it, or the viewer was removed from it. Absent or null while it is open.
 	 */
 	closedReason?: "dissolved" | "removed" | null;
+	groupBotPayer?: "mentioner" | "owner";
 	dissolvedAt?: string | null;
 	/** Present only in a chat between a stranger and someone else's Bot. */
 	visit?: ConversationVisit | null;
@@ -97,6 +98,7 @@ export interface Run {
 	userMessageId: string;
 	status: "queued" | "running" | "completed" | "failed" | "cancelled";
 	failureReason?: string | null;
+	activity?: { label: string; sources?: { title: string; url: string; site?: string | null }[] }[];
 }
 
 export interface Attachment {
@@ -115,6 +117,11 @@ export interface AttachmentTextPreview {
 }
 
 export interface Message {
+	reaction?: string;
+	outwardRequest?: import("./outward.ts").OutwardRequestCard;
+	channelAttemptId?: string;
+	outwardDraft?: boolean;
+	options?: string[];
 	id: string;
 	conversationId: string;
 	senderId: string;
@@ -157,6 +164,7 @@ export interface SendMessageRequest {
 	attachmentIds?: string[];
 	clientNonce: string;
 	skillIds?: string[];
+	mentionedMemberIds?: string[];
 }
 
 export interface SendMessageResponse {
@@ -202,9 +210,7 @@ export interface CreateGroupRequest {
 }
 
 /** `PATCH /v1/conversations/:id`: the owner renames the group. */
-export interface UpdateGroupRequest {
-	title: string;
-}
+export type UpdateGroupRequest = { title: string } | { groupBotPayer: "mentioner" | "owner" };
 
 /** `POST /v1/conversations/:id/members`: the owner adds people from their own contacts. */
 export interface AddGroupMembersRequest {

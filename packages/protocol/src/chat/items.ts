@@ -5,7 +5,7 @@
  */
 
 /** Where an item came from. The client does not group by it, but the detail view names it. */
-export type ItemSource = "subtask" | "schedule_run" | "meeting";
+export type ItemSource = "subtask" | "schedule_run" | "meeting" | "visit";
 
 /**
  * The one state an item is in. It is the source's own stored state, not a derived one: `background`
@@ -32,6 +32,7 @@ export interface ItemSummary {
 	 * `run_error`, `schedule_missed` or `background_quota_exhausted`. Never a stand-in for a result.
 	 */
 	failureReason: string | null;
+	waitingReason?: string;
 }
 
 /** One recorded step of the work. The detail view shows them in order. */
@@ -43,6 +44,7 @@ export interface ItemStep {
 
 /** `GET /v1/items/:id`: everything the item page shows. */
 export interface ItemDetail extends ItemSummary {
+	outwardRequest?: import("./outward.ts").OutwardRequestCard;
 	/** What was asked for; null for a source with no instruction (a meeting). */
 	instruction: string | null;
 	/** Empty when the source records no steps. */

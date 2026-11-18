@@ -5,6 +5,8 @@ import type {
 	CompactConversationResponse,
 	Conversation,
 	MessagePage,
+	OutwardRequestAction,
+	OutwardRequestCard,
 	SendMessageRequest,
 	SendMessageResponse,
 } from "@yonder/protocol";
@@ -28,6 +30,17 @@ export function conversationEndpoints(client: ApiClient) {
 		messages(conversationId: string, cursor?: string): Promise<MessagePage> {
 			const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
 			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/messages${query}`);
+		},
+
+		askOwner(messageId: string): Promise<OutwardRequestCard> {
+			return client.request(`/v1/messages/${encodeURIComponent(messageId)}/ask-owner`, {
+				body: {},
+				idempotencyKey: messageId,
+			});
+		},
+
+		actOnOutwardRequest(id: string, body: OutwardRequestAction): Promise<OutwardRequestCard> {
+			return client.request(`/v1/outward-requests/${encodeURIComponent(id)}`, { body, idempotencyKey: id });
 		},
 
 		compactConversation(

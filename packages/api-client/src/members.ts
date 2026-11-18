@@ -128,6 +128,30 @@ export function memberEndpoints(client: ApiClient) {
 			return client.request("/v1/me/reception", { method: "PUT", body });
 		},
 
+		socialKnowledge(): Promise<{ approved: string; drafts: { id: string; content: string; createdAt: string }[] }> {
+			return client.request("/v1/me/social");
+		},
+		saveSocialKnowledge(
+			content: string,
+		): Promise<{ approved: string; drafts: { id: string; content: string; createdAt: string }[] }> {
+			return client.request("/v1/me/social", { method: "PUT", body: { content } });
+		},
+		socialDraft(
+			id: string,
+			approve: boolean,
+		): Promise<{ approved: string; drafts: { id: string; content: string; createdAt: string }[] }> {
+			return client.request(
+				`/v1/me/social/drafts/${encodeURIComponent(id)}${approve ? "/approve" : ""}`,
+				approve ? { body: {} } : { method: "DELETE" },
+			);
+		},
+		botSocial(id: string): Promise<{ content: string }> {
+			return client.request(`/v1/bots/${encodeURIComponent(id)}/social`);
+		},
+		saveBotSocial(id: string, content: string): Promise<{ content: string }> {
+			return client.request(`/v1/bots/${encodeURIComponent(id)}/social`, { method: "PUT", body: { content } });
+		},
+
 		/** A card read by someone signed in: carries the relation and the ids the page acts on. */
 		memberProfile(handle: string): Promise<MemberProfileResponse> {
 			return client.request(`/v1/members/${encodeURIComponent(handle)}`);

@@ -86,7 +86,7 @@ export interface PrivacySettings {
 	searchable: boolean;
 	/** Signed-in people can open the card at `/@handle`. */
 	cardForUsers: boolean;
-	/** Anyone with the link can open it, signed in or not. */
+	/** People who are not signed in can open the card through its link. */
 	cardPublicLink: boolean;
 }
 
