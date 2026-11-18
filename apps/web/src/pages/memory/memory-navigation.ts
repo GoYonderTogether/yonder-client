@@ -24,26 +24,26 @@ export function useSourceNavigation() {
 	const navigate = useNavigate();
 	const conversations = useConversations();
 	const bot = useBot();
-	const conversation = (conversationId: string) => {
+	const conversation = (conversationId: string, meetingId?: string) => {
 		const primary = primaryConversation(conversations.data?.items, bot?.id);
 		const id = conversationId === primary?.id ? MAIN_CONVERSATION : conversationId;
-		navigate(`/messages/${encodeURIComponent(id)}`);
+		const meeting = meetingId ? `?meeting=${encodeURIComponent(meetingId)}` : "";
+		navigate(`/messages/${encodeURIComponent(id)}${meeting}`);
 	};
 	return {
 		/** A timeline card's source. */
-		target: (target: MemoryTarget) => {
+		target: (target: MemoryTarget, meetingId?: string) => {
 			if (target.type === "schedules") navigate("/tasks/scheduled");
-			else conversation(target.conversationId);
+			else conversation(target.conversationId, meetingId);
 		},
 		/** A file's source; null when the source has nowhere to open. */
 		file: (source: MemoryFileSource): (() => void) | null => {
 			const { itemId, conversationId, meetingId } = source;
 			// A meeting opens in the recording capsule over its conversation (24 第七节).
 			if (meetingId)
-				return () =>
-					navigate(
-						`/messages/${encodeURIComponent(conversationId ?? MAIN_CONVERSATION)}?meeting=${encodeURIComponent(meetingId)}`,
-					);
+				return conversationId
+					? () => conversation(conversationId, meetingId)
+					: () => navigate(`/messages/${MAIN_CONVERSATION}?meeting=${encodeURIComponent(meetingId)}`);
 			if (itemId) return () => navigate(`/tasks/${encodeURIComponent(itemId)}`);
 			if (conversationId) return () => conversation(conversationId);
 			return null;

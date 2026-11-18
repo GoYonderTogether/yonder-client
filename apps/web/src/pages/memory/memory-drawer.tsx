@@ -69,7 +69,13 @@ export function EntryDrawer({ entry, actions }: { entry: Entry; actions: EntryAc
  * One row per place the entry was organized from. A row with a target opens the conversation or the
  * scheduled-task list it came from; a row without one is a plain line.
  */
-function SourceList({ sources, onSource }: { sources: MemorySource[]; onSource: (target: MemoryTarget) => void }) {
+function SourceList({
+	sources,
+	onSource,
+}: {
+	sources: MemorySource[];
+	onSource: (target: MemoryTarget, meetingId?: string) => void;
+}) {
 	const { t } = useTranslation();
 	return (
 		<ul className="memory-sources">
@@ -90,7 +96,7 @@ function SourceList({ sources, onSource }: { sources: MemorySource[]; onSource: 
 				return (
 					<li key={key}>
 						{target ? (
-							<button type="button" className="memory-source" onClick={() => onSource(target)}>
+							<button type="button" className="memory-source" onClick={() => onSource(target, source.meetingId)}>
 								{content}
 							</button>
 						) : (

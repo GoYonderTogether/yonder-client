@@ -77,6 +77,8 @@ export interface MemorySource {
 	/** How many events from this source the entry uses. */
 	count: number;
 	target: MemoryTarget | null;
+	/** Set on a meeting source: the card opens that meeting in its conversation (24 第七节). */
+	meetingId?: string;
 }
 
 /** Another entry this one continues or led to. */
