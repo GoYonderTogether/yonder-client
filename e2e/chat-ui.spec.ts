@@ -140,7 +140,7 @@ test("desktop avatar selection, hover, keyboard focus and action icons keep thei
 	await openChat(page);
 	const nav = page.getByRole("navigation", { name: "主导航" });
 	const avatar = nav.getByRole("button", { name: "我", exact: true });
-	await expect(avatar).not.toHaveAttribute("aria-current", "page");
+	await expect(avatar).toHaveAttribute("aria-expanded", "false");
 	const original = await avatar.boundingBox();
 	await avatar.hover();
 	await expect.poll(() => avatar.boundingBox()).toEqual(original);
@@ -172,7 +172,7 @@ test("desktop avatar selection, hover, keyboard focus and action icons keep thei
 	await avatar.focus();
 	await page.keyboard.press("Space");
 	await expect(page).toHaveURL(/\/me\/profile$/);
-	await expect(avatar).toHaveAttribute("aria-current", "page");
+	await expect(avatar).toHaveAttribute("aria-expanded", "true");
 	await expect(avatar).toBeFocused();
 	await expect.poll(() => avatar.boundingBox()).toEqual(original);
 	await capture(page, testInfo, "desktop-me-selected-keyboard-focus");
