@@ -80,17 +80,18 @@ function setup(initial = "", scope = "one") {
 	return { input, type, accepted, sent, manage, changeScope: (scope: string) => view.rerender(element(scope)) };
 }
 
-test("typing filters without changing text; Tab replaces only the active token and keeps the caret", async () => {
-	const { input, type, accepted } = setup();
+test.each(["Enter", "Tab"])("%s replaces only the active skill token and keeps the caret", async (key) => {
+	const { input, type, accepted, sent } = setup();
 	expect(screen.queryByRole("listbox")).toBeNull();
 	expect(screen.queryByText("Compact context")).toBeNull();
 	type("before /pdf-2 after", 13);
 	expect(input.value).toBe("before /pdf-2 after");
 	expect(screen.getAllByRole("option")).toHaveLength(1);
-	fireEvent.keyDown(input, { key: "Tab" });
+	fireEvent.keyDown(input, { key });
 	await waitFor(() => expect(input.selectionStart).toBe(13));
 	expect(input.value).toBe("before /pdf-2 after");
 	expect(accepted).toHaveBeenCalledWith({ id: "s2", kind: "skill", marker: "/pdf-2", start: 7, end: 13 });
+	expect(sent).not.toHaveBeenCalled();
 	expect(input).toHaveFocus();
 	expect(screen.queryByRole("listbox")).toBeNull();
 });
@@ -121,7 +122,7 @@ test("paging and active descendants keep focus; edge arrows and Shift+Tab retain
 });
 
 test("IME final change before compositionEnd restores the correct filter without selecting", () => {
-	const { input, type, accepted } = setup();
+	const { input, type, accepted, sent } = setup();
 	type("/");
 	fireEvent.compositionStart(input);
 	type("/pdf-3");
@@ -131,13 +132,16 @@ test("IME final change before compositionEnd restores the correct filter without
 	expect(tab.defaultPrevented).toBe(false);
 	fireEvent.compositionEnd(input);
 	expect(screen.getAllByRole("option")).toHaveLength(1);
+	fireEvent.keyDown(input, { key: "Enter" });
 	expect(input).toHaveValue("/pdf-3");
 	expect(accepted).not.toHaveBeenCalled();
+	expect(sent).not.toHaveBeenCalled();
 });
 
-test("unconfirmed and unmatched text sends normally; dismissal and selection do not rewrite it", () => {
+test("dismissed and unmatched text sends normally; dismissal and selection do not rewrite it", () => {
 	const { input, type, accepted, sent } = setup();
 	type("/pdf");
+	fireEvent.keyDown(input, { key: "Escape" });
 	fireEvent.keyDown(input, { key: "Enter" });
 	expect(sent).toHaveBeenLastCalledWith("/pdf");
 	expect(accepted).not.toHaveBeenCalled();
@@ -172,7 +176,7 @@ test("at only offers real members; clicking inserts a spaced display name, comma
 	expect(accepted).toHaveBeenCalledWith({ id: "member", kind: "member", marker: "@Alex Doe", start: 0, end: 9 });
 	type("before /compact after", 15);
 	expect(manage).not.toHaveBeenCalled();
-	fireEvent.keyDown(input, { key: "Tab" });
+	fireEvent.keyDown(input, { key: "Enter" });
 	expect(manage).toHaveBeenCalledOnce();
 	expect(input).toHaveValue("before  after");
 });

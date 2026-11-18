@@ -11,6 +11,7 @@ import type {
 	MeResponse,
 	OnboardingStep,
 	PhoneChangeCodeRequest,
+	PushTokenRegistration,
 	SendCodeResponse,
 	SetPasswordRequest,
 	UpdateMeRequest,
@@ -96,6 +97,14 @@ export function accountEndpoints(client: ApiClient) {
 
 		registerDevice(body: DeviceInfo & { installationId: string }): Promise<{ ok: true }> {
 			return client.request("/v1/devices/register", { body });
+		},
+
+		registerPushToken(body: PushTokenRegistration): Promise<{ ok: true }> {
+			return client.request("/v1/devices/push-token", { method: "PUT", body });
+		},
+
+		unregisterPushToken(): Promise<{ ok: true }> {
+			return client.request("/v1/devices/push-token", { method: "DELETE" });
 		},
 
 		revokeSession(id: string): Promise<{ ok: true }> {

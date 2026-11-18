@@ -23,6 +23,7 @@ const root = dirname(fileURLToPath(import.meta.url));
 const apple = resolve(root, "src-tauri/gen/apple");
 const projectFile = join(apple, "yonder-desktop.xcodeproj/project.pbxproj");
 const infoPlist = join(apple, "yonder-desktop_iOS/Info.plist");
+const entitlements = join(apple, "yonder-desktop_iOS/yonder-desktop_iOS.entitlements");
 const iconSet = join(apple, "Assets.xcassets/AppIcon.appiconset");
 const brandIcon = resolve(root, "../../brand/assets/png/yonder-tile-ink-1024.png");
 const flutter = join(root, "scripts/flatten-icon.swift");
@@ -100,9 +101,49 @@ function applyExportCompliance() {
 	}
 }
 
+function applyNotifications() {
+	const project = readFileSync(projectFile, "utf8");
+	if (!project.includes("UserNotifications")) {
+		writeFileSync(
+			projectFile,
+			project.replace(
+				/^([\t ]*)CODE_SIGN_ENTITLEMENTS =/gm,
+				'$1OTHER_LDFLAGS = ("$(inherited)", "-framework", "UserNotifications");\n$1CODE_SIGN_ENTITLEMENTS =',
+			),
+		);
+	}
+	const development = process.env.IOS_SIGNING_STYLE === "development";
+	// Keep the existing release profile usable until it is renewed with the Push capability.
+	const push = process.env.YONDER_IOS_PUSH ?? (development ? "1" : "0");
+	if (push === "1") {
+		execFileSync("/usr/bin/plutil", [
+			"-replace",
+			"aps-environment",
+			"-string",
+			development ? "development" : "production",
+			entitlements,
+		]);
+		execFileSync("/usr/bin/plutil", [
+			"-replace",
+			"YonderPushEnvironment",
+			"-string",
+			development ? "sandbox" : "production",
+			infoPlist,
+		]);
+	} else {
+		for (const [key, path] of [
+			["aps-environment", entitlements],
+			["YonderPushEnvironment", infoPlist],
+		]) {
+			execFileSync("/usr/bin/plutil", ["-remove", key, path], { stdio: "ignore" });
+		}
+	}
+}
+
 applyIcons();
 applySigning();
 applyExportCompliance();
+applyNotifications();
 // Tao's scene delegate keeps UIKit and WKWebView safe areas current after rotation.
 execFileSync("/usr/bin/plutil", [
 	"-replace",

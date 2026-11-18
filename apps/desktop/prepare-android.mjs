@@ -27,6 +27,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { prepareAndroidNotifications } from "./android/prepare-notifications.mjs";
 import { prepareAndroidUpdate } from "./android/prepare-update.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -299,3 +300,4 @@ if (existsSync(manifest)) {
 	}
 }
 prepareAndroidUpdate(android, join(root, "android"));
+prepareAndroidNotifications(android, join(root, "android"));

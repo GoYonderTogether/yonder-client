@@ -84,6 +84,31 @@ test("the public card uses the unauthenticated call and never retries a 404", as
 	expect(client.getQueryData(keys.memberProfile("nobody"))).toBeUndefined();
 });
 
+test("signed-in and public cards revalidate cached reads when opened or when the handle changes", async () => {
+	const notFound = new ApiError({ code: "not_found", status: 404, message: "gone" });
+	const client = freshClient({ defaultOptions: { queries: { staleTime: 60_000 } } });
+	api.memberProfile.mockRejectedValueOnce(notFound);
+	api.publicMemberProfile.mockRejectedValueOnce(notFound);
+	const handle = "abcd1234";
+	client.setQueryData(keys.memberProfile(handle), profile);
+	client.setQueryData(keys.publicMemberProfile(handle), profile);
+	const { result, rerender } = renderHook(
+		(currentHandle) => [useMemberProfile(currentHandle), usePublicMemberProfile(currentHandle)],
+		{ wrapper: Wrapper, initialProps: handle },
+	);
+	expect(result.current.map((card) => card.isFetchedAfterMount)).toEqual([false, false]);
+	await waitFor(() => expect(result.current.map((card) => card.error)).toEqual([notFound, notFound]));
+
+	const otherHandle = "efgh5678";
+	client.setQueryData(keys.memberProfile(otherHandle), profile);
+	client.setQueryData(keys.publicMemberProfile(otherHandle), profile);
+	api.memberProfile.mockRejectedValueOnce(notFound);
+	api.publicMemberProfile.mockRejectedValueOnce(notFound);
+	rerender(otherHandle);
+	expect(result.current.map((card) => card.isFetchedAfterMount)).toEqual([false, false]);
+	await waitFor(() => expect(result.current.map((card) => card.error)).toEqual([notFound, notFound]));
+});
+
 test("a privacy save replaces the whole settings object the server answered", async () => {
 	const settings = { searchable: false, cardForUsers: true, cardPublicLink: true };
 	api.updatePrivacy.mockResolvedValue(settings);
@@ -113,6 +138,17 @@ test("a rename writes the answered conversation into the list cache in place", a
 	act(() => hook.result.current.rename.mutate("Next weekend"));
 	await waitFor(() => expect(hook.result.current.rename.isSuccess).toBe(true));
 	expect(client.getQueryData<{ items: Conversation[] }>(keys.conversations.list())?.items).toEqual([after, other]);
+});
+
+test("an older group response cannot replace the more recent cached conversation", async () => {
+	const latest = conversation({ title: "Newer edit", version: 3 });
+	api.updateGroup.mockResolvedValueOnce(conversation({ title: "Earlier edit", version: 2 }));
+	const client = freshClient();
+	client.setQueryData(keys.conversations.list(), { items: [latest] });
+	const hook = renderHook(() => useGroupActions("c_group"), { wrapper: Wrapper });
+	act(() => hook.result.current.rename.mutate("Earlier edit"));
+	await waitFor(() => expect(hook.result.current.rename.isSuccess).toBe(true));
+	expect(client.getQueryData(keys.conversations.list())).toEqual({ items: [latest] });
 });
 
 test("adding members and dissolving both land in the list cache", async () => {

@@ -14,7 +14,8 @@ export function useMemberProfile(handle: string | null | undefined) {
 		queryKey: keys.memberProfile(handle ?? ""),
 		queryFn: () => api.memberProfile(handle ?? ""),
 		enabled: Boolean(handle),
-		staleTime: 60_000,
+		// Each card opening, including a new handle in the same view, rechecks visibility.
+		staleTime: 0,
 		retry: false,
 	});
 }
@@ -29,7 +30,7 @@ export function usePublicMemberProfile(handle: string | null | undefined) {
 		queryKey: keys.publicMemberProfile(handle ?? ""),
 		queryFn: () => api.publicMemberProfile(handle ?? ""),
 		enabled: Boolean(handle),
-		staleTime: 60_000,
+		staleTime: 0,
 		// A 404 is the answer for "no such handle" and "closed to you" alike; asking again changes nothing.
 		retry: (failureCount, error) => !(error instanceof ApiError) && failureCount < 2,
 	});

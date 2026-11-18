@@ -78,8 +78,7 @@ export class RealtimeConnection {
 	}
 
 	connect(): void {
-		// The development panel can call connect repeatedly while a socket is still opening.
-		if (import.meta.env.DEV && this.#socket) return;
+		if (this.#socket) return;
 		this.#wanted = true;
 		this.#open();
 	}
@@ -87,12 +86,14 @@ export class RealtimeConnection {
 	stop(): void {
 		this.#wanted = false;
 		this.#clearTimers();
-		this.#socket?.close();
+		const socket = this.#socket;
 		this.#socket = null;
+		socket?.close();
 		this.#setStatus("stopped");
 	}
 
 	#open(): void {
+		if (this.#socket) return;
 		const token = this.#options.getAccessToken();
 		if (!token || !this.#wanted) {
 			// Without a token there is nothing to authenticate with; a later `connect` retries.
@@ -108,14 +109,14 @@ export class RealtimeConnection {
 		this.#socket = socket;
 
 		socket.addEventListener("open", () => {
-			// A dev disconnect/reconnect can replace this socket before its callbacks run.
-			if (import.meta.env.DEV && this.#socket !== socket) return;
+			if (this.#socket !== socket) return;
 			this.#attempt = 0;
 			this.#setStatus("open");
 			this.#startHeartbeat(socket);
 		});
 		socket.addEventListener("message", (event: MessageEvent) => {
-			if (import.meta.env.DEV && this.#socket !== socket) return;
+			// A socket from a previous sign-in cannot show its messages to the current account.
+			if (this.#socket !== socket) return;
 			try {
 				const parsed = JSON.parse(String(event.data)) as ServerEvent | { type: "pong" };
 				if (parsed.type === "pong") return;
@@ -134,10 +135,8 @@ export class RealtimeConnection {
 			}
 		});
 		socket.addEventListener("close", (event: CloseEvent) => {
-			if (import.meta.env.DEV) {
-				if (this.#socket !== socket) return;
-				this.#socket = null;
-			}
+			if (this.#socket !== socket) return;
+			this.#socket = null;
 			this.#clearTimers();
 			if (event.code === REALTIME_CLOSE_SESSION_REVOKED) {
 				this.#setStatus("stopped");

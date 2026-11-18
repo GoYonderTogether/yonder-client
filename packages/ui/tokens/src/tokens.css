@@ -410,6 +410,13 @@
 	/* The right-hand side panel on a wide window: group info, Bot detail, a member's card. Wide enough
 	   for the member grid and the Bot form without wrapping, narrow enough to leave the chat in view. */
 	--side-panel-width: 400px;
+	/* Desktop dialogs use their available width as their minimum height. */
+	--dialog-width: 440px;
+	--dialog-width-wide: 640px;
+	--dialog-width-min: 320px;
+	--settings-window-width: 1120px;
+	--settings-window-height: 900px;
+	--group-form-column-min: 224px;
 	--tabbar-height: 54px;
 
 	/* Control sizes are fixed; density only affects rows and surrounding space. */

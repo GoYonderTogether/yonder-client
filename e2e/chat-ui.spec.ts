@@ -27,6 +27,7 @@ async function assertNoShadows(page: Page) {
 		elements.flatMap((element) => {
 			const node = element as HTMLElement;
 			if (!node.getClientRects().length || node.closest("[inert], [aria-hidden=true]")) return [];
+			if (node.matches('[role="dialog"][data-page-layer="me"]')) return [];
 			const shadow = getComputedStyle(node).boxShadow;
 			return shadow === "none" ? [] : [{ tag: node.tagName, className: node.className, shadow }];
 		}),
@@ -38,6 +39,7 @@ async function assertBubbles(page: Page) {
 	const outgoing = page.locator(".message-bubble-outgoing");
 	await expect(incoming).toHaveText(bodies.answer.replaceAll("**", "").replaceAll("\n", ""));
 	await expect(outgoing).toHaveText(bodies.question);
+	await expect(page.getByRole("log").locator("[data-message-sender-avatar]")).toHaveCount(0);
 	const geometry = await page.locator("[role=log]").evaluate((log) => {
 		const incoming = log.querySelector<HTMLElement>(".message-bubble-incoming");
 		const outgoing = log.querySelector<HTMLElement>(".message-bubble-outgoing");
@@ -45,36 +47,18 @@ async function assertBubbles(page: Page) {
 		const left = incoming.getBoundingClientRect(),
 			right = outgoing.getBoundingClientRect(),
 			parent = log.getBoundingClientRect();
-		const incomingRun = incoming.closest<HTMLElement>(".message-run");
-		const outgoingRun = outgoing.closest<HTMLElement>(".message-run");
-		const incomingAvatar = incomingRun?.querySelector<HTMLElement>(".message-run-avatar")?.getBoundingClientRect();
-		const outgoingAvatar = outgoingRun?.querySelector<HTMLElement>(".message-run-avatar")?.getBoundingClientRect();
-		const incomingColumn = incomingRun?.querySelector<HTMLElement>(".message-run-messages")?.getBoundingClientRect();
-		const outgoingColumn = outgoingRun?.querySelector<HTMLElement>(".message-run-messages")?.getBoundingClientRect();
-		if (!incomingAvatar || !outgoingAvatar || !incomingColumn || !outgoingColumn)
-			throw new Error("Missing sender layout");
 		return {
 			incomingLeft: left.left,
 			outgoingRight: right.right,
 			logLeft: parent.left,
 			logRight: parent.right,
-			incomingAvatarLeft: incomingAvatar.left,
-			incomingAvatarRight: incomingAvatar.right,
-			outgoingAvatarLeft: outgoingAvatar.left,
-			outgoingAvatarRight: outgoingAvatar.right,
-			incomingColumnLeft: incomingColumn.left,
-			outgoingColumnRight: outgoingColumn.right,
 			incomingColor: getComputedStyle(incoming).backgroundColor,
 			outgoingColor: getComputedStyle(outgoing).backgroundColor,
 			incomingRadius: getComputedStyle(incoming).borderRadius,
 		};
 	});
-	expect(geometry.incomingAvatarLeft).toBeCloseTo(geometry.logLeft, 0);
-	expect(geometry.outgoingAvatarRight).toBeCloseTo(geometry.logRight, 0);
-	expect(geometry.incomingColumnLeft - geometry.incomingAvatarRight).toBeCloseTo(8, 0);
-	expect(geometry.outgoingAvatarLeft - geometry.outgoingColumnRight).toBeCloseTo(8, 0);
-	expect(geometry.incomingLeft).toBeCloseTo(geometry.incomingColumnLeft, 0);
-	expect(geometry.outgoingRight).toBeCloseTo(geometry.outgoingColumnRight, 0);
+	expect(geometry.incomingLeft).toBeCloseTo(geometry.logLeft, 0);
+	expect(geometry.outgoingRight).toBeCloseTo(geometry.logRight, 0);
 	expect(geometry.incomingColor).not.toBe(geometry.outgoingColor);
 	expect(geometry.incomingColor).not.toBe("rgba(0, 0, 0, 0)");
 	expect(geometry.incomingRadius).toBe("16px");
@@ -132,6 +116,29 @@ for (const dark of [false, true]) {
 	});
 }
 
+test("the desktop rail centers the account avatar on the same axis as its tabs", async ({ page }, testInfo) => {
+	await isolateChat(page);
+	await page.goto(path);
+	const nav = page.getByRole("navigation", { name: "主导航" });
+	const avatar = nav.getByRole("button", { name: "我", exact: true });
+	for (const width of [360, 820, 1280]) {
+		await page.setViewportSize({ width, height: 850 });
+		await expect(avatar).toBeVisible();
+		const account = await avatar.boundingBox();
+		if (!account) throw new Error("Expected the desktop avatar button");
+		for (const label of ["消息", "任务", "记忆"]) {
+			const tab = await nav.getByRole("button", { name: label, exact: true }).boundingBox();
+			if (!tab) throw new Error(`Expected the desktop tab ${label}`);
+			expect(account.x + account.width / 2).toBeCloseTo(tab.x + tab.width / 2, 1);
+		}
+	}
+	await expect(page.getByRole("log")).toBeVisible();
+	await page.screenshot({ path: testInfo.outputPath("desktop-rail-aligned.png"), animations: "disabled" });
+	await avatar.click();
+	await expect(page).toHaveURL(/\/me\/profile$/);
+	await expect(page.getByRole("button", { name: "关闭", exact: true })).toBeVisible();
+});
+
 test("desktop avatar selection, hover, keyboard focus and action icons keep their geometry without shadows", async ({
 	page,
 }, testInfo) => {
@@ -172,14 +179,16 @@ test("desktop avatar selection, hover, keyboard focus and action icons keep thei
 	await avatar.focus();
 	await page.keyboard.press("Space");
 	await expect(page).toHaveURL(/\/me\/profile$/);
-	await expect(avatar).toHaveAttribute("aria-expanded", "true");
+	await expect(avatar).toHaveCount(0);
+	await expect(page.getByRole("dialog", { name: "我", exact: true })).not.toHaveCSS("box-shadow", "none");
+	await capture(page, testInfo, "desktop-me-from-keyboard");
+	await page.getByRole("button", { name: "关闭", exact: true }).click();
 	await expect(avatar).toBeFocused();
 	await expect.poll(() => avatar.boundingBox()).toEqual(original);
-	await capture(page, testInfo, "desktop-me-selected-keyboard-focus");
 	await page.mouse.click(1100, 600);
 	await expect(avatar).not.toBeFocused();
 	await avatar.hover();
-	await capture(page, testInfo, "desktop-me-selected-hover");
+	await capture(page, testInfo, "desktop-me-hover");
 });
 
 test("actual conversation keeps the empty streaming state inside a bubble and patches its reply through realtime", async ({
@@ -230,6 +239,37 @@ test("desktop actual route blocks IME Enter then sends only the finished message
 	expect(api.sent[0]).toMatchObject({ body: "中文已确认", type: "text" });
 	await expect(input).toHaveValue("");
 	await expect(page.locator(".message-bubble-outgoing").last()).toHaveText("中文已确认");
+});
+
+test("desktop Enter inserts the highlighted mention, Shift+Enter adds a newline, and Enter sends", async ({
+	page,
+}, testInfo) => {
+	const api = await isolateChat(page);
+	await openChat(page);
+	const input = page.getByRole("textbox", { name: /^对 界面验收/ });
+	const heading = page.locator(".composer-completion-heading");
+	const marks = page.locator(".composer-highlight .composer-completion-mark");
+	await input.fill("@chatbot");
+	await expect(heading).toHaveText("联系人和 Bot");
+	await expect(marks).toHaveText("@chatbot");
+	await expect(page.getByRole("option", { name: /界面验收 BOT/ })).toHaveAttribute("aria-selected", "true");
+	await page.screenshot({ path: testInfo.outputPath("composer-keyboard.png"), animations: "disabled" });
+	await input.press("Enter");
+	await expect(input).toHaveValue("@界面验收 BOT ");
+	await expect(input).toBeFocused();
+	await expect(page.getByRole("listbox")).toHaveCount(0);
+	await input.press("Shift+Enter");
+	await expect(input).toHaveValue("@界面验收 BOT \n");
+	await input.pressSequentially("/co");
+	await expect(heading).toHaveText("命令和技能");
+	await expect(marks).toHaveText(["@界面验收 BOT", "/co"]);
+	await page.screenshot({ path: testInfo.outputPath("composer-keyboard-slash.png"), animations: "disabled" });
+	for (let index = 0; index < 3; index++) await input.press("Backspace");
+	await input.pressSequentially("hello");
+	expect(api.sent).toHaveLength(0);
+	await input.press("Enter");
+	await expect.poll(() => api.sent.length).toBe(1);
+	expect(api.sent[0]?.body).toBe("@界面验收 BOT \nhello");
 });
 
 test("actual message viewport stops following while reading and jumps back to the latest reply", async ({ page }) => {

@@ -1,0 +1,61 @@
+.mini-group-layout,
+.mini-group-picker {
+	display: flex;
+	flex-direction: column;
+	--mini-group-body-height: calc(
+		100vh - var(--mini-header-height) - env(safe-area-inset-bottom, 0px) - var(--spacing-4) * 2
+	);
+}
+
+.mini-group-layout {
+	min-height: var(--mini-group-body-height);
+}
+
+.mini-group-danger {
+	margin-top: auto;
+}
+
+.mini-group-name {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-3);
+}
+
+.mini-group-name-field {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.mini-group-avatar {
+	box-sizing: border-box;
+	display: grid;
+	flex: none;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	place-items: center;
+	width: var(--spacing-10);
+	height: var(--spacing-10);
+	gap: var(--spacing-1);
+	padding: var(--spacing-1);
+	border-radius: var(--radius-control);
+	background: var(--color-bg-subtle);
+}
+
+.mini-group-manage {
+	flex: none;
+}
+
+.mini-group-manage .mini-button {
+	width: auto;
+	margin: 0;
+}
+
+.mini-group-picker {
+	height: var(--mini-group-body-height);
+	gap: var(--spacing-3);
+}
+
+.mini-group-picker-scroll {
+	flex: 1;
+	height: 0;
+}

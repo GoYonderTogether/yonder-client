@@ -2,6 +2,7 @@ import { Text, View } from "@tarojs/components";
 import { useRouter } from "@tarojs/taro";
 import type { MemberProfileResponse } from "@yonder/protocol";
 import { useState } from "react";
+import { ConversationMute } from "../../components/conversation-mute";
 import { action, Button, go, Page, State } from "../../components/ui";
 import { useResource } from "../../components/use-resource";
 import { t } from "../../lib/i18n";
@@ -74,7 +75,8 @@ function MatterButton({ profile }: { profile: MemberProfileResponse }) {
 }
 
 export default function Member() {
-	const handle = decodeURIComponent(useRouter().params.handle ?? "");
+	const { handle: encodedHandle = "", conversationId } = useRouter().params;
+	const handle = decodeURIComponent(encodedHandle);
 	const { data, loading, error, reload } = useResource(() => loadCard(() => api.memberProfile(handle)));
 	const card = data && "profile" in data ? data.profile.card : undefined;
 	const avatar = card?.avatarUrl;
@@ -119,6 +121,7 @@ export default function Member() {
 					<MatterButton profile={data.profile} />
 				</View>
 			) : null}
+			{card && conversationId ? <ConversationMute conversationId={conversationId} /> : null}
 		</Page>
 	);
 }

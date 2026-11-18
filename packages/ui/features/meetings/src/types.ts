@@ -1,5 +1,3 @@
-import type { MeetingRecord } from "@yonder/protocol";
-
 export interface MeetingRecording {
 	id: string;
 	ownerId: string;
@@ -46,19 +44,4 @@ export interface MeetingUploadJob {
 	meetingId: string | null;
 	state: "queued" | "uploading" | "submitted" | "failed" | "authentication_required";
 	errorCode: string | null;
-}
-
-export interface MeetingCloudController {
-	records: MeetingRecord[];
-	selected: MeetingRecord | undefined;
-	jobs: MeetingUploadJob[];
-	loading: boolean;
-	error: boolean;
-	busy: boolean;
-	uploadAvailable: boolean;
-	targetName: string | null;
-	select(id: string | null): void;
-	prepare(recordingId: string): Promise<void>;
-	retry(id: string, confirmUnknown: boolean): Promise<void>;
-	reload(): void;
 }

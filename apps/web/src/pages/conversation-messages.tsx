@@ -1,10 +1,11 @@
-import { groupMessages } from "@yonder/chat-model";
-import { MessageBubble, MessageRun } from "@yonder/chat-presentation";
+import { groupMessages, isTwoPartyAgentChat } from "@yonder/chat-model";
+import { MessageBubble, MessageRun, MessageTimeText } from "@yonder/chat-presentation";
 import { FeishuAttemptCard } from "@yonder/feature-me";
 import { systemEventText } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button } from "@yonder/ui-components";
 import type { CachedMessage } from "@yonder/ui-data";
+import { resolveLocale } from "@yonder/ui-i18n";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
@@ -13,6 +14,7 @@ import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
 import { AskOwner, OutwardRequestCard } from "./outward-request-card.tsx";
 import { RunActivity } from "./run-activity.tsx";
+import { VoiceMessage } from "./voice-message.tsx";
 
 interface MessageProps {
 	message: CachedMessage;
@@ -23,26 +25,6 @@ interface MessageProps {
 	retrying: boolean;
 	onOpenMeeting?: (id: string) => void;
 	onChooseOption?: ((body: string, cardId: string) => void) | undefined;
-}
-
-/** A system event stands alone; consecutive messages by one sender stay one run, as before. */
-type Block = { system: CachedMessage } | { run: CachedMessage[] };
-
-function blocksOf(items: readonly CachedMessage[]): Block[] {
-	const out: Block[] = [];
-	let current: CachedMessage[] = [];
-	const flush = () => {
-		for (const run of groupMessages(current)) out.push({ run });
-		current = [];
-	};
-	for (const item of items) {
-		if (item.type === "system") {
-			flush();
-			out.push({ system: item });
-		} else current.push(item);
-	}
-	flush();
-	return out;
 }
 
 /** Sender identity belongs to a consecutive run, shared by text and attachment messages. */
@@ -60,8 +42,10 @@ export function ConversationMessages({
 	bot?: Member | undefined;
 	onOpenRelated?: (id: string) => void;
 }) {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const locale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
 	const visitRole = conversation.visit?.role;
+	const showAvatars = !isTwoPartyAgentChat(conversation, person?.id);
 	const openOptions = items.findLast(
 		(item) => item.options?.length || (item.senderId === person?.id && !item.sendFailed),
 	)?.id;
@@ -83,12 +67,21 @@ export function ConversationMessages({
 		visitRole === "visitor" && conversation.visit?.state !== "denied"
 			? items.findLast((item) => item.senderId === person?.id && !item.pending && !item.sendFailed && item.body?.trim())
 			: null;
-	return blocksOf(delivered.size ? items.filter((item) => !delivered.has(item.id)) : items).map((block) => {
-		// A group lifecycle message has no sender speaking: one muted centred line, no avatar (19 3.3).
-		if ("system" in block) return <SystemLine key={block.system.id} message={block.system} />;
+	return groupMessages(delivered.size ? items.filter((item) => !delivered.has(item.id)) : items).map((block) => {
+		if ("time" in block)
+			return (
+				<time
+					key={`time-${block.messageId}`}
+					dateTime={block.time.toISOString()}
+					className="mx-auto text-center text-caption text-[var(--color-text-tertiary)]"
+				>
+					<MessageTimeText at={block.time} locale={locale} />
+				</time>
+			);
 		const run = block.run;
 		const first = run[0];
 		if (!first) return null;
+		if (first.type === "system") return <SystemLine key={first.id} message={first} />;
 		const self = first.senderId === person?.id;
 		const entries = run.map((message) => {
 			if (message.channelAttemptId)
@@ -141,13 +134,15 @@ export function ConversationMessages({
 				self={self}
 				senderId={first.senderId}
 				avatar={
-					<Avatar
-						name={name}
-						src={member?.avatarUrl}
-						color={member?.avatarColor}
-						kind={member?.kind ?? first.senderKind}
-						size={32}
-					/>
+					showAvatars ? (
+						<Avatar
+							name={name}
+							src={member?.avatarUrl}
+							color={member?.avatarColor}
+							kind={member?.kind ?? first.senderKind}
+							size={32}
+						/>
+					) : null
 				}
 				sender={
 					conversation.kind === "group" ? (
@@ -204,6 +199,8 @@ function MessageEntry({
 	onChooseOption,
 }: MessageProps) {
 	const { t } = useTranslation();
+	const attachment = message.attachments.length === 1 ? message.attachments[0] : undefined;
+	const voice = attachment?.kind === "audio" ? message.voice : undefined;
 	return (
 		<article
 			key={message.id}
@@ -212,7 +209,9 @@ function MessageEntry({
 			className={`flex min-w-0 flex-col gap-[var(--spacing-1)] ${self ? "items-end" : "items-start"}`}
 		>
 			{message.outwardDraft ? <p className="text-caption">{t("visits.relayPrivateDraft")}</p> : null}
-			{message.body || message.streaming ? (
+			{voice && attachment ? (
+				<VoiceMessage key={attachment.id} attachment={attachment} durationMs={voice.durationMs} self={self} />
+			) : message.body || message.streaming ? (
 				<MessageBubble as="div" self={self}>
 					{message.body ? (
 						<MessageContent body={message.body} streaming={message.streaming} />
@@ -223,7 +222,7 @@ function MessageEntry({
 					)}
 				</MessageBubble>
 			) : null}
-			<MessageAttachments attachments={message.attachments} self={self} />
+			{voice ? null : <MessageAttachments attachments={message.attachments} self={self} />}
 			{message.reaction ? <span>{message.reaction}</span> : null}
 			<RunActivity run={message.run} />
 			{message.connectorRequestId ? (

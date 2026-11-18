@@ -27,9 +27,23 @@ export function conversationEndpoints(client: ApiClient) {
 			return client.request("/v1/conversations");
 		},
 
-		messages(conversationId: string, cursor?: string): Promise<MessagePage> {
-			const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/messages${query}`);
+		messages(conversationId: string, cursor?: string, options?: { markRead?: boolean }): Promise<MessagePage> {
+			const query = new URLSearchParams();
+			if (cursor) query.set("cursor", cursor);
+			if (options?.markRead === false) query.set("markRead", "false");
+			const search = query.size ? `?${query.toString()}` : "";
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/messages${search}`);
+		},
+
+		markConversationRead(conversationId: string, messageId: string): Promise<{ ok: true }> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/read`, { body: { messageId } });
+		},
+
+		setConversationMuted(conversationId: string, muted: boolean): Promise<{ ok: true }> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/preferences`, {
+				method: "PATCH",
+				body: { muted },
+			});
 		},
 
 		askOwner(messageId: string): Promise<OutwardRequestCard> {

@@ -63,6 +63,8 @@ export const keys = {
 	publicMemberProfile: (handle: string) => ["member-profile", "public", handle] as const,
 	privacy: () => ["privacy"] as const,
 	reception: () => ["reception"] as const,
+	socialKnowledge: () => ["social-knowledge"] as const,
+	socialPersona: (botId: string) => ["social-persona", botId] as const,
 	items: {
 		all: () => ["items"] as const,
 		/** One account's list; `botId` narrows it to one Bot. */

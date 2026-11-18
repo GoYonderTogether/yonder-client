@@ -66,11 +66,7 @@ export function DeleteAccount({ handle, sendCode, confirm, onError }: DeleteAcco
 			</Button>
 			{sentTo ? <View>{t(`已发送到 ${sentTo}`, `Sent to ${sentTo}`)}</View> : null}
 			<Field label={t("验证码", "Code")} value={code} onInput={setCode} type="number" />
-			<Field
-				label={t("输入你的 Yonder 号确认注销", "Enter your Yonder handle to delete account")}
-				value={typed}
-				onInput={setTyped}
-			/>
+			<Field label={t("输入你的 ID 确认注销", "Enter your ID to delete account")} value={typed} onInput={setTyped} />
 			<Button
 				danger
 				loading={busy}

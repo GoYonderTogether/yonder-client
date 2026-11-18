@@ -28,24 +28,6 @@ export function isObserver(member: { role?: string }): boolean {
 	return (member.role as string | undefined) === "observer";
 }
 
-/**
- * Runs for the message list: the shared grouping, except that a group-lifecycle line never joins a
- * run. It has no speaker, so it stands alone, centred, between the runs around it.
- */
-export function groupChatMessages<T extends { senderId: string; type: string }>(items: readonly T[]): T[][] {
-	const groups: T[][] = [];
-	for (const item of items) {
-		if (item.type === "system") {
-			groups.push([item]);
-			continue;
-		}
-		const last = groups.at(-1);
-		if (last?.[0]?.type !== "system" && last?.[0]?.senderId === item.senderId) last.push(item);
-		else groups.push([item]);
-	}
-	return groups;
-}
-
 export function conversationTitle(
 	members: { memberId: string; displayName: string; role?: string }[],
 	ownId?: string,

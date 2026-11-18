@@ -96,3 +96,20 @@ test("the security list links to devices and signs out only the selected session
 	fireEvent.click(within(rows[1]).getByRole("button", { name: "Sign out" }));
 	expect(state.revoke).toHaveBeenCalledWith("ses_1");
 });
+
+test("the empty device list still links to the connection guide", () => {
+	const previous = state.items;
+	state.items = [];
+	const connect = vi.fn();
+	try {
+		render(
+			<I18nextProvider i18n={createI18n("en")}>
+				<DevicesSection onAddDevice={connect} />
+			</I18nextProvider>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Connect another device" }));
+		expect(connect).toHaveBeenCalledOnce();
+	} finally {
+		state.items = previous;
+	}
+});

@@ -10,7 +10,13 @@ import { type ChatAction, ChatMenu } from "./chat-menu.tsx";
 import { CreateBot } from "./create-bot.tsx";
 import { CreateGroup } from "./create-group.tsx";
 
-export function ChatActions({ onOpen, onOpenMeetings }: { onOpen: (id: string) => void; onOpenMeetings?: () => void }) {
+export function ChatActions({
+	onOpen,
+	onOpenMeetings,
+}: {
+	onOpen: (id: string) => void;
+	onOpenMeetings?: (separateSpeakers?: boolean) => void;
+}) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
 	const navigate = useNavigate();
@@ -25,8 +31,8 @@ export function ChatActions({ onOpen, onOpenMeetings }: { onOpen: (id: string) =
 		onOpen(id);
 	};
 	async function select(next: ChatAction) {
-		if (next === "recordMeeting") {
-			onOpenMeetings?.();
+		if (next === "recordMeeting" || next === "recordMeetingWithSpeakers") {
+			onOpenMeetings?.(next === "recordMeetingWithSpeakers");
 			return;
 		}
 		setWindowError(false);
@@ -55,7 +61,7 @@ export function ChatActions({ onOpen, onOpenMeetings }: { onOpen: (id: string) =
 					onClose={close}
 					title={t(`chatActions.${action}`)}
 					mode={mode}
-					wide={action === "createGroup"}
+					{...(action === "createGroup" ? { size: "wide" } : {})}
 					{...(action === "addContact" ? { mobileBackLabel: t("app.back") } : {})}
 				>
 					{action === "createBot" ? <CreateBot onCreated={created} /> : null}

@@ -80,3 +80,25 @@ test("native tool listeners share the account socket without replacing its cache
 	expect(native).toHaveBeenCalledTimes(1);
 	connection.stop();
 });
+
+test("a stopped socket cannot publish a late notification after sign-out", () => {
+	vi.stubEnv("DEV", false);
+	TestSocket.instances = [];
+	const handleEvent = vi.fn();
+	const connection = new RealtimeConnection({
+		baseUrl: "http://localhost",
+		getAccessToken: () => "access",
+		WebSocketImpl: TestSocket as unknown as typeof WebSocket,
+		onEvent: handleEvent,
+	});
+	try {
+		connection.connect();
+		const old = TestSocket.instances[0] as TestSocket;
+		connection.stop();
+		old.dispatchEvent(new MessageEvent("message", { data: '{"type":"notification.created"}' }));
+		expect(handleEvent).not.toHaveBeenCalled();
+	} finally {
+		connection.stop();
+		vi.unstubAllEnvs();
+	}
+});

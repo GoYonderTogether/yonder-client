@@ -9,9 +9,9 @@
 命令前缀为 `plugin:meeting-recorder|`，参数为 camelCase：
 
 - `set_owner({ownerId: string | null})`、`get_state({ownerId})`。
-- `start({ownerId,title})`、`stop({ownerId,recordingId})`。
+- `start({ownerId,title,conversationId?})`、`stop({ownerId,recordingId})`。
 - `read_audio({ownerId,recordingId,segmentIndex})` 返回单段 WAV 的二进制 `ArrayBuffer`。
-- 桌面 `start` 可附 `conversationId`，在开始时持久绑定 Bot 会话；旧索引缺该字段仍可读取，不偷偷绑定当前聊天。
+- `start` 可附 `conversationId`，在桌面、iOS 和 Android 开始录制时持久绑定 Bot 会话。缺少此字段的旧录音仍可读取，保持原有绑定状态。
 - 桌面 `configure_upload({ownerId,baseUrl,accessToken})` 仅在内存提供当前访问凭据；只允许 HTTPS 或 loopback HTTP，不接受 URL 凭据、查询或 fragment。
 - `get_upload_jobs({ownerId})` 查看本机队列；`queue_upload({ownerId,recordingId,conversationId})` 显式整理旧记录/中断记录或重排失败上传。移动端本轮不调用这三个桌面上传命令。
 
@@ -67,7 +67,7 @@ M2 桌面上传由原生线程与持久队列负责，不依赖 WebView 定时�
 
 隐藏宿主的 `run-upload.py` 接受明确合成 QA 的分段目录和私有认证 JSON，验证关窗后实际原生上传、真实处理、结果关联和重开后的同一任务；不会打开麦克风。`configure_upload` 的验收请求源码自动从 transcript 中屏蔽，不将 token 记入日志。
 
-iOS/Android 这轮继续 M1 的后台采集/恢复；移动后台上传、完整系统 Live Activity 留后续平台验收。当前不提供暂停、续录或实时通话。
+iOS 和 Android 由原生采集在后台分段落盘，恢复时保留已保存的片段。正常停止后由应用在 WebView 可运行时自动提交，系统挂起 WebView 时等恢复后提交。原生桌面队列独立于 WebView 运行。
 
 移动端存储检查：
 

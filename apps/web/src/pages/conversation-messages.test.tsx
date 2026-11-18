@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import type { Conversation, Member } from "@yonder/protocol";
 import type { CachedMessage } from "@yonder/ui-data";
 import { createI18n } from "@yonder/ui-i18n";
@@ -86,6 +86,57 @@ function view(items: CachedMessage[], overrides: Partial<typeof props> = {}) {
 		</I18nextProvider>
 	);
 }
+
+test("shows times at the start, across midnight and after five minutes of quiet", () => {
+	vi.useFakeTimers({ toFake: ["Date"] });
+	try {
+		vi.setSystemTime(new Date(2026, 10, 19, 12));
+		const at = (id: string, day: number, hour: number, minute: number) =>
+			message(id, "alice", { createdAt: new Date(2026, 10, day, hour, minute).toISOString() });
+		const items = [
+			at("a", 18, 18, 40),
+			at("b", 18, 23, 59),
+			at("c", 19, 0, 2),
+			at("d", 19, 2, 47),
+			at("e", 19, 2, 51),
+			at("f", 19, 2, 56),
+		];
+		const { container, rerender } = render(view(items));
+		const labels = () => [...container.querySelectorAll("time")].map((line) => line.textContent);
+		expect(labels()).toEqual(["11月18日 周三 18:40", "11月18日 周三 23:59", "今天 00:02", "今天 02:47", "今天 02:56"]);
+		expect(
+			[...container.querySelectorAll("[data-message-run]")].map((run) => run.querySelectorAll("article").length),
+		).toEqual([1, 1, 1, 2, 1]);
+		rerender(view([at("older", 18, 18, 39), ...items]));
+		expect(labels()).toEqual(["11月18日 周三 18:39", "11月18日 周三 23:59", "今天 00:02", "今天 02:47", "今天 02:56"]);
+	} finally {
+		vi.useRealTimers();
+	}
+});
+
+test("updates recent time labels at the two- and ten-minute boundaries", () => {
+	vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+	try {
+		const sentAt = new Date(2026, 10, 18, 23, 58, 30);
+		vi.setSystemTime(sentAt.getTime() + 119_999);
+		const item = message("recent", "alice", { createdAt: sentAt.toISOString() });
+		const { container } = render(view([item]));
+		const label = () => container.querySelector("time")?.textContent;
+		expect(label()).toBe("刚刚");
+		act(() => vi.advanceTimersByTime(1));
+		expect(label()).toBe("2 分钟前");
+		for (let minute = 3; minute < 10; minute++) {
+			act(() => vi.advanceTimersByTime(60_000));
+			expect(label()).toBe(`${minute} 分钟前`);
+		}
+		act(() => vi.advanceTimersByTime(59_999));
+		expect(label()).toBe("9 分钟前");
+		act(() => vi.advanceTimersByTime(1));
+		expect(label()).toBe("11月18日 周三 23:58");
+	} finally {
+		vi.useRealTimers();
+	}
+});
 
 test("adjacent sender runs keep one side avatar and a name above the message column, preserving real member fields", () => {
 	const items = ["alice", "alice", "bob", "alice", "alice", "self", "self"].map((sender, index) =>

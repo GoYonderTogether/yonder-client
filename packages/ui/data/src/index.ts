@@ -49,6 +49,7 @@ export { useConversations, useMessages, useRunActions, useSendMessage } from "./
 export { useCompactConversation } from "./hooks/compact.ts";
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
+export { useMarkConversationRead, useSetConversationMuted } from "./hooks/conversation-state.ts";
 export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
 export { useChangeGoal, useGoalSettings, useGoals } from "./hooks/goals.ts";
 export { useGroupActions } from "./hooks/groups.ts";
@@ -77,6 +78,7 @@ export {
 } from "./hooks/quota.ts";
 export { useScheduleActions, useSchedules } from "./hooks/schedules.ts";
 export { useSkill, useSkillActions, useSkillFile, useSkills } from "./hooks/skills.ts";
+export { useEditSocialKnowledge, useSaveSocialPersona, useSocialKnowledge, useSocialPersona } from "./hooks/social.ts";
 export { useOutwardActions, useStartBotChat, useVisitActions } from "./hooks/visits.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
 export {

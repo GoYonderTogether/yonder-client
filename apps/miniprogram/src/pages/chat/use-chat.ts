@@ -107,7 +107,7 @@ export function useChat(id: string) {
 			if (older) setOlderLoading(true);
 			const promise = (async () => {
 				try {
-					const page = await api.messages(id, pageCursor ?? undefined);
+					const page = await api.messages(id, pageCursor ?? undefined, { markRead: false });
 					if (!active.current || ticket !== epoch.current) return false;
 					setMessages((current) => mergeMessages(current, page.items));
 					if (older || cursorRef.current === null) {
@@ -159,6 +159,7 @@ export function useChat(id: string) {
 			if (event.type === "run.updated" && event.run.conversationId === id)
 				setMessages((current) => updateRun(current, event.run));
 			if (event.type === "conversation.updated" && event.conversation.id === id) setConversation(event.conversation);
+			if (event.type === "conversation.state_changed" && event.conversationId === id) void refresh();
 			// A rename or a new avatar is embedded in the conversation's members, so the copy is patched.
 			if (event.type === "member.updated")
 				setConversation((current) => (current ? patchConversation(current, event.member) : current));

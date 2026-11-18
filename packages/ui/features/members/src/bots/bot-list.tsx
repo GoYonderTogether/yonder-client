@@ -40,12 +40,14 @@ export function BotList({ onOpen }: BotListProps) {
 	if (bots.length === 0) return <p className="text-caption text-[var(--color-text-secondary)]">{t("bots.empty")}</p>;
 
 	return (
-		<ListGroup>
+		<ListGroup title={t("bots.list")}>
 			{bots.map((bot) => (
 				<ListRow
 					key={bot.id}
 					leading={<Avatar name={bot.displayName} src={bot.avatarUrl} size={40} kind="bot" color={botColor(bot)} />}
 					title={bot.displayName}
+					subtitle={`@${bot.handle}`}
+					trailing={bot.isDefault ? t("bots.defaultLabel") : undefined}
 					chevron
 					onClick={() => onOpen(bot.id)}
 				/>

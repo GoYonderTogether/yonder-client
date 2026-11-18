@@ -3,11 +3,13 @@ import { ConnectorSetup, useSetupConnectors } from "@yonder/feature-me";
 import { BotForm } from "@yonder/feature-members";
 import { Button, IconButton } from "@yonder/ui-components";
 import { keys, useApi, useBot, useDataQueryClient, usePerson } from "@yonder/ui-data";
+import { ShellProvider, useShellChrome } from "@yonder/ui-shell";
 import { ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate, useParams } from "react-router";
 import { useLocalFilesAdapter } from "../../lib/local-files.ts";
+import { isDesktopExperience } from "../../lib/platform.ts";
 import {
 	isSetupStep,
 	nextStep,
@@ -149,12 +151,15 @@ function BotStep({ onDone }: { onDone: (skipped: boolean) => void }) {
 /** What this device can connect, as the connectors page's own cards; the last step opens the app. */
 function ConnectStep({ onDone }: { onDone: (skipped: boolean) => void }) {
 	const { t } = useTranslation();
+	const chrome = useShellChrome();
 	const localFiles = useLocalFilesAdapter();
 	const { instances } = useSetupConnectors();
 	return (
 		<>
 			<h1 className="text-h1 text-[var(--color-text-primary)]">{t("setup.connectTitle")}</h1>
-			<ConnectorSetup localFiles={localFiles} />
+			<ShellProvider value={{ ...chrome, desktop: isDesktopExperience() }}>
+				<ConnectorSetup localFiles={localFiles} />
+			</ShellProvider>
 			<Button
 				type="button"
 				variant={instances.length > 0 ? "primary" : "secondary"}

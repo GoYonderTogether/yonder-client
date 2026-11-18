@@ -82,8 +82,9 @@ test("the desktop content card has the same token inset on all four sides", () =
 });
 
 test.each([
-	[1280, true, "wide", 0, false],
-	[390, true, "compact", 1, true],
+	[1280, true, "wide", 0, true],
+	[820, true, "medium", 1, false],
+	[390, true, "compact", 1, false],
 	[390, false, "mobile", 1, false],
 ] as const)(
 	"settings Back controls reflect actual parent pages at %spx desktop=%s",
@@ -105,7 +106,7 @@ test.each([
 		);
 		const { container, rerender } = render(shell([]));
 		expect(container.querySelector("[data-layout-mode]")).toHaveAttribute("data-layout-mode", mode);
-		expect(screen.queryAllByRole("button", { name: "Back" })).toHaveLength(mode === "mobile" ? 1 : 0);
+		expect(screen.queryAllByRole("button", { name: "Back" })).toHaveLength(hasClose ? 0 : 1);
 		if (hasClose) {
 			fireEvent.click(screen.getByRole("button", { name: "Close" }));
 			expect(close).toHaveBeenCalledTimes(1);
@@ -120,11 +121,12 @@ test.each([
 	},
 );
 
-test.each([1280, 820, 390])("desktop rail remains interactive and shares one Me toggle at %spx", (width) => {
+test.each([1280, 820, 390])("desktop settings suspend the main rail at %spx", (width) => {
 	viewport(width);
 	const open = vi.fn();
 	const close = vi.fn();
-	const { rerender } = render(<AppShell {...props} desktop onOpenMe={open} />);
+	const { container, rerender } = render(<AppShell {...props} desktop onOpenMe={open} />);
+	const rail = screen.getByRole("navigation", { name: "Tabs" });
 	fireEvent.click(screen.getByRole("button", { name: "Me" }));
 	fireEvent.click(screen.getByRole("button", { name: "Settings" }));
 	expect(open).toHaveBeenCalledTimes(2);
@@ -142,13 +144,25 @@ test.each([1280, 820, 390])("desktop rail remains interactive and shares one Me 
 			}}
 		/>,
 	);
-	for (const name of ["Me", "Settings"]) {
-		const button = screen.getByRole("button", { name });
-		expect(button.closest("[inert], [aria-hidden=true]")).toBeNull();
-		expect(button).toHaveAttribute("aria-expanded", "true");
-		fireEvent.click(button);
+	expect(rail.parentElement).toHaveAttribute("inert");
+	expect(screen.queryByRole("navigation", { name: "Tabs" })).not.toBeInTheDocument();
+	const settings = screen.getByRole("dialog", { name: "Me" });
+	expect(settings).toHaveAttribute("aria-modal", "true");
+	fireEvent.click(settings);
+	expect(close).not.toHaveBeenCalled();
+	const backdrop = container.querySelector("[data-overlay-backdrop]");
+	if (width === 1280) {
+		expect(rail.parentElement).not.toHaveClass("invisible");
+		if (!backdrop) throw new Error("Expected a settings backdrop");
+		fireEvent.click(backdrop);
+	} else {
+		expect(rail.parentElement).toHaveClass("invisible");
+		expect(backdrop).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Back" }));
 	}
-	expect(close).toHaveBeenCalledTimes(2);
+	expect(close).toHaveBeenCalledTimes(1);
+	rerender(<AppShell {...props} desktop onOpenMe={open} />);
+	expect(screen.getByRole("navigation", { name: "Tabs" })).toBeVisible();
 	expect(open).toHaveBeenCalledTimes(2);
 });
 

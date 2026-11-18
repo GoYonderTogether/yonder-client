@@ -14,6 +14,7 @@ import { pricingMessagesEn } from "./pricing-en.ts";
 import { setupMessagesEn } from "./setup-en.ts";
 import { skillMessagesEn } from "./skills-en.ts";
 import { visitsMessagesEn } from "./visits-en.ts";
+import { voiceInputEn } from "./voice-input.ts";
 /**
  * The English table is the reference: its shape is the type every other language must satisfy, so
  * a missing or misspelled key is a compile error rather than a blank label at runtime.
@@ -89,6 +90,7 @@ export const en = {
 	nav: {
 		settings: "Settings",
 		chat: "Chat",
+		mainBot: "Main Bot",
 		messages: "Messages",
 		tasks: "Tasks",
 		memory: "Memory",
@@ -107,6 +109,14 @@ export const en = {
 	messages: {
 		title: "Messages",
 		pinned: "Pinned",
+		muted: "Mute notifications",
+		unread_one: "{{count}} unread message",
+		unread_other: "{{count}} unread messages",
+		enableSystemNotifications: "Allow system notifications",
+		systemNotificationsDenied: "Allow notifications in your device or browser settings.",
+		muteFailed: "Could not change notifications. Try again.",
+		newMessage: "New message",
+		botReply: "Bot reply ready",
 		newConversation: "New conversation",
 		myBot: "My Bot",
 	},
@@ -246,6 +256,8 @@ export const en = {
 	},
 
 	chat: {
+		settings: "Chat settings",
+		agentStatus: { queued: "Queued…", working: "Working…", replying: "Replying…" },
 		activityMore: "{{count}} activities",
 		uploadFiles: "Upload files",
 		uploadImages: "Upload images",
@@ -260,16 +272,7 @@ export const en = {
 			"Sending was not confirmed. Your draft and files are preserved; retrying will not duplicate this message.",
 		downloadFile: "Download {{name}}",
 		attachmentFailed: "Could not load the attachment",
-		voiceInput: "Voice input",
-		stopRecording: "Stop recording",
-		cancelRecording: "Cancel voice input",
-		recording: "Recording · up to 2 minutes",
-		requestingMicrophone: "Allow microphone access to record",
-		transcribing: "Transcribing…",
-		voiceFailed: "Could not transcribe. Your existing draft is preserved.",
-		voiceUnknown: "Transcription status is unknown. Retrying may be charged again.",
-		voiceUnsupported: "Voice input is unavailable in this browser.",
-		microphoneDenied: "Microphone access was denied. Allow it in system or browser settings.",
+		...voiceInputEn,
 		unknownSender: "Unknown sender",
 		emptyTitle: "No messages yet",
 		composerPlaceholder: "Message your Bot",
@@ -397,6 +400,7 @@ export const en = {
 		actionDeleteFailed: "Could not delete: {{reason}}",
 		presetItem: "Help me do something: ",
 		presetGoal: "Help me pursue this goal: ",
+		presetSchedule: "Help me create a scheduled task: ",
 		goalState: {
 			proposed: "Needs confirmation",
 			active: "In progress",
@@ -449,9 +453,9 @@ export const en = {
 		account_pending_deletion: "This account is scheduled for deletion.",
 		account_deleted: "This account has been deleted and can no longer sign in.",
 		not_found: "Not found.",
-		handle_taken: "That handle is already taken.",
-		handle_cooldown: "You changed your handle recently. Try again later.",
-		handle_reserved: "That handle is reserved.",
+		handle_taken: "That ID is already taken.",
+		handle_cooldown: "You changed your ID recently. Try again later.",
+		handle_reserved: "That ID is reserved.",
 		phone_taken: "That number belongs to another account.",
 		conflict_version: "That changed somewhere else. Reload and try again.",
 		code_invalid: "That code is not right.",

@@ -23,14 +23,14 @@ export function accountFailure(error: unknown): string {
 		}
 		case "invalid_request":
 			return error.details?.field === "confirmHandle"
-				? t("和你的 Yonder 号不一致", "That does not match your handle")
+				? t("和你的 ID 不一致", "That does not match your ID")
 				: t("请求不对，请检查后重试", "That request was not valid. Check it and try again.");
 		case "sms_not_configured":
 			return t("这台服务器还不能发短信", "This server cannot send text messages yet.");
 		case "handle_taken":
-			return t("这个对外号已经有人用了", "That handle is already taken");
+			return t("这个 ID 已经有人用了", "That ID is already taken");
 		case "handle_reserved":
-			return t("这个对外号是保留词，换一个", "That handle is reserved");
+			return t("这个 ID 是保留词，换一个", "That ID is reserved");
 		default:
 			return t("操作失败，请稍后重试", "That did not work. Please try again.");
 	}

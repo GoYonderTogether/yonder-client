@@ -1,4 +1,4 @@
-/* Native insets come from the host; Safari/Chrome keep the existing page layout. */
+/* Native insets come from the host. The main Bot also uses floating chrome in the mobile browser. */
 html[data-native-mobile="true"] {
 	--safe-area-top: var(--native-safe-area-inset-top, env(safe-area-inset-top));
 	--safe-area-right: var(--native-safe-area-inset-right, env(safe-area-inset-right));
@@ -14,13 +14,15 @@ html[data-native-mobile="true"] [data-shell-topbar] {
 	padding-top: var(--safe-area-top);
 }
 
-html[data-native-mobile="true"] [data-frame-header] {
+html[data-native-mobile="true"] [data-frame-header],
+[data-floating-frame-header] {
 	position: absolute;
 	inset: 0 0 auto;
 	z-index: 10;
 }
 
-html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-header])::before {
+html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-header])::before,
+[data-floating-frame-header]::before {
 	position: absolute;
 	inset: 0 0 calc(-1 * var(--spacing-6));
 	z-index: -1;
@@ -31,6 +33,77 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 	mask-image: linear-gradient(to bottom, var(--color-mask-solid) calc(100% - var(--spacing-6)), transparent);
 	pointer-events: none;
 	content: "";
+}
+
+[data-floating-frame-header] {
+	--floating-frame-safe-top: var(--safe-area-top, env(safe-area-inset-top, 0px));
+	--floating-frame-top: max(var(--floating-frame-safe-top), var(--spacing-1));
+	--floating-frame-blur: calc(var(--system-bar-blur) * 1.2);
+	min-height: calc(var(--floating-frame-top) + var(--control-sm));
+	padding-top: var(--floating-frame-top);
+	pointer-events: none;
+}
+
+:is(html[data-native-mobile="true"] [data-floating-frame-header], [data-floating-frame-header])::before {
+	inset: 0 0 auto;
+	height: calc(max(var(--spacing-4), var(--floating-frame-safe-top)) + var(--spacing-2));
+	background: var(--color-bg-base);
+	-webkit-backdrop-filter: blur(var(--floating-frame-blur));
+	backdrop-filter: blur(var(--floating-frame-blur));
+	-webkit-mask-image: linear-gradient(var(--color-mask-solid) 50%, transparent);
+	mask-image: linear-gradient(var(--color-mask-solid) 50%, transparent);
+}
+
+[data-floating-frame-leading] {
+	position: absolute;
+	top: var(--floating-frame-top);
+	inset-inline-start: var(--spacing-3);
+}
+
+[data-floating-frame-header] button {
+	pointer-events: auto;
+}
+
+[data-floating-frame-leading] > button {
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-full);
+	background-color: color-mix(in srgb, var(--color-bg-base) 50%, transparent);
+	-webkit-backdrop-filter: blur(var(--floating-frame-blur));
+	backdrop-filter: blur(var(--floating-frame-blur));
+}
+
+[data-floating-frame-header] [data-chat-agent-title] > [role="status"] {
+	position: relative;
+}
+
+[data-floating-frame-header] [data-chat-agent-title] > button {
+	padding-inline: 0;
+}
+
+[data-floating-frame-header] [data-chat-agent-title] > :is(button, [role="status"])::before {
+	position: absolute;
+	inset: calc(-1 * var(--spacing-1));
+	z-index: -1;
+	border-radius: var(--radius-full);
+	background: color-mix(in srgb, var(--color-bg-base) 80%, transparent);
+	box-shadow: 0 0 var(--spacing-1) var(--spacing-1) color-mix(in srgb, var(--color-bg-base) 50%, transparent);
+	-webkit-backdrop-filter: blur(var(--floating-frame-blur));
+	backdrop-filter: blur(var(--floating-frame-blur));
+	pointer-events: none;
+	content: "";
+}
+
+[data-floating-frame-header] [data-chat-agent-title] > button::before {
+	border-radius: calc(var(--radius-control) + var(--spacing-1));
+}
+
+[data-floating-frame-header] + [data-frame-scroll] {
+	padding-top: var(--frame-header-height, 0px);
+	scroll-padding-top: var(--frame-header-height, 0px);
+}
+
+[data-floating-frame-header] + [data-frame-scroll] > :first-child {
+	padding-top: var(--spacing-2);
 }
 
 html[data-native-mobile="true"] [data-frame-scroll] {

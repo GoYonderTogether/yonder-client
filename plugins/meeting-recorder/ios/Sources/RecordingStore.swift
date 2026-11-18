@@ -11,6 +11,7 @@ struct MeetingRecording: Codable {
   var id: String
   var ownerId: String
   var title: String
+  var conversationId: String?
   var separateSpeakers: Bool?
   var state: String
   var startedAt: Int64
@@ -23,12 +24,13 @@ struct MeetingRecording: Codable {
   var error: String?
 
   enum CodingKeys: String, CodingKey {
-    case id, ownerId, title, separateSpeakers, state, startedAt, endedAt, durationMs, savedDurationMs, sampleRate, channels, segments, error
+    case id, ownerId, title, conversationId, separateSpeakers, state, startedAt, endedAt, durationMs, savedDurationMs, sampleRate, channels, segments, error
   }
   func encode(to encoder: Encoder) throws {
     var values = encoder.container(keyedBy: CodingKeys.self)
     try values.encode(id, forKey: .id); try values.encode(ownerId, forKey: .ownerId)
     try values.encode(title, forKey: .title); try values.encode(state, forKey: .state)
+    try values.encodeIfPresent(conversationId, forKey: .conversationId)
     try values.encodeIfPresent(separateSpeakers, forKey: .separateSpeakers)
     try values.encode(startedAt, forKey: .startedAt); try values.encode(endedAt, forKey: .endedAt)
     try values.encode(durationMs, forKey: .durationMs); try values.encode(savedDurationMs, forKey: .savedDurationMs)
@@ -60,9 +62,9 @@ final class RecordingStore {
     return base.appendingPathComponent(id, isDirectory: true)
   }
 
-  func create(owner: String, title: String, rate: Int, separateSpeakers: Bool = false) throws -> MeetingRecording {
+  func create(owner: String, title: String, rate: Int, conversationId: String? = nil, separateSpeakers: Bool = false) throws -> MeetingRecording {
     let record = MeetingRecording(id: UUID().uuidString.lowercased(), ownerId: owner,
-      title: String(title.prefix(200)), separateSpeakers: separateSpeakers ? true : nil,
+      title: String(title.prefix(200)), conversationId: conversationId, separateSpeakers: separateSpeakers ? true : nil,
       state: "recording", startedAt: Self.now, endedAt: nil,
       durationMs: 0, savedDurationMs: 0, sampleRate: rate, channels: 1, segments: [], error: nil)
     try FileManager.default.createDirectory(at: directory(owner, record.id), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])

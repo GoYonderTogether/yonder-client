@@ -38,13 +38,7 @@ export interface SideStack {
  */
 const SIDE_PRIORITY = 15;
 
-/** Where the window has room the panel is a right-hand column over the chat; otherwise it covers it. */
-export function sideDrawer(mode: LayoutMode): boolean {
-	return mode === "wide" || mode === "medium";
-}
-
-export function SideLayers({ side, mode }: { side: SideStack; mode: LayoutMode }) {
-	const wide = sideDrawer(mode);
+export function SideLayers({ side, mode, desktop }: { side: SideStack; mode: LayoutMode; desktop: boolean }) {
 	const present = useIsPresent();
 	const entering = useRef(true);
 	useEffect(() => {
@@ -54,7 +48,7 @@ export function SideLayers({ side, mode }: { side: SideStack; mode: LayoutMode }
 	if (!root) return null;
 	return (
 		<>
-			{wide ? (
+			{desktop ? (
 				<button
 					type="button"
 					aria-label={side.closeLabel}
@@ -73,12 +67,12 @@ export function SideLayers({ side, mode }: { side: SideStack; mode: LayoutMode }
 				priority={SIDE_PRIORITY}
 				className={cn(
 					"z-40",
-					wide &&
-						"!left-auto w-[var(--side-panel-width)] max-w-full border-l border-[var(--color-border-subtle)] shadow-[var(--shadow-lg)]",
+					desktop &&
+						"!left-auto w-[var(--side-panel-width)] max-w-[calc(100%-var(--spacing-8))] border-l border-[var(--color-border-subtle)] shadow-[var(--shadow-lg)]",
 				)}
 			>
 				<div inert={stacked.length > 0} className="flex min-h-0 flex-1 flex-col">
-					<SideFrame page={root} mode={mode} side={side} depth={0} />
+					<SideFrame page={root} mode={mode} desktop={desktop} side={side} depth={0} />
 				</div>
 				<AnimatePresence>
 					{stacked.map((page, index) => (
@@ -93,7 +87,7 @@ export function SideLayers({ side, mode }: { side: SideStack; mode: LayoutMode }
 							label={page.title}
 							priority={SIDE_PRIORITY + 1 + index}
 						>
-							<SideFrame page={page} mode={mode} side={side} depth={index + 1} />
+							<SideFrame page={page} mode={mode} desktop={desktop} side={side} depth={index + 1} />
 						</GesturePanel>
 					))}
 				</AnimatePresence>
@@ -102,18 +96,28 @@ export function SideLayers({ side, mode }: { side: SideStack; mode: LayoutMode }
 	);
 }
 
-function SideFrame({ page, mode, side, depth }: { page: SidePage; mode: LayoutMode; side: SideStack; depth: number }) {
-	const wide = sideDrawer(mode);
-	const phone = mode === "mobile";
+function SideFrame({
+	page,
+	mode,
+	desktop,
+	side,
+	depth,
+}: {
+	page: SidePage;
+	mode: LayoutMode;
+	desktop: boolean;
+	side: SideStack;
+	depth: number;
+}) {
 	const header = useChromeSize("--frame-header-height");
 	// A covering page goes back like any other page; the drawer's root page closes with ×.
 	const back =
-		depth > 0 || !wide ? (
+		depth > 0 || !desktop ? (
 			<IconButton aria-label={side.backLabel} size="sm" onClick={side.onBack}>
 				<ChevronLeft size={24} strokeWidth={1.8} aria-hidden="true" />
 			</IconButton>
 		) : null;
-	const close = wide ? (
+	const close = desktop ? (
 		<IconButton aria-label={side.closeLabel} size="sm" onClick={side.onClose}>
 			<X size={20} aria-hidden="true" />
 		</IconButton>
@@ -121,10 +125,10 @@ function SideFrame({ page, mode, side, depth }: { page: SidePage; mode: LayoutMo
 	return (
 		<div data-shell-frame className="relative flex min-h-0 flex-1 flex-col">
 			<div ref={header} data-frame-header className="shrink-0">
-				<TopBar left={back} center={page.title} right={close} phone={phone} />
+				<TopBar left={back} center={page.title} right={close} phone={!desktop} />
 			</div>
-			<div data-frame-scroll className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-				<ShellProvider value={{ mode, left: null, meOpen: false }}>{page.content}</ShellProvider>
+			<div data-frame-scroll className="min-h-0 flex-1 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-contain">
+				<ShellProvider value={{ mode, desktop, left: null, meOpen: false }}>{page.content}</ShellProvider>
 			</div>
 		</div>
 	);

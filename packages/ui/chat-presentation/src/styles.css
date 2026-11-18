@@ -60,6 +60,39 @@
 	max-width: 100%;
 }
 
+.message-voice-button {
+	display: inline-flex;
+	min-height: var(--control-lg);
+	align-items: center;
+	gap: var(--spacing-3);
+	padding-block: var(--spacing-2);
+	cursor: pointer;
+}
+
+.message-voice-button:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+.message-voice-wave {
+	color: var(--color-text-secondary);
+}
+
+.message-voice-playing .message-voice-wave,
+.message-voice-button[data-voice-state="playing"] .message-voice-wave {
+	color: var(--color-accent-text);
+}
+
+.message-voice-button[data-voice-state="error"],
+.message-voice-error {
+	color: var(--color-danger);
+}
+
+.message-voice-duration {
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
 .composer-box {
 	position: relative;
 	border-radius: var(--composer-radius);

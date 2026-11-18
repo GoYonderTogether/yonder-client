@@ -7,6 +7,7 @@ private struct OwnerArgs: Decodable { let ownerId: String? }
 private struct StartArgs: Decodable {
   let ownerId: String
   let title: String
+  let conversationId: String?
   let separateSpeakers: Bool?
 }
 private struct StopArgs: Decodable { let ownerId: String; let recordingId: String }
@@ -115,7 +116,7 @@ final class MeetingRecorderPlugin: Plugin {
         guard format.sampleRate > 0, format.channelCount > 0 else { throw RecorderFailure.invalidAudio }
         let record = try self.storage().create(
           owner: args.ownerId, title: args.title, rate: Int(format.sampleRate),
-          separateSpeakers: args.separateSpeakers == true)
+          conversationId: args.conversationId, separateSpeakers: args.separateSpeakers == true)
         self.active = record
         self.audioLevel = 0
         self.engine = engine

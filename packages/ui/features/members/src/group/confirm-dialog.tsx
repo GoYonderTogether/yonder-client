@@ -11,6 +11,7 @@ export interface ConfirmDialogProps {
 	onConfirm: () => void;
 	onCancel: () => void;
 	busy?: boolean | undefined;
+	error?: string | null;
 }
 
 /**
@@ -25,14 +26,28 @@ export function ConfirmDialog({
 	onConfirm,
 	onCancel,
 	busy = false,
+	error,
 }: ConfirmDialogProps) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
 	return (
-		<Overlay open={open} onClose={onCancel} title={title} mode={mode}>
-			<div className="flex flex-col gap-[var(--spacing-5)] p-[var(--spacing-5)]">
+		<Overlay
+			open={open}
+			onClose={onCancel}
+			title={title}
+			mode={mode}
+			size="small"
+			closeLabel={t("app.close")}
+			mobileBackLabel={t("app.back")}
+		>
+			<div className="flex grow flex-col gap-[var(--spacing-5)] p-[var(--spacing-5)]">
 				<p className="text-body text-[var(--color-text-secondary)]">{body}</p>
-				<div className="flex justify-end gap-[var(--spacing-3)]">
+				{error ? (
+					<p role="alert" className="text-caption text-[var(--color-danger)]">
+						{error}
+					</p>
+				) : null}
+				<div className="mt-auto flex flex-wrap justify-end gap-[var(--spacing-3)]">
 					<Button onClick={onCancel} disabled={busy}>
 						{t("app.cancel")}
 					</Button>

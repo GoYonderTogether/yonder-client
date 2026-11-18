@@ -1,6 +1,7 @@
 import type { Member } from "@yonder/protocol";
-import { Button, TextField } from "@yonder/ui-components";
+import { Button, cn, IconButton, TextField } from "@yonder/ui-components";
 import { useContactActions, useUpdateBot, useUploadBotAvatar } from "@yonder/ui-data";
+import { Check, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BotAvatarPicker, botColor } from "./bot-avatar-picker.tsx";
@@ -14,14 +15,16 @@ export interface BotFormProps {
 	bot?: Member | undefined;
 	onCreated?: (conversationId: string) => void;
 	onSaved?: () => void;
+	/** A dedicated settings page owns cancellation and uses a grouped editor. */
+	onCancel?: () => void;
+	onDirtyChange?: ((dirty: boolean) => void) | undefined;
 }
 
-/**
- * One form for both halves of a Bot's life (15 第三节): the same name field, colour swatches and
- * picture in「新建」and in「Bot 详情」. The shuffled name is only a starting point, so it is offered
- * when the Bot does not exist yet; renaming something that already has a name is the user's call.
- */
-export function BotForm({ mode, bot, onCreated, onSaved }: BotFormProps) {
+const NICKNAME_LIMIT = 5;
+const NO_NICKNAMES: string[] = [];
+
+/** The setup, chat and settings flows share the same Bot profile fields and mutations. */
+export function BotForm({ mode, bot, onCreated, onSaved, onCancel, onDirtyChange }: BotFormProps) {
 	const { t, i18n } = useTranslation();
 	const { createBot } = useContactActions();
 	const update = useUpdateBot();
@@ -36,6 +39,10 @@ export function BotForm({ mode, bot, onCreated, onSaved }: BotFormProps) {
 	const [cleared, setCleared] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
+	const [nicknameEdit, setNicknameEdit] = useState<{ nicknames: string[]; selectedNickname: string | null } | null>(
+		null,
+	);
+	const [newNickname, setNewNickname] = useState("");
 
 	// Another tab renamed the same Bot while this form was open; the field follows the server.
 	const storedName = bot?.displayName;
@@ -53,7 +60,35 @@ export function BotForm({ mode, bot, onCreated, onSaved }: BotFormProps) {
 	const trimmed = name.trim();
 	const tooLong = [...trimmed].length > BOT_NAME_MAX;
 	const valid = trimmed.length > 0 && !tooLong;
+	const storedNicknames = bot?.nicknames ?? NO_NICKNAMES;
+	const nicknames = nicknameEdit?.nicknames ?? storedNicknames;
+	const selectedNickname = nicknameEdit ? nicknameEdit.selectedNickname : (bot?.selectedNickname ?? null);
+	const nickname = newNickname.trim();
+	const nicknameError =
+		nickname && [...nickname].length > BOT_NAME_MAX
+			? t("bots.nameTooLong")
+			: nickname && nicknames.includes(nickname)
+				? t("bots.nicknameDuplicate")
+				: null;
+	const canAddNickname = Boolean(nickname && !nicknameError && nicknames.length < NICKNAME_LIMIT);
+	const settings = mode === "edit" && Boolean(onCancel);
+	const renamed = trimmed !== bot?.displayName;
+	const recoloured = color !== botColor(bot);
+	const savedNicknames = canAddNickname ? [...nicknames, nickname] : nicknames;
+	const nicknamesChanged =
+		JSON.stringify(savedNicknames) !== JSON.stringify(storedNicknames) ||
+		selectedNickname !== (bot?.selectedNickname ?? null);
+	const changed = renamed || recoloured || nicknamesChanged || Boolean(file) || Boolean(bot?.avatarUrl && cleared);
+	useEffect(() => {
+		onDirtyChange?.(changed || Boolean(nickname));
+	}, [changed, nickname, onDirtyChange]);
 	const shuffle = () => setName(randomBotName(i18n.resolvedLanguage ?? "en"));
+
+	function addNickname() {
+		if (!canAddNickname) return;
+		setNicknameEdit({ nicknames: [...nicknames, nickname], selectedNickname });
+		setNewNickname("");
+	}
 
 	const chooseFile = (chosen: File) => {
 		if (preview) URL.revokeObjectURL(preview);
@@ -76,10 +111,12 @@ export function BotForm({ mode, bot, onCreated, onSaved }: BotFormProps) {
 	};
 
 	async function submit() {
+		if (saving || (settings && !changed)) return;
 		if (!valid) {
 			setError(tooLong ? t("bots.nameTooLong") : t("bots.nameRequired"));
 			return;
 		}
+		if (nicknameError) return;
 		setError(null);
 		setSaving(true);
 		let step: "save" | "upload" = "save";
@@ -94,21 +131,23 @@ export function BotForm({ mode, bot, onCreated, onSaved }: BotFormProps) {
 				return;
 			}
 			if (!bot) return;
-			const renamed = trimmed !== bot.displayName;
-			const recoloured = color !== botColor(bot);
 			// One call changes one appearance: the server refuses a colour together with "remove the
 			// image", so the picture is cleared first and the colour set after it.
 			if (bot.avatarUrl && (cleared || recoloured)) await update.mutateAsync({ id: bot.id, clearAvatar: true });
-			if (renamed || recoloured)
+			if (renamed || recoloured || nicknamesChanged)
 				await update.mutateAsync({
 					id: bot.id,
 					...(renamed ? { displayName: trimmed } : {}),
 					...(recoloured ? { avatarColor: color } : {}),
+					...(nicknamesChanged ? { nicknames: savedNicknames, selectedNickname } : {}),
 				});
+			setNicknameEdit(null);
+			setNewNickname("");
 			if (file) {
 				step = "upload";
 				await upload.mutateAsync({ id: bot.id, file });
 			}
+			onDirtyChange?.(false);
 			onSaved?.();
 		} catch (failure) {
 			const fallback =
@@ -123,39 +162,149 @@ export function BotForm({ mode, bot, onCreated, onSaved }: BotFormProps) {
 
 	return (
 		<form
-			className="flex flex-col gap-[var(--spacing-6)] p-[var(--spacing-6)]"
+			className={cn("flex flex-col gap-[var(--spacing-6)]", !settings && "p-[var(--spacing-6)]")}
 			onSubmit={(event) => {
 				event.preventDefault();
 				void submit();
 			}}
 		>
-			<BotAvatarPicker
-				name={trimmed}
-				color={color}
-				avatarUrl={shown}
-				onColor={pickColor}
-				onFile={chooseFile}
-				onClear={removePicture}
-				uploading={saving && Boolean(file)}
-				{...(mode === "create" ? { onShuffle: shuffle } : {})}
-			/>
-			<TextField
-				label={t("bots.name")}
-				value={name}
-				onChange={(event) => setName(event.target.value)}
-				maxLength={BOT_NAME_MAX}
-				placeholder={t("bots.namePlaceholder")}
-				required
-				{...(tooLong ? { error: t("bots.nameTooLong") } : {})}
-			/>
+			<div className="flex flex-col gap-[var(--spacing-3)]">
+				{settings ? <h2 className="text-h3 font-semibold">{t("bots.avatarSection")}</h2> : null}
+				<BotAvatarPicker
+					name={trimmed}
+					color={color}
+					avatarUrl={shown}
+					onColor={pickColor}
+					onFile={chooseFile}
+					onClear={removePicture}
+					uploading={saving && Boolean(file)}
+					align={settings ? "start" : "center"}
+					disabled={settings && saving}
+					{...(mode === "create" ? { onShuffle: shuffle } : {})}
+				/>
+			</div>
+			<div className={cn("flex flex-col", settings ? "gap-[var(--spacing-4)]" : "gap-[var(--spacing-6)]")}>
+				{settings ? <h2 className="text-h3 font-semibold">{t("bots.nameSection")}</h2> : null}
+				<TextField
+					label={t("bots.name")}
+					value={name}
+					onChange={(event) => setName(event.target.value)}
+					maxLength={BOT_NAME_MAX}
+					placeholder={t("bots.namePlaceholder")}
+					required
+					disabled={settings && saving}
+					{...(tooLong ? { error: t("bots.nameTooLong") } : {})}
+				/>
+				{mode === "edit" ? (
+					<div className="flex flex-col gap-[var(--spacing-2)]">
+						<TextField
+							label={t("bots.nicknames")}
+							value={newNickname}
+							onChange={(event) => setNewNickname(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+									event.preventDefault();
+									addNickname();
+								}
+							}}
+							disabled={saving || nicknames.length >= NICKNAME_LIMIT}
+							error={nicknameError}
+							trailing={
+								<IconButton
+									type="button"
+									size="sm"
+									aria-label={t("bots.addNickname")}
+									disabled={saving || !canAddNickname}
+									onClick={addNickname}
+								>
+									<Plus size={16} aria-hidden="true" />
+								</IconButton>
+							}
+						/>
+						{nicknames.length ? (
+							<div className="flex flex-wrap items-center gap-[var(--spacing-2)]">
+								{nicknames.map((value) => (
+									<div
+										key={value}
+										className={cn(
+											"flex min-w-0 max-w-full items-stretch rounded-full text-body text-[var(--color-text-primary)]",
+											value === selectedNickname ? "bg-[var(--color-bg-selected)]" : "bg-[var(--color-bg-subtle)]",
+										)}
+									>
+										<button
+											type="button"
+											aria-label={value}
+											aria-pressed={value === selectedNickname}
+											disabled={saving}
+											className="flex min-w-0 items-center gap-[var(--spacing-1)] rounded-full ps-[var(--spacing-3)] pe-[var(--spacing-1)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+											onClick={() => setNicknameEdit({ nicknames, selectedNickname: value })}
+										>
+											{value === selectedNickname ? <Check size={15} className="shrink-0" aria-hidden="true" /> : null}
+											<span className="truncate">{value}</span>
+										</button>
+										<IconButton
+											type="button"
+											size="sm"
+											aria-label={t("bots.removeNickname", { name: value })}
+											disabled={saving}
+											onClick={() =>
+												setNicknameEdit({
+													nicknames: nicknames.filter((item) => item !== value),
+													selectedNickname: value === selectedNickname ? null : selectedNickname,
+												})
+											}
+										>
+											<X size={15} aria-hidden="true" />
+										</IconButton>
+									</div>
+								))}
+								<Button
+									type="button"
+									size="sm"
+									variant="ghost"
+									aria-pressed={selectedNickname === null}
+									disabled={saving}
+									onClick={() => setNicknameEdit({ nicknames, selectedNickname: null })}
+								>
+									{t("bots.useFullName")}
+								</Button>
+							</div>
+						) : null}
+					</div>
+				) : null}
+			</div>
 			{error ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
 					{error}
 				</p>
 			) : null}
-			<Button type="submit" variant="primary" block loading={saving} disabled={!valid}>
-				{mode === "create" ? t("bots.create") : t("bots.save")}
-			</Button>
+			<div
+				className={cn(
+					settings &&
+						"flex flex-wrap justify-end gap-[var(--spacing-2)] border-t border-[var(--color-border-subtle)] pt-[var(--spacing-4)]",
+				)}
+			>
+				{settings ? (
+					<Button
+						onClick={() => {
+							onDirtyChange?.(false);
+							onCancel?.();
+						}}
+						disabled={saving}
+					>
+						{t("app.cancel")}
+					</Button>
+				) : null}
+				<Button
+					type="submit"
+					variant="primary"
+					block={!settings}
+					loading={saving}
+					disabled={!valid || Boolean(nicknameError) || (settings && !changed)}
+				>
+					{t(settings ? "bots.saveProfile" : mode === "create" ? "bots.create" : "bots.save")}
+				</Button>
+			</div>
 		</form>
 	);
 }

@@ -44,11 +44,14 @@ export function MemberList({
 			{ordered.map((member) => {
 				const self = member.memberId === personId;
 				const bot = member.kind === "bot";
+				const badge = [member.memberId === ownerId && t("members.group.owner"), self && t("members.group.you")]
+					.filter(Boolean)
+					.join(" · ");
 				return (
 					<MemberRow
 						key={member.memberId}
 						member={member}
-						badge={self ? t("members.group.you") : undefined}
+						badge={badge}
 						onOpen={onOpen ? () => onOpen(member) : undefined}
 						actions={
 							isOwner && !self ? (

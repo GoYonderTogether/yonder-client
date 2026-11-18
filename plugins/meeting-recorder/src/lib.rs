@@ -87,11 +87,21 @@ async fn start<R: Runtime>(
     main_window(&window)?;
     let separate_speakers = separate_speakers.unwrap_or_default();
     #[cfg(any(target_os = "android", target_os = "ios"))]
-    return mobile(
-        &app,
-        "start",
-        serde_json::json!({ "ownerId": owner_id, "title": title, "separateSpeakers": separate_speakers }),
-    );
+    {
+        if let Some(id) = &conversation_id {
+            model::valid_key(id)?;
+        }
+        return mobile(
+            &app,
+            "start",
+            serde_json::json!({
+                "ownerId": owner_id,
+                "title": title,
+                "conversationId": conversation_id,
+                "separateSpeakers": separate_speakers
+            }),
+        );
+    }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let state = app

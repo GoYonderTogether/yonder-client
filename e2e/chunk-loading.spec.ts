@@ -64,7 +64,7 @@ test("features load on navigation while the chat draft survives", async ({ page 
 	await expect(page.getByRole("searchbox", { name: "搜索技能" })).toBeVisible();
 	expect(loaded(requested, "skills-section")).toBe(true);
 	await page.screenshot({ path: testInfo.outputPath("skills.png") });
-	await nav.getByRole("button", { name: "消息", exact: true }).click();
+	await page.getByRole("button", { name: "关闭", exact: true }).click();
 	await expect(draft).toHaveValue("保留这条未发送草稿");
 	await nav.getByRole("button", { name: "记忆", exact: true }).click();
 	await expect.poll(() => loaded(requested, "memory-page")).toBe(true);

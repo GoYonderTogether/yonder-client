@@ -9,6 +9,7 @@
 @source "../../../packages/ui/features/auth/src";
 @source "../../../packages/ui/features/me/src";
 @source "../../../packages/ui/features/landing/src";
+@source "../../../packages/ui/features/members/src";
 @source "../../src";
 
 /* The tokens package declares the theme; Tailwind reads it through @theme. Nothing here invents a

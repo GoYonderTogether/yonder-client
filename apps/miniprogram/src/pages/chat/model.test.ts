@@ -1,6 +1,7 @@
+import { groupMessages } from "@yonder/chat-model";
 import type { Message } from "@yonder/protocol";
 import { describe, expect, it } from "vitest";
-import { conversationTitle, directPartner, groupChatMessages, mergeMessages, updateRun } from "./model";
+import { conversationTitle, directPartner, mergeMessages, updateRun } from "./model";
 
 const message = (id: string, version = 1, clientNonce?: string): Message => ({
 	id,
@@ -44,17 +45,18 @@ it("retains a received run when a newer message snapshot omits it", () => {
 });
 
 describe("runs in the message list", () => {
-	const row = (id: string, senderId: string, type: "text" | "system" = "text") => ({ id, senderId, type });
+	const row = (id: string, senderId: string, type: "text" | "system" = "text") => ({ ...message(id), senderId, type });
+	const runsOf = (items: Message[]) => groupMessages(items).flatMap((block) => ("run" in block ? [block.run] : []));
 	it("keeps a system line alone between the runs around it", () => {
-		const runs = groupChatMessages([row("a", "u"), row("b", "u"), row("s", "u", "system"), row("c", "u")]);
+		const runs = runsOf([row("a", "u"), row("b", "u"), row("s", "u", "system"), row("c", "u")]);
 		expect(runs.map((run) => run.map((item) => item.id))).toEqual([["a", "b"], ["s"], ["c"]]);
 	});
 	it("does not let two adjacent system lines share a run", () => {
-		const runs = groupChatMessages([row("s1", "u", "system"), row("s2", "u", "system")]);
+		const runs = runsOf([row("s1", "u", "system"), row("s2", "u", "system")]);
 		expect(runs.map((run) => run.map((item) => item.id))).toEqual([["s1"], ["s2"]]);
 	});
 	it("still groups two messages from the same sender", () => {
-		expect(groupChatMessages([row("a", "u"), row("b", "u")]).length).toBe(1);
+		expect(runsOf([row("a", "u"), row("b", "u")])).toHaveLength(1);
 	});
 });
 

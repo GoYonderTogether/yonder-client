@@ -1,5 +1,5 @@
 import type { Page, WebSocketRoute } from "@playwright/test";
-import type { Conversation, Member, Message } from "@yonder/protocol";
+import type { Conversation, Member, Message, Run } from "@yonder/protocol";
 import { quota } from "./fixtures/quota.ts";
 
 // Only the automated browser uses these isolated API records. The product route is unmodified.
@@ -109,18 +109,13 @@ export async function isolateChat(
 		sockets.push(socket);
 		socket.onMessage(() => undefined);
 	});
+	function emit(event: { type: "message.updated"; message: Message } | { type: "run.updated"; run: Run }) {
+		for (const socket of sockets)
+			socket.send(JSON.stringify({ ...event, eventId: crypto.randomUUID(), at: new Date().toISOString() }));
+	}
 	return {
 		sent,
-		update(value: Message) {
-			for (const socket of sockets)
-				socket.send(
-					JSON.stringify({
-						type: "message.updated",
-						eventId: crypto.randomUUID(),
-						at: new Date().toISOString(),
-						message: value,
-					}),
-				);
-		},
+		update: (message: Message) => emit({ type: "message.updated", message }),
+		updateRun: (run: Run) => emit({ type: "run.updated", run }),
 	};
 }

@@ -78,7 +78,36 @@ for (const width of [1280, 820, 390]) {
 test.describe("phone header", () => {
 	const { defaultBrowserType: _browser, ...phone } = devices["iPhone 13"];
 	test.use(phone);
-	test("shows the title and add action above the existing mobile capsule", async ({ page }) => {
+	test("shows account identity on Messages and centered titles on Tasks and Memory", async ({ page }, info) => {
+		await isolate(page);
+		await page.goto("/messages");
+		await expect(page.locator('[data-layout-mode="mobile"]')).toBeVisible();
+		const topBar = page.getByRole("complementary").locator("[data-shell-topbar]");
+		const account = topBar.getByRole("button", { name: "我", exact: true });
+		await expect(account.getByText("设置检查", { exact: true })).toBeVisible();
+		await expect(account.locator("[data-avatar-fallback]")).toBeVisible();
+		await expect(topBar.getByText("消息", { exact: true })).toHaveCount(0);
+		await page.screenshot({ path: info.outputPath("phone-messages-header.png") });
+
+		for (const [path, label, screenshot] of [
+			["/tasks", "任务", "phone-tasks-header.png"],
+			["/memory", "记忆", "phone-memory-header.png"],
+		]) {
+			await page.goto(path);
+			const heading = topBar.getByRole("heading", { name: label, exact: true });
+			await expect(heading).toBeVisible();
+			await expect(account.locator("[data-avatar-fallback]")).toBeVisible();
+			await expect(topBar.getByText("设置检查", { exact: true })).toHaveCount(0);
+			const [bar, title] = await Promise.all([topBar.boundingBox(), heading.boundingBox()]);
+			if (!bar || !title) throw new Error("Expected the phone title row");
+			expect(title.x + title.width / 2).toBeCloseTo(bar.x + bar.width / 2, 0);
+			await page.screenshot({ path: info.outputPath(screenshot) });
+			await account.click();
+			await expect(page).toHaveURL(/\/me$/);
+		}
+	});
+
+	test("shows the add action above the mobile capsule", async ({ page }) => {
 		await isolate(page);
 		await page.goto("/tasks");
 		await expect(page.locator('[data-layout-mode="mobile"]')).toBeVisible();

@@ -27,18 +27,24 @@ const me: MeResponse = {
 };
 
 describe("applyServerEvent", () => {
-	test("terminal runs refresh skills even when a write succeeds before the reply fails", () => {
+	test("terminal runs without a chat message refresh skills and task results", () => {
 		for (const status of ["queued", "running", "completed", "failed", "cancelled"] as const) {
 			const queryClient = new QueryClient();
-			const skillKeys = [keys.skills.list(), keys.skills.detail("s"), keys.skills.file("s", "v1", "SKILL.md")];
-			for (const key of skillKeys) queryClient.setQueryData(key, {});
+			const relatedKeys = [
+				keys.skills.list(),
+				keys.skills.detail("s"),
+				keys.skills.file("s", "v1", "SKILL.md"),
+				keys.items.list(null),
+				keys.items.detail("meeting"),
+			];
+			for (const key of relatedKeys) queryClient.setQueryData(key, {});
 			applyServerEvent(queryClient, {
 				type: "run.updated",
 				eventId: `run-${status}`,
 				at: "2026-11-16T00:00:00Z",
-				run: { id: "run", conversationId: "c", messageId: "output", userMessageId: "input", status },
+				run: { id: "run", conversationId: "c", messageId: "", userMessageId: "", status },
 			});
-			for (const key of skillKeys)
+			for (const key of relatedKeys)
 				expect(queryClient.getQueryState(key)?.isInvalidated).toBe(status !== "queued" && status !== "running");
 			queryClient.clear();
 		}
@@ -73,13 +79,20 @@ describe("applyServerEvent", () => {
 		for (const key of [keys.devices(), keys.sessions()])
 			expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
 	});
-	test("opening the realtime connection marks conversation, message and quota caches for reconciliation", () => {
+	test("opening the realtime connection marks profile, conversation, message and quota caches for reconciliation", () => {
 		const queryClient = new QueryClient();
-		for (const key of [keys.conversations.list(), keys.messages.latest("c"), keys.quota(), keys.usage("all")]) {
+		const refreshed = [
+			keys.me(),
+			keys.conversations.list(),
+			keys.messages.latest("c"),
+			keys.quota(),
+			keys.usage("all"),
+		];
+		for (const key of refreshed) {
 			queryClient.setQueryData(key, {});
 		}
 		reconcileRealtime(queryClient);
-		for (const key of [keys.conversations.list(), keys.messages.latest("c"), keys.quota(), keys.usage("all")]) {
+		for (const key of refreshed) {
 			expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
 		}
 	});

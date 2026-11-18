@@ -1,12 +1,15 @@
 import { cn } from "@yonder/ui-components";
 import { ChevronLeft, X } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useShellChrome } from "../layout/shell-context.tsx";
 import { useChromeSize } from "../layout/use-chrome-size.ts";
 import { GesturePanel } from "../navigation/gesture-panel.tsx";
 import { useDismiss } from "../navigation/use-dismiss.ts";
 import type { LayoutMode } from "../responsive/layout-mode.ts";
+import { useVisualViewport } from "../responsive/use-visual-viewport.ts";
+import { OverlayBackdrop } from "./overlay-backdrop.tsx";
 
 export interface OverlayProps {
 	open: boolean;
@@ -14,10 +17,10 @@ export interface OverlayProps {
 	title: string;
 	mode: LayoutMode;
 	children: ReactNode;
-	wide?: boolean;
+	size?: "small" | "wide";
 	closeLabel?: string;
 	mobileBackLabel?: string;
-	mobilePresentation?: "page" | "sheet";
+	mobilePresentation?: "page" | "sheet" | "tall-sheet";
 }
 
 /**
@@ -31,27 +34,34 @@ export function Overlay({
 	title,
 	mode,
 	children,
-	wide = false,
+	size,
 	closeLabel = "close",
 	mobileBackLabel,
 	mobilePresentation = "page",
 }: OverlayProps) {
-	const centered = mode === "wide" || (mode !== "mobile" && mobilePresentation === "sheet");
-	const sheet = !centered && mobilePresentation === "sheet";
-	const header = useChromeSize("--frame-header-height", open && !centered);
+	const { desktop } = useShellChrome();
+	const centered = mode === "wide" || (mode !== "mobile" && mobilePresentation !== "page");
+	const square = desktop && centered;
+	const sheet = !centered && mobilePresentation !== "page";
+	const tallSheet = sheet && mobilePresentation === "tall-sheet";
+	const viewport = useRef<HTMLDivElement>(null);
+	useVisualViewport(viewport, open && tallSheet);
+	const nativeFrame = !centered && !tallSheet;
+	const header = useChromeSize("--frame-header-height", open && nativeFrame);
 	useDismiss(open && centered, onClose, 20);
 	if (typeof document === "undefined") return null;
 	return createPortal(
 		<AnimatePresence>
 			{open ? (
-				<div className="fixed inset-0 z-50 flex" role="presentation">
-					<button
-						type="button"
-						aria-label={closeLabel}
-						onClick={onClose}
-						className="absolute inset-0 bg-[var(--color-bg-overlay)]"
-						tabIndex={-1}
-					/>
+				<div
+					ref={viewport}
+					className={cn(
+						"fixed inset-x-0 z-50 flex",
+						tallSheet ? "top-[var(--app-offset-top,0px)] h-[var(--app-height,100dvh)]" : "inset-y-0",
+					)}
+					role="presentation"
+				>
+					<OverlayBackdrop onClose={onClose} closeLabel={closeLabel} />
 					<GesturePanel
 						open
 						inline={centered}
@@ -66,10 +76,23 @@ export function Overlay({
 							centered
 								? cn(
 										"m-auto !flex-none max-h-[85dvh] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]",
-										wide ? "w-[min(880px,90vw)]" : "w-[min(560px,90vw)]",
+										square
+											? cn(
+													"w-[var(--dialog-size)] min-h-[min(var(--dialog-size),85dvh)] [--dialog-size:min(var(--dialog-width),90vw,max(var(--dialog-width-min),85dvh))]",
+													size === "small" && "[--dialog-width:var(--dialog-width-min)]",
+													size === "wide" && "[--dialog-width:var(--dialog-width-wide)]",
+												)
+											: size === "wide"
+												? "w-[min(880px,90vw)]"
+												: "w-[min(560px,90vw)]",
 									)
 								: sheet
-									? "!top-auto bottom-0 max-h-[85dvh] w-full rounded-t-[var(--radius-xl)] pb-[var(--safe-area-bottom,env(safe-area-inset-bottom))]"
+									? cn(
+											"!top-auto bottom-0 w-full rounded-t-[var(--radius-xl)]",
+											tallSheet
+												? "h-[min(70dvh,var(--app-height,100dvh))] pb-[var(--dock-bottom-inset,env(safe-area-inset-bottom))]"
+												: "max-h-[85dvh] pb-[var(--safe-area-bottom,env(safe-area-inset-bottom))]",
+										)
 									: "h-full w-full",
 						)}
 					>
@@ -84,12 +107,12 @@ export function Overlay({
 						) : null}
 						<div
 							data-native-sheet={sheet || undefined}
-							data-shell-frame={centered ? undefined : true}
+							data-shell-frame={nativeFrame || undefined}
 							className="relative flex min-h-0 flex-1 flex-col"
 						>
 							<div
 								ref={header}
-								data-frame-header={centered ? undefined : true}
+								data-frame-header={nativeFrame || undefined}
 								className="relative flex shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] px-[var(--spacing-5)] py-[var(--spacing-4)]"
 								style={
 									centered || sheet
@@ -124,8 +147,12 @@ export function Overlay({
 								</button>
 							</div>
 							<div
-								data-frame-scroll={centered ? undefined : true}
-								className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+								data-frame-scroll={nativeFrame || undefined}
+								className={cn(
+									"min-h-0 flex-1",
+									tallSheet ? "flex flex-col overflow-hidden" : "overflow-y-auto overscroll-contain",
+									square && "flex flex-col [&>*]:shrink-0",
+								)}
 							>
 								{children}
 							</div>

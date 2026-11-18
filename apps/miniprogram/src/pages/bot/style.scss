@@ -23,3 +23,11 @@
 .mini-bot-color-active {
 	border: 2px solid var(--color-text-primary);
 }
+
+.mini-bot-edit-action {
+	flex: none;
+}
+
+.mini-bot-edit-action .mini-button {
+	margin: 0;
+}

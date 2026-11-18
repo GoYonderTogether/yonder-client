@@ -9,6 +9,8 @@ import type { SidePage } from "./side-layers.tsx";
 export interface SidePanelControls {
 	open: (page: SidePage) => void;
 	push: (page: SidePage) => void;
+	/** Pops the top page if it still matches the supplied key. */
+	back: (key?: string) => void;
 	close: () => void;
 }
 

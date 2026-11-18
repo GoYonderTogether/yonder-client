@@ -70,6 +70,7 @@ export const LAYERS = {
 		"@yonder/ui-data",
 	],
 	"@yonder/feature-members": [
+		"@yonder/chat-model",
 		"@yonder/protocol",
 		"@yonder/ui-tokens",
 		"@yonder/ui-i18n",

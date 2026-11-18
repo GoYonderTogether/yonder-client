@@ -1,14 +1,15 @@
-import { Input, Text, View } from "@tarojs/components";
+import { Input, Label, Radio, RadioGroup, Text, View } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
-import type { Conversation, ConversationMember, Member } from "@yonder/protocol";
+import type { Conversation, ConversationMember } from "@yonder/protocol";
 import { useState } from "react";
+import { ConversationMute } from "../../components/conversation-mute";
 import { action, Button, go, Page, Row, State } from "../../components/ui";
 import { useResource } from "../../components/use-resource";
 import { t, useLocale } from "../../lib/i18n";
 import { api, client, useSession } from "../../lib/runtime";
 import { ChatAvatar } from "../chat/avatar";
+import { AddMembers } from "./add-members";
 import {
-	addableContacts,
 	canLeave,
 	canRemove,
 	canTransfer,
@@ -20,6 +21,7 @@ import {
 	removeCopy,
 	transferCopy,
 } from "./model";
+import "./style.scss";
 
 const avatarSrc = (url: string | null | undefined) =>
 	url ? (url.startsWith("/") ? `${client.baseUrl}${url}` : url) : undefined;
@@ -60,31 +62,38 @@ function MemberRow({
 				{role ? <Text className="mini-muted">{role}</Text> : null}
 			</View>
 			{onManage ? (
-				<Button secondary onClick={onManage}>
-					{t("管理", "Manage")}
-				</Button>
+				<View className="mini-group-manage">
+					<Button secondary onClick={onManage}>
+						{t("管理", "Manage")}
+					</Button>
+				</View>
 			) : null}
 		</View>
 	);
 }
 
 export default function Group() {
-	const id = useRouter().params.id ?? "";
+	const { id = "", view } = useRouter().params;
 	const { me } = useSession();
 	const { locale } = useLocale();
-	const { data, loading, error, reload } = useResource(async () => {
-		const found = (await api.conversations()).items.find((item) => item.id === id);
-		if (!found)
+	const {
+		data: resource,
+		loading,
+		error,
+		reload,
+	} = useResource(async () => {
+		const { items } = await api.conversations();
+		const group = items.find((item) => item.id === id && item.kind === "group");
+		if (!group)
 			throw new Error(t("这个群聊不存在，或你已经不在群里", "This group does not exist, or you are no longer in it"));
-		return found;
+		return { group, conversations: items };
 	});
+	const data = resource?.group;
 	const owner = data ? isOwner(data, me?.member.id) : false;
 	const closed = data ? isClosed(data) : false;
 	const [title, setTitle] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
-	const [contacts, setContacts] = useState<Member[]>([]);
-	const [selected, setSelected] = useState<string[]>([]);
-	const [showAdd, setShowAdd] = useState(false);
+	const openSettings = (page: "add" | "bot") => go(`/pages/group/index?id=${encodeURIComponent(id)}&view=${page}`);
 
 	const backFrom = () => {
 		if (Taro.getCurrentPages().length > 1) void Taro.navigateBack();
@@ -121,20 +130,95 @@ export default function Group() {
 		await api.transferGroupOwner(conversation.id, { memberId: member.memberId });
 		await reload();
 	};
+	const resourceState = loading || error ? <State loading={loading} error={error} retry={() => void reload()} /> : null;
+
+	if (view === "add" || view === "bot") {
+		const pageTitle = view === "add" ? t("添加成员", "Add members") : t("Bot 设置", "Bot settings");
+		const payer = resource?.group.groupBotPayer;
+		if (!resource || !owner || closed || (view === "bot" && payer === undefined))
+			return (
+				<Page title={pageTitle}>
+					{resourceState || <State error={t("当前无法管理该群聊", "This group cannot be managed right now")} />}
+				</Page>
+			);
+		if (view === "add")
+			return (
+				<Page title={pageTitle}>
+					<AddMembers group={resource.group} conversations={resource.conversations} personId={me?.member.id} />
+				</Page>
+			);
+		return (
+			<Page title={pageTitle}>
+				{resourceState}
+				<View className="mini-card">
+					<Text className="mini-subtitle">{t("Bot 回复由谁付费", "Who pays for Bot replies?")}</Text>
+					<RadioGroup
+						onChange={({ detail: { value } }) => {
+							if (busy || value === payer || (value !== "mentioner" && value !== "owner")) return;
+							void action(async () => {
+								setBusy(true);
+								try {
+									await api.updateGroup(resource.group.id, { groupBotPayer: value });
+									await reload();
+								} finally {
+									setBusy(false);
+								}
+							});
+						}}
+					>
+						<Label>
+							<View className="mini-row">
+								<Radio value="mentioner" checked={payer === "mentioner"} disabled={busy} />
+								<Text className="mini-row-main">{t("@ Bot 的人", "Person who mentions the Bot")}</Text>
+							</View>
+						</Label>
+						<Label>
+							<View className="mini-row">
+								<Radio value="owner" checked={payer === "owner"} disabled={busy} />
+								<Text className="mini-row-main">{t("群主", "Group owner")}</Text>
+							</View>
+						</Label>
+					</RadioGroup>
+				</View>
+			</Page>
+		);
+	}
 
 	return (
 		<Page title={t("群聊信息", "Group info")}>
-			<State loading={loading} error={error} retry={() => void reload()} />
-			{data ? (
-				<View className="mini-card">
-					{owner && !closed ? (
-						<View>
-							<Input
-								className="mini-input"
-								value={title ?? data.title ?? ""}
-								onInput={(event) => setTitle(event.detail.value)}
-								placeholder={t("群聊名称", "Group name")}
-							/>
+			<View className="mini-group-layout">
+				{resourceState}
+				{data ? (
+					<View className="mini-card">
+						<View className="mini-group-name">
+							{data.members.length ? (
+								<View className="mini-group-avatar" ariaHidden>
+									{data.members.slice(0, 4).map((member) => (
+										<ChatAvatar
+											key={member.memberId}
+											name={member.displayName}
+											kind={member.kind}
+											src={avatarSrc(member.avatarUrl)}
+											color={member.avatarColor}
+											size={16}
+										/>
+									))}
+								</View>
+							) : (
+								<ChatAvatar name={data.title || t("群聊", "Group")} kind="person" size={40} />
+							)}
+							{owner && !closed ? (
+								<Input
+									className="mini-input mini-group-name-field"
+									value={title ?? data.title ?? ""}
+									onInput={(event) => setTitle(event.detail.value)}
+									placeholder={t("群聊名称", "Group name")}
+								/>
+							) : (
+								<Text className="mini-group-name-field">{data.title || t("群聊", "Group")}</Text>
+							)}
+						</View>
+						{owner && !closed ? (
 							<Button
 								loading={busy}
 								disabled={title === null || !title.trim() || title.trim() === (data.title ?? "")}
@@ -153,115 +237,39 @@ export default function Group() {
 							>
 								{t("保存群名", "Save name")}
 							</Button>
-						</View>
-					) : (
-						<Text className="mini-subtitle">{data.title || t("群聊", "Group")}</Text>
-					)}
-					{owner && !closed && data.groupBotPayer !== undefined ? (
-						<Button
-							disabled={busy}
-							onClick={() =>
-								void action(async () => {
-									const { tapIndex } = await Taro.showActionSheet({
-										itemList: [t("@ Bot 的人", "Person who mentions the Bot"), t("群主", "Group owner")],
-									});
-									const groupBotPayer = tapIndex === 1 ? "owner" : "mentioner";
-									if (groupBotPayer === data.groupBotPayer) return;
-									setBusy(true);
-									try {
-										await api.updateGroup(data.id, { groupBotPayer });
-										await reload();
-									} finally {
-										setBusy(false);
-									}
-								})
-							}
-						>
-							{data.groupBotPayer === "owner"
-								? t("Bot 回复由群主付费", "Group owner pays for Bot replies")
-								: t("Bot 回复由 @ Bot 的人付费", "Person who mentions the Bot pays for replies")}
-						</Button>
-					) : null}
-					{orderedMembers(data.members).map((member) => (
-						<MemberRow
-							key={member.memberId}
-							member={member}
-							self={member.memberId === me?.member.id}
-							onOpen={() => go(`/pages/member/index?handle=${encodeURIComponent(member.handle)}`)}
-							onManage={
-								canRemove(data, me?.member.id, member) || canTransfer(data, me?.member.id, member)
-									? () => void action(() => manage(data, member))
-									: undefined
-							}
-						/>
-					))}
-				</View>
-			) : null}
-			{data && owner && !closed ? (
-				<View className="mini-card">
-					<Button
-						secondary
-						onClick={() =>
-							void action(async () => {
-								setContacts((await api.contacts()).items);
-								setShowAdd(true);
-							})
-						}
-					>
-						{t("添加成员", "Add members")}
-					</Button>
-					{showAdd ? (
-						<>
-							{contacts.length && !addableContacts(contacts, data.members).length ? (
-								<State empty={t("没有可添加的联系人", "No contacts left to add")} />
-							) : null}
-							{addableContacts(contacts, data.members).map((contact) => (
-								<Row
-									key={contact.id}
-									title={contact.displayName}
-									detail={selected.includes(contact.id) ? t("已选择", "Selected") : `@${contact.handle}`}
-									onClick={() =>
-										setSelected((current) =>
-											current.includes(contact.id)
-												? current.filter((value) => value !== contact.id)
-												: [...current, contact.id],
-										)
-									}
-								/>
-							))}
-							<Button
-								loading={busy}
-								disabled={!selected.length}
-								onClick={() =>
-									void action(async () => {
-										setBusy(true);
-										try {
-											await api.addGroupMembers(data.id, { memberIds: selected });
-											setSelected([]);
-											setShowAdd(false);
-											await reload();
-										} finally {
-											setBusy(false);
-										}
-									})
+						) : null}
+						{orderedMembers(data.members).map((member) => (
+							<MemberRow
+								key={member.memberId}
+								member={member}
+								self={member.memberId === me?.member.id}
+								onOpen={() => go(`/pages/member/index?handle=${encodeURIComponent(member.handle)}`)}
+								onManage={
+									canRemove(data, me?.member.id, member) || canTransfer(data, me?.member.id, member)
+										? () => void action(() => manage(data, member))
+										: undefined
 								}
-							>
-								{t("加入群聊", "Add to group")}
-							</Button>
-						</>
-					) : null}
-				</View>
-			) : null}
-			{data && !closed && owner ? (
-				<Button danger onClick={() => void action(() => dissolve(data))}>
-					{t("解散群聊", "Dissolve group")}
-				</Button>
-			) : null}
-			{data && !closed && !owner && canLeave(data, me?.member.id) ? (
-				<Button danger onClick={() => void action(() => leave(data))}>
-					{t("退出群聊", "Leave group")}
-				</Button>
-			) : null}
+							/>
+						))}
+					</View>
+				) : null}
+				{data && !closed ? <ConversationMute conversationId={data.id} /> : null}
+				{data && owner && !closed ? (
+					<View className="mini-card">
+						<Row title={t("添加成员", "Add members")} onClick={() => openSettings("add")} />
+						{data.groupBotPayer !== undefined ? (
+							<Row title={t("Bot 设置", "Bot settings")} onClick={() => openSettings("bot")} />
+						) : null}
+					</View>
+				) : null}
+				{data && !closed && (owner || canLeave(data, me?.member.id)) ? (
+					<View className="mini-group-danger">
+						<Button danger onClick={() => void action(() => (owner ? dissolve(data) : leave(data)))}>
+							{owner ? t("解散群聊", "Dissolve group") : t("退出群聊", "Leave group")}
+						</Button>
+					</View>
+				) : null}
+			</View>
 		</Page>
 	);
 }

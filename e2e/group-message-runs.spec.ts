@@ -280,7 +280,7 @@ test("stream patches and same-sender appends keep one header, while a returning 
 
 test("direct conversations keep one avatar per sender run without group names", async ({ page }) => {
 	await page.setViewportSize({ width: 1280, height: 850 });
-	await isolateChat(page);
+	await isolateChat(page, { members: [self, a], items: [from(a, 1, "周五见。"), from(self, 2, "好。")] });
 	await page.goto(`/messages/${conversation.id}`);
 	await expect(page.getByRole("log")).toBeVisible();
 	await expect(page.locator("[data-message-run], [data-message-sender-avatar]")).toHaveCount(4);

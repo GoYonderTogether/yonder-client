@@ -8,10 +8,12 @@ import { beforeEach, expect, test, vi } from "vitest";
 type ModalResult = { confirm: boolean; cancel: boolean };
 const mock = vi.hoisted(() => ({
 	bot: null as Member | null,
+	view: undefined as "edit" | undefined,
 	update: vi.fn(),
 	remove: vi.fn(),
 	modal: vi.fn(async (): Promise<ModalResult> => ({ confirm: true, cancel: false })),
 	reLaunch: vi.fn(async () => ({})),
+	navigateTo: vi.fn(async () => ({})),
 	conversations: vi.fn(async (): Promise<{ items: Conversation[] }> => ({ items: [] })),
 	schedules: vi.fn(async () => ({ items: [{ conversationId: "chat_1" }] })),
 	refreshMe: vi.fn(async () => {}),
@@ -22,6 +24,7 @@ vi.mock("@tarojs/taro", () => ({
 		showModal: mock.modal,
 		showToast: vi.fn(async () => ({})),
 		reLaunch: mock.reLaunch,
+		navigateTo: mock.navigateTo,
 		navigateBack: vi.fn(async () => ({})),
 		getCurrentPages: () => [{ route: "pages/bot/index" }],
 		getStorageSync: () => "en",
@@ -30,7 +33,7 @@ vi.mock("@tarojs/taro", () => ({
 		getWindowInfo: () => ({ windowWidth: 390, statusBarHeight: 0 }),
 		getMenuButtonBoundingClientRect: () => ({ top: 0, height: 0, left: 0 }),
 	},
-	useRouter: () => ({ params: { id: "bot_1" } }),
+	useRouter: () => ({ params: { id: "bot_1", view: mock.view } }),
 	useDidShow: () => {},
 	useLocale: () => ({ locale: "en" }),
 }));
@@ -111,7 +114,8 @@ const flush = async () => {
 	await Promise.resolve();
 	await Promise.resolve();
 };
-async function render() {
+async function render(view?: "edit") {
+	mock.view = view;
 	const host = document.createElement("div");
 	const root = createRoot(host);
 	await act(async () => root.render(createElement(BotPage)));
@@ -135,14 +139,20 @@ beforeEach(() => {
 	mock.remove.mockReset().mockResolvedValue(undefined);
 	mock.modal.mockReset().mockResolvedValue({ confirm: true, cancel: false });
 	mock.reLaunch.mockReset().mockResolvedValue({});
+	mock.navigateTo.mockClear();
 	mock.conversations.mockReset().mockResolvedValue({ items: [] });
 	mock.schedules.mockReset().mockResolvedValue({ items: [{ conversationId: "chat_1" }] });
 });
 
-test("the default Bot's page has no delete button, an extra Bot's page does", async () => {
+test("Bot details show a read-only card and an edit link, with delete for extra Bots only", async () => {
 	mock.bot = bot({ isDefault: true });
 	const first = await render();
+	expect(first.host.textContent).toContain("ID @abc123xyz");
+	expect(first.host.querySelector("input")).toBeNull();
+	expect(byText(first.host, "Upload avatar")).toBeUndefined();
 	expect(first.host.textContent).not.toContain("Delete this bot");
+	await act(async () => byText(first.host, "Edit")?.click());
+	expect(mock.navigateTo).toHaveBeenCalledWith({ url: "/pages/bot/index?id=bot_1&view=edit" });
 	await act(async () => first.root.unmount());
 
 	mock.bot = bot({ isDefault: false });
@@ -151,9 +161,9 @@ test("the default Bot's page has no delete button, an extra Bot's page does", as
 	await act(async () => second.root.unmount());
 });
 
-test("a blank name is refused on the page and never sent", async () => {
-	const { host, root } = await render();
-	expect(host.textContent).toContain("Yonder");
+test("a blank name is refused on the edit page and never sent", async () => {
+	const { host, root } = await render("edit");
+	expect(host.querySelector("input")).toHaveProperty("value", "Yonder");
 	await rename(host, "   ");
 	expect(host.textContent).toContain("A name is required");
 	expect(byText(host, "Save")).toHaveProperty("disabled", true);
@@ -164,7 +174,7 @@ test("a blank name is refused on the page and never sent", async () => {
 
 test("a save sends only the changed field and shows the server's refusal, not a friendly line", async () => {
 	mock.update.mockRejectedValueOnce(refusal("default_bot_protected"));
-	const { host, root } = await render();
+	const { host, root } = await render("edit");
 	await rename(host, "Second");
 	await act(async () => {
 		byText(host, "Save")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

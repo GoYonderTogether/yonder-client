@@ -18,9 +18,7 @@ test("each failure is explained by its code, never by the developer message or a
 		"Too many attempts. Try again in 30 seconds.",
 	);
 	expect(accountFailure(failure("internal"))).toBe("That did not work. Please try again.");
-	expect(accountFailure(failure("invalid_request", { field: "code" }))).not.toContain("handle");
-	expect(accountFailure(failure("invalid_request", { field: "confirmHandle" }))).toBe(
-		"That does not match your handle",
-	);
+	expect(accountFailure(failure("invalid_request", { field: "code" }))).not.toContain("ID");
+	expect(accountFailure(failure("invalid_request", { field: "confirmHandle" }))).toBe("That does not match your ID");
 	expect(accountFailure(new TypeError("offline"))).toBe("Could not reach the server. Check your connection.");
 });

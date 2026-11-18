@@ -24,7 +24,9 @@ import { createKeychainStorage, isTauri } from "../lib/keychain.ts";
 import { localFilesSupported, resetLocalFiles } from "../lib/local-files.ts";
 import { LocalFilesRuntime } from "../lib/local-files-runtime.tsx";
 import { resetMeetingRecorder } from "../lib/meeting-recorder.ts";
+import { isNativeMobileNotifications } from "../lib/native-notifications.ts";
 import { UpdateProvider } from "../updates/provider.tsx";
+import { NativePushRegistration } from "./native-push-registration.tsx";
 import { AppRouter } from "./router.tsx";
 
 /**
@@ -75,7 +77,7 @@ export function App() {
 function Localised() {
 	const { client, storage } = useData();
 	const device = useMemo(() => deviceInfo(storage, BUILD_VERSION), [storage]);
-	useDeviceRegistration(isContactWindow() ? null : device);
+	const registration = useDeviceRegistration(isContactWindow() ? null : device);
 	const { locale } = useLocalePreference();
 	useTheme();
 	const i18n = useMemo(() => createI18n(locale as Locale), [locale]);
@@ -99,6 +101,7 @@ function Localised() {
 
 	return (
 		<I18nextProvider i18n={i18n}>
+			{registration.isSuccess && isNativeMobileNotifications() ? <NativePushRegistration /> : null}
 			{localFilesSupported() ? <LocalFilesRuntime /> : null}
 			<UpdateProvider>
 				<AppRouter />

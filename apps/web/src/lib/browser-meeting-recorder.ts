@@ -6,6 +6,7 @@ const LOCK = "yonder-meeting-microphone";
 const MAX_MS = 2 * 60 * 60 * 1000;
 const MAX_PART_MS = 5000;
 const MAX_PARTS = 1801;
+const EMPTY_TAIL_WINDOW_MS = 250;
 let owner: string | null = null;
 let starting = false;
 let active:
@@ -13,6 +14,7 @@ let active:
 			record: MeetingRecording;
 			paused: boolean;
 			level(): number;
+			duration(): number;
 			pause(): Promise<void>;
 			resume(): void;
 			stop(reason?: string): Promise<void>;
@@ -67,6 +69,8 @@ async function state(requested: string | null): Promise<MeetingRecorderState> {
 		result.activeId = active.record.id;
 		result.paused = active.paused;
 		result.audioLevel = active.level();
+		const recording = result.recordings.find((item) => item.id === result.activeId);
+		if (recording) recording.durationMs = active.duration();
 	}
 	result.recordings = result.recordings.filter(
 		(record) => record.state !== "recording" || record.id === result.activeId,
@@ -86,6 +90,7 @@ async function capture(record: MeetingRecording, stream: MediaStream, context: A
 	let failure: string | undefined;
 	let finishing: Promise<void> | undefined;
 	let partStarted = 0;
+	let shortTail: MediaRecorder | undefined;
 	const track = stream.getAudioTracks()[0];
 	if (track?.readyState !== "live") throw "audio_unavailable";
 
@@ -120,8 +125,10 @@ async function capture(record: MeetingRecording, stream: MediaStream, context: A
 	const pageHidden = () => interrupt("page_closed");
 	const suspended = () => interrupt("page_suspended");
 
-	function closePart(part: MediaRecorder) {
-		if (part.state !== "inactive") part.stop();
+	function closePart(part: MediaRecorder, userAction = false) {
+		if (part.state === "inactive") return;
+		if (userAction && performance.now() - partStarted < EMPTY_TAIL_WINDOW_MS) shortTail = part;
+		part.stop();
 	}
 
 	function openPart() {
@@ -148,6 +155,14 @@ async function capture(record: MeetingRecording, stream: MediaStream, context: A
 			.then(() => stopped)
 			.then(() => persist(chunks))
 			.catch((cause) => {
+				// Immediately after a rollover, Chromium can stop before the new container holds any samples.
+				if (
+					part === shortTail &&
+					record.segments.length &&
+					cause instanceof DOMException &&
+					cause.name === "EncodingError"
+				)
+					return;
 				failure = cause === "storage_failed" ? "storage_failed" : "audio_interrupted";
 				interrupt(failure);
 			});
@@ -173,7 +188,7 @@ async function capture(record: MeetingRecording, stream: MediaStream, context: A
 		window.removeEventListener("pagehide", pageHidden);
 		track?.removeEventListener("ended", ended);
 		track?.removeEventListener("mute", ended);
-		closePart(recorder);
+		closePart(recorder, !reason);
 		for (const item of stream.getTracks()) item.stop();
 		void context.close().catch(() => {});
 		finishing = writes
@@ -195,16 +210,19 @@ async function capture(record: MeetingRecording, stream: MediaStream, context: A
 	await saveBrowserMeeting(record);
 	requireOwner(record.ownerId);
 	openPart();
+	let resumedAt = performance.now();
+	let elapsedBeforePause = 0;
 	active = {
 		record,
 		paused: false,
 		stop,
 		async pause() {
 			if (!active || active.paused) throw "recording_busy";
+			elapsedBeforePause += performance.now() - resumedAt;
 			active.paused = true;
 			clearTimeout(timer);
 			track.enabled = false;
-			closePart(recorder);
+			closePart(recorder, true);
 			await writes;
 			if (failure) throw failure;
 		},
@@ -212,7 +230,11 @@ async function capture(record: MeetingRecording, stream: MediaStream, context: A
 			if (!active?.paused || track.readyState !== "live") throw "audio_unavailable";
 			track.enabled = true;
 			active.paused = false;
+			resumedAt = performance.now();
 			openPart();
+		},
+		duration() {
+			return elapsedBeforePause + (active?.paused ? 0 : performance.now() - resumedAt);
 		},
 		level() {
 			if (finishing || active?.paused || context.state !== "running") return 0;

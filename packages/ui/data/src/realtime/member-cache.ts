@@ -73,6 +73,17 @@ export function removeMember(client: QueryClient, memberId: string): void {
 	);
 }
 
+/** A mutation response and a realtime event both carry the server's conversation version. */
+export function writeConversation(client: QueryClient, conversation: Conversation): void {
+	client.setQueryData<ConversationList>(keys.conversations.list(), (current) => {
+		const items = current?.items ?? [];
+		const existing = items.find((item) => item.id === conversation.id);
+		if (!existing) return { items: [conversation, ...items] };
+		if (existing.version > conversation.version) return current;
+		return { items: items.map((item) => (item.id === conversation.id ? conversation : item)) };
+	});
+}
+
 /** A conversation left the list: drop it and its history, so nothing can reopen a dead chat. */
 export function removeConversation(client: QueryClient, conversationId: string): void {
 	client.setQueryData<ConversationList>(keys.conversations.list(), (current) =>

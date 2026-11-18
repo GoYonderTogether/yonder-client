@@ -1,15 +1,17 @@
 import { ComposerFrame, ComposerLayout } from "@yonder/chat-presentation";
-import { ArrowUp, FileAudio, FileText, Image, Plus, Square } from "lucide-react";
-import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
+import { ArrowUp, FileAudio, FileText, Image, Keyboard, Mic, Plus, Square, UsersRound } from "lucide-react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { CompletionBinding, CompletionMarker, TextEditRange } from "./completion/bindings.ts";
 import { CompletionPopup } from "./completion/completion-popup.tsx";
-import { SkillHighlight } from "./completion/highlight.tsx";
+import { CompletionHighlight } from "./completion/highlight.tsx";
 import type { CompletionItem } from "./completion/tokens.ts";
 import { useComposerCompletion } from "./completion/use-composer-completion.ts";
 import { useTextareaEdit } from "./completion/use-textarea-edit.ts";
 import { ComposerFiles } from "./composer-files.tsx";
 import { isFileDrag } from "./file-drop-zone.tsx";
+import { HoldToTalk } from "./hold-to-talk.tsx";
 import type { DraftFile } from "./use-chat-draft.ts";
 import { useComposerVoice } from "./use-composer-voice.ts";
 import { VoiceControl } from "./voice-control.tsx";
@@ -22,6 +24,7 @@ export interface ComposerProps {
 	draft: string;
 	onDraftChange: (value: string, edit?: TextEditRange) => void;
 	onSend: () => void;
+	onSendVoice?: (file: File) => Promise<unknown>;
 	onStop: () => void;
 	streaming: boolean;
 	/** A send (upload included) is in flight; the button becomes a working cancel. */
@@ -42,7 +45,7 @@ export interface ComposerProps {
 	onRetryFile?: (id: string) => void;
 	onOriginalFileChange?: (id: string, original: boolean) => void;
 	mobilePicker?: boolean;
-	onMeeting?: (() => void) | undefined;
+	onMeeting?: ((separateSpeakers?: boolean) => void) | undefined;
 	scope?: string;
 	error?: string;
 	readOnly?: boolean;
@@ -59,6 +62,7 @@ export function Composer({
 	draft,
 	onDraftChange: setDraft,
 	onSend,
+	onSendVoice,
 	onStop,
 	streaming,
 	sending = false,
@@ -90,7 +94,20 @@ export function Composer({
 	const highlight = useRef<HTMLDivElement>(null);
 	const picker = useRef<HTMLInputElement>(null);
 	const imagePicker = useRef<HTMLInputElement>(null);
+	const addMenu = useRef<HTMLDivElement>(null);
 	const [menu, setMenu] = useState(false);
+	const [voiceScope, setVoiceScope] = useState<string | null>(null);
+	const [voiceSendingScope, setVoiceSendingScope] = useState<string | null>(null);
+	const [holdError, setHoldError] = useState<{ scope: string; message: string }>();
+	useEffect(() => {
+		const root = addMenu.current;
+		if (!menu || !root) return;
+		const dismiss = (event: PointerEvent) => {
+			if (!event.composedPath().includes(root)) setMenu(false);
+		};
+		root.ownerDocument.addEventListener("pointerdown", dismiss, true);
+		return () => root.ownerDocument.removeEventListener("pointerdown", dismiss, true);
+	}, [menu]);
 	const [expanded, setExpanded] = useState(false);
 	const [dragging, setDragging] = useState(false);
 	const dragDepth = useRef(0);
@@ -129,7 +146,31 @@ export function Composer({
 		},
 	});
 	const placeholder = recipientName ? t("chat.composerTo", { name: recipientName }) : t("chat.composerPlaceholder");
-	const canSend = !disabled && !disconnected && !streaming && Boolean(draft.trim() || files.length);
+	const hasContent = Boolean(draft.trim() || files.length);
+	const voiceSending = voiceSendingScope === scope;
+	const holdMode = mobilePicker && voiceScope === scope && (!hasContent || voiceSending);
+	const compactMobile = mobilePicker && (!draft || holdMode);
+	const showSend = !mobilePicker || streaming || sending || (hasContent && !voiceSending);
+	const voiceUnavailable = disabled || readOnly || disconnected || microphoneOccupied || !onSendVoice;
+	const canSend = !disabled && !disconnected && !streaming && hasContent;
+	function toggleVoiceMode() {
+		setHoldError(undefined);
+		if (holdMode) {
+			flushSync(() => setVoiceScope(null));
+			input.current?.focus({ preventScroll: true });
+		} else {
+			input.current?.blur();
+			setVoiceScope(scope);
+		}
+	}
+	async function sendVoice(file: File) {
+		setVoiceSendingScope(scope);
+		try {
+			await onSendVoice?.(file);
+		} finally {
+			setVoiceSendingScope((pending) => (pending === scope ? null : pending));
+		}
+	}
 	useLayoutEffect(() => {
 		const editor = input.current;
 		if (!draft && !files.length) {
@@ -169,14 +210,15 @@ export function Composer({
 		canSend,
 		hasFiles: files.length > 0,
 		microphoneOccupied,
-		onActivityChange: onVoiceActivityChange,
+		onActivityChange: mobilePicker ? undefined : onVoiceActivityChange,
 	});
+	const visibleError = error || voice.error || (holdError?.scope === scope ? holdError.message : "");
 
 	return (
-		<div className="relative flex flex-col gap-[var(--spacing-2)]">
-			{error || voice.error ? (
+		<div data-composer-mobile={mobilePicker || undefined} className="relative flex flex-col gap-[var(--spacing-2)]">
+			{visibleError ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
-					{t(error || voice.error)}
+					{t(visibleError)}
 				</p>
 			) : null}
 			{disconnected ? (
@@ -215,7 +257,7 @@ export function Composer({
 			>
 				<ComposerFrame as="div" dragging={dragging}>
 					<CompletionPopup completion={completion} />
-					{files.length ? (
+					{files.length && !voiceSending ? (
 						<ComposerFiles
 							files={files}
 							disabled={disabled}
@@ -236,8 +278,11 @@ export function Composer({
 							{t("chat.dropFiles")}
 						</div>
 					) : null}
-					<ComposerLayout as="div" expanded={Boolean(expanded || draft.includes("\n") || files.length)}>
-						<div className="composer-add">
+					<ComposerLayout
+						as="div"
+						expanded={!compactMobile && Boolean(expanded || draft.includes("\n") || files.length)}
+					>
+						<div ref={addMenu} className="composer-add">
 							<button
 								type="button"
 								className="composer-tool"
@@ -279,16 +324,28 @@ export function Composer({
 										{t("chat.uploadFiles")}
 									</button>
 									{onMeeting ? (
-										<button
-											type="button"
-											onClick={() => {
-												setMenu(false);
-												onMeeting();
-											}}
-										>
-											<FileAudio size={18} aria-hidden="true" />
-											{t("chatActions.recordMeeting")}
-										</button>
+										<>
+											<button
+												type="button"
+												onClick={() => {
+													setMenu(false);
+													onMeeting();
+												}}
+											>
+												<FileAudio size={18} aria-hidden="true" />
+												{t("chatActions.recordMeeting")}
+											</button>
+											<button
+												type="button"
+												onClick={() => {
+													setMenu(false);
+													onMeeting(true);
+												}}
+											>
+												<UsersRound size={18} aria-hidden="true" />
+												{t("chatActions.recordMeetingWithSpeakers")}
+											</button>
+										</>
 									) : null}
 								</fieldset>
 							) : null}
@@ -318,9 +375,9 @@ export function Composer({
 								event.target.value = "";
 							}}
 						/>
-						<div className="composer-editor">
+						<div className="composer-editor" hidden={holdMode}>
 							<div ref={highlight} className="composer-highlight composer-text-style" aria-hidden="true">
-								<SkillHighlight text={draft} bindings={bindings} />
+								<CompletionHighlight text={draft} bindings={bindings} token={completion.token} />
 							</div>
 							<textarea
 								ref={input}
@@ -356,7 +413,7 @@ export function Composer({
 									}
 								}}
 								aria-label={placeholder}
-								placeholder={placeholder}
+								placeholder={mobilePicker ? undefined : placeholder}
 								rows={1}
 								aria-autocomplete="list"
 								aria-controls={completion.token ? completion.id : undefined}
@@ -374,45 +431,74 @@ export function Composer({
 									completion.sync(event.currentTarget);
 								}}
 								onKeyDown={(event) => {
-									if (completion.keyDown(event, composing.current)) return;
-									if (
-										event.key !== "Enter" ||
-										!sendOnEnter ||
-										event.shiftKey ||
-										composing.current ||
-										event.nativeEvent.isComposing ||
-										event.nativeEvent.keyCode === 229
-									)
+									// Leave candidate confirmation to the IME, even if its key looks like Enter.
+									if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
 										interrupt();
-									if (!sendOnEnter || event.key !== "Enter" || event.shiftKey) return;
-									// Let the IME accept its candidate; suppress only our send action.
-									if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+										return;
+									}
+									const enter = event.key === "Enter" && !event.shiftKey;
+									if (
+										enter &&
+										(sendOnEnter || completion.matches.length > 0) &&
+										(event.repeat || performance.now() - compositionEndedAt.current < 500)
+									) {
+										event.preventDefault();
+										return;
+									}
+									if (completion.keyDown(event)) return;
+									if (!enter || !sendOnEnter) {
+										interrupt();
+										return;
+									}
 									event.preventDefault();
-									if (event.repeat || performance.now() - compositionEndedAt.current < 500) return;
 									send();
 								}}
+								data-empty={mobilePicker && !draft ? true : undefined}
 								className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-button-size)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
 							/>
 						</div>
-						<VoiceControl
-							disabled={disabled || readOnly || (microphoneOccupied && !voice.isListening)}
-							listening={voice.isListening}
-							onStart={startVoice}
-							onPause={pauseVoice}
-						/>
-						<button
-							type="button"
-							disabled={sending ? false : disconnected || (!streaming && !canSend && !voiceActive)}
-							onClick={streaming ? onStop : sending ? onCancelSend : send}
-							aria-label={t(streaming ? "chat.stop" : sending ? "chat.stopSend" : "chat.disabledSend")}
-							className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"
-						>
-							{streaming || sending ? (
-								<Square size={15} fill="currentColor" aria-hidden="true" />
-							) : (
-								<ArrowUp size={18} strokeWidth={2.2} aria-hidden="true" />
-							)}
-						</button>
+						{holdMode ? (
+							<HoldToTalk
+								key={scope}
+								disabled={voiceUnavailable || menu || sending || streaming}
+								onSend={sendVoice}
+								onError={(message) => setHoldError({ scope, message })}
+								onActivityChange={onVoiceActivityChange}
+							/>
+						) : null}
+						{!mobilePicker ? (
+							<VoiceControl
+								disabled={disabled || readOnly || (microphoneOccupied && !voice.isListening)}
+								listening={voice.isListening}
+								onStart={startVoice}
+								onPause={pauseVoice}
+							/>
+						) : !showSend ? (
+							<button
+								type="button"
+								className="composer-tool composer-mobile-toggle"
+								aria-label={t(holdMode ? "chat.textInput" : "chat.voiceInput")}
+								disabled={!holdMode && voiceUnavailable}
+								onClick={toggleVoiceMode}
+							>
+								{holdMode ? <Keyboard size={20} aria-hidden="true" /> : <Mic size={20} aria-hidden="true" />}
+							</button>
+						) : null}
+						{showSend ? (
+							<button
+								type="button"
+								disabled={sending ? false : disconnected || (!streaming && !canSend && !voiceActive)}
+								onClick={streaming ? onStop : sending ? onCancelSend : send}
+								aria-label={t(streaming ? "chat.stop" : sending ? "chat.stopSend" : "chat.disabledSend")}
+								className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"
+							>
+								{streaming || sending ? (
+									<Square size={15} fill="currentColor" aria-hidden="true" />
+								) : (
+									<ArrowUp size={18} strokeWidth={2.2} aria-hidden="true" />
+								)}
+							</button>
+						) : null}
 					</ComposerLayout>
 				</ComposerFrame>
 			</fieldset>

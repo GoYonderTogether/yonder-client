@@ -1,41 +1,70 @@
+import { addableContacts, filterContacts, GROUP_MEMBER_LIMIT, recentContacts } from "@yonder/chat-model";
 import type { Conversation, Member } from "@yonder/protocol";
-import { Avatar, Button, Checkbox, SearchInput } from "@yonder/ui-components";
-import { useContacts } from "@yonder/ui-data";
+import { Avatar, Button, Checkbox, cn, SearchInput } from "@yonder/ui-components";
+import { useContacts, useConversations } from "@yonder/ui-data";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { memberFailureText } from "../profile/failure.ts";
-
-/** The same ceiling `createGroup` enforces, for the same reason: message fan-out per group (19 3.1). */
-const MAX_MEMBERS = 99;
 
 export interface AddMembersProps {
 	/** The group as it is now; people already in it are not offered again. */
 	conversation: Conversation;
 	adding: boolean;
 	error: unknown;
+	inPage?: boolean;
 	onAdd: (memberIds: string[]) => void;
-	onCancel: () => void;
+	onCancel?: (() => void) | undefined;
 }
 
 /**
  * The owner adds people from their own contacts (19 3.1). A Bot the owner already has is a contact
  * too, so it can be added; anyone already in the group cannot.
  */
-export function AddMembers({ conversation, adding, error, onAdd, onCancel }: AddMembersProps) {
+export function AddMembers({ conversation, adding, error, inPage, onAdd, onCancel }: AddMembersProps) {
 	const { t } = useTranslation();
 	const contacts = useContacts();
+	const conversations = useConversations();
 	const [query, setQuery] = useState("");
 	const [selected, setSelected] = useState<string[]>([]);
-	const present = new Set(conversation.members.map((member) => member.memberId));
-	const items = (contacts.data?.items ?? []).filter((member: Member) => !present.has(member.id));
-	const needle = query.trim().toLocaleLowerCase();
-	const visible = needle
-		? items.filter((member) => `${member.displayName} ${member.handle}`.toLocaleLowerCase().includes(needle))
-		: items;
-	const room = Math.max(0, MAX_MEMBERS - conversation.members.length);
+	const items = addableContacts(contacts.data?.items ?? [], conversation.members);
+	const eligible = new Map(items.map((member) => [member.id, member]));
+	const selectedIds = selected.filter((id) => eligible.has(id));
+	const needle = query.trim();
+	const visible = filterContacts(items, needle);
+	const room = Math.max(0, GROUP_MEMBER_LIMIT - conversation.members.length);
+	const recent = needle ? [] : recentContacts(conversations.data?.items ?? [], eligible, conversation.ownerId);
+
+	const rows = (members: Member[]) =>
+		members.map((member) => {
+			const checked = selectedIds.includes(member.id);
+			return (
+				<Checkbox
+					key={member.id}
+					checked={checked}
+					disabled={adding || (selectedIds.length >= room && !checked)}
+					onChange={(event) =>
+						setSelected(
+							event.target.checked ? [...selectedIds, member.id] : selectedIds.filter((id) => id !== member.id),
+						)
+					}
+					className="flex items-center gap-[var(--spacing-3)] rounded-[var(--radius-control)] px-[var(--spacing-2)] py-[var(--spacing-3)] hover:bg-[var(--color-bg-hover)] [&>span:last-child]:min-w-0"
+				>
+					<span className="flex min-w-0 items-center gap-[var(--spacing-3)]">
+						<Avatar
+							name={member.displayName}
+							src={member.avatarUrl}
+							kind={member.kind}
+							color={member.avatarColor}
+							size={32}
+						/>
+						<span className="truncate text-body text-[var(--color-text-primary)]">{member.displayName}</span>
+					</span>
+				</Checkbox>
+			);
+		});
 
 	return (
-		<div className="flex flex-col gap-[var(--spacing-4)]">
+		<div className={cn("flex flex-col gap-[var(--spacing-4)]", inPage && "h-full min-h-0")}>
 			<SearchInput
 				placeholder={t("chatActions.searchContacts")}
 				value={query}
@@ -53,45 +82,56 @@ export function AddMembers({ conversation, adding, error, onAdd, onCancel }: Add
 					</Button>
 				</div>
 			) : null}
-			{contacts.isSuccess && !items.length ? (
-				<p className="text-caption text-[var(--color-text-secondary)]">{t("members.group.noContacts")}</p>
+			{contacts.isSuccess && !visible.length ? (
+				<p className="text-caption text-[var(--color-text-secondary)]">
+					{t(items.length ? "chatActions.noResults" : "members.group.noContacts")}
+				</p>
 			) : null}
-			<fieldset className="flex max-h-[40dvh] flex-col overflow-y-auto" aria-label={t("members.group.selectMembers")}>
-				{visible.map((member) => (
-					<Checkbox
-						key={member.id}
-						checked={selected.includes(member.id)}
-						disabled={adding || (selected.length >= room && !selected.includes(member.id))}
-						onChange={(event) =>
-							setSelected((current) =>
-								event.target.checked ? [...current, member.id] : current.filter((id) => id !== member.id),
-							)
-						}
-						className="flex items-center gap-[var(--spacing-3)] rounded-[var(--radius-control)] px-[var(--spacing-2)] py-[var(--spacing-3)] hover:bg-[var(--color-bg-hover)]"
+			<div className={cn("min-h-0 overflow-y-auto overscroll-contain", inPage ? "flex-1" : "max-h-[40dvh]")}>
+				{recent.length ? (
+					<fieldset className="mb-[var(--spacing-4)] flex min-w-0 flex-col">
+						<legend className="px-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
+							{t("members.group.recentContacts")}
+						</legend>
+						{rows(recent)}
+					</fieldset>
+				) : null}
+				{visible.length ? (
+					<fieldset
+						className="flex min-w-0 flex-col"
+						aria-label={needle ? t("members.group.selectMembers") : undefined}
 					>
-						<span className="flex min-w-0 items-center gap-[var(--spacing-3)]">
-							<Avatar
-								name={member.displayName}
-								src={member.avatarUrl}
-								kind={member.kind}
-								color={member.avatarColor}
-								size={32}
-							/>
-							<span className="truncate text-body text-[var(--color-text-primary)]">{member.displayName}</span>
-						</span>
-					</Checkbox>
-				))}
-			</fieldset>
+						{!needle ? (
+							<legend className="px-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
+								{t("members.group.allContacts")}
+							</legend>
+						) : null}
+						{rows(visible)}
+					</fieldset>
+				) : null}
+			</div>
 			{error ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
 					{memberFailureText(error, t)}
 				</p>
 			) : null}
-			<div className="flex justify-end gap-[var(--spacing-3)]">
-				<Button onClick={onCancel} disabled={adding}>
-					{t("app.cancel")}
-				</Button>
-				<Button variant="primary" loading={adding} disabled={!selected.length} onClick={() => onAdd(selected)}>
+			<div className="flex shrink-0 items-center justify-end gap-[var(--spacing-3)]">
+				{selectedIds.length ? (
+					<span className="mr-auto text-caption text-[var(--color-text-secondary)]">
+						{t("chatActions.selected", { count: selectedIds.length })}
+					</span>
+				) : null}
+				{onCancel ? (
+					<Button onClick={onCancel} disabled={adding}>
+						{t("app.cancel")}
+					</Button>
+				) : null}
+				<Button
+					variant="primary"
+					loading={adding}
+					disabled={!selectedIds.length || selectedIds.length > room}
+					onClick={() => onAdd(selectedIds)}
+				>
 					{t("members.group.add")}
 				</Button>
 			</div>

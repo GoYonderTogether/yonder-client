@@ -13,6 +13,7 @@ export type {
 	PasswordSignInResponse,
 	PhoneChangeCodeRequest,
 	PhoneChannel,
+	PushTokenRegistration,
 	RefreshResponse,
 	ResetPasswordRequest,
 	SendCodeRequest,
@@ -193,7 +194,7 @@ export type {
 	UsageEntry,
 	UsagePage,
 } from "./quota/quota.ts";
-export type { ClientEvent, ServerEvent, ServerEventType } from "./realtime/realtime.ts";
+export type { ClientEvent, MessageNotification, ServerEvent, ServerEventType } from "./realtime/realtime.ts";
 export {
 	REALTIME_CLOSE_SESSION_REVOKED,
 	REALTIME_CLOSE_UNAUTHORIZED,

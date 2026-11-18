@@ -1,20 +1,38 @@
-import type { CompletionBinding } from "./bindings.ts";
+import { type CompletionBinding, isBindingPresent } from "./bindings.ts";
+import type { CompletionToken } from "./tokens.ts";
 
-/** Plain React text keeps user content inert; only confirmed, still-present skill ranges get color. */
-export function SkillHighlight({ text, bindings }: { text: string; bindings: readonly CompletionBinding[] }) {
-	const ranges = bindings
-		.filter((binding) => binding.kind === "skill" && text.slice(binding.start, binding.end) === binding.marker)
-		.toSorted((a, b) => a.start - b.start);
+export function CompletionHighlight({
+	text,
+	bindings,
+	token,
+}: {
+	text: string;
+	bindings: readonly CompletionBinding[];
+	token: CompletionToken | null;
+}) {
+	const ranges: Pick<CompletionBinding, "key" | "marker" | "start" | "end">[] = bindings.filter((binding) =>
+		isBindingPresent(text, binding),
+	);
+	if (token && !ranges.some((range) => token.start < range.end && token.end > range.start)) {
+		ranges.push({
+			key: "active",
+			start: token.start,
+			end: token.end,
+			marker: text.slice(token.start, token.end),
+		});
+	}
+	ranges.sort((a, b) => a.start - b.start);
 	let end = 0;
 	return (
 		<>
-			{ranges.map((binding) => {
-				const preceding = text.slice(end, binding.start);
-				end = binding.end;
+			{ranges.map((range) => {
+				if (range.start < end) return null;
+				const preceding = text.slice(end, range.start);
+				end = range.end;
 				return (
-					<span key={binding.key}>
+					<span key={range.key}>
 						{preceding}
-						<span className="composer-skill-mark">{binding.marker}</span>
+						<span className="composer-completion-mark">{range.marker}</span>
 					</span>
 				);
 			})}

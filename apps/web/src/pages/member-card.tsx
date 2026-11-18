@@ -81,9 +81,10 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 	const [failure, setFailure] = useState<string | null>(null);
 	const fail = (error: unknown) => setFailure(memberFailureText(error, t));
 
-	if (profile.isLoading) return <Loading />;
+	// A reopened card needs a fresh visibility decision before displaying cached details.
+	if (!profile.isFetchedAfterMount) return <Loading />;
 	if (isCardNotFound(profile.error)) return <CardNotFound onHome={handlers.onHome} />;
-	if (!profile.data)
+	if (profile.isError || !profile.data)
 		return (
 			<LoadFailure
 				error={profile.error}
@@ -173,9 +174,9 @@ export function PublicMemberCard({
 	onHome: () => void;
 }) {
 	const profile = usePublicMemberProfile(handle);
-	if (profile.isLoading) return <Loading />;
+	if (!profile.isFetchedAfterMount) return <Loading />;
 	if (isCardNotFound(profile.error)) return <CardNotFound onHome={onHome} />;
-	if (!profile.data)
+	if (profile.isError || !profile.data)
 		return (
 			<LoadFailure
 				error={profile.error}

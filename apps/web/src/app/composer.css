@@ -22,7 +22,7 @@
 	pointer-events: none;
 	color: var(--color-text-primary);
 }
-.composer-skill-mark {
+.composer-completion-mark {
 	color: var(--color-accent);
 }
 .composer-text {
@@ -43,6 +43,116 @@
 .composer-file-remove:focus-visible {
 	outline: 2px solid var(--color-accent);
 	outline-offset: 2px;
+}
+[data-composer-mobile] .composer-layout {
+	grid-template-columns: var(--composer-button-size) minmax(0, 1fr) var(--composer-button-size);
+	grid-template-areas: "plus text send";
+}
+[data-composer-mobile] .composer-expanded {
+	grid-template-areas: "text text text" "plus . send";
+}
+.composer-layout > .composer-mobile-toggle {
+	grid-area: send;
+}
+[data-composer-mobile] .composer-text[data-empty] {
+	height: var(--composer-button-size);
+	field-sizing: fixed;
+}
+.composer-hold-to-talk {
+	display: grid;
+	min-width: 0;
+	min-height: var(--composer-button-size);
+	grid-area: text;
+	place-items: center;
+	padding-inline: var(--spacing-2);
+	border-radius: var(--radius-full);
+	background: var(--color-bg-surface);
+	color: var(--color-text-primary);
+	font-weight: var(--font-weight-medium);
+	touch-action: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+.composer-hold-to-talk[data-held] {
+	background: var(--color-bg-subtle-hover);
+}
+.composer-box:has(.composer-hold-to-talk[data-held]) {
+	opacity: 0.28;
+}
+.composer-recording {
+	--recording-glow: var(--color-accent);
+	--recording-tint: color-mix(in srgb, var(--recording-glow) 46%, var(--color-bg-surface));
+	--recording-rim: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-surface));
+	--recording-base-radius: min(72vw, 42dvh, calc(var(--spacing-16) * 6));
+	--recording-radius: calc(var(--recording-base-radius) * 2);
+	--recording-origin: 50% calc(100% + var(--recording-base-radius) * 1.3);
+	position: fixed;
+	inset: 0;
+	z-index: 60;
+	background: color-mix(in srgb, color-mix(in srgb, var(--color-mask-solid) 78%, var(--color-accent)) 12%, transparent);
+	pointer-events: none;
+}
+.composer-recording[data-cancel] {
+	--recording-glow: var(--color-danger);
+}
+.composer-recording::before,
+.composer-recording::after {
+	position: absolute;
+	inset: auto 0 0;
+	height: var(--recording-base-radius);
+	-webkit-backdrop-filter: blur(var(--recording-blur));
+	backdrop-filter: blur(var(--recording-blur));
+	-webkit-mask-image: var(--recording-mask);
+	mask-image: var(--recording-mask);
+	content: "";
+}
+.composer-recording::before {
+	--recording-blur: calc(var(--system-bar-blur) * 0.3);
+	--recording-mask: radial-gradient(
+		circle var(--recording-radius) at var(--recording-origin),
+		var(--color-mask-solid) 65%,
+		color-mix(in srgb, var(--color-mask-solid) 45%, transparent) 96%,
+		transparent
+	);
+	background:
+		radial-gradient(
+			circle var(--recording-radius) at var(--recording-origin),
+			transparent 93%,
+			color-mix(in srgb, var(--recording-rim) 65%, transparent) 96.5%,
+			transparent 100%
+		),
+		radial-gradient(
+			circle var(--recording-radius) at var(--recording-origin),
+			color-mix(in srgb, var(--recording-tint) 62%, transparent) 65%,
+			color-mix(in srgb, var(--recording-tint) 40%, transparent) 82%,
+			transparent
+		);
+}
+.composer-recording::after {
+	--recording-blur: var(--system-bar-blur);
+	--recording-mask: radial-gradient(
+		circle calc(var(--recording-radius) * 0.9) at var(--recording-origin),
+		var(--color-mask-solid) 68%,
+		transparent
+	);
+}
+.composer-recording-label {
+	position: absolute;
+	z-index: 1;
+	inset-inline: var(--spacing-4);
+	bottom: calc(var(--spacing-16) + var(--spacing-10) + var(--safe-area-bottom, env(safe-area-inset-bottom, 0px)));
+	color: var(--color-text-primary);
+	font-size: var(--text-body);
+	font-weight: var(--font-weight-semibold);
+	line-height: var(--text-body--line-height);
+	text-align: center;
+}
+.composer-hold-to-talk:disabled {
+	color: var(--color-text-tertiary);
+}
+.composer-hold-to-talk:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: -2px;
 }
 .composer-add-menu {
 	position: absolute;

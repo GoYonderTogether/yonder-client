@@ -7,6 +7,7 @@ import {
 	Gift,
 	Info,
 	Laptop,
+	MessagesSquare,
 	Plug,
 	RadioTower,
 	ShieldCheck,
@@ -29,18 +30,29 @@ export const ME_GROUPS = [
 	{
 		id: "bot",
 		sections: [
-			{ id: "bots", icon: Bot, labelKey: "bots.title" },
-			{ id: "quota", icon: Gauge },
+			{ id: "bots", icon: Bot, labelKey: "bots.myBots" },
+			{ id: "reception", icon: MessagesSquare },
+			{ id: "channels", icon: RadioTower, labelKey: "channels.title" },
 			{ id: "models", icon: Boxes },
 			{ id: "skills", icon: BookOpen },
-			{ id: "devices", icon: Laptop },
-			{ id: "connectors", icon: Plug },
-			{ id: "channels", icon: RadioTower, labelKey: "channels.title" },
 		],
 	},
-	{ id: "invite", sections: [{ id: "invite", icon: Gift }] },
-	{ id: "general", sections: [{ id: "general", icon: SlidersHorizontal }] },
-	{ id: "other", sections: [{ id: "about", icon: Info }] },
+	{
+		id: "resources",
+		sections: [
+			{ id: "devices", icon: Laptop },
+			{ id: "connectors", icon: Plug },
+			{ id: "quota", icon: Gauge },
+		],
+	},
+	{
+		id: "general",
+		sections: [
+			{ id: "invite", icon: Gift },
+			{ id: "general", icon: SlidersHorizontal },
+			{ id: "about", icon: Info },
+		],
+	},
 ] as const;
 
 export type MeSectionId = "profile" | (typeof ME_GROUPS)[number]["sections"][number]["id"];

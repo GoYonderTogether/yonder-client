@@ -29,18 +29,30 @@ for (const mobile of [false, true])
 			await page.goto("/messages/main");
 			await page.getByRole("button", { name: "添加附件" }).click();
 			await page.getByRole("button", { name: "会议录音" }).click();
-			await page.getByRole("button", { name: "开始录音", exact: true }).click();
 			const meter = page.getByRole("meter", { name: "麦克风音量" });
 			await expect.poll(async () => Number(await meter.getAttribute("value")), { timeout: 15000 }).toBeGreaterThan(0);
-			await expect.poll(() => page.locator(".meeting-level-bars span").count(), { timeout: 15000 }).toBeGreaterThan(3);
-			await expect(page.getByText("正在录音", { exact: true })).toBeVisible();
+			await expect
+				.poll(() => page.locator(".meeting-level-bars span[data-peak]").count(), { timeout: 15000 })
+				.toBeGreaterThan(0);
+			await expect(page.locator(".meeting-level-bars span")).toHaveCount(6);
+			await expect(page.getByRole("region", { name: "正在录音", exact: true })).toBeVisible();
 			const stop = page.getByRole("button", { name: "结束录音", exact: true });
 			const pause = page.getByRole("button", { name: "暂停录音", exact: true });
+			await page.mouse.move(0, 0);
 			const color = await pause.evaluate((button) => getComputedStyle(button).backgroundColor);
-			expect(color).toMatch(/^rgb\(\s*(?:2[0-5]\d|1\d\d),\s*(?:[0-9]|[1-9]\d),\s*(?:[0-9]|[1-9]\d)\s*\)$/);
+			expect(color).toBe(await stop.evaluate((button) => getComputedStyle(button).backgroundColor));
+			const capsule = page.getByRole("region", { name: "正在录音", exact: true });
+			const box = await capsule.boundingBox();
+			const composer = await page.locator(".composer-box").boundingBox();
+			if (!box || !composer) throw new Error("Recording controls and composer must be visible");
+			expect(box.width).toBe(248);
+			expect(box.height).toBe(40);
+			expect(box.x + box.width / 2).toBeCloseTo(composer.x + composer.width / 2, 0);
+			expect(composer.y - box.y - box.height).toBeCloseTo(8, 0);
+			await expect(page.getByRole("status", { name: "录制时长" })).toHaveText("00:00:01");
 			await page.screenshot({ path: testInfo.outputPath("recording.png") });
 			await pause.click();
-			await expect(page.getByText("录音已暂停", { exact: true })).toBeVisible();
+			await expect(page.getByRole("region", { name: "录音已暂停", exact: true })).toBeVisible();
 			const recording = () =>
 				page.evaluate(
 					() =>
@@ -104,7 +116,7 @@ for (const mobile of [false, true])
 					})),
 				};
 			}, paused.id);
-			expect(ended.record.state).toBe("ended");
+			expect(ended.record.state, ended.record.error ?? "Normal stop saves an ended recording").toBe("ended");
 			expect(ended.record.id).toBe(paused.id);
 			expect(ended.record.savedDurationMs).toBe(
 				ended.record.segments.reduce((sum: number, part: { durationMs: number }) => sum + part.durationMs, 0),

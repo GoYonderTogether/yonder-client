@@ -28,11 +28,7 @@ export function CompletionPopup({ completion }: { completion: ReturnType<typeof 
 	return (
 		<div className="composer-completion" ref={completion.popup}>
 			<div className="composer-completion-heading">
-				<span>{t(completion.token.prefix === "@" ? "skills.members" : "skills.commandsAndSkills")}</span>
-				<span>
-					{completion.token.prefix}
-					{completion.token.query}
-				</span>
+				{t(completion.token.prefix === "@" ? "skills.members" : "skills.commandsAndSkills")}
 			</div>
 			<div id={id} role="listbox" aria-label={t("skills.suggestions")}>
 				{matches.slice(page * COMPLETION_PAGE_SIZE, (page + 1) * COMPLETION_PAGE_SIZE).map((item, offset) => {

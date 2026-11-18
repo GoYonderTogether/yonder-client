@@ -15,7 +15,7 @@ export { PaneSplitter } from "./layout/pane-splitter.tsx";
 export type { RailProps } from "./layout/rail.tsx";
 export { Rail } from "./layout/rail.tsx";
 export type { ShellChrome } from "./layout/shell-context.tsx";
-export { useShellChrome } from "./layout/shell-context.tsx";
+export { ShellProvider, useShellChrome } from "./layout/shell-context.tsx";
 export type { SidePage, SideStack } from "./layout/side-layers.tsx";
 export { SideLayers } from "./layout/side-layers.tsx";
 export type { SidePanelControls } from "./layout/side-panel-context.tsx";

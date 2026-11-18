@@ -24,13 +24,14 @@ internal class RecordingStore(private val root: File) {
         return File(folder, id)
     }
 
-    fun create(owner: String, title: String, rate: Int, separateSpeakers: Boolean = false): JSONObject {
+    fun create(owner: String, title: String, rate: Int, conversationId: String? = null, separateSpeakers: Boolean = false): JSONObject {
         val id = UUID.randomUUID().toString()
         check(directory(owner, id).mkdirs())
         syncDirectory(root)
         syncDirectory(directory(owner))
         val record = JSONObject().apply {
             put("id", id); put("ownerId", owner); put("title", title.take(200))
+            put("conversationId", conversationId)
             if (separateSpeakers) put("separateSpeakers", true)
             put("state", "recording"); put("startedAt", System.currentTimeMillis())
             put("endedAt", JSONObject.NULL); put("durationMs", 0); put("savedDurationMs", 0)

@@ -1,123 +1,220 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@yonder/ui-components";
-import { ownedBots, useApi, useContacts, usePerson } from "@yonder/ui-data";
-import { useState } from "react";
+import { memberFailureText } from "@yonder/feature-members";
+import { Button, Field, TextArea } from "@yonder/ui-components";
+import { useEditSocialKnowledge, useSaveSocialPersona, useSocialKnowledge, useSocialPersona } from "@yonder/ui-data";
+import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-export function SocialSettings() {
+interface EditorProps {
+	label: string;
+	value: string;
+	hint?: string;
+	onCancel?: (() => void) | undefined;
+	onSaved?: (() => void) | undefined;
+	onDirtyChange?: ((dirty: boolean) => void) | undefined;
+	onSave: (value: string, onSaved: () => void) => void;
+	busy: boolean;
+	pending: boolean;
+	saved: boolean;
+	error: string;
+}
+
+function SocialEditor({
+	label,
+	value,
+	hint,
+	onCancel,
+	onSaved,
+	onDirtyChange,
+	onSave,
+	busy,
+	pending,
+	saved,
+	error,
+}: EditorProps) {
 	const { t } = useTranslation();
-	const api = useApi();
-	const client = useQueryClient();
-	const person = usePerson();
-	const contacts = useContacts();
-	const bots = ownedBots(contacts.data?.items, person?.id);
-	const [botId, setBotId] = useState("");
+	const id = useId();
 	const [edit, setEdit] = useState<string | null>(null);
-	const data = useQuery({ queryKey: ["social-knowledge"], queryFn: () => api.socialKnowledge() });
-	const save = useMutation({
-		mutationFn: (value: string) => api.saveSocialKnowledge(value),
-		onSuccess: (value) => {
-			client.setQueryData(["social-knowledge"], value);
-			setEdit(null);
-		},
-	});
-	const draft = useMutation({
-		mutationFn: ({ id, approve }: { id: string; approve: boolean }) => api.socialDraft(id, approve),
-		onSuccess: (value) => client.setQueryData(["social-knowledge"], value),
-	});
+	const changed = edit !== null && edit !== value;
+	useEffect(() => {
+		onDirtyChange?.(changed);
+	}, [changed, onDirtyChange]);
 	return (
-		<section className="flex flex-col gap-[var(--spacing-3)] py-[var(--spacing-4)]">
-			<h2>{t("members.social.title")}</h2>
-			{data.isLoading ? (
-				<p role="status">{t("app.loading")}</p>
-			) : data.data ? (
-				<>
-					<label className="flex flex-col gap-[var(--spacing-2)]">
-						{t("members.social.approved")}
-						<textarea
-							rows={6}
-							className="rounded-[var(--radius-control-sm)] bg-[var(--color-bg-subtle)] p-[var(--spacing-2)]"
-							value={edit ?? data.data.approved}
-							maxLength={20000}
-							onChange={(event) => setEdit(event.target.value)}
-						/>
-					</label>
-					<Button disabled={edit === null} loading={save.isPending} onClick={() => save.mutate(edit ?? "")}>
-						{t("members.social.save")}
+		<form
+			className="flex flex-col gap-[var(--spacing-6)]"
+			onSubmit={(event) => {
+				event.preventDefault();
+				if (changed && !busy)
+					onSave(edit, () => {
+						setEdit(null);
+						onDirtyChange?.(false);
+						onSaved?.();
+					});
+			}}
+		>
+			<Field htmlFor={id} label={label} hint={hint} error={error || undefined}>
+				<TextArea
+					id={id}
+					aria-describedby={hint || error ? `${id}-hint` : undefined}
+					invalid={Boolean(error)}
+					rows={6}
+					maxLength={20000}
+					value={edit ?? value}
+					onChange={(event) => setEdit(event.target.value)}
+					disabled={pending}
+				/>
+			</Field>
+			<div className="flex flex-wrap items-center justify-end gap-[var(--spacing-2)] border-t border-[var(--color-border-subtle)] pt-[var(--spacing-4)]">
+				{saved && edit === null ? (
+					<p role="status" className="me-auto text-caption text-[var(--color-text-secondary)]">
+						{t("members.social.saved")}
+					</p>
+				) : null}
+				{onCancel ? (
+					<Button
+						disabled={pending}
+						onClick={() => {
+							onDirtyChange?.(false);
+							onCancel();
+						}}
+					>
+						{t("app.cancel")}
 					</Button>
-					{data.data.drafts.map((item) => (
-						<div key={item.id} className="flex flex-col gap-[var(--spacing-2)]">
-							<p>{t("members.social.draft")}</p>
-							<p className="whitespace-pre-wrap">{item.content}</p>
-							<div className="flex gap-[var(--spacing-2)]">
-								<Button
-									disabled={edit !== null || draft.isPending}
-									onClick={() => draft.mutate({ id: item.id, approve: true })}
-								>
-									{t("members.social.approve")}
-								</Button>
-								<Button disabled={draft.isPending} onClick={() => draft.mutate({ id: item.id, approve: false })}>
-									{t("members.social.discard")}
-								</Button>
-							</div>
-						</div>
-					))}
-				</>
-			) : (
-				<p role="alert">{t("members.errors.unknown")}</p>
-			)}
-			{save.isError || draft.isError ? <p role="alert">{t("members.errors.unknown")}</p> : null}
-			<label className="flex flex-col gap-[var(--spacing-2)]">
-				{t("members.social.chooseBot")}
-				<select
-					value={botId}
-					onChange={(event) => setBotId(event.target.value)}
-					className="bg-[var(--color-bg-subtle)] p-[var(--spacing-2)]"
-				>
-					<option value="">{t("members.social.chooseBot")}</option>
-					{bots.map((bot) => (
-						<option key={bot.id} value={bot.id}>
-							{bot.displayName}
-						</option>
-					))}
-				</select>
-			</label>
-			{botId ? <SocialPersona key={botId} botId={botId} /> : null}
-		</section>
+				) : null}
+				<Button variant="primary" type="submit" loading={pending} disabled={!changed || busy}>
+					{t("app.save")}
+				</Button>
+			</div>
+		</form>
 	);
 }
 
-function SocialPersona({ botId }: { botId: string }) {
+function SocialLoadFailure({ error, retry }: { error: unknown; retry: () => void }) {
 	const { t } = useTranslation();
-	const api = useApi();
-	const client = useQueryClient();
-	const [edit, setEdit] = useState<string | null>(null);
-	const data = useQuery({ queryKey: ["social-persona", botId], queryFn: () => api.botSocial(botId) });
-	const save = useMutation({
-		mutationFn: (value: string) => api.saveBotSocial(botId, value),
-		onSuccess: (value) => {
-			client.setQueryData(["social-persona", botId], value);
-			setEdit(null);
-		},
-	});
-	if (data.isLoading) return <p role="status">{t("app.loading")}</p>;
-	if (!data.data) return <p role="alert">{t("members.errors.unknown")}</p>;
 	return (
-		<>
-			<label className="flex flex-col gap-[var(--spacing-2)]">
-				{t("members.social.persona")}
-				<textarea
-					rows={6}
-					className="rounded-[var(--radius-control-sm)] bg-[var(--color-bg-subtle)] p-[var(--spacing-2)]"
-					value={edit ?? data.data.content}
-					maxLength={20000}
-					onChange={(event) => setEdit(event.target.value)}
-				/>
-			</label>
-			<Button disabled={edit === null} loading={save.isPending} onClick={() => save.mutate(edit ?? "")}>
-				{t("members.social.save")}
+		<div className="flex flex-wrap items-center gap-[var(--spacing-3)]">
+			<p role="alert" className="text-caption text-[var(--color-danger)]">
+				{memberFailureText(error, t) || t("app.loadFailed")}
+			</p>
+			<Button variant="link" size="sm" onClick={retry}>
+				{t("app.retry")}
 			</Button>
-			{save.isError ? <p role="alert">{t("members.errors.unknown")}</p> : null}
-		</>
+		</div>
+	);
+}
+
+interface EditNavigation {
+	onCancel?: () => void;
+	onSaved?: () => void;
+}
+
+export function SocialInfo({ onCancel, onSaved }: EditNavigation) {
+	const { t } = useTranslation();
+	const query = useSocialKnowledge();
+	const { edit, busy } = useEditSocialKnowledge();
+	if (query.isLoading) return <p role="status">{t("app.loading")}</p>;
+	if (!query.data) return <SocialLoadFailure error={query.error} retry={() => void query.refetch()} />;
+
+	return (
+		<SocialEditor
+			label={t("members.social.approved")}
+			value={query.data.approved}
+			onCancel={onCancel}
+			onSaved={onSaved}
+			onSave={(content, onSuccess) => edit.mutate({ content }, { onSuccess })}
+			busy={busy}
+			pending={edit.isPending}
+			saved={edit.isSuccess}
+			error={memberFailureText(edit.error, t)}
+		/>
+	);
+}
+
+export function SocialDrafts() {
+	const { t, i18n } = useTranslation();
+	const query = useSocialKnowledge();
+	const { edit, busy } = useEditSocialKnowledge();
+	if (query.isLoading) return <p role="status">{t("app.loading")}</p>;
+	if (!query.data) return <SocialLoadFailure error={query.error} retry={() => void query.refetch()} />;
+	const dateFormat = new Intl.DateTimeFormat(i18n.resolvedLanguage, { dateStyle: "medium", timeStyle: "short" });
+	const change = edit.variables && "id" in edit.variables ? edit.variables : undefined;
+
+	return (
+		<div className="flex flex-col gap-[var(--spacing-4)]">
+			{query.data.drafts.length === 0 ? (
+				<p className="text-caption text-[var(--color-text-secondary)]">{t("members.social.noDrafts")}</p>
+			) : null}
+			{query.data.drafts.map((item) => {
+				const date = new Date(item.createdAt);
+				const reviewing = change?.id === item.id;
+				return (
+					<article
+						key={item.id}
+						className="flex flex-col gap-[var(--spacing-3)] rounded-[var(--radius-lg)] bg-[var(--color-bg-surface)] p-[var(--spacing-4)]"
+					>
+						<time dateTime={item.createdAt} className="text-caption text-[var(--color-text-secondary)]">
+							{dateFormat.format(date)}
+						</time>
+						<p className="whitespace-pre-wrap text-body [overflow-wrap:anywhere]">{item.content}</p>
+						{reviewing && edit.isError ? (
+							<p role="alert" className="text-caption text-[var(--color-danger)]">
+								{memberFailureText(edit.error, t)}
+							</p>
+						) : null}
+						<div className="flex flex-wrap justify-end gap-[var(--spacing-2)]">
+							<Button
+								disabled={busy}
+								loading={reviewing && edit.isPending && change.approve === false}
+								onClick={() => edit.mutate({ id: item.id, approve: false })}
+							>
+								{t("members.social.discard")}
+							</Button>
+							<Button
+								variant="primary"
+								disabled={busy}
+								loading={reviewing && edit.isPending && change.approve === true}
+								onClick={() => edit.mutate({ id: item.id, approve: true })}
+							>
+								{t("members.social.approve")}
+							</Button>
+						</div>
+					</article>
+				);
+			})}
+			{edit.isSuccess && change ? (
+				<p role="status" className="text-caption text-[var(--color-text-secondary)]">
+					{t(change.approve ? "members.social.published" : "members.social.discarded")}
+				</p>
+			) : null}
+		</div>
+	);
+}
+
+export function SocialPersona({
+	botId,
+	onCancel,
+	onSaved,
+	onDirtyChange,
+}: EditNavigation & { botId: string; onDirtyChange?: ((dirty: boolean) => void) | undefined }) {
+	const { t } = useTranslation();
+	const query = useSocialPersona(botId);
+	const save = useSaveSocialPersona(botId);
+	if (query.isLoading) return <p role="status">{t("app.loading")}</p>;
+	if (!query.data) return <SocialLoadFailure error={query.error} retry={() => void query.refetch()} />;
+
+	return (
+		<SocialEditor
+			key={botId}
+			label={t("members.social.persona")}
+			value={query.data.content}
+			hint={t("members.social.personaHint")}
+			onCancel={onCancel}
+			onSaved={onSaved}
+			onDirtyChange={onDirtyChange}
+			onSave={(content, onSuccess) => save.mutate(content, { onSuccess })}
+			busy={save.isPending}
+			pending={save.isPending}
+			saved={save.isSuccess}
+			error={memberFailureText(save.error, t)}
+		/>
 	);
 }

@@ -40,6 +40,42 @@ test.each([false, true])("own Bot attachment menu opens before a picker (mobile=
 	picker.mockRestore();
 });
 
+test("mobile swaps the empty composer between typing and holding to talk", () => {
+	const send = vi.fn();
+	const props = {
+		recipientName: "Bot",
+		onDraftChange: vi.fn(),
+		onSend: send,
+		onSendVoice: vi.fn().mockResolvedValue(undefined),
+		onStop: vi.fn(),
+		streaming: false,
+		disabled: false,
+		disconnected: false,
+		sendOnEnter: false,
+		mobilePicker: true,
+	};
+	const i18n = createI18n("en");
+	const composer = (draft: string) => (
+		<I18nextProvider i18n={i18n}>
+			<Composer {...props} draft={draft} />
+		</I18nextProvider>
+	);
+	const view = render(composer(""));
+	expect(screen.getByRole("textbox")).not.toHaveAttribute("placeholder");
+	expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Voice input" }));
+	expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+	expect(screen.getByRole("button", { name: "Hold to talk" })).toBeEnabled();
+	fireEvent.click(screen.getByRole("button", { name: "Text input" }));
+	expect(screen.getByRole("textbox")).toHaveFocus();
+	view.rerender(composer("A message"));
+	expect(screen.queryByRole("button", { name: "Voice input" })).not.toBeInTheDocument();
+	fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+	expect(send).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Send" }));
+	expect(send).toHaveBeenCalledOnce();
+});
+
 test("desktop Enter sends, while Shift, composition and mobile Enter do not", () => {
 	const send = vi.fn();
 	const props = {

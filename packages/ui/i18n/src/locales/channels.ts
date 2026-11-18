@@ -1,5 +1,9 @@
 export const channelsEn = {
 	title: "Channels",
+	selectBot: "Choose a Bot",
+	connections: "Channel connections",
+	disconnected: "Not connected",
+	connectionFailed: "Connection failed",
 	feishu: "Feishu",
 	wechat: "WeChat iLink",
 	connectWechat: "Connect WeChat iLink",
@@ -51,6 +55,10 @@ export const channelsEn = {
 
 export const channelsZhCN: Record<keyof typeof channelsEn, string> = {
 	title: "消息渠道",
+	selectBot: "选择 Bot",
+	connections: "渠道连接",
+	disconnected: "未连接",
+	connectionFailed: "连接异常",
 	feishu: "飞书",
 	wechat: "微信 iLink",
 	connectWechat: "连接微信 iLink",

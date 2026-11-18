@@ -27,7 +27,7 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 	// A group lifecycle message has no body but still belongs in the list preview: the row renders it
 	// from `system` in the reader's language (19 第三节).
 	const isSystem = message.type === "system";
-	if (!isSystem && !message.body?.trim()) return;
+	if (!isSystem && !message.voice && !message.body?.trim()) return;
 	client.setQueryData<{ items: Conversation[] }>(keys.conversations.list(), (current) => {
 		if (!current) return current;
 		return {
@@ -46,6 +46,7 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 						createdAt: message.createdAt,
 						type: message.type,
 						...(message.system ? { system: message.system } : {}),
+						...(message.voice ? { voice: message.voice } : {}),
 					},
 				};
 			}),

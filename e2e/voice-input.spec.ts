@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { conversation, isolateChat } from "./chat-fixture.ts";
 
 test("dictation retains the selection and shows a stop control", async ({ page }, testInfo) => {
-	await isolateChat(page);
+	const api = await isolateChat(page);
 	await page.routeWebSocket("**/v1/audio/transcriptions/realtime*", (socket) => {
 		socket.onMessage((data) => {
 			if (typeof data !== "string") return;
@@ -40,4 +40,6 @@ test("dictation retains the selection and shows a stop control", async ({ page }
 	await page.screenshot({ path: testInfo.outputPath("previews/voice-listening.png"), animations: "disabled" });
 	await page.getByRole("button", { name: "停止录音" }).click();
 	await expect(page.getByRole("button", { name: "语音输入" })).toBeVisible();
+	await expect(input).toHaveValue("前你好后");
+	expect(api.sent).toEqual([]);
 });

@@ -18,7 +18,7 @@ export default function Contacts() {
 	return (
 		<Page title={t("联系人", "Contacts")}>
 			<View className="mini-card">
-				<Field label={t("搜索 Yonder 号或昵称", "Search handle or name")} value={query} onInput={setQuery} />
+				<Field label={t("搜索 ID 或昵称", "Search ID or name")} value={query} onInput={setQuery} />
 				<Button
 					disabled={!query.trim()}
 					onClick={() => void action(async () => setResults((await api.searchContacts(query.trim())).items))}

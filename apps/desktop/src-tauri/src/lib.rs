@@ -1,5 +1,7 @@
 use tauri::Manager;
 
+mod notifications;
+
 #[cfg(desktop)]
 mod contact_window;
 
@@ -57,8 +59,10 @@ pub fn run() {
         .manage(local_files_store::LocalFilesState::default())
 
         .plugin(tauri_plugin_keyring::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init());
-    builder
+    let app = builder
+        .plugin(notifications::init())
         .setup(|app| {
             // Local/CI builds have no updater key. Release builds inject the real public key;
             // without it we leave the plugin unregistered rather than trust a placeholder.
@@ -76,6 +80,9 @@ pub fn run() {
             window.show()?;
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("failed to run Yonder");
+    #[cfg(target_os = "ios")]
+    notifications::install_ios_delegate();
+    app.run(|_, _| {});
 }

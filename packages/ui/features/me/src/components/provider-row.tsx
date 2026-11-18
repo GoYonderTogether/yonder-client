@@ -1,6 +1,8 @@
 import type { Provider } from "@yonder/protocol";
 import { Button, IconButton, IconTile } from "@yonder/ui-components";
+import { Overlay, useShellChrome } from "@yonder/ui-shell";
 import { Boxes, Check, MoreHorizontal, Pencil } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export function ProviderRow({
@@ -21,8 +23,15 @@ export function ProviderRow({
 	onDelete: () => void;
 }) {
 	const { t } = useTranslation();
+	const { mode, desktop } = useShellChrome();
+	const [actionsOpen, setActionsOpen] = useState(false);
 	if (provider.scope !== "user") return null;
 	const active = provider.isDefault && provider.enabled && provider.keyConfigured;
+	const closeActions = () => setActionsOpen(false);
+	function runAction(action: () => void) {
+		closeActions();
+		action();
+	}
 	return (
 		<li
 			className={`flex flex-wrap items-center gap-[var(--spacing-2)] rounded-[var(--radius-card)] border p-[var(--spacing-3)] ${active ? "border-[var(--color-border-strong)] bg-[var(--color-bg-selected)]" : "border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"}`}
@@ -61,49 +70,47 @@ export function ProviderRow({
 					</p>
 				) : null}
 			</div>
-			{provider.scope === "user" ? (
-				<div className="flex items-center">
-					{!provider.isDefault ? (
-						<IconButton
-							size="sm"
-							aria-label={t("models.setDefault")}
-							title={t("models.setDefault")}
-							onClick={onDefault}
-						>
-							<Check size={16} aria-hidden="true" />
-						</IconButton>
-					) : null}
-					<IconButton size="sm" aria-label={t("models.editAction")} title={t("models.editAction")} onClick={onEdit}>
-						<Pencil size={16} aria-hidden="true" />
+			<div className="flex items-center">
+				{!provider.isDefault ? (
+					<IconButton size="sm" aria-label={t("models.setDefault")} title={t("models.setDefault")} onClick={onDefault}>
+						<Check size={16} aria-hidden="true" />
 					</IconButton>
-					<details className="relative">
-						<summary
-							aria-label={t("models.moreActions")}
-							title={t("models.moreActions")}
-							className="flex size-[var(--control-sm)] cursor-pointer list-none items-center justify-center rounded-[var(--radius-control-sm)] hover:bg-[var(--color-bg-hover)]"
-						>
-							<MoreHorizontal size={16} aria-hidden="true" />
-						</summary>
-						<div className="absolute end-0 z-10 flex min-w-max flex-col rounded-[var(--radius-control)] bg-[var(--color-bg-surface)] p-[var(--spacing-2)] shadow-[var(--shadow-lg)]">
-							<Button size="sm" variant="ghost" onClick={onDuplicate}>
-								{t("models.duplicate")}
-							</Button>
-							<Button size="sm" variant="ghost" onClick={onTest}>
-								{t("models.test")}
-							</Button>
-							<Button
-								size="sm"
-								variant="danger"
-								onClick={onDelete}
-								disabled={provider.isDefault}
-								title={provider.isDefault ? t("models.cannotDeleteDefault") : undefined}
-							>
-								{t(provider.isDefault ? "models.cannotDeleteDefault" : "models.delete")}
-							</Button>
-						</div>
-					</details>
+				) : null}
+				<IconButton size="sm" aria-label={t("models.editAction")} title={t("models.editAction")} onClick={onEdit}>
+					<Pencil size={16} aria-hidden="true" />
+				</IconButton>
+				<IconButton
+					size="sm"
+					aria-label={t("models.moreActions")}
+					title={t("models.moreActions")}
+					aria-haspopup="dialog"
+					aria-expanded={actionsOpen}
+					onClick={() => setActionsOpen(true)}
+				>
+					<MoreHorizontal size={16} aria-hidden="true" />
+				</IconButton>
+			</div>
+			<Overlay
+				open={actionsOpen}
+				onClose={closeActions}
+				title={provider.name}
+				mode={desktop && mode === "mobile" ? "compact" : mode}
+				size="small"
+				mobilePresentation="sheet"
+				closeLabel={t("app.close")}
+			>
+				<div className="grid gap-[var(--spacing-2)] p-[var(--spacing-4)]">
+					<Button variant="ghost" onClick={() => runAction(onDuplicate)}>
+						{t("models.duplicate")}
+					</Button>
+					<Button variant="ghost" onClick={() => runAction(onTest)}>
+						{t("models.test")}
+					</Button>
+					<Button variant="danger" disabled={provider.isDefault} onClick={() => runAction(onDelete)}>
+						{t(provider.isDefault ? "models.cannotDeleteDefault" : "models.delete")}
+					</Button>
 				</div>
-			) : null}
+			</Overlay>
 		</li>
 	);
 }

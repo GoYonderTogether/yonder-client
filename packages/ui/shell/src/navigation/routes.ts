@@ -46,6 +46,7 @@ export const ROUTES: readonly RouteEntry[] = [
 	{ path: "/me", layer: "detail" },
 	{ path: "/me/:section", layer: "detail" },
 	{ path: "/me/:section/:page", layer: "detail" },
+	{ path: "/me/bots/:botId/:page", layer: "detail" },
 ];
 
 export function tabPath(tab: TabId): string {

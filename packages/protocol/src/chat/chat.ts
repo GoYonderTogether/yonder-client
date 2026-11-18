@@ -107,8 +107,10 @@ export interface Conversation {
 		/** Set for a system message, so the list row can show it in the reader's language. */
 		type?: "text" | "task_notice" | "system";
 		system?: SystemEvent;
+		voice?: { durationMs: number };
 	} | null;
 	unreadCount: number;
+	muted?: boolean;
 	pinned: boolean;
 	version: number;
 }
@@ -157,8 +159,11 @@ export interface Message {
 	system?: SystemEvent;
 	body: string | null;
 	attachments: Attachment[];
+	voice?: { durationMs: number };
 	replyToId: string | null;
 	createdAt: string;
+	/** When a streamed reply became eligible for unread counts. */
+	readableAt?: string;
 	editedAt: string | null;
 	streaming: boolean;
 	version: number;
@@ -184,6 +189,7 @@ export interface SendMessageRequest {
 	type: "text";
 	body: string;
 	attachmentIds?: string[];
+	voice?: { durationMs: number };
 	clientNonce: string;
 	skillIds?: string[];
 	mentionedMemberIds?: string[];
@@ -214,6 +220,8 @@ export interface UpdateBotRequest {
 	displayName?: string;
 	avatarColor?: string;
 	clearAvatar?: boolean;
+	nicknames?: string[];
+	selectedNickname?: string | null;
 }
 
 export interface CreateBotResponse {

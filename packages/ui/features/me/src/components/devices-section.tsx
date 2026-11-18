@@ -1,4 +1,4 @@
-import { EmptyState, ListGroup, ListRow } from "@yonder/ui-components";
+import { Button, EmptyState, ListGroup, ListRow } from "@yonder/ui-components";
 import { useDevices } from "@yonder/ui-data";
 import { Laptop } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -20,7 +20,19 @@ export function DevicesSection({ onAddDevice }: { onAddDevice?: (() => void) | u
 			</ListGroup>
 		);
 	if (!devices.data?.items.length)
-		return <EmptyState icon={<Laptop size={24} strokeWidth={1.6} />} title={t("me.devices.emptyTitle")} />;
+		return (
+			<EmptyState
+				icon={<Laptop size={24} strokeWidth={1.6} />}
+				title={t("me.devices.emptyTitle")}
+				action={
+					onAddDevice ? (
+						<Button variant="primary" onClick={onAddDevice}>
+							{t("me.devices.add")}
+						</Button>
+					) : undefined
+				}
+			/>
+		);
 	return (
 		<ListGroup>
 			{devices.data.items.map((device) => (

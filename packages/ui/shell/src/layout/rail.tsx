@@ -1,10 +1,9 @@
 import { cn } from "@yonder/ui-components";
 import { Settings } from "lucide-react";
-import type { ReactNode } from "react";
+import type { MouseEventHandler, ReactNode } from "react";
 import type { TabId } from "../navigation/routes.ts";
 import { TABS } from "../navigation/routes.ts";
 import { TAB_ICONS } from "./tab-icons.tsx";
-import { TopBar } from "./top-bar.tsx";
 
 export interface RailProps {
 	current: TabId;
@@ -12,7 +11,7 @@ export interface RailProps {
 	labels: Record<TabId, string>;
 	ariaLabel: string;
 	renderAvatar: (size: 32) => ReactNode;
-	onOpenMe: () => void;
+	onOpenMe: MouseEventHandler<HTMLButtonElement>;
 	meOpen: boolean;
 	meLabel: string;
 	settingsLabel: string;
@@ -52,9 +51,12 @@ export function Rail({
 			aria-label={ariaLabel}
 			className="flex h-full w-[var(--rail-width)] shrink-0 flex-col items-center pb-[var(--spacing-4)]"
 		>
-			<div className="w-full">
-				<TopBar center={titlebarInset ? null : avatar} />
-			</div>
+			<header
+				data-tauri-drag-region
+				className="flex h-[var(--titlebar-height)] w-full shrink-0 items-center justify-center"
+			>
+				{titlebarInset ? null : avatar}
+			</header>
 			{titlebarInset ? (
 				<div className="flex h-[var(--titlebar-height)] items-center justify-center">{avatar}</div>
 			) : null}
