@@ -11,7 +11,12 @@ device checks.
 | `Field`, `TextInput`, `TextArea`                  | label above the field, a hint or an error line wired by `aria-describedby`     |
 | `Card` + `CardHeader` / `CardBody` / `CardFooter` | the product's basic surface                                                    |
 | `Avatar`                                          | person or Bot, sizes 16–64, a stable tint from the name when there is no image |
-| `EmptyState`                                      | icon, one honest sentence, optional actions                                    |
+| `EmptyState`                                      | page or inline; icon, one honest sentence, optional actions                    |
+| `ListGroup` / `ListRow`                           | button, static, value and control (switch) rows; inset hairline                |
+| `Switch`, `Badge`, `Banner`, `InlineError`        | immediate toggle; small status mark; page notice; inline failure with retry    |
+| `Spinner`, `LoadingRow`, `Menu`, `MenuSurface`    | the one spinner; a loading line; action menu and the shared floating surface   |
+
+Which component for which pattern: `docs/design-system.md`.
 
 ## Rules
 

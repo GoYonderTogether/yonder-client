@@ -19,14 +19,15 @@
 | 文件                                                    | 职责                                                       |
 | ------------------------------------------------------- | ---------------------------------------------------------- |
 | `layout/app-shell.tsx`                                  | 主列表、详情和 Me 层的呈现，保留宽屏分栏                   |
-| `layout/frames.tsx`                                     | 列表与页面的公共顶栏、滚动区域                             |
+| `layout/frames.tsx`                                     | 列表与页面的公共顶栏、滚动区域；`PageFrame` 的五种宽度     |
 | `layout/rail.tsx`                                       | 桌面头像、消息、任务、记忆入口                             |
 | `layout/mobile-dock.tsx`                                | 手机输入框与底部导航                                       |
 | `layout/pane-splitter.tsx`、`layout/use-pane-layout.ts` | 宽屏分栏拖动、键盘调整与收起恢复                           |
 | `navigation/gesture-panel.tsx`                          | 连续指针位移、方向、速度与 Motion 弹簧、覆盖层退出生命周期 |
 | `navigation/use-dismiss.ts`                             | 顶层优先的 Esc 返回                                        |
 | `navigation/routes.ts`                                  | 页面与 tab 的路由登记                                      |
-| `overlay/overlay.tsx`                                   | 宽屏对话框，受限宽度下从右进入的操作层                     |
+| `overlay/overlay.tsx`                                   | 宽屏对话框，受限宽度下从右进入的操作层；底部操作区         |
+| `overlay/confirm-dialog.tsx`                            | 所有确认：取消在左、操作在右，手机从底部升起               |
 | `responsive/layout-mode.ts`                             | 宽度阈值、布局模式与列表宽度边界                           |
 
 URL 和浏览器历史仍由应用的 React Router 管理；骨架只调用传入的返回动作，不创建第二套 URL 路由。已知父历史通过 pop 返回，刷新深链没有已知父历史时 replace 到语义父级。
@@ -37,7 +38,7 @@ URL 和浏览器历史仍由应用的 React Router 管理；骨架只调用传�
 
 ## 分层约定
 
-- 页面通过 `ListFrame` / `PageFrame` 使用骨架提供的顶栏与外边距。
+- 页面通过 `ListFrame` / `PageFrame` 使用骨架提供的顶栏与外边距；宽度怎么选见 `docs/design-system.md`。
 - 共用 `useDismiss` 处理 Esc，不在功能页重复监听。
 - 新页面同时登记路由和应用装配。
 - 可引用 tokens、i18n、components 与 protocol，不引用 feature 或 data。

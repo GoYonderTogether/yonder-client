@@ -35,7 +35,7 @@ packages/api-client ─▶ packages/protocol（不依赖任何包）
   `tools/check-dependency-direction.mjs` 的 `LAYERS` 表里，新包必须先登记。
 - 包只能从入口导入（`tools/check-entry-imports.mjs`）。
 - 单文件 300 行警告、500 行失败（`tools/check-file-length.mjs`）。
-- 文案必须同时有 `zh-CN` 和 `en`；颜色、尺寸、圆角只用 tokens；图标用 `lucide-react`。
+- 文案必须同时有 `zh-CN` 和 `en`；颜色、尺寸、圆角只用 tokens；图标用 `lucide-react`。用哪个 token 和组件见 `docs/design-system.md`；`tools/check-ui-raw-values.mjs` 按基线拦新增原始值，`tools/check-tailwind-sources.mjs` 保证每个 UI 包都被 Tailwind 扫到。
 - `ui/data` 与小程序消息状态都引用 `chat-model` 的纯规则；`ui/components` 与小程序头像也复用其中的首字、稳定配色和 BotFace 路径数据。数据层不为合并消息导入展示 CSS 或另一版本的 React。`chat-presentation` 兼容 React 18/19，DOM 与 Taro 分别提供元素和原生事件适配。
 
 | feature            | 内容                                                                                                              |
@@ -104,17 +104,18 @@ packages/api-client ─▶ packages/protocol（不依赖任何包）
 
 ## 验证
 
-- 合入前跑 `npm run check`：Biome、`tsc -b`、Vitest、发布脚本测试、三个结构检查、小程序检查。
+- 合入前跑 `npm run check`：Biome、`tsc -b`、Vitest、发布脚本测试、三个结构检查、Tailwind 来源和原始值检查、小程序检查。
 - 涉及真实流程补 Playwright（`e2e/`）或原生测试（`scripts/native-*-test/`、`scripts/desktop-updater-test/`）。
 - 不操作用户屏幕做验证。
 
 ## 文档放哪里
 
-| 位置                   | 放什么                                       |
-| ---------------------- | -------------------------------------------- |
-| `docs/architecture.md` | 本文件                                       |
-| `docs/contracts/`      | 长期有效的行为约定（技能、语音输入、小程序） |
-| `docs/operations/`     | 发版和缓存发布手册                           |
-| `docs/third-party/`    | 第三方素材与许可登记                         |
+| 位置                    | 放什么                                       |
+| ----------------------- | -------------------------------------------- |
+| `docs/architecture.md`  | 本文件                                       |
+| `docs/design-system.md` | tokens、组件目录、页面骨架和界面规则         |
+| `docs/contracts/`       | 长期有效的行为约定（技能、语音输入、小程序） |
+| `docs/operations/`      | 发版和缓存发布手册                           |
+| `docs/third-party/`     | 第三方素材与许可登记                         |
 
 一次性的评审和验收报告放在公开仓库之外。
