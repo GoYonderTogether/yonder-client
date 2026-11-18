@@ -85,6 +85,7 @@ export const en = {
 	},
 
 	nav: {
+		settings: "Settings",
 		chat: "Chat",
 		messages: "Messages",
 		tasks: "Tasks",

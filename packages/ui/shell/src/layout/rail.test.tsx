@@ -14,6 +14,7 @@ test("the macOS inset reserves a draggable 52px row above the avatar", () => {
 			onOpenMe={vi.fn()}
 			meOpen={false}
 			meLabel="Me"
+			settingsLabel="Settings"
 			titlebarInset
 		/>,
 	);

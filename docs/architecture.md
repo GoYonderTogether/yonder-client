@@ -57,7 +57,7 @@ packages/api-client ─▶ packages/protocol（不依赖任何包）
 
 ## 界面模型
 
-- 三个标签：消息、任务、记忆（`packages/ui/shell/src/navigation/routes.ts` 的 `TABS`）。「我」不是标签，从左上角头像进，是 detail 层的分组设置页（`/me/:section`）。
+- 三个标签：消息、任务、记忆（`packages/ui/shell/src/navigation/routes.ts` 的 `TABS`）。「我」不是标签，从左上角头像进入；桌面竖栏底部的设置按钮打开同一覆盖层，重复点击任一入口关闭并返回原页面，手机不显示该设置按钮。是 detail 层的分组设置页（`/me/:section`）。
 - 三层：tab、detail、overlay。返回、Esc、滑动退出走同一个出口。
 - 布局模式由宽度决定（`layout-mode.ts`：`wide`、`medium`、`compact`、`mobile`）：宽屏三栏，中屏浮动列表，桌面窄窗保持桌面布局，手机单屏加底部 dock（标签和输入框在同一个容器）。手机必须是真正的手机布局，不是缩小的桌面。
 - 登录页和落地页的最底层背景是 `ui/components` 的 `AmbientField`：浅色主题是窗光，深色是星轨，两者是 beste-ui 的 WebGL 着色器原样拷贝（MIT，在 `ambient/vendor/` 里，带 `LICENSE` 和 `SOURCE`），不进文件长度和格式检查。页面色按 `--ambient-veil` 盖在上面，浅色 0.9、深色 0.55。

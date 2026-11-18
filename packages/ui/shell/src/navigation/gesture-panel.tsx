@@ -68,7 +68,6 @@ export function GesturePanel({
 		const width = vertical ? bounds.height : bounds.width;
 		animation.current?.stop();
 		if (inline) {
-			if (!shown) remove?.();
 			x.set(0);
 			setVisible(true);
 			initialized.current = true;
@@ -83,7 +82,6 @@ export function GesturePanel({
 			x.set(shown ? 0 : direction * width);
 			if (!shown) {
 				setVisible(false);
-				remove?.();
 			}
 			return;
 		}
@@ -101,6 +99,11 @@ export function GesturePanel({
 		});
 		return () => animation.current?.stop();
 	}, [shown, inline, initial, direction, vertical, reduced, remove, x]);
+
+	// Complete immediate exits after Motion has committed its presence bookkeeping.
+	useEffect(() => {
+		if ((inline || reduced) && !shown) remove?.();
+	}, [inline, reduced, shown, remove]);
 
 	useEffect(() => {
 		if (!shown || !active || !modal) return;

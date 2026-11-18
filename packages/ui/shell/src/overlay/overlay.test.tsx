@@ -3,10 +3,20 @@
  * The overlay is layer three, so its test lives here: it is a modal on a wide viewport, a sheet on
  * a narrow one, and every exit (Esc, the close button, a click outside) goes through one callback.
  */
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { useDismiss } from "../navigation/use-dismiss.ts";
 import { Overlay } from "./overlay.tsx";
+
+const motionPreference = vi.hoisted(() => ({ reduced: false }));
+vi.mock("motion/react", async (original) => ({
+	...(await original<typeof import("motion/react")>()),
+	useReducedMotion: () => motionPreference.reduced,
+}));
+beforeEach(() => {
+	motionPreference.reduced = false;
+});
 
 function DetailWithOverlay({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
 	useDismiss(true, onBack);
@@ -148,3 +158,38 @@ test("a bottom sheet keeps body scrolling and uses its handle for dismissal", ()
 	pointer(handle, "pointerup", 230);
 	expect(onClose).toHaveBeenCalledOnce();
 });
+
+function DismissibleOverlay({ mode }: { mode: "wide" | "medium" | "compact" | "mobile" }) {
+	const [open, setOpen] = useState(false);
+	return (
+		<>
+			<button type="button" onClick={() => setOpen(true)}>
+				Open
+			</button>
+			<Overlay open={open} onClose={() => setOpen(false)} title="Dismiss test" mode={mode}>
+				<p>Dialog content</p>
+			</Overlay>
+		</>
+	);
+}
+
+test.each(
+	(["wide", "medium", "compact", "mobile"] as const).flatMap((mode) =>
+		[false, true].map((reduced) => ({ mode, reduced })),
+	),
+)(
+	"$mode controlled overlay closes and reopens through every exit (reduced motion: $reduced)",
+	async ({ mode, reduced }) => {
+		motionPreference.reduced = reduced;
+		render(<DismissibleOverlay mode={mode} />);
+		for (const exit of ["close", "backdrop", "Escape"]) {
+			for (let attempt = 0; attempt < 2; attempt++) {
+				fireEvent.click(screen.getByRole("button", { name: "Open" }));
+				expect(screen.getByRole("dialog", { name: "Dismiss test" })).toBeInTheDocument();
+				if (exit === "Escape") fireEvent.keyDown(window, { key: "Escape" });
+				else fireEvent.click(screen.getAllByRole("button", { name: "close" })[exit === "close" ? 1 : 0] as HTMLElement);
+				await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeInTheDocument());
+			}
+		}
+	},
+);

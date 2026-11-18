@@ -86,6 +86,7 @@ export const zhCN: Messages = {
 	},
 
 	nav: {
+		settings: "设置",
 		chat: "对话",
 		messages: "消息",
 		tasks: "任务",

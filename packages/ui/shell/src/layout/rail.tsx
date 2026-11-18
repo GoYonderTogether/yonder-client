@@ -1,4 +1,5 @@
 import { cn } from "@yonder/ui-components";
+import { Settings } from "lucide-react";
 import type { ReactNode } from "react";
 import type { TabId } from "../navigation/routes.ts";
 import { TABS } from "../navigation/routes.ts";
@@ -14,6 +15,7 @@ export interface RailProps {
 	onOpenMe: () => void;
 	meOpen: boolean;
 	meLabel: string;
+	settingsLabel: string;
 	titlebarInset: boolean;
 }
 
@@ -27,6 +29,7 @@ export function Rail({
 	onOpenMe,
 	meOpen,
 	meLabel,
+	settingsLabel,
 	titlebarInset,
 }: RailProps) {
 	const avatar = (
@@ -34,7 +37,7 @@ export function Rail({
 			type="button"
 			onClick={onOpenMe}
 			aria-label={meLabel}
-			aria-current={meOpen ? "page" : undefined}
+			aria-expanded={meOpen}
 			className={cn(
 				"flex items-center justify-center rounded-full p-[3px] transition-colors duration-[var(--duration-fast)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]",
 				meOpen ? "bg-[var(--color-bg-selected)]" : "hover:bg-[var(--color-bg-hover)]",
@@ -80,6 +83,21 @@ export function Rail({
 					);
 				})}
 			</ul>
+			<button
+				type="button"
+				onClick={onOpenMe}
+				aria-label={settingsLabel}
+				title={settingsLabel}
+				aria-expanded={meOpen}
+				className={cn(
+					"mt-auto flex size-11 items-center justify-center rounded-[var(--radius-md)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]",
+					meOpen
+						? "bg-[var(--color-bg-selected)] text-[var(--color-text-primary)]"
+						: "text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]",
+				)}
+			>
+				<Settings size={20} strokeWidth={1.7} aria-hidden="true" />
+			</button>
 		</nav>
 	);
 }

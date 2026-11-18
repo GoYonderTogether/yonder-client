@@ -129,3 +129,49 @@ test.describe("phone settings", () => {
 		await expect(page).toHaveURL(/\/messages$/);
 	});
 });
+
+for (const width of [1280, 820, 390]) {
+	test(`desktop rail toggles the same settings layer at ${width}px`, async ({ page }) => {
+		await page.setViewportSize({ width, height: 900 });
+		await isolate(page);
+		await page.goto("/tasks");
+		const avatar = page.getByRole("button", { name: "我", exact: true });
+		const settings = page.getByRole("button", { name: "设置", exact: true });
+		const layer = page.locator('[data-page-layer="me"]');
+		await expect(settings).toBeVisible();
+		await avatar.click();
+		await expect(layer).toBeVisible();
+		await expect(avatar).toHaveAttribute("aria-expanded", "true");
+		await avatar.click();
+		await expect(page).toHaveURL(/\/tasks$/);
+		await expect(layer).toHaveCount(0);
+		await settings.click();
+		await expect(layer).toBeVisible();
+		await settings.click();
+		await expect(page).toHaveURL(/\/tasks$/);
+		await expect(layer).toHaveCount(0);
+		await avatar.click();
+		await settings.click();
+		await expect(page).toHaveURL(/\/tasks$/);
+		await expect(layer).toHaveCount(0);
+		await settings.click();
+		await page
+			.getByRole("navigation", { name: "我", exact: true })
+			.getByRole("button", { name: "模型", exact: true })
+			.click();
+		await expect(page).toHaveURL(/\/me\/models$/);
+		await avatar.click();
+		await expect(page).toHaveURL(/\/tasks$/);
+		await expect(layer).toHaveCount(0);
+	});
+}
+
+test("mobile has no desktop settings shortcut", async ({ browser }) => {
+	const context = await browser.newContext({ ...devices["iPhone 13"] });
+	const page = await context.newPage();
+	await isolate(page);
+	await page.goto("/messages");
+	await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "mobile");
+	await expect(page.getByRole("button", { name: "设置", exact: true })).toHaveCount(0);
+	await context.close();
+});

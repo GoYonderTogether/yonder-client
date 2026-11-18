@@ -36,6 +36,7 @@ test("entering me opens the left layer and Escape returns through its root", () 
 			renderAvatar={() => <span>avatar</span>}
 			personName="Name"
 			meLabel="Me"
+			settingsLabel="Settings"
 			onOpenMe={vi.fn()}
 			meOpen={meOpen}
 			me={
@@ -62,9 +63,9 @@ test("entering me opens the left layer and Escape returns through its root", () 
 	);
 
 	const { rerender } = render(shell(false));
-	expect(screen.queryByRole("dialog", { name: "Me" })).not.toBeInTheDocument();
+	expect(screen.queryByRole("region", { name: "Me" })).not.toBeInTheDocument();
 	rerender(shell(true));
-	expect(screen.getByRole("dialog", { name: "Me" })).toHaveAttribute("data-page-side", "left");
+	expect(screen.getByRole("region", { name: "Me" })).toHaveAttribute("data-page-side", "left");
 	fireEvent.keyDown(window, { key: "Escape" });
 	expect(onBack).toHaveBeenCalledTimes(1);
 });
@@ -99,6 +100,7 @@ test("the detail instance and its focus survive a mobile-to-desktop resize", () 
 			renderAvatar={() => <span>avatar</span>}
 			personName="Name"
 			meLabel="Me"
+			settingsLabel="Settings"
 			onOpenMe={vi.fn()}
 			meOpen={false}
 			onBack={vi.fn()}
@@ -155,6 +157,7 @@ test("drag shields the right pane, collapses past 82%, and can restore without r
 			renderAvatar={() => null}
 			personName="Name"
 			meLabel="Me"
+			settingsLabel="Settings"
 			onOpenMe={vi.fn()}
 			meOpen={false}
 			onBack={onBack}
@@ -215,6 +218,7 @@ test("a departing Me child stops consuming Escape before its animation finishes"
 		renderAvatar: () => null,
 		personName: "Name",
 		meLabel: "Me",
+		settingsLabel: "Settings",
 		onOpenMe: vi.fn(),
 		meOpen: true,
 		backLabel: "Back",

@@ -35,6 +35,7 @@ export interface AppShellProps {
 	renderAvatar: (size: 24 | 28 | 32) => ReactNode;
 	personName: string;
 	meLabel: string;
+	settingsLabel: string;
 	onOpenMe: () => void;
 	meOpen: boolean;
 	me?: MeStack | undefined;
@@ -60,6 +61,7 @@ export function AppShell({
 	renderAvatar,
 	personName,
 	meLabel,
+	settingsLabel,
 	onOpenMe,
 	meOpen,
 	me,
@@ -91,11 +93,12 @@ export function AppShell({
 			<ChevronLeft size={24} strokeWidth={1.8} aria-hidden="true" />
 		</IconButton>
 	);
+	const toggleMe = meOpen && me ? me.onClose : onOpenMe;
 	const avatar = (
 		<button
 			type="button"
 			aria-label={meLabel}
-			onClick={onOpenMe}
+			onClick={toggleMe}
 			className="flex min-h-11 min-w-0 items-center gap-[var(--spacing-2)] rounded-[var(--radius-sm)] text-[var(--color-text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 		>
 			<span className="shrink-0">{renderAvatar(28)}</span>
@@ -118,16 +121,17 @@ export function AppShell({
 		>
 			<div className="yonder-chrome flex h-full w-full">
 				{!phone ? (
-					<div inert={meOpen && !wide} aria-hidden={(meOpen && !wide) || undefined} className="shrink-0">
+					<div className="shrink-0">
 						<Rail
 							current={tab.current}
 							onSelect={tab.onSelect}
 							labels={tab.labels}
 							ariaLabel={tab.ariaLabel}
 							renderAvatar={renderAvatar}
-							onOpenMe={onOpenMe}
+							onOpenMe={toggleMe}
 							meOpen={meOpen}
 							meLabel={meLabel}
+							settingsLabel={settingsLabel}
 							titlebarInset={titlebarInset}
 						/>
 					</div>
@@ -278,7 +282,7 @@ function MeLayers({
 			layerKey="me"
 			onBack={me.onClose}
 			label={label}
-			modal={!wide}
+			modal={mode === "mobile"}
 			priority={10}
 			className="z-20"
 		>

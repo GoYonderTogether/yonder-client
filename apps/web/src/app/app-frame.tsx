@@ -382,6 +382,7 @@ export function AppFrame() {
 				renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
 				personName={person?.displayName ?? ""}
 				meLabel={t("nav.me")}
+				settingsLabel={t("nav.settings")}
 				onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
 				meOpen={meOpen}
 				me={me}

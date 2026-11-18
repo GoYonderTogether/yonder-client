@@ -20,6 +20,7 @@ const props: AppShellProps = {
 	renderAvatar: () => null,
 	personName: "Name",
 	meLabel: "Me",
+	settingsLabel: "Settings",
 	onOpenMe() {},
 	meOpen: false,
 	onBack() {},
@@ -118,3 +119,41 @@ test.each([
 		expect(back).toHaveBeenCalledTimes(1);
 	},
 );
+
+test.each([1280, 820, 390])("desktop rail remains interactive and shares one Me toggle at %spx", (width) => {
+	viewport(width);
+	const open = vi.fn();
+	const close = vi.fn();
+	const { rerender } = render(<AppShell {...props} desktop onOpenMe={open} />);
+	fireEvent.click(screen.getByRole("button", { name: "Me" }));
+	fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+	expect(open).toHaveBeenCalledTimes(2);
+	rerender(
+		<AppShell
+			{...props}
+			desktop
+			onOpenMe={open}
+			meOpen
+			me={{
+				list: <ListFrame title="Settings">Settings list</ListFrame>,
+				pages: [],
+				closeLabel: "Close",
+				onClose: close,
+			}}
+		/>,
+	);
+	for (const name of ["Me", "Settings"]) {
+		const button = screen.getByRole("button", { name });
+		expect(button.closest("[inert], [aria-hidden=true]")).toBeNull();
+		expect(button).toHaveAttribute("aria-expanded", "true");
+		fireEvent.click(button);
+	}
+	expect(close).toHaveBeenCalledTimes(2);
+	expect(open).toHaveBeenCalledTimes(2);
+});
+
+test("phone layout omits the desktop settings shortcut", () => {
+	viewport(390);
+	render(<AppShell {...props} />);
+	expect(screen.queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+});
