@@ -16,6 +16,8 @@ pub struct Recording {
     pub title: String,
     #[serde(default)]
     pub conversation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub separate_speakers: bool,
     pub state: String,
     pub started_at: u64,
     pub ended_at: Option<u64>,

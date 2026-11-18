@@ -4,7 +4,11 @@ import Tauri
 import UIKit
 
 private struct OwnerArgs: Decodable { let ownerId: String? }
-private struct StartArgs: Decodable { let ownerId: String; let title: String }
+private struct StartArgs: Decodable {
+  let ownerId: String
+  let title: String
+  let separateSpeakers: Bool?
+}
 private struct StopArgs: Decodable { let ownerId: String; let recordingId: String }
 private struct ReadArgs: Decodable { let ownerId: String; let recordingId: String; let segmentIndex: Int }
 
@@ -109,7 +113,9 @@ final class MeetingRecorderPlugin: Plugin {
         let node = engine.inputNode
         let format = node.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else { throw RecorderFailure.invalidAudio }
-        let record = try self.storage().create(owner: args.ownerId, title: args.title, rate: Int(format.sampleRate))
+        let record = try self.storage().create(
+          owner: args.ownerId, title: args.title, rate: Int(format.sampleRate),
+          separateSpeakers: args.separateSpeakers == true)
         self.active = record
         self.audioLevel = 0
         self.engine = engine

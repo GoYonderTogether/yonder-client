@@ -113,6 +113,7 @@ export const en = {
 
 	chatActions: {
 		recordMeeting: "Meeting recording",
+		recordMeetingWithSpeakers: "Record with speaker labels",
 		windowFallback: "Could not open a separate window. Continue here.",
 		menu: "New chat",
 		createBot: "Create BOT",

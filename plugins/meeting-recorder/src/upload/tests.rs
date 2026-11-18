@@ -114,12 +114,18 @@ fn retry_after_process_restart_skips_server_confirmed_segments() {
     ));
     let store = Store::new(root.clone()).unwrap();
     let mut recording = store
-        .create("owner", "Synthetic upload fixture", 16_000, 1)
+        .create_bound(
+            "owner",
+            "Synthetic upload fixture",
+            16_000,
+            1,
+            Some("conversation_original".into()),
+            true,
+        )
         .unwrap();
     for _ in 0..2 {
         store.append(&mut recording, &[1; 1600]).unwrap();
     }
-    recording.conversation_id = Some("conversation_original".into());
     store.finish(&mut recording, None).unwrap();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
@@ -154,6 +160,11 @@ fn retry_after_process_restart_skips_server_confirmed_segments() {
                 let size = socket.read(&mut buffer).unwrap();
                 assert!(size > 0);
                 bytes.extend_from_slice(&buffer[..size]);
+            }
+            if headers.starts_with("POST /v1/meetings ") {
+                let body: serde_json::Value =
+                    serde_json::from_slice(&bytes[header_end..header_end + length]).unwrap();
+                assert_eq!(body["separateSpeakers"], true);
             }
             let payload = serde_json::json!({"id":"mtg_check", "segments":[{"index":0,"uploaded":round >= 3},{"index":1,"uploaded":false}]}).to_string();
             let status = if round == 2 {

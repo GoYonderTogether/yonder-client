@@ -11,14 +11,16 @@ import android.os.Build
 import android.os.IBinder
 
 class MeetingRecorderService : Service() {
+    internal data class StartArguments(val ownerId: String, val title: String, val separateSpeakers: Boolean)
+
     companion object {
         internal var startResult: ((Result<Unit>) -> Unit)? = null
         private const val CHANNEL = "meeting-recording"
         private const val NOTIFICATION = 7381
-        internal fun startArguments(intent: Intent?): Pair<String, String>? {
+        internal fun startArguments(intent: Intent?): StartArguments? {
             if (intent?.action != "start") return null
             val owner = intent.getStringExtra("ownerId") ?: return null
-            return owner to (intent.getStringExtra("title") ?: "")
+            return StartArguments(owner, intent.getStringExtra("title") ?: "", intent.getBooleanExtra("separateSpeakers", false))
         }
     }
 
@@ -59,7 +61,7 @@ class MeetingRecorderService : Service() {
         try {
             if (Build.VERSION.SDK_INT >= 30) startForeground(NOTIFICATION, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
             else startForeground(NOTIFICATION, builder.build())
-            MeetingRecorderRuntime.start(this, arguments.first, arguments.second)
+            MeetingRecorderRuntime.start(this, arguments.ownerId, arguments.title, arguments.separateSpeakers)
             callback?.invoke(Result.success(Unit))
         } catch (error: Exception) {
             callback?.invoke(Result.failure(error))

@@ -26,7 +26,7 @@ class RecordingStoreTest : Instrumentation() {
         val root = File(context.filesDir, "meeting-test-${UUID.randomUUID()}")
         try {
             val store = RecordingStore(root)
-            val record = store.create("owner-one", "Storage regression", 16000)
+            val record = store.create("owner-one", "Storage regression", 16000, separateSpeakers = true)
             val pcm = ByteArray(16000 * 2 * 4) { 7 }
             store.append(record, pcm)
             val initializing = File(root, "owner-one/${UUID.randomUUID()}")
@@ -51,6 +51,7 @@ class RecordingStoreTest : Instrumentation() {
             File(folder, "000002.wav").writeBytes(RecordingStore.wave(pcm, 16000).dropLast(2).toByteArray())
             val recovered = RecordingStore(root).list("owner-one", true).getJSONObject(0)
             check(recovered.getString("state") == "interrupted")
+            check(recovered.getBoolean("separateSpeakers"))
             check(recovered.getString("error") == "audio_segment_damaged")
             check(recovered.getJSONArray("segments").length() == 2)
             check(recovered.getInt("savedDurationMs") == 8000)
@@ -60,6 +61,7 @@ class RecordingStoreTest : Instrumentation() {
             val next = store.create("owner-one", "New recording", 16000)
             check(record.getString("id") != next.getString("id"))
             check(next.get("endedAt") == JSONObject.NULL)
+            check(!next.has("separateSpeakers"))
         } finally { root.deleteRecursively() }
     }
 
@@ -68,6 +70,8 @@ class RecordingStoreTest : Instrumentation() {
         check(MeetingRecorderService.startArguments(android.content.Intent().putExtra("ownerId", "owner-one")) == null)
         check(MeetingRecorderService.startArguments(android.content.Intent().setAction("start")) == null)
         val explicit = android.content.Intent().setAction("start").putExtra("ownerId", "owner-one").putExtra("title", "Meeting")
-        check(MeetingRecorderService.startArguments(explicit) == ("owner-one" to "Meeting"))
+        check(MeetingRecorderService.startArguments(explicit) == MeetingRecorderService.StartArguments("owner-one", "Meeting", false))
+        explicit.putExtra("separateSpeakers", true)
+        check(MeetingRecorderService.startArguments(explicit) == MeetingRecorderService.StartArguments("owner-one", "Meeting", true))
     }
 }

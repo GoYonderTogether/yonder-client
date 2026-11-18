@@ -10,6 +10,7 @@ test("browser recording persists WAV, submits it for processing, and recovers af
 	await isolateChat(page, { items: [] });
 	let manifest: CreateMeetingRequest | undefined;
 	let submitted = false;
+	let expectedSpeakers: true | undefined = true;
 	const uploaded = new Set<number>();
 	await page.route("**/v1/meetings**", async (route) => {
 		const request = route.request();
@@ -18,6 +19,7 @@ test("browser recording persists WAV, submits it for processing, and recovers af
 			manifest = request.postDataJSON();
 			expect(manifest?.conversationId).toBe(conversation.id);
 			expect(manifest?.state).toBe("ended");
+			expect(manifest?.separateSpeakers).toBe(expectedSpeakers);
 		}
 		const index = /\/segments\/(\d+)$/.exec(path);
 		if (index) {
@@ -58,10 +60,10 @@ test("browser recording persists WAV, submits it for processing, and recovers af
 		await page.getByRole("button", { name: "发起聊天" }).click();
 		await page.getByRole("menuitem", { name: "会议录音" }).click();
 	};
-	const start = async (title: string) => {
+	const start = async (title: string, separateSpeakers = false) => {
 		await open();
 		await page.getByRole("textbox", { name: "录音标题" }).fill(title);
-		await page.getByRole("button", { name: "开始录音", exact: true }).click();
+		await page.getByRole("button", { name: separateSpeakers ? "录音并区分发言人" : "开始录音", exact: true }).click();
 		await expect(page.getByRole("button", { name: "结束录音", exact: true })).toBeVisible();
 	};
 	const savedDuration = () =>
@@ -78,13 +80,21 @@ test("browser recording persists WAV, submits it for processing, and recovers af
 					};
 				}),
 		);
-	await start("Browser QA");
+	await start("Browser QA", true);
 	await page.getByRole("button", { name: "任务", exact: true }).click();
 	await expect.poll(savedDuration, { timeout: 10_000 }).toBeGreaterThan(3000);
 	await page.getByRole("button", { name: "结束录音", exact: true }).click();
 	await expect.poll(() => submitted).toBe(true);
 	expect(manifest?.segments.length).toBeGreaterThanOrEqual(1);
 	await page.getByRole("button", { name: "消息", exact: true }).click();
+	// A second recording uses the default mode even after opting in on the first one.
+	expectedSpeakers = undefined;
+	submitted = false;
+	uploaded.clear();
+	await start("Default browser QA");
+	await expect.poll(savedDuration, { timeout: 10_000 }).toBeGreaterThan(3000);
+	await page.getByRole("button", { name: "结束录音", exact: true }).click();
+	await expect.poll(() => submitted).toBe(true);
 	await start("Interrupted browser QA");
 	await expect.poll(savedDuration, { timeout: 10_000 }).toBeGreaterThan(3000);
 	await page.reload();

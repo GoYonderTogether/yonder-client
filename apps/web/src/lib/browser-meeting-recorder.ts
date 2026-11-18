@@ -251,6 +251,7 @@ async function start(ownerId: string, args: Record<string, unknown>) {
 								.trim()
 								.slice(0, 200),
 							conversationId: typeof args.conversationId === "string" ? args.conversationId : null,
+							...(args.separateSpeakers === true ? { separateSpeakers: true } : {}),
 							state: "recording",
 							startedAt: Date.now(),
 							endedAt: null,

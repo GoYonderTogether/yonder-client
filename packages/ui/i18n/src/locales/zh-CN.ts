@@ -114,6 +114,7 @@ export const zhCN: Messages = {
 
 	chatActions: {
 		recordMeeting: "会议录音",
+		recordMeetingWithSpeakers: "录音并区分发言人",
 		windowFallback: "未能打开独立窗口，可在这里继续添加。",
 		menu: "发起聊天",
 		createBot: "创建 BOT",

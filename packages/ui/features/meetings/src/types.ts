@@ -5,6 +5,7 @@ export interface MeetingRecording {
 	ownerId: string;
 	title: string;
 	conversationId?: string | null;
+	separateSpeakers?: boolean;
 	state: "recording" | "ended" | "interrupted";
 	startedAt: number;
 	endedAt: number | null;
@@ -31,7 +32,7 @@ export interface MeetingRecorderController {
 	ready: boolean;
 	busy: boolean;
 	error: string | null;
-	start(title: string, conversationId?: string): Promise<void>;
+	start(title: string, conversationId?: string, separateSpeakers?: boolean): Promise<void>;
 	stop(recordingId: string): Promise<void>;
 	pause?(recordingId: string): Promise<void>;
 	resume?(recordingId: string): Promise<void>;

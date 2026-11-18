@@ -456,7 +456,8 @@ export function AppFrame() {
 					<MeetingRecorderCapsule
 						recorder={{
 							...recorder,
-							start: (title) => (recordingTarget ? recorder.start(title, recordingTarget.id) : Promise.resolve()),
+							start: (title, _conversationId, separateSpeakers) =>
+								recordingTarget ? recorder.start(title, recordingTarget.id, separateSpeakers) : Promise.resolve(),
 						}}
 						cloud={meetingCloud}
 						canStart={Boolean(recordingTarget)}

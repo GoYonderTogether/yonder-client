@@ -33,6 +33,18 @@ impl Store {
         sample_rate: u32,
         channels: u16,
     ) -> Result<Recording, String> {
+        self.create_bound(owner, title, sample_rate, channels, None, false)
+    }
+
+    pub(crate) fn create_bound(
+        &self,
+        owner: &str,
+        title: &str,
+        sample_rate: u32,
+        channels: u16,
+        conversation_id: Option<String>,
+        separate_speakers: bool,
+    ) -> Result<Recording, String> {
         if title.chars().count() > 200 || sample_rate == 0 || channels == 0 {
             return Err("meeting_invalid_recording".into());
         }
@@ -48,7 +60,8 @@ impl Store {
             id,
             owner_id: owner.into(),
             title: title.trim().into(),
-            conversation_id: None,
+            conversation_id,
+            separate_speakers,
             state: "recording".into(),
             started_at,
             ended_at: None,

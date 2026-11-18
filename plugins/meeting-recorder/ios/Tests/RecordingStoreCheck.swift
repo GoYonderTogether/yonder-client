@@ -6,7 +6,7 @@ struct RecordingStoreCheck {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("meeting-store-check-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: root) }
     let store = try RecordingStore(root: root)
-    var record = try store.create(owner: "owner-one", title: "Storage regression", rate: 16000)
+    var record = try store.create(owner: "owner-one", title: "Storage regression", rate: 16000, separateSpeakers: true)
     let pcm = Data(repeating: 7, count: 16000 * 2 * 4)
     try store.append(pcm, to: &record)
     let initializing = try store.directory("owner-one", UUID().uuidString.lowercased())
@@ -35,6 +35,7 @@ struct RecordingStoreCheck {
     try Data(malformed).write(to: folder.appendingPathComponent("000002.wav"))
     let recovered = try RecordingStore(root: root).list(owner: "owner-one", recover: true)
     assert(recovered.count == 1 && recovered[0].state == "interrupted")
+    assert(recovered[0].separateSpeakers == true)
     assert(recovered[0].segments.count == 2 && recovered[0].savedDurationMs == 8000)
     assert(recovered[0].error == "audio_segment_damaged")
     let audio = try store.read(owner: "owner-one", id: record.id, index: 0)
@@ -46,6 +47,7 @@ struct RecordingStoreCheck {
     assert(next.id != record.id && next.segments.isEmpty)
     let metadata = try JSONSerialization.jsonObject(with: JSONEncoder().encode(next)) as! [String: Any]
     assert(metadata["endedAt"] is NSNull && metadata["error"] is NSNull)
+    assert(next.separateSpeakers == nil && metadata["separateSpeakers"] == nil)
     print("PASS: durable WAV, unfinished initialization isolation, manifest failure, truncated tail recovery, owner isolation, new ID and null schema")
   }
 }

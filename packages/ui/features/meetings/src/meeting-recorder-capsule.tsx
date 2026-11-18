@@ -1,5 +1,5 @@
 import { Button, TextField } from "@yonder/ui-components";
-import { ChevronUp, Pause, Play, Radio, Square } from "lucide-react";
+import { ChevronUp, Pause, Play, Radio, Square, UsersRound } from "lucide-react";
 import { type ReactNode, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MeetingProcessing } from "./meeting-processing.tsx";
@@ -64,6 +64,13 @@ export function MeetingRecorderCapsule({
 		(!selected ? cloud?.records[0] : undefined);
 	const job = cloud?.jobs.find((item) => item.recordingId === selected?.id);
 	const headline = active ?? selected;
+	const startDisabled = !recorder.ready || recorder.busy || microphoneOccupied || !canStart;
+	function start(separateSpeakers?: boolean) {
+		if (startDisabled) return;
+		setSelectedId(null);
+		cloud?.select(null);
+		void recorder.start(title.trim() || t("meetingRecorder.defaultTitle"), undefined, separateSpeakers);
+	}
 	if (!expanded && !headline && !meeting && !recorder.error) return null;
 	return (
 		<section
@@ -203,11 +210,7 @@ export function MeetingRecorderCapsule({
 								className="flex flex-col gap-[var(--spacing-2)]"
 								onSubmit={(event) => {
 									event.preventDefault();
-									if (!microphoneOccupied && canStart) {
-										setSelectedId(null);
-										cloud?.select(null);
-										void recorder.start(title.trim() || t("meetingRecorder.defaultTitle"));
-									}
+									start();
 								}}
 							>
 								<TextField
@@ -231,14 +234,17 @@ export function MeetingRecorderCapsule({
 										{t("meetingRecorder.uploadAfterEnd", { name: cloud.targetName })}
 									</p>
 								) : null}
-								<Button
-									type="submit"
-									size="sm"
-									loading={recorder.busy}
-									disabled={!recorder.ready || microphoneOccupied || !canStart}
-								>
-									{t("meetingRecorder.start")}
-								</Button>
+								<div className="flex flex-wrap gap-[var(--spacing-2)]">
+									<Button type="submit" size="sm" variant="primary" loading={recorder.busy} disabled={startDisabled}>
+										{t("meetingRecorder.start")}
+									</Button>
+									{cloud?.uploadAvailable ? (
+										<Button size="sm" disabled={startDisabled} onClick={() => start(true)}>
+											<UsersRound size={16} aria-hidden="true" />
+											{t("chatActions.recordMeetingWithSpeakers")}
+										</Button>
+									) : null}
+								</div>
 							</form>
 						) : null}
 						{records.some((item) => item.state !== "recording") ? (
