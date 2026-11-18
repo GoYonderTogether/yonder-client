@@ -16,7 +16,7 @@ async function isolateUpdate(page: Page, version: number) {
 			{
 				...message("memory-01", null),
 				type: "system",
-				system: { event: "memory_updated", changes: [{ path, title: "近期", version }] },
+				system: { event: "memory_updated", changes: [{ path, title: "近期", version, previousVersion: version - 1 }] },
 			},
 		],
 	});

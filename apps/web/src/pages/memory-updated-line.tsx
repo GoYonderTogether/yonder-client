@@ -129,8 +129,8 @@ function Change({
 	const file = useMemoryFile(change.path);
 	const { revert, remove } = useMemoryFileActions();
 	const after = history.data?.items.find((item) => item.version === change.version);
-	const before = history.data?.items.find((item) => item.version === change.version - 1);
-	const created = change.version === 1;
+	const before = history.data?.items.find((item) => item.version === change.previousVersion);
+	const created = change.previousVersion === 0;
 	const later = !reverted && (file.data?.version ?? change.version) > change.version;
 	const busy = revert.isPending || remove.isPending;
 	const error = history.error ?? revert.error ?? remove.error;

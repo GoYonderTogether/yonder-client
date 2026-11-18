@@ -26,11 +26,16 @@ export interface GroupSystemEvent {
 	title?: string;
 }
 
-/** One file a Bot changed during a reply; `version` is the version that reply wrote. */
+/**
+ * One file a Bot changed during a reply. `version` is the last version the reply wrote and
+ * `previousVersion` the version before the reply's first write (0: the reply created the file). A
+ * reply can write the same file more than once, so the change is the span between the two.
+ */
 export interface MemoryUpdateChange {
 	path: string;
 	title: string;
 	version: number;
+	previousVersion: number;
 }
 
 /**
