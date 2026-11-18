@@ -57,6 +57,12 @@ export const keys = {
 	memberProfile: (handle: string) => ["member-profile", handle] as const,
 	publicMemberProfile: (handle: string) => ["member-profile", "public", handle] as const,
 	privacy: () => ["privacy"] as const,
+	items: {
+		all: () => ["items"] as const,
+		/** One account's list; `botId` narrows it to one Bot. */
+		list: (botId: string | null) => ["items", "list", botId ?? "all"] as const,
+		detail: (id: string) => ["items", "detail", id] as const,
+	},
 } as const;
 
 /** Root prefixes used when signing out: every key that must be dropped starts with one of these. */
@@ -81,4 +87,5 @@ export const ALL_ROOT_KEYS: readonly string[] = [
 	"schedules",
 	"member-profile",
 	"privacy",
+	"items",
 ];

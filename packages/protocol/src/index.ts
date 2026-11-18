@@ -56,6 +56,14 @@ export type {
 export type { CompactConversationRequest, CompactConversationResponse } from "./chat/compaction.ts";
 export type { OutwardRequest, OutwardRequestListResponse, OutwardRequestState } from "./chat/outward.ts";
 export type {
+	ItemDetail,
+	ItemListResponse,
+	ItemSource,
+	ItemState,
+	ItemStep,
+	ItemSummary,
+} from "./chat/items.ts";
+export type {
 	CreateScheduleRequest,
 	Schedule,
 	ScheduleAction,

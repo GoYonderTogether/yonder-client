@@ -37,6 +37,7 @@ export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
 export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
 export { useGroupActions } from "./hooks/groups.ts";
+export { useItem, useItemActions, useItems } from "./hooks/items.ts";
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
 export { useMemberProfile, usePublicMemberProfile } from "./hooks/members.ts";
 export { deviceTimeZone, useMemoryActions, useMemoryDays } from "./hooks/memory.ts";

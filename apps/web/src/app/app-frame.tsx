@@ -28,12 +28,9 @@ import { BUILD_VERSION } from "../lib/config.ts";
 import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
-import {
-	conversationTitle,
-	primaryConversation,
-	selectedConversation,
-} from "../pages/conversation-presentation.tsx";
+import { conversationTitle, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
 import { GroupInfoOverlay } from "../pages/group-info-overlay.tsx";
+import { FlyToComposer } from "../pages/items-fly.tsx";
 import { MessageContent } from "../pages/message-content.tsx";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
@@ -43,6 +40,7 @@ import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
+import { draftKey, type PresetOutcome, registerPresetTarget, requestPreset } from "./draft-preset.ts";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemberCardOverlay } from "./member-card-overlay.tsx";
 import { useChatDraft } from "./use-chat-draft.ts";
@@ -82,6 +80,8 @@ export function AppFrame() {
 	const skills = useSkills();
 	const contacts = useContacts();
 	const [layoutMode, setLayoutMode] = useState<LayoutMode | null>(null);
+	/** The sentence the plus button just put into the message box, while its fly-in is showing. */
+	const [flying, setFlying] = useState<string | null>(null);
 	const modelDirty = useRef(false);
 	const previousLocation = useRef("/messages");
 
@@ -178,6 +178,19 @@ export function AppFrame() {
 	const streaming = history.data?.pages
 		.flatMap((page) => page.items)
 		.findLast((message) => message.senderKind === "bot" && message.streaming);
+	// The plus button on 「事项 | 目标」 hands its sentence to this composer (16-3 第十节). The apply
+	// reads the draft through its own setters, so a draft the user already typed in is never touched.
+	const applyPreset = useEffectEvent((phrase: string): PresetOutcome => {
+		if (!draft.loaded) return "not-ready";
+		if (draft.text.trim()) return "refused";
+		draft.setText(phrase);
+		return "applied";
+	});
+	useEffect(() => {
+		if (!person || !conversation) return;
+		const key = draftKey(person.id, conversation.id);
+		return registerPresetTarget(key, (phrase) => applyPreset(phrase));
+	}, [person, conversation]);
 	const segmentRoot = (tab === "tasks" && selection === "scheduled") || (tab === "memory" && selection === "files");
 	const detailOpen = selection !== null && !segmentRoot;
 	const blocker = useBlocker(() => modelDirty.current);
@@ -265,6 +278,20 @@ export function AppFrame() {
 		);
 	}
 
+	/**
+	 * The plus button (16-3 第十节): navigate to the main Bot's chat and put a preset sentence in its
+	 * draft, never sending it. The navigation comes first, the fill follows at once, and the fly-in is
+	 * only feedback — a draft the user already typed in is never overwritten.
+	 */
+	function addFromTasks(scheduled: boolean) {
+		const primary = primaryConversation(conversations.data?.items, bot?.id);
+		const phrase = t(scheduled ? "tasks.presetGoal" : "tasks.presetItem");
+		navigation.open(`/messages/${MAIN_CONVERSATION}`);
+		if (!person || !primary) return;
+		requestPreset(person.id, primary.id, phrase);
+		setFlying(phrase);
+	}
+
 	function screensFor(): { list: ReactNode | null; content: ReactNode } {
 		switch (tab) {
 			case "messages":
@@ -298,9 +325,16 @@ export function AppFrame() {
 						<TasksList
 							scheduled={selection === "scheduled"}
 							onChange={(value) => navigation.open(value ? "/tasks/scheduled" : "/tasks")}
+							onOpenItem={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
+							onAdd={() => addFromTasks(selection === "scheduled")}
 						/>
 					),
-					content: <TaskPage taskId={segmentRoot ? null : selection} />,
+					content: (
+						<TaskPage
+							taskId={segmentRoot ? null : selection}
+							onOpenConversation={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
+						/>
+					),
 				};
 			case "memory":
 				return {
@@ -376,7 +410,11 @@ export function AppFrame() {
 	// viewer was removed from, is read only for the same reason: the notice takes its place (19 3.2).
 	const watchingVisit = conversation?.visit?.role === "host";
 	const closed = Boolean(conversation?.closedReason);
-	const dock = watchingVisit ? null : closed && conversation ? <ClosedGroupNotice conversation={conversation} /> : composer;
+	const dock = watchingVisit ? null : closed && conversation ? (
+		<ClosedGroupNotice conversation={conversation} />
+	) : (
+		composer
+	);
 
 	return (
 		<>
@@ -460,6 +498,7 @@ export function AppFrame() {
 					}}
 				/>
 			) : null}
+			{flying ? <FlyToComposer phrase={flying} onDone={() => setFlying(null)} /> : null}
 		</>
 	);
 }
