@@ -3,6 +3,7 @@ import { useContactActions, useContactSearch, usePerson } from "@yonder/ui-data"
 import { ChevronRight, Gift, ScanLine } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { shouldShowScanner } from "../../lib/platform.ts";
 import { ActionError } from "./action-error.tsx";
 
 export function AddContacts({
@@ -53,7 +54,7 @@ export function AddContacts({
 			</form>
 			{!query && !input.trim() ? (
 				<div className="flex flex-col">
-					{onScan ? (
+					{onScan && shouldShowScanner() ? (
 						<ContactEntry
 							icon={ScanLine}
 							title={t("chatActions.scan")}
