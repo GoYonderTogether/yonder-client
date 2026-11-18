@@ -279,16 +279,6 @@ button.memory-thumb {
 .memory-more {
 	min-height: 1px;
 }
-.memory-error {
-	display: grid;
-	justify-items: start;
-	gap: var(--spacing-2);
-	padding: var(--spacing-4);
-	border-radius: var(--radius-card);
-	background: var(--color-danger-subtle);
-	font-size: var(--text-caption);
-	color: var(--color-danger);
-}
 .memory-error-line {
 	display: flex;
 	align-items: center;

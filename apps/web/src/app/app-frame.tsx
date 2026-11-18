@@ -175,7 +175,9 @@ export function AppFrame() {
 		draft,
 		open: navigation.open,
 	});
-	const segmentRoot = (tab === "tasks" && selection === "scheduled") || (tab === "memory" && selection === "files");
+	const memorySection = selection === "about" || selection === "files" ? selection : "timeline";
+	const segmentRoot =
+		(tab === "tasks" && selection === "scheduled") || (tab === "memory" && memorySection !== "timeline");
 	const detailOpen = selection !== null && !segmentRoot;
 	/**
 	 * Back, Escape and a swipe are one exit, and a layer that is animating out still holds the props
@@ -301,11 +303,11 @@ export function AppFrame() {
 				return {
 					list: (
 						<MemoryList
-							files={selection === "files"}
-							onChange={(value) => navigation.open(value ? "/memory/files" : "/memory")}
+							section={memorySection}
+							onChange={(value) => navigation.open(value === "timeline" ? "/memory" : `/memory/${value}`)}
 						/>
 					),
-					content: <MemoryPage files={selection === "files"} />,
+					content: <MemoryPage section={memorySection} />,
 				};
 		}
 	}

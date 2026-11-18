@@ -1,0 +1,119 @@
+.memory-file-section,
+.memory-file,
+.memory-file-body {
+	display: grid;
+	min-width: 0;
+	gap: var(--spacing-3);
+}
+.memory-file-section {
+	gap: var(--spacing-4);
+	padding-block: var(--spacing-2);
+}
+.memory-file {
+	padding: var(--spacing-4);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-card);
+	background: var(--color-bg-surface);
+}
+.memory-file-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: end;
+	gap: var(--spacing-2) var(--spacing-3);
+}
+.memory-visibility {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-1);
+	font-size: var(--text-caption);
+	color: var(--color-text-secondary);
+}
+.memory-visibility svg,
+.memory-file-tree summary svg {
+	flex: none;
+	width: var(--spacing-4);
+	height: var(--spacing-4);
+}
+.memory-file-tree {
+	min-width: 0;
+	border-radius: var(--radius-card);
+	background: var(--color-bg-surface);
+}
+.memory-file-tree .memory-file-tree {
+	margin-inline-start: var(--spacing-3);
+	border-inline-start: 1px solid var(--color-border-subtle);
+}
+.memory-file-tree summary {
+	min-height: var(--control-md);
+	padding: var(--spacing-2) var(--spacing-3);
+	border-radius: var(--radius-control);
+	font-size: var(--text-body);
+	overflow-wrap: anywhere;
+	cursor: pointer;
+}
+.memory-file-tree summary:hover {
+	background: var(--color-bg-hover);
+}
+.memory-file-tree summary svg {
+	display: inline;
+	margin-inline: var(--spacing-1) var(--spacing-2);
+	vertical-align: text-bottom;
+}
+.memory-file-tree .memory-file-tree-row {
+	gap: var(--spacing-2);
+	padding-inline: var(--spacing-3);
+}
+.memory-markdown {
+	font-size: var(--text-body);
+	overflow-wrap: anywhere;
+}
+.memory-markdown :is(h1, h2, h3, h4, h5, h6) {
+	font-weight: var(--font-weight-semibold);
+}
+.memory-markdown > * + * {
+	margin-top: var(--spacing-2);
+}
+.memory-markdown :is(ol, ul) {
+	padding-inline-start: var(--spacing-5);
+}
+.memory-markdown ol {
+	list-style: decimal;
+}
+.memory-markdown ul {
+	list-style: disc;
+}
+.memory-markdown :is(a, .memory-markdown-link) {
+	color: var(--color-accent-text);
+	text-decoration: underline;
+}
+.memory-markdown pre,
+.memory-diff pre {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+.memory-diff {
+	display: grid;
+	gap: var(--spacing-2);
+	min-width: 0;
+	font-size: var(--text-caption);
+}
+.memory-diff pre {
+	padding: var(--spacing-2) var(--spacing-3);
+	border-radius: var(--radius-control);
+}
+.memory-diff-before {
+	background: var(--color-danger-subtle);
+}
+.memory-diff-after {
+	background: color-mix(in srgb, var(--color-success) 12%, var(--color-bg-surface));
+}
+.memory-error {
+	display: grid;
+	justify-items: start;
+	gap: var(--spacing-2);
+	padding: var(--spacing-4);
+	border-radius: var(--radius-card);
+	background: var(--color-danger-subtle);
+	font-size: var(--text-caption);
+	color: var(--color-danger);
+}

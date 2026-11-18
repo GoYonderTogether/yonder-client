@@ -44,6 +44,11 @@ export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: D
 				<strong>{name}</strong>
 				<span>{sub}</span>
 			</h3>
+			{day.state === "failed" && day.failure ? (
+				<p role="alert" className="memory-error-line wrap-anywhere">
+					{day.failure}
+				</p>
+			) : null}
 			{steps != null || places || photos ? (
 				<p className="memory-digest">
 					{steps != null ? (

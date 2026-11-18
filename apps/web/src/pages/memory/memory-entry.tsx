@@ -3,9 +3,11 @@ import { Avatar, cn } from "@yonder/ui-components";
 import { Clock, Images, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { EntryActions } from "./memory-actions.ts";
-import { EntryDrawer } from "./memory-drawer.tsx";
+import { EntryDrawer, SOURCE_LABELS } from "./memory-drawer.tsx";
 import { entryIcon, KIND_ICONS, memoryFormat } from "./memory-format.ts";
 import { MemoryThumb } from "./memory-media.tsx";
+import { MemoryVisibility } from "./memory-visibility.tsx";
+import "./memory-files.css";
 
 /** The node on the spine: its size says how much the entry matters, colour and icon say what it is. */
 export function MemoryNode({ entry }: { entry: Entry }) {
@@ -24,7 +26,7 @@ export function MemoryNode({ entry }: { entry: Entry }) {
  * accordion; opening another closes this one.
  */
 export function MemoryEntry({ entry, upcoming, actions }: { entry: Entry; upcoming: boolean; actions: EntryActions }) {
-	const { i18n } = useTranslation();
+	const { t, i18n } = useTranslation();
 	const open = actions.open === entry.id;
 	const hasMore = Boolean(
 		entry.media.length ||
@@ -37,7 +39,20 @@ export function MemoryEntry({ entry, upcoming, actions }: { entry: Entry; upcomi
 			(entry.text && entry.size !== "note"),
 	);
 	const time = <time dateTime={entry.at}>{memoryFormat.time(entry.at, i18n.language)}</time>;
-	const body = <EntryBody entry={entry} time={time} />;
+	const sources = entry.sources.map((source) => source.title || t(SOURCE_LABELS[source.kind])).join(" · ");
+	const body = (
+		<>
+			<EntryBody entry={entry} time={time} />
+			{entry.visibility || sources ? (
+				<span className="flex min-w-0 flex-wrap items-center gap-x-[var(--spacing-3)] gap-y-[var(--spacing-1)]">
+					<MemoryVisibility visibility={entry.visibility} />
+					{sources ? (
+						<span className="min-w-0 truncate text-caption text-[var(--color-text-secondary)]">{sources}</span>
+					) : null}
+				</span>
+			) : null}
+		</>
+	);
 	return (
 		<li
 			id={`memory-entry-${entry.id}`}

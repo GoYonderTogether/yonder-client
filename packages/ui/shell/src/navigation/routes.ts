@@ -39,6 +39,7 @@ export const ROUTES: readonly RouteEntry[] = [
 	{ path: "/tasks/scheduled", layer: "tab", tab: "tasks" },
 	{ path: "/tasks/:taskId", layer: "detail", tab: "tasks" },
 	{ path: "/memory", layer: "tab", tab: "memory" },
+	{ path: "/memory/about", layer: "tab", tab: "memory" },
 	{ path: "/memory/files", layer: "tab", tab: "memory" },
 	{ path: "/me", layer: "detail" },
 	{ path: "/me/:section", layer: "detail" },

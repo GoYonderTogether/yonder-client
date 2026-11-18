@@ -26,6 +26,8 @@ export const entry = (
 	people: [],
 	quote: null,
 	links: [],
+	visibility: "private",
+	weight: 1,
 	sources: [],
 	deletable: true,
 	...rest,

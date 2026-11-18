@@ -108,6 +108,7 @@ test("days read newest first with a large title, a digest and entries at their o
 	expect(document.getElementById("memory-entry-reading")).toHaveClass("memory-upcoming");
 	expect(document.getElementById("memory-entry-plan")).toHaveClass("memory-size-note", "memory-kind-doc");
 	expect(screen.getByText("#Yonder")).toBeVisible();
+	expect(within(document.getElementById("memory-entry-plan") as HTMLElement).getByText("Private")).toBeVisible();
 	expect(document.getElementById("memory-entry-market")).toHaveClass("memory-size-moment");
 	expect(screen.getByText("Liangzhu Arts Centre")).toBeVisible();
 	expect(screen.getByText("People: 1")).toBeVisible();
@@ -156,7 +157,8 @@ test("an opened entry shows the organized body and where it came from", () => {
 test("a chat source opens its conversation, the primary one by its main address", () => {
 	show();
 	fireEvent.click(screen.getByRole("button", { name: /Rewrote the timeline plan/ }));
-	fireEvent.click(screen.getByRole("button", { name: /Yonder Bot/ }));
+	const drawer = document.getElementById("memory-drawer-plan") as HTMLElement;
+	fireEvent.click(within(drawer).getByRole("button", { name: /Yonder Bot/ }));
 	expect(path).toBe("/messages/main");
 });
 
@@ -199,7 +201,7 @@ test("a failed delete shows the server's reason inline", () => {
 	show();
 	fireEvent.click(screen.getByRole("button", { name: /Rewrote the timeline plan/ }));
 	expect(within(document.getElementById("memory-drawer-plan") as HTMLElement).getByRole("alert")).toHaveTextContent(
-		"Not found.",
+		"missing",
 	);
 });
 
@@ -221,7 +223,7 @@ test("older days fold their one-line entries away until asked", () => {
 	expect(screen.getByText("Fixed the demo on the train")).toBeInTheDocument();
 });
 
-test("a failed load shows the server's reason and a retry; no days shows an invitation", () => {
+test("a failed load shows the server's reason and a retry; no days shows an empty state", () => {
 	data.query = {
 		...pages([]),
 		isError: true,
@@ -232,12 +234,11 @@ test("a failed load shows the server's reason and a retry; no days shows an invi
 	const { unmount } = show();
 	const alert = screen.getByRole("alert");
 	expect(alert).toHaveTextContent("The timeline did not load");
+	expect(alert).toHaveTextContent("missing");
 	fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
 	expect(data.refetch).toHaveBeenCalled();
 	unmount();
 	data.query = pages([]);
 	show();
-	expect(
-		screen.getByText("Your chats with your Bot, meeting recordings and background tasks are organized here by day."),
-	).toBeVisible();
+	expect(screen.getByText("No timeline entries")).toBeVisible();
 });

@@ -1,6 +1,5 @@
 import type { MemoryEntry as Entry, MemorySource, MemoryTarget } from "@yonder/protocol";
 import { Button } from "@yonder/ui-components";
-import { ApiError } from "@yonder/ui-data";
 import type { LucideIcon } from "lucide-react";
 import { CornerDownRight, ListChecks, MessageCircle, Mic } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -15,7 +14,7 @@ const SOURCE_ICONS: Record<MemorySource["kind"], LucideIcon> = {
 	task: ListChecks,
 };
 
-const SOURCE_LABELS: Record<MemorySource["kind"], string> = {
+export const SOURCE_LABELS: Record<MemorySource["kind"], string> = {
 	chat: "memory.sourceChat",
 	meeting: "memory.sourceMeeting",
 	task: "memory.sourceTask",
@@ -134,7 +133,7 @@ function DeleteEntry({ id, actions }: { id: string; actions: EntryActions }) {
 			</Button>
 			{error ? (
 				<p role="alert" className="memory-error-line">
-					{error instanceof ApiError ? t(error.messageKey) : error.message}
+					{error.message}
 				</p>
 			) : null}
 		</div>

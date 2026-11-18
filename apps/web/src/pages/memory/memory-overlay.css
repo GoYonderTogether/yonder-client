@@ -32,6 +32,8 @@
 }
 .memory-pin-shown {
 	opacity: 1;
+}
+.memory-pin-shown button {
 	pointer-events: auto;
 }
 .memory-pin-inner {

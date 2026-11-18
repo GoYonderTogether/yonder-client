@@ -31,12 +31,13 @@ export function MemoryPinBar({
 	const last = useRef({ date: "", top: 0, down: true });
 	useEffect(() => {
 		const update = () => {
-			const line = (bar.current?.getBoundingClientRect().top ?? 0) + PIN_HEIGHT;
+			const top = bar.current?.getBoundingClientRect().top ?? 0;
+			const line = top + PIN_HEIGHT;
 			const sections = [...timeline.querySelectorAll<HTMLElement>("[data-day]")];
 			let index = -1;
 			sections.forEach((section, i) => {
 				const title = section.querySelector(".memory-day-title strong");
-				if (title && title.getBoundingClientRect().bottom < line - 8) index = i;
+				if (title && title.getBoundingClientRect().top < top) index = i;
 			});
 			const current = sections[index];
 			last.current.down = scroller.scrollTop >= last.current.top;

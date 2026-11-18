@@ -1,6 +1,6 @@
 import type { MemoryDay, MemoryLink } from "@yonder/protocol";
 import { Button, EmptyState } from "@yonder/ui-components";
-import { ApiError, useMemoryActions, useMemoryDays } from "@yonder/ui-data";
+import { useMemoryActions, useMemoryDays } from "@yonder/ui-data";
 import { useShellChrome } from "@yonder/ui-shell";
 import { History } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -14,9 +14,10 @@ import { useSourceNavigation } from "./memory-navigation.ts";
 import { useOverlayBox } from "./memory-overlay.ts";
 import { MemoryPinBar } from "./memory-pin.tsx";
 import { MemoryRail, type RailDay } from "./memory-rail.tsx";
+import { MemoryError } from "./memory-status.tsx";
 
 /**
- * The page under the name card: days newest first, each with its entries on one spine. A pinned
+ * Days newest first, each with its entries on one spine. A pinned
  * bar names the day under the top edge, and a date index waits on the right edge. Both are drawn
  * over the scroller, so neither moves the content.
  */
@@ -109,26 +110,14 @@ export function MemoryTimeline() {
 		};
 	});
 
-	if (query.isError)
+	if (query.isError && !query.data)
 		return (
 			<section className="memory-timeline" aria-label={t("memory.timeline")}>
-				<div role="alert" className="memory-error">
-					<p>{t("memory.loadFailed")}</p>
-					<p>{query.error instanceof ApiError ? t(query.error.messageKey) : query.error.message}</p>
-					<Button size="sm" variant="secondary" onClick={() => void query.refetch()}>
-						{t("app.retry")}
-					</Button>
-				</div>
+				<MemoryError title={t("memory.loadFailed")} error={query.error} retry={() => void query.refetch()} />
 			</section>
 		);
 	if (query.isSuccess && !days.length)
-		return (
-			<EmptyState
-				icon={<History size={24} strokeWidth={1.6} />}
-				title={t("memory.timeline")}
-				body={t("memory.timelineEmpty")}
-			/>
-		);
+		return <EmptyState icon={<History size={24} strokeWidth={1.6} />} title={t("memory.timelineEmpty")} />;
 	return (
 		<section
 			ref={setTimeline}
@@ -137,13 +126,16 @@ export function MemoryTimeline() {
 			aria-label={t("memory.timeline")}
 			aria-busy={query.isPending}
 		>
+			{query.isRefetchError && !pageError ? (
+				<MemoryError title={t("memory.loadFailed")} error={query.error} retry={() => void query.refetch()} />
+			) : null}
 			{days.map((day: MemoryDay) => (
 				<MemoryDaySection key={day.date} day={day} now={now} actions={actions} />
 			))}
 			<div ref={more} className="memory-more">
 				{pageError ? (
 					<p role="alert" className="memory-error-line">
-						{pageError instanceof ApiError ? t(pageError.messageKey) : pageError.message}
+						{pageError.message}
 						<Button size="sm" variant="link" onClick={() => void fetchNextPage()}>
 							{t("app.retry")}
 						</Button>
