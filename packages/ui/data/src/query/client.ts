@@ -8,13 +8,27 @@
  * - Retries are for network failures only. A business error (a wrong code) is not retried.
  * - Signing out clears memory, storage and the cache together (08 第十节).
  */
-import { QueryClient } from "@tanstack/react-query";
+import {
+	type DehydrateOptions,
+	defaultShouldDehydrateMutation,
+	defaultShouldDehydrateQuery,
+	QueryClient,
+} from "@tanstack/react-query";
 import type { PersistedClient, Persister } from "@tanstack/react-query-persist-client";
 import { ApiError, NetworkError } from "@yonder/api-client";
 
 export const CACHE_STORAGE_KEY = "yonder.query-cache";
-export const CACHE_VERSION = "3";
+export const CACHE_VERSION = "4";
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+export const dehydrateOptions: DehydrateOptions = {
+	// Memory can contain secret cards and files, including bodies in paused writes.
+	shouldDehydrateQuery: (query) =>
+		!["contact-search", "channel-messages", "channel-conversations", "memory"].includes(String(query.queryKey[0])) &&
+		defaultShouldDehydrateQuery(query),
+	shouldDehydrateMutation: (mutation) =>
+		mutation.options.mutationKey?.[0] !== "memory" && defaultShouldDehydrateMutation(mutation),
+};
 
 /** What the persister needs: a string store. `Storage` from `../storage` satisfies it. */
 export interface KeyValueStore {

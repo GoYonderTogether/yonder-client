@@ -43,6 +43,25 @@ describe("applyServerEvent", () => {
 			queryClient.clear();
 		}
 	});
+	test("a file change refreshes its details, history and matching directories, and reconnect refreshes all memory", () => {
+		const queryClient = new QueryClient();
+		const path = "/notes/周报.md";
+		const related = [
+			keys.memory.file(path),
+			keys.memory.revisions(path),
+			keys.memory.files(""),
+			keys.memory.files("/notes/"),
+		];
+		const unrelated = [keys.memory.file("/me/印象.md"), keys.memory.files("/digests/"), keys.memory.days()];
+		for (const key of [...related, ...unrelated]) queryClient.setQueryData(key, {});
+		const event = { type: "memory.changed", eventId: "file-1", at: "2026-11-16T00:00:00Z" } as const;
+		applyServerEvent(queryClient, { ...event, paths: [path] });
+		for (const key of related) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+		for (const key of unrelated) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(false);
+		reconcileRealtime(queryClient);
+		for (const key of unrelated) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+		queryClient.clear();
+	});
 	test("device changes and reconnects reconcile the device list and linked login sessions", () => {
 		const queryClient = new QueryClient();
 		for (const key of [keys.devices(), keys.sessions()]) queryClient.setQueryData(key, { items: [] });

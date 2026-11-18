@@ -1,9 +1,39 @@
+import { dehydrate } from "@tanstack/react-query";
 import { persistQueryClientRestore, persistQueryClientSubscribe } from "@tanstack/react-query-persist-client";
 import { afterEach, expect, test, vi } from "vitest";
 import { createMemoryStorage } from "../storage/index.ts";
-import { CACHE_STORAGE_KEY, CACHE_VERSION, createPersister, createQueryClient } from "./client.ts";
+import { CACHE_STORAGE_KEY, CACHE_VERSION, createPersister, createQueryClient, dehydrateOptions } from "./client.ts";
+import { keys } from "./keys.ts";
 
 afterEach(() => vi.useRealTimers());
+
+test("does not persist memory reads or paused writes", () => {
+	const client = createQueryClient();
+	const path = "/notes/private.md";
+	for (const key of [keys.memory.days(), keys.memory.files(""), keys.memory.file(path), keys.memory.revisions(path)]) {
+		client.setQueryData(key, "memory data");
+	}
+	client.setQueryData(keys.me(), "account data");
+	client.getMutationCache().build(
+		client,
+		{ mutationKey: keys.memory.all() },
+		{
+			context: undefined,
+			data: undefined,
+			error: null,
+			failureCount: 0,
+			failureReason: null,
+			isPaused: true,
+			status: "pending",
+			variables: { path, content: "memory data", expectedVersion: 1 },
+			submittedAt: 0,
+		},
+	);
+	const result = dehydrate(client, dehydrateOptions);
+	expect(result.queries.map(({ queryKey }) => queryKey)).toEqual([keys.me()]);
+	expect(result.mutations).toEqual([]);
+	client.clear();
+});
 
 test("coalesces a burst and keeps saving during a continuous stream", async () => {
 	vi.useFakeTimers();

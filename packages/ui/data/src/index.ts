@@ -55,7 +55,15 @@ export { useGroupActions } from "./hooks/groups.ts";
 export { useItem, useItemActions, useItems } from "./hooks/items.ts";
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
 export { useMemberProfile, usePublicMemberProfile } from "./hooks/members.ts";
-export { deviceTimeZone, useMemoryActions, useMemoryDays } from "./hooks/memory.ts";
+export {
+	deviceTimeZone,
+	useMemoryActions,
+	useMemoryDays,
+	useMemoryFile,
+	useMemoryFileActions,
+	useMemoryFileRevisions,
+	useMemoryFiles,
+} from "./hooks/memory.ts";
 export { usePrivacy, useUpdatePrivacy } from "./hooks/privacy.ts";
 export { useProviderActions, useProviders } from "./hooks/providers.ts";
 export {

@@ -6,6 +6,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { Conversation, Member, QuotaConfigResponse, ServerEvent } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
+import { invalidateMemoryFiles } from "../query/memory-files.ts";
 import { removeConversation, removeMember, writeMember } from "./member-cache.ts";
 import { updateMessage, updateRun } from "./message-cache.ts";
 
@@ -31,7 +32,7 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 	void queryClient.invalidateQueries({ queryKey: keys.usage("all") });
 	void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.items.all() });
-	void queryClient.invalidateQueries({ queryKey: keys.memory.days() });
+	void queryClient.invalidateQueries({ queryKey: keys.memory.all() });
 }
 
 export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, handlers: EventHandlers = {}): void {
@@ -132,8 +133,9 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 			break;
 		}
 		case "memory.changed": {
-			// A day was organized, edited, deleted or failed; the timeline is one paged query.
-			void queryClient.invalidateQueries({ queryKey: keys.memory.days() });
+			// The timeline is one paged query, and the event may name a new day.
+			if (event.dates?.length) void queryClient.invalidateQueries({ queryKey: keys.memory.days() });
+			if (event.paths?.length) void invalidateMemoryFiles(queryClient, event.paths);
 			break;
 		}
 	}

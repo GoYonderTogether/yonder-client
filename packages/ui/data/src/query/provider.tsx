@@ -3,7 +3,7 @@
  * realtime connection and the sign-out sweep, so a feature calls `useMe()` and trusts the rest.
  */
 
-import { defaultShouldDehydrateQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import type { Endpoints } from "@yonder/api-client";
 import { ApiClient, createEndpoints } from "@yonder/api-client";
@@ -15,7 +15,15 @@ import { RealtimeConnection } from "../realtime/connection.ts";
 import { clearChatCache } from "../storage/chat-cache.ts";
 import type { Storage } from "../storage/index.ts";
 import { createDefaultStorage } from "../storage/index.ts";
-import { CACHE_MAX_AGE_MS, CACHE_STORAGE_KEY, CACHE_VERSION, createPersister, createQueryClient } from "./client.ts";
+import {
+	CACHE_MAX_AGE_MS,
+	CACHE_STORAGE_KEY,
+	CACHE_VERSION,
+	createPersister,
+	createQueryClient,
+	dehydrateOptions,
+} from "./client.ts";
+import { keys } from "./keys.ts";
 
 export interface DataProviderProps {
 	/** Origin of the API: `""` on the web (same origin), the server address inside a shell. */
@@ -78,11 +86,21 @@ export function DataProvider({
 			...(refreshAccessToken ? { refreshAccessToken } : {}),
 			onSessionLost: () => {
 				void onSessionChange?.();
+				queryClient.removeQueries({ queryKey: keys.memory.all() });
 				setStatus("signed-out");
 			},
 		});
 		return import.meta.env.DEV ? { client, expireAccessTokenForDev: () => tokens.setAccessToken(null) } : { client };
-	}, [baseUrl, clientKind, appVersion, refreshTokenStorage, refreshAccessToken, onSessionChange, setStatus]);
+	}, [
+		baseUrl,
+		clientKind,
+		appVersion,
+		refreshTokenStorage,
+		refreshAccessToken,
+		onSessionChange,
+		queryClient,
+		setStatus,
+	]);
 	const { client } = clientParts;
 
 	const api = useMemo(() => createEndpoints(client), [client]);
@@ -131,11 +149,7 @@ export function DataProvider({
 					persister,
 					maxAge: CACHE_MAX_AGE_MS,
 					buster: CACHE_VERSION,
-					dehydrateOptions: {
-						shouldDehydrateQuery: (query) =>
-							!["contact-search", "channel-messages", "channel-conversations"].includes(String(query.queryKey[0])) &&
-							defaultShouldDehydrateQuery(query),
-					},
+					dehydrateOptions,
 				}}
 			>
 				<SessionBootstrapper />

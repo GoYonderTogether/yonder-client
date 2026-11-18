@@ -17,6 +17,10 @@ export const keys = {
 	memory: {
 		all: () => ["memory"] as const,
 		days: () => ["memory", "days"] as const,
+		fileLists: () => ["memory", "file-list"] as const,
+		files: (prefix: string) => ["memory", "file-list", prefix] as const,
+		file: (path: string) => ["memory", "file", path] as const,
+		revisions: (path: string) => ["memory", "file", path, "revisions"] as const,
 	},
 	quota: () => ["quota"] as const,
 	quotaConfig: () => ["quota", "config"] as const,
