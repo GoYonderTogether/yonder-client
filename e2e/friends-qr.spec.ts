@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { bot, conversation, isolateChat, person } from "./chat-fixture.ts";
+import { bot, isolateChat, person } from "./chat-fixture.ts";
 
 const previewDir = process.env.YONDER_PREVIEW_DIR ?? "test-results/social-memory";
 
@@ -50,19 +50,43 @@ async function decodeQr(page: Page, png: Buffer) {
 	}, png.toString("base64"));
 }
 
-test("mobile friend search adds an isolated contact and clearing search restores the contact card", async ({
-	page,
-}) => {
+test("mobile friend search sends a pending request and clearing search restores the contact card", async ({ page }) => {
 	await isolateChat(page);
-	await page.route("**/v1/contacts/search?*", (route) => route.fulfill({ json: { items: [bot] } }));
-	await page.route("**/v1/contacts", (route) => route.fulfill({ json: { conversation } }));
+	const friend = { ...person, id: "friend-person", handle: "friendcheck", displayName: "待添加好友" };
+	await page.route("**/v1/contacts/search?*", (route) => route.fulfill({ json: { items: [friend] } }));
+	let directAddCalls = 0;
+	await page.route("**/v1/contacts", (route) => {
+		if (route.request().method() === "POST") directAddCalls++;
+		return route.fulfill({ json: { items: [] } });
+	});
+	await page.route("**/v1/friend-requests", (route) =>
+		route.fulfill({
+			json: {
+				request: {
+					id: "isolated-friend-request",
+					sender: person,
+					recipient: friend,
+					status: "pending",
+					createdAt: "2026-11-18T00:00:00Z",
+					acceptedAt: null,
+					version: 1,
+				},
+			},
+		}),
+	);
 	await page.goto("/contacts/add");
 	const search = page.getByRole("searchbox", { name: "搜索 ID 或手机号" });
-	await search.fill("@chatbot");
+	await search.fill("@friendcheck");
 	await search.press("Enter");
-	await expect(page.getByText("@chatbot", { exact: true })).toBeVisible();
+	await expect(page.getByText("@friendcheck", { exact: true })).toBeVisible();
+	const requestSent = page.waitForRequest(
+		(request) => new URL(request.url()).pathname === "/v1/friend-requests" && request.method() === "POST",
+	);
 	await page.getByRole("button", { name: "添加", exact: true }).click();
-	await expect(page.getByRole("button", { name: "发消息" })).toBeVisible();
+	expect((await requestSent).postDataJSON()).toEqual({ memberId: friend.id });
+	await expect(page.getByRole("status").filter({ hasText: "已发送申请" })).toBeVisible();
+	await expect(page.getByRole("button", { name: "发消息", exact: true })).toHaveCount(0);
+	expect(directAddCalls).toBe(0);
 	await search.fill("");
 	await expect(page.getByRole("img", { name: "我的二维码" })).toBeVisible();
 });
