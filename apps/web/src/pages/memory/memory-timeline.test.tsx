@@ -108,7 +108,10 @@ test("days read newest first with a large title, a digest and entries at their o
 	expect(document.getElementById("memory-entry-reading")).toHaveClass("memory-upcoming");
 	expect(document.getElementById("memory-entry-plan")).toHaveClass("memory-size-note", "memory-kind-doc");
 	expect(screen.getByText("#Yonder")).toBeVisible();
-	expect(within(document.getElementById("memory-entry-plan") as HTMLElement).getByText("Private")).toBeVisible();
+	// Private is the default and is not marked on a card (24 第三节).
+	expect(
+		within(document.getElementById("memory-entry-plan") as HTMLElement).queryByRole("img", { name: "Private" }),
+	).toBeNull();
 	expect(document.getElementById("memory-entry-market")).toHaveClass("memory-size-moment");
 	expect(screen.getByText("Liangzhu Arts Centre")).toBeVisible();
 	expect(screen.getByText("People: 1")).toBeVisible();

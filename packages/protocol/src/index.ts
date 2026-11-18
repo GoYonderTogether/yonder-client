@@ -45,6 +45,7 @@ export type {
 	CreateBotResponse,
 	CreateGroupRequest,
 	GroupSystemEvent,
+	MemoryUpdateChange,
 	MemoryUpdatedSystemEvent,
 	Message,
 	MessagePage,
@@ -134,13 +135,17 @@ export type {
 	UpdateReceptionRequest,
 } from "./member/member.ts";
 export type {
+	MemoryFileAuthor,
 	MemoryFileContent,
 	MemoryFileKind,
+	MemoryFileLimit,
 	MemoryFileList,
 	MemoryFileRevision,
 	MemoryFileRevisionList,
+	MemoryFileSource,
 	MemoryFileSummary,
 	RevertMemoryFileRequest,
+	UpdateMemoryFileProtectionRequest,
 	UpdateMemoryFileRequest,
 	UpdateMemoryFileVisibilityRequest,
 } from "./memory/files.ts";

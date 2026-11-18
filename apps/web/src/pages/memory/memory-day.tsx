@@ -4,6 +4,7 @@ import { ChevronRight, Footprints, Images, MapPin } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { EntryActions } from "./memory-actions.ts";
+import { DaySummary } from "./memory-day-summary.tsx";
 import { MemoryEntry } from "./memory-entry.tsx";
 import { blockAt, dayName, daysAgo, memoryFormat } from "./memory-format.ts";
 
@@ -44,6 +45,7 @@ export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: D
 				<strong>{name}</strong>
 				<span>{sub}</span>
 			</h3>
+			{day.digestPath ? <DaySummary path={day.digestPath} /> : null}
 			{day.state === "failed" && day.failure ? (
 				<p role="alert" className="memory-error-line wrap-anywhere">
 					{day.failure}

@@ -19,8 +19,15 @@ export function joinNames(names: readonly string[], locale: Locale): string {
  * the chat, the conversation list and the tests all read the same words.
  */
 export function systemSentence(event: SystemEvent, locale: Locale): string {
-	if (event.event === "memory_updated")
-		return pair(locale, `记忆已更新 · ${event.path}`, `Memory updated · ${event.path}`);
+	if (event.event === "memory_updated") {
+		const [only] = event.changes;
+		if (event.changes.length === 1 && only) {
+			const title = only.title || only.path;
+			return pair(locale, `记忆已更新 · ${title}`, `Memory updated · ${title}`);
+		}
+		const count = event.changes.length;
+		return pair(locale, `记忆已更新 · ${count} 处`, `Memory updated · ${count} files`);
+	}
 	const names = joinNames(event.targetNames, locale) || pair(locale, "有人", "someone");
 	const actor = event.actorName || pair(locale, "有人", "Someone");
 	switch (event.event) {

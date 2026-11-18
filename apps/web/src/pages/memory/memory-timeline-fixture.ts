@@ -37,6 +37,7 @@ export const day = (date: string, blocks: MemoryDay["blocks"], rest: Partial<Mem
 	state: "ready",
 	failure: null,
 	digest: { steps: null, places: 0, photos: 0 },
+	digestPath: null,
 	blocks,
 	...rest,
 });

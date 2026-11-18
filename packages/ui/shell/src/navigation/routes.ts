@@ -41,6 +41,8 @@ export const ROUTES: readonly RouteEntry[] = [
 	{ path: "/memory", layer: "tab", tab: "memory" },
 	{ path: "/memory/about", layer: "tab", tab: "memory" },
 	{ path: "/memory/files", layer: "tab", tab: "memory" },
+	/** One memory file; the path is a single encoded segment. */
+	{ path: "/memory/files/:path", layer: "detail", tab: "memory" },
 	{ path: "/me", layer: "detail" },
 	{ path: "/me/:section", layer: "detail" },
 	{ path: "/me/:section/:page", layer: "detail" },

@@ -3,13 +3,45 @@ import type { MemoryVisibility } from "./memory.ts";
 
 export type MemoryFileKind = "impression" | "recent" | "note" | "archive" | "digest" | "public";
 
+/**
+ * Who last wrote a file, as stored: `user`, `system`, `router`, `bot:<memberId>`,
+ * `checkpoint:<runId>`, `digest:<runId>` (23 第七节).
+ */
+export type MemoryFileAuthor = string;
+
 export interface MemoryFileSummary {
 	path: string;
 	title: string;
 	kind: MemoryFileKind;
 	visibility: MemoryVisibility;
 	updatedAt: Timestamp;
+	updatedBy: MemoryFileAuthor;
+	/** The Bot's display name when `updatedBy` is `bot:<memberId>`; otherwise null. */
+	updatedByName: string | null;
+	/** The owner edited it by hand; Bots may only append until the owner lifts this. */
 	userEdited: boolean;
+	/** A Bot wrote it under `/public` and the owner has not published it yet. */
+	draft: boolean;
+}
+
+/** One event a file was written from, with where it can be opened. */
+export interface MemoryFileSource {
+	eventId: string;
+	/** The connector id: `chat`, `subtask`, `schedule`, `meeting`, … */
+	connector: string;
+	title: string;
+	conversationId?: string;
+	meetingId?: string;
+	itemId?: string;
+}
+
+/**
+ * The longest body the server accepts for this file (23 7.5): characters for the two `/me` files,
+ * which go into every turn, and bytes for the rest. The editor shows it while the owner types.
+ */
+export interface MemoryFileLimit {
+	length: number;
+	unit: "characters" | "bytes";
 }
 
 /** GET /v1/memory/files */
@@ -21,8 +53,8 @@ export interface MemoryFileList {
 export interface MemoryFileContent extends MemoryFileSummary {
 	content: string;
 	version: number;
-	/** IDs of the events this file cites. */
-	sources: string[];
+	sources: MemoryFileSource[];
+	limit: MemoryFileLimit;
 	/** Resolved absolute memory paths linked from the Markdown. */
 	links: string[];
 }
@@ -50,6 +82,12 @@ export interface UpdateMemoryFileRequest {
 export interface UpdateMemoryFileVisibilityRequest {
 	path: string;
 	visibility: MemoryVisibility;
+}
+
+/** PATCH /v1/memory/files/protection: lift 「你改过」 so Bots may rewrite the file again. */
+export interface UpdateMemoryFileProtectionRequest {
+	path: string;
+	userEdited: false;
 }
 
 /** POST /v1/memory/files/revert */

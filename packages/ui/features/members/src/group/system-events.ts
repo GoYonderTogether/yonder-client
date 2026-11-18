@@ -22,7 +22,12 @@ function names(event: GroupSystemEvent): string[] {
  * empty gap.
  */
 export function systemEventText(event: SystemEvent, t: Translate): string {
-	if (event.event === "memory_updated") return t("chat.memoryUpdatedPath", { path: event.path });
+	if (event.event === "memory_updated") {
+		const [only] = event.changes;
+		return event.changes.length === 1 && only
+			? t("chat.memoryUpdatedOne", { title: only.title || only.path })
+			: t("chat.memoryUpdatedMany", { count: event.changes.length });
+	}
 	const actor = event.actorName?.trim() || t(SOMEONE_KEY);
 	const people = names(event);
 	const joined = people.length > 0 ? people.join(t(SEPARATOR_KEY)) : t(SOMEONE_KEY);

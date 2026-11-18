@@ -6,8 +6,7 @@ import type { EntryActions } from "./memory-actions.ts";
 import { EntryDrawer, SOURCE_LABELS } from "./memory-drawer.tsx";
 import { entryIcon, KIND_ICONS, memoryFormat } from "./memory-format.ts";
 import { MemoryThumb } from "./memory-media.tsx";
-import { MemoryVisibility } from "./memory-visibility.tsx";
-import "./memory-files.css";
+import { VisibilityMark } from "./memory-visibility.tsx";
 
 /** The node on the spine: its size says how much the entry matters, colour and icon say what it is. */
 export function MemoryNode({ entry }: { entry: Entry }) {
@@ -39,13 +38,15 @@ export function MemoryEntry({ entry, upcoming, actions }: { entry: Entry; upcomi
 			(entry.text && entry.size !== "note"),
 	);
 	const time = <time dateTime={entry.at}>{memoryFormat.time(entry.at, i18n.language)}</time>;
-	const sources = entry.sources.map((source) => source.title || t(SOURCE_LABELS[source.kind])).join(" · ");
+	const kinds = [...new Set(entry.sources.map((source) => t(SOURCE_LABELS[source.kind])))];
+	const sources = kinds.length ? t("memory.fromSources", { sources: kinds.join(" / ") }) : "";
+	const marked = entry.visibility === "public" || entry.visibility === "secret";
 	const body = (
 		<>
 			<EntryBody entry={entry} time={time} />
-			{entry.visibility || sources ? (
+			{marked || sources ? (
 				<span className="flex min-w-0 flex-wrap items-center gap-x-[var(--spacing-3)] gap-y-[var(--spacing-1)]">
-					<MemoryVisibility visibility={entry.visibility} />
+					<VisibilityMark visibility={entry.visibility} />
 					{sources ? (
 						<span className="min-w-0 truncate text-caption text-[var(--color-text-secondary)]">{sources}</span>
 					) : null}

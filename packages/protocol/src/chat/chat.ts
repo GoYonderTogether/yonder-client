@@ -26,11 +26,20 @@ export interface GroupSystemEvent {
 	title?: string;
 }
 
+/** One file a Bot changed during a reply; `version` is the version that reply wrote. */
+export interface MemoryUpdateChange {
+	path: string;
+	title: string;
+	version: number;
+}
+
+/**
+ * The Bot changed memory while answering the owner (24 第六节). One line per reply, however many
+ * files it touched. Checkpoints and summaries never send this.
+ */
 export interface MemoryUpdatedSystemEvent {
 	event: "memory_updated";
-	path: string;
-	/** The version written by this update. */
-	version: number;
+	changes: MemoryUpdateChange[];
 }
 
 export type SystemEvent = GroupSystemEvent | MemoryUpdatedSystemEvent;

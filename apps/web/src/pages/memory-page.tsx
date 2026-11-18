@@ -1,22 +1,42 @@
-import { Segmented } from "@yonder/ui-components";
+import { EmptyState, Segmented } from "@yonder/ui-components";
 import { usePerson } from "@yonder/ui-data";
-import { ListFrame, Overlay, PageFrame, useShellChrome } from "@yonder/ui-shell";
-import { useState } from "react";
+import { ListFrame, PageFrame, useShellChrome } from "@yonder/ui-shell";
+import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { ABOUT_MEMORY, MemoryFile } from "./memory/memory-file.tsx";
-import { MemoryFileTree } from "./memory/memory-file-tree.tsx";
+import { useNavigate } from "react-router";
+import { MemoryAbout } from "./memory/memory-about.tsx";
+import { MemoryFilePage } from "./memory/memory-file.tsx";
+import { MemoryFileList } from "./memory/memory-file-list.tsx";
+import { memoryFileRoute } from "./memory/memory-navigation.ts";
 import { MemoryTimeline } from "./memory/memory-timeline.tsx";
 import "./memory/memory.css";
 import "./memory/memory-entry.css";
 import "./memory/memory-drawer.css";
 import "./memory/memory-overlay.css";
 
+/** The three sections (24 第二节); the timeline is the default, the one looked at every day. */
 const SECTIONS = { timeline: "memory.timeline", about: "memory.aboutMe", files: "memory.files" } as const;
-type MemorySection = keyof typeof SECTIONS;
+export type MemorySection = keyof typeof SECTIONS;
 
-export function MemoryList({ section, onChange }: { section: MemorySection; onChange: (section: string) => void }) {
+/**
+ * The list column. On a wide window the timeline and 「了解」 read on the white detail page and the
+ * column only holds the switch; 「文件」 keeps its list here and opens a file beside it. Narrower
+ * windows read every section in this column, and a file covers it as a detail.
+ */
+export function MemoryList({
+	section,
+	file,
+	onChange,
+}: {
+	section: MemorySection;
+	file: string | null;
+	onChange: (section: string) => void;
+}) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
+	const navigate = useNavigate();
+	const person = usePerson();
+	const inList = mode !== "wide" || section === "files";
 	return (
 		<ListFrame
 			title={t("nav.memory")}
@@ -29,49 +49,42 @@ export function MemoryList({ section, onChange }: { section: MemorySection; onCh
 				/>
 			}
 		>
-			{mode !== "wide" ? <MemoryBody section={section} /> : null}
+			{inList ? (
+				section === "files" ? (
+					<MemoryFileList key={person?.id} current={file} onOpen={(path) => navigate(memoryFileRoute(path))} />
+				) : (
+					<SectionBody key={person?.id} section={section} />
+				)
+			) : null}
 		</ListFrame>
 	);
 }
 
-export function MemoryPage({ section }: { section: MemorySection }) {
+export function MemoryPage({ section, file }: { section: MemorySection; file: string | null }) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
-	return (
-		<PageFrame title={t(SECTIONS[section])}>{mode === "wide" ? <MemoryBody section={section} /> : null}</PageFrame>
-	);
-}
-
-function MemoryBody({ section }: { section: MemorySection }) {
+	const navigate = useNavigate();
 	const person = usePerson();
-	return section === "timeline" ? (
-		<MemoryTimeline key={person?.id} />
-	) : (
-		<MemoryFilesSection key={`${section}:${person?.id ?? ""}`} section={section} owner={person?.kind === "person"} />
+	if (file)
+		return (
+			<PageFrame>
+				<MemoryFilePage key={`${person?.id}:${file}`} path={file} onDeleted={() => navigate("/memory/files")} />
+			</PageFrame>
+		);
+	if (mode !== "wide") return <PageFrame>{null}</PageFrame>;
+	if (section === "files")
+		return (
+			<div className="flex flex-1 items-center justify-center">
+				<EmptyState icon={<FileText size={24} strokeWidth={1.6} />} title={t("memory.files")} />
+			</div>
+		);
+	return (
+		<PageFrame title={t(SECTIONS[section])}>
+			<SectionBody key={person?.id} section={section} />
+		</PageFrame>
 	);
 }
 
-function MemoryFilesSection({ section, owner }: { section: "about" | "files"; owner: boolean }) {
-	const { t } = useTranslation();
-	const { mode } = useShellChrome();
-	const [open, setOpen] = useState<string>();
-	const close = () => setOpen(undefined);
-	return (
-		<div className="memory-file-section">
-			{section === "about" ? (
-				ABOUT_MEMORY.map(({ path, label }) => (
-					<MemoryFile key={path} path={path} title={t(label)} owner={owner} onOpen={setOpen} />
-				))
-			) : (
-				<MemoryFileTree onOpen={setOpen} />
-			)}
-			{open ? (
-				<Overlay open title={t("memory.file")} closeLabel={t("app.close")} mode={mode} onClose={close}>
-					<div className="p-[var(--spacing-4)]">
-						<MemoryFile key={open} path={open} title="" owner={owner} onOpen={setOpen} onDeleted={close} />
-					</div>
-				</Overlay>
-			) : null}
-		</div>
-	);
+function SectionBody({ section }: { section: "timeline" | "about" }) {
+	return section === "timeline" ? <MemoryTimeline /> : <MemoryAbout />;
 }

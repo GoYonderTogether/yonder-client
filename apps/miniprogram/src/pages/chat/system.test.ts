@@ -1,4 +1,4 @@
-import type { GroupSystemEvent } from "@yonder/protocol";
+import type { GroupSystemEvent, SystemEvent } from "@yonder/protocol";
 import { describe, expect, it } from "vitest";
 import { closureSentence, joinNames, systemSentence } from "./system";
 
@@ -40,9 +40,18 @@ describe("group lifecycle sentences", () => {
 });
 
 it("renders a memory update as a system message in both languages", () => {
-	const update = { event: "memory_updated", path: "/me/近期.md", version: 2 } as const;
-	expect(systemSentence(update, "zh-CN")).toBe("记忆已更新 · /me/近期.md");
-	expect(systemSentence(update, "en")).toBe("Memory updated · /me/近期.md");
+	const one: SystemEvent = { event: "memory_updated", changes: [{ path: "/me/近期.md", title: "近期", version: 2 }] };
+	expect(systemSentence(one, "zh-CN")).toBe("记忆已更新 · 近期");
+	expect(systemSentence(one, "en")).toBe("Memory updated · 近期");
+	const two: SystemEvent = {
+		event: "memory_updated",
+		changes: [
+			{ path: "/me/近期.md", title: "近期", version: 2 },
+			{ path: "/notes/小林.md", title: "小林", version: 1 },
+		],
+	};
+	expect(systemSentence(two, "zh-CN")).toBe("记忆已更新 · 2 处");
+	expect(systemSentence(two, "en")).toBe("Memory updated · 2 files");
 });
 
 describe("closed group copy", () => {

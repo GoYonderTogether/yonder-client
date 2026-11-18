@@ -19,7 +19,7 @@ import {
 	useSkills,
 } from "@yonder/ui-data";
 import type { LayoutMode, TabId } from "@yonder/ui-shell";
-import { AppShell, locate, MAIN_CONVERSATION, tabPath } from "@yonder/ui-shell";
+import { AppShell, locate, MAIN_CONVERSATION, SidePanelProvider, tabPath } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
@@ -46,6 +46,7 @@ import { useChatDraft } from "./use-chat-draft.ts";
 import { useHasPassword } from "./use-has-password.ts";
 import { useMeEntry } from "./use-me-entry.ts";
 import { useMeetingCloud } from "./use-meeting-cloud.ts";
+import { useMeetingLink } from "./use-meeting-link.ts";
 import { useMeetingRecorder } from "./use-meeting-recorder.ts";
 import { useModelDirtyGuard } from "./use-model-dirty-guard.ts";
 import { usePageNavigation } from "./use-page-navigation.ts";
@@ -94,7 +95,7 @@ export function AppFrame() {
 	const tabLocation = meOpen ? remembered || previousLocation.current : path;
 	const base = meOpen ? locate(tabLocation.split(/[?#]/)[0] ?? "/messages") : located;
 	const tab = base?.tab ?? "messages";
-	const [selection = null] = base?.detail ?? [];
+	const [selection = null, subSelection = null] = base?.detail ?? [];
 	const [first = null, second = null] = meOpen ? located.detail : [];
 	const section = first && isMeSection(first) ? first : null;
 	const meEntry = useMeEntry(storage, person?.id, section);
@@ -134,6 +135,10 @@ export function AppFrame() {
 		recordingTarget && bot ? { id: recordingTarget.id, name: bot.displayName } : null,
 		recorderOpen,
 	);
+	useMeetingLink((id) => {
+		meetingCloud.select(id);
+		setRecorderOpen(true);
+	});
 	const draft = useChatDraft(person?.id, conversation?.id);
 	const history = useMessages(conversation?.id ?? null);
 	const send = useSendMessage(conversation?.id ?? null, person?.id);
@@ -198,8 +203,9 @@ export function AppFrame() {
 		open: navigation.open,
 	});
 	const memorySection = selection === "about" || selection === "files" ? selection : "timeline";
+	const memoryFile = tab === "memory" && selection === "files" ? subSelection : null;
 	const segmentRoot =
-		(tab === "tasks" && selection === "scheduled") || (tab === "memory" && memorySection !== "timeline");
+		(tab === "tasks" && selection === "scheduled") || (tab === "memory" && memorySection !== "timeline" && !memoryFile);
 	const detailOpen = selection !== null && !segmentRoot;
 	/**
 	 * Back, Escape and a swipe are one exit, and a layer that is animating out still holds the props
@@ -211,6 +217,8 @@ export function AppFrame() {
 		const live = locate(navigation.current());
 		const liveMeOpen = live !== null && live.tab === null;
 		const [liveFirst = null, liveSecond = null] = liveMeOpen ? live.detail : [];
+		// A memory file goes back to the file list it was opened from.
+		if (live?.tab === "memory" && live.detail[0] === "files" && live.detail[1]) return navigation.back("/memory/files");
 		if (!liveMeOpen) return navigation.back(tabPath(live?.tab ?? tab));
 		if (liveSecond) return navigation.back(`/me/${liveFirst}`);
 		if (liveFirst && !splitMe) return navigation.back("/me");
@@ -326,10 +334,11 @@ export function AppFrame() {
 					list: (
 						<MemoryList
 							section={memorySection}
+							file={memoryFile}
 							onChange={(value) => navigation.open(value === "timeline" ? "/memory" : `/memory/${value}`)}
 						/>
 					),
-					content: <MemoryPage section={memorySection} />,
+					content: <MemoryPage section={memorySection} file={memoryFile} />,
 				};
 		}
 	}
@@ -407,7 +416,7 @@ export function AppFrame() {
 	);
 
 	return (
-		<>
+		<SidePanelProvider value={layers.controls}>
 			<AppShell
 				tab={{
 					current: tab,
@@ -464,7 +473,7 @@ export function AppFrame() {
 				onModeChange={setLayoutMode}
 			/>
 			{preset.flying ? <FlyToComposer phrase={preset.flying} onDone={preset.flown} /> : null}
-		</>
+		</SidePanelProvider>
 	);
 }
 

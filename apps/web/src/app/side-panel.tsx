@@ -1,14 +1,21 @@
 import { FeishuChannel } from "@yonder/feature-me";
 import { BotDetail, GroupInfo } from "@yonder/feature-members";
 import type { Conversation, ConversationMember, Member } from "@yonder/protocol";
-import type { SidePage, SideStack } from "@yonder/ui-shell";
+import type { SidePage, SidePanelControls, SideStack } from "@yonder/ui-shell";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { MemberCardView } from "../pages/member-card.tsx";
 
-/** One page of the right-hand side panel. */
-export type SideEntry = { kind: "bot"; id: string } | { kind: "member"; handle: string } | { kind: "group" };
+/**
+ * One page of the right-hand side panel. The frame's own entries are rebuilt from live data on
+ * every render; `page` is a page another screen handed over, whose content fetches its own data.
+ */
+export type SideEntry =
+	| { kind: "bot"; id: string }
+	| { kind: "member"; handle: string }
+	| { kind: "group" }
+	| { kind: "page"; page: SidePage };
 
 /**
  * The frame's right-hand side panel (17 3.1, 3.2, 3.5): group info, a Bot this account owns, and
@@ -30,6 +37,12 @@ export function useFrameLayers() {
 			close,
 			openBot: (id: string | null) => (id ? open({ kind: "bot", id }) : close()),
 			openGroup: () => open({ kind: "group" }),
+			/** What pages get through `useSidePanel`. */
+			controls: {
+				open: (page: SidePage) => open({ kind: "page", page }),
+				push: (page: SidePage) => push({ kind: "page", page }),
+				close,
+			} satisfies SidePanelControls,
 		}),
 		[stack, open, push, back, close],
 	);
@@ -126,6 +139,8 @@ export function useSideStack({
 						),
 					},
 				];
+			case "page":
+				return [{ ...entry.page, key }];
 			default:
 				return [];
 		}
@@ -140,5 +155,14 @@ export function useSideStack({
 }
 
 function entryKey(entry: SideEntry): string {
-	return entry.kind === "bot" ? `bot:${entry.id}` : entry.kind === "member" ? `member:${entry.handle}` : "group";
+	switch (entry.kind) {
+		case "bot":
+			return `bot:${entry.id}`;
+		case "member":
+			return `member:${entry.handle}`;
+		case "group":
+			return "group";
+		case "page":
+			return `page:${entry.page.key}`;
+	}
 }

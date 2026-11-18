@@ -28,7 +28,7 @@ export function MemoryTimeline() {
 	const surface = useShellChrome().mode === "wide" ? "base" : "chrome";
 	const query = useMemoryDays();
 	const { remove } = useMemoryActions();
-	const onSource = useSourceNavigation();
+	const onSource = useSourceNavigation().target;
 	const [open, setOpen] = useState<string | null>(null);
 	const [preview, setPreview] = useState<PreviewFile>();
 	const [pending, setPending] = useState<string | null>(null);

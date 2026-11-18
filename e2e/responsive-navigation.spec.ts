@@ -434,10 +434,11 @@ test.describe("phone", () => {
 			expect(bounds?.width).toBeGreaterThanOrEqual(350);
 			const radios = await sections.getByRole("radio").all();
 			const targets = await Promise.all(radios.map((radio) => radio.boundingBox()));
-			expect(targets[0]?.width).toBeCloseTo(targets[1]?.width ?? 0, 0);
+			// Segments share the row equally: two for tasks, three for memory (24 第二节).
 			for (const target of targets) {
+				expect(target?.width).toBeCloseTo(targets[0]?.width ?? 0, 0);
 				expect(target?.height).toBe(44);
-				expect(target?.width).toBeGreaterThan(160);
+				expect(target?.width).toBeGreaterThan((bounds?.width ?? 0) / targets.length - 12);
 			}
 			await sections.getByRole("radio", { name: option, exact: true }).click();
 			await expect(page).toHaveURL(new RegExp(`${path}$`));

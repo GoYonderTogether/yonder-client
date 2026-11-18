@@ -298,11 +298,9 @@ export const en = {
 		jumpToLatest: "Jump to latest",
 		loadOlder: "Load earlier messages",
 		memoryUpdated: "Memory updated",
-		memoryUpdatedPath: "Memory updated · {{path}}",
-		memoryRevisionUnavailable: "This change is unavailable in the file history.",
-		memoryNoEarlierRevision: "No earlier version",
-		memoryRestoreEarlier: "Later changes exist. Restore version {{version}} as the current version?",
-		memoryReverted: "Memory reverted",
+		memoryUpdatedOne: "Memory updated · {{title}}",
+		memoryUpdatedMany: "Memory updated · {{count}} files",
+		memoryRevisionUnavailable: "This change isn't in the file's history",
 	},
 
 	tasks: {

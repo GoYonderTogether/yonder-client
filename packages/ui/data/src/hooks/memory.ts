@@ -66,6 +66,7 @@ export function useMemoryFileActions() {
 	return {
 		update: useMutation({ mutationKey, mutationFn: api.updateMemoryFile, onSuccess: refresh }),
 		setVisibility: useMutation({ mutationKey, mutationFn: api.updateMemoryFileVisibility, onSuccess: refresh }),
+		release: useMutation({ mutationKey, mutationFn: api.updateMemoryFileProtection, onSuccess: refresh }),
 		remove: useMutation({
 			mutationKey,
 			mutationFn: api.deleteMemoryFile,

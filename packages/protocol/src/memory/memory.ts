@@ -140,6 +140,8 @@ export interface MemoryDay {
 	state: "ready" | "organizing" | "failed";
 	failure: string | null;
 	digest: { steps: number | null; places: number; photos: number };
+	/** `/digests/day/<date>.md` when the day has a daily summary; null when it was skipped or not run. */
+	digestPath: string | null;
 	/** In time order, oldest first. Today may include planned entries after now. */
 	blocks: MemoryBlock[];
 }
