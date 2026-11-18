@@ -254,7 +254,7 @@ export const zhCN: Messages = {
 	},
 
 	chat: {
-		activityMore: "等 {{count}} 项",
+		sources: "来源",
 		uploadFiles: "上传文件",
 		uploadImages: "上传图片",
 		removeFile: "移除 {{name}}",

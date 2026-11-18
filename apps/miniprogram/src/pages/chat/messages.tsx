@@ -10,6 +10,7 @@ import { ChatAvatar } from "./avatar";
 import { senderBotId } from "./bot-entry";
 import { ChatView } from "./host";
 import { MessageBody } from "./markdown";
+import { MessageSources } from "./message-sources";
 import { runFailureText, systemText } from "./sentences";
 import type { useChat } from "./use-chat";
 
@@ -114,9 +115,7 @@ export function renderRun(
 							</MessageBubble>
 						) : null}
 						{message.reaction ? <Text>{message.reaction}</Text> : null}
-						{message.run?.activity?.length ? (
-							<Text className="mini-muted">{message.run.activity.map((item) => item.label).join(" · ")}</Text>
-						) : null}
+						<MessageSources run={message.run} />
 						{message.options?.map((option) => (
 							<Button
 								key={option}

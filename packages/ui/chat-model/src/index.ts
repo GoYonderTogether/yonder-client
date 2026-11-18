@@ -1,4 +1,5 @@
 export { BOT_FACE_IDS, type BotFaceId, botFaceFor, botFacePaths, firstCharacter, tintFor } from "./avatar.ts";
+export { runSources } from "./run-sources.ts";
 
 import type { Message } from "@yonder/protocol";
 

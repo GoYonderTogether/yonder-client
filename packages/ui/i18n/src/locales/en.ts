@@ -253,7 +253,7 @@ export const en = {
 	},
 
 	chat: {
-		activityMore: "{{count}} activities",
+		sources: "Sources",
 		uploadFiles: "Upload files",
 		uploadImages: "Upload images",
 		removeFile: "Remove {{name}}",

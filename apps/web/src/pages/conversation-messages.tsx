@@ -12,8 +12,8 @@ import { FriendRequestCard } from "./friend-request-card.tsx";
 import { MemoryUpdatedLine } from "./memory-updated-line.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
+import { MessageSources } from "./message-sources.tsx";
 import { AskOwner, OutwardRequestCard } from "./outward-request-card.tsx";
-import { RunActivity } from "./run-activity.tsx";
 
 interface MessageProps {
 	message: CachedMessage;
@@ -237,7 +237,7 @@ function MessageEntry({
 			) : null}
 			<MessageAttachments attachments={message.attachments} self={self} />
 			{message.reaction ? <span>{message.reaction}</span> : null}
-			<RunActivity run={message.run} />
+			<MessageSources run={message.run} />
 			{message.connectorRequestId ? (
 				<ConnectorRequestCard id={message.connectorRequestId} ready={message.run?.status === "completed"} />
 			) : null}
