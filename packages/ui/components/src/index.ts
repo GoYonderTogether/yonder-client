@@ -1,6 +1,7 @@
 /**
- * `@yonder/ui-components` — layer 2. The primitives: button, input, card, avatar, list, dialog,
- * empty state, spinner, skeleton. They take props and nothing else: no data hooks, no global state,
+ * `@yonder/ui-components` — layer 2. The primitives: button, input, card, avatar, list, menu,
+ * switch, badge, banner, inline error, spinner, empty state. Which one to use for which pattern is
+ * in `docs/design-system.md`. They take props and nothing else: no data hooks, no global state,
  * no device checks.
  */
 
@@ -10,6 +11,8 @@ export type { AvatarProps, AvatarSize } from "./avatar/avatar.tsx";
 export { Avatar } from "./avatar/avatar.tsx";
 export type { BotFaceId } from "./avatar/bot-face.tsx";
 export { BOT_FACE_IDS, BotFace, botFaceFor } from "./avatar/bot-face.tsx";
+export type { BadgeProps, BadgeTone } from "./badge/badge.tsx";
+export { Badge } from "./badge/badge.tsx";
 export type { ButtonProps, ButtonSize, ButtonVariant } from "./button/button.tsx";
 export { Button } from "./button/button.tsx";
 export type { CardProps } from "./card/card.tsx";
@@ -20,6 +23,12 @@ export type { ClassValue } from "./cn.ts";
 export { cn } from "./cn.ts";
 export type { EmptyStateProps } from "./empty-state/empty-state.tsx";
 export { EmptyState } from "./empty-state/empty-state.tsx";
+export type { BannerProps, BannerTone } from "./feedback/banner.tsx";
+export { Banner } from "./feedback/banner.tsx";
+export type { InlineErrorProps } from "./feedback/inline-error.tsx";
+export { InlineError } from "./feedback/inline-error.tsx";
+export type { LoadingRowProps, SpinnerProps, SpinnerSize } from "./feedback/loading.tsx";
+export { LoadingRow, Spinner } from "./feedback/loading.tsx";
 export type { CodeFieldProps } from "./field/code-field.tsx";
 export { CodeField } from "./field/code-field.tsx";
 export type {
@@ -49,7 +58,11 @@ export type { ListRowProps } from "./list/list.tsx";
 export { IconTile, ListGroup, ListRow } from "./list/list.tsx";
 export type { LogoProps } from "./logo/logo.tsx";
 export { AppIcon, Logo } from "./logo/logo.tsx";
+export type { MenuItem, MenuProps, MenuSurfaceProps, MenuTriggerProps } from "./menu/menu.tsx";
+export { MENU_ITEM, MENU_SURFACE, Menu, MenuSurface } from "./menu/menu.tsx";
 export type { BrandedQrCodeProps } from "./qr-code/branded-qr-code.tsx";
 export { BrandedQrCode } from "./qr-code/branded-qr-code.tsx";
 export type { SegmentedProps, SegmentOption } from "./segmented/segmented.tsx";
 export { Segmented } from "./segmented/segmented.tsx";
+export type { SwitchProps } from "./switch/switch.tsx";
+export { Switch } from "./switch/switch.tsx";

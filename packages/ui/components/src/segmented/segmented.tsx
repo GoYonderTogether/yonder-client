@@ -14,11 +14,23 @@ export interface SegmentedProps {
 	value: string;
 	onChange: (value: string) => void;
 	disabled?: boolean;
+	/** `sm` (default): 32px, square segments, for a desktop toolbar. `lg`: a full-width capsule with
+	 * 44px segments, the list header style on every layout. */
+	size?: "sm" | "lg";
 	className?: string;
 }
 
 /** A single-choice group with roving focus and arrow-key selection. */
-export function Segmented({ options, value, onChange, disabled = false, className, ...props }: SegmentedProps) {
+export function Segmented({
+	options,
+	value,
+	onChange,
+	disabled = false,
+	size = "sm",
+	className,
+	...props
+}: SegmentedProps) {
+	const large = size === "lg";
 	const name = useId();
 	const enabled = options.filter((option) => !option.disabled);
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -59,7 +71,10 @@ export function Segmented({ options, value, onChange, disabled = false, classNam
 			aria-disabled={disabled || undefined}
 			onKeyDown={onKeyDown}
 			className={cn(
-				"inline-flex h-[var(--control-sm)] items-stretch gap-1 rounded-[var(--radius-control-sm)] bg-[var(--color-bg-subtle)] p-1",
+				"items-stretch gap-[var(--spacing-1)] bg-[var(--color-bg-subtle)] p-[var(--spacing-1)]",
+				large
+					? "flex w-full rounded-[var(--radius-full)]"
+					: "inline-flex h-[var(--control-sm)] rounded-[var(--radius-control-sm)]",
 				className,
 			)}
 		>
@@ -67,9 +82,12 @@ export function Segmented({ options, value, onChange, disabled = false, classNam
 				<label
 					key={option.value}
 					className={cn(
-						"relative inline-flex cursor-pointer items-stretch rounded-[var(--radius-xs)] text-caption text-[var(--color-text-secondary)] transition-[transform,scale] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
+						"relative inline-flex cursor-pointer items-stretch text-[var(--color-text-secondary)] transition-[transform,scale] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
+						large
+							? "min-h-[calc(var(--control-lg)-var(--spacing-1))] flex-1 rounded-[var(--radius-full)] text-body"
+							: "rounded-[var(--radius-xs)] text-caption",
 						!disabled && !option.disabled && "hover:text-[var(--color-text-primary)] motion-safe:active:scale-[0.97]",
-						(disabled || option.disabled) && "cursor-not-allowed opacity-60",
+						(disabled || option.disabled) && "cursor-not-allowed opacity-[var(--opacity-disabled)]",
 					)}
 				>
 					<input
@@ -89,7 +107,8 @@ export function Segmented({ options, value, onChange, disabled = false, classNam
 					/>
 					<span
 						className={cn(
-							"flex items-center rounded-[var(--radius-xs)] px-[var(--spacing-2)] transition-colors duration-[var(--duration-fast)] peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--color-accent)] peer-focus-visible:shadow-[var(--focus-ring)]",
+							"flex items-center px-[var(--spacing-2)] transition-colors duration-[var(--duration-fast)] peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--color-accent)] peer-focus-visible:shadow-[var(--focus-ring)]",
+							large ? "w-full justify-center rounded-[var(--radius-full)]" : "rounded-[var(--radius-xs)]",
 							value === option.value &&
 								"bg-[var(--color-bg-selected)] text-[var(--color-text-primary)] shadow-[var(--shadow-xs)]",
 						)}

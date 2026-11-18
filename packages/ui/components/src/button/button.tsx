@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "../cn.ts";
+import { Spinner } from "../feedback/loading.tsx";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "link";
 export type ButtonSize = "sm" | "md" | "lg";
@@ -29,9 +30,9 @@ const VARIANTS: Record<ButtonVariant, string> = {
 };
 
 const SIZES: Record<ButtonSize, string> = {
-	sm: "h-[var(--control-sm)] px-3 text-caption rounded-[var(--radius-control-sm)]",
-	md: "h-[var(--control-md)] px-4 text-body rounded-[var(--radius-control)]",
-	lg: "h-[var(--control-lg)] px-5 text-body rounded-[var(--radius-control)]",
+	sm: "h-[var(--control-sm)] px-[var(--spacing-3)] text-caption rounded-[var(--radius-control-sm)]",
+	md: "h-[var(--control-md)] px-[var(--spacing-4)] text-body rounded-[var(--radius-control)]",
+	lg: "h-[var(--control-lg)] px-[var(--spacing-5)] text-body rounded-[var(--radius-control)]",
 };
 
 /**
@@ -55,11 +56,11 @@ export function Button({
 			disabled={disabled || loading}
 			aria-busy={loading || undefined}
 			className={cn(
-				"relative inline-flex select-none items-center justify-center gap-2 font-medium",
+				"relative inline-flex select-none items-center justify-center gap-[var(--spacing-2)] font-medium",
 				"transition-[background-color,color,transform,scale,opacity] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
 				"motion-safe:enabled:active:scale-[0.97]",
 				"focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]",
-				"disabled:cursor-not-allowed disabled:opacity-60",
+				"disabled:cursor-not-allowed disabled:opacity-[var(--opacity-disabled)]",
 				VARIANTS[variant],
 				"aria-pressed:bg-[var(--color-bg-selected)] aria-pressed:text-[var(--color-text-primary)] aria-pressed:enabled:hover:bg-[var(--color-bg-selected)]",
 				SIZES[size],
@@ -69,12 +70,7 @@ export function Button({
 			)}
 			{...rest}
 		>
-			{loading ? (
-				<span
-					aria-hidden
-					className="absolute size-4 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
-				/>
-			) : null}
+			{loading ? <Spinner size="sm" className="absolute" /> : null}
 			<span className={cn("inline-flex min-w-0 items-center justify-center gap-[inherit]", loading && "opacity-0")}>
 				{children}
 			</span>

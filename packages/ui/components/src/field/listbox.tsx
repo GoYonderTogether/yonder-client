@@ -2,18 +2,16 @@ import { ChevronDown } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "../cn.ts";
+import { MenuSurface } from "../menu/menu.tsx";
 
 export interface ListboxOption {
 	value: string;
 	label: string;
 }
 
+/** The listbox's panel: the shared menu surface, at least as wide as its trigger. */
 export function Popover({ children }: { children: ReactNode }) {
-	return (
-		<div className="absolute top-full left-0 z-50 mt-[var(--spacing-1)] min-w-full rounded-[var(--radius-control)] bg-[var(--color-bg-raised)] p-[var(--spacing-1)] shadow-[var(--shadow-lg)]">
-			{children}
-		</div>
-	);
+	return <MenuSurface className="min-w-full">{children}</MenuSurface>;
 }
 
 export interface ListboxProps {

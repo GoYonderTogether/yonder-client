@@ -37,3 +37,27 @@ test("arrow keys select and focus enabled segments, including wraparound", async
 	expect(last).toHaveFocus();
 	expect(last).toBeChecked();
 });
+
+test("the lg size is a full-width capsule with control-lg segments", () => {
+	render(
+		<Segmented
+			aria-label="Tasks"
+			size="lg"
+			value="items"
+			onChange={() => {}}
+			options={[
+				{ value: "items", label: "Items" },
+				{ value: "goals", label: "Goals" },
+			]}
+		/>,
+	);
+	const group = screen.getByRole("radiogroup", { name: "Tasks" });
+	expect(group.className).toContain("w-full");
+	expect(group.className).toContain("--radius-full");
+	expect(screen.getByRole("radio", { name: "Items" }).parentElement?.className).toContain("--control-lg");
+});
+
+test("the default size stays the 32px toolbar control", () => {
+	render(<Segmented aria-label="View" value="a" onChange={() => {}} options={[{ value: "a", label: "A" }]} />);
+	expect(screen.getByRole("radiogroup").className).toContain("--control-sm");
+});

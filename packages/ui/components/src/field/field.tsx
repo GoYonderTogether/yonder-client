@@ -65,7 +65,7 @@ export function InputFrame({ children, fieldSize = "md", invalid, disabled, focu
 					"focus-within:outline-1 focus-within:outline-offset-[-1px] focus-within:outline-[var(--color-accent)]",
 				focused && !disabled && !invalid && "outline-1 outline-offset-[-1px] outline-[var(--color-accent)]",
 				invalid ? "bg-[var(--color-danger-subtle)]" : "bg-[var(--color-bg-subtle)]",
-				disabled && "cursor-not-allowed opacity-60",
+				disabled && "cursor-not-allowed opacity-[var(--opacity-disabled)]",
 				FRAME_SIZES[fieldSize],
 				className,
 			)}

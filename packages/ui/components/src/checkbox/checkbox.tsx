@@ -13,7 +13,7 @@ export function Checkbox({ children, className, disabled, ref, ...props }: Check
 		<label
 			className={cn(
 				"inline-flex items-start gap-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]",
-				disabled && "opacity-60",
+				disabled && "opacity-[var(--opacity-disabled)]",
 				className,
 			)}
 		>
