@@ -1,4 +1,4 @@
-import type { SystemEvent } from "@yonder/protocol";
+import type { GroupSystemEvent, SystemEvent } from "@yonder/protocol";
 import type { useTranslation } from "react-i18next";
 
 /**
@@ -11,7 +11,7 @@ export type Translate = ReturnType<typeof useTranslation>["t"];
 const SEPARATOR_KEY = "members.events.separator";
 const SOMEONE_KEY = "members.events.someone";
 
-function names(event: SystemEvent): string[] {
+function names(event: GroupSystemEvent): string[] {
 	return event.targetNames.filter((name) => name.trim() !== "");
 }
 
@@ -22,6 +22,7 @@ function names(event: SystemEvent): string[] {
  * empty gap.
  */
 export function systemEventText(event: SystemEvent, t: Translate): string {
+	if (event.event === "memory_updated") return t("chat.memoryUpdatedPath", { path: event.path });
 	const actor = event.actorName?.trim() || t(SOMEONE_KEY);
 	const people = names(event);
 	const joined = people.length > 0 ? people.join(t(SEPARATOR_KEY)) : t(SOMEONE_KEY);

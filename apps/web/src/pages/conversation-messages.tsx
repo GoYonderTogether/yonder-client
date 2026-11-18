@@ -8,6 +8,7 @@ import type { CachedMessage } from "@yonder/ui-data";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
+import { MemoryUpdatedLine } from "./memory-updated-line.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
 import { AskOwner, OutwardRequestCard } from "./outward-request-card.tsx";
@@ -175,6 +176,8 @@ export function ConversationMessages({
  */
 function SystemLine({ message }: { message: CachedMessage }) {
 	const { t } = useTranslation();
+	if (message.system?.event === "memory_updated")
+		return <MemoryUpdatedLine messageId={message.id} event={message.system} />;
 	const text = message.system ? systemEventText(message.system, t) : "";
 	if (!text) return null;
 	return (

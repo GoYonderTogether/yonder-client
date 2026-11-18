@@ -297,6 +297,12 @@ export const en = {
 		loadingHistory: "Loading messages…",
 		jumpToLatest: "Jump to latest",
 		loadOlder: "Load earlier messages",
+		memoryUpdated: "Memory updated",
+		memoryUpdatedPath: "Memory updated · {{path}}",
+		memoryRevisionUnavailable: "This change is unavailable in the file history.",
+		memoryNoEarlierRevision: "No earlier version",
+		memoryRestoreEarlier: "Later changes exist. Restore version {{version}} as the current version?",
+		memoryReverted: "Memory reverted",
 	},
 
 	tasks: {

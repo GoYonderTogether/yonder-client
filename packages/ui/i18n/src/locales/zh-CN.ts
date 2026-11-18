@@ -297,6 +297,12 @@ export const zhCN: Messages = {
 		loadingHistory: "正在加载消息…",
 		jumpToLatest: "跳至最新",
 		loadOlder: "加载更早的消息",
+		memoryUpdated: "记忆已更新",
+		memoryUpdatedPath: "记忆已更新 · {{path}}",
+		memoryRevisionUnavailable: "文件历史中找不到这次改动。",
+		memoryNoEarlierRevision: "没有更早的版本",
+		memoryRestoreEarlier: "文件还有更新的改动。要将第 {{version}} 版恢复为当前版本吗？",
+		memoryReverted: "记忆已撤回",
 	},
 
 	tasks: {
