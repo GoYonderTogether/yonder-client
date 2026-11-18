@@ -42,6 +42,12 @@ export const ERROR_CODES = [
 	"wechat_invalid",
 	"wechat_conflict",
 	"upstream_unavailable",
+	/** A memory file over its length limit; `details` carries `length`, `limit` and `unit` (23 7.5). */
+	"memory_too_long",
+	/** A memory write that looked like a password, credential or verification code (23 第九节). */
+	"memory_secret_refused",
+	/** A Bot tried to replace a file the owner edited; it may only append (23 7.5). */
+	"memory_user_edited",
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

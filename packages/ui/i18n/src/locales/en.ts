@@ -469,6 +469,9 @@ export const en = {
 		compact_busy: "The conversation is replying or compacting. Try again shortly.",
 		compact_unsupported: "Only your private conversation with your own Bot can be compacted.",
 		compact_failed: "Context could not be compacted. Original content is preserved.",
+		memory_too_long: "This is longer than the file allows.",
+		memory_secret_refused: "Memory can't store passwords, keys or verification codes.",
+		memory_user_edited: "You edited this file, so it can only be added to.",
 	},
 
 	notFound: {

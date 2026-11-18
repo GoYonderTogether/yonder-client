@@ -70,7 +70,9 @@ export function useMemoryFileActions() {
 		remove: useMutation({
 			mutationKey,
 			mutationFn: api.deleteMemoryFile,
-			onSuccess: (_response, path) => invalidateMemoryFiles(client, [path]),
+			// The file is gone: refetching its open page would only answer 404 and unmount the page
+			// before it can leave. Lists refresh now; the file's own queries are only marked stale.
+			onSuccess: (_response, path) => invalidateMemoryFiles(client, [path], { deleted: true }),
 		}),
 		revert: useMutation({ mutationKey, mutationFn: api.revertMemoryFile, onSuccess: refresh }),
 	};

@@ -188,7 +188,7 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 
 	api.disableFiles();
 	await page.reload();
-	await expect(page.getByRole("alert").getByText("记忆文件服务尚未接入")).toBeVisible();
+	await expect(page.getByRole("alert").getByText("没找到。")).toBeVisible();
 	if (phone) await page.screenshot({ path: testInfo.outputPath("memory-file-error.png") });
 }
 

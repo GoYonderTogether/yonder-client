@@ -195,7 +195,7 @@ test("the confirmation lapses after four seconds", () => {
 	expect(data.remove).not.toHaveBeenCalled();
 });
 
-test("a failed delete shows the server's reason inline", () => {
+test("a failed delete shows the reason, in the reader's language, inline", () => {
 	data.state = {
 		isPending: false,
 		error: new ApiError({ code: "not_found", status: 404, message: "missing" }),
@@ -203,8 +203,18 @@ test("a failed delete shows the server's reason inline", () => {
 	};
 	show();
 	fireEvent.click(screen.getByRole("button", { name: /Rewrote the timeline plan/ }));
+	// The coded failure reads its sentence; the developer message never reaches the screen.
+	const alert = within(document.getElementById("memory-drawer-plan") as HTMLElement).getByRole("alert");
+	expect(alert).toHaveTextContent("Not found.");
+	expect(alert).not.toHaveTextContent("missing");
+});
+
+test("a failure with no sentence for its code shows the message it came with", () => {
+	data.state = { isPending: false, error: new Error("network down"), variables: "plan" };
+	show();
+	fireEvent.click(screen.getByRole("button", { name: /Rewrote the timeline plan/ }));
 	expect(within(document.getElementById("memory-drawer-plan") as HTMLElement).getByRole("alert")).toHaveTextContent(
-		"missing",
+		"network down",
 	);
 });
 
@@ -237,7 +247,7 @@ test("a failed load shows the server's reason and a retry; no days shows an empt
 	const { unmount } = show();
 	const alert = screen.getByRole("alert");
 	expect(alert).toHaveTextContent("The timeline did not load");
-	expect(alert).toHaveTextContent("missing");
+	expect(alert).toHaveTextContent("Not found.");
 	fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
 	expect(data.refetch).toHaveBeenCalled();
 	unmount();

@@ -14,7 +14,7 @@ import { useSourceNavigation } from "./memory-navigation.ts";
 import { useOverlayBox } from "./memory-overlay.ts";
 import { MemoryPinBar } from "./memory-pin.tsx";
 import { MemoryRail, type RailDay } from "./memory-rail.tsx";
-import { MemoryError } from "./memory-status.tsx";
+import { MemoryError, useErrorText } from "./memory-status.tsx";
 
 /**
  * Days newest first, each with its entries on one spine. A pinned
@@ -29,6 +29,7 @@ export function MemoryTimeline() {
 	const query = useMemoryDays();
 	const { remove } = useMemoryActions();
 	const onSource = useSourceNavigation().target;
+	const errorText = useErrorText();
 	const [open, setOpen] = useState<string | null>(null);
 	const [preview, setPreview] = useState<PreviewFile>();
 	const [pending, setPending] = useState<string | null>(null);
@@ -135,7 +136,7 @@ export function MemoryTimeline() {
 			<div ref={more} className="memory-more">
 				{pageError ? (
 					<p role="alert" className="memory-error-line">
-						{pageError.message}
+						{errorText(pageError)}
 						<Button size="sm" variant="link" onClick={() => void fetchNextPage()}>
 							{t("app.retry")}
 						</Button>

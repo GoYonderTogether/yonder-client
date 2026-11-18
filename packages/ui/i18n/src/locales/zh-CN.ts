@@ -461,6 +461,9 @@ export const zhCN: Messages = {
 		compact_busy: "对话正在回复或压缩，请稍后重试。",
 		compact_unsupported: "只能压缩你与自己 Bot 的私聊。",
 		compact_failed: "上下文压缩失败，原内容已保留。",
+		memory_too_long: "内容超过了这份文件的字数上限。",
+		memory_secret_refused: "记忆里不能存密码、密钥或验证码。",
+		memory_user_edited: "这份文件你改过，只能在后面追加。",
 	},
 
 	notFound: {

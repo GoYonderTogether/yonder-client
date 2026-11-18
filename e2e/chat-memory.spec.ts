@@ -108,7 +108,7 @@ test.describe("on a phone", () => {
 		await page.goto(`/messages/${conversation.id}`);
 		await page.getByRole("button", { name: "记忆已更新 · 近期" }).click();
 		const sheet = page.locator('[data-page-side="bottom"]');
-		await expect(sheet.getByRole("alert")).toContainText("revision route missing");
+		await expect(sheet.getByRole("alert")).toContainText("没找到。");
 		await page.screenshot({ path: test.info().outputPath("memory-change-mobile.png"), animations: "disabled" });
 	});
 });

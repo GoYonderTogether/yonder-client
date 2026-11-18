@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import type { EntryActions } from "./memory-actions.ts";
 import { Material } from "./memory-material.tsx";
 import { MemoryThumb } from "./memory-media.tsx";
+import { useErrorText } from "./memory-status.tsx";
 
 const SOURCE_ICONS: Record<MemorySource["kind"], LucideIcon> = {
 	chat: MessageCircle,
@@ -113,6 +114,7 @@ function SourceList({
 function DeleteEntry({ id, actions }: { id: string; actions: EntryActions }) {
 	const { t } = useTranslation();
 	const [armed, setArmed] = useState(false);
+	const errorText = useErrorText();
 	useEffect(() => {
 		if (!armed) return;
 		const timer = window.setTimeout(() => setArmed(false), 4000);
@@ -139,7 +141,7 @@ function DeleteEntry({ id, actions }: { id: string; actions: EntryActions }) {
 			</Button>
 			{error ? (
 				<p role="alert" className="memory-error-line">
-					{error.message}
+					{errorText(error)}
 				</p>
 			) : null}
 		</div>
