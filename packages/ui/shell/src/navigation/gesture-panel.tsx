@@ -1,4 +1,5 @@
 import { cn } from "@yonder/ui-components";
+import { SPRING } from "@yonder/ui-tokens";
 import { animate, motion, useMotionValue, usePresence, useReducedMotion } from "motion/react";
 import type { PointerEvent, ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -87,8 +88,7 @@ export function GesturePanel({
 		}
 		animation.current = animate(x, shown ? 0 : direction * width, {
 			type: "spring",
-			stiffness: 500,
-			damping: 46,
+			...SPRING.panel,
 			velocity: x.getVelocity(),
 			onComplete: () => {
 				if (!shown) {
@@ -133,8 +133,7 @@ export function GesturePanel({
 		}
 		animation.current = animate(x, 0, {
 			type: "spring",
-			stiffness: 500,
-			damping: 46,
+			...SPRING.panel,
 			velocity,
 		});
 	}

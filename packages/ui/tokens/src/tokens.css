@@ -47,7 +47,8 @@
 	--radius-control: 12px;
 	--radius-card: 16px;
 	--radius-panel: 22px;
-	/* Existing consumers of the size scale use the same role values. */
+	/* Deprecated aliases with the same values as the role names. New code uses control-sm / control /
+	   card / panel; the page pass removes the remaining usages, then these four lines go. */
 	--radius-sm: var(--radius-control-sm);
 	--radius-md: var(--radius-control);
 	--radius-lg: var(--radius-card);
@@ -64,6 +65,8 @@
 	--spacing-10: 40px;
 	--spacing-12: 48px;
 	--spacing-16: 64px;
+	/* The only sub-4px gap: between stacked list rows and a tab icon and its label. */
+	--spacing-hair: 2px;
 
 	/* Motion as Tailwind animations: `animate-push-in`, `animate-sheet-up`, `animate-fade-in`. */
 	--animate-push-in: yonder-push-in var(--duration-slow) var(--ease-decelerate);
@@ -71,6 +74,14 @@
 	--animate-sheet-up: yonder-sheet-up var(--duration-slow) var(--ease-decelerate);
 	--animate-fade-in: yonder-fade-in var(--duration-base) var(--ease-standard);
 	--animate-drawer-in: yonder-drawer-in var(--duration-base) var(--ease-decelerate);
+	/* The one loading spinner (03-动效 M17): an 800ms linear turn. */
+	--animate-spinner: yonder-spin 800ms linear infinite;
+
+	@keyframes yonder-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
 
 	@keyframes yonder-push-in {
 		from {
@@ -151,6 +162,7 @@
 	/* Deeper Semi palette steps preserve caption contrast; feedback hues are unchanged. */
 	--color-success: #25772f; /* green-7 */
 	--color-warning: #a84a00; /* orange-7 */
+	--color-warning-subtle: #fff8ea; /* orange-0 */
 	--color-danger: #d52515; /* red-6 */
 	--color-danger-subtle: #fef2ed; /* danger-light-default = red-0 */
 	--color-danger-inverse: #ffffff;
@@ -159,6 +171,8 @@
 	--color-accent-hover: #0062d6; /* primary-hover = blue-6 */
 	--color-accent-subtle: #eaf5ff; /* primary-light-default */
 	--color-accent-text: #0064fa; /* link */
+	/* A switch's knob stays white in both themes, like the system switch it imitates. */
+	--color-switch-thumb: #ffffff;
 
 	/* Avatar fallback tints: stable per name, muted so they never compete with the accent. */
 	--color-avatar-1-bg: #eaf5ff; /* blue-0 / blue-7 */
@@ -242,6 +256,7 @@
 
 	--color-success: #5dc264; /* green-5 */
 	--color-warning: #ffae43; /* orange-5 */
+	--color-warning-subtle: rgba(255, 174, 67, 0.2);
 	--color-danger: #fc725a; /* red-5 */
 	--color-danger-subtle: rgba(252, 114, 90, 0.2);
 	--color-danger-inverse: #1c1f23;
@@ -250,6 +265,7 @@
 	--color-accent-hover: #7fc1ff; /* blue-6 */
 	--color-accent-subtle: rgba(84, 169, 255, 0.2);
 	--color-accent-text: #54a9ff;
+	--color-switch-thumb: #ffffff;
 
 	--color-avatar-1-bg: #053170; /* blue-0 / blue-7 */
 	--color-avatar-1-fg: #a9d7ff;
@@ -398,6 +414,8 @@
 	--duration-fast: 120ms;
 	--duration-base: 200ms;
 	--duration-slow: 300ms;
+	/* Rare: a large block of content appearing for the first time (03-动效 第二节). */
+	--duration-slower: 480ms;
 	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
 	--ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
 	--ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
@@ -421,6 +439,36 @@
 	--conversation-row-height: 60px;
 	--card-padding: 20px;
 	--page-padding: 24px;
+
+	/* Content widths: a page column picks one by what it holds (docs/design-system.md). */
+	--width-form: 400px;
+	--width-sheet: 560px;
+	--width-reading: 680px;
+	--width-wide: 880px;
+	--width-max: 1024px;
+
+	/* Lucide icons: three sizes, two strokes. scale.ts holds the same numbers for the size prop. */
+	--icon-sm: 16px;
+	--icon-md: 20px;
+	--icon-lg: 24px;
+	--icon-stroke: 1.75;
+	--icon-stroke-selected: 2.1;
+
+	/* Stacking layers, lowest first. Inside a layer, document order decides. */
+	--z-sticky: 10;
+	--z-dock: 20;
+	--z-popover: 50;
+	--z-overlay: 60;
+	--z-toast: 70;
+
+	--opacity-disabled: 0.6;
+
+	/* Unit-mass springs driven from JS (scale.ts SPRING). panel: GesturePanel enter, exit and settle.
+	   pane: the list-pane splitter, critically overdamped so a released divider never overshoots. */
+	--spring-panel-stiffness: 500;
+	--spring-panel-damping: 46;
+	--spring-pane-stiffness: 1200;
+	--spring-pane-damping: 80;
 }
 
 :root,
@@ -444,5 +492,6 @@
 		--duration-fast: 0ms;
 		--duration-base: 0ms;
 		--duration-slow: 0ms;
+		--duration-slower: 0ms;
 	}
 }
