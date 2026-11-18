@@ -2,7 +2,9 @@ import { Button, EmptyState, ListGroup } from "@yonder/ui-components";
 import { ApiError, useContacts, useItem, useItemActions } from "@yonder/ui-data";
 import { ListChecks } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { BotHandoff } from "./bot-handoff.tsx";
 import { itemActions, itemFailureKey, itemSourceKey, itemStateKey } from "./items-format.ts";
+import { OutwardRequestCard } from "./outward-request-card.tsx";
 
 /**
  * One item (16-3 第五节、第八节): what it is, what it produced or why it stopped, the steps the source
@@ -51,7 +53,8 @@ export function ItemDetailPage({
 	if (!item) return null;
 	const allowed = itemActions(item);
 	const bot = contacts.data?.items.find((member) => member.id === item.botMemberId);
-	const busy = actions.cancel.isPending || actions.pause.isPending || actions.resume.isPending;
+	const busy =
+		actions.cancel.isPending || actions.pause.isPending || actions.resume.isPending || actions.transfer.isPending;
 	return (
 		<article className="flex flex-col gap-[var(--spacing-4)] py-[var(--spacing-4)]">
 			<header className="flex flex-col gap-[var(--spacing-1)]">
@@ -79,13 +82,27 @@ export function ItemDetailPage({
 					</li>
 				</ListGroup>
 			) : null}
-			<ListGroup title={item.failureReason ? t("tasks.itemDetailFailure") : t("tasks.itemDetailResult")}>
-				<li className="whitespace-pre-wrap p-[var(--spacing-4)] text-body text-[var(--color-text-primary)]">
-					{item.failureReason
-						? t(itemFailureKey(item.failureReason), { title: item.title })
-						: (item.result ?? t("tasks.itemNoResult"))}
-				</li>
-			</ListGroup>
+			{item.outwardRequest ? (
+				<OutwardRequestCard
+					key={item.id}
+					card={item.outwardRequest}
+					conversationId={item.conversationId}
+					openLinked={
+						item.outwardRequest.owner
+							? () => onOpenConversation(item.outwardRequest?.owner?.visitConversationId ?? item.conversationId)
+							: undefined
+					}
+				/>
+			) : null}
+			{!item.outwardRequest || item.result ? (
+				<ListGroup title={item.failureReason ? t("tasks.itemDetailFailure") : t("tasks.itemDetailResult")}>
+					<li className="whitespace-pre-wrap p-[var(--spacing-4)] text-body text-[var(--color-text-primary)]">
+						{item.failureReason
+							? t(itemFailureKey(item.failureReason), { title: item.title })
+							: (item.result ?? t("tasks.itemNoResult"))}
+					</li>
+				</ListGroup>
+			) : null}
 			{item.steps.length ? (
 				<ListGroup title={t("tasks.itemDetailSteps")}>
 					{item.steps.map((step) => (
@@ -93,7 +110,14 @@ export function ItemDetailPage({
 							key={`${step.kind}-${step.at}`}
 							className="flex flex-col gap-[var(--spacing-1)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] last:border-0"
 						>
-							<span className="text-caption text-[var(--color-text-primary)]">{step.kind}</span>
+							<span className="text-caption text-[var(--color-text-primary)]">
+								{step.kind === "task_transferred"
+									? t("tasks.handoffHistory", {
+											from: String(step.detail?.from ?? ""),
+											to: String(step.detail?.to ?? ""),
+										})
+									: step.kind}
+							</span>
 							<span className="text-caption text-[var(--color-text-tertiary)]">{when(step.at, locale)}</span>
 						</li>
 					))}
@@ -119,6 +143,15 @@ export function ItemDetailPage({
 					</Button>
 				) : null}
 			</div>
+			{item.source === "subtask" && item.state === "paused" ? (
+				<BotHandoff
+					key={item.botMemberId}
+					botId={item.botMemberId}
+					busy={busy}
+					error={actions.transfer.error}
+					onTransfer={(botId) => actions.transfer.mutate({ id: item.id, botId })}
+				/>
+			) : null}
 		</article>
 	);
 }

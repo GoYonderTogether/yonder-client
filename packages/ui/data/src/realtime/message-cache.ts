@@ -60,7 +60,17 @@ export function updateRun(client: QueryClient, run: Run): void {
 			...current,
 			pages: current.pages.map((page) => ({
 				...page,
-				items: page.items.map((message) => (message.id === run.messageId ? { ...message, run } : message)),
+				items: page.items.map((message) =>
+					message.id === run.messageId
+						? {
+								...message,
+								run: {
+									...run,
+									...(run.activity ? {} : message.run?.activity ? { activity: message.run.activity } : {}),
+								},
+							}
+						: message,
+				),
 			})),
 		};
 	});

@@ -11,6 +11,7 @@ import { chatBotId } from "./bot-entry";
 import { ChatView } from "./host";
 import { renderRun } from "./messages";
 import { conversationTitle, directPartner, groupChatMessages } from "./model";
+import { measureScrollAnchor, type ScrollAnchorMetrics } from "./scroll-anchor";
 import { closureText } from "./sentences";
 import { useChat } from "./use-chat";
 import { useChatUploads } from "./use-uploads";
@@ -90,6 +91,10 @@ export default function Chat() {
 	};
 	const botMember = chat.conversation?.members.find((member) => member.kind === "bot");
 	const runs = useMemo(() => groupChatMessages(chat.messages), [chat.messages]);
+	const openOptions = chat.messages
+		.slice()
+		.reverse()
+		.find((message) => message.options?.length || (message.senderId === chat.me?.member.id && !message.sendFailed))?.id;
 	const activeRun = [...chat.messages]
 		.reverse()
 		.find(
@@ -232,16 +237,28 @@ export default function Chat() {
 					<View className="mini-chat-visit">
 						<Text className="mini-muted">{visitLine}</Text>
 						<View className="mini-chat-visit-actions">
-							{visit?.role === "host" && visit.state === "pending" ? (
+							{visit?.role === "host" && (visit.state === "pending" || visit.state === "capped") ? (
 								<>
 									<Button onClick={() => void chat.visitAction("approve")}>{t("批准继续", "Approve")}</Button>
+									<Button onClick={() => void chat.visitAction("approve", true)}>
+										{t("批准并由我支付", "Approve and pay")}
+									</Button>
 									<Button secondary onClick={() => void chat.visitAction("deny")}>
 										{t("拒绝", "Decline")}
 									</Button>
 								</>
 							) : null}
 							{visit?.role === "visitor" && visit.state === "capped" ? (
-								<Button onClick={() => void chat.visitAction("pay")}>
+								<Button
+									onClick={() =>
+										void Taro.showModal({
+											title: t("确认使用我的额度", "Confirm payment"),
+											content: t("继续聊天将使用你的主额度。", "Continuing will use your main quota."),
+										}).then((result) => {
+											if (result.confirm) void chat.visitAction("pay");
+										})
+									}
+								>
 									{t("后续由我支付", "Pay for the rest myself")}
 								</Button>
 							) : null}
@@ -300,7 +317,7 @@ export default function Chat() {
 							</Button>
 						</View>
 					) : null}
-					{runs.map((run) => renderRun(run, chat, isGroup, followAfterLayout))}
+					{runs.map((run) => renderRun(run, chat, isGroup, followAfterLayout, openOptions))}
 					{!chat.loading && !chat.error && chat.messages.length === 0 ? (
 						<View className="mini-chat-empty">
 							<View className="mini-chat-empty-icon">
@@ -461,25 +478,4 @@ export default function Chat() {
 			</View>
 		</Page>
 	);
-}
-
-type ScrollAnchorMetrics = { relativeY: number; scrollTop: number };
-
-function measureScrollAnchor(messageId: string): Promise<ScrollAnchorMetrics | null> {
-	return new Promise((resolve) => {
-		const query = Taro.createSelectorQuery();
-		query.select(".mini-message-list").boundingClientRect();
-		query.select(".mini-message-list").scrollOffset();
-		query.select(`#message-${messageId}`).boundingClientRect();
-		query.exec((result) => {
-			const viewport = result[0];
-			const offset = result[1];
-			const message = result[2];
-			if (!viewport || !offset || !message) {
-				resolve(null);
-				return;
-			}
-			resolve({ relativeY: message.top - viewport.top, scrollTop: offset.scrollTop });
-		});
-	});
 }

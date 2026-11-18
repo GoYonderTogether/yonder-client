@@ -1,6 +1,7 @@
 import type { LocalFilesAdapter } from "@yonder/feature-me";
 import { useDevices, useMe, useSessionStore, useSessions } from "@yonder/ui-data";
 import { useMemo } from "react";
+import { pendingConnectorRequest, setPendingConnectorRequest } from "./connector-request.ts";
 import { isContactWindow } from "./contact-window.ts";
 import { isTauri } from "./keychain.ts";
 
@@ -44,9 +45,16 @@ export async function resetLocalFiles(): Promise<void> {
 export function createLocalFilesAdapter(context: LocalFilesContext): LocalFilesAdapter {
 	return {
 		supported: true,
-		async authorize(config) {
+		requested: (connectorId) => {
+			const pending = pendingConnectorRequest();
+			return pending?.ownerId === context.ownerId && pending.connectorId === connectorId;
+		},
+		async authorize(config, options) {
 			await invokeLocalFiles("local_files_activate", { context });
 			await invokeLocalFiles("local_files_authorize", { context, config });
+			const pending = pendingConnectorRequest();
+			if (options?.resumeRequest && pending?.ownerId === context.ownerId && pending.connectorId === config.connectorId)
+				setPendingConnectorRequest({ ...pending, connectionId: config.id });
 			changed();
 		},
 		async revoke(connectionId) {

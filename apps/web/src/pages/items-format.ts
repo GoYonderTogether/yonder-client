@@ -34,6 +34,7 @@ export function itemStateKey(state: ItemState): string {
 }
 
 export function itemSourceKey(source: ItemSummary["source"]): string {
+	if (source === "visit") return "tasks.itemSourceVisit";
 	return source === "subtask"
 		? "tasks.itemSourceSubtask"
 		: source === "schedule_run"
@@ -67,6 +68,12 @@ export function itemFailureKey(reason: string | null): string {
 			return "chat.scheduleMissed";
 		case "idle_timeout":
 			return "chat.idleTimeout";
+		case "outward_expired":
+			return "visits.relayExpired";
+		case "outward_declined":
+			return "visits.relayDeclined";
+		case "outward_cancelled":
+			return "visits.relayCancelled";
 		case "tool_repeat":
 			return "chat.toolRepeat";
 		case "subtask_burst":

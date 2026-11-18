@@ -6,7 +6,7 @@ import { errorText, go, Page, State } from "../../components/ui";
 import { listOwnedBots } from "../../lib/bots";
 import { t } from "../../lib/i18n";
 import { upsertOwnedBot, withoutMember } from "../../lib/member-cache";
-import { client, subscribeEvents, useSession } from "../../lib/runtime";
+import { api, client, subscribeEvents, useSession } from "../../lib/runtime";
 import { ChatAvatar } from "../chat/avatar";
 
 const avatarSrc = (url: string | null | undefined) =>
@@ -25,11 +25,15 @@ export default function BotList() {
 	const [bots, setBots] = useState<Member[]>();
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
+	const [reception, setReception] = useState<string>();
+	const [saving, setSaving] = useState(false);
 	const load = useCallback(async () => {
 		if (!meId) return;
 		setError("");
 		try {
-			setBots(await listOwnedBots(meId));
+			const [items, setting] = await Promise.all([listOwnedBots(meId), api.reception()]);
+			setBots(items);
+			setReception(setting.botId);
 		} catch (cause) {
 			setError(errorText(cause));
 		} finally {
@@ -68,6 +72,28 @@ export default function BotList() {
 				empty={!loading && !error && !bots?.length ? t("还没有 Bot", "No bots yet") : undefined}
 			/>
 			<View className="mini-card">
+				<Text>{t("对外接待 Bot", "Reception Bot")}</Text>
+				{bots?.map((bot) => (
+					<View
+						key={`reception-${bot.id}`}
+						className="mini-row"
+						onClick={() => {
+							if (saving) return;
+							setSaving(true);
+							setError("");
+							void api
+								.setReception({ botId: bot.isDefault ? null : bot.id })
+								.then((result) => setReception(result.botId))
+								.catch((cause) => setError(errorText(cause)))
+								.finally(() => setSaving(false));
+						}}
+					>
+						<Text>
+							{bot.displayName}
+							{reception === bot.id ? " ✓" : ""}
+						</Text>
+					</View>
+				))}
 				{bots?.map((bot) => (
 					<View
 						key={bot.id}

@@ -46,6 +46,7 @@ export function renderRun(
 	chat: ReturnType<typeof useChat>,
 	isGroup: boolean,
 	followAfterLayout: () => void,
+	openOptions?: string,
 ) {
 	const first = run[0];
 	if (!first) return null;
@@ -97,6 +98,23 @@ export function renderRun(
 								)}
 							</MessageBubble>
 						) : null}
+						{message.reaction ? <Text>{message.reaction}</Text> : null}
+						{message.run?.activity?.length ? (
+							<Text className="mini-muted">{message.run.activity.map((item) => item.label).join(" · ")}</Text>
+						) : null}
+						{message.options?.map((option) => (
+							<Button
+								key={option}
+								secondary
+								disabled={message.id !== openOptions || chat.sending}
+								onClick={() => {
+									followAfterLayout();
+									void chat.send(option, [], [], `option:${message.id}`);
+								}}
+							>
+								{option}
+							</Button>
+						))}
 						{message.attachments?.length ? (
 							<MessageAttachmentsFrame as={ChatView} self={self}>
 								{message.attachments.map((file) => (

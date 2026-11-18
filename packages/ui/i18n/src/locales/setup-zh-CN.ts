@@ -6,4 +6,5 @@ export const setupMessagesZhCN: SetupMessages = {
 	botTitle: "给你的 Bot 起个名字",
 	connectTitle: "让它能替你办事",
 	start: "开始用 Yonder",
+	finishFailed: "暂时无法完成设置，请重试。",
 };

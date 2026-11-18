@@ -101,6 +101,20 @@ class MeetingRecorderPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun pause(invoke: Invoke) = respond(invoke) { args ->
+        val owner = requireNotNull(args.ownerId) { "invalid_owner" }
+        MeetingRecorderRuntime.pause(owner, args.recordingId)
+        JSObject(MeetingRecorderRuntime.state(activity, owner).toString())
+    }
+
+    @Command
+    fun resume(invoke: Invoke) = respond(invoke) { args ->
+        val owner = requireNotNull(args.ownerId) { "invalid_owner" }
+        MeetingRecorderRuntime.resume(activity, owner, args.recordingId)
+        JSObject(MeetingRecorderRuntime.state(activity, owner).toString())
+    }
+
+    @Command
     fun readAudio(invoke: Invoke) = respond(invoke) { args ->
         val owner = requireNotNull(args.ownerId) { "invalid_owner" }
         val audio = MeetingRecorderRuntime.read(activity, owner, args.recordingId, args.segmentIndex)

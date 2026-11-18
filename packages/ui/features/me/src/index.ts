@@ -3,6 +3,7 @@
  * section as a page. Sections whose features come later show honest empty states.
  */
 
+export { FeishuAttemptCard, FeishuChannel } from "./channels/feishu-channel.tsx";
 export { AboutSection } from "./components/about-section.tsx";
 export { AccountSection } from "./components/account-section.tsx";
 export { DevicesSection } from "./components/devices-section.tsx";

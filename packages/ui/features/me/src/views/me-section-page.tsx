@@ -2,6 +2,7 @@ import { useMe } from "@yonder/ui-data";
 import { PageFrame } from "@yonder/ui-shell";
 import { lazy, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { ChannelsSection } from "../channels/feishu-channel.tsx";
 import { AboutSection } from "../components/about-section.tsx";
 import { AccountSection } from "../components/account-section.tsx";
 import { ChangePhoneForm } from "../components/change-phone-form.tsx";
@@ -109,7 +110,9 @@ export function MeSectionPage({
 				? t("inviteExperience.title")
 				: section === "models" && page
 					? t(page === "add" || page.startsWith("duplicate-") ? "models.add" : "models.edit")
-					: t(`me.sections.${section}`);
+					: section === "channels"
+						? t("channels.title")
+						: t(`me.sections.${section}`);
 	return (
 		<PageFrame title={title} width={section === "connectors" ? "full" : "reading"}>
 			{body(section)}
@@ -137,6 +140,8 @@ export function MeSectionPage({
 				return <DevicesSection {...(onAddDevice ? { onAddDevice } : {})} />;
 			case "connectors":
 				return <ConnectorsSection localFiles={localFiles} onOpenDevices={onOpenDevices} />;
+			case "channels":
+				return <ChannelsSection />;
 			case "skills":
 				return <SkillsSection page={page} onOpenPage={onOpenPage} />;
 			case "invite":

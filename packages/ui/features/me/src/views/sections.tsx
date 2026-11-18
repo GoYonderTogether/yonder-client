@@ -8,6 +8,7 @@ import {
 	Info,
 	Laptop,
 	Plug,
+	RadioTower,
 	ShieldCheck,
 	SlidersHorizontal,
 } from "lucide-react";
@@ -34,6 +35,7 @@ export const ME_GROUPS = [
 			{ id: "skills", icon: BookOpen },
 			{ id: "devices", icon: Laptop },
 			{ id: "connectors", icon: Plug },
+			{ id: "channels", icon: RadioTower, labelKey: "channels.title" },
 		],
 	},
 	{ id: "invite", sections: [{ id: "invite", icon: Gift }] },

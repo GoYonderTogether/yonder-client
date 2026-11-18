@@ -216,6 +216,23 @@ test("PUT signs every retry again so an old request cannot expire", async () => 
 	for (const request of requests) assert.ok(request.body.equals(Buffer.from("apk")));
 });
 
+test("OSS copies the verified versioned APK within the bucket without an upload body", async () => {
+	const { putObject } = await import("./oss.mjs");
+	await putObject({
+		key: "android/yonder-android.apk",
+		copyFrom: "android/yonder-0.3.26111801.apk",
+		credentials: { accessKeyId: "id", accessKeySecret: "test" },
+		sendImpl: async ({ method, headers, body }) => {
+			assert.equal(method, "PUT");
+			assert.equal(body, undefined);
+			assert.equal(headers["Content-Length"], 0);
+			assert.equal(headers["x-oss-copy-source"], "/yonder-release/android/yonder-0.3.26111801.apk");
+			assert.match(headers.Authorization, /^OSS id:/);
+			return { status: 200, body: Buffer.from("<CopyObjectResult></CopyObjectResult>") };
+		},
+	});
+});
+
 test("APK multipart retries only the interrupted part and completes in order", async () => {
 	const { putObject } = await import("./oss.mjs");
 	const size = 2 * 1024 * 1024;

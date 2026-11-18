@@ -81,6 +81,10 @@ test("chat voice input blocks meeting startup without stopping either recorder",
 test("a collapsed capsule keeps end recording available and toggling does not stop capture", () => {
 	const recorder = controller();
 	recorder.state.activeId = "active";
+	recorder.state.audioLevel = 0.42;
+	recorder.state.pauseSupported = true;
+	recorder.pause = vi.fn();
+	recorder.resume = vi.fn();
 	recorder.state.recordings = [
 		{
 			id: "active",
@@ -104,11 +108,46 @@ test("a collapsed capsule keeps end recording available and toggling does not st
 		</I18nextProvider>,
 	);
 	expect(screen.getByRole("button", { name: "End recording" })).toBeEnabled();
+	fireEvent.click(screen.getByRole("button", { name: "Pause recording" }));
+	expect(recorder.pause).toHaveBeenCalledWith("active");
+	recorder.state.paused = true;
+	view.rerender(
+		<I18nextProvider i18n={createI18n("en")}>
+			<MeetingRecorderCapsule recorder={recorder} expanded={false} onToggle={toggle} />
+		</I18nextProvider>,
+	);
+	expect(screen.getByText("Recording paused")).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "Resume recording" }));
+	expect(recorder.resume).toHaveBeenCalledWith("active");
+	recorder.state.paused = false;
+	view.rerender(
+		<I18nextProvider i18n={createI18n("en")}>
+			<MeetingRecorderCapsule recorder={recorder} expanded={false} onToggle={toggle} />
+		</I18nextProvider>,
+	);
+	expect(screen.getByRole("meter", { name: "Microphone level" })).toHaveValue(42);
+	recorder.state.audioLevel = 0;
+	view.rerender(
+		<I18nextProvider i18n={createI18n("en")}>
+			<MeetingRecorderCapsule recorder={recorder} expanded={false} onToggle={toggle} />
+		</I18nextProvider>,
+	);
+	expect(screen.getByRole("meter", { name: "Microphone level" })).toHaveValue(0);
+	expect(document.querySelectorAll(".meeting-level-bars span")).toHaveLength(0);
 	fireEvent.click(screen.getByRole("button", { expanded: false }));
 	expect(toggle).toHaveBeenCalledOnce();
 	expect(recorder.stop).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "End recording" }));
+	expect(recorder.stop).toHaveBeenCalledWith("active");
+	recorder.state.activeId = null;
+	view.rerender(
+		<I18nextProvider i18n={createI18n("en")}>
+			<MeetingRecorderCapsule recorder={recorder} expanded={false} onToggle={toggle} />
+		</I18nextProvider>,
+	);
+	expect(screen.queryByRole("meter", { name: "Microphone level" })).not.toBeInTheDocument();
 	view.unmount();
-	expect(recorder.stop).not.toHaveBeenCalled();
+	expect(recorder.stop).toHaveBeenCalledOnce();
 });
 
 test("unknown processing requires cost acknowledgement and displays only actual saved text", () => {

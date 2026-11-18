@@ -45,6 +45,28 @@ test("recovering native state never starts capture, and closing the view never s
 	expect(invoke.mock.calls.map(([command]) => command)).toEqual(["set_owner"]);
 });
 
+test("active capture samples levels every 100ms and discards a stale poll after stop", async () => {
+	vi.useFakeTimers();
+	let finishPoll: (state: MeetingRecorderState) => void = () => {};
+	const active = { ...saved, activeId: "saved", audioLevel: 0.5 };
+	invoke.mockResolvedValueOnce(active).mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				finishPoll = resolve;
+			}),
+	);
+	const { result, unmount } = renderHook(() => useMeetingRecorder("person"));
+	await act(async () => {});
+	await act(async () => vi.advanceTimersByTimeAsync(100));
+	expect(invoke).toHaveBeenCalledTimes(2);
+	invoke.mockResolvedValueOnce(saved);
+	await act(async () => result.current.stop("saved"));
+	await act(async () => finishPoll(active));
+	expect(result.current.state.activeId).toBeNull();
+	unmount();
+	vi.useRealTimers();
+});
+
 test("a shell without the recorder plugin answers nothing and the frame keeps rendering", async () => {
 	invoke.mockResolvedValue(null);
 	const { result } = renderHook(() => useMeetingRecorder("person"));

@@ -149,7 +149,12 @@ test("上传顺序：先比对线上清单，再版本化 APK → 固定名 APK 
 			calls.push(`GET ${key}`);
 			return null;
 		},
-		async putObject({ key, body, contentType }) {
+		async putObject({ key, body, contentType, copyFrom }) {
+			if (copyFrom) {
+				assert.equal(body, undefined);
+				calls.push(`COPY ${copyFrom} ${key}`);
+				return;
+			}
 			calls.push(`PUT ${key} ${contentType} ${body.length}`);
 		},
 		async getPublicReleaseObject(key) {
@@ -174,7 +179,7 @@ test("上传顺序：先比对线上清单，再版本化 APK → 固定名 APK 
 	assert.equal(calls[0], `GET ${LATEST_OBJECT}`);
 	assert.match(calls[1], /^PUT android\/yonder-0\.3\.26110205\.apk application\/vnd\.android\.package-archive /);
 	assert.equal(calls[2], "PUBLIC android/yonder-0.3.26110205.apk");
-	assert.match(calls[3], /^PUT android\/yonder-android\.apk /);
+	assert.equal(calls[3], "COPY android/yonder-0.3.26110205.apk android/yonder-android.apk");
 	assert.equal(calls[4], "PUBLIC android/yonder-android.apk");
 	assert.equal(
 		calls[5],
@@ -205,6 +210,10 @@ test("补传拒绝覆盖同版异摘要，公开下载不匹配时不更新清�
 	current.sha256 = sha256(APK);
 	await assert.rejects(uploadAndroidRelease(options), /公开下载与待发布 APK 不一致/);
 	assert.deepEqual(writes, ["android/yonder-0.3.26110205.apk"]);
+	writes.length = 0;
+	options.transport.getPublicReleaseObject = async (key) => (key === APK_OBJECT ? Buffer.alloc(APK.length) : APK);
+	await assert.rejects(uploadAndroidRelease(options), /android\/yonder-android.apk 公开下载与待发布 APK 不一致/);
+	assert.deepEqual(writes, ["android/yonder-0.3.26110205.apk", APK_OBJECT]);
 });
 
 test("线上清单更新时拒绝覆盖，且不发任何写请求", async (t) => {

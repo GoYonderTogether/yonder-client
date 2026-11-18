@@ -3,11 +3,28 @@
  * Every write lands in the caches the Bot appears in, so the list, the chat header and the group
  * roster change together without a refetch.
  */
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Member, UpdateBotRequest } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 import { removeDirectConversationWith, removeMember, writeMember } from "../realtime/member-cache.ts";
+
+export function useReception() {
+	const api = useApi();
+	return useQuery({ queryKey: keys.reception(), queryFn: () => api.reception() });
+}
+
+export function useSetReception() {
+	const api = useApi();
+	const client = useQueryClient();
+	return useMutation({
+		mutationFn: (botId: string | null) => api.setReception({ botId }),
+		onSuccess: (setting) => {
+			client.setQueryData(keys.reception(), setting);
+			void client.invalidateQueries({ queryKey: ["member-profile"] });
+		},
+	});
+}
 
 /** `PATCH /v1/bots/:id`. The answer is the whole member, so it replaces every copy in place. */
 export function useUpdateBot() {
@@ -39,6 +56,7 @@ export function useDeleteBot() {
 	return useMutation({
 		mutationFn: (id: string) => api.deleteBot(id),
 		onSuccess: (_result, id) => {
+			void client.invalidateQueries({ queryKey: keys.reception() });
 			removeDirectConversationWith(client, id);
 			removeMember(client, id);
 			void client.invalidateQueries({ queryKey: keys.schedules.all() });

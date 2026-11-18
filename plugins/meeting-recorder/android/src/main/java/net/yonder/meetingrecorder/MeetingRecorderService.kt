@@ -46,9 +46,9 @@ class MeetingRecorderService : Service() {
         @Suppress("DEPRECATION")
         val builder = (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this))
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentTitle("Recording / 正在录音")
+            .setContentTitle("Meeting recording / 会议录音")
             .setContentText("Audio is saved on this device / 音频保存在本机")
-            .setOngoing(true).setUsesChronometer(true).setWhen(System.currentTimeMillis())
+            .setOngoing(true)
         packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->
             builder.setContentIntent(PendingIntent.getActivity(this, 0, launch, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         }

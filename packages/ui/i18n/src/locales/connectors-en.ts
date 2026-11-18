@@ -1,5 +1,15 @@
 export const connectorMessagesEn = {
 	title: "Connectors",
+	requestCardTitle: "Bot requests connector access",
+	requestConfirm: "Confirm and authorize",
+	requestFailed: "The action did not complete. Try again.",
+	requestContinueFailed: "Device access was authorized, but the original request did not continue. Try again.",
+	requestState: {
+		pending: "Waiting for your confirmation",
+		approved: "Complete authorization on your device",
+		completed: "Authorized and resumed",
+		cancelled: "Cancelled",
+	},
 	connect: "Connect",
 	connected: "Connected",
 	connectedOffline: "Connected · Device offline",

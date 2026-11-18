@@ -15,7 +15,11 @@ export function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): 
 export function updateRun(current: ChatMessage[], run: Run): ChatMessage[] {
 	return current.map((message) =>
 		message.id === run.messageId
-			? { ...message, run, streaming: run.status === "queued" || run.status === "running" }
+			? {
+					...message,
+					run: { ...run, ...(run.activity ? {} : message.run?.activity ? { activity: message.run.activity } : {}) },
+					streaming: run.status === "queued" || run.status === "running",
+				}
 			: message,
 	);
 }

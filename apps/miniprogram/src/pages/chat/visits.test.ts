@@ -22,7 +22,9 @@ describe("who a visit chat is waiting on", () => {
 		expect(visitSentence(visit({ role: "visitor", state: "pending" }), "", "en")).toBe(
 			"Free messages used up. Waiting for the owner to approve.",
 		);
-		expect(visitSentence(visit({ role: "visitor", state: "capped" }), "", "zh-CN")).toBe("这个对话的免费额度用完了。");
+		expect(visitSentence(visit({ role: "visitor", state: "capped" }), "", "zh-CN")).toBe(
+			"继续聊天需要你确认使用自己的额度，或由主人选择支付。",
+		);
 		expect(visitSentence(visit({ role: "visitor", state: "denied" }), "", "en")).toBe(
 			"The Bot's owner declined to continue this chat.",
 		);
@@ -38,7 +40,7 @@ describe("a refused send says what happened", () => {
 		);
 		expect(visitErrorSentence("visit_denied", "zh-CN")).toBe("Bot 的主人拒绝继续这个对话。");
 		expect(visitErrorSentence("visit_cap", "en")).toBe(
-			"This chat's free allowance is used up. You can continue with your own quota.",
+			"To continue, confirm use of your quota or ask the owner to pay.",
 		);
 	});
 	it("recognises only the codes it knows", () => {

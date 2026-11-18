@@ -31,6 +31,10 @@ export function useGroupActions(conversationId: string) {
 			mutationFn: (title: string) => api.updateGroup(conversationId, { title }),
 			onSuccess: replace,
 		}),
+		setBotPayer: useMutation({
+			mutationFn: (groupBotPayer: "mentioner" | "owner") => api.updateGroup(conversationId, { groupBotPayer }),
+			onSuccess: replace,
+		}),
 		addMembers: useMutation({
 			mutationFn: (body: AddGroupMembersRequest) => api.addGroupMembers(conversationId, body),
 			onSuccess: replace,

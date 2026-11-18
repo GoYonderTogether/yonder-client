@@ -12,6 +12,8 @@ enum Action {
     State(String),
     Start(String, String, Option<String>),
     Stop(String, String),
+    Pause(String, String),
+    Resume(String, String),
     Audio(String, String, usize),
     Finish,
     Active,
@@ -36,6 +38,8 @@ struct Active {
     recording: Recording,
     pending: Vec<i16>,
     last_audio: Duration,
+    audio_level: f32,
+    paused: bool,
 }
 struct Worker {
     store: Store,
@@ -137,6 +141,12 @@ impl DesktopRecorder {
     pub fn stop(&self, owner: String, id: String) -> Result<RecorderState, String> {
         self.state_request(Action::Stop(owner, id))
     }
+    pub fn pause(&self, owner: String, id: String) -> Result<RecorderState, String> {
+        self.state_request(Action::Pause(owner, id))
+    }
+    pub fn resume(&self, owner: String, id: String) -> Result<RecorderState, String> {
+        self.state_request(Action::Resume(owner, id))
+    }
     pub fn finish(&self) {
         let _ = self.request(Action::Finish);
     }
@@ -185,6 +195,12 @@ impl Worker {
         Ok(RecorderState {
             supported: true,
             active_id,
+            paused: self.active.as_ref().is_some_and(|active| active.paused),
+            pause_supported: true,
+            audio_level: self
+                .active
+                .as_ref()
+                .map_or(0.0, |active| active.audio_level),
             recordings,
         })
     }
@@ -221,6 +237,8 @@ impl Worker {
                     recording,
                     pending: Vec::new(),
                     last_audio: crate::capture_clock::now(),
+                    audio_level: 0.0,
+                    paused: false,
                 });
                 (self.on_active)(true);
             }
@@ -236,6 +254,37 @@ impl Worker {
                 }
                 self.finish(None)?;
             }
+            Action::Pause(owner, id) => {
+                self.authorize(&owner)?;
+                let active = self
+                    .active
+                    .as_mut()
+                    .filter(|active| active.recording.id == id && !active.paused)
+                    .ok_or("meeting_not_recording")?;
+                active.capture.pause()?;
+                while let Ok((samples, _)) = active.capture.receiver.try_recv() {
+                    active.pending.extend(samples);
+                }
+                flush_pending(
+                    &self.store,
+                    &mut active.recording,
+                    &mut active.pending,
+                    true,
+                )?;
+                active.paused = true;
+                active.audio_level = 0.0;
+            }
+            Action::Resume(owner, id) => {
+                self.authorize(&owner)?;
+                let active = self
+                    .active
+                    .as_mut()
+                    .filter(|active| active.recording.id == id && active.paused)
+                    .ok_or("meeting_not_recording")?;
+                active.capture.play()?;
+                active.last_audio = crate::capture_clock::now();
+                active.paused = false;
+            }
             Action::Audio(owner, id, index) => {
                 self.authorize(&owner)?;
                 return self.store.read_audio(&owner, &id, index).map(Reply::Audio);
@@ -250,6 +299,9 @@ impl Worker {
         let Some(active) = self.active.as_mut() else {
             return Ok(());
         };
+        if active.paused {
+            return Ok(());
+        }
         if active.capture.failed.load(Ordering::Acquire) {
             return Err("meeting_audio_capture_interrupted".into());
         }
@@ -257,6 +309,12 @@ impl Worker {
             if received_at.saturating_sub(active.last_audio) > Duration::from_secs(5) {
                 return Err("meeting_audio_capture_interrupted".into());
             }
+            active.audio_level = samples
+                .iter()
+                .map(|sample| sample.unsigned_abs())
+                .max()
+                .unwrap_or(0) as f32
+                / 32768.0;
             active.pending.extend(samples);
             active.last_audio = received_at;
         }

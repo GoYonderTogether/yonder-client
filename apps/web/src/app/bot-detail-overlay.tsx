@@ -1,3 +1,4 @@
+import { FeishuChannel } from "@yonder/feature-me";
 import { BotDetail } from "@yonder/feature-members";
 import { useContacts, usePerson } from "@yonder/ui-data";
 import type { LayoutMode } from "@yonder/ui-shell";
@@ -35,6 +36,7 @@ export function BotDetailOverlay({
 			closeLabel={t("app.close")}
 		>
 			<BotDetail bot={member} onDeleted={onDeleted} />
+			<FeishuChannel key={member.id} botId={member.id} />
 		</Overlay>
 	);
 }

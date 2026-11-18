@@ -91,3 +91,14 @@ export function boundSkillIds(text: string, bindings: readonly CompletionBinding
 		),
 	];
 }
+
+export function boundMemberIds(text: string, bindings: readonly CompletionBinding[]): string[] {
+	return [
+		...new Set(
+			bindings
+				.filter((binding) => binding.kind === "member" && present(text, binding))
+				.sort((first, second) => first.start - second.start)
+				.map((binding) => binding.id),
+		),
+	];
+}

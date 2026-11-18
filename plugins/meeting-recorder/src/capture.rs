@@ -78,4 +78,10 @@ impl Capture {
             .play()
             .map_err(|e| format!("meeting_microphone_unavailable: {e}"))
     }
+
+    pub fn pause(&self) -> Result<(), String> {
+        self.stream
+            .pause()
+            .map_err(|e| format!("meeting_microphone_unavailable: {e}"))
+    }
 }

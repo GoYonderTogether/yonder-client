@@ -12,6 +12,8 @@ const world = vi.hoisted(() => ({
 	definitions: [] as ConnectorDefinition[],
 	updateMe: vi.fn(),
 	updateBot: vi.fn(),
+	completeOnboarding: vi.fn(),
+	invalidateQueries: vi.fn(),
 }));
 
 const person: Member = {
@@ -39,6 +41,8 @@ const bot: Member = {
 vi.mock("@yonder/ui-data", async (original) => ({
 	...(await original<typeof import("@yonder/ui-data")>()),
 	usePerson: () => person,
+	useApi: () => ({ completeOnboarding: world.completeOnboarding }),
+	useDataQueryClient: () => ({ invalidateQueries: world.invalidateQueries }),
 	useBot: () => bot,
 	useUpdateMe: () => ({ mutateAsync: world.updateMe, isPending: false }),
 	useUploadAvatar: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -83,6 +87,7 @@ beforeEach(() => {
 	world.definitions = [{ id: "local-files", kind: "device", name: "x", description: "x", platforms: ["macos"] }];
 	world.updateMe.mockReset().mockResolvedValue(undefined);
 	world.updateBot.mockReset().mockResolvedValue(bot);
+	world.completeOnboarding.mockReset().mockResolvedValue({ conversationId: "owner-chat" });
 });
 
 test("an unknown step starts at the first one", async () => {
@@ -114,7 +119,9 @@ test("the last step shows the connectors and opens the app", async () => {
 	open("/setup/connect");
 	expect(screen.getByText("connector cards")).toBeInTheDocument();
 	await user.click(screen.getByRole("button", { name: "Skip for now" }));
-	await waitFor(() => expect(location()).toBe("/messages"));
+	await waitFor(() => expect(location()).toBe("/messages/owner-chat"));
+	expect(world.completeOnboarding).toHaveBeenCalledTimes(1);
+	expect(world.completeOnboarding).toHaveBeenCalledWith(["connect"]);
 });
 
 test("where nothing can be connected the flow ends after the Bot and never shows the connect step", async () => {
@@ -123,8 +130,21 @@ test("where nothing can be connected the flow ends after the Bot and never shows
 	const view = open("/setup/bot");
 	expect(view.container.querySelectorAll("ol li")).toHaveLength(2);
 	await user.click(screen.getByRole("button", { name: "Skip this step" }));
-	await waitFor(() => expect(location()).toBe("/messages"));
+	await waitFor(() => expect(location()).toBe("/messages/owner-chat"));
 	view.unmount();
 	open("/setup/connect");
-	await waitFor(() => expect(location()).toBe("/messages"));
+	await waitFor(() => expect(location()).toBe("/setup/bot"));
+	expect(screen.queryByText("connector cards")).toBeNull();
+});
+
+test("keeps setup open after a failed completion and opens the conversation after retry", async () => {
+	world.completeOnboarding.mockRejectedValueOnce(new Error("offline"));
+	const user = userEvent.setup();
+	open("/setup/connect");
+	await user.click(screen.getByRole("button", { name: "Skip for now" }));
+	expect(await screen.findByRole("alert")).toHaveTextContent("Could not finish setup");
+	expect(location()).toBe("/setup/connect");
+	await user.click(screen.getByRole("button", { name: "Try again" }));
+	await waitFor(() => expect(location()).toBe("/messages/owner-chat"));
+	expect(world.completeOnboarding).toHaveBeenCalledTimes(2);
 });

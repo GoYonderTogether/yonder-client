@@ -116,6 +116,7 @@ test("read enables explicit whole-device access without a folder picker", async 
 	await waitFor(() =>
 		expect(native.authorize).toHaveBeenCalledWith(
 			expect.objectContaining({ scope: "device", capabilities: { fileTools: false } }),
+			{ resumeRequest: true },
 		),
 	);
 	expect(state.create).toHaveBeenCalledWith({

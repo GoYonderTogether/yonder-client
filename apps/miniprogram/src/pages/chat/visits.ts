@@ -19,7 +19,7 @@ export function isVisitErrorCode(code: string): code is VisitErrorCode {
  */
 export function visitSentence(visit: ConversationVisit, visitorName: string, locale: Locale): string | null {
 	if (visit.role === "host")
-		return visit.state === "pending"
+		return visit.state === "pending" || visit.state === "capped"
 			? pair(locale, `${visitorName} 想继续和你的 Bot 聊天`, `${visitorName} wants to keep messaging your Bot`)
 			: null;
 	const visitor: Partial<Record<VisitState, string>> = {
@@ -28,7 +28,11 @@ export function visitSentence(visit: ConversationVisit, visitorName: string, loc
 			"免费消息用完了，正在等主人批准。",
 			"Free messages used up. Waiting for the owner to approve.",
 		),
-		capped: pair(locale, "这个对话的免费额度用完了。", "This chat's free allowance is used up."),
+		capped: pair(
+			locale,
+			"继续聊天需要你确认使用自己的额度，或由主人选择支付。",
+			"To continue, confirm use of your quota or ask the owner to pay.",
+		),
 		denied: pair(locale, "Bot 的主人拒绝继续这个对话。", "The Bot's owner declined to continue this chat."),
 	};
 	return visitor[visit.state] ?? null;
@@ -48,8 +52,8 @@ export function visitErrorSentence(code: VisitErrorCode, locale: Locale): string
 		case "visit_cap":
 			return pair(
 				locale,
-				"这个对话的免费额度用完了，可以从你自己的额度继续。",
-				"This chat's free allowance is used up. You can continue with your own quota.",
+				"继续聊天需要你确认使用自己的额度，或由主人选择支付。",
+				"To continue, confirm use of your quota or ask the owner to pay.",
 			);
 	}
 }

@@ -289,7 +289,7 @@ export function useChat(id: string) {
 		}
 	};
 	/** The owner's decision, or the visitor paying for the rest; the answer is the whole conversation. */
-	const visitAction = async (action: "approve" | "deny" | "pay") => {
+	const visitAction = async (action: "approve" | "deny" | "pay", hostPays = false) => {
 		const visitId = conversation?.visit?.id;
 		if (actionLock.current || !visitId || !id) return;
 		actionLock.current = true;
@@ -298,7 +298,7 @@ export function useChat(id: string) {
 		try {
 			const next =
 				action === "approve"
-					? await api.approveVisit(visitId)
+					? await api.approveVisit(visitId, { hostPays })
 					: action === "deny"
 						? await api.denyVisit(visitId)
 						: await api.payVisit(visitId);

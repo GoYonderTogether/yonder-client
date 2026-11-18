@@ -5,6 +5,7 @@ import { ListFrame, PageFrame } from "@yonder/ui-shell";
 import { CalendarClock, ListChecks } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { GoalRecords } from "./goal-records.tsx";
 import { ItemDetailPage } from "./items-detail.tsx";
 import { upcomingOneOffs } from "./items-format.ts";
 import { ItemsList } from "./items-list.tsx";
@@ -60,7 +61,10 @@ export function TasksList({
 				<ScheduleForm onCancel={() => setCreating(false)} onDone={() => setCreating(false)} />
 			) : null}
 			{scheduled ? (
-				<GoalsList creating={creating} />
+				<div className="flex flex-col gap-[var(--spacing-4)]">
+					<GoalRecords />
+					<GoalsList creating={creating} />
+				</div>
 			) : (
 				<div className="flex flex-col gap-[var(--spacing-4)]">
 					<UpcomingOneOffs />

@@ -37,6 +37,7 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, handlers: EventHandlers = {}): void {
 	switch (event.type) {
 		case "connectors.changed": {
+			void queryClient.invalidateQueries({ queryKey: keys.goals() });
 			void queryClient.invalidateQueries({ queryKey: keys.connectors.list() });
 			break;
 		}
@@ -100,6 +101,11 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 		case "message.created":
 		case "message.updated": {
 			updateMessage(queryClient, event.message);
+			if (event.message.outwardRequest?.owner) void queryClient.invalidateQueries({ queryKey: keys.items.all() });
+			if (event.type === "message.created" && event.message.outwardRequest)
+				void queryClient.invalidateQueries({ queryKey: keys.messages.latest(event.message.conversationId) });
+			if (event.type === "message.created" && event.message.outwardRequest?.result)
+				void queryClient.invalidateQueries({ queryKey: keys.conversations.list() });
 			break;
 		}
 		case "run.updated": {
@@ -115,7 +121,12 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 			void queryClient.invalidateQueries({ queryKey: keys.items.all() });
 			break;
 		}
+		case "goals.changed":
+			void queryClient.invalidateQueries({ queryKey: keys.goals() });
+			void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
+			break;
 		case "schedule.changed": {
+			void queryClient.invalidateQueries({ queryKey: keys.goals() });
 			// The plan list carries next times and recent results, so it is refetched rather than patched.
 			void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
 			break;

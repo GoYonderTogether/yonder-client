@@ -161,22 +161,30 @@ export async function uploadAndroidRelease({
 		if (repair && !same) throw new Error("repair 只允许修正同一 versionCode 与同一 APK 摘要的清单");
 		if (!repair && !(reuse && same)) assertNewerManifest(manifest, parsed, { rebuild });
 	}
-	for (const key of [versionedApkPath(version), APK_OBJECT]) {
-		await transport.putObject({
-			key,
-			body: apk,
-			contentType: "application/vnd.android.package-archive",
-			multipart: true,
-			credentials,
-			bucket,
-			endpoint,
-		});
+	const versionedKey = versionedApkPath(version);
+	const writeTarget = { credentials, bucket, endpoint };
+	const started = Date.now();
+	await transport.putObject({
+		...writeTarget,
+		key: versionedKey,
+		body: apk,
+		contentType: "application/vnd.android.package-archive",
+		multipart: true,
+	});
+	log(`已上传 ${versionedKey}（${Date.now() - started} ms）`);
+	async function verifyPublic(key) {
+		const readStarted = Date.now();
 		const downloaded = await transport.getPublicReleaseObject(key);
 		if (downloaded.length !== manifest.size || sha256(downloaded) !== manifest.sha256) {
 			throw new Error(`${key} 公开下载与待发布 APK 不一致`);
 		}
-		log(`公开下载校验通过：${key} SHA-256 ${manifest.sha256}`);
+		log(`公开下载校验通过：${key} SHA-256 ${manifest.sha256}（${Date.now() - readStarted} ms）`);
 	}
+	await verifyPublic(versionedKey);
+	const copyStarted = Date.now();
+	await transport.putObject({ ...writeTarget, key: APK_OBJECT, copyFrom: versionedKey });
+	log(`已桶内复制 ${APK_OBJECT}（${Date.now() - copyStarted} ms）`);
+	await verifyPublic(APK_OBJECT);
 	await transport.putObject({
 		key: LATEST_OBJECT,
 		body: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`),

@@ -29,13 +29,28 @@ export {
 	useUpdateMe,
 	useUploadAvatar,
 } from "./hooks/account.ts";
-export { ownedBots, useDeleteBot, useUpdateBot, useUploadBotAvatar } from "./hooks/bots.ts";
+export {
+	ownedBots,
+	useDeleteBot,
+	useReception,
+	useSetReception,
+	useUpdateBot,
+	useUploadBotAvatar,
+} from "./hooks/bots.ts";
+export {
+	useChannelActions,
+	useChannelAttempt,
+	useChannelConversations,
+	useChannelMessages,
+	useChannels,
+} from "./hooks/channels.ts";
 export type { CachedMessage } from "./hooks/chat.ts";
 export { useConversations, useMessages, useRunActions, useSendMessage } from "./hooks/chat.ts";
 export { useCompactConversation } from "./hooks/compact.ts";
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
 export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
+export { useChangeGoal, useGoalSettings, useGoals } from "./hooks/goals.ts";
 export { useGroupActions } from "./hooks/groups.ts";
 export { useItem, useItemActions, useItems } from "./hooks/items.ts";
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
@@ -54,7 +69,7 @@ export {
 } from "./hooks/quota.ts";
 export { useScheduleActions, useSchedules } from "./hooks/schedules.ts";
 export { useSkill, useSkillActions, useSkillFile, useSkills } from "./hooks/skills.ts";
-export { useStartBotChat, useVisitActions } from "./hooks/visits.ts";
+export { useOutwardActions, useStartBotChat, useVisitActions } from "./hooks/visits.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
 export {
 	readLocale,

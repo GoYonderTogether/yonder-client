@@ -13,17 +13,33 @@ export function useMeetingCloud(
 	const [selectedOwner, setSelectedOwner] = useState(ownerId);
 	const [preparing, setPreparing] = useState(false);
 	const [prepareError, setPrepareError] = useState(false);
-	const upload = useMeetingUpload(ownerId, recorder.ready);
+	const upload = useMeetingUpload(ownerId, recorder);
 	const list = useMeetings(target?.id ?? null, {
 		enabled: expanded || upload.jobs.length > 0,
 		uploading: upload.jobs.some((job) => ["queued", "uploading"].includes(job.state)),
 	});
 	const selected = useMeeting(selectedOwner === ownerId ? selectedId : null);
 	const actions = useMeetingActions();
+	const records = list.data?.items ?? [];
+	const resumable = upload.web
+		? records.filter(
+				(record) =>
+					record.status === "uploading" && !upload.jobs.some((job) => job.recordingId === record.clientRecordingId),
+			)
+		: [];
 	return {
-		records: list.data?.items ?? [],
+		records,
 		selected: selected.data,
-		jobs: upload.jobs,
+		jobs: [
+			...upload.jobs,
+			...resumable.map((record) => ({
+				recordingId: record.clientRecordingId,
+				conversationId: record.conversationId,
+				meetingId: record.id,
+				state: "failed" as const,
+				errorCode: null,
+			})),
+		],
 		loading: list.isLoading || selected.isLoading,
 		error: list.isError || selected.isError || upload.error || prepareError || actions.retry.isError,
 		busy: preparing || actions.retry.isPending,
@@ -40,7 +56,7 @@ export function useMeetingCloud(
 			setPreparing(true);
 			setPrepareError(false);
 			try {
-				await upload.prepare(recordingId, conversationId);
+				await upload.prepare(recording, conversationId);
 				await recorder.reload();
 				await list.refetch();
 			} catch {

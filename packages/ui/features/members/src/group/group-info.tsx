@@ -74,6 +74,24 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft }: Grou
 				onRename={(value) => actions.rename.mutate(value, { onError: fail })}
 			/>
 
+			{owner && !closed && conversation.groupBotPayer !== undefined ? (
+				<label className="flex flex-wrap items-center justify-between gap-[var(--spacing-3)] text-body">
+					{t("members.group.botPayer")}
+					<select
+						className="rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] p-[var(--spacing-2)] text-[var(--color-text-primary)]"
+						value={conversation.groupBotPayer}
+						disabled={actions.setBotPayer.isPending}
+						onChange={(event) => {
+							const payer = event.currentTarget.value === "owner" ? "owner" : "mentioner";
+							actions.setBotPayer.mutate(payer, { onSuccess: () => setError(null), onError: fail });
+						}}
+					>
+						<option value="mentioner">{t("members.group.botPayerMentioner")}</option>
+						<option value="owner">{t("members.group.botPayerOwner")}</option>
+					</select>
+				</label>
+			) : null}
+
 			<div className="flex flex-col gap-[var(--spacing-3)]">
 				<div className="flex items-center justify-between gap-[var(--spacing-3)] px-[var(--spacing-1)]">
 					<span className="text-caption text-[var(--color-text-secondary)]">

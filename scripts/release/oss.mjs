@@ -188,6 +188,7 @@ function objectUrl(key, endpoint) {
 export async function putObject({
 	key,
 	body,
+	copyFrom,
 	contentType = "application/octet-stream",
 	credentials,
 	ossHeaders = {},
@@ -213,6 +214,17 @@ export async function putObject({
 			throw new Error(`${method} ${key} 失败：HTTP ${response.status}${code ? ` ${code}` : ""}`);
 		}
 		return response;
+	}
+	if (copyFrom) {
+		const source = new URL(objectUrl(copyFrom, endpoint)).pathname;
+		const result = await write("PUT", "", undefined, undefined, {
+			"Content-Length": 0,
+			"x-oss-copy-source": `/${bucket}${source}`,
+		});
+		if (!/<CopyObjectResult[\s>]/.test(result.body.toString())) {
+			throw new Error(`OSS 未确认 ${key} 桶内复制完成`);
+		}
+		return result;
 	}
 	const partSize = 2 * 1024 * 1024;
 	if (!multipart || body.length <= partSize) return write("PUT", "", body, contentType, ossHeaders);

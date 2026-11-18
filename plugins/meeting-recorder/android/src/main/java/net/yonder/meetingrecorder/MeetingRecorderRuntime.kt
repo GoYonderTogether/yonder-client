@@ -25,7 +25,10 @@ internal object MeetingRecorderRuntime {
     private var worker: Thread? = null
     private val running = AtomicBoolean(false)
     @Volatile private var pendingBytes = 0
+    @Volatile private var audioLevel = 0.0
     @Volatile private var stopReason: String? = null
+    @Volatile private var paused = false
+    @Volatile private var pausing = false
     var didStop: (() -> Unit)? = null
 
     private fun storage(context: Context): RecordingStore {
@@ -53,12 +56,25 @@ internal object MeetingRecorderRuntime {
                 record.put("durationMs", record.getLong("savedDurationMs") + pendingBytes.toLong() * 1000 / (record.getInt("sampleRate") * 2))
             }
         }
-        JSONObject().put("supported", true).put("activeId", current?.getString("id") ?: JSONObject.NULL).put("recordings", records)
+        JSONObject().put("supported", true).put("activeId", current?.getString("id") ?: JSONObject.NULL)
+            .put("audioLevel", if (current == null) 0.0 else audioLevel).put("paused", paused).put("pauseSupported", true).put("recordings", records)
     }
 
     fun read(context: Context, requested: String, id: String, index: Int): ByteArray = synchronized(lock) {
         require(owner == requested) { "wrong_owner" }
         storage(context).read(requested, id, index)
+    }
+
+    private fun watchSilencing(context: Context, recorder: AudioRecord) {
+        if (Build.VERSION.SDK_INT >= 29) {
+            recorder.registerAudioRecordingCallback(context.mainExecutor, object : AudioManager.AudioRecordingCallback() {
+                override fun onRecordingConfigChanged(configurations: MutableList<AudioRecordingConfiguration>) {
+                    if (running.get() && audio === recorder && configurations.any { it.clientAudioSessionId == recorder.audioSessionId && it.isClientSilenced }) {
+                        thread(name = "meeting-audio-interruption") { stop("audio_interrupted") }
+                    }
+                }
+            })
+        }
     }
 
     fun start(context: Context, requested: String, title: String): JSONObject = synchronized(lock) {
@@ -78,15 +94,7 @@ internal object MeetingRecorderRuntime {
             check(recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) { "microphone_unavailable" }
             val record = storage(context).create(requested, title, rate)
             active = record; audio = recorder; pendingBytes = 0; stopReason = null; running.set(true)
-            if (Build.VERSION.SDK_INT >= 29) {
-                recorder.registerAudioRecordingCallback(context.mainExecutor, object : AudioManager.AudioRecordingCallback() {
-                    override fun onRecordingConfigChanged(configurations: MutableList<AudioRecordingConfiguration>) {
-                        if (running.get() && audio === recorder && configurations.any { it.clientAudioSessionId == recorder.audioSessionId && it.isClientSilenced }) {
-                            thread(name = "meeting-audio-interruption") { stop("audio_interrupted") }
-                        }
-                    }
-                })
-            }
+            watchSilencing(context, recorder)
             worker = thread(name = "meeting-audio-writer") { capture(context, recorder, record) }
         } catch (error: Exception) {
             running.set(false)
@@ -105,12 +113,52 @@ internal object MeetingRecorderRuntime {
         val capture = synchronized(lock) {
             if (requested != null) require(owner == requested) { "wrong_owner" }
             if (id != null && active != null) require(active!!.getString("id") == id) { "wrong_recording" }
+            if (paused) {
+                val record = active
+                if (record != null) {
+                    record.put("state", if (reason == null) "ended" else "interrupted").put("endedAt", System.currentTimeMillis()).put("error", reason ?: JSONObject.NULL)
+                    store!!.save(record)
+                }
+                active = null; paused = false
+                didStop?.invoke()
+                return
+            }
             stopReason = reason
             running.set(false)
             try { audio?.stop() } catch (_: IllegalStateException) { }
             worker
         }
         if (capture != Thread.currentThread()) capture?.join()
+    }
+
+    fun pause(requested: String, id: String) {
+        val capture = synchronized(lock) {
+            require(owner == requested && active?.optString("id") == id && !paused) { "wrong_recording" }
+            pausing = true
+            running.set(false)
+            try { audio?.stop() } catch (_: IllegalStateException) { }
+            worker
+        }
+        capture?.join()
+        check(paused) { "audio_capture_or_storage_failed" }
+    }
+
+    fun resume(context: Context, requested: String, id: String) = synchronized(lock) {
+        require(owner == requested && active?.optString("id") == id && paused) { "wrong_recording" }
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) throw SecurityException("microphone_denied")
+        val minimum = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        check(minimum > 0) { "microphone_unavailable" }
+        val recorder = AudioRecord(MediaRecorder.AudioSource.MIC, 16000, AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT, maxOf(minimum * 2, 8192))
+        try {
+            check(recorder.state == AudioRecord.STATE_INITIALIZED) { "microphone_unavailable" }
+            recorder.startRecording()
+            check(recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) { "microphone_unavailable" }
+            val record = active!!
+            audio = recorder; paused = false; pausing = false; stopReason = null; running.set(true)
+            watchSilencing(context, recorder)
+            worker = thread(name = "meeting-audio-writer") { capture(context, recorder, record) }
+        } catch (error: Exception) { recorder.release(); throw error }
     }
 
     private fun capture(context: Context, recorder: AudioRecord, record: JSONObject) {
@@ -121,6 +169,12 @@ internal object MeetingRecorderRuntime {
                 val count = recorder.read(buffer, 0, buffer.size)
                 if (!running.get()) break
                 check(count > 0 && count % 2 == 0) { "audio_capture_failed" }
+                var peak = 0
+                for (index in 0 until count step 2) {
+                    val sample = (buffer[index + 1].toInt() shl 8) or (buffer[index].toInt() and 255)
+                    peak = maxOf(peak, kotlin.math.abs(sample))
+                }
+                audioLevel = peak / 32768.0
                 var offset = 0
                 while (offset < count) {
                     val available = minOf(count - offset, 16000 * 2 * 4 - pending.size())
@@ -139,10 +193,18 @@ internal object MeetingRecorderRuntime {
             try { recorder.stop() } catch (_: IllegalStateException) { }
             recorder.release()
             synchronized(lock) {
+                if (pausing && stopReason == null) {
+                    try { storage(context).save(record); paused = true } catch (_: Exception) { stopReason = "audio_capture_or_storage_failed" }
+                }
+                if (paused) {
+                    audio = null; worker = null; pendingBytes = 0; audioLevel = 0.0; pausing = false
+                    return
+                }
                 record.put("state", if (stopReason == null) "ended" else "interrupted")
                     .put("endedAt", System.currentTimeMillis()).put("error", stopReason ?: JSONObject.NULL)
                 try { storage(context).save(record) } catch (_: Exception) { }
-                active = null; audio = null; worker = null; pendingBytes = 0
+                active = null; audio = null; worker = null; pendingBytes = 0; audioLevel = 0.0
+                pausing = false
             }
             didStop?.invoke()
         }

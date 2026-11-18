@@ -12,6 +12,38 @@
 .meeting-capsule[data-expanded="true"] {
 	max-width: 100%;
 }
+.meeting-capsule[data-recording="true"] {
+	border-color: var(--color-danger);
+	background: var(--color-danger-subtle);
+}
+.meeting-capsule .meeting-stop {
+	background: var(--color-danger);
+	color: var(--color-danger-inverse);
+}
+.meeting-level {
+	width: calc(var(--control-md) * 2);
+	flex-shrink: 1;
+}
+.meeting-level-meter {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	clip-path: inset(50%);
+}
+.meeting-level-bars {
+	display: flex;
+	height: var(--spacing-5);
+	align-items: center;
+	justify-content: flex-end;
+	gap: 2px;
+	overflow: hidden;
+	color: var(--color-danger);
+}
+.meeting-level span {
+	min-width: 2px;
+	background: currentColor;
+	border-radius: var(--radius-control);
+}
 .meeting-capsule-header {
 	display: flex;
 	align-items: center;
@@ -65,6 +97,15 @@
 	overflow-y: auto;
 	overscroll-behavior: contain;
 	padding: var(--spacing-2) var(--spacing-4) var(--spacing-4);
+}
+@media (max-width: 600px) {
+	.meeting-capsule[data-recording="true"] .meeting-capsule-header {
+		flex-wrap: wrap;
+		justify-content: flex-end;
+	}
+	.meeting-capsule[data-recording="true"] .meeting-capsule-toggle {
+		flex-basis: 100%;
+	}
 }
 @media (prefers-reduced-motion: reduce) {
 	.meeting-capsule,

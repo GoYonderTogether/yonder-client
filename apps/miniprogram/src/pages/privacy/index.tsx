@@ -14,7 +14,7 @@ function label(key: PrivacyKey): string {
 		case "cardForUsers":
 			return t("登录用户可以查看我的名片", "Signed-in people can view my card");
 		case "cardPublicLink":
-			return t("拿到我名片链接的人都能查看", "Anyone with my card link can view it");
+			return t("未登录的人可以通过链接查看我的名片", "People who are not signed in can view my card via its link");
 	}
 }
 

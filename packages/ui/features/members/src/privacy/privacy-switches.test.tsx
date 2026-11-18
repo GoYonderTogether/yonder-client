@@ -38,7 +38,9 @@ test("exactly the three switches, each bound to its own setting", () => {
 	expect(screen.getAllByRole("switch")).toHaveLength(3);
 	expect(screen.getByRole("switch", { name: "Strangers can find me by my handle" })).toBeChecked();
 	expect(screen.getByRole("switch", { name: "Signed-in users can view my card" })).toBeChecked();
-	expect(screen.getByRole("switch", { name: "Anyone with my card link can view it" })).toBeChecked();
+	expect(
+		screen.getByRole("switch", { name: "People who are not signed in can view my card via its link" }),
+	).toBeChecked();
 });
 
 test("flipping one switch saves immediately, and only that field", async () => {
@@ -71,7 +73,7 @@ test("the three labels exist in Chinese too, with no placeholder rows", () => {
 	expect(screen.getAllByRole("switch")).toHaveLength(3);
 	expect(screen.getByRole("switch", { name: "陌生人可以通过对外号找到我" })).toBeChecked();
 	expect(screen.getByRole("switch", { name: "登录用户可以查看我的名片" })).toBeChecked();
-	expect(screen.getByRole("switch", { name: "任何人拿到我的名片链接都能查看" })).toBeChecked();
+	expect(screen.getByRole("switch", { name: "未登录的人可以通过链接查看我的名片" })).toBeChecked();
 });
 
 test("a failed read offers a retry instead of empty switches", async () => {

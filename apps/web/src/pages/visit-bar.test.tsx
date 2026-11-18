@@ -80,7 +80,10 @@ test("the owner of the Bot approves or declines a pending visit and says who is 
 	render(localised(<VisitBar conversation={conversation(visit("host", "pending"))} />));
 	expect(screen.getByText("Stranger wants to keep messaging your Bot")).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-	expect(calls.approve).toHaveBeenCalledWith("visit-1");
+	expect(calls.approve).toHaveBeenCalledWith({ visitId: "visit-1", hostPays: false });
+	fireEvent.click(screen.getByRole("checkbox", { name: "I will pay for this conversation" }));
+	fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+	expect(calls.approve).toHaveBeenCalledWith({ visitId: "visit-1", hostPays: true });
 	fireEvent.click(screen.getByRole("button", { name: "Decline" }));
 	expect(calls.deny).toHaveBeenCalledWith("visit-1");
 	expect(calls.pay).not.toHaveBeenCalled();
@@ -93,8 +96,10 @@ test("the owner has nothing to do once the visit is past pending", () => {
 
 test("a visitor whose free allowance ran out pays for the rest from their own quota", () => {
 	render(localised(<VisitBar conversation={conversation(visit("visitor", "capped"))} />));
-	expect(screen.getByText("This chat's free allowance is used up.")).toBeInTheDocument();
+	expect(screen.getByText("To continue, confirm use of your quota or ask the owner to pay.")).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Pay for the rest myself" }));
+	expect(calls.pay).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Confirm payment" }));
 	expect(calls.pay).toHaveBeenCalledWith("visit-1");
 });
 

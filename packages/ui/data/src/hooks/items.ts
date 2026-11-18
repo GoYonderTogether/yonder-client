@@ -42,5 +42,9 @@ export function useItemActions() {
 		cancel: useMutation({ mutationFn: (id: string) => api.cancelItem(id), onSuccess: refresh }),
 		pause: useMutation({ mutationFn: (id: string) => api.pauseItem(id), onSuccess: refresh }),
 		resume: useMutation({ mutationFn: (id: string) => api.resumeItem(id), onSuccess: refresh }),
+		transfer: useMutation({
+			mutationFn: ({ id, botId }: { id: string; botId: string }) => api.transferItem(id, botId),
+			onSuccess: refresh,
+		}),
 	};
 }

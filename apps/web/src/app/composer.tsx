@@ -1,5 +1,5 @@
 import { ComposerFrame, ComposerLayout } from "@yonder/chat-presentation";
-import { ArrowUp, FileText, Image, Plus, Square } from "lucide-react";
+import { ArrowUp, FileAudio, FileText, Image, Plus, Square } from "lucide-react";
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { CompletionBinding, CompletionMarker, TextEditRange } from "./completion/bindings.ts";
@@ -42,6 +42,7 @@ export interface ComposerProps {
 	onRetryFile?: (id: string) => void;
 	onOriginalFileChange?: (id: string, original: boolean) => void;
 	mobilePicker?: boolean;
+	onMeeting?: (() => void) | undefined;
 	scope?: string;
 	error?: string;
 	readOnly?: boolean;
@@ -77,6 +78,7 @@ export function Composer({
 	onRetryFile,
 	onOriginalFileChange,
 	mobilePicker = false,
+	onMeeting,
 	scope = "composer",
 	error,
 	readOnly = false,
@@ -241,8 +243,8 @@ export function Composer({
 								className="composer-tool"
 								disabled={disabled}
 								aria-label={t("chat.attach")}
-								aria-expanded={mobilePicker ? menu : undefined}
-								onClick={() => (mobilePicker ? setMenu(!menu) : picker.current?.click())}
+								aria-expanded={mobilePicker || onMeeting ? menu : undefined}
+								onClick={() => (mobilePicker || onMeeting ? setMenu(!menu) : picker.current?.click())}
 							>
 								<Plus size={21} aria-hidden="true" />
 							</button>
@@ -254,16 +256,18 @@ export function Composer({
 										if (event.key === "Escape") setMenu(false);
 									}}
 								>
-									<button
-										type="button"
-										onClick={() => {
-											imagePicker.current?.click();
-											setMenu(false);
-										}}
-									>
-										<Image size={18} aria-hidden="true" />
-										{t("chat.uploadImages")}
-									</button>
+									{mobilePicker ? (
+										<button
+											type="button"
+											onClick={() => {
+												imagePicker.current?.click();
+												setMenu(false);
+											}}
+										>
+											<Image size={18} aria-hidden="true" />
+											{t("chat.uploadImages")}
+										</button>
+									) : null}
 									<button
 										type="button"
 										onClick={() => {
@@ -274,6 +278,18 @@ export function Composer({
 										<FileText size={18} aria-hidden="true" />
 										{t("chat.uploadFiles")}
 									</button>
+									{onMeeting ? (
+										<button
+											type="button"
+											onClick={() => {
+												setMenu(false);
+												onMeeting();
+											}}
+										>
+											<FileAudio size={18} aria-hidden="true" />
+											{t("chatActions.recordMeeting")}
+										</button>
+									) : null}
 								</fieldset>
 							) : null}
 						</div>

@@ -1,5 +1,15 @@
 export const connectorMessagesZhCN = {
 	title: "连接器",
+	requestCardTitle: "Bot 请求连接器授权",
+	requestConfirm: "确认并前往授权",
+	requestFailed: "操作没有完成，请重试。",
+	requestContinueFailed: "设备授权已完成，但原请求没有继续。请重试。",
+	requestState: {
+		pending: "等待你的确认",
+		approved: "请在设备上完成授权",
+		completed: "已授权并继续原请求",
+		cancelled: "已取消",
+	},
 	connect: "连接",
 	connected: "已接入",
 	connectedOffline: "已接入 · 设备离线",

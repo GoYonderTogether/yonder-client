@@ -237,6 +237,7 @@ export function ConversationPage({
 							bot={bot}
 							disconnected={disconnected}
 							retrying={actions.retry.isPending}
+							onOpenRelated={(id) => navigate(`/messages/${encodeURIComponent(id)}`)}
 							{...(onOpenMeeting ? { onOpenMeeting } : {})}
 							onResend={(message) =>
 								send.mutate({
@@ -246,9 +247,13 @@ export function ConversationPage({
 									attachmentIds: message.attachments.map((attachment) => attachment.id),
 									attachments: message.attachments,
 									...(message.skillIds ? { skillIds: message.skillIds } : {}),
+									...(message.mentionedMemberIds ? { mentionedMemberIds: message.mentionedMemberIds } : {}),
 								})
 							}
 							onRetry={(id) => actions.retry.mutate(id)}
+							onChooseOption={(body, id) => {
+								if (!send.isPending) send.mutate({ type: "text", body, clientNonce: `option:${id}` });
+							}}
 						/>
 						<div ref={bottom} />
 					</div>

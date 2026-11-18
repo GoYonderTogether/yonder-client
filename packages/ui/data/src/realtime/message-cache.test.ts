@@ -54,6 +54,34 @@ test("nonce confirms one optimistic message and streaming updates replace one re
 	expect(items?.[1]?.run?.failureReason).toBe("model_not_configured");
 });
 
+test("tool activity survives later streamed messages and terminal run events", () => {
+	const client = new QueryClient();
+	const message: Message = {
+		id: "reply",
+		conversationId: "c",
+		senderId: "bot",
+		senderKind: "bot",
+		type: "text",
+		body: "a",
+		attachments: [],
+		replyToId: null,
+		createdAt: "2026-01-01T00:00:00Z",
+		editedAt: null,
+		streaming: true,
+		version: 1,
+	};
+	client.setQueryData(keys.messages.latest("c"), {
+		pages: [{ items: [message], nextCursor: null, hasMore: false }],
+		pageParams: [undefined],
+	});
+	const run = { id: "r", conversationId: "c", messageId: "reply", userMessageId: "u", status: "running" as const };
+	updateRun(client, { ...run, activity: [{ label: "看了日历" }] });
+	updateMessage(client, { ...message, version: 2, body: "ab", run });
+	updateRun(client, { ...run, status: "completed" });
+	const saved = client.getQueryData<InfiniteData<MessagePage>>(keys.messages.latest("c"))?.pages[0]?.items[0];
+	expect(saved?.run?.activity).toEqual([{ label: "看了日历" }]);
+});
+
 test("an empty Bot placeholder does not hide the last visible message", () => {
 	const client = new QueryClient();
 	const key = keys.conversations.list();

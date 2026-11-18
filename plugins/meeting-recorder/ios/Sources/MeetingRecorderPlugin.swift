@@ -15,6 +15,8 @@ final class MeetingRecorderPlugin: Plugin {
   private var engine: AVAudioEngine?
   private var active: MeetingRecording?
   private var pending = Data()
+  private var audioLevel: Float = 0
+  private var paused = false
   private var observers: [NSObjectProtocol] = []
 
   override init() {
@@ -29,7 +31,7 @@ final class MeetingRecorderPlugin: Plugin {
         guard let self = self, let engine = self.engine, self.active != nil,
           (note.object as? AVAudioEngine) === engine else { return }
         // Initial route configuration may notify while start() is in progress. Inspect after start returns.
-        if !engine.isRunning { try? self.finish(state: "interrupted", reason: "audio_configuration_changed") }
+        if !engine.isRunning && !self.paused { try? self.finish(state: "interrupted", reason: "audio_configuration_changed") }
       }
     })
     observers.append(center.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: nil) { [weak self] _ in
@@ -51,7 +53,7 @@ final class MeetingRecorderPlugin: Plugin {
   }
 
   private func state(_ requested: String?) throws -> JsonObject {
-    guard let requested = requested else { return ["supported": true, "activeId": NSNull(), "recordings": []] }
+    guard let requested = requested else { return ["supported": true, "activeId": NSNull(), "audioLevel": 0, "recordings": []] }
     _ = try requireOwner(requested)
     var records = try storage().list(owner: requested, recover: true, activeId: active?.id)
     if var current = active {
@@ -59,7 +61,7 @@ final class MeetingRecorderPlugin: Plugin {
       records = records.map { $0.id == current.id ? current : $0 }
     }
     let data = try JSONEncoder().encode(records)
-    return ["supported": true, "activeId": active?.id as Any? ?? NSNull(),
+    return ["supported": true, "activeId": active?.id as Any? ?? NSNull(), "audioLevel": active == nil ? 0 : audioLevel, "paused": paused, "pauseSupported": true,
       "recordings": try JSONSerialization.jsonObject(with: data)]
   }
 
@@ -109,19 +111,23 @@ final class MeetingRecorderPlugin: Plugin {
         guard format.sampleRate > 0, format.channelCount > 0 else { throw RecorderFailure.invalidAudio }
         let record = try self.storage().create(owner: args.ownerId, title: args.title, rate: Int(format.sampleRate))
         self.active = record
+        self.audioLevel = 0
         self.engine = engine
         node.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak recorder = self] buffer, _ in
           guard let samples = buffer.floatChannelData else { recorder?.interrupt("unsupported_audio_format"); return }
           let frames = Int(buffer.frameLength)
           var pcm = Data(capacity: frames * 2)
+          var peak: Float = 0
           for frame in 0..<frames {
             var value: Float = 0
             for channel in 0..<Int(buffer.format.channelCount) { value += samples[channel][frame] }
             value = max(-1, min(1, value / Float(buffer.format.channelCount)))
+            peak = max(peak, abs(value))
             var little = Int16(value * 32767).littleEndian
             withUnsafeBytes(of: &little) { pcm.append(contentsOf: $0) }
           }
-          recorder?.queue.async { recorder?.received(pcm, id: record.id) }
+          let level = peak
+          recorder?.queue.async { recorder?.received(pcm, level: level, id: record.id) }
         }
         try engine.start()
         let result = try self.state(args.ownerId)
@@ -131,8 +137,9 @@ final class MeetingRecorderPlugin: Plugin {
     }
   }
 
-  private func received(_ bytes: Data, id: String) {
-    guard var record = active, record.id == id else { return }
+  private func received(_ bytes: Data, level: Float, id: String) {
+    guard var record = active, record.id == id, !paused else { return }
+    audioLevel = level
     pending.append(bytes)
     let size = record.sampleRate * 2 * 4
     do {
@@ -156,6 +163,7 @@ final class MeetingRecorderPlugin: Plugin {
     engine?.stop()
     engine = nil
     active = nil
+    paused = false
     let remaining = pending
     pending.removeAll()
     do {
@@ -174,6 +182,35 @@ final class MeetingRecorderPlugin: Plugin {
   }
 
   private func interrupt(_ reason: String) { queue.async { try? self.finish(state: "interrupted", reason: reason) } }
+
+  @objc func pause(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(StopArgs.self)
+    respond(invoke) {
+      _ = try self.requireOwner(args.ownerId)
+      guard var record = self.active, record.id == args.recordingId, !self.paused, let engine = self.engine else { throw RecorderFailure.missingRecording }
+      engine.pause()
+      self.paused = true
+      self.audioLevel = 0
+      if !self.pending.isEmpty {
+        let remaining = self.pending
+        self.pending.removeAll()
+        do { try self.storage().append(remaining, to: &record); self.active = record }
+        catch { try? self.finish(state: "interrupted", reason: "audio_storage_failed"); throw error }
+      }
+      return try self.state(args.ownerId)
+    }
+  }
+
+  @objc func resume(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(StopArgs.self)
+    respond(invoke) {
+      _ = try self.requireOwner(args.ownerId)
+      guard let record = self.active, record.id == args.recordingId, self.paused, let engine = self.engine else { throw RecorderFailure.missingRecording }
+      try engine.start()
+      self.paused = false
+      return try self.state(args.ownerId)
+    }
+  }
 
   @objc func stop(_ invoke: Invoke) throws {
     let args = try invoke.parseArgs(StopArgs.self)

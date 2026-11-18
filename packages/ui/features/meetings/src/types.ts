@@ -19,6 +19,10 @@ export interface MeetingRecording {
 export interface MeetingRecorderState {
 	supported: boolean;
 	activeId: string | null;
+	paused?: boolean;
+	pauseSupported?: boolean;
+	/** Peak absolute microphone amplitude, normalized to 0–1. */
+	audioLevel?: number;
 	recordings: MeetingRecording[];
 }
 
@@ -29,6 +33,8 @@ export interface MeetingRecorderController {
 	error: string | null;
 	start(title: string, conversationId?: string): Promise<void>;
 	stop(recordingId: string): Promise<void>;
+	pause?(recordingId: string): Promise<void>;
+	resume?(recordingId: string): Promise<void>;
 	reload(): Promise<void>;
 	readAudio(recordingId: string, segmentIndex: number): Promise<Uint8Array>;
 }

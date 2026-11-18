@@ -7,13 +7,19 @@ import {
 	readMeetingAudio,
 } from "../lib/meeting-recorder.ts";
 
-/** The native state is JSON; a shell without the plugin answers nothing, which is not a recording. */
+/** A shell without the plugin answers nothing, which is not a recording. */
 function recorderState(value: unknown): MeetingRecorderState {
 	const candidate = value as Partial<MeetingRecorderState> | null | undefined;
 	return candidate && Array.isArray(candidate.recordings)
 		? {
 				supported: Boolean(candidate.supported),
 				activeId: candidate.activeId ?? null,
+				paused: Boolean(candidate.activeId && candidate.paused),
+				pauseSupported: Boolean(candidate.pauseSupported),
+				audioLevel:
+					candidate.activeId && Number.isFinite(candidate.audioLevel)
+						? Math.max(0, Math.min(1, candidate.audioLevel ?? 0))
+						: 0,
 				recordings: candidate.recordings,
 			}
 		: EMPTY_RECORDER;
@@ -38,7 +44,7 @@ function errorCode(error: unknown): string {
 	return ERROR_CODES.has(code) ? code : "failed";
 }
 
-/** State observes the native recorder; unmounting a view never stops capture. */
+/** Unmounting a view never stops capture. */
 export function useMeetingRecorder(ownerId: string | null): MeetingRecorderController {
 	const [state, setState] = useState<MeetingRecorderState>(EMPTY_RECORDER);
 	const [stateOwner, setStateOwner] = useState(ownerId);
@@ -46,6 +52,7 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const owner = useRef(ownerId);
+	const actionVersion = useRef(0);
 	owner.current = ownerId;
 	const supported = meetingRecorderSupported();
 	const reload = useCallback(async () => {
@@ -71,11 +78,18 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 		let disposed = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		async function observe(first: boolean) {
+			let recording = false;
+			const version = actionVersion.current;
 			try {
 				const next = recorderState(
 					await invokeMeetingRecorder<unknown>(first ? "set_owner" : "get_state", { ownerId }),
 				);
 				if (disposed) return;
+				if (version !== actionVersion.current) {
+					timer = setTimeout(() => void observe(false), 100);
+					return;
+				}
+				recording = Boolean(next.activeId);
 				setState(next);
 				setStateOwner(ownerId);
 				setReady(true);
@@ -85,7 +99,7 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 				setReady(true);
 				setError(errorCode(cause));
 			}
-			if (!disposed) timer = setTimeout(() => void observe(false), 1000);
+			if (!disposed) timer = setTimeout(() => void observe(false), recording ? 100 : 1000);
 		}
 		void observe(true);
 		return () => {
@@ -93,12 +107,14 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 			clearTimeout(timer);
 		};
 	}, [ownerId, supported]);
-	async function action(command: "start" | "stop", args: Record<string, unknown>) {
+	async function action(command: "start" | "stop" | "pause" | "resume", args: Record<string, unknown>) {
 		if (!supported || !ownerId || busy) return;
+		actionVersion.current++;
 		setBusy(true);
 		setError(null);
 		try {
 			const next = recorderState(await invokeMeetingRecorder<unknown>(command, { ownerId, ...args }));
+			actionVersion.current++;
 			if (owner.current === ownerId) setState(next);
 		} catch (cause) {
 			if (owner.current === ownerId) setError(errorCode(cause));
@@ -113,6 +129,8 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 		error: stateOwner === ownerId ? error : null,
 		start: (title, conversationId) => action("start", { title, ...(conversationId ? { conversationId } : {}) }),
 		stop: (recordingId) => action("stop", { recordingId }),
+		pause: (recordingId) => action("pause", { recordingId }),
+		resume: (recordingId) => action("resume", { recordingId }),
 		reload,
 		readAudio: async (recordingId, segmentIndex) => {
 			if (!ownerId || owner.current !== ownerId) throw new Error("owner_mismatch");

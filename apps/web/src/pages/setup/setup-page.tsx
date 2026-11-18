@@ -2,8 +2,9 @@ import { AuthLayout, ProfileSetupForm } from "@yonder/feature-auth";
 import { ConnectorSetup, useSetupConnectors } from "@yonder/feature-me";
 import { BotForm } from "@yonder/feature-members";
 import { Button, IconButton } from "@yonder/ui-components";
-import { useBot, usePerson } from "@yonder/ui-data";
+import { keys, useApi, useBot, useDataQueryClient, usePerson } from "@yonder/ui-data";
 import { ChevronLeft } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate, useParams } from "react-router";
 import { useLocalFilesAdapter } from "../../lib/local-files.ts";
@@ -27,14 +28,38 @@ export function SetupPage() {
 	const { step } = useParams();
 	const { t } = useTranslation();
 	const navigate = useNavigate();
+	const api = useApi();
+	const client = useDataQueryClient();
+	const [completion, setCompletion] = useState<"idle" | "pending" | "error">("idle");
+	const [skippedSteps, setSkippedSteps] = useState<SetupStep[]>([]);
 	const connectable = useSetupConnectors();
 	const canConnect = connectable.loading || connectable.definitions.length > 0;
 	if (!isSetupStep(step)) return <Navigate to={setupPath(SETUP_STEPS[0])} replace />;
 	// A device that cannot connect anything never lands on that step, even from an old address.
-	if (step === "connect" && !canConnect) return <Navigate to="/messages" replace />;
+	if (step === "connect" && !canConnect) return <Navigate to={setupPath("bot")} replace />;
 
-	const go = (target: SetupStep | null) => navigate(target ? setupPath(target) : "/messages", { replace: true });
-	const forward = () => go(nextStep(step, canConnect));
+	const go = (target: SetupStep) => navigate(setupPath(target), { replace: true });
+	const finish = async (skipped = skippedSteps) => {
+		setCompletion("pending");
+		try {
+			const { conversationId } = await api.completeOnboarding(skipped);
+			await Promise.all([
+				client.invalidateQueries({ queryKey: keys.conversations.all() }),
+				client.invalidateQueries({ queryKey: keys.messages.latest(conversationId) }),
+			]);
+			navigate(`/messages/${encodeURIComponent(conversationId)}`, { replace: true });
+		} catch {
+			setCompletion("error");
+		}
+	};
+	const forward = (skipped: boolean) => {
+		const completedSteps = skippedSteps.filter((item) => item !== step);
+		if (skipped) completedSteps.push(step);
+		setSkippedSteps(completedSteps);
+		const next = nextStep(step, canConnect);
+		if (next) go(next);
+		else void finish(completedSteps);
+	};
 	const back = previousStep(step, canConnect);
 	const steps = stepsFor(canConnect);
 
@@ -47,7 +72,7 @@ export function SetupPage() {
 						aria-label={t("app.back")}
 						onClick={() => back && go(back)}
 						className={back ? undefined : "invisible"}
-						disabled={!back}
+						disabled={!back || completion === "pending"}
 					>
 						<ChevronLeft size={20} aria-hidden="true" />
 					</IconButton>
@@ -69,16 +94,26 @@ export function SetupPage() {
 					</ol>
 					<span className="size-[var(--control-sm)]" aria-hidden="true" />
 				</div>
-				{step === "you" ? <YouStep onDone={forward} /> : null}
-				{step === "bot" ? <BotStep onDone={forward} /> : null}
-				{step === "connect" ? <ConnectStep onDone={forward} /> : null}
+				<fieldset disabled={completion === "pending"} className="flex min-w-0 flex-col gap-[var(--spacing-6)]">
+					{step === "you" ? <YouStep onDone={forward} /> : null}
+					{step === "bot" ? <BotStep onDone={forward} /> : null}
+					{step === "connect" ? <ConnectStep onDone={forward} /> : null}
+					{completion === "error" ? (
+						<div role="alert">
+							<p>{t("setup.finishFailed")}</p>
+							<Button type="button" onClick={() => void finish()}>
+								{t("app.retry")}
+							</Button>
+						</div>
+					) : null}
+				</fieldset>
 			</div>
 		</AuthLayout>
 	);
 }
 
 /** Who the Bot should call you; the profile form already knows how to save a name and a picture. */
-function YouStep({ onDone }: { onDone: () => void }) {
+function YouStep({ onDone }: { onDone: (skipped: boolean) => void }) {
 	const { t } = useTranslation();
 	const person = usePerson();
 	return (
@@ -87,14 +122,14 @@ function YouStep({ onDone }: { onDone: () => void }) {
 			currentAvatarUrl={person?.avatarUrl ?? null}
 			handle={person?.handle ?? ""}
 			submitLabel={t("app.continue")}
-			onDone={onDone}
-			onSkip={onDone}
+			onDone={() => onDone(false)}
+			onSkip={() => onDone(true)}
 		/>
 	);
 }
 
 /** The Bot every account starts with, named in the Bot form's own edit mode (15 第二节第 1 条). */
-function BotStep({ onDone }: { onDone: () => void }) {
+function BotStep({ onDone }: { onDone: (skipped: boolean) => void }) {
 	const { t } = useTranslation();
 	const bot = useBot();
 	if (!bot) return null;
@@ -102,9 +137,9 @@ function BotStep({ onDone }: { onDone: () => void }) {
 		<>
 			<h1 className="text-h1 text-[var(--color-text-primary)]">{t("setup.botTitle")}</h1>
 			<div className="-mx-[var(--spacing-6)] -my-[var(--spacing-6)]">
-				<BotForm mode="edit" bot={bot} onSaved={onDone} />
+				<BotForm mode="edit" bot={bot} onSaved={() => onDone(false)} />
 			</div>
-			<Button type="button" variant="ghost" size="lg" onClick={onDone}>
+			<Button type="button" variant="ghost" size="lg" onClick={() => onDone(true)}>
 				{t("app.skipStep")}
 			</Button>
 		</>
@@ -112,7 +147,7 @@ function BotStep({ onDone }: { onDone: () => void }) {
 }
 
 /** What this device can connect, as the connectors page's own cards; the last step opens the app. */
-function ConnectStep({ onDone }: { onDone: () => void }) {
+function ConnectStep({ onDone }: { onDone: (skipped: boolean) => void }) {
 	const { t } = useTranslation();
 	const localFiles = useLocalFilesAdapter();
 	const { instances } = useSetupConnectors();
@@ -120,7 +155,13 @@ function ConnectStep({ onDone }: { onDone: () => void }) {
 		<>
 			<h1 className="text-h1 text-[var(--color-text-primary)]">{t("setup.connectTitle")}</h1>
 			<ConnectorSetup localFiles={localFiles} />
-			<Button type="button" variant={instances.length > 0 ? "primary" : "secondary"} size="lg" block onClick={onDone}>
+			<Button
+				type="button"
+				variant={instances.length > 0 ? "primary" : "secondary"}
+				size="lg"
+				block
+				onClick={() => onDone(instances.length === 0)}
+			>
 				{instances.length > 0 ? t("setup.start") : t("app.skip")}
 			</Button>
 		</>

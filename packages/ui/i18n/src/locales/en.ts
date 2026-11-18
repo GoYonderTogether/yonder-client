@@ -1,5 +1,6 @@
 import { accountMessagesEn } from "./account-en.ts";
 import { botMessagesEn } from "./bots-en.ts";
+import { channelsEn } from "./channels.ts";
 import { composerAttachmentsEn } from "./composer-attachments-en.ts";
 import { connectorMessagesEn } from "./connectors-en.ts";
 import { friendQrEn } from "./friend-qr-en.ts";
@@ -19,6 +20,7 @@ import { visitsMessagesEn } from "./visits-en.ts";
  */
 export const en = {
 	bots: botMessagesEn,
+	channels: channelsEn,
 	composerAttachments: composerAttachmentsEn,
 	connectors: connectorMessagesEn,
 	inviteExperience: inviteExperienceEn,
@@ -243,6 +245,7 @@ export const en = {
 	},
 
 	chat: {
+		activityMore: "{{count}} activities",
 		uploadFiles: "Upload files",
 		uploadImages: "Upload images",
 		removeFile: "Remove {{name}}",
@@ -357,6 +360,7 @@ export const en = {
 		itemSourceSubtask: "Handed to a task",
 		itemSourceSchedule: "Scheduled run",
 		itemSourceMeeting: "Meeting processing",
+		itemSourceVisit: "Visitor request",
 		itemStateRunning: "Running",
 		itemStateWaitingUser: "Waiting for you",
 		itemStatePaused: "Paused",
@@ -387,7 +391,37 @@ export const en = {
 		actionResumeFailed: "Could not resume: {{reason}}",
 		actionDeleteFailed: "Could not delete: {{reason}}",
 		presetItem: "Help me do something: ",
-		presetGoal: "Help me set up a scheduled task.",
+		presetGoal: "Help me pursue this goal: ",
+		goalState: {
+			proposed: "Needs confirmation",
+			active: "In progress",
+			paused: "Paused",
+			achieved: "Achieved",
+			stopped: "Stopped",
+		},
+		goalAction: {
+			confirm: "Confirm goal",
+			pause: "Pause",
+			resume: "Resume",
+			complete: "Mark achieved",
+			stop: "Stop",
+			progress: "Update progress",
+		},
+		goalProgress: "Progress: {{text}}",
+		goalProgressField: "Progress",
+		goalNextStep: "Next step: {{text}}",
+		goalNextStepField: "Next step",
+		goalMilestones: "{{count}} / 2 milestones done",
+		handoffTo: "Receiving Bot",
+		handoffChoose: "Choose a Bot",
+		handoffAction: "Transfer",
+		handoffHistory: "Transferred from {{from}} to {{to}}",
+		taskHandoffConflict:
+			"Transfer requires a settled pause and two available personal Bots. Wait for the pause to finish and try again.",
+		goalHandoffConflict:
+			"Transfer requires an active or paused goal and an available personal Bot. Let any linked follow-up finish or cancel it first.",
+		disableOnboarding: "Stop future onboarding tips",
+		onboardingDisabled: "Onboarding tips are off",
 	},
 
 	memory: memoryMessagesEn,

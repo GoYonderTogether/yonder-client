@@ -86,6 +86,7 @@ export function useSendMessage(conversationId: string | null, personId: string |
 				clientNonce: body.clientNonce,
 				pending: true,
 				...(body.skillIds ? { skillIds: body.skillIds } : {}),
+				...(body.mentionedMemberIds ? { mentionedMemberIds: body.mentionedMemberIds } : {}),
 			};
 			if (personId) {
 				// The outbox is a convenience for a reload, not a precondition: a full or blocked store must not
@@ -123,6 +124,7 @@ export function useSendMessage(conversationId: string | null, personId: string |
 				clientNonce: body.clientNonce,
 				sendFailed: true,
 				...(body.skillIds ? { skillIds: body.skillIds } : {}),
+				...(body.mentionedMemberIds ? { mentionedMemberIds: body.mentionedMemberIds } : {}),
 			});
 		},
 	});

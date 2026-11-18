@@ -12,6 +12,7 @@ import {
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { isImageFile, type PreparedImage, prepareImage } from "../lib/prepare-image.ts";
 import {
+	boundMemberIds,
 	boundSkillIds,
 	type CompletionBinding,
 	type CompletionMarker,
@@ -257,6 +258,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		if (busy.current || !key || !current.current.loaded || current.current.key !== key) return;
 		const draft = current.current.value;
 		const skillIds = boundSkillIds(draft.text, draft.bindings ?? []);
+		const mentionedMemberIds = boundMemberIds(draft.text, draft.bindings ?? []);
 		if (!draft.text.trim() && !draft.files.length) return;
 		const scope = key;
 		const cacheGeneration = chatCacheGeneration();
@@ -283,6 +285,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				attachmentIds: attachments.map((file) => file.id),
 				attachments,
 				...(skillIds?.length ? { skillIds } : {}),
+				...(mentionedMemberIds.length ? { mentionedMemberIds } : {}),
 			});
 			const sentIds = new Set(draft.files.map((file) => file.id));
 			const sentBindings = new Set(

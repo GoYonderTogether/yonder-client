@@ -15,7 +15,7 @@
 - 桌面 `configure_upload({ownerId,baseUrl,accessToken})` 仅在内存提供当前访问凭据；只允许 HTTPS 或 loopback HTTP，不接受 URL 凭据、查询或 fragment。
 - `get_upload_jobs({ownerId})` 查看本机队列；`queue_upload({ownerId,recordingId,conversationId})` 显式整理旧记录/中断记录或重排失败上传。移动端本轮不调用这三个桌面上传命令。
 
-前四个命令返回 `{supported,activeId,recordings}`。记录包含 `id,ownerId,title,state,startedAt,endedAt,durationMs,savedDurationMs,sampleRate,channels,segments,error`；时间戳是 Unix 毫秒，`state` 为 `recording|ended|interrupted`，片段为 `{index,durationMs,byteLength}`。
+录音控制还提供 `pause({ownerId,recordingId})` 和 `resume({ownerId,recordingId})`。暂停只作用于当前活跃录音，保存当前片段，继续沿用同一录音；重启后恢复为中断的旧录音不能继续。状态返回 `{supported,activeId,audioLevel,paused,pauseSupported,recordings}`。`audioLevel` 是最近采集缓冲区的峰值振幅，范围 0–1，空闲或暂停时为 0。记录包含 `id,ownerId,title,state,startedAt,endedAt,durationMs,savedDurationMs,sampleRate,channels,segments,error`；时间戳是 Unix 毫秒，`state` 为 `recording|ended|interrupted`，片段为 `{index,durationMs,byteLength}`。
 
 原生采集、保存与队列不依赖页面存活。录音中关闭桌面窗口会隐藏而非退出，录音时出现最小托盘入口可打开、结束或退出。明确退出先保存尾段；强杀/异常重启后读取记录将其标为 `interrupted`，不会重新打开麦克风或续录。
 

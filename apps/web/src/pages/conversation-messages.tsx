@@ -1,12 +1,17 @@
 import { groupMessages } from "@yonder/chat-model";
 import { MessageBubble, MessageRun } from "@yonder/chat-presentation";
+import { FeishuAttemptCard } from "@yonder/feature-me";
 import { systemEventText } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button } from "@yonder/ui-components";
 import type { CachedMessage } from "@yonder/ui-data";
+import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
+import { ConnectorRequestCard } from "./connector-request-card.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
+import { AskOwner, OutwardRequestCard } from "./outward-request-card.tsx";
+import { RunActivity } from "./run-activity.tsx";
 
 interface MessageProps {
 	message: CachedMessage;
@@ -16,6 +21,7 @@ interface MessageProps {
 	onRetry: (userMessageId: string) => void;
 	retrying: boolean;
 	onOpenMeeting?: (id: string) => void;
+	onChooseOption?: ((body: string, cardId: string) => void) | undefined;
 }
 
 /** A system event stands alone; consecutive messages by one sender stay one run, as before. */
@@ -44,22 +50,85 @@ export function ConversationMessages({
 	conversation,
 	person,
 	bot,
+	onOpenRelated,
 	...actions
 }: Omit<MessageProps, "message" | "self"> & {
 	items: CachedMessage[];
 	conversation: Conversation;
 	person?: Member | undefined;
 	bot?: Member | undefined;
+	onOpenRelated?: (id: string) => void;
 }) {
 	const { t } = useTranslation();
-	return blocksOf(items).map((block) => {
+	const visitRole = conversation.visit?.role;
+	const openOptions = items.findLast(
+		(item) => item.options?.length || (item.senderId === person?.id && !item.sendFailed),
+	)?.id;
+	const asks = new Set(items.filter((item) => item.outwardRequest && item.replyToId).map((item) => item.replyToId));
+	const hasOpen = items.some((item) => item.outwardRequest?.state === "open");
+	const delivered = new Set(items.filter((item) => item.outwardRequest?.result).map((item) => item.replyToId));
+	const drafts = new Map<string, string>();
+	for (const item of items) {
+		if (
+			item.outwardDraft &&
+			item.run?.status === "completed" &&
+			item.replyToId &&
+			item.body?.trim() &&
+			item.body.length <= 8000
+		)
+			drafts.set(item.replyToId, item.body);
+	}
+	const askable =
+		visitRole === "visitor" && conversation.visit?.state !== "denied"
+			? items.findLast((item) => item.senderId === person?.id && !item.pending && !item.sendFailed && item.body?.trim())
+			: null;
+	return blocksOf(delivered.size ? items.filter((item) => !delivered.has(item.id)) : items).map((block) => {
 		// A group lifecycle message has no sender speaking: one muted centred line, no avatar (19 3.3).
 		if ("system" in block) return <SystemLine key={block.system.id} message={block.system} />;
 		const run = block.run;
 		const first = run[0];
 		if (!first) return null;
 		const self = first.senderId === person?.id;
-		const entries = run.map((message) => <MessageEntry key={message.id} message={message} self={self} {...actions} />);
+		const entries = run.map((message) => {
+			if (message.channelAttemptId)
+				return (
+					<div key={message.id} data-message-id={message.id}>
+						<FeishuAttemptCard id={message.channelAttemptId} />
+					</div>
+				);
+			const request = message.outwardRequest;
+			if (request) {
+				const linked = request.owner?.visitConversationId ?? (visitRole === "host" ? MAIN_CONVERSATION : null);
+				return (
+					<div key={message.id} data-message-id={message.id}>
+						<OutwardRequestCard
+							card={request}
+							conversationId={conversation.id}
+							body={message.body}
+							draft={drafts.get(message.id)}
+							canCancel={visitRole === "visitor"}
+							openLinked={linked && onOpenRelated ? () => onOpenRelated(linked) : undefined}
+						/>
+					</div>
+				);
+			}
+			if (message.id !== askable?.id || asks.has(message.id) || hasOpen)
+				return (
+					<MessageEntry
+						key={message.id}
+						message={message}
+						self={self}
+						{...actions}
+						onChooseOption={message.id === openOptions ? actions.onChooseOption : undefined}
+					/>
+				);
+			return (
+				<div key={message.id} className={self ? "flex flex-col items-end" : "min-w-0"}>
+					<MessageEntry message={message} self={self} {...actions} />
+					<AskOwner messageId={message.id} conversationId={conversation.id} disabled={actions.disconnected} />
+				</div>
+			);
+		});
 		const member =
 			conversation.members.find((member) => member.memberId === first.senderId) ??
 			(self ? person : first.senderId === bot?.id ? bot : undefined);
@@ -121,7 +190,16 @@ function SystemLine({ message }: { message: CachedMessage }) {
 	);
 }
 
-function MessageEntry({ message, self, disconnected, onResend, onRetry, retrying, onOpenMeeting }: MessageProps) {
+function MessageEntry({
+	message,
+	self,
+	disconnected,
+	onResend,
+	onRetry,
+	retrying,
+	onOpenMeeting,
+	onChooseOption,
+}: MessageProps) {
 	const { t } = useTranslation();
 	return (
 		<article
@@ -130,6 +208,7 @@ function MessageEntry({ message, self, disconnected, onResend, onRetry, retrying
 			data-message-sender={self ? "self" : "other"}
 			className={`flex min-w-0 flex-col gap-[var(--spacing-1)] ${self ? "items-end" : "items-start"}`}
 		>
+			{message.outwardDraft ? <p className="text-caption">{t("visits.relayPrivateDraft")}</p> : null}
 			{message.body || message.streaming ? (
 				<MessageBubble as="div" self={self}>
 					{message.body ? (
@@ -142,6 +221,26 @@ function MessageEntry({ message, self, disconnected, onResend, onRetry, retrying
 				</MessageBubble>
 			) : null}
 			<MessageAttachments attachments={message.attachments} self={self} />
+			{message.reaction ? <span>{message.reaction}</span> : null}
+			<RunActivity run={message.run} />
+			{message.connectorRequestId ? (
+				<ConnectorRequestCard id={message.connectorRequestId} ready={message.run?.status === "completed"} />
+			) : null}
+			{message.options?.length ? (
+				<div className="flex flex-wrap gap-[var(--spacing-2)]">
+					{message.options.map((option) => (
+						<Button
+							key={option}
+							size="sm"
+							variant="secondary"
+							disabled={disconnected || !onChooseOption}
+							onClick={() => onChooseOption?.(option, message.id)}
+						>
+							{option}
+						</Button>
+					))}
+				</div>
+			) : null}
 			{message.meeting && onOpenMeeting ? (
 				<Button
 					size="sm"
@@ -166,9 +265,16 @@ function MessageEntry({ message, self, disconnected, onResend, onRetry, retrying
 			{message.run?.status === "failed" ? (
 				<div role="alert" className="flex items-center gap-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
 					{t(runFailureKey(message.run.failureReason))}{" "}
-					<Button variant="link" size="sm" onClick={() => onRetry(message.run?.userMessageId ?? "")} loading={retrying}>
-						{t("app.retry")}
-					</Button>
+					{!message.outwardDraft ? (
+						<Button
+							variant="link"
+							size="sm"
+							onClick={() => onRetry(message.run?.userMessageId ?? "")}
+							loading={retrying}
+						>
+							{t("app.retry")}
+						</Button>
+					) : null}
 				</div>
 			) : null}
 			{message.scheduleNotice ? (

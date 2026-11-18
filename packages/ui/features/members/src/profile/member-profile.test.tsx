@@ -61,6 +61,13 @@ test("a stranger who is a person is added, not messaged", async () => {
 	expect(onMessage).not.toHaveBeenCalled();
 });
 
+test("a person's card can open their reception Bot", async () => {
+	const onMatter = vi.fn();
+	show(person({ relation: "none" }), { onAddContact: vi.fn(), onMatter });
+	await userEvent.click(screen.getByRole("button", { name: "Talk to their Bot" }));
+	expect(onMatter).toHaveBeenCalledOnce();
+});
+
 test("someone else's Bot starts a chat through the caller's callback, never a request of its own", async () => {
 	const onChat = vi.fn();
 	const onAddContact = vi.fn();

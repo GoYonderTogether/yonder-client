@@ -18,6 +18,8 @@ export function VisitBar({ conversation }: { conversation: Conversation }) {
 	const actions = useVisitActions();
 	const contacts = useContactActions();
 	const [addedFor, setAddedFor] = useState<string | null>(null);
+	const [hostPays, setHostPays] = useState(false);
+	const [confirmPay, setConfirmPay] = useState(false);
 	const added = addedFor === conversation.id;
 	if (!visit) return null;
 	const host = visit.role === "host";
@@ -29,7 +31,10 @@ export function VisitBar({ conversation }: { conversation: Conversation }) {
 	const failure = actions.approve.error ?? actions.deny.error ?? actions.pay.error ?? contacts.addContact.error;
 
 	const line = (() => {
-		if (host) return visit.state === "pending" ? t("visits.hostPending", { name: visitor?.displayName ?? "" }) : null;
+		if (host)
+			return visit.state === "pending" || visit.state === "capped"
+				? t("visits.hostPending", { name: visitor?.displayName ?? "" })
+				: null;
 		switch (visit.state) {
 			case "pending":
 				return t("visits.visitorPending");
@@ -47,13 +52,17 @@ export function VisitBar({ conversation }: { conversation: Conversation }) {
 	return (
 		<div className="mb-[var(--spacing-3)] flex flex-wrap items-center gap-[var(--spacing-2)] rounded-[var(--radius-control)] bg-[var(--color-bg-subtle)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
 			<span className="min-w-0 flex-1">{line}</span>
-			{host && visit.state === "pending" ? (
+			{host && (visit.state === "pending" || visit.state === "capped") ? (
 				<>
+					<label>
+						<input type="checkbox" checked={hostPays} onChange={(event) => setHostPays(event.target.checked)} />{" "}
+						{t("visits.hostPays")}
+					</label>
 					<Button
 						size="sm"
 						variant="primary"
 						loading={actions.approve.isPending}
-						onClick={() => actions.approve.mutate(visit.id)}
+						onClick={() => actions.approve.mutate({ visitId: visit.id, hostPays })}
 					>
 						{t("visits.approve")}
 					</Button>
@@ -77,15 +86,26 @@ export function VisitBar({ conversation }: { conversation: Conversation }) {
 					</Button>
 				)
 			) : null}
-			{!host && visit.state === "capped" ? (
-				<Button
-					size="sm"
-					variant="primary"
-					loading={actions.pay.isPending}
-					onClick={() => actions.pay.mutate(visit.id)}
-				>
+			{!host && visit.state === "capped" && !confirmPay ? (
+				<Button size="sm" variant="primary" loading={actions.pay.isPending} onClick={() => setConfirmPay(true)}>
 					{t("visits.payRest")}
 				</Button>
+			) : null}
+			{!host && visit.state === "capped" && confirmPay ? (
+				<>
+					<span>{t("visits.confirmPayText")}</span>
+					<Button
+						size="sm"
+						variant="primary"
+						loading={actions.pay.isPending}
+						onClick={() => actions.pay.mutate(visit.id)}
+					>
+						{t("visits.confirmPay")}
+					</Button>
+					<Button size="sm" onClick={() => setConfirmPay(false)}>
+						{t("app.cancel")}
+					</Button>
+				</>
 			) : null}
 			{failure ? (
 				<span role="alert" className="w-full text-caption text-[var(--color-danger)]">

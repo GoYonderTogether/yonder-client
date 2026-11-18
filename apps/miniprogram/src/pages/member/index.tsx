@@ -49,6 +49,30 @@ function CardButton({ profile }: { profile: MemberProfileResponse }) {
 	return null;
 }
 
+function MatterButton({ profile }: { profile: MemberProfileResponse }) {
+	const [busy, setBusy] = useState(false);
+	const bot = profile.bots?.find((item) => item.reception);
+	if (!bot || profile.card.kind !== "person" || profile.relation === "self") return null;
+	return (
+		<Button
+			loading={busy}
+			onClick={() =>
+				void action(async () => {
+					setBusy(true);
+					try {
+						const { conversation } = await api.startVisit({ handle: bot.handle });
+						go(`/pages/chat/index?id=${encodeURIComponent(conversation.id)}`);
+					} finally {
+						setBusy(false);
+					}
+				})
+			}
+		>
+			{t("有事找 TA", "Talk to their Bot")}
+		</Button>
+	);
+}
+
 export default function Member() {
 	const handle = decodeURIComponent(useRouter().params.handle ?? "");
 	const { data, loading, error, reload } = useResource(() => loadCard(() => api.memberProfile(handle)));
@@ -92,6 +116,7 @@ export default function Member() {
 						</View>
 					) : null}
 					<CardButton profile={data.profile} />
+					<MatterButton profile={data.profile} />
 				</View>
 			) : null}
 		</Page>

@@ -40,6 +40,8 @@ import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { FrameOverlays, useFrameLayers } from "./frame-overlays.tsx";
+import { ReceptionSetting } from "./reception-setting.tsx";
+import { SocialSettings } from "./social-settings.tsx";
 import { useChatDraft } from "./use-chat-draft.ts";
 import { useHasPassword } from "./use-has-password.ts";
 import { useMeEntry } from "./use-me-entry.ts";
@@ -239,7 +241,13 @@ export function AppFrame() {
 				renderChangePassword={(onDone) => (
 					<PasswordSetupForm mode={hasPassword ? "change" : "set"} onDone={onDone} onSkip={onDone} />
 				)}
-				bots={<BotList onOpen={layers.setBotDetail} />}
+				bots={
+					<>
+						<ReceptionSetting />
+						<BotList onOpen={layers.setBotDetail} />
+						<SocialSettings />
+					</>
+				}
 				privacy={<PrivacySwitches />}
 			/>
 		);
@@ -318,6 +326,11 @@ export function AppFrame() {
 			onOriginalFileChange={draft.toggleOriginal}
 			scope={`${person?.id}:${conversation?.id}`}
 			mobilePicker={!isDesktopExperience()}
+			onMeeting={
+				conversation?.kind === "direct" && conversation.members.some((member) => member.memberId === bot?.id)
+					? () => setRecorderOpen(true)
+					: undefined
+			}
 			error={draft.error}
 			disabled={
 				!conversation ||

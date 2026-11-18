@@ -29,12 +29,16 @@ export function ItemRow({
 }) {
 	const { t } = useTranslation();
 	const line = itemSummaryLine(item);
+	const visitOutcome =
+		item.source === "visit"
+			? t(item.state === "completed" ? "visits.relayApproved" : "visits.relayOpen")
+			: t("tasks.itemNoResult");
 	const outcome =
 		line.kind === "failure"
 			? t(itemFailureKey(line.text), { title: item.title })
 			: line.kind === "result"
 				? line.text
-				: t("tasks.itemNoResult");
+				: (item.waitingReason ?? visitOutcome);
 	const meta = [botName, itemTimeLabel(item.startedAt, locale)].filter(Boolean).join(" · ");
 	return (
 		<ListRow

@@ -133,7 +133,8 @@ export function DataProvider({
 					buster: CACHE_VERSION,
 					dehydrateOptions: {
 						shouldDehydrateQuery: (query) =>
-							query.queryKey[0] !== "contact-search" && defaultShouldDehydrateQuery(query),
+							!["contact-search", "channel-messages", "channel-conversations"].includes(String(query.queryKey[0])) &&
+							defaultShouldDehydrateQuery(query),
 					},
 				}}
 			>

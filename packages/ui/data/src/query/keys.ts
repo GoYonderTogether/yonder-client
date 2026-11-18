@@ -4,6 +4,7 @@
  */
 export const keys = {
 	me: () => ["me"] as const,
+	goals: () => ["goals"] as const,
 	sessions: () => ["sessions"] as const,
 	devices: () => ["devices"] as const,
 	deviceRegistration: (installationId: string) => ["device-registration", installationId] as const,
@@ -57,6 +58,7 @@ export const keys = {
 	memberProfile: (handle: string) => ["member-profile", handle] as const,
 	publicMemberProfile: (handle: string) => ["member-profile", "public", handle] as const,
 	privacy: () => ["privacy"] as const,
+	reception: () => ["reception"] as const,
 	items: {
 		all: () => ["items"] as const,
 		/** One account's list; `botId` narrows it to one Bot. */
@@ -68,6 +70,7 @@ export const keys = {
 /** Root prefixes used when signing out: every key that must be dropped starts with one of these. */
 export const ALL_ROOT_KEYS: readonly string[] = [
 	"me",
+	"goals",
 	"sessions",
 	"devices",
 	"device-registration",
@@ -82,10 +85,14 @@ export const ALL_ROOT_KEYS: readonly string[] = [
 	"usage",
 	"skills",
 	"connectors",
+	"connector-request",
 	"meetings",
 	"memory",
 	"schedules",
 	"member-profile",
 	"privacy",
+	"reception",
+	"social-knowledge",
+	"social-persona",
 	"items",
 ];

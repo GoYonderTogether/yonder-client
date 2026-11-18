@@ -1,6 +1,6 @@
 import { Button, TextField } from "@yonder/ui-components";
-import { ChevronUp, Radio, Square } from "lucide-react";
-import { type ReactNode, useId, useState } from "react";
+import { ChevronUp, Pause, Play, Radio, Square } from "lucide-react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MeetingProcessing } from "./meeting-processing.tsx";
 import { RecordingPlayer } from "./recording-player.tsx";
@@ -12,6 +12,25 @@ export function recordingDuration(ms: number): string {
 	return [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60]
 		.map((part) => String(part).padStart(2, "0"))
 		.join(":");
+}
+
+function AudioLevel({ level, label }: { level: number; label: string }) {
+	const [history, setHistory] = useState<number[]>([]);
+	useEffect(() => {
+		setHistory((previous) => (level === 0 ? [] : [...previous.slice(-15), level]));
+	}, [level]);
+	return (
+		<div className="meeting-level">
+			<meter className="meeting-level-meter" min={0} max={100} value={Math.round(level * 100)} aria-label={label} />
+			<div className="meeting-level-bars" aria-hidden="true">
+				{history.map((value, index) => (
+					// Slots represent positions in a rolling history, not persistent items.
+					// biome-ignore lint/suspicious/noArrayIndexKey: rolling display slots
+					<span key={index} style={{ height: `${Math.max(2, value * 100)}%` }} />
+				))}
+			</div>
+		</div>
+	);
 }
 
 /** The composer owns presentation only; collapsing never stops native capture. */
@@ -47,7 +66,12 @@ export function MeetingRecorderCapsule({
 	const headline = active ?? selected;
 	if (!expanded && !headline && !meeting && !recorder.error) return null;
 	return (
-		<section className="meeting-capsule" data-expanded={expanded} aria-label={t("meetingRecorder.name")}>
+		<section
+			className="meeting-capsule"
+			data-expanded={expanded}
+			data-recording={Boolean(active)}
+			aria-label={t("meetingRecorder.name")}
+		>
 			<div className="meeting-capsule-header">
 				<button
 					type="button"
@@ -59,7 +83,7 @@ export function MeetingRecorderCapsule({
 					<Radio size={17} aria-hidden="true" className={active ? "text-[var(--color-danger)]" : ""} />
 					<span className="min-w-0 truncate">
 						{active
-							? t("meetingRecorder.recording")
+							? t(recorder.state.paused ? "meetingRecorder.paused" : "meetingRecorder.recording")
 							: meeting
 								? t(`meetingRecorder.processing.${meeting.status}`)
 								: headline
@@ -73,9 +97,34 @@ export function MeetingRecorderCapsule({
 					) : null}
 					<ChevronUp size={16} aria-hidden="true" className="meeting-capsule-chevron" />
 				</button>
+				{active && !recorder.state.paused && recorder.state.audioLevel !== undefined ? (
+					<AudioLevel key={active.id} level={recorder.state.audioLevel} label={t("meetingRecorder.audioLevel")} />
+				) : null}
+				{active && recorder.state.pauseSupported && recorder.pause && recorder.resume ? (
+					<Button
+						className="meeting-stop"
+						size="sm"
+						variant="danger"
+						loading={recorder.busy}
+						onClick={() => void (recorder.state.paused ? recorder.resume?.(active.id) : recorder.pause?.(active.id))}
+					>
+						{recorder.state.paused ? (
+							<Play size={13} fill="currentColor" aria-hidden="true" />
+						) : (
+							<Pause size={13} fill="currentColor" aria-hidden="true" />
+						)}
+						{t(recorder.state.paused ? "meetingRecorder.resume" : "meetingRecorder.pause")}
+					</Button>
+				) : null}
 				{active ? (
-					<Button size="sm" variant="danger" loading={recorder.busy} onClick={() => void recorder.stop(active.id)}>
-						<Square size={13} aria-hidden="true" />
+					<Button
+						className="meeting-stop"
+						size="sm"
+						variant="danger"
+						loading={recorder.busy}
+						onClick={() => void recorder.stop(active.id)}
+					>
+						<Square size={13} fill="currentColor" aria-hidden="true" />
 						{t("meetingRecorder.stop")}
 					</Button>
 				) : null}

@@ -121,6 +121,16 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 		});
 	};
 
+	const reception = profile.data.bots?.find((bot) => bot.reception);
+	const matter = () => {
+		if (!reception) return;
+		setFailure(null);
+		startChat.mutate(reception.handle, {
+			onSuccess: ({ conversation }) => handlers.onOpenConversation(conversation.id),
+			onError: fail,
+		});
+	};
+
 	return (
 		<div className="flex flex-col">
 			{self ? (
@@ -138,6 +148,7 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 				profile={profile.data}
 				{...(self ? {} : { onMessage: message })}
 				{...(card.kind === "bot" ? { onChat: chat } : { onAddContact: add })}
+				{...(reception ? { onMatter: matter } : {})}
 				onOpenOwner={handlers.onOpenOwner}
 				error={failure}
 				busy={contacts.addContact.isPending || startChat.isPending}

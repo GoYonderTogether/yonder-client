@@ -32,6 +32,11 @@ pub struct Recording {
 pub struct RecorderState {
     pub supported: bool,
     pub active_id: Option<String>,
+    pub audio_level: f32,
+    #[serde(default)]
+    pub paused: bool,
+    #[serde(default)]
+    pub pause_supported: bool,
     pub recordings: Vec<Recording>,
 }
 

@@ -3,7 +3,7 @@
  * only ask it to move, and every answer is the whole conversation, which replaces the cached row.
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Conversation } from "@yonder/protocol";
+import type { Conversation, OutwardRequestAction } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
@@ -36,8 +36,30 @@ export function useVisitActions() {
 	const client = useQueryClient();
 	const save = (conversation: Conversation) => writeConversation(client, conversation);
 	return {
-		approve: useMutation({ mutationFn: (visitId: string) => api.approveVisit(visitId), onSuccess: save }),
+		approve: useMutation({
+			mutationFn: (input: string | { visitId: string; hostPays: boolean }) =>
+				typeof input === "string"
+					? api.approveVisit(input)
+					: api.approveVisit(input.visitId, { hostPays: input.hostPays }),
+			onSuccess: save,
+		}),
 		deny: useMutation({ mutationFn: (visitId: string) => api.denyVisit(visitId), onSuccess: save }),
 		pay: useMutation({ mutationFn: (visitId: string) => api.payVisit(visitId), onSuccess: save }),
+	};
+}
+
+export function useOutwardActions(conversationId: string) {
+	const api = useApi();
+	const client = useQueryClient();
+	const refresh = () => {
+		void client.invalidateQueries({ queryKey: keys.messages.latest(conversationId) });
+		void client.invalidateQueries({ queryKey: keys.items.all() });
+	};
+	return {
+		ask: useMutation({ mutationFn: (messageId: string) => api.askOwner(messageId), onSuccess: refresh }),
+		act: useMutation({
+			mutationFn: ({ id, input }: { id: string; input: OutwardRequestAction }) => api.actOnOutwardRequest(id, input),
+			onSettled: refresh,
+		}),
 	};
 }

@@ -46,6 +46,7 @@ export function ConnectorPanel({
 	const Icon = control ? MonitorCog : FolderSearch;
 	const canConfigure = device.current && localFiles?.supported && definition.platforms.includes(device.platform);
 	const changed = !instance || legacy || instance.capabilities.fileTools !== control;
+	const requested = localFiles?.requested?.(definition.id) ?? false;
 
 	async function apply() {
 		if (!device || !localFiles || !canConfigure) return;
@@ -54,26 +55,29 @@ export function ConnectorPanel({
 		let saved: ConnectorInstance | undefined;
 		const capabilities = { fileTools: control };
 		try {
-			saved = instance
-				? await actions.update.mutateAsync({
-						id: instance.id,
-						expectedRevision: instance.revision,
-						scope: "device",
-						capabilities,
-					})
-				: await actions.create.mutateAsync({
-						connectorId: definition.id,
-						deviceId: device.id,
-						name: device.name,
-						scope: "device",
-						capabilities,
-					});
+			saved =
+				instance && !changed
+					? instance
+					: instance
+						? await actions.update.mutateAsync({
+								id: instance.id,
+								expectedRevision: instance.revision,
+								scope: "device",
+								capabilities,
+							})
+						: await actions.create.mutateAsync({
+								connectorId: definition.id,
+								deviceId: device.id,
+								name: device.name,
+								scope: "device",
+								capabilities,
+							});
 			if (!active.current) throw new Error("cancelled");
-			await localFiles.authorize(saved);
+			await localFiles.authorize(saved, { resumeRequest: true });
 			if (!active.current) throw new Error("cancelled");
 			close();
 		} catch {
-			if (saved) {
+			if (saved && changed) {
 				try {
 					if (instance) {
 						const restored = await actions.update.mutateAsync({
@@ -164,7 +168,7 @@ export function ConnectorPanel({
 				<p className="text-caption text-[var(--color-text-secondary)]">
 					{t(control ? "connectors.fileToolsScope" : "connectors.readScope")}
 				</p>
-				{canConfigure && changed ? (
+				{canConfigure && (changed || requested) ? (
 					<Button variant="primary" loading={busy} onClick={() => void apply()}>
 						{t(legacy ? "connectors.upgrade" : instance ? "connectors.save" : "connectors.enable")}
 					</Button>

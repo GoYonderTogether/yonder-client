@@ -11,6 +11,7 @@ export interface MemberProfileProps {
 	onAddContact?: (() => void) | undefined;
 	/** A Bot: starting a chat with someone else's Bot is the visit flow, which the caller owns. */
 	onChat?: (() => void) | undefined;
+	onMatter?: (() => void) | undefined;
 	/** The Bot's owner, when their own card is visible; opens it. */
 	onOpenOwner?: ((handle: string) => void) | undefined;
 	/** The anonymous form: shown only when both are given (17 3.7). */
@@ -66,6 +67,11 @@ export function MemberProfile({ profile, error, busy = false, ...handlers }: Mem
 		<div className="flex min-h-0 flex-col">
 			<MemberHeader card={profile.card} onOpenOwner={handlers.onOpenOwner} />
 			<div className="flex flex-col gap-[var(--spacing-3)] px-[var(--spacing-5)] pb-[var(--spacing-6)]">
+				{!anonymous && profile.card.kind === "person" && profile.relation !== "self" && handlers.onMatter ? (
+					<Button variant="secondary" block loading={busy} onClick={handlers.onMatter}>
+						{t("members.actions.matter")}
+					</Button>
+				) : null}
 				{label && run ? (
 					<Button variant="primary" block loading={busy} onClick={run}>
 						{label}

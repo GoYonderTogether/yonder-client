@@ -1,5 +1,6 @@
 import { accountMessagesZhCN } from "./account-zh-CN.ts";
 import { botMessagesZhCN } from "./bots-zh-CN.ts";
+import { channelsZhCN } from "./channels.ts";
 import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
 import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
 import type { Messages } from "./en.ts";
@@ -21,6 +22,7 @@ import { visitsMessagesZhCN } from "./visits-zh-CN.ts";
  */
 export const zhCN: Messages = {
 	bots: botMessagesZhCN,
+	channels: channelsZhCN,
 	composerAttachments: composerAttachmentsZhCN,
 	connectors: connectorMessagesZhCN,
 	inviteExperience: inviteExperienceZhCN,
@@ -244,6 +246,7 @@ export const zhCN: Messages = {
 	},
 
 	chat: {
+		activityMore: "等 {{count}} 项",
 		uploadFiles: "上传文件",
 		uploadImages: "上传图片",
 		removeFile: "移除 {{name}}",
@@ -357,6 +360,7 @@ export const zhCN: Messages = {
 		itemSourceSubtask: "Bot 分出去的",
 		itemSourceSchedule: "定时执行",
 		itemSourceMeeting: "会议处理",
+		itemSourceVisit: "来访",
 		itemStateRunning: "进行中",
 		itemStateWaitingUser: "等你",
 		itemStatePaused: "已暂停",
@@ -387,7 +391,29 @@ export const zhCN: Messages = {
 		actionResumeFailed: "没能恢复：{{reason}}",
 		actionDeleteFailed: "没能删除：{{reason}}",
 		presetItem: "帮我做一件事：",
-		presetGoal: "帮我创建一个定时任务。",
+		presetGoal: "帮我推进这个目标：",
+		goalState: { proposed: "待确认", active: "进行中", paused: "已暂停", achieved: "已达成", stopped: "已停止" },
+		goalAction: {
+			confirm: "确认目标",
+			pause: "暂停",
+			resume: "继续",
+			complete: "标为达成",
+			stop: "停止",
+			progress: "更新进展",
+		},
+		goalProgress: "进展：{{text}}",
+		goalProgressField: "进展",
+		goalNextStep: "下一步：{{text}}",
+		goalNextStepField: "下一步",
+		goalMilestones: "已完成 {{count}} / 2 项",
+		handoffTo: "接手的 Bot",
+		handoffChoose: "选择 Bot",
+		handoffAction: "转交",
+		handoffHistory: "由 {{from}} 转给 {{to}}",
+		taskHandoffConflict: "只能在事项暂停完成后转交给可用的个人 Bot。请等暂停完成后重试。",
+		goalHandoffConflict: "只能将进行中或暂停的目标转给可用的个人 Bot。请先等待关联跟进结束，或取消待执行的跟进。",
+		disableOnboarding: "关闭后续引导",
+		onboardingDisabled: "后续引导已关闭",
 	},
 
 	memory: memoryMessagesZhCN,

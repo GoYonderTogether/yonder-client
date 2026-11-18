@@ -125,6 +125,44 @@ async fn stop<R: Runtime>(
 }
 
 #[tauri::command]
+async fn pause<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    owner_id: String,
+    recording_id: String,
+) -> Result<RecorderState, String> {
+    main_window(&window)?;
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    return mobile(
+        &app,
+        "pause",
+        serde_json::json!({ "ownerId": owner_id, "recordingId": recording_id }),
+    );
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    app.state::<desktop::DesktopRecorder>()
+        .pause(owner_id, recording_id)
+}
+
+#[tauri::command]
+async fn resume<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    owner_id: String,
+    recording_id: String,
+) -> Result<RecorderState, String> {
+    main_window(&window)?;
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    return mobile(
+        &app,
+        "resume",
+        serde_json::json!({ "ownerId": owner_id, "recordingId": recording_id }),
+    );
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    app.state::<desktop::DesktopRecorder>()
+        .resume(owner_id, recording_id)
+}
+
+#[tauri::command]
 async fn read_audio<R: Runtime>(
     app: AppHandle<R>,
     window: WebviewWindow<R>,
@@ -237,6 +275,8 @@ fn build<R: Runtime>(directory: Option<std::path::PathBuf>) -> TauriPlugin<R> {
             get_state,
             start,
             stop,
+            pause,
+            resume,
             read_audio,
             configure_upload,
             get_upload_jobs,

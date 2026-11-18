@@ -8,6 +8,38 @@ import { Composer } from "./composer.tsx";
 vi.mock("./voice-control.tsx", () => ({ VoiceControl: () => null }));
 vi.mock("./use-voice-input.ts", () => ({ useVoiceInput: () => ({ isListening: false, error: "", cancel: vi.fn() }) }));
 
+test.each([false, true])("own Bot attachment menu opens before a picker (mobile=%s)", (mobilePicker) => {
+	const meeting = vi.fn();
+	const picker = vi.spyOn(HTMLInputElement.prototype, "click");
+	render(
+		<I18nextProvider i18n={createI18n("en")}>
+			<Composer
+				recipientName="Bot"
+				draft=""
+				onDraftChange={vi.fn()}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				streaming={false}
+				disabled={false}
+				disconnected={false}
+				sendOnEnter={!mobilePicker}
+				mobilePicker={mobilePicker}
+				onMeeting={meeting}
+			/>
+		</I18nextProvider>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Attach" }));
+	expect(picker).not.toHaveBeenCalled();
+	expect(Boolean(screen.queryByRole("button", { name: "Upload images" }))).toBe(mobilePicker);
+	fireEvent.click(screen.getByRole("button", { name: "Meeting recording" }));
+	expect(meeting).toHaveBeenCalledOnce();
+	expect(picker).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Attach" }));
+	fireEvent.click(screen.getByRole("button", { name: "Upload files" }));
+	expect(picker).toHaveBeenCalledOnce();
+	picker.mockRestore();
+});
+
 test("desktop Enter sends, while Shift, composition and mobile Enter do not", () => {
 	const send = vi.fn();
 	const props = {

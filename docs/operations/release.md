@@ -114,8 +114,9 @@ gh workflow run android-release.yml --ref main -f version=<version> -f reuse_sig
 ```
 
 The workflow checks the GitHub asset SHA-256, APK signature and embedded version. It uploads large APKs
-in 2 MiB parts and verifies that both APK URLs return the expected SHA-256 without credentials before
-updating `android/latest.json`. Recovery accepts a newer version or the same version with the same APK
+in 2 MiB parts to the versioned key and uses OSS CopyObject for the fixed-name APK. It verifies that
+both APK URLs return the expected SHA-256 without credentials before updating `android/latest.json`.
+Recovery accepts a newer version or the same version with the same APK
 digest. If the release requires a minimum supported version, supply `min_supported_version` on recovery.
 
 A release that fails in a platform workflow leaves a published Release with some artifacts missing.

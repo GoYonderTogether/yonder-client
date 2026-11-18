@@ -1,6 +1,8 @@
 import type { ConnectorCommand, ConnectorCommandResult } from "@yonder/protocol";
 import { useConnectors, useData } from "@yonder/ui-data";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { pendingConnectorRequest, setPendingConnectorRequest } from "./connector-request.ts";
 import { invokeLocalFiles, onLocalFilesChanged, useLocalFilesContext } from "./local-files.ts";
 
 const ERRORS = new Set([
@@ -19,6 +21,9 @@ const ERRORS = new Set([
 
 /** The main desktop webview provides local tools over its existing account socket. */
 export function LocalFilesRuntime() {
+	const { t } = useTranslation();
+	const [continuationError, setContinuationError] = useState(false);
+	const retryContinuation = useRef<() => void>(() => {});
 	const context = useLocalFilesContext();
 	const { api, realtime } = useData();
 	const connectors = useConnectors({ enabled: context !== null });
@@ -38,6 +43,43 @@ export function LocalFilesRuntime() {
 			: [];
 		const eligible = new Set(connections.map((c) => c.id));
 		const pending = new Map<string, { cancelled: boolean }>();
+		let readyIds = new Set<string>();
+		let completing = false;
+		let retryQueued = false;
+		const complete = async () => {
+			const request = pendingConnectorRequest();
+			if (
+				!active ||
+				!request ||
+				request.ownerId !== context.ownerId ||
+				!request.connectionId ||
+				!readyIds.has(request.connectionId)
+			)
+				return;
+			if (completing) {
+				retryQueued = true;
+				return;
+			}
+			completing = true;
+			try {
+				await api.completeConnectorRequest(request.id, request.connectionId);
+				if (pendingConnectorRequest()?.id === request.id) setPendingConnectorRequest(null);
+				if (active) setContinuationError(false);
+			} catch {
+				const latest = await api.connectorRequest(request.id).catch(() => null);
+				if (latest?.state === "cancelled" || latest?.state === "completed") {
+					if (pendingConnectorRequest()?.id === request.id) setPendingConnectorRequest(null);
+					if (active) setContinuationError(false);
+				} else if (active) setContinuationError(true);
+			} finally {
+				completing = false;
+				if (retryQueued) {
+					retryQueued = false;
+					void complete();
+				}
+			}
+		};
+		retryContinuation.current = () => void complete();
 		const refreshReady = async () => {
 			if (!active || realtime.status !== "open") return;
 			try {
@@ -47,8 +89,13 @@ export function LocalFilesRuntime() {
 					context,
 					connections,
 				});
-				if (active) realtime.send({ type: "connector.ready", connections: ready });
+				readyIds = new Set(ready.map((item) => item.id));
+				if (active) {
+					realtime.send({ type: "connector.ready", connections: ready });
+					void complete();
+				}
 			} catch {
+				readyIds = new Set();
 				if (active) realtime.send({ type: "connector.ready", connections: [] });
 			}
 		};
@@ -85,6 +132,7 @@ export function LocalFilesRuntime() {
 		};
 		const stopEvents = realtime.subscribeEvents((event) => {
 			if (event.type === "connector.command") void execute(event.command);
+			else if (event.type === "connectors.changed") void complete();
 			else if (event.type === "connector.command.cancelled") {
 				const state = pending.get(event.commandId);
 				if (state) {
@@ -98,6 +146,7 @@ export function LocalFilesRuntime() {
 		void refreshReady();
 		return () => {
 			active = false;
+			retryContinuation.current = () => {};
 			for (const [id, state] of pending) {
 				state.cancelled = true;
 				void invokeLocalFiles("local_files_cancel", { commandId: id }).catch(() => {});
@@ -108,5 +157,12 @@ export function LocalFilesRuntime() {
 			realtime.send({ type: "connector.ready", connections: [] });
 		};
 	}, [api, context, realtime, connectionIds]);
-	return null;
+	return continuationError ? (
+		<div role="alert" className="text-caption text-[var(--color-danger)]">
+			{t("connectors.requestContinueFailed")}{" "}
+			<button type="button" onClick={() => retryContinuation.current()}>
+				{t("app.retry")}
+			</button>
+		</div>
+	) : null;
 }

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { act, render, waitFor } from "@testing-library/react";
 import type { ServerEvent } from "@yonder/protocol";
-import { expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
+import { pendingConnectorRequest, setPendingConnectorRequest } from "./connector-request.ts";
 
 const setup = vi.hoisted(() => {
 	const context = { ownerId: "mem_a", deviceId: "dev_a", sessionId: "ses_a" };
@@ -21,13 +22,17 @@ const setup = vi.hoisted(() => {
 		context,
 		realtime,
 		submit: vi.fn(async () => ({ ok: true })),
+		complete: vi.fn(async () => ({ id: "request", state: "completed" })),
 		invoke: vi.fn(),
 		event: (event: ServerEvent) => onEvent?.(event),
 	};
 });
 vi.mock("@yonder/ui-data", () => ({
 	useConnectors: () => ({ data: { items: [{ id: "con_a", deviceId: "dev_a", revision: 2 }] } }),
-	useData: () => ({ api: { submitConnectorResult: setup.submit }, realtime: setup.realtime }),
+	useData: () => ({
+		api: { submitConnectorResult: setup.submit, completeConnectorRequest: setup.complete },
+		realtime: setup.realtime,
+	}),
 }));
 vi.mock("./local-files.ts", () => ({
 	invokeLocalFiles: setup.invoke,
@@ -36,6 +41,33 @@ vi.mock("./local-files.ts", () => ({
 }));
 
 import { LocalFilesRuntime } from "./local-files-runtime.tsx";
+
+afterEach(() => {
+	sessionStorage.clear();
+	setup.complete.mockClear();
+	setup.realtime.send.mockClear();
+	setup.invoke.mockReset();
+});
+
+test("the original request resumes only after the matching native authorization becomes ready", async () => {
+	setPendingConnectorRequest({ id: "request", ownerId: "mem_a", connectorId: "local-files" });
+	setup.invoke.mockImplementation(async (command: string) =>
+		command === "local_files_ready" ? [{ id: "con_a", revision: 2 }] : undefined,
+	);
+	const { unmount } = render(<LocalFilesRuntime />);
+	await waitFor(() =>
+		expect(setup.realtime.send).toHaveBeenCalledWith({
+			type: "connector.ready",
+			connections: [{ id: "con_a", revision: 2 }],
+		}),
+	);
+	expect(setup.complete).not.toHaveBeenCalled();
+	setPendingConnectorRequest({ id: "request", ownerId: "mem_a", connectorId: "local-files", connectionId: "con_a" });
+	act(() => setup.event({ type: "connectors.changed", eventId: "event-ready", at: new Date().toISOString() }));
+	await waitFor(() => expect(setup.complete).toHaveBeenCalledWith("request", "con_a"));
+	await waitFor(() => expect(pendingConnectorRequest()).toBeNull());
+	unmount();
+});
 
 test("ready uses the existing socket and cancelled or foreign-device work cannot deliver local file content", async () => {
 	let finish: ((value: unknown) => void) | undefined;

@@ -157,6 +157,31 @@ export default function Group() {
 					) : (
 						<Text className="mini-subtitle">{data.title || t("群聊", "Group")}</Text>
 					)}
+					{owner && !closed && data.groupBotPayer !== undefined ? (
+						<Button
+							disabled={busy}
+							onClick={() =>
+								void action(async () => {
+									const { tapIndex } = await Taro.showActionSheet({
+										itemList: [t("@ Bot 的人", "Person who mentions the Bot"), t("群主", "Group owner")],
+									});
+									const groupBotPayer = tapIndex === 1 ? "owner" : "mentioner";
+									if (groupBotPayer === data.groupBotPayer) return;
+									setBusy(true);
+									try {
+										await api.updateGroup(data.id, { groupBotPayer });
+										await reload();
+									} finally {
+										setBusy(false);
+									}
+								})
+							}
+						>
+							{data.groupBotPayer === "owner"
+								? t("Bot 回复由群主付费", "Group owner pays for Bot replies")
+								: t("Bot 回复由 @ Bot 的人付费", "Person who mentions the Bot pays for replies")}
+						</Button>
+					) : null}
 					{orderedMembers(data.members).map((member) => (
 						<MemberRow
 							key={member.memberId}

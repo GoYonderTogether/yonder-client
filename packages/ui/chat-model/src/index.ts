@@ -5,7 +5,14 @@ import type { Message } from "@yonder/protocol";
 /** Preserve a newer server message and an already received run when a snapshot omits it. */
 export function mergeMessage<T extends Message>(old: T, incoming: T): T {
 	if (!old.id.startsWith("temp_") && old.version > incoming.version) return old;
-	return { ...incoming, ...(incoming.run == null && old.run ? { run: old.run } : {}) };
+	return {
+		...incoming,
+		...(incoming.run == null && old.run
+			? { run: old.run }
+			: incoming.run && old.run?.id === incoming.run.id && !incoming.run.activity && old.run.activity
+				? { run: { ...incoming.run, activity: old.run.activity } }
+				: {}),
+	};
 }
 
 /** Adjacent messages share a sender header without regrouping the conversation. */

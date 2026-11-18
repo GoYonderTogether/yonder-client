@@ -51,6 +51,9 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	}),
 	useItems: () => ({ data: { pages: [] }, isLoading: false, isError: false }),
 	useContacts: () => ({ data: { items: [] } }),
+	useGoals: () => ({ data: { items: [] } }),
+	useChangeGoal: () => ({ mutate: vi.fn(), isPending: false }),
+	useGoalSettings: () => ({ transfer: { isPending: false } }),
 }));
 
 const plan: Schedule = {
