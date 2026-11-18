@@ -1,4 +1,5 @@
 import { cn } from "@yonder/ui-components";
+import { ICON_SIZE, ICON_STROKE } from "@yonder/ui-tokens";
 import type { ReactNode } from "react";
 import type { TabId } from "../navigation/routes.ts";
 import { TABS } from "../navigation/routes.ts";
@@ -71,7 +72,11 @@ export function MobileDock({
 											selected ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-tertiary)]",
 										)}
 									>
-										<Icon size={23} strokeWidth={selected ? 2.1 : 1.6} aria-hidden="true" />
+										<Icon
+											size={ICON_SIZE.lg}
+											strokeWidth={selected ? ICON_STROKE.selected : ICON_STROKE.normal}
+											aria-hidden="true"
+										/>
 										<span>{labels[tab]}</span>
 									</button>
 								</li>

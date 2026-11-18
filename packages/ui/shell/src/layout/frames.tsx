@@ -71,19 +71,32 @@ export function ListFrame({
 	);
 }
 
-export function PageFrame({
-	title,
-	action,
-	children,
-	width = "reading",
-	scroll = true,
-}: {
+/** Which column width a page uses; values are the `--width-*` tokens (docs/design-system.md). */
+export type PageWidth = "form" | "sheet" | "reading" | "wide" | "full";
+
+const PAGE_WIDTHS: Record<PageWidth, string | false> = {
+	form: "mx-auto max-w-[var(--width-form)]",
+	sheet: "mx-auto max-w-[var(--width-sheet)]",
+	reading: "mx-auto max-w-[var(--width-reading)]",
+	wide: "mx-auto max-w-[var(--width-wide)]",
+	full: false,
+};
+
+export interface PageFrameProps {
 	title?: ReactNode;
 	action?: ReactNode;
 	children: ReactNode;
-	width?: "reading" | "full";
+	/** form 400 (auth, setup), sheet 560, reading 680 (default: settings, details), wide 880, full. */
+	width?: PageWidth;
 	scroll?: boolean;
-}) {
+}
+
+/**
+ * The detail-layer page: one TopBar and a padded, centred column. Padding is `--page-padding`, so
+ * density changes it: 16 on a phone, 24 above and below on a desktop, and one spacing step more at
+ * the sides so the column lines up with the TopBar's title.
+ */
+export function PageFrame({ title, action, children, width = "reading", scroll = true }: PageFrameProps) {
 	const { mode, left } = useShellChrome();
 	const phone = mode === "mobile";
 	const header = useChromeSize("--frame-header-height");
@@ -99,8 +112,9 @@ export function PageFrame({
 				<div
 					className={cn(
 						"flex w-full flex-1 flex-col",
-						width === "reading" && "mx-auto max-w-[680px]",
-						phone ? "px-[var(--spacing-4)] py-[var(--spacing-4)]" : "px-[var(--spacing-8)] py-[var(--spacing-6)]",
+						PAGE_WIDTHS[width],
+						"py-[var(--page-padding)]",
+						phone ? "px-[var(--page-padding)]" : "px-[calc(var(--page-padding)+var(--spacing-2))]",
 					)}
 				>
 					{children}

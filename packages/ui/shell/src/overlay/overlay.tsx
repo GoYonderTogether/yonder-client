@@ -1,4 +1,5 @@
 import { cn } from "@yonder/ui-components";
+import { ICON_SIZE, ICON_STROKE } from "@yonder/ui-tokens";
 import { ChevronLeft, X } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import type { ReactNode } from "react";
@@ -17,7 +18,18 @@ export interface OverlayProps {
 	wide?: boolean;
 	closeLabel?: string;
 	mobileBackLabel?: string;
+	/**
+	 * On a phone: `page` slides in full screen; `sheet` rises from the bottom, which every dialog
+	 * (a confirmation, a short form) uses (11 第五节 第三层).
+	 */
 	mobilePresentation?: "page" | "sheet";
+	/** Actions pinned below the scrolling body: cancel first, the primary or danger action last. */
+	footer?: ReactNode;
+	/**
+	 * Gives the body the standard 20px padding. Off by default so existing callers that pad their
+	 * own content keep their layout; new overlays pass `padded`.
+	 */
+	padded?: boolean;
 }
 
 /**
@@ -35,6 +47,8 @@ export function Overlay({
 	closeLabel = "close",
 	mobileBackLabel,
 	mobilePresentation = "page",
+	footer,
+	padded = false,
 }: OverlayProps) {
 	const centered = mode === "wide" || (mode !== "mobile" && mobilePresentation === "sheet");
 	const sheet = !centered && mobilePresentation === "sheet";
@@ -44,7 +58,7 @@ export function Overlay({
 	return createPortal(
 		<AnimatePresence>
 			{open ? (
-				<div className="fixed inset-0 z-50 flex" role="presentation">
+				<div className="fixed inset-0 z-[var(--z-overlay)] flex" role="presentation">
 					<button
 						type="button"
 						aria-label={closeLabel}
@@ -65,11 +79,11 @@ export function Overlay({
 							"z-10 bg-[var(--color-bg-surface)]",
 							centered
 								? cn(
-										"m-auto !flex-none max-h-[85dvh] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]",
-										wide ? "w-[min(880px,90vw)]" : "w-[min(560px,90vw)]",
+										"m-auto !flex-none max-h-[85dvh] overflow-hidden rounded-[var(--radius-panel)] shadow-[var(--shadow-lg)]",
+										wide ? "w-[min(var(--width-wide),90vw)]" : "w-[min(var(--width-sheet),90vw)]",
 									)
 								: sheet
-									? "!top-auto bottom-0 max-h-[85dvh] w-full rounded-t-[var(--radius-xl)] pb-[var(--safe-area-bottom,env(safe-area-inset-bottom))]"
+									? "!top-auto bottom-0 max-h-[85dvh] w-full rounded-t-[var(--radius-panel)] pb-[var(--safe-area-bottom,env(safe-area-inset-bottom))]"
 									: "h-full w-full",
 						)}
 					>
@@ -99,7 +113,7 @@ export function Overlay({
 							>
 								<h2
 									className={cn(
-										"text-h3 text-[var(--color-text-primary)]",
+										"text-h3 font-semibold text-[var(--color-text-primary)]",
 										!centered && mobileBackLabel && "w-full px-[var(--spacing-8)] text-center",
 									)}
 								>
@@ -110,25 +124,33 @@ export function Overlay({
 									onClick={onClose}
 									aria-label={!centered && mobileBackLabel ? mobileBackLabel : closeLabel}
 									className={cn(
-										"rounded-[var(--radius-sm)] p-[var(--spacing-1)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]",
+										"rounded-[var(--radius-control-sm)] p-[var(--spacing-1)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]",
 										!centered &&
 											mobileBackLabel &&
 											"absolute left-[max(var(--spacing-4),var(--safe-area-left,0px))] inline-flex size-[var(--control-md)] items-center justify-center",
 									)}
 								>
 									{!centered && mobileBackLabel ? (
-										<ChevronLeft size={24} aria-hidden="true" />
+										<ChevronLeft size={ICON_SIZE.lg} strokeWidth={ICON_STROKE.normal} aria-hidden="true" />
 									) : (
-										<X size={18} aria-hidden="true" />
+										<X size={ICON_SIZE.md} strokeWidth={ICON_STROKE.normal} aria-hidden="true" />
 									)}
 								</button>
 							</div>
 							<div
 								data-frame-scroll={centered ? undefined : true}
-								className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+								className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain", padded && "p-[var(--spacing-5)]")}
 							>
 								{children}
 							</div>
+							{footer ? (
+								<div
+									data-overlay-footer
+									className="flex shrink-0 flex-wrap items-center justify-end gap-[var(--spacing-3)] px-[var(--spacing-5)] pt-[var(--spacing-3)] pb-[var(--spacing-5)]"
+								>
+									{footer}
+								</div>
+							) : null}
 						</div>
 					</GesturePanel>
 				</div>

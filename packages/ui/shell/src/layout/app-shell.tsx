@@ -1,4 +1,5 @@
 import { cn, IconButton } from "@yonder/ui-components";
+import { ICON_SIZE, ICON_STROKE } from "@yonder/ui-tokens";
 import { ChevronLeft, X } from "lucide-react";
 import { AnimatePresence, useIsPresent } from "motion/react";
 import type { ReactNode } from "react";
@@ -96,7 +97,7 @@ export function AppShell({
 	useEffect(() => onModeChange?.(mode), [mode, onModeChange]);
 	const backButton = (
 		<IconButton aria-label={backLabel} size="sm" onClick={onBack}>
-			<ChevronLeft size={24} strokeWidth={1.8} aria-hidden="true" />
+			<ChevronLeft size={ICON_SIZE.lg} strokeWidth={ICON_STROKE.normal} aria-hidden="true" />
 		</IconButton>
 	);
 	const toggleMe = meOpen && me ? me.onClose : onOpenMe;
@@ -105,7 +106,7 @@ export function AppShell({
 			type="button"
 			aria-label={meLabel}
 			onClick={toggleMe}
-			className="flex min-h-11 min-w-0 items-center gap-[var(--spacing-2)] rounded-[var(--radius-sm)] text-[var(--color-text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+			className="flex min-h-11 min-w-0 items-center gap-[var(--spacing-2)] rounded-[var(--radius-control-sm)] text-[var(--color-text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 		>
 			<span className="shrink-0">{renderAvatar(28)}</span>
 			<span className="truncate text-body font-semibold">{personName}</span>
@@ -187,7 +188,7 @@ export function AppShell({
 						<main
 							className={cn(
 								"relative flex min-h-0 flex-1 flex-col bg-[var(--color-bg-base)]",
-								!phone && "overflow-hidden rounded-[var(--radius-lg)]",
+								!phone && "overflow-hidden rounded-[var(--radius-card)]",
 							)}
 						>
 							<ShellProvider value={contentChrome}>{content}</ShellProvider>
@@ -310,9 +311,9 @@ function MeLayers({
 							left: wide ? null : (
 								<IconButton aria-label={mode === "mobile" ? backLabel : me.closeLabel} size="sm" onClick={me.onClose}>
 									{mode === "mobile" ? (
-										<ChevronLeft size={24} aria-hidden="true" />
+										<ChevronLeft size={ICON_SIZE.lg} strokeWidth={ICON_STROKE.normal} aria-hidden="true" />
 									) : (
-										<X size={20} aria-hidden="true" />
+										<X size={ICON_SIZE.md} strokeWidth={ICON_STROKE.normal} aria-hidden="true" />
 									)}
 								</IconButton>
 							),
