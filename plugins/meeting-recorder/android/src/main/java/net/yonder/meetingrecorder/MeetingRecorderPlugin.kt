@@ -20,6 +20,8 @@ import app.tauri.plugin.Plugin
 class MeetingArgs {
     var ownerId: String? = null
     var title: String = ""
+    var conversationId: String? = null
+    var separateSpeakers: Boolean = false
     var recordingId: String = ""
     var segmentIndex: Int = -1
 }
@@ -85,7 +87,9 @@ class MeetingRecorderPlugin(private val activity: Activity) : Plugin(activity) {
                 result.fold({ invoke.resolve(JSObject(MeetingRecorderRuntime.state(activity, owner).toString())) },
                     { error -> invoke.reject(error.message ?: "meeting_recorder_start_failed") })
             }
-            val intent = Intent(activity, MeetingRecorderService::class.java).setAction("start").putExtra("ownerId", owner).putExtra("title", args.title)
+            val intent = Intent(activity, MeetingRecorderService::class.java).setAction("start")
+                .putExtra("ownerId", owner).putExtra("title", args.title).putExtra("conversationId", args.conversationId)
+                .putExtra("separateSpeakers", args.separateSpeakers)
             if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent) else activity.startService(intent)
         } catch (error: Exception) {
             MeetingRecorderService.startResult = null

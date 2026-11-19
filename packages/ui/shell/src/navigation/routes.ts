@@ -39,11 +39,14 @@ export const ROUTES: readonly RouteEntry[] = [
 	{ path: "/tasks/scheduled", layer: "tab", tab: "tasks" },
 	{ path: "/tasks/:taskId", layer: "detail", tab: "tasks" },
 	{ path: "/memory", layer: "tab", tab: "memory" },
-	{ path: "/memory/about", layer: "tab", tab: "memory" },
-	{ path: "/memory/files", layer: "tab", tab: "memory" },
+	/** The whole timeline, one group of files, and one file (a single encoded segment). */
+	{ path: "/memory/timeline", layer: "detail", tab: "memory" },
+	{ path: "/memory/g/:group", layer: "detail", tab: "memory" },
+	{ path: "/memory/files/:path", layer: "detail", tab: "memory" },
 	{ path: "/me", layer: "detail" },
 	{ path: "/me/:section", layer: "detail" },
 	{ path: "/me/:section/:page", layer: "detail" },
+	{ path: "/me/bots/:botId/:page", layer: "detail" },
 ];
 
 export function tabPath(tab: TabId): string {

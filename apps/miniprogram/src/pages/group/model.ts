@@ -1,4 +1,4 @@
-import type { Conversation, ConversationMember, Member } from "@yonder/protocol";
+import type { Conversation, ConversationMember } from "@yonder/protocol";
 import type { Locale } from "../../lib/i18n";
 
 /**
@@ -50,12 +50,6 @@ export function canTransfer(
 /** Leaving is for members, not the owner, and only while the group is open. */
 export function canLeave(conversation: Conversation, ownId: string | undefined): boolean {
 	return Boolean(ownId) && !isClosed(conversation) && !isOwner(conversation, ownId);
-}
-
-/** Contacts the owner may add: everyone not already in the group, people and Bots alike. */
-export function addableContacts(contacts: readonly Member[], members: readonly ConversationMember[]): Member[] {
-	const present = new Set(members.map((member) => member.memberId));
-	return contacts.filter((contact) => !present.has(contact.id));
 }
 
 export type RemoveCopy = { title: string; content: string; confirm: string };

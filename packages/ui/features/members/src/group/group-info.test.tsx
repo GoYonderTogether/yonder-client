@@ -1,17 +1,21 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { Conversation } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
+import { SideLayers, type SidePage, SidePanelProvider } from "@yonder/ui-shell";
+import { useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { beforeEach, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
 	me: { member: { id: "mem_owner" } },
 	contacts: { items: [] as unknown[] },
+	conversations: { items: [] as Conversation[] },
 	actions: {
 		rename: vi.fn(),
+		setBotPayer: vi.fn(),
 		addMembers: vi.fn(),
 		removeMember: vi.fn(),
 		leave: vi.fn(),
@@ -23,8 +27,10 @@ const state = vi.hoisted(() => ({
 vi.mock("@yonder/ui-data", () => ({
 	useMe: () => ({ data: state.me }),
 	useContacts: () => ({ data: state.contacts, isSuccess: true, isLoading: false, isError: false }),
+	useConversations: () => ({ data: state.conversations }),
 	useGroupActions: () => ({
-		rename: { mutate: state.actions.rename, isPending: false },
+		rename: { mutateAsync: state.actions.rename, isPending: false },
+		setBotPayer: { mutate: state.actions.setBotPayer, isPending: false },
 		addMembers: { mutate: state.actions.addMembers, isPending: false },
 		removeMember: { mutate: state.actions.removeMember, isPending: false },
 		leave: { mutate: state.actions.leave, isPending: false },
@@ -70,12 +76,59 @@ const group = (extra: Partial<Conversation> = {}): Conversation => ({
 	...extra,
 });
 
-function show(conversation: Conversation, personId = "mem_owner", onLeft = vi.fn()) {
+function TestSide({
+	conversation,
+	personId,
+	onLeft,
+	desktop,
+}: {
+	conversation: Conversation;
+	personId: string;
+	onLeft: () => void;
+	desktop: boolean;
+}) {
+	const [pages, setPages] = useState<SidePage[]>([]);
+	const back = (key?: string) =>
+		setPages((current) => (!key || current.at(-1)?.key === key ? current.slice(0, -1) : current));
+	return (
+		<SidePanelProvider
+			value={{
+				open: (page) => setPages([page]),
+				push: (page) => setPages((current) => [...current, page]),
+				back,
+				close: () => setPages([]),
+			}}
+		>
+			<SideLayers
+				mode={desktop ? "wide" : "mobile"}
+				desktop={desktop}
+				side={{
+					pages: [
+						{
+							key: "group",
+							title: "Group info",
+							content: <GroupInfo conversation={conversation} personId={personId} onLeft={onLeft} />,
+						},
+						...pages,
+					],
+					onBack: () => back(),
+					onClose: () => setPages([]),
+					backLabel: "Back",
+					closeLabel: "Close",
+				}}
+			/>
+		</SidePanelProvider>
+	);
+}
+
+function show(conversation: Conversation, personId = "mem_owner", desktop = true) {
+	const onLeft = vi.fn();
+	state.conversations = { items: [conversation] };
 	return {
 		onLeft,
 		...render(
 			<I18nextProvider i18n={createI18n("en")}>
-				<GroupInfo conversation={conversation} personId={personId} onLeft={onLeft} />
+				<TestSide conversation={conversation} personId={personId} onLeft={onLeft} desktop={desktop} />
 			</I18nextProvider>,
 		),
 	};
@@ -84,11 +137,14 @@ function show(conversation: Conversation, personId = "mem_owner", onLeft = vi.fn
 beforeEach(() => {
 	vi.clearAllMocks();
 	state.me = { member: { id: "mem_owner" } };
+	state.contacts = { items: [] };
 });
 
 test("the owner can rename, add, transfer and dissolve, and is never offered leave", () => {
 	show(group());
-	expect(screen.getByRole("button", { name: "Rename the group" })).toBeVisible();
+	const name = screen.getByRole("button", { name: "Rename group “Weekend plans”" });
+	expect(name).toBeVisible();
+	expect(name.querySelectorAll("[data-avatar-fallback]")).toHaveLength(3);
 	expect(screen.getByRole("button", { name: /Add members/ })).toBeVisible();
 	expect(screen.getByRole("button", { name: /Transfer ownership/ })).toBeVisible();
 	expect(screen.getByRole("button", { name: /Dissolve group/ })).toBeVisible();
@@ -117,14 +173,32 @@ test("a removed member has nothing to leave", () => {
 	expect(screen.queryByRole("button", { name: /Leave group/ })).toBeNull();
 });
 
-test("renaming saves the new name through the owner's call", async () => {
+test("a failed rename preserves its draft, and repeated Enter while saving sends one request", async () => {
+	let rejectRename!: (error: Error) => void;
+	state.actions.rename
+		.mockReturnValueOnce(
+			new Promise((_, reject) => {
+				rejectRename = reject;
+			}),
+		)
+		.mockResolvedValueOnce(undefined);
 	show(group());
-	await userEvent.click(screen.getByRole("button", { name: "Rename the group" }));
+	await userEvent.click(screen.getByRole("button", { name: "Rename group “Weekend plans”" }));
 	const field = screen.getByRole("textbox", { name: "Group name" });
 	await userEvent.clear(field);
 	await userEvent.type(field, "Next weekend");
+	fireEvent.keyDown(field, { key: "Enter", isComposing: true });
+	expect(state.actions.rename).not.toHaveBeenCalled();
+	fireEvent.keyDown(field, { key: "Enter" });
+	fireEvent.keyDown(field, { key: "Enter" });
+	expect(state.actions.rename).toHaveBeenCalledExactlyOnceWith("Next weekend");
+	await act(async () => rejectRename(new Error("Refused")));
+	expect(field).toHaveValue("Next weekend");
+	expect(field).toHaveAccessibleDescription("Something went wrong. Try again.");
 	await userEvent.click(screen.getByRole("button", { name: "Save" }));
-	expect(state.actions.rename).toHaveBeenCalledWith("Next weekend", expect.anything());
+	expect(state.actions.rename).toHaveBeenCalledTimes(2);
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(screen.queryByRole("textbox", { name: "Group name" })).not.toBeInTheDocument();
 });
 
 test("dissolving asks first and does nothing until confirmed", async () => {
@@ -151,7 +225,7 @@ test("the member list puts people first, marks the reader, and removes only afte
 	const dialog = screen.getByRole("dialog", { name: "All members" });
 	const rows = within(dialog).getAllByRole("listitem");
 	expect(rows.map((row) => row.textContent?.includes("Helper"))).toEqual([false, false, true]);
-	expect(within(dialog).getByText("You")).toBeVisible();
+	expect(within(dialog).getByText("Group owner · You")).toBeVisible();
 	expect(screen.queryByRole("button", { name: "Remove Ana" })).toBeNull();
 
 	await userEvent.click(screen.getByRole("button", { name: "Remove Bo" }));
@@ -164,6 +238,7 @@ test("the member list puts people first, marks the reader, and removes only afte
 test("a member's list has no per-row actions", async () => {
 	show(group(), "mem_other");
 	await userEvent.click(screen.getByRole("button", { name: "All members" }));
+	expect(screen.getByText("Group owner")).toBeVisible();
 	expect(screen.queryByRole("button", { name: /Remove Bo/ })).toBeNull();
 	expect(screen.queryByRole("button", { name: /Make Bo the group owner/ })).toBeNull();
 });
@@ -195,4 +270,33 @@ test("the add-members picker leaves out people already in the group", async () =
 	await userEvent.click(within(dialog).getByRole("checkbox", { name: /Dee/ }));
 	await userEvent.click(within(dialog).getByRole("button", { name: "Add" }));
 	expect(state.actions.addMembers).toHaveBeenCalledWith({ memberIds: ["mem_new"] }, expect.anything());
+});
+
+test("mobile Add members uses the shared page back and returns to group info after saving", async () => {
+	state.contacts = {
+		items: [{ id: "mem_new", kind: "person", handle: "newhandle", displayName: "Dee", avatarUrl: null }],
+	};
+	show(group(), "mem_owner", false);
+	await userEvent.click(screen.getByRole("button", { name: "Add members" }));
+	const page = screen.getByRole("dialog", { name: "Add members" });
+	expect(page).toHaveAttribute("data-page-side", "right");
+	expect(within(page).getByRole("button", { name: "Back" })).toBeVisible();
+	expect(within(page).queryByRole("button", { name: "Cancel" })).toBeNull();
+	await userEvent.click(within(page).getByRole("checkbox", { name: "Dee" }));
+	await userEvent.click(within(page).getByRole("button", { name: "Add" }));
+	const [request, callbacks] = state.actions.addMembers.mock.lastCall ?? [];
+	expect(request).toEqual({ memberIds: ["mem_new"] });
+	act(() => callbacks.onSuccess());
+	expect(screen.getByRole("button", { name: "All members" })).toBeVisible();
+});
+
+test("payer is edited through the Bot settings page", async () => {
+	show(group({ groupBotPayer: "mentioner" }));
+	expect(screen.queryByRole("combobox", { name: "Who pays for Bot replies?" })).toBeNull();
+	await userEvent.click(screen.getByRole("button", { name: "Bot settings" }));
+	const page = screen.getByRole("dialog", { name: "Bot settings" });
+	const payer = within(page).getByRole("combobox", { name: "Who pays for Bot replies?" });
+	expect(payer).toHaveValue("mentioner");
+	await userEvent.selectOptions(payer, "owner");
+	expect(state.actions.setBotPayer).toHaveBeenCalledWith("owner");
 });

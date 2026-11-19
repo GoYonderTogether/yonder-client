@@ -37,7 +37,10 @@ pub(crate) fn transmit(
     recorder: &DesktopRecorder,
 ) -> Result<(), Failure> {
     still_current(queue, session)?;
-    let body = json!({"clientRecordingId": recording.id, "conversationId": job.conversation_id, "title": recording.title, "startedAt": recording.started_at, "endedAt": recording.ended_at, "state": recording.state, "segments": recording.segments});
+    let mut body = json!({"clientRecordingId": recording.id, "conversationId": job.conversation_id, "title": recording.title, "startedAt": recording.started_at, "endedAt": recording.ended_at, "state": recording.state, "segments": recording.segments});
+    if recording.separate_speakers {
+        body["separateSpeakers"] = json!(true);
+    }
     let meeting = response(
         client
             .post(format!("{}/v1/meetings", session.base))

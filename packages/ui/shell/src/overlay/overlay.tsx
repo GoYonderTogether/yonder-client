@@ -1,13 +1,15 @@
 import { cn } from "@yonder/ui-components";
-import { ICON_SIZE, ICON_STROKE } from "@yonder/ui-tokens";
 import { ChevronLeft, X } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useShellChrome } from "../layout/shell-context.tsx";
 import { useChromeSize } from "../layout/use-chrome-size.ts";
 import { GesturePanel } from "../navigation/gesture-panel.tsx";
 import { useDismiss } from "../navigation/use-dismiss.ts";
 import type { LayoutMode } from "../responsive/layout-mode.ts";
+import { useVisualViewport } from "../responsive/use-visual-viewport.ts";
+import { OverlayBackdrop } from "./overlay-backdrop.tsx";
 
 export interface OverlayProps {
 	open: boolean;
@@ -15,21 +17,10 @@ export interface OverlayProps {
 	title: string;
 	mode: LayoutMode;
 	children: ReactNode;
-	wide?: boolean;
+	size?: "small" | "wide";
 	closeLabel?: string;
 	mobileBackLabel?: string;
-	/**
-	 * On a phone: `page` slides in full screen; `sheet` rises from the bottom, which every dialog
-	 * (a confirmation, a short form) uses (11 第五节 第三层).
-	 */
-	mobilePresentation?: "page" | "sheet";
-	/** Actions pinned below the scrolling body: cancel first, the primary or danger action last. */
-	footer?: ReactNode;
-	/**
-	 * Gives the body the standard 20px padding. Off by default so existing callers that pad their
-	 * own content keep their layout; new overlays pass `padded`.
-	 */
-	padded?: boolean;
+	mobilePresentation?: "page" | "sheet" | "tall-sheet";
 }
 
 /**
@@ -43,29 +34,34 @@ export function Overlay({
 	title,
 	mode,
 	children,
-	wide = false,
+	size,
 	closeLabel = "close",
 	mobileBackLabel,
 	mobilePresentation = "page",
-	footer,
-	padded = false,
 }: OverlayProps) {
-	const centered = mode === "wide" || (mode !== "mobile" && mobilePresentation === "sheet");
-	const sheet = !centered && mobilePresentation === "sheet";
-	const header = useChromeSize("--frame-header-height", open && !centered);
+	const { desktop } = useShellChrome();
+	const centered = mode === "wide" || (mode !== "mobile" && mobilePresentation !== "page");
+	const square = desktop && centered;
+	const sheet = !centered && mobilePresentation !== "page";
+	const tallSheet = sheet && mobilePresentation === "tall-sheet";
+	const viewport = useRef<HTMLDivElement>(null);
+	useVisualViewport(viewport, open && tallSheet);
+	const nativeFrame = !centered && !tallSheet;
+	const header = useChromeSize("--frame-header-height", open && nativeFrame);
 	useDismiss(open && centered, onClose, 20);
 	if (typeof document === "undefined") return null;
 	return createPortal(
 		<AnimatePresence>
 			{open ? (
-				<div className="fixed inset-0 z-[var(--z-overlay)] flex" role="presentation">
-					<button
-						type="button"
-						aria-label={closeLabel}
-						onClick={onClose}
-						className="absolute inset-0 bg-[var(--color-bg-overlay)]"
-						tabIndex={-1}
-					/>
+				<div
+					ref={viewport}
+					className={cn(
+						"fixed inset-x-0 z-50 flex",
+						tallSheet ? "top-[var(--app-offset-top,0px)] h-[var(--app-height,100dvh)]" : "inset-y-0",
+					)}
+					role="presentation"
+				>
+					<OverlayBackdrop onClose={onClose} closeLabel={closeLabel} />
 					<GesturePanel
 						open
 						inline={centered}
@@ -79,11 +75,24 @@ export function Overlay({
 							"z-10 bg-[var(--color-bg-surface)]",
 							centered
 								? cn(
-										"m-auto !flex-none max-h-[85dvh] overflow-hidden rounded-[var(--radius-panel)] shadow-[var(--shadow-lg)]",
-										wide ? "w-[min(var(--width-wide),90vw)]" : "w-[min(var(--width-sheet),90vw)]",
+										"m-auto !flex-none max-h-[85dvh] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]",
+										square
+											? cn(
+													"w-[var(--dialog-size)] min-h-[min(var(--dialog-size),85dvh)] [--dialog-size:min(var(--dialog-width),90vw,max(var(--dialog-width-min),85dvh))]",
+													size === "small" && "[--dialog-width:var(--dialog-width-min)]",
+													size === "wide" && "[--dialog-width:var(--dialog-width-wide)]",
+												)
+											: size === "wide"
+												? "w-[min(880px,90vw)]"
+												: "w-[min(560px,90vw)]",
 									)
 								: sheet
-									? "!top-auto bottom-0 max-h-[85dvh] w-full rounded-t-[var(--radius-panel)] pb-[var(--safe-area-bottom,env(safe-area-inset-bottom))]"
+									? cn(
+											"!top-auto bottom-0 w-full rounded-t-[var(--radius-xl)]",
+											tallSheet
+												? "h-[min(70dvh,var(--app-height,100dvh))] pb-[var(--dock-bottom-inset,env(safe-area-inset-bottom))]"
+												: "max-h-[85dvh] pb-[var(--safe-area-bottom,env(safe-area-inset-bottom))]",
+										)
 									: "h-full w-full",
 						)}
 					>
@@ -98,12 +107,12 @@ export function Overlay({
 						) : null}
 						<div
 							data-native-sheet={sheet || undefined}
-							data-shell-frame={centered ? undefined : true}
+							data-shell-frame={nativeFrame || undefined}
 							className="relative flex min-h-0 flex-1 flex-col"
 						>
 							<div
 								ref={header}
-								data-frame-header={centered ? undefined : true}
+								data-frame-header={nativeFrame || undefined}
 								className="relative flex shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] px-[var(--spacing-5)] py-[var(--spacing-4)]"
 								style={
 									centered || sheet
@@ -113,7 +122,7 @@ export function Overlay({
 							>
 								<h2
 									className={cn(
-										"text-h3 font-semibold text-[var(--color-text-primary)]",
+										"text-h3 text-[var(--color-text-primary)]",
 										!centered && mobileBackLabel && "w-full px-[var(--spacing-8)] text-center",
 									)}
 								>
@@ -124,33 +133,29 @@ export function Overlay({
 									onClick={onClose}
 									aria-label={!centered && mobileBackLabel ? mobileBackLabel : closeLabel}
 									className={cn(
-										"rounded-[var(--radius-control-sm)] p-[var(--spacing-1)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]",
+										"rounded-[var(--radius-sm)] p-[var(--spacing-1)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]",
 										!centered &&
 											mobileBackLabel &&
 											"absolute left-[max(var(--spacing-4),var(--safe-area-left,0px))] inline-flex size-[var(--control-md)] items-center justify-center",
 									)}
 								>
 									{!centered && mobileBackLabel ? (
-										<ChevronLeft size={ICON_SIZE.lg} strokeWidth={ICON_STROKE.normal} aria-hidden="true" />
+										<ChevronLeft size={24} aria-hidden="true" />
 									) : (
-										<X size={ICON_SIZE.md} strokeWidth={ICON_STROKE.normal} aria-hidden="true" />
+										<X size={18} aria-hidden="true" />
 									)}
 								</button>
 							</div>
 							<div
-								data-frame-scroll={centered ? undefined : true}
-								className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain", padded && "p-[var(--spacing-5)]")}
+								data-frame-scroll={nativeFrame || undefined}
+								className={cn(
+									"min-h-0 flex-1",
+									tallSheet ? "flex flex-col overflow-hidden" : "overflow-y-auto overscroll-contain",
+									square && "flex flex-col [&>*]:shrink-0",
+								)}
 							>
 								{children}
 							</div>
-							{footer ? (
-								<div
-									data-overlay-footer
-									className="flex shrink-0 flex-wrap items-center justify-end gap-[var(--spacing-3)] px-[var(--spacing-5)] pt-[var(--spacing-3)] pb-[var(--spacing-5)]"
-								>
-									{footer}
-								</div>
-							) : null}
 						</div>
 					</GesturePanel>
 				</div>

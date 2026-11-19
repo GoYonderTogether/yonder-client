@@ -37,6 +37,17 @@ describe("conversation list preview", () => {
 		});
 		expect(conversationPreview(renamed, "en", fallback)).toBe("Ann renamed the group to Trip");
 	});
+	it("uses the voice label when the message also has a transcript", () => {
+		const recording = conversation({
+			body: "transcript",
+			senderKind: "person",
+			createdAt: "2026-11-17T00:00:00Z",
+			type: "text",
+			voice: { durationMs: 1200 },
+		});
+		expect(conversationPreview(recording, "zh-CN", fallback)).toBe("语音消息");
+		expect(conversationPreview(recording, "en", fallback)).toBe("Voice message");
+	});
 	it("keeps a text body and falls back when there is no message", () => {
 		expect(
 			conversationPreview(

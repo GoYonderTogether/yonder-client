@@ -26,11 +26,25 @@ export interface GroupSystemEvent {
 	title?: string;
 }
 
+/**
+ * One file a Bot changed during a reply. `version` is the last version the reply wrote and
+ * `previousVersion` the version before the reply's first write (0: the reply created the file). A
+ * reply can write the same file more than once, so the change is the span between the two.
+ */
+export interface MemoryUpdateChange {
+	path: string;
+	title: string;
+	version: number;
+	previousVersion: number;
+}
+
+/**
+ * The Bot changed memory while answering the owner (24 第六节). One line per reply, however many
+ * files it touched. Checkpoints and summaries never send this.
+ */
 export interface MemoryUpdatedSystemEvent {
 	event: "memory_updated";
-	path: string;
-	/** The version written by this update. */
-	version: number;
+	changes: MemoryUpdateChange[];
 }
 
 export type SystemEvent = GroupSystemEvent | MemoryUpdatedSystemEvent;
@@ -70,7 +84,7 @@ export interface ApproveVisitRequest {
 
 export interface Conversation {
 	id: string;
-	kind: "direct" | "group";
+	kind: "direct" | "group" | "system";
 	isPrimary?: boolean;
 	title: string | null;
 	members: ConversationMember[];
@@ -93,8 +107,10 @@ export interface Conversation {
 		/** Set for a system message, so the list row can show it in the reader's language. */
 		type?: "text" | "task_notice" | "system";
 		system?: SystemEvent;
+		voice?: { durationMs: number };
 	} | null;
 	unreadCount: number;
+	muted?: boolean;
 	pinned: boolean;
 	version: number;
 }
@@ -125,6 +141,7 @@ export interface AttachmentTextPreview {
 }
 
 export interface Message {
+	friendRequestId?: string;
 	connectorRequestId?: string;
 	reaction?: string;
 	outwardRequest?: import("./outward.ts").OutwardRequestCard;
@@ -143,8 +160,11 @@ export interface Message {
 	system?: SystemEvent;
 	body: string | null;
 	attachments: Attachment[];
+	voice?: { durationMs: number };
 	replyToId: string | null;
 	createdAt: string;
+	/** When a streamed reply became eligible for unread counts. */
+	readableAt?: string;
 	editedAt: string | null;
 	streaming: boolean;
 	version: number;
@@ -170,6 +190,7 @@ export interface SendMessageRequest {
 	type: "text";
 	body: string;
 	attachmentIds?: string[];
+	voice?: { durationMs: number };
 	clientNonce: string;
 	skillIds?: string[];
 	mentionedMemberIds?: string[];
@@ -200,6 +221,8 @@ export interface UpdateBotRequest {
 	displayName?: string;
 	avatarColor?: string;
 	clearAvatar?: boolean;
+	nicknames?: string[];
+	selectedNickname?: string | null;
 }
 
 export interface CreateBotResponse {

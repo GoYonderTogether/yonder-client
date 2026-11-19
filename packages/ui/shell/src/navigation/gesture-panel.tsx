@@ -17,6 +17,7 @@ export interface GesturePanelProps {
 	className?: string;
 	label?: string;
 	modal?: boolean;
+	role?: "dialog" | "region";
 	priority?: number;
 }
 
@@ -33,6 +34,7 @@ export function GesturePanel({
 	className,
 	label,
 	modal = false,
+	role = modal ? "dialog" : "region",
 	priority = 0,
 }: GesturePanelProps) {
 	const panel = useRef<HTMLElement>(null);
@@ -106,13 +108,13 @@ export function GesturePanel({
 	}, [inline, reduced, shown, remove]);
 
 	useEffect(() => {
-		if (!shown || !active || !modal) return;
+		if (!shown || !active || role !== "dialog") return;
 		const previous = document.activeElement as HTMLElement | null;
 		panel.current?.focus({ preventScroll: true });
 		return () => {
 			if (previous?.isConnected) previous.focus({ preventScroll: true });
 		};
-	}, [shown, active, modal]);
+	}, [shown, active, role]);
 
 	function finish(event: PointerEvent<HTMLElement>, cancel: boolean) {
 		const current = gesture.current;
@@ -144,7 +146,7 @@ export function GesturePanel({
 			data-page-layer={layerKey}
 			data-page-side={side}
 			aria-label={label}
-			role={modal ? "dialog" : "region"}
+			role={role}
 			aria-modal={modal && shown && active ? true : undefined}
 			aria-hidden={!visible || !active || undefined}
 			inert={(!shown && !inline) || !active}
@@ -221,7 +223,11 @@ export function GesturePanel({
 			}}
 			onPointerUp={(event) => finish(event, false)}
 			onPointerCancel={(event) => finish(event, true)}
-			onLostPointerCapture={(event) => finish(event, true)}
+			onLostPointerCapture={(event) => {
+				// Touch initially captures the child under the finger. Transferring capture to this
+				// panel bubbles the child's loss here, even though the panel now owns the pointer.
+				if (event.target === event.currentTarget) finish(event, true);
+			}}
 			onClickCapture={(event) => {
 				if (dragged.current) {
 					event.preventDefault();

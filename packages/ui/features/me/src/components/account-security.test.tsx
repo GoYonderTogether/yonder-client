@@ -77,7 +77,7 @@ test.each([
 test("the handle cannot be changed while the server says the wait is not over", () => {
 	state.me.handleChange = { canChange: false, nextChangeAt: "2026-12-20T00:00:00Z" };
 	renderSection("en");
-	expect(screen.getByRole("button", { name: "Change handle" })).toBeDisabled();
+	expect(screen.getByRole("button", { name: "Change ID" })).toBeDisabled();
 	expect(screen.getByText(/You can change it again after/)).toBeVisible();
 });
 
@@ -86,11 +86,11 @@ test("a taken handle shows the real reason under the field", () => {
 		options.onError(new FakeApiError("handle_taken")),
 	);
 	renderSection("en");
-	fireEvent.click(screen.getByRole("button", { name: "Change handle" }));
-	fireEvent.change(screen.getByLabelText("New handle"), { target: { value: "Someone_Else" } });
+	fireEvent.click(screen.getByRole("button", { name: "Change ID" }));
+	fireEvent.change(screen.getByLabelText("New ID"), { target: { value: "Someone_Else" } });
 	fireEvent.click(screen.getByRole("button", { name: "Save" }));
 	expect(state.changeHandle).toHaveBeenCalledWith("someone_else", expect.anything());
-	expect(screen.getByText("That handle is already taken.")).toBeVisible();
+	expect(screen.getByText("That ID is already taken.")).toBeVisible();
 });
 
 /** Open the deletion form, send the code, type the code and the handle. */
@@ -98,7 +98,7 @@ function fillDeletion(code = "123456", handle = "alice_one") {
 	fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
 	fireEvent.click(screen.getByRole("button", { name: /Send a code to/ }));
 	fireEvent.change(screen.getByLabelText("The code you received"), { target: { value: code } });
-	fireEvent.change(screen.getByRole("textbox", { name: /handle/i }), { target: { value: handle } });
+	fireEvent.change(screen.getByRole("textbox", { name: /your ID/i }), { target: { value: handle } });
 }
 
 test("deleting needs a code to the account's own number before anything else", () => {
@@ -142,9 +142,9 @@ describe("the three-second confirmation", () => {
 		act(() => vi.advanceTimersByTime(3_500));
 		const final = () => screen.getAllByRole("button", { name: /Delete account/ }).at(-1) as HTMLElement;
 		expect(final()).toBeEnabled();
-		fireEvent.change(screen.getByRole("textbox", { name: /handle/i }), { target: { value: "alice_on" } });
+		fireEvent.change(screen.getByRole("textbox", { name: /your ID/i }), { target: { value: "alice_on" } });
 		expect(final()).toBeDisabled();
-		fireEvent.change(screen.getByRole("textbox", { name: /handle/i }), { target: { value: "alice_one" } });
+		fireEvent.change(screen.getByRole("textbox", { name: /your ID/i }), { target: { value: "alice_one" } });
 		expect(final()).toBeDisabled();
 		expect(final()).toHaveTextContent("Delete account (3)");
 	});
@@ -165,7 +165,7 @@ test.each([
 		act(() => vi.advanceTimersByTime(3_500));
 		fireEvent.click(screen.getAllByRole("button", { name: /Delete account/ }).at(-1) as HTMLElement);
 		expect(screen.getByText(sentence)).toBeVisible();
-		expect(screen.queryByText("That does not match your handle.")).toBeNull();
+		expect(screen.queryByText("That does not match your ID.")).toBeNull();
 	} finally {
 		vi.useRealTimers();
 	}

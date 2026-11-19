@@ -10,8 +10,8 @@ import { signInDestination } from "../sign-in/destination";
 /** The sentence for a refused handle change; the server's `message` is for developers. */
 function handleProblem(error: unknown): string {
 	if (error instanceof ApiError) {
-		if (error.code === "handle_taken") return t("这个对外号已经有人用了", "That handle is already taken");
-		if (error.code === "handle_reserved") return t("这个对外号是保留词，换一个", "That handle is reserved");
+		if (error.code === "handle_taken") return t("这个 ID 已经有人用了", "That ID is already taken");
+		if (error.code === "handle_reserved") return t("这个 ID 是保留词，换一个", "That ID is reserved");
 		if (error.code === "handle_cooldown") {
 			const next = typeof error.details?.nextChangeAt === "string" ? new Date(error.details.nextChangeAt) : null;
 			return next
@@ -92,7 +92,7 @@ export default function Profile() {
 			{!setup && me ? (
 				<View className="mini-card">
 					<Field
-						label={t(`对外号（当前 @${me.member.handle}）`, `Handle (now @${me.member.handle})`)}
+						label={t(`ID（当前 @${me.member.handle}）`, `ID (now @${me.member.handle})`)}
 						value={handle}
 						onInput={setHandle}
 					/>
@@ -123,7 +123,7 @@ export default function Profile() {
 							})();
 						}}
 					>
-						{t("修改对外号", "Change handle")}
+						{t("修改 ID", "Change ID")}
 					</Button>
 				</View>
 			) : null}

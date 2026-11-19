@@ -9,6 +9,7 @@ export function DownloadPage() {
 			version={BUILD_VERSION}
 			iosUrl={import.meta.env.VITE_IOS_DOWNLOAD_URL ?? ""}
 			connectDevice={params.has("connect-device")}
+			connectorPlatforms={params.getAll("platform")}
 		/>
 	);
 }

@@ -1,3 +1,13 @@
+export const connectDeviceDownloadEn = {
+	deviceGuide: "Install Yonder on the device you want to connect and sign in to the same account.",
+	shareDownload: "Share download link",
+	shareDownloadFailed: "Could not share the download link.",
+	copyDownloadLink: "Copy download link",
+	openDownloadInBrowser: "Open in browser",
+	openDownloadFailed: "Could not open the download page.",
+	supportsConnector: "Supports connectors",
+};
+
 /** Landing page copy. People, conversations and figures on the page are illustrative scenes; the footer says so. */
 export const landingPageEn = {
 	nav: {
@@ -49,7 +59,7 @@ export const landingPageEn = {
 	tags: {
 		parcel: "Parcel pickup code",
 		invoice: "Expense receipts",
-		recording: "Meeting recording",
+		recording: "Recording notes",
 		refund: "A ¥9.9 refund",
 		poster: "Event poster",
 		subtitle: "English subtitles",
@@ -65,7 +75,7 @@ export const landingPageEn = {
 			after: "Route, calendar and a leave-now reminder, sorted",
 		},
 		recording: {
-			title: "A meeting recording",
+			title: "A recording note",
 			before: "You drop in a file",
 			after: "Notes and to-dos are waiting when the meeting ends",
 		},

@@ -129,9 +129,7 @@ async function checkChatAction(page: Page) {
 
 test.beforeEach(async ({ page }) => isolate(page));
 
-test("wide Me restores the section and keeps the main navigation and chat draft available", async ({
-	page,
-}, testInfo) => {
+test("wide Me restores the section and returns to the chat draft", async ({ page }, testInfo) => {
 	await page.setViewportSize({ width: 1280, height: 850 });
 	await page.goto("/messages/main");
 	await page.getByRole("textbox", { name: "Message Test Bot" }).fill("Keep this draft");
@@ -145,7 +143,7 @@ test("wide Me restores the section and keeps the main navigation and chat draft 
 	await expect(page).toHaveURL(/\/me\/account$/);
 	await page.getByRole("button", { name: /^Change password/ }).click();
 	await expect(page).toHaveURL(/\/me\/account\/password$/);
-	await navigation.getByRole("button", { name: "Messages", exact: true }).click();
+	await page.getByRole("button", { name: "Close", exact: true }).click();
 	await expect(page).toHaveURL(/\/messages\/main$/);
 	await expect(page.getByRole("textbox", { name: "Message Test Bot" })).toHaveValue("Keep this draft");
 	await navigation.getByRole("button", { name: "Me", exact: true }).click();
@@ -228,9 +226,7 @@ test("a narrow desktop retains its rail, lists, layered settings, and draft", as
 	await expect(page.getByRole("textbox", { name: "Message Test Bot" })).toHaveValue("Unsent UI check");
 });
 
-test("dragging follows the pointer, cancels a short drag, and dismisses in each entry direction", async ({
-	page,
-}, testInfo) => {
+test("narrow desktop conversations and settings keep their opposing slide gestures", async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto("/messages");
 	await page.getByRole("button", { name: /Test Bot/ }).click();
@@ -246,15 +242,13 @@ test("dragging follows the pointer, cancels a short drag, and dismisses in each 
 	await expect(page).toHaveURL(/\/messages\/main$/);
 	await drag(page, right, 260);
 	await expect(page).toHaveURL(/\/messages$/);
+	await startCapture(page, "me");
 	await page.getByRole("button", { name: "Me", exact: true }).click();
-	const left = panel(page, "left");
-	await settled(left);
-	await drag(page, left, -95, false);
-	await expect.poll(() => translation(left)).toBeLessThan(-40);
-	await expect(page).toHaveURL(/\/me$/);
-	await page.screenshot({ path: testInfo.outputPath("desktop-390-settings-mid-drag.png") });
-	await page.mouse.move(25, 150, { steps: 12 });
-	await page.mouse.up();
+	const settings = panel(page, "left");
+	await settled(settings);
+	const entry = await stopCapture(page);
+	expect(Math.min(...entry.values)).toBeLessThan(-20);
+	await drag(page, settings, -260);
 	await expect(page).toHaveURL(/\/messages$/);
 });
 
@@ -280,9 +274,10 @@ test("desktop resizing keeps platform behavior and deep links have a safe parent
 	await expect(page).toHaveURL(/\/me$/);
 });
 
-test("a desktop Tauri host keeps desktop navigation at phone width", async ({ page }) => {
+test("a macOS Tauri host keeps desktop navigation and clears the traffic lights in settings", async ({ page }) => {
 	await page.setViewportSize({ width: 360, height: 760 });
 	await page.addInitScript(() => {
+		Object.defineProperty(navigator, "userAgent", { value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" });
 		Object.defineProperty(window, "__TAURI_INTERNALS__", {
 			value: {
 				invoke: async (command: string) => (command.endsWith("get_password") ? "public-ui-test" : null),
@@ -296,6 +291,14 @@ test("a desktop Tauri host keeps desktop navigation at phone width", async ({ pa
 	await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "compact");
 	await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
 	await expect(page.getByRole("button", { name: /Test Bot/ })).toBeVisible();
+	await page.getByRole("button", { name: "Me", exact: true }).click();
+	await settled(panel(page, "left"));
+	const back = page.getByRole("button", { name: "Back", exact: true });
+	await expect(back.locator("xpath=ancestor::header")).toHaveAttribute("data-tauri-drag-region", "true");
+	expect((await back.boundingBox())?.x).toBeGreaterThanOrEqual(76);
+	await page.getByRole("button", { name: "Account and security", exact: true }).click();
+	await settled(panel(page, "right"));
+	expect((await back.boundingBox())?.x).toBeGreaterThanOrEqual(76);
 });
 
 test("compact chat actions use the shared right layer and restore focus", async ({ page }) => {
@@ -304,13 +307,11 @@ test("compact chat actions use the shared right layer and restore focus", async 
 	await checkChatAction(page);
 });
 
-test("desktop task and memory sections use large capsules below the title row", async ({ page }) => {
+test("desktop task sections use compact capsules below the title row", async ({ page }) => {
 	for (const width of [390, 1280]) {
 		await page.setViewportSize({ width, height: 844 });
-		for (const [path, label] of [
-			["/tasks", "Tasks"],
-			["/memory", "Memory"],
-		]) {
+		// Memory has no sections since 11-19.
+		for (const [path, label] of [["/tasks", "Tasks"]]) {
 			await page.goto(path);
 			const header = page.locator("[data-frame-header]").filter({
 				has: page.getByRole("radiogroup", { name: label, exact: true }),
@@ -322,11 +323,12 @@ test("desktop task and memory sections use large capsules below the title row", 
 			const bounds = await sections.boundingBox();
 			if (!titleRow || !bounds) throw new Error("Expected the title row and capsule");
 			expect(bounds.y).toBeGreaterThanOrEqual(titleRow.y + titleRow.height);
-			expect(bounds.height).toBe(52);
+			expect(bounds.height).toBe(48);
 			const radios = await sections.getByRole("radio").all();
 			const targets = await Promise.all(radios.map((radio) => radio.boundingBox()));
 			expect(targets[0]?.width).toBeCloseTo(targets[1]?.width ?? 0, 0);
 			for (const target of targets) expect(target?.height).toBe(44);
+			expect((await sections.locator("input:checked + span").boundingBox())?.height).toBe(40);
 			for (const pill of [sections, sections.locator("input:checked + span")]) {
 				const radius = await pill.evaluate((element) =>
 					Number.parseFloat(getComputedStyle(element).borderTopLeftRadius),
@@ -337,24 +339,34 @@ test("desktop task and memory sections use large capsules below the title row", 
 	}
 });
 
-test("a rejected dirty-form swipe preserves its page and values until discard is confirmed", async ({ page }) => {
-	await page.setViewportSize({ width: 390, height: 844 });
+test("settings keep the active form across desktop resize and guard outside clicks", async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 844 });
 	await page.goto("/me/models");
 	await page.getByRole("button", { name: "Add provider", exact: true }).click();
 	await page.getByRole("button", { name: "Custom provider", exact: true }).click();
-	await page.getByRole("textbox", { name: "Name", exact: true }).fill("Unsent provider");
-	const editor = panel(page, "right");
-	await settled(editor);
+	const name = page.getByRole("textbox", { name: "Name", exact: true });
+	await name.fill("Unsent provider");
+	const settings = page.getByRole("dialog", { name: "Me", exact: true });
+	const backdrop = page.locator("[data-overlay-backdrop]");
+	await page.setViewportSize({ width: 390, height: 844 });
+	await expect(backdrop).toHaveCount(0);
+	await expect(name).toHaveValue("Unsent provider");
+	await expect(name).toBeFocused();
+	await page.setViewportSize({ width: 1280, height: 844 });
+	await expect(backdrop).toBeVisible();
+	await expect(name).toHaveValue("Unsent provider");
+	await expect(name).toBeFocused();
 	const rejected = page.waitForEvent("dialog").then((dialog) => dialog.dismiss());
-	await drag(page, editor, 260);
+	await backdrop.click({ position: { x: 5, y: 100 } });
 	await rejected;
 	await expect(page).toHaveURL(/\/me\/models\/add$/);
-	await settled(editor);
-	await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue("Unsent provider");
+	await expect(settings).toBeVisible();
+	await expect(name).toHaveValue("Unsent provider");
 	const accepted = page.waitForEvent("dialog").then((dialog) => dialog.accept());
-	await drag(page, editor, 260);
+	await backdrop.click({ position: { x: 5, y: 100 } });
 	await accepted;
-	await expect(page).toHaveURL(/\/me\/models$/);
+	await expect(settings).toHaveCount(0);
+	await expect(page).toHaveURL(/\/messages$/);
 });
 
 test("reduced motion retains layered navigation and usable returns", async ({ page }) => {
@@ -376,7 +388,7 @@ test("reduced motion retains layered navigation and usable returns", async ({ pa
 	await expect(page).toHaveURL(/\/messages$/);
 });
 
-test("wide desktop avatar entry brings its remembered page in with the left settings layer", async ({
+test("wide desktop avatar entry opens its remembered page in a centered settings dialog", async ({
 	page,
 }, testInfo) => {
 	await page.setViewportSize({ width: 1180, height: 760 });
@@ -385,14 +397,13 @@ test("wide desktop avatar entry brings its remembered page in with the left sett
 	await startCapture(page, "me", "/me/profile");
 	await page.getByRole("button", { name: "Me", exact: true }).click();
 	await expect(page).toHaveURL(/\/me\/profile$/);
-	await settled(panel(page, "left"));
+	await expect(page.getByRole("dialog", { name: "Me", exact: true })).toBeVisible();
+	await expect(page.locator("header").getByText("Edit profile", { exact: true })).toBeVisible();
 	const entry = await stopCapture(page);
-	expect(Math.min(...entry.values)).toBeLessThan(-20);
-	const width = await panel(page, "left").evaluate((element) => element.getBoundingClientRect().width);
-	expect(Math.min(...entry.values)).toBeGreaterThanOrEqual(-width - 1);
+	expect(entry.values.length).toBeGreaterThan(0);
+	expect(Math.max(...entry.values.map(Math.abs))).toBeLessThan(1);
 	expect(Math.max(...entry.childValues.map(Math.abs))).toBeLessThan(1);
-	expect(entry.childWorld.at(-1)).toBeGreaterThan(Math.min(...entry.childWorld) + 20);
-	await page.screenshot({ path: testInfo.outputPath("desktop-1180-settings.png") });
+	await page.screenshot({ path: testInfo.outputPath("desktop-1180-settings.png"), animations: "disabled" });
 	const capturePath = testInfo.outputPath("actual-wide-avatar-transform-frames.json");
 	await writeFile(capturePath, JSON.stringify(entry));
 	await testInfo.attach("actual-wide-avatar-transform-frames", { path: capturePath, contentType: "application/json" });
@@ -417,8 +428,8 @@ test.describe("phone", () => {
 		await page.keyboard.press("Escape");
 		await expect(page.locator('[data-page-layer="me"]')).not.toBeVisible();
 		for (const [label, option, path, screenshot] of [
+			// Memory has no sections since 11-19: it is one page under its card.
 			["任务", "目标", "/tasks/scheduled", "phone-tasks-zh.png"],
-			["记忆", "文件", "/memory/files", "phone-memory-zh.png"],
 		]) {
 			await page.getByRole("navigation").getByRole("button", { name: label, exact: true }).click();
 			const sections = page.getByRole("radiogroup", { name: label, exact: true });
@@ -430,14 +441,15 @@ test.describe("phone", () => {
 				.evaluate((header) => header.getBoundingClientRect().bottom);
 			const bounds = await sections.boundingBox();
 			expect(bounds?.y).toBeGreaterThanOrEqual(headerBottom);
-			expect(bounds?.height).toBe(52);
+			expect(bounds?.height).toBe(48);
 			expect(bounds?.width).toBeGreaterThanOrEqual(350);
 			const radios = await sections.getByRole("radio").all();
 			const targets = await Promise.all(radios.map((radio) => radio.boundingBox()));
-			expect(targets[0]?.width).toBeCloseTo(targets[1]?.width ?? 0, 0);
+			// Segments share the row equally.
 			for (const target of targets) {
+				expect(target?.width).toBeCloseTo(targets[0]?.width ?? 0, 0);
 				expect(target?.height).toBe(44);
-				expect(target?.width).toBeGreaterThan(160);
+				expect(target?.width).toBeGreaterThan((bounds?.width ?? 0) / targets.length - 12);
 			}
 			await sections.getByRole("radio", { name: option, exact: true }).click();
 			await expect(page).toHaveURL(new RegExp(`${path}$`));

@@ -82,19 +82,31 @@ async fn start<R: Runtime>(
     owner_id: String,
     title: String,
     conversation_id: Option<String>,
+    separate_speakers: Option<bool>,
 ) -> Result<RecorderState, String> {
     main_window(&window)?;
+    let separate_speakers = separate_speakers.unwrap_or_default();
     #[cfg(any(target_os = "android", target_os = "ios"))]
-    return mobile(
-        &app,
-        "start",
-        serde_json::json!({ "ownerId": owner_id, "title": title }),
-    );
+    {
+        if let Some(id) = &conversation_id {
+            model::valid_key(id)?;
+        }
+        return mobile(
+            &app,
+            "start",
+            serde_json::json!({
+                "ownerId": owner_id,
+                "title": title,
+                "conversationId": conversation_id,
+                "separateSpeakers": separate_speakers
+            }),
+        );
+    }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let state = app
             .state::<desktop::DesktopRecorder>()
-            .start_for_conversation(owner_id, title, conversation_id)?;
+            .start_for_conversation(owner_id, title, conversation_id, separate_speakers)?;
         lifecycle::sync_tray(&app, true);
         Ok(state)
     }

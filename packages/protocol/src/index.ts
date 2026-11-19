@@ -13,6 +13,7 @@ export type {
 	PasswordSignInResponse,
 	PhoneChangeCodeRequest,
 	PhoneChannel,
+	PushTokenRegistration,
 	RefreshResponse,
 	ResetPasswordRequest,
 	SendCodeRequest,
@@ -45,6 +46,7 @@ export type {
 	CreateBotResponse,
 	CreateGroupRequest,
 	GroupSystemEvent,
+	MemoryUpdateChange,
 	MemoryUpdatedSystemEvent,
 	Message,
 	MessagePage,
@@ -101,7 +103,7 @@ export type {
 	LocalFilesResult,
 	UpdateConnectorRequest,
 } from "./connectors/connectors.ts";
-export type { DeviceListResponse, DeviceSummary } from "./devices/devices.ts";
+export type { DeviceListResponse, DeviceSummary, UpdateDeviceRemarkRequest } from "./devices/devices.ts";
 export type {
 	CreateMeetingRequest,
 	MeetingBatchState,
@@ -113,6 +115,7 @@ export type {
 	MeetingTranscriptBatch,
 	RetryMeetingRequest,
 } from "./meetings/meetings.ts";
+export type { FriendRequest } from "./member/friend-request.ts";
 export type {
 	CardBot,
 	ChangeHandleRequest,
@@ -134,13 +137,17 @@ export type {
 	UpdateReceptionRequest,
 } from "./member/member.ts";
 export type {
+	MemoryFileAuthor,
 	MemoryFileContent,
 	MemoryFileKind,
+	MemoryFileLimit,
 	MemoryFileList,
 	MemoryFileRevision,
 	MemoryFileRevisionList,
+	MemoryFileSource,
 	MemoryFileSummary,
 	RevertMemoryFileRequest,
+	UpdateMemoryFileProtectionRequest,
 	UpdateMemoryFileRequest,
 	UpdateMemoryFileVisibilityRequest,
 } from "./memory/files.ts";
@@ -186,9 +193,14 @@ export type {
 	RateCardResponse,
 	ResolveInviteResponse,
 	UsageEntry,
+	UsageOverview,
 	UsagePage,
+	UsagePurpose,
+	UsageRun,
+	UsageRunPage,
+	UsageTotals,
 } from "./quota/quota.ts";
-export type { ClientEvent, ServerEvent, ServerEventType } from "./realtime/realtime.ts";
+export type { ClientEvent, MessageNotification, ServerEvent, ServerEventType } from "./realtime/realtime.ts";
 export {
 	REALTIME_CLOSE_SESSION_REVOKED,
 	REALTIME_CLOSE_UNAUTHORIZED,

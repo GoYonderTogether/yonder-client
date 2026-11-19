@@ -1,5 +1,6 @@
 export const skillMessagesEn = {
 	title: "Skills",
+	detail: "Skill details",
 	import: "Import skill",
 	chooseFiles: "Choose files",
 	chooseFolder: "Choose folder",
@@ -43,7 +44,7 @@ export const skillMessagesEn = {
 	contact: "Contact",
 	noSuggestions: "No matches. Keep typing or send as text.",
 	selectionLimit: "Up to 5 skills per message.",
-	acceptHint: "Tab or tap to insert",
+	acceptHint: "Enter, Tab, or tap to select",
 	previousPage: "Previous page",
 	nextPage: "Next page",
 	page: "{{current}} / {{total}}",

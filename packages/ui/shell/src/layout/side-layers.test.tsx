@@ -10,7 +10,7 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-function shell(width: number, side: SideStack | undefined, onBack = vi.fn()) {
+function shell(width: number, side: SideStack | undefined, onBack = vi.fn(), desktop = width > 640) {
 	vi.stubGlobal(
 		"ResizeObserver",
 		class {
@@ -34,6 +34,7 @@ function shell(width: number, side: SideStack | undefined, onBack = vi.fn()) {
 			onOpenMe={vi.fn()}
 			meOpen={false}
 			side={side}
+			desktop={desktop}
 			onBack={onBack}
 			backLabel="Back"
 			list={<ListFrame title="Chats">chat list</ListFrame>}
@@ -70,9 +71,9 @@ test("the side panel is the top layer: Escape leaves it before the chat", () => 
 	expect(frameBack).not.toHaveBeenCalled();
 });
 
-test("a wide window shows a right-hand drawer that closes with × and a click beside it", () => {
+test.each([600, 1280])("a %ipx desktop window closes its drawer with × or a click beside it", (width) => {
 	const side = stack(["Bot"]);
-	render(shell(1280, side));
+	render(shell(width, side, vi.fn(), true));
 	expect(screen.getByRole("dialog", { name: "Bot" }).className).toContain("w-[var(--side-panel-width)]");
 	fireEvent.click(screen.getAllByRole("button", { name: "Close" }).at(-1) as HTMLElement);
 	expect(side.onClose).toHaveBeenCalledTimes(1);
@@ -86,8 +87,11 @@ test("on a phone the panel covers the chat, and a stacked page goes back to the 
 	expect(screen.getByRole("dialog", { name: "Group info" }).className).not.toContain("side-panel-width");
 	const card = screen.getByRole("dialog", { name: "Card" });
 	expect(card).toHaveAttribute("data-page-layer", "side:Card");
+	expect(card).toHaveAttribute("data-page-side", "right");
+	expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+	fireEvent.click(card.querySelector("header button") as HTMLElement);
 	fireEvent.keyDown(window, { key: "Escape" });
-	expect(side.onBack).toHaveBeenCalledTimes(1);
+	expect(side.onBack).toHaveBeenCalledTimes(2);
 	// The chat under the panel cannot be reached while the panel is open.
 	expect(document.querySelector('[data-page-layer="detail"]')).toHaveAttribute("inert");
 });

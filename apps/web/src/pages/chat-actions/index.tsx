@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { openAddContactsWindow } from "../../lib/contact-window.ts";
 import { shouldShowScanner } from "../../lib/platform.ts";
+import { ContactsList } from "../contacts-list.tsx";
 import { QrScanner } from "../qr-scanner.tsx";
 import { AddContacts } from "./add-contacts.tsx";
 import { type ChatAction, ChatMenu } from "./chat-menu.tsx";
@@ -55,9 +56,17 @@ export function ChatActions({ onOpen, onOpenMeetings }: { onOpen: (id: string) =
 					onClose={close}
 					title={t(`chatActions.${action}`)}
 					mode={mode}
-					wide={action === "createGroup"}
+					{...(action === "createGroup" ? { size: "wide" } : {})}
 					{...(action === "addContact" ? { mobileBackLabel: t("app.back") } : {})}
 				>
+					{action === "contacts" ? (
+						<ContactsList
+							onOpen={(handle) => {
+								close();
+								navigate(`/@${encodeURIComponent(handle)}`);
+							}}
+						/>
+					) : null}
 					{action === "createBot" ? <CreateBot onCreated={created} /> : null}
 					{action === "createGroup" ? <CreateGroup onCreated={created} onCancel={close} /> : null}
 					{action === "addContact" ? (

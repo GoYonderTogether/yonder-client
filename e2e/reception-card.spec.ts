@@ -37,7 +37,7 @@ test("a person's card opens their chosen reception Bot", async ({ page }) => {
 	await expect(page).toHaveURL(/\/messages\/chat-route-check/);
 });
 
-test("the owner can choose a reception Bot", async ({ page }) => {
+test("the owner can choose a reception Bot", async ({ page }, info) => {
 	await isolateChat(page, { items: [] });
 	const main = { ...bot, ownerId: person.id, isDefault: true };
 	const second = { ...main, id: "second-bot", displayName: "第二个 Bot", isDefault: false };
@@ -47,11 +47,16 @@ test("the owner can choose a reception Bot", async ({ page }) => {
 		if (route.request().method() === "PUT") selected = route.request().postDataJSON().botId ?? main.id;
 		return route.fulfill({ json: { botId: selected, custom: selected !== main.id } });
 	});
-	await page.goto("/me/bots");
-	const select = page.getByRole("combobox", { name: "对外接待 Bot" });
-	await expect(select).toBeVisible({ timeout: 20000 });
-	await select.selectOption("second-bot");
+	await page.goto("/me/reception");
+	await page.getByRole("button", { name: /^接待 Bot/ }).click();
+	await expect(page).toHaveURL(/\/me\/reception\/bot$/);
+	const secondOption = page.getByRole("radio", { name: second.displayName, exact: true });
+	await expect(secondOption).toBeVisible({ timeout: 20000 });
+	await secondOption.click();
 	await expect.poll(() => selected).toBe("second-bot");
-	await expect(select).toHaveValue("second-bot");
-	await page.screenshot({ path: "../reviews/20261118-bot-closure/reception-setting.png" });
+	await expect(secondOption).toBeChecked();
+	await expect(page.getByText("已保存", { exact: true })).toBeVisible();
+	await page.screenshot({ path: info.outputPath("reception-setting.png") });
+	await page.getByRole("button", { name: "返回", exact: true }).click();
+	await expect(page.getByRole("button", { name: /^接待 Bot/ })).toContainText(second.displayName);
 });

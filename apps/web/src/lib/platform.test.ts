@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test, vi } from "vitest";
-import { isDesktopExperience } from "./platform.ts";
+import { isDesktopExperience, shouldShowScanner } from "./platform.ts";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -53,4 +53,17 @@ test("reads only valid native inset dimensions and leaves env fallback for unava
 	root.style.removeProperty("--native-safe-area-inset-top");
 	root.style.removeProperty("--native-safe-area-inset-bottom");
 	delete root.dataset.nativeMobile;
+});
+
+test.each([
+	["Macintosh", 0, false],
+	["Windows NT 10.0", 0, false],
+	["Linux x86_64", 0, false],
+	["iPhone", 5, true],
+	["iPad", 5, true],
+	["Android", 5, true],
+	["Macintosh", 5, true],
+])("scanner availability follows the host, not window width: %s", (userAgent, maxTouchPoints, expected) => {
+	vi.stubGlobal("navigator", { userAgent, maxTouchPoints });
+	expect(shouldShowScanner()).toBe(expected);
 });

@@ -3,6 +3,7 @@ import { Button, EmptyState, IconButton } from "@yonder/ui-components";
 import {
 	ApiError,
 	useContactActions,
+	useFriendRequestActions,
 	useMemberProfile,
 	usePublicMemberProfile,
 	useStartBotChat,
@@ -15,6 +16,8 @@ import { useTranslation } from "react-i18next";
 export interface MemberCardHandlers {
 	onOpenConversation: (conversationId: string) => void;
 	onOpenOwner: (handle: string) => void;
+	/** One of the person's Bots listed on their card. */
+	onOpenBot: (handle: string) => void;
 	/** Only on your own card: the three privacy switches (19 第四节). */
 	onOpenPrivacy: () => void;
 	/** Where a card that does not exist leads. */
@@ -77,13 +80,16 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 	const { t } = useTranslation();
 	const profile = useMemberProfile(handle);
 	const contacts = useContactActions();
+	const requests = useFriendRequestActions();
+	const [sent, setSent] = useState(false);
 	const startChat = useStartBotChat();
 	const [failure, setFailure] = useState<string | null>(null);
 	const fail = (error: unknown) => setFailure(memberFailureText(error, t));
 
-	if (profile.isLoading) return <Loading />;
+	// A reopened card needs a fresh visibility decision before displaying cached details.
+	if (!profile.isFetchedAfterMount) return <Loading />;
 	if (isCardNotFound(profile.error)) return <CardNotFound onHome={handlers.onHome} />;
-	if (!profile.data)
+	if (profile.isError || !profile.data)
 		return (
 			<LoadFailure
 				error={profile.error}
@@ -108,10 +114,7 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 	const add = () => {
 		setFailure(null);
 		if (!memberId) return;
-		contacts.addContact.mutate(memberId, {
-			onSuccess: ({ conversation }) => handlers.onOpenConversation(conversation.id),
-			onError: fail,
-		});
+		requests.request.mutate(memberId, { onSuccess: () => setSent(true), onError: fail });
 	};
 	const chat = () => {
 		setFailure(null);
@@ -144,14 +147,16 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 					</IconButton>
 				</div>
 			) : null}
+			{sent ? <p role="status">{t("friendRequests.sent")}</p> : null}
 			<MemberProfile
 				profile={profile.data}
 				{...(self ? {} : { onMessage: message })}
-				{...(card.kind === "bot" ? { onChat: chat } : { onAddContact: add })}
+				{...(card.kind === "bot" ? { onChat: chat } : { onAddContact: sent ? undefined : add })}
 				{...(reception ? { onMatter: matter } : {})}
 				onOpenOwner={handlers.onOpenOwner}
+				onOpenBot={handlers.onOpenBot}
 				error={failure}
-				busy={contacts.addContact.isPending || startChat.isPending}
+				busy={contacts.addContact.isPending || startChat.isPending || requests.request.isPending}
 			/>
 		</div>
 	);
@@ -173,9 +178,9 @@ export function PublicMemberCard({
 	onHome: () => void;
 }) {
 	const profile = usePublicMemberProfile(handle);
-	if (profile.isLoading) return <Loading />;
+	if (!profile.isFetchedAfterMount) return <Loading />;
 	if (isCardNotFound(profile.error)) return <CardNotFound onHome={onHome} />;
-	if (!profile.data)
+	if (profile.isError || !profile.data)
 		return (
 			<LoadFailure
 				error={profile.error}

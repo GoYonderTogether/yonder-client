@@ -13,11 +13,12 @@ export {
 	BOT_NAMES,
 	randomBotName,
 } from "./bots/bot-defaults.ts";
-export { BotDetail, botConversation, plansInConversation } from "./bots/bot-detail.tsx";
+export { BotSettingsOverview, botConversation, plansInConversation } from "./bots/bot-detail.tsx";
 export { BotForm } from "./bots/bot-form.tsx";
 export { BotList } from "./bots/bot-list.tsx";
 export type { ClosedGroupNoticeProps } from "./group/closed-group-notice.tsx";
 export { ClosedGroupNotice } from "./group/closed-group-notice.tsx";
+export { GroupAvatar } from "./group/group-avatar.tsx";
 export type { GroupInfoProps } from "./group/group-info.tsx";
 export { GroupInfo } from "./group/group-info.tsx";
 export type { MemberListProps } from "./group/member-list.tsx";

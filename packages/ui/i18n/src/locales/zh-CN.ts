@@ -4,9 +4,9 @@ import { channelsZhCN } from "./channels.ts";
 import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
 import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
 import type { Messages } from "./en.ts";
-import { friendQrZhCN } from "./friend-qr-zh-CN.ts";
+import { friendQrZhCN, friendRequestsZhCN } from "./friend-qr-zh-CN.ts";
 import { inviteExperienceZhCN } from "./invite-experience-zh-CN.ts";
-import { landingPageZhCN } from "./landing-page-zh-CN.ts";
+import { connectDeviceDownloadZhCN, landingPageZhCN } from "./landing-page-zh-CN.ts";
 import { meetingRecorderZhCN } from "./meeting-recorder-zh-CN.ts";
 import { membersMessagesZhCN } from "./members-zh-CN.ts";
 import { memoryMessagesZhCN } from "./memory-zh-CN.ts";
@@ -15,6 +15,7 @@ import { pricingMessagesZhCN } from "./pricing-zh-CN.ts";
 import { setupMessagesZhCN } from "./setup-zh-CN.ts";
 import { skillMessagesZhCN } from "./skills-zh-CN.ts";
 import { visitsMessagesZhCN } from "./visits-zh-CN.ts";
+import { voiceInputZhCN } from "./voice-input.ts";
 
 /**
  * Chinese. Typed against the English table: a missing key fails the build rather than showing a
@@ -59,7 +60,7 @@ export const zhCN: Messages = {
 	legal: { version: "版本 {{version}}", effectiveDate: "生效日期 {{date}}" },
 
 	landing: {
-		deviceGuide: "在需要接入的设备安装 Yonder，并登录同一账号，设备会自动出现。",
+		...connectDeviceDownloadZhCN,
 		allDownloads: "全部下载",
 		backHome: "Yonder 首页",
 		choosePlatform: "不对？手动选",
@@ -90,6 +91,7 @@ export const zhCN: Messages = {
 	nav: {
 		settings: "设置",
 		chat: "对话",
+		mainBot: "主 Bot",
 		messages: "消息",
 		tasks: "任务",
 		memory: "记忆",
@@ -108,12 +110,23 @@ export const zhCN: Messages = {
 	messages: {
 		title: "消息",
 		pinned: "置顶",
+		muted: "消息免打扰",
+		notificationsSection: "消息通知",
+		unread_one: "{{count}} 条未读消息",
+		unread_other: "{{count}} 条未读消息",
+		enableSystemNotifications: "允许系统通知",
+		systemNotificationsDenied: "请在设备或浏览器的设置中允许通知。",
+		muteFailed: "无法更改免打扰设置，请重试。",
+		newMessage: "新消息",
+		botReply: "Bot 已回复",
 		newConversation: "新对话",
 		myBot: "我的 Bot",
 	},
 
+	friendRequests: friendRequestsZhCN,
 	chatActions: {
-		recordMeeting: "会议录音",
+		contacts: "联系人",
+		recordMeeting: "录音笔记",
 		windowFallback: "未能打开独立窗口，可在这里继续添加。",
 		menu: "发起聊天",
 		createBot: "创建 BOT",
@@ -246,7 +259,10 @@ export const zhCN: Messages = {
 	},
 
 	chat: {
+		settings: "聊天设置",
+		agentStatus: { typing: "正在输入", processing: "正在处理：{{titles}}", separator: "、" },
 		activityMore: "等 {{count}} 项",
+		sources: "来源",
 		uploadFiles: "上传文件",
 		uploadImages: "上传图片",
 		removeFile: "移除 {{name}}",
@@ -259,16 +275,7 @@ export const zhCN: Messages = {
 		sendPreserved: "尚未确认发送，草稿和文件已保留；重试不会重复发送这条消息。",
 		downloadFile: "下载 {{name}}",
 		attachmentFailed: "附件加载失败",
-		voiceInput: "语音输入",
-		stopRecording: "停止录音",
-		cancelRecording: "取消语音输入",
-		recording: "正在录音 · 最长 2 分钟",
-		requestingMicrophone: "请允许麦克风访问以开始录音",
-		transcribing: "正在转成文字…",
-		voiceFailed: "语音识别失败，原有草稿已保留。",
-		voiceUnknown: "识别结果尚不确定，再次识别可能重复计费。",
-		voiceUnsupported: "当前浏览器不支持语音输入。",
-		microphoneDenied: "麦克风权限被拒绝，请在系统或浏览器设置中允许访问。",
+		...voiceInputZhCN,
 		unknownSender: "未知发送者",
 		emptyTitle: "还没有消息",
 		composerPlaceholder: "对 Bot 说点什么",
@@ -292,18 +299,16 @@ export const zhCN: Messages = {
 		idleTimeout: "Bot 长时间没有进展，已经停下。",
 		toolRepeat: "Bot 反复执行同一个操作，已停止。",
 		subtaskBurst: "这个任务一分钟内派出了太多子任务，已经暂停，以免继续消耗额度。",
-		quotaCodingExhausted: "编程额度已用完，这个任务没有运行。",
+		quotaCodingExhausted: "执行额度已用完，这个任务没有运行。",
 		quotaExternalExhausted: "对外额度已用完，这条消息没有回复。",
 		quotaToolsExhausted: "工具额度已用完，联网搜索暂时不能用。",
 		loadingHistory: "正在加载消息…",
 		jumpToLatest: "跳至最新",
 		loadOlder: "加载更早的消息",
 		memoryUpdated: "记忆已更新",
-		memoryUpdatedPath: "记忆已更新 · {{path}}",
-		memoryRevisionUnavailable: "文件历史中找不到这次改动。",
-		memoryNoEarlierRevision: "没有更早的版本",
-		memoryRestoreEarlier: "文件还有更新的改动。要将第 {{version}} 版恢复为当前版本吗？",
-		memoryReverted: "记忆已撤回",
+		memoryUpdatedOne: "记忆已更新 · {{title}}",
+		memoryUpdatedMany: "记忆已更新 · {{count}} 处",
+		memoryRevisionUnavailable: "文件历史里找不到这次改动",
 	},
 
 	tasks: {
@@ -366,7 +371,7 @@ export const zhCN: Messages = {
 		itemUpcoming: "即将执行",
 		itemSourceSubtask: "Bot 分出去的",
 		itemSourceSchedule: "定时执行",
-		itemSourceMeeting: "会议处理",
+		itemSourceMeeting: "录音笔记",
 		itemSourceVisit: "来访",
 		itemStateRunning: "进行中",
 		itemStateWaitingUser: "等你",
@@ -399,6 +404,7 @@ export const zhCN: Messages = {
 		actionDeleteFailed: "没能删除：{{reason}}",
 		presetItem: "帮我做一件事：",
 		presetGoal: "帮我推进这个目标：",
+		presetSchedule: "请帮我创建一个定时任务，",
 		goalState: { proposed: "待确认", active: "进行中", paused: "已暂停", achieved: "已达成", stopped: "已停止" },
 		goalAction: {
 			confirm: "确认目标",
@@ -443,9 +449,9 @@ export const zhCN: Messages = {
 		account_pending_deletion: "这个账号正在注销中。",
 		account_deleted: "这个账号已注销，不能再登录。",
 		not_found: "没找到。",
-		handle_taken: "这个对外号已经有人用了。",
-		handle_cooldown: "对外号最近刚改过，稍后再改。",
-		handle_reserved: "这个对外号是保留词。",
+		handle_taken: "这个 ID 已经有人用了。",
+		handle_cooldown: "你的 ID 最近刚改过，稍后再改。",
+		handle_reserved: "这个 ID 是保留词。",
 		phone_taken: "这个号码已经被别的账号用了。",
 		conflict_version: "别处改过了，刷新再试。",
 		code_invalid: "验证码不对。",
@@ -464,6 +470,9 @@ export const zhCN: Messages = {
 		compact_busy: "对话正在回复或压缩，请稍后重试。",
 		compact_unsupported: "只能压缩你与自己 Bot 的私聊。",
 		compact_failed: "上下文压缩失败，原内容已保留。",
+		memory_too_long: "内容超过了这份文件的字数上限。",
+		memory_secret_refused: "记忆里不能存密码、密钥或验证码。",
+		memory_user_edited: "这份文件你改过，只能在后面追加。",
 	},
 
 	notFound: {

@@ -1,15 +1,7 @@
+import { addableContacts } from "@yonder/chat-model";
 import type { Conversation, ConversationMember } from "@yonder/protocol";
 import { describe, expect, it } from "vitest";
-import {
-	addableContacts,
-	canLeave,
-	canRemove,
-	canTransfer,
-	groupMembers,
-	isClosed,
-	isOwner,
-	orderedMembers,
-} from "./model";
+import { canLeave, canRemove, canTransfer, groupMembers, isClosed, isOwner, orderedMembers } from "./model";
 
 const person = (memberId: string, role?: "owner" | "member"): ConversationMember => ({
 	memberId,

@@ -1,10 +1,10 @@
 import { AuthLayout, ForgotPasswordForm, SignInForm } from "@yonder/feature-auth";
 import { useData } from "@yonder/ui-data";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { BUILD_VERSION } from "../lib/config.ts";
-import { deviceInfo } from "../lib/device-info.ts";
+import { useDeviceInfo } from "../lib/device-info.ts";
 
 /**
  * `/sign-in`. One page for signing in and for creating an account: the server decides which it was
@@ -16,7 +16,7 @@ export function SignInPage() {
 	const location = useLocation();
 	const [params] = useSearchParams();
 	const { startSession, storage } = useData();
-	const device = useMemo(() => deviceInfo(storage, BUILD_VERSION), [storage]);
+	const device = useDeviceInfo(storage, BUILD_VERSION);
 	const [forgot, setForgot] = useState(false);
 	const legalTrigger = useRef<HTMLAnchorElement | null>(null);
 

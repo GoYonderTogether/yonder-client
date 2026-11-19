@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DeleteAccountFlow } from "./delete-account-flow.tsx";
+import { deviceDisplayName } from "./device-display-name.ts";
 import { DeviceRow } from "./device-row.tsx";
 import { HandleEditor } from "./handle-editor.tsx";
 import { LoginMethods } from "./login-methods.tsx";
@@ -75,28 +76,33 @@ export function AccountSection({ onChangePassword, onChangePhone, onSignedOut, o
 						onClick={() => void sessions.refetch()}
 					/>
 				) : sessions.data?.items.length ? (
-					sessions.data.items.map((session) => (
-						<DeviceRow
-							key={session.id}
-							name={session.deviceName}
-							platform={session.platform}
-							current={session.current}
-							lastSeenAt={session.lastSeenAt}
-							status={devices.data?.items.find((device) => device.id === session.deviceId)?.status}
-						>
-							{!session.current ? (
-								<Button
-									type="button"
-									variant="secondary"
-									size="sm"
-									loading={revoke.isPending && revoke.variables === session.id}
-									onClick={() => revoke.mutate(session.id)}
-								>
-									{t("me.account.sessionRevoke")}
-								</Button>
-							) : null}
-						</DeviceRow>
-					))
+					sessions.data.items.map((session) => {
+						const device = devices.data?.items.find((item) => item.id === session.deviceId);
+						const name = device ? deviceDisplayName(device) : session.deviceName;
+						return (
+							<DeviceRow
+								key={session.id}
+								name={name}
+								systemName={name === device?.name ? undefined : device?.name}
+								platform={session.platform}
+								current={session.current}
+								lastSeenAt={session.lastSeenAt}
+								status={device?.status}
+							>
+								{!session.current ? (
+									<Button
+										type="button"
+										variant="secondary"
+										size="sm"
+										loading={revoke.isPending && revoke.variables === session.id}
+										onClick={() => revoke.mutate(session.id)}
+									>
+										{t("me.account.sessionRevoke")}
+									</Button>
+								) : null}
+							</DeviceRow>
+						);
+					})
 				) : (
 					<ListRow title={t("me.account.sessionsEmpty")} disabled className="hover:bg-transparent" />
 				)}

@@ -3,9 +3,9 @@ import { botMessagesEn } from "./bots-en.ts";
 import { channelsEn } from "./channels.ts";
 import { composerAttachmentsEn } from "./composer-attachments-en.ts";
 import { connectorMessagesEn } from "./connectors-en.ts";
-import { friendQrEn } from "./friend-qr-en.ts";
+import { friendQrEn, friendRequestsEn } from "./friend-qr-en.ts";
 import { inviteExperienceEn } from "./invite-experience-en.ts";
-import { landingPageEn } from "./landing-page-en.ts";
+import { connectDeviceDownloadEn, landingPageEn } from "./landing-page-en.ts";
 import { meetingRecorderEn } from "./meeting-recorder-en.ts";
 import { membersMessagesEn } from "./members-en.ts";
 import { memoryMessagesEn } from "./memory-en.ts";
@@ -14,6 +14,7 @@ import { pricingMessagesEn } from "./pricing-en.ts";
 import { setupMessagesEn } from "./setup-en.ts";
 import { skillMessagesEn } from "./skills-en.ts";
 import { visitsMessagesEn } from "./visits-en.ts";
+import { voiceInputEn } from "./voice-input.ts";
 /**
  * The English table is the reference: its shape is the type every other language must satisfy, so
  * a missing or misspelled key is a compile error rather than a blank label at runtime.
@@ -57,8 +58,7 @@ export const en = {
 	legal: { version: "Version {{version}}", effectiveDate: "Effective {{date}}" },
 
 	landing: {
-		deviceGuide:
-			"Install Yonder on the device you want to connect and sign in to the same account. It will appear automatically.",
+		...connectDeviceDownloadEn,
 		allDownloads: "All downloads",
 		backHome: "Yonder home",
 		choosePlatform: "Wrong platform? Choose manually",
@@ -89,6 +89,7 @@ export const en = {
 	nav: {
 		settings: "Settings",
 		chat: "Chat",
+		mainBot: "Main Bot",
 		messages: "Messages",
 		tasks: "Tasks",
 		memory: "Memory",
@@ -107,12 +108,23 @@ export const en = {
 	messages: {
 		title: "Messages",
 		pinned: "Pinned",
+		muted: "Mute notifications",
+		notificationsSection: "Notifications",
+		unread_one: "{{count}} unread message",
+		unread_other: "{{count}} unread messages",
+		enableSystemNotifications: "Allow system notifications",
+		systemNotificationsDenied: "Allow notifications in your device or browser settings.",
+		muteFailed: "Could not change notifications. Try again.",
+		newMessage: "New message",
+		botReply: "Bot reply ready",
 		newConversation: "New conversation",
 		myBot: "My Bot",
 	},
 
+	friendRequests: friendRequestsEn,
 	chatActions: {
-		recordMeeting: "Meeting recording",
+		contacts: "Contacts",
+		recordMeeting: "Recording notes",
 		windowFallback: "Could not open a separate window. Continue here.",
 		menu: "New chat",
 		createBot: "Create BOT",
@@ -245,7 +257,10 @@ export const en = {
 	},
 
 	chat: {
+		settings: "Chat settings",
+		agentStatus: { typing: "Typing", processing: "Working on: {{titles}}", separator: ", " },
 		activityMore: "{{count}} activities",
+		sources: "Sources",
 		uploadFiles: "Upload files",
 		uploadImages: "Upload images",
 		removeFile: "Remove {{name}}",
@@ -259,16 +274,7 @@ export const en = {
 			"Sending was not confirmed. Your draft and files are preserved; retrying will not duplicate this message.",
 		downloadFile: "Download {{name}}",
 		attachmentFailed: "Could not load the attachment",
-		voiceInput: "Voice input",
-		stopRecording: "Stop recording",
-		cancelRecording: "Cancel voice input",
-		recording: "Recording · up to 2 minutes",
-		requestingMicrophone: "Allow microphone access to record",
-		transcribing: "Transcribing…",
-		voiceFailed: "Could not transcribe. Your existing draft is preserved.",
-		voiceUnknown: "Transcription status is unknown. Retrying may be charged again.",
-		voiceUnsupported: "Voice input is unavailable in this browser.",
-		microphoneDenied: "Microphone access was denied. Allow it in system or browser settings.",
+		...voiceInputEn,
 		unknownSender: "Unknown sender",
 		emptyTitle: "No messages yet",
 		composerPlaceholder: "Message your Bot",
@@ -292,18 +298,16 @@ export const en = {
 		idleTimeout: "The Bot made no progress for a long time, so it was stopped.",
 		toolRepeat: "The Bot kept repeating the same action, so it was stopped.",
 		subtaskBurst: "This task issued too many subtasks within a minute, so it was paused before it spent more quota.",
-		quotaCodingExhausted: "Coding quota is used up, so this task did not run.",
+		quotaCodingExhausted: "Execution quota is used up, so this task did not run.",
 		quotaExternalExhausted: "External quota is used up, so this message was not answered.",
 		quotaToolsExhausted: "Your tools quota is used up, so web search is unavailable for now.",
 		loadingHistory: "Loading messages…",
 		jumpToLatest: "Jump to latest",
 		loadOlder: "Load earlier messages",
 		memoryUpdated: "Memory updated",
-		memoryUpdatedPath: "Memory updated · {{path}}",
-		memoryRevisionUnavailable: "This change is unavailable in the file history.",
-		memoryNoEarlierRevision: "No earlier version",
-		memoryRestoreEarlier: "Later changes exist. Restore version {{version}} as the current version?",
-		memoryReverted: "Memory reverted",
+		memoryUpdatedOne: "Memory updated · {{title}}",
+		memoryUpdatedMany: "Memory updated · {{count}} files",
+		memoryRevisionUnavailable: "This change isn't in the file's history",
 	},
 
 	tasks: {
@@ -366,7 +370,7 @@ export const en = {
 		itemUpcoming: "Coming up",
 		itemSourceSubtask: "Handed to a task",
 		itemSourceSchedule: "Scheduled run",
-		itemSourceMeeting: "Meeting processing",
+		itemSourceMeeting: "Recording notes",
 		itemSourceVisit: "Visitor request",
 		itemStateRunning: "Running",
 		itemStateWaitingUser: "Waiting for you",
@@ -399,6 +403,7 @@ export const en = {
 		actionDeleteFailed: "Could not delete: {{reason}}",
 		presetItem: "Help me do something: ",
 		presetGoal: "Help me pursue this goal: ",
+		presetSchedule: "Help me create a scheduled task: ",
 		goalState: {
 			proposed: "Needs confirmation",
 			active: "In progress",
@@ -451,9 +456,9 @@ export const en = {
 		account_pending_deletion: "This account is scheduled for deletion.",
 		account_deleted: "This account has been deleted and can no longer sign in.",
 		not_found: "Not found.",
-		handle_taken: "That handle is already taken.",
-		handle_cooldown: "You changed your handle recently. Try again later.",
-		handle_reserved: "That handle is reserved.",
+		handle_taken: "That ID is already taken.",
+		handle_cooldown: "You changed your ID recently. Try again later.",
+		handle_reserved: "That ID is reserved.",
 		phone_taken: "That number belongs to another account.",
 		conflict_version: "That changed somewhere else. Reload and try again.",
 		code_invalid: "That code is not right.",
@@ -472,6 +477,9 @@ export const en = {
 		compact_busy: "The conversation is replying or compacting. Try again shortly.",
 		compact_unsupported: "Only your private conversation with your own Bot can be compacted.",
 		compact_failed: "Context could not be compacted. Original content is preserved.",
+		memory_too_long: "This is longer than the file allows.",
+		memory_secret_refused: "Memory can't store passwords, keys or verification codes.",
+		memory_user_edited: "You edited this file, so it can only be added to.",
 	},
 
 	notFound: {

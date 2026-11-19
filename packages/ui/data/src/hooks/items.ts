@@ -18,6 +18,17 @@ export function useItems(botId?: string | null) {
 	});
 }
 
+export function useActiveBotSubtasks(botId: string | undefined) {
+	const api = useApi();
+	return useQuery({
+		queryKey: keys.items.activeSubtasks(botId ?? ""),
+		queryFn: ({ signal }) => api.activeBotSubtasks(botId ?? "", signal),
+		enabled: Boolean(botId),
+		staleTime: 0,
+		refetchOnWindowFocus: true,
+	});
+}
+
 /** One item's detail: what was asked, what it produced, and the steps the source recorded. */
 export function useItem(id: string | null) {
 	const api = useApi();

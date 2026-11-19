@@ -1,7 +1,8 @@
 import type { MemberProfileResponse } from "@yonder/protocol";
-import { Button } from "@yonder/ui-components";
+import { Button, ListGroup } from "@yonder/ui-components";
 import { useTranslation } from "react-i18next";
 import { MemberHeader } from "./member-header.tsx";
+import { MemberRow } from "./member-row.tsx";
 
 export interface MemberProfileProps {
 	profile: MemberProfileResponse;
@@ -14,6 +15,8 @@ export interface MemberProfileProps {
 	onMatter?: (() => void) | undefined;
 	/** The Bot's owner, when their own card is visible; opens it. */
 	onOpenOwner?: ((handle: string) => void) | undefined;
+	/** One of the person's Bots, from the list on their card (R38); opens that Bot's card. */
+	onOpenBot?: ((handle: string) => void) | undefined;
 	/** The anonymous form: shown only when both are given (17 3.7). */
 	onSignIn?: (() => void) | undefined;
 	onDownload?: (() => void) | undefined;
@@ -93,6 +96,20 @@ export function MemberProfile({ profile, error, busy = false, ...handlers }: Mem
 					</p>
 				) : null}
 			</div>
+			{profile.card.kind === "person" && profile.bots?.length ? (
+				<div className="px-[var(--spacing-4)] pb-[var(--spacing-6)]">
+					<ListGroup title={t(profile.relation === "self" ? "members.card.myBots" : "members.card.bots")}>
+						{profile.bots.map((bot) => (
+							<MemberRow
+								key={bot.handle}
+								member={{ ...bot, kind: "bot" }}
+								badge={bot.reception ? t("members.card.receptionBadge") : undefined}
+								onOpen={handlers.onOpenBot ? () => handlers.onOpenBot?.(bot.handle) : undefined}
+							/>
+						))}
+					</ListGroup>
+				</div>
+			) : null}
 		</div>
 	);
 }

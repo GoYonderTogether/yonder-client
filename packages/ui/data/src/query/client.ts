@@ -22,9 +22,12 @@ export const CACHE_VERSION = "4";
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const dehydrateOptions: DehydrateOptions = {
-	// Memory can contain secret cards and files, including bodies in paused writes.
+	// Memory can contain secret files, and member cards have revocable visibility.
 	shouldDehydrateQuery: (query) =>
-		!["contact-search", "channel-messages", "channel-conversations", "memory"].includes(String(query.queryKey[0])) &&
+		!(query.queryKey[0] === "items" && query.queryKey[1] === "active-subtasks") &&
+		!["contact-search", "channel-messages", "channel-conversations", "memory", "member-profile"].includes(
+			String(query.queryKey[0]),
+		) &&
 		defaultShouldDehydrateQuery(query),
 	shouldDehydrateMutation: (mutation) =>
 		mutation.options.mutationKey?.[0] !== "memory" && defaultShouldDehydrateMutation(mutation),
@@ -87,7 +90,11 @@ export function createPersister(store: KeyValueStore): Persister & { activate():
 			const raw = store.get(CACHE_STORAGE_KEY);
 			if (!raw) return undefined;
 			try {
-				return JSON.parse(raw) as PersistedClient;
+				const client = JSON.parse(raw) as PersistedClient;
+				client.clientState.queries = client.clientState.queries.filter(
+					({ queryKey }) => queryKey[0] !== "member-profile",
+				);
+				return client;
 			} catch {
 				// A corrupt blob is dropped, not repaired: a broken cache must not block a start.
 				store.remove(CACHE_STORAGE_KEY);

@@ -10,7 +10,7 @@ import { confirmed, optimistic, type PrivacyKey, privacyKeys, reverted, shown } 
 function label(key: PrivacyKey): string {
 	switch (key) {
 		case "searchable":
-			return t("陌生人可通过对外号找到我", "Strangers can find me by my handle");
+			return t("陌生人可通过 ID 找到我", "Strangers can find me by my ID");
 		case "cardForUsers":
 			return t("登录用户可以查看我的名片", "Signed-in people can view my card");
 		case "cardPublicLink":

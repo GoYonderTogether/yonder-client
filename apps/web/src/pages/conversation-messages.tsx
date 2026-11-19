@@ -1,18 +1,21 @@
-import { groupMessages } from "@yonder/chat-model";
-import { MessageBubble, MessageRun } from "@yonder/chat-presentation";
+import { groupMessages, isTwoPartyAgentChat } from "@yonder/chat-model";
+import { MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
 import { FeishuAttemptCard } from "@yonder/feature-me";
 import { systemEventText } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button } from "@yonder/ui-components";
 import type { CachedMessage } from "@yonder/ui-data";
+import { resolveLocale } from "@yonder/ui-i18n";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
+import { FriendRequestCard } from "./friend-request-card.tsx";
 import { MemoryUpdatedLine } from "./memory-updated-line.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
+import { MessageSources } from "./message-sources.tsx";
 import { AskOwner, OutwardRequestCard } from "./outward-request-card.tsx";
-import { RunActivity } from "./run-activity.tsx";
+import { VoiceMessage } from "./voice-message.tsx";
 
 interface MessageProps {
 	message: CachedMessage;
@@ -25,43 +28,30 @@ interface MessageProps {
 	onChooseOption?: ((body: string, cardId: string) => void) | undefined;
 }
 
-/** A system event stands alone; consecutive messages by one sender stay one run, as before. */
-type Block = { system: CachedMessage } | { run: CachedMessage[] };
-
-function blocksOf(items: readonly CachedMessage[]): Block[] {
-	const out: Block[] = [];
-	let current: CachedMessage[] = [];
-	const flush = () => {
-		for (const run of groupMessages(current)) out.push({ run });
-		current = [];
-	};
-	for (const item of items) {
-		if (item.type === "system") {
-			flush();
-			out.push({ system: item });
-		} else current.push(item);
-	}
-	flush();
-	return out;
-}
-
 /** Sender identity belongs to a consecutive run, shared by text and attachment messages. */
 export function ConversationMessages({
 	items,
+	hasFullHistory,
 	conversation,
 	person,
 	bot,
 	onOpenRelated,
+	onOpenMember,
 	...actions
 }: Omit<MessageProps, "message" | "self"> & {
 	items: CachedMessage[];
+	hasFullHistory: boolean;
 	conversation: Conversation;
 	person?: Member | undefined;
 	bot?: Member | undefined;
 	onOpenRelated?: (id: string) => void;
+	/** A sender's avatar opens who they are, as in QQ and WeChat (profile-entry matrix 第二节). */
+	onOpenMember?: ((memberId: string) => void) | undefined;
 }) {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const locale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
 	const visitRole = conversation.visit?.role;
+	const showAvatars = !isTwoPartyAgentChat(conversation, person?.id);
 	const openOptions = items.findLast(
 		(item) => item.options?.length || (item.senderId === person?.id && !item.sendFailed),
 	)?.id;
@@ -83,14 +73,42 @@ export function ConversationMessages({
 		visitRole === "visitor" && conversation.visit?.state !== "denied"
 			? items.findLast((item) => item.senderId === person?.id && !item.pending && !item.sendFailed && item.body?.trim())
 			: null;
-	return blocksOf(delivered.size ? items.filter((item) => !delivered.has(item.id)) : items).map((block) => {
-		// A group lifecycle message has no sender speaking: one muted centred line, no avatar (19 3.3).
-		if ("system" in block) return <SystemLine key={block.system.id} message={block.system} />;
+	if (conversation.kind === "system")
+		return items.map((message) => (
+			<div key={message.id} data-message-id={message.id}>
+				{message.friendRequestId ? (
+					<FriendRequestCard id={message.friendRequestId} />
+				) : message.body ? (
+					<MessageContent body={message.body} />
+				) : null}
+			</div>
+		));
+	const visibleItems = delivered.size ? items.filter((item) => !delivered.has(item.id)) : items;
+	return groupMessages(visibleItems, hasFullHistory).map((block) => {
+		if ("time" in block)
+			return (
+				<MessageTime
+					key={`time-${block.messageId}`}
+					at={block.time}
+					locale={locale}
+					atStart={block.atStart}
+					render={(text) => (
+						<time
+							dateTime={block.time.toISOString()}
+							className="mx-auto text-center text-caption text-[var(--color-text-tertiary)]"
+						>
+							{text}
+						</time>
+					)}
+				/>
+			);
 		const run = block.run;
 		const first = run[0];
 		if (!first) return null;
+		if (first.type === "system") return <SystemLine key={first.id} message={first} />;
 		const self = first.senderId === person?.id;
 		const entries = run.map((message) => {
+			if (message.friendRequestId) return <FriendRequestCard key={message.id} id={message.friendRequestId} />;
 			if (message.channelAttemptId)
 				return (
 					<div key={message.id} data-message-id={message.id}>
@@ -134,6 +152,15 @@ export function ConversationMessages({
 			conversation.members.find((member) => member.memberId === first.senderId) ??
 			(self ? person : first.senderId === bot?.id ? bot : undefined);
 		const name = member?.displayName || t("chat.unknownSender");
+		const face = (
+			<Avatar
+				name={name}
+				src={member?.avatarUrl}
+				color={member?.avatarColor}
+				kind={member?.kind ?? first.senderKind}
+				size={32}
+			/>
+		);
 		return (
 			<MessageRun
 				as="div"
@@ -141,13 +168,20 @@ export function ConversationMessages({
 				self={self}
 				senderId={first.senderId}
 				avatar={
-					<Avatar
-						name={name}
-						src={member?.avatarUrl}
-						color={member?.avatarColor}
-						kind={member?.kind ?? first.senderKind}
-						size={32}
-					/>
+					showAvatars ? (
+						member && onOpenMember ? (
+							<button
+								type="button"
+								aria-label={t("members.openOwner", { name })}
+								onClick={() => onOpenMember(first.senderId)}
+								className="rounded-[var(--radius-full)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+							>
+								{face}
+							</button>
+						) : (
+							face
+						)
+					) : null
 				}
 				sender={
 					conversation.kind === "group" ? (
@@ -204,6 +238,8 @@ function MessageEntry({
 	onChooseOption,
 }: MessageProps) {
 	const { t } = useTranslation();
+	const attachment = message.attachments.length === 1 ? message.attachments[0] : undefined;
+	const voice = attachment?.kind === "audio" ? message.voice : undefined;
 	return (
 		<article
 			key={message.id}
@@ -212,7 +248,9 @@ function MessageEntry({
 			className={`flex min-w-0 flex-col gap-[var(--spacing-1)] ${self ? "items-end" : "items-start"}`}
 		>
 			{message.outwardDraft ? <p className="text-caption">{t("visits.relayPrivateDraft")}</p> : null}
-			{message.body || message.streaming ? (
+			{voice && attachment ? (
+				<VoiceMessage key={attachment.id} attachment={attachment} durationMs={voice.durationMs} self={self} />
+			) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 				<MessageBubble as="div" self={self}>
 					{message.body ? (
 						<MessageContent body={message.body} streaming={message.streaming} />
@@ -223,9 +261,9 @@ function MessageEntry({
 					)}
 				</MessageBubble>
 			) : null}
-			<MessageAttachments attachments={message.attachments} self={self} />
+			{voice ? null : <MessageAttachments attachments={message.attachments} self={self} />}
 			{message.reaction ? <span>{message.reaction}</span> : null}
-			<RunActivity run={message.run} />
+			<MessageSources run={message.run} />
 			{message.connectorRequestId ? (
 				<ConnectorRequestCard id={message.connectorRequestId} ready={message.run?.status === "completed"} />
 			) : null}

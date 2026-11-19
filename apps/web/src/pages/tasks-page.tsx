@@ -16,18 +16,20 @@ import { TaskActions } from "./task-actions.tsx";
 /**
  * 「事项 | 目标」 (16-3 第九节): the items tab is every finished or running piece of work, the goals
  * tab is what the Bot keeps watching. Creation lives in the title row; the goals menu preserves
- * both the Bot draft and the scheduled-task form.
+ * both a goal and a scheduled-task action.
  */
 export function TasksList({
 	scheduled,
 	onChange,
 	onOpenItem,
 	onAdd,
+	onSchedule,
 }: {
 	scheduled: boolean;
 	onChange: (scheduled: boolean) => void;
 	onOpenItem: (id: string) => void;
 	onAdd: () => void;
+	onSchedule?: (() => void) | undefined;
 }) {
 	const { t } = useTranslation();
 	const [creating, setCreating] = useState(false);
@@ -39,7 +41,7 @@ export function TasksList({
 					key={String(scheduled)}
 					scheduled={scheduled}
 					onAdd={onAdd}
-					onCreateSchedule={() => setCreating(true)}
+					onCreateSchedule={onSchedule ?? (() => setCreating(true))}
 				/>
 			}
 			center={
@@ -107,7 +109,7 @@ function UpcomingOneOffs() {
 	const upcoming = upcomingOneOffs(schedules.data?.items ?? []);
 	if (!upcoming.length) return null;
 	return (
-		<ListGroup title={t("tasks.itemUpcoming")}>
+		<ListGroup variant="card" title={t("tasks.itemUpcoming")}>
 			{upcoming.map((plan) => (
 				<li
 					key={plan.id}
@@ -146,13 +148,13 @@ function GoalsList({ creating }: { creating: boolean }) {
 		: null;
 	if (schedules.isLoading)
 		return (
-			<ListGroup>
+			<ListGroup variant="card">
 				<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">{t("app.loading")}</li>
 			</ListGroup>
 		);
 	if (schedules.isError && !schedules.data)
 		return (
-			<ListGroup>
+			<ListGroup variant="card">
 				<li className="flex items-center gap-[var(--spacing-3)] p-[var(--spacing-4)] text-caption text-[var(--color-danger)]">
 					<span role="alert">
 						{schedules.error instanceof ApiError ? t(schedules.error.messageKey) : t("app.loadFailed")}
@@ -170,7 +172,7 @@ function GoalsList({ creating }: { creating: boolean }) {
 					{failure}
 				</p>
 			) : null}
-			<ListGroup title={t("tasks.tracking")}>
+			<ListGroup variant="card" title={t("tasks.tracking")}>
 				{tracking.map((item) => (
 					<ScheduleRow
 						key={item.id}

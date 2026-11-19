@@ -28,8 +28,8 @@ vi.mock("@yonder/ui-data", async (original) => ({
 		deny: { mutate: calls.deny, isPending: false, error: state.saving.deny },
 		pay: { mutate: calls.pay, isPending: false, error: state.saving.pay },
 	}),
-	useContactActions: () => ({
-		addContact: { mutate: calls.addContact, isPending: false, error: state.addError },
+	useFriendRequestActions: () => ({
+		request: { mutate: calls.addContact, isPending: false, error: state.addError },
 	}),
 }));
 
@@ -110,7 +110,7 @@ test("a pending visitor is offered the owner as a contact, and only once", async
 	expect(screen.getByText("Free messages used up. Waiting for the owner to approve.")).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Add as contact" }));
 	expect(calls.addContact).toHaveBeenCalledWith("host", expect.anything());
-	await waitFor(() => expect(screen.getByText("Contact added")).toBeInTheDocument());
+	await waitFor(() => expect(screen.getByText("Request sent")).toBeInTheDocument());
 	expect(screen.queryByRole("button", { name: "Add as contact" })).toBeNull();
 });
 

@@ -46,6 +46,8 @@ export function BotList({ onOpen }: BotListProps) {
 					key={bot.id}
 					leading={<Avatar name={bot.displayName} src={bot.avatarUrl} size={40} kind="bot" color={botColor(bot)} />}
 					title={bot.displayName}
+					subtitle={`@${bot.handle}`}
+					trailing={bot.isDefault ? t("bots.defaultLabel") : undefined}
 					chevron
 					onClick={() => onOpen(bot.id)}
 				/>

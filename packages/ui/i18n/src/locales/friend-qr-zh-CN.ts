@@ -5,3 +5,11 @@ export const friendQrZhCN = {
 	myCode: "我的二维码",
 	myCodeDescription: "扫一扫，添加我为好友",
 };
+
+export const friendRequestsZhCN = {
+	title: "好友申请",
+	accepted: "已同意",
+	accept: "同意",
+	sent: "已发送申请",
+	notifications: "系统通知",
+};

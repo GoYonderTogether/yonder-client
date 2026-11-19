@@ -5,7 +5,7 @@ import { userEvent } from "@testing-library/user-event";
 import type { Conversation, Member } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { BOT_NAMES } from "../../lib/bot-defaults.ts";
 import { AddContacts } from "./add-contacts.tsx";
 import { ChatMenu } from "./chat-menu.tsx";
@@ -40,6 +40,7 @@ vi.mock("@yonder/ui-data", async (original) => ({
 		createGroup: { mutate: createGroup },
 		addContact: { mutate: addContact },
 	}),
+	useFriendRequestActions: () => ({ request: { mutate: vi.fn() } }),
 	useUpdateBot: () => ({ mutateAsync: vi.fn() }),
 	useUploadBotAvatar: () => ({ mutateAsync: vi.fn() }),
 	usePerson: () => ({ handle: "myhandle", displayName: "My name" }),
@@ -51,6 +52,10 @@ vi.mock("@yonder/ui-data", async (original) => ({
 }));
 const localised = (child: React.ReactNode) => <I18nextProvider i18n={createI18n("en")}>{child}</I18nextProvider>;
 beforeEach(() => vi.clearAllMocks());
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+});
 
 test("desktop menu preserves the requested order and keyboard selection; mobile puts scan first", () => {
 	const select = vi.fn();
@@ -69,6 +74,7 @@ test("desktop menu preserves the requested order and keyboard selection; mobile 
 	view.rerender(localised(<ChatMenu mobile onSelect={select} />));
 	fireEvent.click(screen.getByRole("button", { name: "New chat" }));
 	expect(screen.getAllByRole("menuitem")[0]).toHaveTextContent("Scan QR code");
+	expect(screen.getByRole("menuitem", { name: "Contacts" })).toBeInTheDocument();
 	fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 	expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 	expect(screen.getByRole("button", { name: "New chat" })).toHaveFocus();
@@ -124,7 +130,8 @@ test.each(["button", "Enter"])(
 	},
 );
 
-test("add contacts starts with actionable scan and invitation rows plus a real handle QR", () => {
+test("mobile add contacts starts with actionable scan and invitation rows plus a real handle QR", () => {
+	vi.spyOn(navigator, "userAgent", "get").mockReturnValue("iPhone");
 	const onScan = vi.fn();
 	const onInvite = vi.fn();
 	render(localised(<AddContacts onOpen={vi.fn()} onScan={onScan} onInvite={onInvite} />));
@@ -134,4 +141,13 @@ test("add contacts starts with actionable scan and invitation rows plus a real h
 	expect(onScan).toHaveBeenCalledOnce();
 	fireEvent.click(screen.getByRole("button", { name: /Invite friends/ }));
 	expect(onInvite).toHaveBeenCalledOnce();
+});
+
+test.each([false, true])("desktop add contacts hides scan but keeps search and own QR (native: %s)", (native) => {
+	vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0)");
+	if (native) vi.stubGlobal("__TAURI_INTERNALS__", {});
+	render(localised(<AddContacts onOpen={vi.fn()} onScan={vi.fn()} />));
+	expect(screen.queryByRole("button", { name: /Scan QR code/ })).not.toBeInTheDocument();
+	expect(screen.getByRole("searchbox", { name: "Search ID or phone" })).toBeInTheDocument();
+	expect(screen.getByRole("img", { name: "My QR code" })).toBeInTheDocument();
 });

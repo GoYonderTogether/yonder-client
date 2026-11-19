@@ -22,7 +22,7 @@ export const pricingMessagesZhCN: PricingMessages = {
 	rulesTitle: "各个额度",
 	purpose: {
 		main: "和自己的 Bot 聊天、主 Bot 自己的工具",
-		background: "定时任务、会议纪要和后台任务",
+		background: "定时任务、录音笔记和后台任务",
 		coding: "用了连接器的子任务",
 		external: "其他人通过分享和你的 Bot 聊天",
 		tools: "联网搜索、网页读取这类按次计费的工具",

@@ -1,12 +1,9 @@
 import { messageMarkdownOptions } from "@yonder/chat-presentation";
 import type { MemoryFileContent } from "@yonder/protocol";
-import { Button } from "@yonder/ui-components";
-import { Link2 } from "lucide-react";
 import Markdown, { RuleType } from "markdown-to-jsx";
-import { useTranslation } from "react-i18next";
 
+/** The file's Markdown; links to other memory files open them, others stay plain text. */
 export function MemoryMarkdown({ file, onOpen }: { file: MemoryFileContent; onOpen: (path: string) => void }) {
-	const { t } = useTranslation();
 	return (
 		<div className="memory-file-body">
 			<Markdown
@@ -30,18 +27,6 @@ export function MemoryMarkdown({ file, onOpen }: { file: MemoryFileContent; onOp
 			>
 				{file.content}
 			</Markdown>
-			{file.links.length ? (
-				<ul aria-label={t("memory.linkedFiles")}>
-					{Array.from(new Set(file.links), (path) => (
-						<li key={path}>
-							<Button size="sm" variant="link" className="h-auto text-start wrap-anywhere" onClick={() => onOpen(path)}>
-								<Link2 className="size-[var(--spacing-4)] shrink-0" aria-hidden />
-								{path}
-							</Button>
-						</li>
-					))}
-				</ul>
-			) : null}
 		</div>
 	);
 }

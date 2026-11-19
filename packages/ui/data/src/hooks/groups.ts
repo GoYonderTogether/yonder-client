@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AddGroupMembersRequest, Conversation, TransferGroupOwnerRequest } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
-import { removeConversation } from "../realtime/member-cache.ts";
+import { removeConversation, writeConversation } from "../realtime/member-cache.ts";
 import { useMe } from "./account.ts";
 
 /**
@@ -15,14 +15,7 @@ export function useGroupActions(conversationId: string) {
 	const client = useQueryClient();
 	const personId = useMe().data?.member.id;
 
-	const replace = (conversation: Conversation) => {
-		client.setQueryData<{ items: Conversation[] }>(keys.conversations.list(), (current) => {
-			const items = current?.items ?? [];
-			return items.some((item) => item.id === conversation.id)
-				? { items: items.map((item) => (item.id === conversation.id ? conversation : item)) }
-				: { items: [conversation, ...items] };
-		});
-	};
+	const replace = (conversation: Conversation) => writeConversation(client, conversation);
 	/** The server answers 204 for a removal; the member list is the only thing that changed. */
 	const refetch = () => client.invalidateQueries({ queryKey: keys.conversations.list() });
 

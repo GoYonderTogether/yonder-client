@@ -5,7 +5,7 @@ import { useShellChrome } from "./shell-context.tsx";
 import { TopBar } from "./top-bar.tsx";
 import { useChromeSize } from "./use-chrome-size.ts";
 
-/** Shared list and detail wrappers. Pages provide only the top bar's center and right slots. */
+/** Shared list and detail wrappers. The shell supplies the leading navigation control. */
 export function ListFrame({
 	title,
 	center,
@@ -28,28 +28,30 @@ export function ListFrame({
 	}, [positions, scrollKey]);
 	const phone = mode === "mobile";
 	const header = useChromeSize("--frame-header-height");
+	const heading = title ? (
+		<h1 className="truncate text-h3 font-semibold text-[var(--color-text-primary)]">{title}</h1>
+	) : null;
 	return (
 		<div data-shell-frame className="relative flex min-h-0 flex-1 flex-col">
 			<div ref={header} data-frame-header className="shrink-0">
 				<TopBar
 					left={
-						meOpen ? (
+						meOpen || phone ? (
 							left
 						) : (
 							<div className="flex min-w-0 items-center gap-[var(--spacing-3)]">
 								{left}
-								{title ? (
-									<h1 className="truncate text-h3 font-semibold text-[var(--color-text-primary)]">{title}</h1>
-								) : null}
+								{heading}
 							</div>
 						)
 					}
-					center={meOpen ? title : null}
+					center={meOpen ? title : phone ? heading : null}
 					right={action}
+					titleAlign={phone && !meOpen && !title ? "start" : "center"}
 					phone={phone}
 				/>
 				{center ? (
-					<div className="flex shrink-0 justify-center px-[var(--spacing-4)] pb-[var(--spacing-3)] [&>[role=radiogroup]]:h-auto [&>[role=radiogroup]]:w-full [&>[role=radiogroup]]:rounded-[var(--radius-full)] [&_label]:min-h-[calc(var(--control-lg)-var(--spacing-1))] [&_label]:flex-1 [&_label]:rounded-[var(--radius-full)] [&_label]:text-body [&_label>span]:w-full [&_label>span]:justify-center [&_label>span]:rounded-[var(--radius-full)]">
+					<div className="flex shrink-0 justify-center px-[var(--spacing-4)] pb-[var(--spacing-3)] [&>[role=radiogroup]]:h-auto [&>[role=radiogroup]]:w-full [&>[role=radiogroup]]:rounded-[var(--radius-full)] [&>[role=radiogroup]]:py-[calc(var(--spacing-1)/2)] [&_label]:min-h-[calc(var(--control-lg)-var(--spacing-1))] [&_label]:flex-1 [&_label]:rounded-[var(--radius-full)] [&_label]:text-body [&_label>span]:my-[calc(var(--spacing-1)/2)] [&_label>span]:w-full [&_label>span]:justify-center [&_label>span]:rounded-[var(--radius-full)]">
 						{center}
 					</div>
 				) : null}
@@ -71,50 +73,56 @@ export function ListFrame({
 	);
 }
 
-/** Which column width a page uses; values are the `--width-*` tokens (docs/design-system.md). */
-export type PageWidth = "form" | "sheet" | "reading" | "wide" | "full";
-
-const PAGE_WIDTHS: Record<PageWidth, string | false> = {
-	form: "mx-auto max-w-[var(--width-form)]",
-	sheet: "mx-auto max-w-[var(--width-sheet)]",
-	reading: "mx-auto max-w-[var(--width-reading)]",
-	wide: "mx-auto max-w-[var(--width-wide)]",
-	full: false,
-};
-
-export interface PageFrameProps {
+export function PageFrame({
+	title,
+	titleAlign = "center",
+	action,
+	afterTopBar,
+	children,
+	width = "reading",
+	scroll = true,
+	hideHeader = false,
+	floatingHeader = false,
+}: {
 	title?: ReactNode;
+	titleAlign?: "start" | "center";
 	action?: ReactNode;
+	afterTopBar?: ReactNode;
 	children: ReactNode;
-	/** form 400 (auth, setup), sheet 560, reading 680 (default: settings, details), wide 880, full. */
-	width?: PageWidth;
+	width?: "reading" | "full";
 	scroll?: boolean;
-}
-
-/**
- * The detail-layer page: one TopBar and a padded, centred column. Padding is `--page-padding`, so
- * density changes it: 16 on a phone, 24 above and below on a desktop, and one spacing step more at
- * the sides so the column lines up with the TopBar's title.
- */
-export function PageFrame({ title, action, children, width = "reading", scroll = true }: PageFrameProps) {
+	hideHeader?: boolean;
+	floatingHeader?: boolean;
+}) {
 	const { mode, left } = useShellChrome();
 	const phone = mode === "mobile";
-	const header = useChromeSize("--frame-header-height");
+	const header = useChromeSize("--frame-header-height", !hideHeader, undefined, floatingHeader);
 	return (
 		<div data-shell-frame className="relative flex min-h-0 flex-1 flex-col">
-			<div ref={header} data-frame-header className="shrink-0">
-				<TopBar left={left} center={title} right={action} phone={phone} />
-			</div>
+			{hideHeader ? null : (
+				<div
+					ref={header}
+					data-frame-header
+					data-floating-frame-header={floatingHeader || undefined}
+					className="shrink-0"
+				>
+					{floatingHeader ? (
+						<div data-floating-frame-leading>{left}</div>
+					) : (
+						<TopBar left={left} center={title} right={action} titleAlign={titleAlign} phone={phone} />
+					)}
+					{afterTopBar}
+				</div>
+			)}
 			<div
-				data-frame-scroll
+				data-frame-scroll={!hideHeader || undefined}
 				className={cn("flex min-h-0 flex-1 flex-col", scroll && "overflow-y-auto overscroll-contain")}
 			>
 				<div
 					className={cn(
 						"flex w-full flex-1 flex-col",
-						PAGE_WIDTHS[width],
-						"py-[var(--page-padding)]",
-						phone ? "px-[var(--page-padding)]" : "px-[calc(var(--page-padding)+var(--spacing-2))]",
+						width === "reading" && "mx-auto max-w-[680px]",
+						phone ? "px-[var(--spacing-4)] py-[var(--spacing-4)]" : "px-[var(--spacing-8)] py-[var(--spacing-6)]",
 					)}
 				>
 					{children}

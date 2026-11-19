@@ -1,11 +1,11 @@
 import type { meetingRecorderEn } from "./meeting-recorder-en.ts";
 
 export const meetingRecorderZhCN: typeof meetingRecorderEn = {
-	name: "会议录音",
-	defaultTitle: "会议录音",
+	name: "录音笔记",
+	defaultTitle: "录音笔记",
 	titleLabel: "录音标题",
 	start: "开始录音",
-	microphoneOccupied: "请先结束聊天语音输入，再开始会议录音。",
+	microphoneOccupied: "请先结束聊天语音输入，再开始录音。",
 	stop: "结束录音",
 	pause: "暂停录音",
 	resume: "继续录音",
@@ -29,7 +29,7 @@ export const meetingRecorderZhCN: typeof meetingRecorderEn = {
 	fullTranscript: "完整转写",
 	summary: "会议纪要",
 	cloudHistory: "Bot 会议纪要",
-	openResult: "查看会议纪要 · {{title}}",
+	openResult: "查看录音笔记 · {{title}}",
 	prepare: "交给 {{name}} 整理已保存音频",
 	retryUpload: "重试音频上传",
 	uploadAfterEnd: "结束后上传音频，由 {{name}} 转写、整理并回传。",

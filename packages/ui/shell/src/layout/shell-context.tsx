@@ -5,6 +5,7 @@ import type { LayoutMode } from "../responsive/layout-mode.ts";
 /** The shell owns the leading control, while each page supplies its center and right slots. */
 export interface ShellChrome {
 	mode: LayoutMode;
+	desktop?: boolean;
 	left: ReactNode;
 	meOpen: boolean;
 	scroll?: { key: string; positions: RefObject<Record<string, number>> };

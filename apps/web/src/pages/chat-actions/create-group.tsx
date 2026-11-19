@@ -1,11 +1,13 @@
-import { Avatar, Button, Checkbox, SearchInput, TextField } from "@yonder/ui-components";
+import { Avatar, Button, Checkbox, cn, SearchInput, TextField } from "@yonder/ui-components";
 import { useContactActions, useContacts } from "@yonder/ui-data";
+import { useShellChrome } from "@yonder/ui-shell";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActionError } from "./action-error.tsx";
 
 export function CreateGroup({ onCreated, onCancel }: { onCreated: (id: string) => void; onCancel: () => void }) {
 	const { t } = useTranslation();
+	const { mode, desktop } = useShellChrome();
 	const contacts = useContacts();
 	const { createGroup } = useContactActions();
 	const [query, setQuery] = useState("");
@@ -17,6 +19,7 @@ export function CreateGroup({ onCreated, onCancel }: { onCreated: (id: string) =
 	);
 	return (
 		<form
+			className="flex grow flex-col"
 			onSubmit={(event) => {
 				event.preventDefault();
 				if (selected.length >= 2)
@@ -26,7 +29,14 @@ export function CreateGroup({ onCreated, onCancel }: { onCreated: (id: string) =
 					);
 			}}
 		>
-			<div className="grid min-h-0 grid-cols-1 sm:grid-cols-2">
+			<div
+				className={cn(
+					"grid min-h-0 grow",
+					desktop && mode === "wide"
+						? "grid-cols-[repeat(auto-fit,minmax(min(100%,var(--group-form-column-min)),1fr))]"
+						: "grid-cols-1 sm:grid-cols-2",
+				)}
+			>
 				<div className="flex min-w-0 flex-col gap-[var(--spacing-4)] bg-[var(--color-bg-subtle)] p-[var(--spacing-5)]">
 					<SearchInput
 						placeholder={t("chatActions.searchContacts")}

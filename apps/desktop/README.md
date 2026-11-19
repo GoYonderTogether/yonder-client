@@ -1,7 +1,7 @@
 # @yonder/desktop（Tauri 2 壳）
 
-Thin native shell around the web build. One window, one page: `apps/web/dist` says **Yonder** and
-the version. No plugins, no tray, no background process, no second set of system notifications.
+Thin native shell around the web build. It adds the system integrations used by the web app,
+including native message notifications.
 
 ## Identity
 
@@ -61,6 +61,15 @@ npx tauri android init --ci  && node prepare-android.mjs  # signing, Gradle mirr
   Without a keystore the release build stays unsigned and still builds.
 - `versionCode` is `YYMMDDNN` from the release version, injected by `android-release.yml` through
   `--config`; the static value in `tauri.android.conf.json` is only a local-debug placeholder.
+
+### Message notifications
+
+- iOS development signing enables the APNs sandbox. For distribution, set `YONDER_IOS_PUSH=1`
+  when running `prepare-ios.mjs` and use a distribution profile with the Push Notifications capability.
+- Android FCM uses `YONDER_FIREBASE_ANDROID_CONFIG=/path/to/google-services.json` when running
+  `prepare-android.mjs`. The config must match `net.yonderbot.app` and the Firebase project used by the cloud.
+- macOS and installed Windows builds display system notifications from the running app. The server
+  shares each conversation's unread and mute state across devices. The OS controls notification permission.
 
 ## Signing material (CI secrets)
 

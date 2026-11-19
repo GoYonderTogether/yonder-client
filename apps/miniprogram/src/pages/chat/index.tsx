@@ -1,21 +1,24 @@
 import { Checkbox, Image, Button as NativeButton, ScrollView, Text, Textarea, View } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
+import { groupMessages, isTwoPartyAgentChat } from "@yonder/chat-model";
 import { ComposerFrame, ComposerLayout, UploadTile } from "@yonder/chat-presentation";
 import type { SkillSummary } from "@yonder/protocol";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, go, Page, State } from "../../components/ui";
 import { t, useLocale } from "../../lib/i18n";
 import { api } from "../../lib/runtime";
+import { AgentTitle } from "./agent-title";
 import { ChatAvatar } from "./avatar";
 import { chatBotId } from "./bot-entry";
 import { ChatView } from "./host";
-import { renderRun } from "./messages";
-import { conversationTitle, directPartner, groupChatMessages } from "./model";
+import { renderMessageBlock } from "./messages";
+import { conversationTitle, directPartner } from "./model";
 import { measureScrollAnchor, type ScrollAnchorMetrics } from "./scroll-anchor";
 import { closureText } from "./sentences";
 import { useChat } from "./use-chat";
 import { useChatUploads } from "./use-uploads";
 import { useChatViewport } from "./use-viewport";
+import { useVisibleRead } from "./use-visible-read";
 import { visitSentence } from "./visits";
 import { VoiceInput } from "./voice";
 import "./style.scss";
@@ -60,6 +63,7 @@ export default function Chat() {
 	const lastScrollTop = useRef(0);
 	const followRef = useRef(follow);
 	followRef.current = follow;
+	useVisibleRead(id, chat.me?.member.id, chat.messages, follow && Boolean(chat.conversation?.unreadCount));
 	const lastMessage = chat.messages.at(-1);
 	const isGroup = chat.conversation?.kind === "group";
 	// A closed group keeps its history and loses the composer; the reason is the server's.
@@ -72,7 +76,7 @@ export default function Chat() {
 		? chat.conversation?.members.find((member) => member.kind === "person" && member.memberId !== chat.me?.member.id)
 		: undefined;
 	const visitLine = visit ? visitSentence(visit, visitor?.displayName ?? "", locale) : null;
-	const watching = visit?.role === "host";
+	const watching = visit?.role === "host" || chat.conversation?.kind === "system";
 	const partner = visit
 		? visit.role === "host"
 			? visitor
@@ -80,17 +84,28 @@ export default function Chat() {
 		: chat.conversation
 			? directPartner(chat.conversation.members, chat.me?.member.id)
 			: undefined;
-	// In a one-to-one chat the title and the Bot's avatar open the Bot page this account owns
+	// In a one-to-one chat the settings action and the Bot's avatar open the Bot page this account owns
 	// (15-Bot生命周期 四 ①); a visit is handled by the visit flow instead.
 	const botId = chatBotId(chat.conversation);
 	const openDetails = () => {
 		if (!chat.conversation) return;
 		if (isGroup) go(`/pages/group/index?id=${encodeURIComponent(chat.conversation.id)}`);
-		else if (botId) go(`/pages/bot/index?id=${encodeURIComponent(botId)}`);
-		else if (partner) go(`/pages/member/index?handle=${encodeURIComponent(partner.handle)}`);
+		else if (botId) go(`/pages/bot/index?id=${encodeURIComponent(botId)}&conversationId=${encodeURIComponent(id)}`);
+		else if (partner)
+			go(`/pages/member/index?handle=${encodeURIComponent(partner.handle)}&conversationId=${encodeURIComponent(id)}`);
 	};
 	const botMember = chat.conversation?.members.find((member) => member.kind === "bot");
-	const runs = useMemo(() => groupChatMessages(chat.messages), [chat.messages]);
+	const agentPeer = !isGroup && partner?.kind === "bot" ? partner : undefined;
+	const showMessageAvatars = !chat.conversation || !isTwoPartyAgentChat(chat.conversation, chat.me?.member.id);
+	const title =
+		(chat.conversation &&
+			((visit ? partner?.displayName : undefined) ||
+				(chat.conversation.kind === "system"
+					? t("系统通知", "System notifications")
+					: conversationTitle(chat.conversation.members, chat.me?.member.id, chat.conversation.title)))) ||
+		t("聊天", "Chat");
+	const blocks = useMemo(() => groupMessages(chat.messages, chat.hasFullHistory), [chat.messages, chat.hasFullHistory]);
+	const presentation = { showMessageAvatars, showSenderNames: isGroup, locale };
 	const openOptions = chat.messages
 		.slice()
 		.reverse()
@@ -207,19 +222,14 @@ export default function Chat() {
 		<Page
 			back
 			chatLayout
-			onTitleClick={chat.conversation ? openDetails : undefined}
-			title={
-				chat.conversation
-					? (visit ? partner?.displayName : undefined) ||
-						conversationTitle(chat.conversation.members, chat.me?.member.id, chat.conversation.title) ||
-						t("聊天", "Chat")
-					: t("聊天", "Chat")
-			}
+			onMore={chat.conversation?.kind !== "system" && (isGroup || botId || partner?.handle) ? openDetails : undefined}
+			title={agentPeer ? null : title}
 		>
 			<View
 				className={`mini-chat ${keyboardVisible ? "mini-chat-keyboard-open" : ""}`}
 				style={{ height: `${contentHeight}px` }}
 			>
+				{agentPeer ? <AgentTitle key={agentPeer.memberId} bot={agentPeer} messages={chat.messages} /> : null}
 				{chat.loading || chat.error || uploads.error || uploadNotice || chat.closedError || chat.visitError ? (
 					<View className="mini-chat-status">
 						<State
@@ -288,10 +298,11 @@ export default function Chat() {
 								secondary
 								disabled={chat.olderLoading}
 								onClick={() => {
-									const firstId = chat.messages[0]?.id;
+									const firstId = blocks.find((block) => "run" in block)?.run[0]?.id;
 									setFollow(false);
 									setAnchor("");
-									if (!firstId || chat.olderLoading || pendingOlderAnchor.current) return;
+									if (chat.olderLoading || pendingOlderAnchor.current) return;
+									if (!firstId) return void chat.load(true);
 									void measureScrollAnchor(firstId).then((before) => {
 										if (!before || draftKeyRef.current !== draftKey || pendingOlderAnchor.current) return;
 										const pending = {
@@ -317,12 +328,19 @@ export default function Chat() {
 							</Button>
 						</View>
 					) : null}
-					{runs.map((run) => renderRun(run, chat, isGroup, followAfterLayout, openOptions))}
+					{blocks.map((block) => renderMessageBlock(block, chat, presentation, followAfterLayout, openOptions))}
 					{!chat.loading && !chat.error && chat.messages.length === 0 ? (
 						<View className="mini-chat-empty">
-							<View className="mini-chat-empty-icon">
-								<ChatAvatar name={botMember?.displayName || "Yonder"} kind="bot" src={botMember?.avatarUrl} size={40} />
-							</View>
+							{agentPeer ? null : (
+								<View className="mini-chat-empty-icon">
+									<ChatAvatar
+										name={botMember?.displayName || "Yonder"}
+										kind="bot"
+										src={botMember?.avatarUrl}
+										size={40}
+									/>
+								</View>
+							)}
 							<Text>{t("还没有消息", "No messages yet")}</Text>
 						</View>
 					) : null}

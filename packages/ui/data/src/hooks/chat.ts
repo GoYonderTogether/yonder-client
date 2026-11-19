@@ -42,7 +42,7 @@ export function useMessages(conversationId: string | null) {
 	return useInfiniteQuery({
 		queryKey: keys.messages.latest(conversationId ?? ""),
 		queryFn: async ({ pageParam }) => {
-			const page = await api.messages(conversationId ?? "", pageParam);
+			const page = await api.messages(conversationId ?? "", pageParam, { markRead: false });
 			const owner = client.getQueryData<MeResponse>(keys.me())?.member.id;
 			if (pageParam || !owner || !conversationId) return page;
 			const outbox = await listChatCache<CachedMessage>(outboxCacheKey(owner, conversationId)).catch(() => []);
@@ -65,6 +65,7 @@ export function useSendMessage(conversationId: string | null, personId: string |
 	const api = useApi();
 	const client = useQueryClient();
 	return useMutation({
+		mutationKey: ["send-message", personId, conversationId],
 		mutationFn: ({ attachments: _attachments, ...body }: SendInput) => api.sendMessage(conversationId ?? "", body),
 		onMutate: async (body) => {
 			if (!conversationId) return;
@@ -78,6 +79,7 @@ export function useSendMessage(conversationId: string | null, personId: string |
 				type: "text",
 				body: body.body,
 				attachments: body.attachments ?? [],
+				...(body.voice ? { voice: body.voice } : {}),
 				replyToId: null,
 				createdAt: new Date().toISOString(),
 				editedAt: null,
@@ -116,6 +118,7 @@ export function useSendMessage(conversationId: string | null, personId: string |
 				type: "text",
 				body: body.body,
 				attachments: body.attachments ?? [],
+				...(body.voice ? { voice: body.voice } : {}),
 				replyToId: null,
 				createdAt: new Date().toISOString(),
 				editedAt: null,

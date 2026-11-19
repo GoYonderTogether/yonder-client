@@ -59,7 +59,9 @@ export function UpdateControlsView({ updater }: { updater: Updater }) {
 			{canInstall ? (
 				<ListRow
 					title={t(updater.platform === "desktop" ? "me.update.restart" : "me.update.download")}
-					onClick={() => void updater.install()}
+					onClick={() => {
+						if (updater.platform !== "desktop" || window.confirm(t("me.update.restartConfirm"))) void updater.install();
+					}}
 				/>
 			) : null}
 		</ListGroup>

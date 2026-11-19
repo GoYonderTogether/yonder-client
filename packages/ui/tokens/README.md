@@ -5,6 +5,7 @@ them. **No components.**
 
 ## What it holds
 
+- `src/glow.css` — the glow style; the app imports it right after `tokens.css` so it overrides the themes.
 - `src/tokens.css` — imported once by the app. `@theme` gives Tailwind the type scale, spacing,
   radii and fonts; `:root` / `[data-theme]` give the semantic colours, shadows, motion values and
   the avatar fallback tints.

@@ -14,6 +14,7 @@ const timeline: MemoryDayPage = {
 			state: "ready",
 			failure: null,
 			digest: { steps: null, places: 0, photos: 0 },
+			digestPath: null,
 			blocks: [
 				{
 					type: "entry",
@@ -58,12 +59,17 @@ async function memoryApi(page: Page) {
 		version: 1,
 		updatedAt: at,
 		visibility: "private",
+		updatedBy: "bot:weekly",
+		updatedByName: "小助手",
 		userEdited: false,
+		draft: false,
 		sources: [],
 		links: [],
+		limit: { length: path.startsWith("/me/") ? 3000 : 65536, unit: path.startsWith("/me/") ? "characters" : "bytes" },
 	});
 	const note = file(notePath, "周会纪要", "archive", "核对发布窗口。");
 	note.version = 2;
+	note.sources = [{ eventId: "mev_1", connector: "meeting", title: "星期三周会", meetingId: "meeting-1" }];
 	const records: Record<string, MemoryFileContent> = {
 		[impressionPath]: file(impressionPath, "印象", "impression", "偏好 **直接说明**。"),
 		[recentPath]: file(recentPath, "近期", "recent", "本周核对归档。"),
@@ -102,6 +108,9 @@ async function memoryApi(page: Page) {
 		if (method === "PUT") {
 			note.content = body.content;
 			note.userEdited = true;
+			note.updatedBy = "user";
+		} else if (method === "PATCH" && url.pathname.endsWith("/protection")) {
+			note.userEdited = false;
 		} else if (method === "PATCH") {
 			note.visibility = body.visibility;
 		} else if (method === "POST") {
@@ -122,54 +131,80 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	const api = await memoryApi(page);
 	await page.goto("/memory");
 	await expect(page.locator(`[data-layout-mode="${phone ? "mobile" : "wide"}"]`)).toBeVisible();
+	// The card heads the page; its back holds what the Bot knows.
+	const card = page.getByRole("region", { name: "我的名片" });
+	await expect(card.getByText("@chatcheck")).toBeVisible();
+	await card.getByRole("button", { name: "翻到背面" }).click({ position: { x: 24, y: 24 } });
+	await expect(card.getByRole("button", { name: /印象.*直接说明/ })).toBeVisible();
+	await card.getByRole("button", { name: "翻回正面" }).click({ position: { x: 24, y: 24 } });
+	// Phones see the latest entries on the home and open the whole timeline from there; a wide
+	// window shows the timeline beside the column.
+	if (phone) {
+		await expect(page.getByRole("button", { name: /会后决定/ })).toBeVisible();
+		await page.getByRole("button", { name: "查看全部时间线" }).click();
+		await expect(page).toHaveURL(/\/memory\/timeline$/);
+	}
+	// A private card carries no visibility mark.
+	await expect(page.getByText("来自 录音笔记")).toBeVisible();
+	await expect(page.getByRole("img", { name: "私人" })).toHaveCount(0);
 	await page.getByRole("button", { name: /会后决定/ }).click();
 	await expect(page.getByText("接口在周五完成。")).toBeVisible();
-	await expect(page.getByText("星期三周会", { exact: true })).toHaveCount(2);
-	await expect(page.getByText("私人", { exact: true })).toBeVisible();
-	await page.getByRole("radio", { name: "了解" }).click();
-	await expect(page).toHaveURL(/\/memory\/about$/);
-	await expect(page.locator("strong").getByText("直接说明")).toBeVisible();
-	await expect(page.getByText("本周核对归档。")).toBeVisible();
-	await page.getByRole("radio", { name: "文件" }).click();
-	await page.getByText("归档", { exact: true }).click();
-	await page.getByText("会议", { exact: true }).click();
+
+	// The impression opens as its own file page from the back of the card.
+	if (phone) await page.goto("/memory");
+	await card.getByRole("button", { name: "翻到背面" }).click({ position: { x: 24, y: 24 } });
+	await card.getByRole("button", { name: /印象/ }).click();
+	await expect(page).toHaveURL(/\/memory\/files\/.+/);
+	const impression = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "印象" }) });
+	await expect(impression.locator("strong").getByText("直接说明")).toBeVisible();
+	await impression.getByRole("button", { name: "编辑" }).click();
+	await expect(impression.getByText("12 / 3,000")).toBeVisible();
+	await impression.getByRole("button", { name: "取消" }).click();
+
+	// Every group is a card under 「全部」 (a row in the wide column); the meeting folder holds the note.
+	await page.goto("/memory");
+	await page.getByRole("button", { name: /^会议/ }).click();
+	await expect(page).toHaveURL(/\/memory\/g\/.+/);
 	await page.getByRole("button", { name: /周会纪要/ }).click();
-	const reader = page.getByRole("dialog", { name: "记忆文件" });
-	await expect(reader.getByText(notePath)).toBeVisible();
+	await expect(page).toHaveURL(/\/memory\/files\/.+/);
+	const reader = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "周会纪要" }) });
+	await expect(reader.getByRole("button", { name: "星期三周会" })).toBeVisible();
 	await reader.getByRole("button", { name: "编辑" }).click();
-	await reader.getByRole("textbox", { name: "记忆正文" }).fill("发布窗口已确认。");
+	await reader.getByRole("textbox", { name: "正文" }).fill("发布窗口已确认。");
 	await reader.getByRole("button", { name: "保存" }).click();
 	await expect(reader.getByText("发布窗口已确认。", { exact: true })).toBeVisible();
 	expect(api.writes.at(-1)).toEqual({
 		method: "PUT",
 		body: { path: notePath, content: "发布窗口已确认。", expectedVersion: 2 },
 	});
+	await expect(reader.getByRole("button", { name: "你改过" })).toBeVisible();
+
 	await reader.getByRole("button", { name: "可见级别: 私人" }).click();
-	await reader.getByRole("option", { name: "公开" }).click();
-	await expect(reader.getByText("公开后，对外会话可以读取这份文件。确认公开吗？")).toBeVisible();
+	await reader.getByRole("menuitemradio", { name: "公开" }).click();
+	await expect(reader.getByText("公开后，别人通过你的 Bot 能读到这份内容。")).toBeVisible();
 	expect(api.writes).toHaveLength(1);
-	await reader.getByRole("button", { name: "确认公开" }).click();
+	await reader.getByRole("button", { name: "公开", exact: true }).click();
 	await expect(reader.getByRole("button", { name: "可见级别: 公开" })).toBeVisible();
 	expect(api.writes.at(-1)).toEqual({ method: "PATCH", body: { path: notePath, visibility: "public" } });
+
 	await reader.getByRole("button", { name: "历史" }).click();
-	await reader.getByRole("button", { name: /第 2 版/ }).click();
-	await expect(reader.getByRole("heading", { name: "改动前" })).toBeVisible();
-	await expect(reader.getByText("确认发布窗口。")).toBeVisible();
-	await expect(reader.getByText("核对发布窗口。")).toBeVisible();
+	const history = page.getByRole("dialog", { name: "周会纪要 的历史" });
+	await history.getByRole("button", { name: /第 2 版/ }).click();
+	const version = page.getByRole("dialog", { name: "第 2 版" });
+	await expect(version.getByText("核对发布窗口。")).toBeVisible();
 	if (!phone) await page.screenshot({ path: testInfo.outputPath("memory-history.png") });
-	await reader.getByRole("button", { name: "撤回到第 2 版" }).click();
-	await expect(reader.getByText("核对发布窗口。")).toHaveCount(2);
+	await version.getByRole("button", { name: "恢复到这一版" }).click();
+	await expect(version).toHaveCount(0);
 	expect(api.writes.at(-1)).toEqual({ method: "POST", body: { path: notePath, version: 2 } });
-	await reader.getByRole("button", { name: "历史" }).click();
-	await reader.getByRole("button", { name: "删除文件" }).click();
+
+	await reader.getByRole("button", { name: "删除" }).click();
 	await reader.getByRole("button", { name: "确认删除" }).click();
-	await expect(page.getByText("暂无记忆文件")).toBeVisible();
+	await expect(page).toHaveURL(/\/memory\/g\/.+$/);
 	expect(api.writes.at(-1)).toEqual({ method: "DELETE", body: { path: notePath } });
 
 	api.disableFiles();
 	await page.reload();
-	await expect(page.getByRole("alert").getByText("记忆文件服务尚未接入")).toBeVisible();
-	await expect(page.getByText("暂无记忆文件")).toHaveCount(0);
+	await expect(page.getByRole("alert").getByText("没找到。").first()).toBeVisible();
 	if (phone) await page.screenshot({ path: testInfo.outputPath("memory-file-error.png") });
 }
 

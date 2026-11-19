@@ -118,4 +118,7 @@ test("an empty Bot placeholder does not hide the last visible message", () => {
 	expect(client.getQueryData<{ items: { lastMessage: { body: string } }[] }>(key)?.items[0]?.lastMessage.body).toBe(
 		"answer",
 	);
+	const voice = { durationMs: 1000 };
+	updateMessage(client, { ...user, id: "m3", createdAt: "2026-01-01T00:00:02.000Z", body: null, voice });
+	expect(client.getQueryData(key)).toMatchObject({ items: [{ lastMessage: { body: null, voice } }] });
 });

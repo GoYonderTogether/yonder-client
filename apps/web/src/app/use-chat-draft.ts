@@ -9,7 +9,8 @@ import {
 	useApi,
 	writeChatCache,
 } from "@yonder/ui-data";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { pcm16WavDurationMs } from "../lib/browser-meeting-wav.ts";
 import { isImageFile, type PreparedImage, prepareImage } from "../lib/prepare-image.ts";
 import {
 	boundMemberIds,
@@ -33,6 +34,8 @@ export interface DraftFile {
 	imagePrepared?: boolean;
 	imageError?: boolean;
 	sendOriginal?: boolean;
+	/** Null while a recorded message for a Bot still needs transcription. */
+	voiceTranscript?: string | null;
 }
 
 /** A draft just loaded: a preset aimed at this chat applies now, if the draft is still empty. */
@@ -78,12 +81,18 @@ const MAX_BYTES = 20 * 1024 * 1024;
 export function useChatDraft(owner: string | undefined, conversation: string | undefined) {
 	const api = useApi();
 	const key = owner && conversation ? `draft:${owner}:${conversation}` : "";
+	const liveKey = useRef(key);
+	liveKey.current = key;
 	const current = useRef({ key, value: empty(), loaded: false });
 	const [state, setState] = useState(current.current);
 	const [error, setError] = useState("");
 	const [sending, setSending] = useState(false);
-	const busy = useRef(false);
-	const inFlightSend = useRef<AbortController | null>(null);
+	const inFlightSend = useRef<{ controller: AbortController; preparingVoiceKey: string | undefined } | null>(null);
+	const finishSend = useCallback((controller: AbortController) => {
+		if (inFlightSend.current?.controller !== controller) return;
+		inFlightSend.current = null;
+		setSending(false);
+	}, []);
 	const bindingHistory = useRef(completionHistory());
 	const preparations = useRef(new Map<string, Promise<PreparedImage | undefined>>());
 	// ponytail: serialize image encoding to bound canvas memory; parallelize only if it becomes a measured wait.
@@ -125,8 +134,13 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				});
 		return () => {
 			active = false;
+			const pending = inFlightSend.current;
+			if (pending && pending.preparingVoiceKey === key) {
+				pending.controller.abort();
+				finishSend(pending.controller);
+			}
 		};
-	}, [key]);
+	}, [key, finishSend]);
 
 	function change(update: (draft: Draft) => Draft, scope = key, inputType?: string) {
 		if (!scope || current.current.key !== scope || !current.current.loaded) return;
@@ -141,7 +155,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		});
 	}
 
-	function addFiles(files: File[]) {
+	function addFiles(files: File[], voiceTranscript?: string | null) {
 		if (!current.current.loaded || current.current.key !== key) return;
 		const accepted = files.filter((file) => file.size <= MAX_BYTES);
 		const available = Math.max(0, 10 - current.current.value.files.length);
@@ -154,6 +168,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			mimeType: file.type,
 			blob: file,
 			status: isImageFile(file.name, file.type) ? "preparing" : "ready",
+			...(voiceTranscript !== undefined ? { voiceTranscript } : {}),
 		}));
 		change((draft) => ({
 			...draft,
@@ -254,8 +269,24 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		}
 	}
 
-	async function submit(send: (input: SendMessageRequest & { attachments: Attachment[] }) => Promise<unknown>) {
-		if (busy.current || !key || !current.current.loaded || current.current.key !== key) return;
+	async function submit(
+		send: (input: SendMessageRequest & { attachments: Attachment[] }) => Promise<unknown>,
+		voice?: { file: File; transcribe: boolean },
+	) {
+		if (
+			inFlightSend.current ||
+			!key ||
+			liveKey.current !== key ||
+			!current.current.loaded ||
+			current.current.key !== key
+		)
+			return;
+		if (voice) {
+			const { text, files } = current.current.value;
+			addFiles([voice.file], voice.transcribe ? null : "");
+			// A draft may have arrived while recording. Keep the audio without auto-sending that draft.
+			if (text.trim() || files.length) return;
+		}
 		const draft = current.current.value;
 		const skillIds = boundSkillIds(draft.text, draft.bindings ?? []);
 		const mentionedMemberIds = boundMemberIds(draft.text, draft.bindings ?? []);
@@ -264,26 +295,55 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		const cacheGeneration = chatCacheGeneration();
 		const nonce = draft.clientNonce ?? crypto.randomUUID();
 		const controller = new AbortController();
-		inFlightSend.current = controller;
+		const hasVoice = draft.files.some((file) => file.voiceTranscript !== undefined);
+		const interrupted = () =>
+			cacheGeneration !== chatCacheGeneration() || controller.signal.aborted || (hasVoice && liveKey.current !== scope);
+		const pending = { controller, preparingVoiceKey: hasVoice ? scope : undefined };
+		inFlightSend.current = pending;
 		change((value) => ({ ...value, clientNonce: nonce }), scope);
-		busy.current = true;
 		setSending(true);
 		setError("");
 		try {
 			// The nonce is already persisted by `change`; this copy only hardens a reload mid-send.
 			await writeChatCache(scope, { ...draft, clientNonce: nonce }, cacheGeneration).catch(() => {});
 			const attachments: Attachment[] = [];
+			const transcripts: string[] = [];
 			for (const file of draft.files) {
-				if (cacheGeneration !== chatCacheGeneration() || controller.signal.aborted) return;
+				if (interrupted()) return;
+				let transcript = file.voiceTranscript;
+				if (transcript === null) {
+					const audio = new File([file.blob], file.name, { type: file.mimeType });
+					const result = await api.transcribeAudio(audio, controller.signal);
+					if (cacheGeneration !== chatCacheGeneration()) return;
+					const recognized = result.text.trim();
+					transcript = recognized;
+					const saveTranscript = (value = empty()): Draft => ({
+						...value,
+						files: value.files.map((item) => (item.id === file.id ? { ...item, voiceTranscript: recognized } : item)),
+					});
+					if (current.current.key === scope) change(saveTranscript, scope);
+					else await updateChatCache<Draft>(scope, saveTranscript, cacheGeneration);
+				}
+				if (transcript) transcripts.push(transcript);
+				if (interrupted()) return;
 				attachments.push(await upload(file, scope, controller.signal));
 			}
-			if (cacheGeneration !== chatCacheGeneration() || controller.signal.aborted) return;
+			if (interrupted()) return;
+			const recording = draft.files[0];
+			const durationMs =
+				draft.files.length === 1 && !draft.text.trim() && recording?.voiceTranscript !== undefined
+					? pcm16WavDurationMs(recording.blob.size)
+					: 0;
+			pending.preparingVoiceKey = undefined;
 			await send({
 				type: "text",
-				body: draft.text.trim(),
+				body: [draft.text.trim(), ...transcripts].filter(Boolean).join("\n"),
 				clientNonce: nonce,
 				attachmentIds: attachments.map((file) => file.id),
 				attachments,
+				...(durationMs > 0 && durationMs <= 120_000 && attachments[0]?.kind === "audio"
+					? { voice: { durationMs } }
+					: {}),
 				...(skillIds?.length ? { skillIds } : {}),
 				...(mentionedMemberIds.length ? { mentionedMemberIds } : {}),
 			});
@@ -314,14 +374,12 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			// the server named says its real reason instead of the generic sentence.
 			if (current.current.key === scope && !controller.signal.aborted) setError(sendErrorMessageKey(error));
 		} finally {
-			if (inFlightSend.current === controller) inFlightSend.current = null;
-			busy.current = false;
-			setSending(false);
+			finishSend(controller);
 		}
 	}
 
 	function cancelSend() {
-		const controller = inFlightSend.current;
+		const controller = inFlightSend.current?.controller;
 		if (controller && !controller.signal.aborted) controller.abort();
 	}
 

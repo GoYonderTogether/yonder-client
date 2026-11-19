@@ -1,8 +1,8 @@
+import type { DeviceSummary } from "@yonder/protocol";
 import { useMe } from "@yonder/ui-data";
 import { PageFrame } from "@yonder/ui-shell";
 import { lazy, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ChannelsSection } from "../channels/feishu-channel.tsx";
 import { AboutSection } from "../components/about-section.tsx";
 import { AccountSection } from "../components/account-section.tsx";
 import { ChangePhoneForm } from "../components/change-phone-form.tsx";
@@ -10,7 +10,7 @@ import { DevicesSection } from "../components/devices-section.tsx";
 import { GeneralSection } from "../components/empty-sections.tsx";
 import { InviteSection } from "../components/invite-section.tsx";
 import { ProfileEditor } from "../components/profile-editor.tsx";
-import { QuotaSection } from "../components/quota-section.tsx";
+import { parseQuotaPage, QuotaSection, quotaPageTitle } from "../components/quota-section.tsx";
 import { ConnectorsSection } from "../connectors/connectors-section.tsx";
 import type { LocalFilesAdapter } from "../connectors/local-files-adapter.ts";
 import type { MeSectionId } from "./sections.tsx";
@@ -24,12 +24,12 @@ const SkillsSection = lazy(() =>
 );
 
 export interface MeSectionPageProps {
-	section: MeSectionId | null;
+	section: Exclude<MeSectionId, "bots" | "reception" | "channels"> | null;
 	/** A page inside a section, e.g. `password` inside `account`. */
 	page: string | null;
 	onOpenPage: (page: string | null) => void;
 	onOpenDevices?: () => void;
-	onAddDevice?: () => void;
+	onAddDevice?: (platforms?: readonly DeviceSummary["platform"][]) => void;
 	localFiles?: LocalFilesAdapter | undefined;
 	onModelDirtyChange?: (dirty: boolean) => void;
 	onSignedOut: () => void;
@@ -39,11 +39,6 @@ export interface MeSectionPageProps {
 	aboutUpdate?: ReactNode;
 	/** The change-password screen is provided by the app, which owns the auth feature. */
 	renderChangePassword: (onDone: () => void) => ReactNode;
-	/**
-	 * The Bot list belongs to `feature-members`, which this package may not import (dependency map);
-	 * the app passes the rendered list in, the way it already passes the password screen.
-	 */
-	bots?: ReactNode;
 	/**
 	 * The three privacy switches likewise live in `feature-members`; the app passes the rendered
 	 * switches in, the same way it passes the Bot list.
@@ -69,10 +64,9 @@ export function MeSectionPage({
 	serverVersion,
 	aboutUpdate,
 	renderChangePassword,
-	bots,
 	privacy,
 }: MeSectionPageProps) {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
 	const me = useMe();
 
 	if (!section) {
@@ -80,15 +74,12 @@ export function MeSectionPage({
 	}
 
 	if (section === "account" && page === "password") {
+		const title = me.data?.hasPassword ? t("me.account.changePassword") : t("me.account.setPassword");
 		return (
-			<PageFrame title={me.data?.hasPassword ? t("me.account.changePassword") : t("me.account.setPassword")}>
+			<PageFrame title={<h1 className="truncate">{title}</h1>}>
 				{renderChangePassword(() => onOpenPage(null))}
 			</PageFrame>
 		);
-	}
-
-	if (section === "bots") {
-		return <PageFrame title={t("bots.title")}>{bots ?? null}</PageFrame>;
 	}
 
 	if (section === "privacy") {
@@ -102,6 +93,31 @@ export function MeSectionPage({
 			</PageFrame>
 		);
 	}
+	if (section === "quota") {
+		const sub = parseQuotaPage(page);
+		if (page && !sub) return <PageFrame title={null}>{null}</PageFrame>;
+		const title = sub ? quotaPageTitle(sub, t, i18n.resolvedLanguage ?? i18n.language) : t("me.sections.quota");
+		return (
+			<PageFrame title={<h1 className="truncate">{title}</h1>}>
+				<QuotaSection page={page} onOpenPage={(next) => onOpenPage(next)} />
+			</PageFrame>
+		);
+	}
+	if (section === "skills") {
+		const title =
+			page === "import"
+				? "skills.import"
+				: page?.startsWith("replace-")
+					? "skills.replace"
+					: page?.startsWith("view-")
+						? "skills.detail"
+						: "skills.title";
+		return (
+			<PageFrame title={<h1 className="truncate">{t(title)}</h1>}>
+				<SkillsSection page={page} onOpenPage={onOpenPage} />
+			</PageFrame>
+		);
+	}
 
 	const title =
 		section === "profile"
@@ -110,16 +126,14 @@ export function MeSectionPage({
 				? t("inviteExperience.title")
 				: section === "models" && page
 					? t(page === "add" || page.startsWith("duplicate-") ? "models.add" : "models.edit")
-					: section === "channels"
-						? t("channels.title")
-						: t(`me.sections.${section}`);
+					: t(`me.sections.${section}`);
 	return (
 		<PageFrame title={title} width={section === "connectors" ? "full" : "reading"}>
 			{body(section)}
 		</PageFrame>
 	);
 
-	function body(id: MeSectionId): ReactNode {
+	function body(id: NonNullable<MeSectionPageProps["section"]>): ReactNode {
 		switch (id) {
 			case "profile":
 				return me.data ? <ProfileEditor person={me.data.member} /> : null;
@@ -132,18 +146,12 @@ export function MeSectionPage({
 						{...(onOpenDevices ? { onOpenDevices } : {})}
 					/>
 				);
-			case "quota":
-				return <QuotaSection />;
 			case "models":
 				return <ModelsSection page={page} onOpenPage={onOpenPage} onDirtyChange={onModelDirtyChange} />;
 			case "devices":
-				return <DevicesSection {...(onAddDevice ? { onAddDevice } : {})} />;
+				return <DevicesSection onAddDevice={onAddDevice ? () => onAddDevice() : undefined} />;
 			case "connectors":
-				return <ConnectorsSection localFiles={localFiles} onOpenDevices={onOpenDevices} />;
-			case "channels":
-				return <ChannelsSection />;
-			case "skills":
-				return <SkillsSection page={page} onOpenPage={onOpenPage} />;
+				return <ConnectorsSection localFiles={localFiles} onOpenDevices={onOpenDevices} onAddDevice={onAddDevice} />;
 			case "invite":
 				return <InviteSection />;
 			case "general":

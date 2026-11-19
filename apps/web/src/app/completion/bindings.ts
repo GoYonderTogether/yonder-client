@@ -32,7 +32,7 @@ export function textareaEditRange(
 	return undefined;
 }
 
-function present(text: string, binding: CompletionMarker): boolean {
+export function isBindingPresent(text: string, binding: CompletionMarker): boolean {
 	return (
 		text.slice(binding.start, binding.end) === binding.marker &&
 		(binding.start === 0 || /\s/u.test(text[binding.start - 1] ?? "")) &&
@@ -80,14 +80,16 @@ export function reconcileBindings(
 				: binding.start >= oldEnd
 					? { ...binding, start: binding.start + delta, end: binding.end + delta }
 					: null;
-		return next && present(after, next) ? [next] : [];
+		return next && isBindingPresent(after, next) ? [next] : [];
 	});
 }
 
 export function boundSkillIds(text: string, bindings: readonly CompletionBinding[]): string[] {
 	return [
 		...new Set(
-			bindings.filter((binding) => binding.kind === "skill" && present(text, binding)).map((binding) => binding.id),
+			bindings
+				.filter((binding) => binding.kind === "skill" && isBindingPresent(text, binding))
+				.map((binding) => binding.id),
 		),
 	];
 }
@@ -96,7 +98,7 @@ export function boundMemberIds(text: string, bindings: readonly CompletionBindin
 	return [
 		...new Set(
 			bindings
-				.filter((binding) => binding.kind === "member" && present(text, binding))
+				.filter((binding) => binding.kind === "member" && isBindingPresent(text, binding))
 				.sort((first, second) => first.start - second.start)
 				.map((binding) => binding.id),
 		),

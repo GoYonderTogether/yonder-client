@@ -1,5 +1,5 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DeviceInfo } from "@yonder/protocol";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { DeviceInfo, DeviceListResponse, UpdateDeviceRemarkRequest } from "@yonder/protocol";
 import { useSessionStore } from "../auth/session-store.ts";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
@@ -30,5 +30,22 @@ export function useDevices(options: { enabled?: boolean } = {}) {
 		queryFn: () => api.devices(),
 		staleTime: 30_000,
 		enabled: options.enabled ?? true,
+	});
+}
+
+export function useUpdateDeviceRemark() {
+	const api = useApi();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ deviceId, remark }: UpdateDeviceRemarkRequest & { deviceId: string }) =>
+			api.updateDeviceRemark(deviceId, { remark }),
+		onSuccess: (_result, { deviceId, remark }) => {
+			queryClient.setQueryData<DeviceListResponse>(keys.devices(), (devices) =>
+				devices
+					? { items: devices.items.map((device) => (device.id === deviceId ? { ...device, remark } : device)) }
+					: undefined,
+			);
+			void queryClient.invalidateQueries({ queryKey: keys.devices() });
+		},
 	});
 }

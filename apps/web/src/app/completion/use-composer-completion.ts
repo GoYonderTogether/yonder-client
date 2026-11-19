@@ -101,17 +101,15 @@ export function useComposerCompletion({
 		});
 		return true;
 	}
-	function keyDown(event: KeyboardEvent<HTMLTextAreaElement>, composing: boolean) {
-		if (!token || composing || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return false;
-		if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
+	function keyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+		if (!token || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
 		if (event.key === "Escape") {
 			close();
 			event.preventDefault();
 			event.stopPropagation();
 			return true;
 		}
-		if (event.key === "Tab") {
-			if (event.shiftKey) return false;
+		if (event.key === "Enter" || event.key === "Tab") {
 			const item = matches[active];
 			if (!item || !accept(item)) return false;
 			event.preventDefault();

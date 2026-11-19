@@ -155,6 +155,7 @@ test("coalesces the same older cursor while latest refresh and older page interl
 	const root = createRoot(host);
 	await act(async () => root.render(createElement(Probe, { id: "one" })));
 	expect(state.cursor).toBe("older-1");
+	expect(state.hasFullHistory).toBe(false);
 	let first: Promise<boolean> = Promise.resolve(false);
 	let second: Promise<boolean> = Promise.resolve(false);
 	await act(async () => {
@@ -175,5 +176,15 @@ test("coalesces the same older cursor while latest refresh and older page interl
 	expect(state.messages.map((message) => message.id)).toEqual(["earlier", "old"]);
 	expect(state.olderLoading).toBe(false);
 	expect(mock.messages).toHaveBeenCalledTimes(3);
+	mock.messages.mockResolvedValueOnce({ items: [], nextCursor: null });
+	await act(async () => {
+		await state.load(true);
+	});
+	mock.messages.mockResolvedValueOnce({ items: [row], nextCursor: "latest-cursor" });
+	await act(async () => {
+		await state.load();
+	});
+	expect(state.cursor).toBe("latest-cursor");
+	expect(state.hasFullHistory).toBe(true);
 	await act(async () => root.unmount());
 });

@@ -15,6 +15,7 @@ export async function uploadMeetingAudio(
 		clientRecordingId: id,
 		conversationId,
 		title,
+		...(recording.separateSpeakers ? { separateSpeakers: true } : {}),
 		startedAt,
 		endedAt,
 		state,

@@ -37,6 +37,7 @@ button {
 	padding-left: var(--spacing-4);
 }
 .mini-nav-inner {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: var(--spacing-2);
@@ -50,19 +51,33 @@ button {
 	font-size: var(--text-h3);
 	font-weight: var(--font-weight-semibold);
 }
-.mini-nav-title-link {
-	display: block;
-}
-.mini-back {
+.mini-back,
+.mini-nav-more {
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	width: var(--control-md);
+	height: var(--control-md);
 	min-width: var(--control-md);
 	flex: none;
 	margin: 0;
-	padding: 0 var(--spacing-3);
+	padding: 0;
 	background: transparent;
 	color: var(--color-text-primary);
 	font-size: var(--text-title);
 	line-height: 1;
+}
+.mini-nav-back-icon {
+	width: var(--spacing-6);
+	height: var(--spacing-6);
+	background-color: var(--color-text-primary);
+	mask: url("../pages/chat/icons/arrow-left.svg") center / contain no-repeat;
+}
+.mini-nav-more {
+	position: absolute;
+	top: 50%;
+	right: 0;
+	transform: translateY(-50%);
 }
 .mini-content {
 	padding: var(--spacing-4);

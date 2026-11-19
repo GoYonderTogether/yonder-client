@@ -44,6 +44,7 @@ export default function Conversations() {
 	useEffect(() => {
 		void load();
 		return subscribeEvents((event) => {
+			if (event.type === "conversation.state_changed") void load();
 			if (event.type === "conversation.updated")
 				setItems((current) => {
 					const previous = current.find((item) => item.id === event.conversation.id);
@@ -60,7 +61,7 @@ export default function Conversations() {
 		});
 	}, [load]);
 	const title = (item: Conversation) =>
-		item.title ||
+		(item.kind === "system" ? t("系统通知", "System notifications") : item.title) ||
 		item.members
 			.filter((member) => member.memberId !== me?.member.id && !isObserver(member))
 			.map((member) => member.displayName)
@@ -117,6 +118,7 @@ export default function Conversations() {
 								<View className="row">
 									<Text className="mini-conversation-title">{title(item)}</Text>
 									{item.unreadCount > 0 && <Text className="mini-badge">{item.unreadCount}</Text>}
+									{item.muted ? <Text className="mini-muted">{t("免打扰", "Muted")}</Text> : null}
 								</View>
 								<Text className="muted mini-preview">
 									{conversationPreview(item, locale, {

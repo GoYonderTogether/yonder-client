@@ -3,11 +3,13 @@
  * section as a page. Sections whose features come later show honest empty states.
  */
 
-export { FeishuAttemptCard, FeishuChannel } from "./channels/feishu-channel.tsx";
+export { ChannelsSection, FeishuAttemptCard, FeishuChannel } from "./channels/feishu-channel.tsx";
+export { FeishuExternalConversations } from "./channels/feishu-external.tsx";
 export { AboutSection } from "./components/about-section.tsx";
 export { AccountSection } from "./components/account-section.tsx";
 export { DevicesSection } from "./components/devices-section.tsx";
 export { GeneralSection } from "./components/empty-sections.tsx";
+export { saveInviteCard as savePosterImage } from "./components/invite-card-image.ts";
 export { InviteSection } from "./components/invite-section.tsx";
 export { ProfileEditor } from "./components/profile-editor.tsx";
 export type { QuotaLowBannerProps } from "./components/quota-low-banner.tsx";

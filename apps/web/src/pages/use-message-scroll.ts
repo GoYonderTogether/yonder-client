@@ -4,28 +4,40 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 export function useMessageScroll(conversationId: string | null, items: readonly { id: string }[] | undefined) {
 	const bottom = useRef<HTMLDivElement>(null);
 	const follow = useRef(true);
+	const pendingScrollTop = useRef<number | null>(null);
 	const previous = useRef<{ conversationId: string | null; first: string; last: string; height: number } | null>(null);
 	const [showLatest, setShowLatest] = useState(false);
+	const [atLatest, setAtLatest] = useState(false);
 	const hasItems = Boolean(items?.length);
 	const viewport = useCallback(() => bottom.current?.closest<HTMLElement>(".overflow-y-auto"), []);
+	const scrollToEnd = useCallback((scroll: HTMLElement) => {
+		scroll.scrollTop = scroll.scrollHeight;
+		pendingScrollTop.current = scroll.scrollTop;
+	}, []);
 	const jumpToLatest = useCallback(() => {
 		const scroll = viewport();
 		if (!scroll) return;
-		scroll.scrollTop = scroll.scrollHeight;
+		scrollToEnd(scroll);
 		follow.current = true;
 		setShowLatest(false);
-	}, [viewport]);
+		setAtLatest(true);
+	}, [scrollToEnd, viewport]);
 
 	useLayoutEffect(() => {
 		if (!conversationId || !hasItems) return;
 		const scroll = viewport();
 		if (!scroll) return;
 		follow.current = true;
+		pendingScrollTop.current = null;
 		previous.current = null;
 		setShowLatest(false);
 		const onScroll = () => {
-			const distance = scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop;
-			follow.current = distance <= 40;
+			const top = scroll.scrollTop;
+			const distance = scroll.scrollHeight - scroll.clientHeight - top;
+			// A jump's event can arrive after the dock has already changed the scroll range.
+			if (top !== pendingScrollTop.current) follow.current = distance <= 40;
+			pendingScrollTop.current = null;
+			setAtLatest(distance <= 40);
 			setShowLatest(distance > 120);
 		};
 		const interrupt = () => {
@@ -39,14 +51,21 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 		scroll.addEventListener("touchmove", interrupt, { passive: true });
 		scroll.addEventListener("pointerdown", interrupt, { passive: true });
 		scroll.addEventListener("keydown", onKeyDown);
+		// The native dock changes the scroller's padding even when its outer size stays fixed.
+		const observer = new ResizeObserver(() => {
+			if (previous.current) previous.current.height = scroll.scrollHeight;
+			if (follow.current) scrollToEnd(scroll);
+		});
+		observer.observe(scroll);
 		return () => {
+			observer.disconnect();
 			scroll.removeEventListener("scroll", onScroll);
 			scroll.removeEventListener("wheel", interrupt);
 			scroll.removeEventListener("touchmove", interrupt);
 			scroll.removeEventListener("pointerdown", interrupt);
 			scroll.removeEventListener("keydown", onKeyDown);
 		};
-	}, [conversationId, hasItems, viewport]);
+	}, [conversationId, hasItems, scrollToEnd, viewport]);
 
 	useLayoutEffect(() => {
 		const scroll = viewport();
@@ -58,11 +77,13 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 			// Preserve the reading position when an older page is prepended.
 			scroll.scrollTop += scroll.scrollHeight - old.height;
 		} else if (follow.current) {
-			scroll.scrollTop = scroll.scrollHeight;
+			scrollToEnd(scroll);
 		}
-		setShowLatest(scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop > 120);
+		const distance = scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop;
+		setShowLatest(distance > 120);
+		setAtLatest(distance <= 40);
 		previous.current = { conversationId, first, last, height: scroll.scrollHeight };
-	}, [conversationId, items, viewport]);
+	}, [conversationId, items, scrollToEnd, viewport]);
 
-	return { bottom, showLatest, jumpToLatest };
+	return { bottom, showLatest, atLatest, jumpToLatest };
 }

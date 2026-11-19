@@ -62,7 +62,7 @@ async function assertCards(page: Page) {
 	const log = page.getByRole("log");
 	await expect(log).toBeVisible();
 	await expect(log.locator("[data-message-run]")).toHaveCount(2);
-	await expect(log.locator("[data-message-sender-avatar]")).toHaveCount(2);
+	await expect(log.locator("[data-message-sender-avatar]")).toHaveCount(0);
 	await expect(log.locator("[data-message-sender-header]")).toHaveCount(0);
 	await expect(log.locator(".message-attachment pre")).toHaveCount(0);
 	await expect(log.getByRole("button", { name: /^下载 / })).toHaveCount(0);
@@ -157,7 +157,9 @@ async function draft(page: Page, device: string) {
 		await page.locator(".composer-files").evaluate((element) => {
 			element.scrollLeft = element.scrollWidth;
 		});
-		const header = await page.locator('[data-page-layer="detail"] header').boundingBox();
+		// The main Bot page floats its header (avatar, status line, settings) instead of a top bar.
+		const header = await page.locator('[data-page-layer="detail"] [data-frame-header]').boundingBox();
+		expect(header).not.toBeNull();
 		expect(header?.x).toBeGreaterThanOrEqual(0);
 		await page.screenshot({ scale: "css", path: `${evidence}/mobile-draft-video.png` });
 	}
@@ -228,16 +230,16 @@ test("real phone context has bottom tabs, functional navigation and the existing
 			await expect(dock.getByRole("button", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
 		}
 		await page.screenshot({ scale: "css", path: `${evidence}/mobile-list-bottom-tabs.png` });
-		await page.getByText("界面验收 BOT", { exact: true }).last().click();
+		await dock.getByRole("button", { name: "界面验收 BOT", exact: true }).click();
 		await expect(page).toHaveURL(/\/messages\/main$/);
-		await expect(page.locator("[data-mobile-dock] nav")).toHaveCount(0);
+		await expect(dock.getByRole("navigation")).toBeVisible();
 		await assertCards(page);
 		await warmVideo(page, requests);
 		await assertVideoFrame(page, '[data-message-id="message-06"] .message-attachment img');
 		await page.screenshot({ scale: "css", path: `${evidence}/mobile-sent-cards.png` });
 		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 		await draft(page, "mobile");
-		await page.getByRole("button", { name: "返回", exact: true }).click();
+		await dock.getByRole("button", { name: "消息", exact: true }).click();
 		await expect(page).toHaveURL(/\/messages$/);
 		await expect(dock.getByRole("navigation")).toBeVisible();
 	} finally {

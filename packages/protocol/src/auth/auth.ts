@@ -40,6 +40,12 @@ export interface DeviceInfo {
 	installationId?: string;
 }
 
+export interface PushTokenRegistration {
+	provider: "apns" | "fcm";
+	token: string;
+	environment?: "sandbox" | "production";
+}
+
 /**
  * What a successful sign-in answers. The refresh token is not here on web — it is set as an
  * httpOnly cookie. On a shell that stores it in the keychain, the same body carries it.

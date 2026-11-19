@@ -1,9 +1,33 @@
 import { Button } from "@yonder/ui-components";
-import { useChannelConversations, useChannelMessages } from "@yonder/ui-data";
+import { useChannelConversations, useChannelMessages, useChannels } from "@yonder/ui-data";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-export function FeishuExternalConversations({ connectionId }: { connectionId: string }) {
+export function FeishuExternalConversations({ botId }: { botId: string }) {
+	const { t } = useTranslation();
+	const channels = useChannels();
+	const connection = channels.data?.items.find(
+		(item) => item.botId === botId && (item.provider ?? "feishu") === "feishu",
+	);
+	if (channels.isPending) return <p role="status">{t("app.loading")}</p>;
+	if (channels.isError && !channels.data) {
+		return (
+			<div className="flex flex-wrap items-center gap-[var(--spacing-3)]">
+				<p role="alert">{t("channels.failed")}</p>
+				<Button size="sm" variant="link" onClick={() => void channels.refetch()}>
+					{t("app.retry")}
+				</Button>
+			</div>
+		);
+	}
+	return connection ? (
+		<ExternalConversationList key={connection.id} connectionId={connection.id} />
+	) : (
+		<p className="text-caption text-[var(--color-text-secondary)]">{t("channels.disconnected")}</p>
+	);
+}
+
+function ExternalConversationList({ connectionId }: { connectionId: string }) {
 	const { t, i18n } = useTranslation();
 	const { list, change } = useChannelConversations(connectionId);
 	const [selection, select] = useState<string>();
@@ -11,7 +35,7 @@ export function FeishuExternalConversations({ connectionId }: { connectionId: st
 	const current = items.find((item) => item.id === selection);
 	return (
 		<section className="grid gap-[var(--spacing-3)]">
-			<h3 className="text-h3">{t("channels.externalConversations")}</h3>
+			{list.isLoading && <p role="status">{t("app.loading")}</p>}
 			{(list.isError || change.isError) && <p role="alert">{t("channels.failed")}</p>}
 			{list.isSuccess && items.length === 0 && <p>{t("channels.noConversations")}</p>}
 			{items.map((item) => (

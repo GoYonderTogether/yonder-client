@@ -1,8 +1,30 @@
 import type { DeviceInfo } from "@yonder/protocol";
 import type { Storage } from "@yonder/ui-data";
+import { createContext, useContext, useMemo } from "react";
 import { isTauri } from "./keychain.ts";
 
-export function deviceInfo(storage: Storage, appVersion: string): DeviceInfo & { installationId: string } {
+export const SystemDeviceName = createContext<string | null>(null);
+
+export async function loadSystemDeviceName(): Promise<string | null> {
+	if (!isTauri()) return null;
+	try {
+		const { invoke } = await import("@tauri-apps/api/core");
+		return await invoke<string | null>("plugin:yonder-device-info|system_name");
+	} catch {
+		return null;
+	}
+}
+
+export function useDeviceInfo(storage: Storage, appVersion: string) {
+	const systemName = useContext(SystemDeviceName);
+	return useMemo(() => deviceInfo(storage, appVersion, systemName), [storage, appVersion, systemName]);
+}
+
+export function deviceInfo(
+	storage: Storage,
+	appVersion: string,
+	systemName?: string | null,
+): DeviceInfo & { installationId: string } {
 	let installationId = storage.get("installation-id");
 	if (!installationId) {
 		installationId = crypto.randomUUID();
@@ -29,5 +51,12 @@ export function deviceInfo(storage: Storage, appVersion: string): DeviceInfo & {
 		linux: "Linux",
 		web: "Web browser",
 	};
-	return { installationId, name: names[os], platform: isTauri() ? os : "web", appVersion };
+	const native = isTauri();
+	const name = native && typeof systemName === "string" ? systemName.trim() : "";
+	return {
+		installationId,
+		name: name && name.length <= 128 ? name : names[os],
+		platform: native ? os : "web",
+		appVersion,
+	};
 }

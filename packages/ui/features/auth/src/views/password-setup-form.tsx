@@ -11,13 +11,15 @@ export interface PasswordSetupFormProps {
 	onSkip: () => void;
 	/** Changing an existing password asks for the current one; setting the first does not. */
 	mode?: "set" | "change";
+	/** The settings top bar already has a title. */
+	showHeading?: boolean;
 }
 
 /**
  * The optional password step, and the change-password screen in 「我」. One component because it is
  * one question: a new password, plus whatever proves you may set it.
  */
-export function PasswordSetupForm({ onDone, onSkip, mode = "set" }: PasswordSetupFormProps) {
+export function PasswordSetupForm({ onDone, onSkip, mode = "set", showHeading = true }: PasswordSetupFormProps) {
 	const { t } = useTranslation();
 	const setPassword = useSetPassword();
 	const [currentPassword, setCurrentPassword] = useState("");
@@ -49,9 +51,11 @@ export function PasswordSetupForm({ onDone, onSkip, mode = "set" }: PasswordSetu
 				void submit();
 			}}
 		>
-			<h1 className="text-h1 text-[var(--color-text-primary)]">
-				{mode === "set" ? t("auth.setupPasswordTitle") : t("auth.changePasswordTitle")}
-			</h1>
+			{showHeading ? (
+				<h1 className="text-h1 text-[var(--color-text-primary)]">
+					{mode === "set" ? t("auth.setupPasswordTitle") : t("auth.changePasswordTitle")}
+				</h1>
+			) : null}
 
 			{mode === "change" ? (
 				<Field

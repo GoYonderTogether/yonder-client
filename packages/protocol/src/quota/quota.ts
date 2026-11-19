@@ -154,6 +154,90 @@ export interface UsagePage {
 }
 
 /**
+ * What a run was for, as the quota page groups spending. `outward` is someone else talking to one
+ * of my Bots on my external pool; `visiting` is me talking to someone else's Bot on my own quota.
+ * A call with no run (rare: a probe or a legacy row) is `other`.
+ */
+export type UsagePurpose =
+	| "chat"
+	| "subtask"
+	| "scheduled"
+	| "meeting"
+	| "memory"
+	| "compact"
+	| "outward"
+	| "visiting"
+	| "other";
+
+export interface UsageTotals {
+	calls: number;
+	/** Quota charged, net of nothing: refunds are ledger rows, not usage. */
+	cost: number;
+	inputTokens: number;
+	outputTokens: number;
+	cacheWriteTokens: number;
+	cacheReadTokens: number;
+	/** Calls whose token counts the provider never reported; their cost may still be known. */
+	unknownUsageCalls: number;
+}
+
+/**
+ * `GET /v1/usage/overview?range=cycle|7d&pool=<pool>`: one screen of the quota page. Every figure
+ * is over the range, in Asia/Shanghai days, and filtered to one pool when `pool` is given.
+ * `cycle` (default) is the current quota month from its start to now.
+ */
+export interface UsageOverview {
+	range: { kind: "cycle" | "7d"; start: string; end: string };
+	totals: UsageTotals;
+	/** Every day in the range, oldest first, zero-filled, so a chart needs no gap logic. */
+	daily: { date: string; cost: Record<QuotaPool, number>; calls: number }[];
+	byPool: Record<QuotaPool, { cost: number; calls: number }>;
+	/** Sorted by cost, largest first; purposes with no calls are left out. */
+	byPurpose: { purpose: UsagePurpose; cost: number; calls: number; runs: number }[];
+	/** The five conversations that cost the most in the range. */
+	topConversations: { conversationId: string; cost: number; runs: number }[];
+}
+
+/**
+ * One unit of work as the user thinks of it: one reply, one task step, one meeting note. A run's
+ * fallbacks and tool loops are several calls but one row here.
+ */
+export interface UsageRun {
+	/** The run id, or the call id for a call that had no run. */
+	id: string;
+	at: string;
+	purpose: UsagePurpose;
+	pool: QuotaPool;
+	conversationId: string | null;
+	/** A task, plan or meeting title when the run had one; the client names chats itself. */
+	title: string | null;
+	/** Display names of the models used, catalog names only, never a vendor or model id. */
+	models: string[];
+	calls: number;
+	cost: number;
+	inputTokens: number;
+	outputTokens: number;
+	cacheWriteTokens: number;
+	cacheReadTokens: number;
+	/** False when any call in the run has unknown usage. */
+	usageKnown: boolean;
+	/** False when the run's last call failed. */
+	ok: boolean;
+	/** Set when part of the run was drawn from the main pool after its own pool ran out. */
+	overflowRate: number | null;
+}
+
+/**
+ * `GET /v1/usage/runs?cursor=&pool=&purpose=&date=YYYY-MM-DD&conversation=`, newest first.
+ * `GET /v1/usage?run=<id>` lists that run's calls.
+ */
+export interface UsageRunPage {
+	items: UsageRun[];
+	nextCursor: string | null;
+	hasMore: boolean;
+}
+
+/**
  * One row of the published price list. `name` is the catalog's user-facing name — a tier label
  * such as 标准 or 轻量 — never a vendor or a model id.
  */

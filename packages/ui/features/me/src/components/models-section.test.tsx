@@ -114,3 +114,23 @@ test("retains the custom provider editing action", async () => {
 	await userEvent.click(screen.getByRole("button", { name: "Edit provider" }));
 	expect(onOpenPage).toHaveBeenCalledWith("edit-user");
 });
+
+test("provider actions open outside the clipped list and return focus on Escape", async () => {
+	const onOpenPage = vi.fn();
+	const user = userEvent.setup();
+	show("en", null, onOpenPage);
+	const trigger = screen.getByRole("button", { name: "More actions" });
+	await user.click(trigger);
+	const dialog = screen.getByRole("dialog", { name: "Personal provider" });
+	expect(dialog.closest("ul")).toBeNull();
+	expect(within(dialog).getByRole("button", { name: "Test connection" })).toBeVisible();
+	expect(within(dialog).getByRole("button", { name: "Delete provider" })).toBeEnabled();
+	await user.keyboard("{Escape}");
+	expect(trigger).toHaveAttribute("aria-expanded", "false");
+	expect(trigger).toHaveFocus();
+	await user.keyboard("{Enter}");
+	await user.click(
+		within(screen.getByRole("dialog", { name: "Personal provider" })).getByRole("button", { name: "Duplicate" }),
+	);
+	expect(onOpenPage).toHaveBeenCalledWith("duplicate-user");
+});

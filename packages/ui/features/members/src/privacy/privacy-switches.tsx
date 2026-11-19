@@ -1,5 +1,5 @@
 import type { PrivacySettings } from "@yonder/protocol";
-import { cn } from "@yonder/ui-components";
+import { ListGroup, ListSwitch } from "@yonder/ui-components";
 import { usePrivacy, useUpdatePrivacy } from "@yonder/ui-data";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -69,57 +69,24 @@ export function PrivacySwitches() {
 	};
 
 	return (
-		<div className="flex flex-col gap-[var(--spacing-2)] px-[var(--spacing-3)] py-[var(--spacing-2)]">
+		<ListGroup>
 			{SWITCHES.map((key) => (
-				<SwitchRow
+				<ListSwitch
 					key={key}
-					label={t(`members.privacy.${key}`)}
+					title={t(`members.privacy.${key}`)}
 					checked={draft[key] ?? settings.data[key]}
 					busy={pending === key}
 					onChange={(value) => save(key, value)}
 				/>
 			))}
 			{error ? (
-				<p role="alert" className="px-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
+				<li
+					role="alert"
+					className="px-[var(--spacing-1)] pt-[var(--spacing-2)] text-caption text-[var(--color-danger)]"
+				>
 					{error}
-				</p>
+				</li>
 			) : null}
-		</div>
-	);
-}
-
-/** A labelled row whose whole surface is the control, so the switch's own 44px target is not the limit. */
-function SwitchRow({
-	label,
-	checked,
-	busy,
-	onChange,
-}: {
-	label: string;
-	checked: boolean;
-	busy: boolean;
-	onChange: (value: boolean) => void;
-}) {
-	return (
-		<label className="flex min-h-[var(--row-height)] cursor-pointer items-center justify-between gap-[var(--spacing-4)] rounded-[var(--radius-control-sm)] px-[var(--spacing-2)] hover:bg-[var(--color-bg-hover)]">
-			<span className="min-w-0 text-body text-[var(--color-text-primary)]">{label}</span>
-			<input
-				type="checkbox"
-				role="switch"
-				aria-checked={checked}
-				aria-label={label}
-				aria-busy={busy || undefined}
-				checked={checked}
-				disabled={busy}
-				onChange={(event) => onChange(event.target.checked)}
-				className={cn(
-					"relative h-[var(--spacing-6)] w-[var(--spacing-10)] shrink-0 cursor-pointer appearance-none rounded-[var(--radius-full)] bg-[var(--color-border-strong)] transition-colors duration-[var(--duration-fast)]",
-					"checked:bg-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-60",
-					"before:absolute before:top-[var(--spacing-1)] before:left-[var(--spacing-1)] before:size-[var(--spacing-4)] before:rounded-[var(--radius-full)] before:bg-[var(--color-bg-surface)] before:transition-transform before:duration-[var(--duration-fast)] before:content-['']",
-					"checked:before:translate-x-[var(--spacing-4)]",
-					"focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]",
-				)}
-			/>
-		</label>
+		</ListGroup>
 	);
 }

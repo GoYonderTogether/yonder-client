@@ -58,6 +58,8 @@ test("mobile keeps grouped cards, icon tiles, row chevrons and selection", () =>
 	expect(models).toHaveAttribute("aria-current", "true");
 	expect(models.querySelectorAll("svg")).toHaveLength(2);
 	expect(models.querySelector("svg")?.parentElement?.tagName).toBe("SPAN");
-	expect(container.querySelectorAll(".group\\/row").length).toBeGreaterThan(0);
+	// Sections carry a title above their rows (docs/settings-forms.md), and every row is a list item.
+	expect(container.querySelectorAll("section > h2").length).toBeGreaterThan(0);
+	expect(models.closest("section li")).not.toBeNull();
 	expect(screen.queryByRole("navigation", { name: "Me" })).toBeNull();
 });

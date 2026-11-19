@@ -7,7 +7,6 @@
 
 export type { AppShellProps, MeStack, ShellTab } from "./layout/app-shell.tsx";
 export { AppShell } from "./layout/app-shell.tsx";
-export type { PageFrameProps, PageWidth } from "./layout/frames.tsx";
 export { ListFrame, PageFrame } from "./layout/frames.tsx";
 export type { MobileDockProps } from "./layout/mobile-dock.tsx";
 export { MobileDock } from "./layout/mobile-dock.tsx";
@@ -16,9 +15,11 @@ export { PaneSplitter } from "./layout/pane-splitter.tsx";
 export type { RailProps } from "./layout/rail.tsx";
 export { Rail } from "./layout/rail.tsx";
 export type { ShellChrome } from "./layout/shell-context.tsx";
-export { useShellChrome } from "./layout/shell-context.tsx";
+export { ShellProvider, useShellChrome } from "./layout/shell-context.tsx";
 export type { SidePage, SideStack } from "./layout/side-layers.tsx";
 export { SideLayers } from "./layout/side-layers.tsx";
+export type { SidePanelControls } from "./layout/side-panel-context.tsx";
+export { SidePanelProvider, useSidePanel } from "./layout/side-panel-context.tsx";
 export { TopBar } from "./layout/top-bar.tsx";
 export type { GesturePanelProps } from "./navigation/gesture-panel.tsx";
 export { GesturePanel } from "./navigation/gesture-panel.tsx";

@@ -2,7 +2,8 @@ import { Text, View } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import type { Member } from "@yonder/protocol";
 import { useEffect, useRef, useState } from "react";
-import { action, Button, Field, Page, State } from "../../components/ui";
+import { ConversationMute } from "../../components/conversation-mute";
+import { action, Button, Field, go, Page, State } from "../../components/ui";
 import { loadOwnedBot } from "../../lib/bots";
 import { t } from "../../lib/i18n";
 import { api, client, subscribeEvents, useSession } from "../../lib/runtime";
@@ -38,7 +39,10 @@ async function planCount(botId: string): Promise<number | null> {
 }
 
 export default function Bot() {
-	const id = decodeURIComponent(useRouter().params.id ?? "");
+	const { id: routeId, view, conversationId } = useRouter().params;
+	const id = decodeURIComponent(routeId ?? "");
+	const editing = view === "edit";
+	const editTitle = t("编辑 Bot 资料", "Edit Bot profile");
 	const { me, status } = useSession();
 	const [bot, setBot] = useState<Member | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -157,14 +161,14 @@ export default function Bot() {
 		});
 
 	return (
-		<Page title={bot?.displayName || t("Bot", "Bot")}>
+		<Page title={editing ? editTitle : bot?.displayName || t("Bot", "Bot")}>
 			<State loading={loading} error={loadError} retry={() => void load()} />
 			{!loading && !loadError && !bot ? (
 				<View className="mini-card">
 					<State empty={t("没有找到这个 Bot", "That bot was not found")} />
 				</View>
 			) : null}
-			{bot ? (
+			{bot && editing ? (
 				<View className="mini-card">
 					<View className="mini-bot-preview">
 						<ChatAvatar name={bot.displayName} kind="bot" src={avatarSrc(bot.avatarUrl)} color={color} size={72} />
@@ -196,12 +200,36 @@ export default function Bot() {
 					<Button loading={saving} disabled={Boolean(problem) || !hasChanges(changes)} onClick={save}>
 						{t("保存", "Save")}
 					</Button>
+				</View>
+			) : null}
+			{bot && !editing ? (
+				<>
+					<View className="mini-card mini-row">
+						<ChatAvatar
+							name={bot.displayName}
+							kind="bot"
+							src={avatarSrc(bot.avatarUrl)}
+							color={bot.avatarColor}
+							size={48}
+						/>
+						<View className="mini-row-main">
+							<Text>{bot.displayName}</Text>
+							<Text className="mini-muted">ID @{bot.handle}</Text>
+						</View>
+						<View className="mini-bot-edit-action">
+							<Button secondary onClick={() => go(`/pages/bot/index?id=${encodeURIComponent(bot.id)}&view=edit`)}>
+								{t("编辑", "Edit")}
+							</Button>
+						</View>
+					</View>
+					{conversationId ? <ConversationMute conversationId={conversationId} /> : null}
+					{error ? <Text className="mini-error">{error}</Text> : null}
 					{canDelete(bot) ? (
 						<Button danger loading={deleting} onClick={remove}>
 							{t("删除这个 Bot", "Delete this bot")}
 						</Button>
 					) : null}
-				</View>
+				</>
 			) : null}
 		</Page>
 	);

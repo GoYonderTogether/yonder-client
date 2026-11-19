@@ -19,6 +19,7 @@ export interface CreateMeetingRequest {
 	clientRecordingId: string;
 	conversationId: string;
 	title: string;
+	separateSpeakers?: boolean;
 	/** Unix epoch milliseconds from the source recording. */
 	startedAt: number;
 	endedAt: number;

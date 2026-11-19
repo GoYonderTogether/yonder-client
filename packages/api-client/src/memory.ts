@@ -5,6 +5,7 @@ import type {
 	MemoryFileList,
 	MemoryFileRevisionList,
 	RevertMemoryFileRequest,
+	UpdateMemoryFileProtectionRequest,
 	UpdateMemoryFileRequest,
 	UpdateMemoryFileVisibilityRequest,
 	UpdateMemoryRequest,
@@ -43,6 +44,9 @@ export function memoryEndpoints(client: ApiClient) {
 		},
 		updateMemoryFileVisibility(body: UpdateMemoryFileVisibilityRequest): Promise<{ ok: true }> {
 			return client.request(`${filesPath}/visibility`, { method: "PATCH", body });
+		},
+		updateMemoryFileProtection(body: UpdateMemoryFileProtectionRequest): Promise<{ ok: true }> {
+			return client.request(`${filesPath}/protection`, { method: "PATCH", body });
 		},
 		deleteMemoryFile(path: string): Promise<{ ok: true }> {
 			return client.request(`${filesPath}?path=${encodeURIComponent(path)}`, { method: "DELETE" });

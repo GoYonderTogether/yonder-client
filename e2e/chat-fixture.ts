@@ -1,5 +1,5 @@
 import type { Page, WebSocketRoute } from "@playwright/test";
-import type { Conversation, Member, Message } from "@yonder/protocol";
+import type { Conversation, Member, Message, Run, SubtaskSummary } from "@yonder/protocol";
 import { quota } from "./fixtures/quota.ts";
 
 // Only the automated browser uses these isolated API records. The product route is unmodified.
@@ -60,7 +60,8 @@ export async function isolateChat(
 	const current = {
 		...conversation,
 		members: options.members ?? conversation.members,
-		...(options.group ? { kind: "group" as const, title: "界面验收群聊" } : {}),
+		// A group is never the account's primary (main Bot) conversation.
+		...(options.group ? { kind: "group" as const, title: "界面验收群聊", isPrimary: false } : {}),
 	};
 	const sent: { body: string; type: string; clientNonce: string }[] = [];
 	const sockets: WebSocketRoute[] = [];
@@ -100,25 +101,29 @@ export async function isolateChat(
 								? { ok: true, version: "isolated-chat-ui" }
 								: path === "/v1/quota"
 									? quota
-									: { items: [] };
+									: path === "/v1/me/social"
+										? { approved: "", drafts: [] }
+										: { items: [] };
 		await route.fulfill({ json });
 	});
 	await page.routeWebSocket("**/v1/realtime*", (socket) => {
 		sockets.push(socket);
 		socket.onMessage(() => undefined);
 	});
+	function emit(
+		event:
+			| { type: "message.created" | "message.updated"; message: Message }
+			| { type: "run.updated"; run: Run }
+			| { type: "subtask.updated"; subtask: SubtaskSummary },
+	) {
+		for (const socket of sockets)
+			socket.send(JSON.stringify({ ...event, eventId: crypto.randomUUID(), at: new Date().toISOString() }));
+	}
 	return {
 		sent,
-		update(value: Message) {
-			for (const socket of sockets)
-				socket.send(
-					JSON.stringify({
-						type: "message.updated",
-						eventId: crypto.randomUUID(),
-						at: new Date().toISOString(),
-						message: value,
-					}),
-				);
-		},
+		create: (message: Message) => emit({ type: "message.created", message }),
+		update: (message: Message) => emit({ type: "message.updated", message }),
+		updateRun: (run: Run) => emit({ type: "run.updated", run }),
+		updateSubtask: (subtask: SubtaskSummary) => emit({ type: "subtask.updated", subtask }),
 	};
 }

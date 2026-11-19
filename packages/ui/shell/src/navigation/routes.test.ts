@@ -21,7 +21,7 @@ describe("the route table", () => {
 	});
 
 	test("segments stay in the tab layer and me is a detail", () => {
-		for (const path of ["/tasks/scheduled", "/memory/about", "/memory/files"]) {
+		for (const path of ["/tasks/scheduled"]) {
 			expect(ROUTES.find((route) => route.path === path)?.layer).toBe("tab");
 		}
 		for (const path of ["/me", "/me/:section", "/me/:section/:page"]) {
@@ -35,8 +35,8 @@ describe("locate", () => {
 		expect(locate("/messages")).toEqual({ tab: "messages", detail: [] });
 		expect(locate("/messages/my%20bot")).toEqual({ tab: "messages", detail: ["my bot"] });
 		expect(locate("/tasks/scheduled")).toEqual({ tab: "tasks", detail: ["scheduled"] });
-		expect(locate("/memory/about")).toEqual({ tab: "memory", detail: ["about"] });
-		expect(locate("/memory/files")).toEqual({ tab: "memory", detail: ["files"] });
+		expect(locate("/memory/timeline")).toEqual({ tab: "memory", detail: ["timeline"] });
+		expect(locate("/memory/g/sources%3A会议")).toEqual({ tab: "memory", detail: ["g", "sources:会议"] });
 	});
 
 	test("locates me separately from the tabs", () => {

@@ -36,7 +36,7 @@ beforeEach(() => {
 test("exactly the three switches, each bound to its own setting", () => {
 	render(localised(<PrivacySwitches />));
 	expect(screen.getAllByRole("switch")).toHaveLength(3);
-	expect(screen.getByRole("switch", { name: "Strangers can find me by my handle" })).toBeChecked();
+	expect(screen.getByRole("switch", { name: "Strangers can find me by my ID" })).toBeChecked();
 	expect(screen.getByRole("switch", { name: "Signed-in users can view my card" })).toBeChecked();
 	expect(
 		screen.getByRole("switch", { name: "People who are not signed in can view my card via its link" }),
@@ -50,7 +50,7 @@ test("flipping one switch saves immediately, and only that field", async () => {
 	});
 	state.update = mutate;
 	render(localised(<PrivacySwitches />));
-	await userEvent.click(screen.getByRole("switch", { name: "Strangers can find me by my handle" }));
+	await userEvent.click(screen.getByRole("switch", { name: "Strangers can find me by my ID" }));
 	expect(mutate).toHaveBeenCalledWith({ searchable: false }, expect.anything());
 });
 
@@ -71,7 +71,7 @@ test("a failed save puts the switch back and says why", async () => {
 test("the three labels exist in Chinese too, with no placeholder rows", () => {
 	render(localised(<PrivacySwitches />, "zh-CN"));
 	expect(screen.getAllByRole("switch")).toHaveLength(3);
-	expect(screen.getByRole("switch", { name: "陌生人可以通过对外号找到我" })).toBeChecked();
+	expect(screen.getByRole("switch", { name: "陌生人可以通过 ID 找到我" })).toBeChecked();
 	expect(screen.getByRole("switch", { name: "登录用户可以查看我的名片" })).toBeChecked();
 	expect(screen.getByRole("switch", { name: "未登录的人可以通过链接查看我的名片" })).toBeChecked();
 });

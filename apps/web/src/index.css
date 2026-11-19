@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "@yonder/ui-tokens/css";
+/* After the themes: the glow style overrides their surfaces. */
+@import "@yonder/ui-tokens/glow.css";
 
 /* Tailwind scans the app it is built from, but the components live in workspace packages that it
    reaches through `node_modules` symlinks and therefore skips. Naming them explicitly is what makes

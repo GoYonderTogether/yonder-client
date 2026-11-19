@@ -26,34 +26,43 @@ export function ProfileEditor({ person }: ProfileEditorProps) {
 	const [name, setName] = useState(person.displayName);
 	const [preview, setPreview] = useState<string | null>(person.avatarUrl);
 	const [message, setMessage] = useState<string | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [nameError, setNameError] = useState<string | null>(null);
+	const [avatarError, setAvatarError] = useState<string | null>(null);
 
 	const commitName = () => {
+		if (update.isPending) return;
 		const trimmed = name.trim();
-		if (trimmed === "" || trimmed === person.displayName) return;
-		if ([...trimmed].length > 40) {
-			setError(t("profile.nameTooLong"));
+		if (!trimmed) {
+			setMessage(null);
+			setNameError(t("profile.nameRequired"));
 			return;
 		}
-		setError(null);
+		if ([...trimmed].length > 40) {
+			setMessage(null);
+			setNameError(t("profile.nameTooLong"));
+			return;
+		}
+		setName(trimmed);
+		if (trimmed === person.displayName) return;
+		setNameError(null);
 		update.mutate(
 			{ displayName: trimmed },
 			{
 				onSuccess: () => setMessage(t("profile.saved")),
-				onError: () => setError(t("profile.saveFailed")),
+				onError: () => setNameError(t("profile.saveFailed")),
 			},
 		);
 	};
 
 	const chooseFile = async (file: File) => {
-		setError(null);
+		setAvatarError(null);
 		setMessage(null);
 		if (!TYPES.includes(file.type)) {
-			setError(t("profile.avatarWrongType"));
+			setAvatarError(t("profile.avatarWrongType"));
 			return;
 		}
 		if (file.size > MAX_BYTES) {
-			setError(t("profile.avatarTooLarge"));
+			setAvatarError(t("profile.avatarTooLarge"));
 			return;
 		}
 		setPreview(URL.createObjectURL(file));
@@ -63,7 +72,7 @@ export function ProfileEditor({ person }: ProfileEditorProps) {
 			setMessage(t("profile.saved"));
 		} catch {
 			setPreview(person.avatarUrl);
-			setError(t("profile.uploadFailed"));
+			setAvatarError(t("profile.uploadFailed"));
 		}
 	};
 
@@ -87,26 +96,43 @@ export function ProfileEditor({ person }: ProfileEditorProps) {
 				</Button>
 			</div>
 			<ListGroup footer={`@${person.handle}`}>
-				<li className="flex min-h-[var(--row-height)] items-center gap-[var(--spacing-3)] px-[var(--spacing-4)]">
-					<label htmlFor="profile-name" className="shrink-0 text-body text-[var(--color-text-secondary)]">
-						{t("profile.name")}
-					</label>
-					<input
-						id="profile-name"
-						aria-label={t("profile.name")}
-						value={name}
-						onChange={(event) => setName(event.target.value)}
-						onBlur={commitName}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								event.preventDefault();
-								commitName();
-							}
-						}}
-						maxLength={40}
-						className="min-w-0 flex-1 bg-transparent text-end text-body text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-						placeholder={t("profile.namePlaceholder")}
-					/>
+				<li className="px-[var(--spacing-4)]">
+					<div className="flex min-h-[var(--row-height)] items-center gap-[var(--spacing-3)]">
+						<label htmlFor="profile-name" className="shrink-0 text-body text-[var(--color-text-secondary)]">
+							{t("profile.name")}
+						</label>
+						<input
+							id="profile-name"
+							aria-invalid={Boolean(nameError) || undefined}
+							aria-describedby={nameError ? "profile-name-error" : undefined}
+							value={name}
+							disabled={update.isPending}
+							onChange={(event) => {
+								setName(event.target.value);
+								setNameError(null);
+								setMessage(null);
+							}}
+							onBlur={commitName}
+							onKeyDown={(event) => {
+								if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+									event.preventDefault();
+									commitName();
+								}
+							}}
+							maxLength={40}
+							className="min-w-0 flex-1 rounded-[var(--radius-xs)] bg-transparent text-end text-body text-[var(--color-text-primary)] outline-none focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
+							placeholder={t("profile.namePlaceholder")}
+						/>
+					</div>
+					{nameError ? (
+						<p
+							id="profile-name-error"
+							role="alert"
+							className="pb-[var(--spacing-3)] text-caption text-[var(--color-danger)]"
+						>
+							{nameError}
+						</p>
+					) : null}
 				</li>
 			</ListGroup>
 			<input
@@ -121,12 +147,14 @@ export function ProfileEditor({ person }: ProfileEditorProps) {
 					event.target.value = "";
 				}}
 			/>
-			{error ? (
+			{avatarError ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
-					{error}
+					{avatarError}
 				</p>
-			) : message ? (
-				<p className="text-caption text-[var(--color-text-tertiary)]">{message}</p>
+			) : message && !nameError ? (
+				<p role="status" className="text-caption text-[var(--color-text-tertiary)]">
+					{message}
+				</p>
 			) : null}
 		</div>
 	);

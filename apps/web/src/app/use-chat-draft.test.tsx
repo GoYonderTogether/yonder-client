@@ -7,6 +7,7 @@ const local = vi.hoisted(() => ({
 	values: new Map<string, unknown>(),
 	generation: 0,
 	upload: vi.fn(),
+	transcribe: vi.fn(),
 	prepare: vi.fn(),
 	failWrite: vi.fn((_key: string) => false),
 }));
@@ -17,7 +18,7 @@ vi.mock("../lib/prepare-image.ts", () => ({
 vi.mock("@yonder/ui-data", async () => ({
 	// The real error class, so a refusal the hook recognises is the same one the API client throws.
 	ApiError: (await import("@yonder/api-client")).ApiError,
-	useApi: () => ({ uploadAttachment: local.upload }),
+	useApi: () => ({ uploadAttachment: local.upload, transcribeAudio: local.transcribe }),
 	attachmentCacheKey: (owner: string, id: string) => `blob:${owner}:${id}`,
 	chatCacheGeneration: () => local.generation,
 	readChatCache: async (key: string) => local.values.get(key),
@@ -37,9 +38,38 @@ beforeEach(() => {
 	local.generation = 0;
 	local.failWrite.mockReset().mockReturnValue(false);
 	local.prepare.mockReset().mockResolvedValue(undefined);
+	local.transcribe.mockReset();
 	local.upload
 		.mockReset()
 		.mockResolvedValue({ id: "att_uploaded", kind: "file", name: "notes.txt", mimeType: "text/plain", size: 4 });
+});
+
+test("keeps Bot recordings on failure or a chat switch and reuses the transcript and nonce", async () => {
+	const { result, rerender } = renderHook(({ id }) => useChatDraft("alice", id), { initialProps: { id: "bot" } });
+	await waitFor(() => expect(result.current.loaded).toBe(true));
+	const file = new File([new Uint8Array(32_044)], "voice.wav", { type: "audio/wav" });
+	local.transcribe.mockRejectedValueOnce(new Error("offline")).mockResolvedValue({ text: "听见了" });
+	local.upload.mockResolvedValue({ id: "voice", kind: "audio", name: file.name, mimeType: file.type, size: file.size });
+	const send = vi.fn().mockRejectedValueOnce(new Error("network")).mockResolvedValue({});
+	await act(() => result.current.submit(send, { file, transcribe: true }));
+	expect(send).not.toHaveBeenCalled();
+	expect(result.current.files[0]).toMatchObject({ blob: file, voiceTranscript: null });
+	await act(() => result.current.submit(send));
+	expect(send.mock.calls).toMatchObject([[{ body: "听见了", attachmentIds: ["voice"], voice: { durationMs: 1000 } }]]);
+	await act(() => result.current.submit(send));
+	expect(send.mock.calls[1]?.[0]).toEqual(send.mock.calls[0]?.[0]);
+	expect(local.transcribe).toHaveBeenCalledTimes(2);
+	expect(result.current.files).toEqual([]);
+	local.transcribe.mockImplementationOnce(
+		(_file, signal: AbortSignal) => new Promise((_resolve, reject) => signal.addEventListener("abort", reject)),
+	);
+	act(() => void result.current.submit(send, { file, transcribe: true }));
+	await waitFor(() => expect(local.transcribe).toHaveBeenCalledTimes(3));
+	rerender({ id: "other" });
+	await waitFor(() => expect(result.current.loaded).toBe(true));
+	expect(result.current.sending).toBe(false);
+	expect(local.transcribe.mock.calls[2]?.[1].aborted).toBe(true);
+	expect(local.values.get("draft:alice:bot")).toMatchObject({ files: [{ blob: file }] });
 });
 
 test("only confirmed skill markers bind IDs; deleting a marker clears it and member IDs stay local", async () => {

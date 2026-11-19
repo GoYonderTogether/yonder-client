@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Conversation, Member, Schedule } from "@yonder/protocol";
 import { ApiError } from "@yonder/ui-data";
 import { createI18n } from "@yonder/ui-i18n";
+import { SidePanelProvider } from "@yonder/ui-shell";
 import { I18nextProvider } from "react-i18next";
 import { beforeEach, expect, test, vi } from "vitest";
-import { BotDetail } from "./bot-detail.tsx";
+import { BotSettingsOverview } from "./bot-detail.tsx";
 import { BotForm } from "./bot-form.tsx";
 import { BotList } from "./bot-list.tsx";
 
@@ -82,7 +83,12 @@ const direct: Conversation = {
 	version: 1,
 };
 
-const localised = (child: React.ReactNode) => <I18nextProvider i18n={createI18n("en")}>{child}</I18nextProvider>;
+const side = { open: vi.fn(), push: vi.fn(), back: vi.fn(), close: vi.fn() };
+const localised = (child: React.ReactNode) => (
+	<I18nextProvider i18n={createI18n("en")}>
+		<SidePanelProvider value={side}>{child}</SidePanelProvider>
+	</I18nextProvider>
+);
 beforeEach(() => {
 	vi.clearAllMocks();
 	api.contacts = [];
@@ -123,6 +129,37 @@ test("editing changes the name in place and offers no shuffle", async () => {
 	expect(api.updateBot).toHaveBeenCalledWith({ id: "bot_a", displayName: "Beta" });
 });
 
+test("selects nickname tags, returns to the full name when a selection is removed, and caps additions at five", async () => {
+	const nicknames = ["栗子", "栗子助理", "小栗", "栗", "Alpha"];
+	api.updateBot.mockResolvedValue(bot({ nicknames, selectedNickname: "栗子", version: 2 }));
+	render(localised(<BotForm mode="edit" bot={bot({ nicknames, selectedNickname: "小栗" })} />));
+
+	const input = screen.getByRole("textbox", { name: "Nicknames (up to 5)" });
+	expect(input).toBeDisabled();
+	fireEvent.click(screen.getByRole("button", { name: "Remove nickname 小栗" }));
+	expect(screen.getByRole("button", { name: "Use full name" })).toHaveAttribute("aria-pressed", "true");
+	expect(input).toBeEnabled();
+
+	fireEvent.change(input, { target: { value: "栗子" } });
+	expect(screen.getByText("This nickname is already added.")).toBeInTheDocument();
+	fireEvent.change(input, { target: { value: " 小助手 " } });
+	fireEvent.keyDown(input, { key: "Enter" });
+	expect(screen.getByRole("button", { name: "小助手" })).toBeInTheDocument();
+	expect(input).toBeDisabled();
+
+	const picked = screen.getByRole("button", { name: "栗子" });
+	fireEvent.click(picked);
+	expect(picked).toHaveAttribute("aria-pressed", "true");
+	fireEvent.click(screen.getByRole("button", { name: "Save" }));
+	await waitFor(() =>
+		expect(api.updateBot).toHaveBeenCalledWith({
+			id: "bot_a",
+			nicknames: ["栗子", "栗子助理", "栗", "Alpha", "小助手"],
+			selectedNickname: "栗子",
+		}),
+	);
+});
+
 test("an upload rejects the wrong type and an oversized image before any request", () => {
 	render(localised(<BotForm mode="edit" bot={bot()} />));
 	const input = screen.getByLabelText("Bot picture");
@@ -144,8 +181,20 @@ test("a stored picture is cleared before the colour is set, because one call cha
 	expect(api.updateBot.mock.calls[1]?.[0]).toEqual({ id: "bot_a", avatarColor: "3" });
 });
 
+function overview(member: Member, onDeleted = vi.fn()) {
+	return localised(
+		<BotSettingsOverview
+			bot={member}
+			onEdit={vi.fn()}
+			onPersona={vi.fn()}
+			onChannels={vi.fn()}
+			onDeleted={onDeleted}
+		/>,
+	);
+}
+
 test("the default Bot has no delete button at all", () => {
-	render(localised(<BotDetail bot={bot({ isDefault: true })} />));
+	render(overview(bot({ isDefault: true })));
 	expect(screen.queryByRole("button", { name: "Delete Bot" })).toBeNull();
 });
 
@@ -158,11 +207,13 @@ test("deleting asks first and names the number of plans in the Bot's own chat", 
 	] as Schedule[];
 	api.deleteBot.mockImplementation((_id: string, options?: { onSuccess?: () => void }) => options?.onSuccess?.());
 	const onDeleted = vi.fn();
-	render(localised(<BotDetail bot={bot()} onDeleted={onDeleted} />));
+	render(overview(bot(), onDeleted));
 	fireEvent.click(screen.getByRole("button", { name: "Delete Bot" }));
-	expect(screen.getByText("Its 2 scheduled plans are deleted too.")).toBeInTheDocument();
-	expect(screen.getByText("Its chat history will no longer be shown.")).toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+	// The confirmation is the shared dialog, not an inline card, and it names both consequences.
+	const dialog = screen.getByRole("dialog", { name: "Delete this Bot?" });
+	expect(dialog).toHaveTextContent("Its 2 scheduled plans are deleted too.");
+	expect(dialog).toHaveTextContent("Its chat history will no longer be shown.");
+	fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 	expect(api.deleteBot).toHaveBeenCalledWith("bot_a", expect.anything());
 	// The chat that went with it is named, so the frame can leave that page.
 	await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("cnv_a"));
@@ -172,7 +223,7 @@ test("a refused deletion shows the server's reason and keeps the Bot", () => {
 	api.deleteBot.mockImplementation((_id: string, options?: { onError?: (error: unknown) => void }) =>
 		options?.onError?.(new ApiError({ code: "default_bot_protected", status: 409, message: "protected" })),
 	);
-	render(localised(<BotDetail bot={bot()} />));
+	render(overview(bot()));
 	fireEvent.click(screen.getByRole("button", { name: "Delete Bot" }));
 	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 	expect(screen.getByRole("alert")).toHaveTextContent("The default Bot cannot be deleted.");
@@ -187,7 +238,9 @@ test("the list shows only Bots this account owns, the default one first", () => 
 	];
 	const open = vi.fn();
 	render(localised(<BotList onOpen={open} />));
-	expect(screen.getAllByRole("button").map((row) => row.textContent)).toEqual(["Main", "Later"]);
+	const [main, later] = screen.getAllByRole("button");
+	expect(main).toHaveAccessibleName(/^Main\s*@bota\s*Default Bot$/);
+	expect(later).toHaveAccessibleName(/^Later\s*@bota$/);
 	fireEvent.click(screen.getByRole("button", { name: /Main/ }));
 	expect(open).toHaveBeenCalledWith("bot_default");
 });

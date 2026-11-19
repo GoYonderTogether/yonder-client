@@ -5,3 +5,11 @@ export const friendQrEn = {
 	myCode: "My QR code",
 	myCodeDescription: "Scan to add me on Yonder",
 };
+
+export const friendRequestsEn = {
+	title: "Friend requests",
+	accepted: "Accepted",
+	accept: "Accept",
+	sent: "Request sent",
+	notifications: "System notifications",
+};

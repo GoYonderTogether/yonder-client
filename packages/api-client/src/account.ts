@@ -11,8 +11,10 @@ import type {
 	MeResponse,
 	OnboardingStep,
 	PhoneChangeCodeRequest,
+	PushTokenRegistration,
 	SendCodeResponse,
 	SetPasswordRequest,
+	UpdateDeviceRemarkRequest,
 	UpdateMeRequest,
 } from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
@@ -94,8 +96,20 @@ export function accountEndpoints(client: ApiClient) {
 			return client.request("/v1/devices");
 		},
 
+		updateDeviceRemark(deviceId: string, body: UpdateDeviceRemarkRequest): Promise<{ ok: true }> {
+			return client.request(`/v1/devices/${encodeURIComponent(deviceId)}`, { method: "PATCH", body });
+		},
+
 		registerDevice(body: DeviceInfo & { installationId: string }): Promise<{ ok: true }> {
 			return client.request("/v1/devices/register", { body });
+		},
+
+		registerPushToken(body: PushTokenRegistration): Promise<{ ok: true }> {
+			return client.request("/v1/devices/push-token", { method: "PUT", body });
+		},
+
+		unregisterPushToken(): Promise<{ ok: true }> {
+			return client.request("/v1/devices/push-token", { method: "DELETE" });
 		},
 
 		revokeSession(id: string): Promise<{ ok: true }> {

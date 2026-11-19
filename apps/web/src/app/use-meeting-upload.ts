@@ -1,30 +1,34 @@
-import type { MeetingRecorderController, MeetingRecording, MeetingUploadJob } from "@yonder/feature-meetings";
+import type { MeetingRecorderController, MeetingUploadJob } from "@yonder/feature-meetings";
 import { keys, useData, useDataQueryClient } from "@yonder/ui-data";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 import { apiBaseUrl } from "../lib/config.ts";
 import { isTauri } from "../lib/keychain.ts";
 import { invokeMeetingRecorder } from "../lib/meeting-recorder.ts";
-import { isDesktopShell } from "../lib/platform.ts";
+import { isDesktopExperience } from "../lib/platform.ts";
 import { uploadMeetingAudio } from "../lib/upload-meeting-audio.ts";
 
-/** Desktop observes its native queue. Web uploads saved segments while the page is running. */
+const RETRY_MS = 30_000;
+
+/** Desktop owns a persistent native queue. Elsewhere, resume saved recordings when the app can run. */
 export function useMeetingUpload(ownerId: string | null, recorder: MeetingRecorderController) {
-	const { client, api } = useData();
+	const { client, api, storage } = useData();
 	const query = useDataQueryClient();
-	const [jobs, setJobs] = useState<MeetingUploadJob[]>([]);
-	const [jobsOwner, setJobsOwner] = useState(ownerId);
-	const [error, setError] = useState(false);
-	const uploading = useRef(new Set<string>());
-	const desktop = isDesktopShell();
-	const web = !isTauri();
-	const available = recorder.state.supported && (desktop || web);
-	const ready = recorder.ready;
+	const desktop = isTauri() && isDesktopExperience();
+	const { ready, state } = recorder;
 	const owner = useRef(ownerId);
 	owner.current = ownerId;
+	const attempts = useRef(new Map<string, number>());
+	const submitting = useRef(false);
+
 	useEffect(() => {
-		setJobs([]);
-		setError(false);
-		if (!desktop || !ready || !ownerId) return;
+		owner.current = ownerId;
+		return () => {
+			owner.current = null;
+		};
+	}, [ownerId]);
+
+	useEffect(() => {
+		if (!desktop || !ready || !state.supported || !ownerId) return;
 		let disposed = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let configured: string | null = null;
@@ -53,16 +57,13 @@ export function useMeetingUpload(ownerId: string | null, recorder: MeetingRecord
 					configured = token;
 				}
 				if (disposed) return;
-				setJobs(next);
-				setJobsOwner(ownerId);
-				setError(false);
 				const signature = JSON.stringify(next.map((job) => [job.meetingId, job.state]));
 				if (signature !== previous) {
 					previous = signature;
-					void query.invalidateQueries({ queryKey: keys.meetings.all() });
+					void query.invalidateQueries({ queryKey: keys.items.all() });
 				}
 			} catch {
-				if (!disposed) setError(true);
+				// The native queue keeps saved audio while its session or network is unavailable.
 			}
 			if (!disposed) timer = setTimeout(() => void observe(), 1000);
 		}
@@ -71,71 +72,50 @@ export function useMeetingUpload(ownerId: string | null, recorder: MeetingRecord
 			disposed = true;
 			clearTimeout(timer);
 		};
-	}, [desktop, ownerId, ready, client, query]);
-	async function prepare(recording: MeetingRecording, conversationId: string) {
-		const recordingId = recording.id;
-		function assertOwner() {
-			if (!ownerId || owner.current !== ownerId || recording.ownerId !== ownerId) throw new Error("owner_mismatch");
-		}
-		assertOwner();
-		if (!available) throw new Error("audio_unavailable");
-		if (web) {
-			if (uploading.current.has(recordingId)) return;
-			uploading.current.add(recordingId);
-			const destination =
-				recording.conversationId ??
-				jobs.find((job) => job.recordingId === recordingId)?.conversationId ??
-				conversationId;
-			function update(state: MeetingUploadJob["state"], meetingId: string | null) {
-				if (owner.current !== ownerId) return;
-				setJobsOwner(ownerId);
-				setJobs((previous) => [
-					...previous.filter((job) => job.recordingId !== recordingId),
-					{ recordingId, conversationId: destination, meetingId, state, errorCode: null },
-				]);
+	}, [desktop, ownerId, ready, state.supported, client, query]);
+
+	const submitSaved = useEffectEvent(async (reconnected: boolean) => {
+		if (!ownerId || !ready || !state.supported || submitting.current) return;
+		submitting.current = true;
+		try {
+			for (const recording of state.recordings) {
+				if (owner.current !== ownerId) break;
+				const { id, conversationId } = recording;
+				if (
+					recording.ownerId !== ownerId ||
+					recording.state !== "ended" ||
+					!conversationId ||
+					!recording.segments.length
+				)
+					continue;
+				const key = `meeting-upload.${ownerId}.${id}`;
+				const retryAt = attempts.current.get(key) ?? 0;
+				if (retryAt === Infinity || (!reconnected && retryAt > Date.now())) continue;
+				attempts.current.set(key, Infinity);
+				if (storage.get(key) === "submitted") continue;
+				function assertOwner() {
+					if (owner.current !== ownerId) throw new Error("owner_mismatch");
+				}
+				try {
+					await uploadMeetingAudio(api, recording, conversationId, recorder.readAudio, assertOwner);
+					assertOwner();
+					storage.set(key, "submitted");
+					void query.invalidateQueries({ queryKey: keys.items.all() });
+				} catch {
+					attempts.current.set(key, Date.now() + RETRY_MS);
+				}
 			}
-			update("uploading", null);
-			try {
-				const meeting = await uploadMeetingAudio(api, recording, destination, recorder.readAudio, assertOwner);
-				update("submitted", meeting.id);
-			} catch (cause) {
-				update("failed", null);
-				throw cause;
-			} finally {
-				uploading.current.delete(recordingId);
-				void query.invalidateQueries({ queryKey: keys.meetings.all() });
-			}
-			return;
+		} finally {
+			submitting.current = false;
 		}
-		if (jobs.some((job) => job.recordingId === recordingId && job.state === "authentication_required")) {
-			await client.refreshSession();
-			if (owner.current !== ownerId) return;
-		}
-		await invokeMeetingRecorder("queue_upload", { ownerId, recordingId, conversationId });
-	}
-	const uploadEnded = useEffectEvent((recording: MeetingRecording) => {
-		if (recording.conversationId) void prepare(recording, recording.conversationId).catch(() => {});
 	});
-	const previousActive = useRef<string | null>(null);
-	const { activeId, recordings } = recorder.state;
 	useEffect(() => {
-		if (!web) return;
-		if (activeId) {
-			previousActive.current = activeId;
-			return;
-		}
-		const finished = recordings.find(
-			(recording) => recording.id === previousActive.current && recording.state !== "recording",
-		);
-		if (!finished) return;
-		previousActive.current = null;
-		if (finished.state === "ended") uploadEnded(finished);
-	}, [web, activeId, recordings]);
-	return {
-		jobs: jobsOwner === ownerId ? jobs : [],
-		error,
-		available,
-		web,
-		prepare,
-	};
+		if (!desktop && state.recordings.length) void submitSaved(false);
+	}, [desktop, state.recordings]);
+	useEffect(() => {
+		if (desktop) return;
+		const resume = () => void submitSaved(true);
+		window.addEventListener("online", resume);
+		return () => window.removeEventListener("online", resume);
+	}, [desktop]);
 }

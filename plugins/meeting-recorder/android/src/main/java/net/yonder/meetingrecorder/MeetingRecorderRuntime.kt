@@ -77,7 +77,7 @@ internal object MeetingRecorderRuntime {
         }
     }
 
-    fun start(context: Context, requested: String, title: String): JSONObject = synchronized(lock) {
+    fun start(context: Context, requested: String, title: String, conversationId: String?, separateSpeakers: Boolean): JSONObject = synchronized(lock) {
         require(owner == requested) { "wrong_owner" }
         check(active == null && worker == null) { "recording_busy" }
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -92,7 +92,7 @@ internal object MeetingRecorderRuntime {
             check(recorder.state == AudioRecord.STATE_INITIALIZED) { "microphone_unavailable" }
             recorder.startRecording()
             check(recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) { "microphone_unavailable" }
-            val record = storage(context).create(requested, title, rate)
+            val record = storage(context).create(requested, title, rate, conversationId, separateSpeakers)
             active = record; audio = recorder; pendingBytes = 0; stopReason = null; running.set(true)
             watchSilencing(context, recorder)
             worker = thread(name = "meeting-audio-writer") { capture(context, recorder, record) }

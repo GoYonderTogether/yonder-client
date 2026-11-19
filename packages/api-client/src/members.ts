@@ -6,6 +6,7 @@ import type {
 	CreateBotRequest,
 	CreateBotResponse,
 	CreateGroupRequest,
+	FriendRequest,
 	Member,
 	MemberProfileResponse,
 	PrivacySettings,
@@ -42,6 +43,18 @@ export function memberEndpoints(client: ApiClient) {
 			return client.request(`/v1/bots/${encodeURIComponent(id)}`, { method: "DELETE" });
 		},
 
+		friendRequests(): Promise<{ items: FriendRequest[] }> {
+			return client.request("/v1/friend-requests");
+		},
+		friendRequest(id: string): Promise<{ request: FriendRequest }> {
+			return client.request(`/v1/friend-requests/${encodeURIComponent(id)}`);
+		},
+		requestFriend(memberId: string): Promise<{ request: FriendRequest }> {
+			return client.request("/v1/friend-requests", { body: { memberId } });
+		},
+		acceptFriendRequest(id: string): Promise<{ request: FriendRequest; conversation: Conversation }> {
+			return client.request(`/v1/friend-requests/${encodeURIComponent(id)}/accept`, { body: {} });
+		},
 		contacts(): Promise<{ items: Member[] }> {
 			return client.request("/v1/contacts");
 		},

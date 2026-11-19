@@ -4,7 +4,7 @@ import { Link } from "react-router";
 
 const paths = ROUTES.flatMap(({ path }) => {
 	if (path === "/messages/:conversationId") return [path.replace(":conversationId", MAIN_CONVERSATION)];
-	if (path === "/tasks/:taskId") return [];
+	if (path === "/tasks/:taskId" || path === "/memory/files/:path" || path === "/memory/g/:group") return [];
 	if (path === "/me/:section") return ME_SECTION_IDS.map((section) => path.replace(":section", section));
 	if (path === "/me/:section/:page") return [path.replace(":section", "account").replace(":page", "password")];
 	return [path];

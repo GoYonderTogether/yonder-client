@@ -1,5 +1,4 @@
 import { cn } from "@yonder/ui-components";
-import { ICON_SIZE, ICON_STROKE } from "@yonder/ui-tokens";
 import type { ReactNode } from "react";
 import type { TabId } from "../navigation/routes.ts";
 import { TABS } from "../navigation/routes.ts";
@@ -15,6 +14,7 @@ export interface MobileDockProps {
 	onSelect: (tab: TabId) => void;
 	labels: Record<TabId, string>;
 	ariaLabel: string;
+	botTab?: { label: string; active: boolean; icon: ReactNode; onSelect(): void } | undefined;
 	onHeightChange?: (height: number) => void;
 }
 
@@ -29,6 +29,7 @@ export function MobileDock({
 	onSelect,
 	labels,
 	ariaLabel,
+	botTab,
 	onHeightChange,
 }: MobileDockProps) {
 	const ref = useChromeSize("--native-dock-height", true, onHeightChange);
@@ -56,28 +57,41 @@ export function MobileDock({
 			{showTabs ? (
 				<nav aria-label={ariaLabel}>
 					<ul className="flex h-[var(--tabbar-height)] items-stretch">
-						{TABS.map((tab) => {
-							const selected = tab === current;
-							const Icon = TAB_ICONS[tab];
+						{[
+							...(botTab ? [{ id: "bot", ...botTab, displayLabel: shortTabLabel(botTab.label) }] : []),
+							...TABS.map((tab) => {
+								const Icon = TAB_ICONS[tab];
+								return {
+									id: tab,
+									label: labels[tab],
+									displayLabel: labels[tab],
+									active: tab === current && !botTab?.active,
+									icon: (
+										<Icon size={23} strokeWidth={tab === current && !botTab?.active ? 2.1 : 1.6} aria-hidden="true" />
+									),
+									onSelect: () => onSelect(tab),
+								};
+							}),
+						].map(({ id, label, displayLabel, active, icon, onSelect }) => {
 							return (
-								<li key={tab} className="flex-1">
+								<li
+									key={id}
+									className={cn("min-w-0 flex-1", id === "bot" && "min-w-[calc(var(--spacing-10)+var(--spacing-3))]")}
+								>
 									<button
 										type="button"
-										onClick={() => onSelect(tab)}
-										aria-current={selected ? "page" : undefined}
+										onClick={onSelect}
+										aria-label={label}
+										aria-current={active ? "page" : undefined}
 										className={cn(
 											"flex size-full flex-col items-center justify-center gap-[3px]",
 											"text-[10px] font-medium leading-3 transition-colors duration-[var(--duration-fast)]",
 											"focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
-											selected ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-tertiary)]",
+											active ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-tertiary)]",
 										)}
 									>
-										<Icon
-											size={ICON_SIZE.lg}
-											strokeWidth={selected ? ICON_STROKE.selected : ICON_STROKE.normal}
-											aria-hidden="true"
-										/>
-										<span>{labels[tab]}</span>
+										{icon}
+										<span className="max-w-full truncate px-[var(--spacing-1)]">{displayLabel}</span>
 									</button>
 								</li>
 							);
@@ -87,4 +101,12 @@ export function MobileDock({
 			) : null}
 		</div>
 	);
+}
+
+function shortTabLabel(label: string) {
+	const chars =
+		typeof Intl.Segmenter === "function"
+			? Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(label), ({ segment }) => segment)
+			: Array.from(label);
+	return chars.length > 6 ? `${chars.slice(0, 6).join("")}…` : label;
 }

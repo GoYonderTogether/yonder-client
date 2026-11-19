@@ -7,13 +7,15 @@ import { keys } from "./keys.ts";
 
 afterEach(() => vi.useRealTimers());
 
-test("does not persist memory reads or paused writes", () => {
+test("does not persist private content and skips legacy cached cards on restore", async () => {
 	const client = createQueryClient();
 	const path = "/notes/private.md";
 	for (const key of [keys.memory.days(), keys.memory.files(""), keys.memory.file(path), keys.memory.revisions(path)]) {
 		client.setQueryData(key, "memory data");
 	}
 	client.setQueryData(keys.me(), "account data");
+	client.setQueryData(keys.memberProfile("friend"), "signed-in card");
+	client.setQueryData(keys.publicMemberProfile("friend"), "public card");
 	client.getMutationCache().build(
 		client,
 		{ mutationKey: keys.memory.all() },
@@ -32,6 +34,17 @@ test("does not persist memory reads or paused writes", () => {
 	const result = dehydrate(client, dehydrateOptions);
 	expect(result.queries.map(({ queryKey }) => queryKey)).toEqual([keys.me()]);
 	expect(result.mutations).toEqual([]);
+	const storage = createMemoryStorage();
+	storage.set(
+		CACHE_STORAGE_KEY,
+		JSON.stringify({ buster: CACHE_VERSION, timestamp: Date.now(), clientState: dehydrate(client) }),
+	);
+	const restored = (await createPersister(storage).restoreClient())?.clientState.queries.map(
+		({ queryKey }) => queryKey,
+	);
+	expect(restored).toContainEqual(keys.me());
+	expect(restored).not.toContainEqual(keys.memberProfile("friend"));
+	expect(restored).not.toContainEqual(keys.publicMemberProfile("friend"));
 	client.clear();
 });
 

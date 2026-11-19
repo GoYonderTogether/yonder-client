@@ -1,5 +1,5 @@
 import type { Member } from "@yonder/protocol";
-import { Avatar, Button, IconButton } from "@yonder/ui-components";
+import { Avatar, Button, cn, IconButton } from "@yonder/ui-components";
 import { Check, Shuffle } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,6 +20,8 @@ export interface BotAvatarPickerProps {
 	error?: string | null;
 	/** Create mode also offers the name-shuffling control beside the preview. */
 	onShuffle?: (() => void) | undefined;
+	align?: "center" | "start";
+	disabled?: boolean;
 }
 
 /**
@@ -38,6 +40,8 @@ export function BotAvatarPicker({
 	preview,
 	error,
 	onShuffle,
+	align = "center",
+	disabled = false,
 }: BotAvatarPickerProps) {
 	const { t } = useTranslation();
 	const input = useRef<HTMLInputElement>(null);
@@ -58,7 +62,7 @@ export function BotAvatarPicker({
 	};
 
 	return (
-		<div className="flex flex-col items-center gap-[var(--spacing-3)]">
+		<div className={cn("flex flex-col gap-[var(--spacing-3)]", align === "start" ? "items-start" : "items-center")}>
 			<div className="relative">
 				<Avatar name={name} src={shown} size={80} kind="bot" color={shown ? null : color} />
 				{onShuffle ? (
@@ -72,7 +76,11 @@ export function BotAvatarPicker({
 					</IconButton>
 				) : null}
 			</div>
-			<fieldset aria-label={t("bots.avatarColor")} className="flex justify-center gap-[var(--spacing-3)]">
+			<fieldset
+				aria-label={t("bots.avatarColor")}
+				className={cn("flex flex-wrap", align === "start" ? "gap-[var(--spacing-2)]" : "gap-[var(--spacing-3)]")}
+				disabled={disabled}
+			>
 				{BOT_AVATAR_COLORS.map((value) => (
 					<button
 						key={value}
@@ -89,12 +97,18 @@ export function BotAvatarPicker({
 					</button>
 				))}
 			</fieldset>
-			<div className="flex items-center gap-[var(--spacing-2)]">
-				<Button type="button" variant="link" onClick={() => input.current?.click()} loading={uploading}>
+			<div className="flex flex-wrap items-center gap-[var(--spacing-2)]">
+				<Button
+					type="button"
+					variant="link"
+					onClick={() => input.current?.click()}
+					loading={uploading}
+					disabled={disabled}
+				>
 					{t("bots.changeAvatar")}
 				</Button>
 				{shown ? (
-					<Button type="button" variant="link" onClick={onClear}>
+					<Button type="button" variant="link" onClick={onClear} disabled={disabled}>
 						{t("bots.removeAvatar")}
 					</Button>
 				) : null}
@@ -102,6 +116,7 @@ export function BotAvatarPicker({
 			<input
 				ref={input}
 				type="file"
+				disabled={disabled}
 				accept={BOT_AVATAR_TYPES.join(",")}
 				className="sr-only"
 				aria-label={t("bots.avatar")}

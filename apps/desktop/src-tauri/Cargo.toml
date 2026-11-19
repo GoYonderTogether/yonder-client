@@ -1,6 +1,6 @@
 [package]
 name = "yonder-desktop"
-version = "0.3.26111801"
+version = "0.3.26111904"
 edition = "2021"
 
 # Desktop builds the binary from src/main.rs; mobile builds only the library.
@@ -9,6 +9,7 @@ name = "yonder_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
+cc = "=1.10.0"
 tauri-build = { version = "=2.7.4", features = [] }
 
 [dependencies]
@@ -17,12 +18,15 @@ tauri = { version = "=2.12.5", features = [] }
 serde_json = "=1.0.145"
 serde = { version = "=1.0.229", features = ["derive"] }
 tauri-plugin-meeting-recorder = { path = "../../../plugins/meeting-recorder" }
+tauri-plugin-opener = "=2.5.4"
+tauri-plugin-clipboard-manager = "=2.5.0"
 
 # The refresh token lives in the OS credential store: Keychain on macOS, Credential Manager on
 # Windows, libsecret on Linux. The webview never persists it (10-质量 第四节). The plugin has no
 # iOS or Android implementation and does not compile there, so it is a desktop-only dependency.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-keyring = "=0.1.0"
+tauri-plugin-notification = "=2.8.0"
 tauri-plugin-process = "=2.3.1"
 tauri-plugin-updater = "=2.14.1"
 # Native message box for the local-file grant confirmation, shown by Rust only.

@@ -1,5 +1,6 @@
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { QuotaConfigResponse } from "@yonder/protocol";
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { UsageRunFilter } from "@yonder/api-client";
+import type { QuotaConfigResponse, QuotaPool } from "@yonder/protocol";
 import { CACHE_MAX_AGE_MS } from "../query/client.ts";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
@@ -83,6 +84,41 @@ export function useUsage() {
 		initialPageParam: undefined as string | undefined,
 		queryFn: ({ pageParam }) => api.usage(pageParam),
 		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+		staleTime: 300_000,
+	});
+}
+
+/** One screen of the quota page: totals, the day-by-pool chart and where it went. */
+export function useUsageOverview(range: "cycle" | "7d", pool?: QuotaPool) {
+	const api = useApi();
+	return useQuery({
+		queryKey: keys.usageOverview(range, pool ?? "all"),
+		queryFn: () => api.usageOverview({ range, ...(pool ? { pool } : {}) }),
+		// Switching the range keeps the last chart on screen until the new one arrives.
+		placeholderData: keepPreviousData,
+		staleTime: 60_000,
+	});
+}
+
+/** Spending grouped by run: one reply, one task step, one meeting note. */
+export function useUsageRuns(filter: UsageRunFilter = {}) {
+	const api = useApi();
+	return useInfiniteQuery({
+		queryKey: keys.usageRuns(JSON.stringify(filter)),
+		initialPageParam: undefined as string | undefined,
+		queryFn: ({ pageParam }) => api.usageRuns(pageParam, filter),
+		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+		staleTime: 60_000,
+	});
+}
+
+/** The model calls behind one run, loaded when the reader opens it. */
+export function useUsageRunCalls(run: string | null) {
+	const api = useApi();
+	return useQuery({
+		queryKey: keys.usageRunCalls(run ?? ""),
+		queryFn: () => api.usage(undefined, { run: run ?? "" }),
+		enabled: Boolean(run),
 		staleTime: 300_000,
 	});
 }

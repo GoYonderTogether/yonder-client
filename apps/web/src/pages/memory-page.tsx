@@ -1,77 +1,73 @@
-import { Segmented } from "@yonder/ui-components";
+import { EmptyState } from "@yonder/ui-components";
 import { usePerson } from "@yonder/ui-data";
-import { ListFrame, Overlay, PageFrame, useShellChrome } from "@yonder/ui-shell";
-import { useState } from "react";
+import { ListFrame, PageFrame, useShellChrome } from "@yonder/ui-shell";
+import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { ABOUT_MEMORY, MemoryFile } from "./memory/memory-file.tsx";
-import { MemoryFileTree } from "./memory/memory-file-tree.tsx";
+import { useNavigate } from "react-router";
+import { MemoryFilePage } from "./memory/memory-file.tsx";
+import { MemoryFileList } from "./memory/memory-file-list.tsx";
+import { MemoryColumn, MemoryHome, useGroupName } from "./memory/memory-home.tsx";
 import { MemoryTimeline } from "./memory/memory-timeline.tsx";
+import { type MemoryView, memoryFileParent, memoryFileRoute } from "./memory/memory-view.ts";
 import "./memory/memory.css";
 import "./memory/memory-entry.css";
 import "./memory/memory-drawer.css";
 import "./memory/memory-overlay.css";
 
-const SECTIONS = { timeline: "memory.timeline", about: "memory.aboutMe", files: "memory.files" } as const;
-type MemorySection = keyof typeof SECTIONS;
-
-export function MemoryList({ section, onChange }: { section: MemorySection; onChange: (section: string) => void }) {
+/**
+ * The list column (11-19 layout). Narrower windows read the whole home here: the card, the latest
+ * of the timeline, then every group; what it opens covers it as a detail. A wide window keeps the
+ * card and the group list here and shows the selection on the white page beside it.
+ */
+export function MemoryList({ view }: { view: MemoryView }) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
+	const person = usePerson();
+	const selected =
+		view.kind === "group" ? view.group : view.kind === "home" || view.kind === "timeline" ? "timeline" : "";
 	return (
-		<ListFrame
-			title={t("nav.memory")}
-			center={
-				<Segmented
-					options={Object.entries(SECTIONS).map(([value, label]) => ({ value, label: t(label) }))}
-					value={section}
-					onChange={onChange}
-					aria-label={t("nav.memory")}
-				/>
-			}
-		>
-			{mode !== "wide" ? <MemoryBody section={section} /> : null}
+		<ListFrame title={t("nav.memory")}>
+			{mode === "wide" ? <MemoryColumn key={person?.id} selected={selected} /> : <MemoryHome key={person?.id} />}
 		</ListFrame>
 	);
 }
 
-export function MemoryPage({ section }: { section: MemorySection }) {
+export function MemoryPage({ view }: { view: MemoryView }) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
-	return (
-		<PageFrame title={t(SECTIONS[section])}>{mode === "wide" ? <MemoryBody section={section} /> : null}</PageFrame>
-	);
-}
-
-function MemoryBody({ section }: { section: MemorySection }) {
+	const navigate = useNavigate();
 	const person = usePerson();
-	return section === "timeline" ? (
-		<MemoryTimeline key={person?.id} />
-	) : (
-		<MemoryFilesSection key={`${section}:${person?.id ?? ""}`} section={section} owner={person?.kind === "person"} />
-	);
-}
-
-function MemoryFilesSection({ section, owner }: { section: "about" | "files"; owner: boolean }) {
-	const { t } = useTranslation();
-	const { mode } = useShellChrome();
-	const [open, setOpen] = useState<string>();
-	const close = () => setOpen(undefined);
+	const groupName = useGroupName();
+	if (view.kind === "file")
+		return (
+			<PageFrame>
+				<MemoryFilePage
+					key={`${person?.id}:${view.path}`}
+					path={view.path}
+					onDeleted={() => navigate(memoryFileParent(view.path))}
+				/>
+			</PageFrame>
+		);
+	if (view.kind === "group")
+		return (
+			<PageFrame title={groupName(view.group)}>
+				<MemoryFileList
+					key={`${person?.id}:${view.group}`}
+					group={view.group}
+					current={null}
+					onOpen={(path) => navigate(memoryFileRoute(path))}
+				/>
+			</PageFrame>
+		);
+	if (view.kind === "timeline" || mode === "wide")
+		return (
+			<PageFrame title={t("memory.timeline")}>
+				<MemoryTimeline key={person?.id} />
+			</PageFrame>
+		);
 	return (
-		<div className="memory-file-section">
-			{section === "about" ? (
-				ABOUT_MEMORY.map(({ path, label }) => (
-					<MemoryFile key={path} path={path} title={t(label)} owner={owner} onOpen={setOpen} />
-				))
-			) : (
-				<MemoryFileTree onOpen={setOpen} />
-			)}
-			{open ? (
-				<Overlay open title={t("memory.file")} closeLabel={t("app.close")} mode={mode} onClose={close}>
-					<div className="p-[var(--spacing-4)]">
-						<MemoryFile key={open} path={open} title="" owner={owner} onOpen={setOpen} onDeleted={close} />
-					</div>
-				</Overlay>
-			) : null}
+		<div className="flex flex-1 items-center justify-center">
+			<EmptyState icon={<FileText size={24} strokeWidth={1.6} />} title={t("nav.memory")} />
 		</div>
 	);
 }

@@ -4,17 +4,23 @@ import type { DownloadPlatform } from "../environment.ts";
 import { PublicLayout, type PublicViewProps } from "./public-layout.tsx";
 import "./downloads.css";
 
-const PLATFORMS: DownloadPlatform[] = ["macos", "windows", "android", "ios", "web"];
+const PLATFORMS: readonly DownloadPlatform[] = ["macos", "windows", "android", "ios", "web"];
 
 export function DownloadView({
 	version,
 	iosUrl,
 	connectDevice = false,
-}: PublicViewProps & { connectDevice?: boolean }) {
+	connectorPlatforms = [],
+}: PublicViewProps & { connectDevice?: boolean; connectorPlatforms?: readonly string[] }) {
 	const { t } = useTranslation();
 	const catalog = createDownloadCatalog(version, {
 		...(iosUrl ? { iosUrl } : {}),
 	});
+	const supportsConnector = (platform: DownloadPlatform) =>
+		connectDevice && platform !== "web" && connectorPlatforms.includes(platform);
+	const platforms = [...PLATFORMS].sort(
+		(first, second) => Number(supportsConnector(second)) - Number(supportsConnector(first)),
+	);
 
 	return (
 		<PublicLayout homeLink>
@@ -22,7 +28,7 @@ export function DownloadView({
 				<h1>{t("landing.allDownloads")}</h1>
 				{connectDevice ? <p>{t("landing.deviceGuide")}</p> : null}
 				<div className="downloads-list">
-					{PLATFORMS.map((platform) => {
+					{platforms.map((platform) => {
 						const entry = catalog[platform];
 						const name = t(`landing.platforms.${platform}`);
 						return (
@@ -30,6 +36,7 @@ export function DownloadView({
 								<div>
 									<h2>{name}</h2>
 									<div className="downloads-meta">
+										{supportsConnector(platform) ? <span>{t("landing.supportsConnector")}</span> : null}
 										{entry.version ? <span>{t("landing.version", { version: entry.version })}</span> : null}
 										{platform === "macos" ? <span>{t("landing.macRequirement")}</span> : null}
 										{platform === "windows" ? <span>{t("landing.windowsRequirement")}</span> : null}

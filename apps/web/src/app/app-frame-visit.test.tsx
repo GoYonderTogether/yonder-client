@@ -37,19 +37,15 @@ vi.mock("@yonder/ui-data", () => {
 		useConversations: () => ({ data: { items: state.items } }),
 		useMessages: () => ({ data: { pages: [] } }),
 		useMe: () => ({ data: { hasPassword: true } }),
-		useMeetings: () => ({ data: { items: [] }, isLoading: false, isError: false, refetch: async () => {} }),
-		useMeeting: () => ({ data: undefined, isLoading: false, isError: false, refetch: async () => {} }),
-		useMeetingActions: () => ({ retry: { isPending: false, isError: false, mutateAsync: async () => {} } }),
 		useHealth: () => ({ data: null }),
 		useSkills: () => ({ data: { items: [] } }),
 		useContacts: () => ({ data: { items: [] } }),
 		useRunActions: () => ({ stop: { mutate: () => {} } }),
 		useSendMessage: () => ({ mutate: () => {} }),
 		useCompactConversation: () => ({ isPending: false, isError: false, run() {}, reset() {} }),
-		useMeetingCloud: () => ({}),
 	};
 });
-vi.mock("./use-meeting-cloud.ts", () => ({ useMeetingCloud: () => ({}) }));
+vi.mock("./use-meeting-upload.ts", () => ({ useMeetingUpload: () => {} }));
 vi.mock("./use-meeting-recorder.ts", () => ({
 	useMeetingRecorder: () => ({ state: { recordings: [], activeId: null } }),
 }));

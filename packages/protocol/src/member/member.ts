@@ -11,6 +11,9 @@ export interface Member {
 	/** Public number: lowercase, 6–20 chars, letter first. */
 	handle: string;
 	displayName: string;
+	/** Private display preferences for a Bot, returned only to its owner. */
+	nicknames?: string[];
+	selectedNickname?: string | null;
 	/** Content-addressed: the `v` query parameter changes when the image changes. */
 	avatarUrl: string | null;
 	avatarColor?: string | null;

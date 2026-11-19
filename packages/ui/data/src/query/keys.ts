@@ -26,6 +26,9 @@ export const keys = {
 	quotaConfig: () => ["quota", "config"] as const,
 	quotaRates: () => ["quota", "rates"] as const,
 	usage: (range: string) => ["usage", range] as const,
+	usageOverview: (range: string, pool: string) => ["usage", "overview", range, pool] as const,
+	usageRuns: (filter: string) => ["usage", "runs", filter] as const,
+	usageRunCalls: (run: string) => ["usage", "run", run] as const,
 	ledger: () => ["quota", "ledger"] as const,
 	invite: () => ["invite"] as const,
 	resolveInvite: (code: string) => ["invite", "resolve", code] as const,
@@ -39,6 +42,11 @@ export const keys = {
 		all: (id: string) => ["messages", id] as const,
 		latest: (id: string) => ["messages", id, "latest"] as const,
 		page: (id: string, cursor: string) => ["messages", id, "page", cursor] as const,
+	},
+	friendRequests: {
+		all: () => ["friend-requests"] as const,
+		list: () => ["friend-requests", "list"] as const,
+		detail: (id: string) => ["friend-requests", "detail", id] as const,
 	},
 	contacts: () => ["contacts"] as const,
 	contactSearch: (query: string) => ["contact-search", query] as const,
@@ -63,10 +71,13 @@ export const keys = {
 	publicMemberProfile: (handle: string) => ["member-profile", "public", handle] as const,
 	privacy: () => ["privacy"] as const,
 	reception: () => ["reception"] as const,
+	socialKnowledge: () => ["social-knowledge"] as const,
+	socialPersona: (botId: string) => ["social-persona", botId] as const,
 	items: {
 		all: () => ["items"] as const,
 		/** One account's list; `botId` narrows it to one Bot. */
 		list: (botId: string | null) => ["items", "list", botId ?? "all"] as const,
+		activeSubtasks: (botId: string) => ["items", "active-subtasks", botId] as const,
 		detail: (id: string) => ["items", "detail", id] as const,
 	},
 } as const;
@@ -85,6 +96,7 @@ export const ALL_ROOT_KEYS: readonly string[] = [
 	"messages",
 	"providers",
 	"contacts",
+	"friend-requests",
 	"contact-search",
 	"usage",
 	"skills",

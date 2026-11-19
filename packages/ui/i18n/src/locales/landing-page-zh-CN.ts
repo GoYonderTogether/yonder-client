@@ -1,5 +1,15 @@
 import type { LandingPageMessages } from "./landing-page-en.ts";
 
+export const connectDeviceDownloadZhCN = {
+	deviceGuide: "在要连接的设备上安装 Yonder，并登录同一账号。",
+	shareDownload: "分享下载链接",
+	shareDownloadFailed: "无法分享下载链接。",
+	copyDownloadLink: "复制下载链接",
+	openDownloadInBrowser: "在浏览器中打开",
+	openDownloadFailed: "无法打开下载页。",
+	supportsConnector: "支持连接器",
+};
+
 /** 落地页文案。页面中的人物、对话和数字是场景演示，页脚有一行说明。 */
 export const landingPageZhCN: LandingPageMessages = {
 	nav: {
@@ -51,7 +61,7 @@ export const landingPageZhCN: LandingPageMessages = {
 	tags: {
 		parcel: "快递取件码",
 		invoice: "发票报销",
-		recording: "会议录音",
+		recording: "录音笔记",
 		refund: "9.9 元退款",
 		poster: "活动海报",
 		subtitle: "英文字幕",
@@ -62,7 +72,7 @@ export const landingPageZhCN: LandingPageMessages = {
 		pending: "待办",
 		done: "已办完",
 		poster: { title: "一张活动海报", before: "你转来一张图", after: "路线、日程、出门提醒都排好了" },
-		recording: { title: "一段会议录音", before: "你丢进一个文件", after: "散会时，纪要和待办已经在等你" },
+		recording: { title: "一份录音笔记", before: "你丢进一个文件", after: "散会时，纪要和待办已经在等你" },
 		refund: { title: "一笔 9.9 元的退款", before: "你说一句「退了吧」", after: "它在你电脑上走完流程，你只输一次密码" },
 		subtitle: { title: "一部英文电影", before: "你刚下载好", after: "配上中文字幕，投到电视上开播" },
 		brief: { title: "每天早上", before: "你醒来", after: "一张不超过 200 字的清单，没事就空着" },

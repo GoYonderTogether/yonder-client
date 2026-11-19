@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { apiBaseUrl } from "../lib/config.ts";
 import { isTauri } from "../lib/keychain.ts";
+import { shouldShowScanner } from "../lib/platform.ts";
 import { loadQrDecoder } from "../lib/qr-decoder.ts";
 import { qrTarget } from "../lib/qr-target.ts";
 
 /** Camera frames and selected photos stay on-device. */
 export function QrScanner({ onResult }: { onResult: (value: string) => void }) {
 	const { t } = useTranslation();
+	const cameraEnabled = shouldShowScanner();
 	const video = useRef<HTMLVideoElement>(null);
 	const file = useRef<HTMLInputElement>(null);
 	const mounted = useRef(true);
@@ -42,6 +44,7 @@ export function QrScanner({ onResult }: { onResult: (value: string) => void }) {
 	}, []);
 
 	useEffect(() => {
+		if (!cameraEnabled) return;
 		let cancelled = false;
 		let stream: MediaStream | undefined;
 		let timer: ReturnType<typeof setTimeout> | undefined;
@@ -90,7 +93,7 @@ export function QrScanner({ onResult }: { onResult: (value: string) => void }) {
 			stop();
 			if (video.current) video.current.srcObject = null;
 		};
-	}, [accept, cameraRequest]);
+	}, [accept, cameraRequest, cameraEnabled]);
 
 	async function readPhoto(photo: File) {
 		const url = URL.createObjectURL(photo);
@@ -122,21 +125,27 @@ export function QrScanner({ onResult }: { onResult: (value: string) => void }) {
 
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)]">
-			<video
-				ref={video}
-				muted
-				playsInline
-				aria-label={t("chatActions.scanCamera")}
-				className="aspect-square w-full rounded-[var(--radius-card)] bg-[var(--color-bg-subtle)] object-cover"
-			/>
-			<p role={error ? "alert" : "status"} className="text-caption text-[var(--color-text-secondary)]">
-				{t(error ?? "chatActions.scanReady")}
-			</p>
+			{cameraEnabled ? (
+				<video
+					ref={video}
+					muted
+					playsInline
+					aria-label={t("chatActions.scanCamera")}
+					className="aspect-square w-full rounded-[var(--radius-card)] bg-[var(--color-bg-subtle)] object-cover"
+				/>
+			) : null}
+			{cameraEnabled || error ? (
+				<p role={error ? "alert" : "status"} className="text-caption text-[var(--color-text-secondary)]">
+					{t(error ?? "chatActions.scanReady")}
+				</p>
+			) : null}
 			<div className="flex gap-[var(--spacing-2)]">
-				<Button onClick={() => setCameraRequest({ ...cameraRequest })}>
-					<Camera size={16} />
-					{t("chatActions.scanRetry")}
-				</Button>
+				{cameraEnabled ? (
+					<Button onClick={() => setCameraRequest({ ...cameraRequest })}>
+						<Camera size={16} />
+						{t("chatActions.scanRetry")}
+					</Button>
+				) : null}
 				<Button onClick={() => file.current?.click()}>
 					<ImagePlus size={16} />
 					{t("chatActions.scanPhoto")}

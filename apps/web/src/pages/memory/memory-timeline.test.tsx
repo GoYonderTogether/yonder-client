@@ -108,7 +108,10 @@ test("days read newest first with a large title, a digest and entries at their o
 	expect(document.getElementById("memory-entry-reading")).toHaveClass("memory-upcoming");
 	expect(document.getElementById("memory-entry-plan")).toHaveClass("memory-size-note", "memory-kind-doc");
 	expect(screen.getByText("#Yonder")).toBeVisible();
-	expect(within(document.getElementById("memory-entry-plan") as HTMLElement).getByText("Private")).toBeVisible();
+	// Private is the default and is not marked on a card (24 第三节).
+	expect(
+		within(document.getElementById("memory-entry-plan") as HTMLElement).queryByRole("img", { name: "Private" }),
+	).toBeNull();
 	expect(document.getElementById("memory-entry-market")).toHaveClass("memory-size-moment");
 	expect(screen.getByText("Liangzhu Arts Centre")).toBeVisible();
 	expect(screen.getByText("People: 1")).toBeVisible();
@@ -192,7 +195,7 @@ test("the confirmation lapses after four seconds", () => {
 	expect(data.remove).not.toHaveBeenCalled();
 });
 
-test("a failed delete shows the server's reason inline", () => {
+test("a failed delete shows the reason, in the reader's language, inline", () => {
 	data.state = {
 		isPending: false,
 		error: new ApiError({ code: "not_found", status: 404, message: "missing" }),
@@ -200,8 +203,18 @@ test("a failed delete shows the server's reason inline", () => {
 	};
 	show();
 	fireEvent.click(screen.getByRole("button", { name: /Rewrote the timeline plan/ }));
+	// The coded failure reads its sentence; the developer message never reaches the screen.
+	const alert = within(document.getElementById("memory-drawer-plan") as HTMLElement).getByRole("alert");
+	expect(alert).toHaveTextContent("Not found.");
+	expect(alert).not.toHaveTextContent("missing");
+});
+
+test("a failure with no sentence for its code shows the message it came with", () => {
+	data.state = { isPending: false, error: new Error("network down"), variables: "plan" };
+	show();
+	fireEvent.click(screen.getByRole("button", { name: /Rewrote the timeline plan/ }));
 	expect(within(document.getElementById("memory-drawer-plan") as HTMLElement).getByRole("alert")).toHaveTextContent(
-		"missing",
+		"network down",
 	);
 });
 
@@ -234,7 +247,7 @@ test("a failed load shows the server's reason and a retry; no days shows an empt
 	const { unmount } = show();
 	const alert = screen.getByRole("alert");
 	expect(alert).toHaveTextContent("The timeline did not load");
-	expect(alert).toHaveTextContent("missing");
+	expect(alert).toHaveTextContent("Not found.");
 	fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
 	expect(data.refetch).toHaveBeenCalled();
 	unmount();

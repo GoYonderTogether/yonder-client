@@ -1,11 +1,11 @@
 import type { Conversation, Member, Schedule } from "@yonder/protocol";
-import { Button, ListGroup } from "@yonder/ui-components";
+import { Avatar, ListGroup, ListRow } from "@yonder/ui-components";
 import { useConversations, useDeleteBot, useSchedules } from "@yonder/ui-data";
-import { Trash2 } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ConfirmDialog } from "../group/confirm-dialog.tsx";
+import { botColor } from "./bot-avatar-picker.tsx";
 import { describeBotError } from "./bot-error.ts";
-import { BotForm } from "./bot-form.tsx";
 
 /** The Bot's own private chat: a direct conversation whose members are the Bot and me. */
 export function botConversation(botId: string, items: readonly Conversation[] | undefined): Conversation | undefined {
@@ -28,37 +28,66 @@ export function plansInConversation(
 	return schedules.filter((plan) => plan.conversationId === conversationId).length;
 }
 
-export interface BotDetailProps {
+/**
+ * A Bot's settings home, the same in 「我 › 我的 Bot」 and in its chat's drawer: who it is, the
+ * pages that change it, then whatever the caller adds (the chat's mute switch), then delete on its
+ * own at the end (docs/settings-forms.md).
+ */
+export function BotSettingsOverview({
+	bot,
+	onEdit,
+	onPersona,
+	onChannels,
+	onDeleted,
+	children,
+}: {
 	bot: Member;
-	/** The frame goes back to the message list once the Bot is gone, given the chat that went too. */
-	onDeleted?: (conversationId: string | undefined) => void;
+	onEdit: () => void;
+	onPersona: () => void;
+	onChannels: () => void;
+	onDeleted: (conversationId: string | undefined) => void;
+	/** Sections the caller adds between the settings and delete. */
+	children?: ReactNode;
+}) {
+	const { t } = useTranslation();
+	return (
+		<div className="flex flex-col gap-[var(--spacing-4)]">
+			<div className="flex min-w-0 items-center gap-[var(--spacing-4)] px-[var(--spacing-1)] py-[var(--spacing-2)]">
+				<Avatar name={bot.displayName} src={bot.avatarUrl} color={botColor(bot)} kind="bot" size={64} />
+				<div className="flex min-w-0 flex-col gap-[var(--spacing-1)]">
+					<div className="flex min-w-0 items-center gap-[var(--spacing-2)]">
+						<p className="truncate text-h2 font-semibold text-[var(--color-text-primary)]">{bot.displayName}</p>
+						{bot.isDefault ? (
+							<span className="shrink-0 rounded-[var(--radius-full)] bg-[var(--color-bg-subtle)] px-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
+								{t("bots.defaultLabel")}
+							</span>
+						) : null}
+					</div>
+					<p className="truncate text-caption text-[var(--color-text-tertiary)]">@{bot.handle}</p>
+				</div>
+			</div>
+			<ListGroup title={t("bots.settings")}>
+				<ListRow title={t("bots.basicProfile")} chevron onClick={onEdit} />
+				<ListRow title={t("members.social.personaTitle")} chevron onClick={onPersona} />
+				<ListRow title={t("bots.channels")} chevron onClick={onChannels} />
+			</ListGroup>
+			{children}
+			<BotRemoval bot={bot} onDeleted={onDeleted} />
+		</div>
+	);
 }
 
-/** 「Bot 详情」for a Bot this account owns (17 3.5): the form in edit mode, and its end. */
-export function BotDetail({ bot, onDeleted }: BotDetailProps) {
+function BotRemoval({ bot, onDeleted }: { bot: Member; onDeleted: (chatId: string | undefined) => void }) {
 	const { t } = useTranslation();
 	const [confirming, setConfirming] = useState(false);
+	if (bot.isDefault) return null;
 	return (
-		<div className="flex flex-col">
-			<BotForm mode="edit" bot={bot} />
-			<div className="flex flex-col gap-[var(--spacing-6)] px-[var(--spacing-6)] pb-[var(--spacing-6)]">
-				<ListGroup>
-					<li className="flex min-h-[var(--row-height)] items-center justify-between gap-[var(--spacing-3)] px-[var(--spacing-4)]">
-						<span className="text-body text-[var(--color-text-secondary)]">{t("bots.handle")}</span>
-						<span className="truncate text-body text-[var(--color-text-primary)]">@{bot.handle}</span>
-					</li>
-				</ListGroup>
-				{/* The default Bot has no delete button, and no sentence explaining why (15 第二节第 1 条). */}
-				{bot.isDefault ? null : confirming ? (
-					<BotDelete bot={bot} onCancel={() => setConfirming(false)} {...(onDeleted ? { onDeleted } : {})} />
-				) : (
-					<Button variant="danger" block onClick={() => setConfirming(true)}>
-						<Trash2 size={16} aria-hidden="true" />
-						{t("bots.deleteBot")}
-					</Button>
-				)}
-			</div>
-		</div>
+		<>
+			<ListGroup>
+				<ListRow title={t("bots.deleteBot")} tone="danger" onClick={() => setConfirming(true)} />
+			</ListGroup>
+			{confirming ? <BotDelete bot={bot} onCancel={() => setConfirming(false)} onDeleted={onDeleted} /> : null}
+		</>
 	);
 }
 
@@ -73,7 +102,7 @@ function BotDelete({
 }: {
 	bot: Member;
 	onCancel: () => void;
-	onDeleted?: (conversationId: string | undefined) => void;
+	onDeleted: (conversationId: string | undefined) => void;
 }) {
 	const { t } = useTranslation();
 	const remove = useDeleteBot();
@@ -92,34 +121,21 @@ function BotDelete({
 					: t("bots.deletePlansOther", { count });
 
 	return (
-		<div className="flex flex-col gap-[var(--spacing-3)] rounded-[var(--radius-lg)] bg-[var(--color-danger-subtle)] p-[var(--spacing-4)]">
-			<p className="text-body font-medium text-[var(--color-text-primary)]">{t("bots.deleteTitle")}</p>
-			<p className="text-caption text-[var(--color-text-secondary)]">{plans}</p>
-			<p className="text-caption text-[var(--color-text-secondary)]">{t("bots.deleteHistory")}</p>
-			{error ? (
-				<p role="alert" className="text-caption text-[var(--color-danger)]">
-					{error}
-				</p>
-			) : null}
-			<div className="flex justify-end gap-[var(--spacing-2)]">
-				<Button onClick={onCancel} disabled={remove.isPending}>
-					{t("app.cancel")}
-				</Button>
-				<Button
-					variant="danger"
-					loading={remove.isPending}
-					aria-label={t("bots.confirmDelete")}
-					onClick={() => {
-						setError(null);
-						remove.mutate(bot.id, {
-							onSuccess: () => onDeleted?.(chat?.id),
-							onError: (failure) => setError(describeBotError(failure, t, "bots.deleteFailed")),
-						});
-					}}
-				>
-					{t("bots.confirmDelete")}
-				</Button>
-			</div>
-		</div>
+		<ConfirmDialog
+			open
+			title={t("bots.deleteTitle")}
+			body={t("bots.deleteBody", { plans, history: t("bots.deleteHistory") })}
+			confirmLabel={t("bots.confirmDelete")}
+			busy={remove.isPending}
+			error={error}
+			onCancel={onCancel}
+			onConfirm={() => {
+				setError(null);
+				remove.mutate(bot.id, {
+					onSuccess: () => onDeleted(chat?.id),
+					onError: (failure) => setError(describeBotError(failure, t, "bots.deleteFailed")),
+				});
+			}}
+		/>
 	);
 }

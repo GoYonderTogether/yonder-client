@@ -11,14 +11,20 @@ import android.os.Build
 import android.os.IBinder
 
 class MeetingRecorderService : Service() {
+    internal data class StartArguments(val ownerId: String, val title: String, val conversationId: String?, val separateSpeakers: Boolean = false)
+
     companion object {
         internal var startResult: ((Result<Unit>) -> Unit)? = null
         private const val CHANNEL = "meeting-recording"
+        private const val TITLE = "录音笔记 / Recording notes"
         private const val NOTIFICATION = 7381
-        internal fun startArguments(intent: Intent?): Pair<String, String>? {
+        internal fun startArguments(intent: Intent?): StartArguments? {
             if (intent?.action != "start") return null
             val owner = intent.getStringExtra("ownerId") ?: return null
-            return owner to (intent.getStringExtra("title") ?: "")
+            return StartArguments(
+                owner, intent.getStringExtra("title") ?: "", intent.getStringExtra("conversationId"),
+                intent.getBooleanExtra("separateSpeakers", false)
+            )
         }
     }
 
@@ -28,7 +34,7 @@ class MeetingRecorderService : Service() {
         super.onCreate()
         val notifications = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
-            notifications.createNotificationChannel(NotificationChannel(CHANNEL, "Recording / 录音", NotificationManager.IMPORTANCE_LOW))
+            notifications.createNotificationChannel(NotificationChannel(CHANNEL, TITLE, NotificationManager.IMPORTANCE_LOW))
         }
         MeetingRecorderRuntime.didStop = { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
     }
@@ -46,7 +52,7 @@ class MeetingRecorderService : Service() {
         @Suppress("DEPRECATION")
         val builder = (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this))
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentTitle("Meeting recording / 会议录音")
+            .setContentTitle(TITLE)
             .setContentText("Audio is saved on this device / 音频保存在本机")
             .setOngoing(true)
         packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->
@@ -59,7 +65,7 @@ class MeetingRecorderService : Service() {
         try {
             if (Build.VERSION.SDK_INT >= 30) startForeground(NOTIFICATION, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
             else startForeground(NOTIFICATION, builder.build())
-            MeetingRecorderRuntime.start(this, arguments.first, arguments.second)
+            MeetingRecorderRuntime.start(this, arguments.ownerId, arguments.title, arguments.conversationId, arguments.separateSpeakers)
             callback?.invoke(Result.success(Unit))
         } catch (error: Exception) {
             callback?.invoke(Result.failure(error))

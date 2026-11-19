@@ -76,7 +76,7 @@ export function ItemDetailPage({
 				</p>
 			) : null}
 			{item.instruction ? (
-				<ListGroup title={t("tasks.itemDetailInstruction")}>
+				<ListGroup variant="card" title={t("tasks.itemDetailInstruction")}>
 					<li className="whitespace-pre-wrap p-[var(--spacing-4)] text-body text-[var(--color-text-primary)]">
 						{item.instruction}
 					</li>
@@ -95,7 +95,10 @@ export function ItemDetailPage({
 				/>
 			) : null}
 			{!item.outwardRequest || item.result ? (
-				<ListGroup title={item.failureReason ? t("tasks.itemDetailFailure") : t("tasks.itemDetailResult")}>
+				<ListGroup
+					variant="card"
+					title={item.failureReason ? t("tasks.itemDetailFailure") : t("tasks.itemDetailResult")}
+				>
 					<li className="whitespace-pre-wrap p-[var(--spacing-4)] text-body text-[var(--color-text-primary)]">
 						{item.failureReason
 							? t(itemFailureKey(item.failureReason), { title: item.title })
@@ -104,7 +107,7 @@ export function ItemDetailPage({
 				</ListGroup>
 			) : null}
 			{item.steps.length ? (
-				<ListGroup title={t("tasks.itemDetailSteps")}>
+				<ListGroup variant="card" title={t("tasks.itemDetailSteps")}>
 					{item.steps.map((step) => (
 						<li
 							key={`${step.kind}-${step.at}`}

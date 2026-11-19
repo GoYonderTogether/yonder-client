@@ -1,15 +1,15 @@
 import type { Conversation, ConversationMember } from "@yonder/protocol";
 import { Avatar, ListGroup, ListRow } from "@yonder/ui-components";
 import { useGroupActions, useMe } from "@yonder/ui-data";
-import { Overlay, useShellChrome } from "@yonder/ui-shell";
-import { useState } from "react";
+import { Overlay, useShellChrome, useSidePanel } from "@yonder/ui-shell";
+import type { ReactNode } from "react";
+import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { memberFailureText } from "../profile/failure.ts";
-import { AddMembers } from "./add-members.tsx";
 import { ConfirmDialog } from "./confirm-dialog.tsx";
-import { GroupActions } from "./group-actions.tsx";
+import { GroupActions, GroupExit } from "./group-actions.tsx";
+import { GroupAddMembers, GroupAddMembersPage, GroupBotSettings, GroupMembersPage } from "./group-pages.tsx";
 import { GroupTitle } from "./group-title.tsx";
-import { MemberList } from "./member-list.tsx";
 import type { Translate } from "./system-events.ts";
 
 export interface GroupInfoProps {
@@ -20,6 +20,7 @@ export interface GroupInfoProps {
 	onOpenMember?: ((member: ConversationMember) => void) | undefined;
 	/** The group dropped out of the viewer's list (they left): the caller closes the page. */
 	onLeft?: (() => void) | undefined;
+	preferences?: ReactNode;
 }
 
 /** The row of avatars shows this many; "all members" is the way to the rest (17 3.2). */
@@ -37,24 +38,25 @@ type Confirm =
  * renames, adds people, hands the group over and dissolves it; a member can only leave. A closed
  * group keeps the name and the member list and loses every action (19 3.2).
  */
-export function GroupInfo({ conversation, personId, onOpenMember, onLeft }: GroupInfoProps) {
+export function GroupInfo({ conversation, personId, onOpenMember, onLeft, preferences }: GroupInfoProps) {
 	const { t } = useTranslation();
-	const { mode } = useShellChrome();
+	const { mode, desktop } = useShellChrome();
+	const side = useSidePanel();
 	const me = useMe().data?.member.id;
 	// The caller may pass the viewer explicitly (a page that already has it); the session is the fallback.
 	const person = personId ?? me;
 	const owner = Boolean(conversation.ownerId) && person === conversation.ownerId;
 	const closed = Boolean(conversation.closedReason);
 	const actions = useGroupActions(conversation.id);
-	const [showMembers, setShowMembers] = useState(false);
 	const [transferring, setTransferring] = useState(false);
 	const [adding, setAdding] = useState(false);
 	const [confirm, setConfirm] = useState<Confirm>(null);
 	const [error, setError] = useState<string | null>(null);
+	const addId = useId();
+	const addCount = useRef(0);
 
 	const busy =
 		actions.rename.isPending ||
-		actions.addMembers.isPending ||
 		actions.removeMember.isPending ||
 		actions.leave.isPending ||
 		actions.transferOwner.isPending ||
@@ -64,33 +66,32 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft }: Grou
 		setError(null);
 		close();
 	};
+	const ask = (value: Confirm) => {
+		setError(null);
+		setConfirm(value);
+	};
+	const openAddMembers = () => {
+		if (desktop) {
+			setAdding(true);
+			return;
+		}
+		const key = `group-add-members:${addId}:${++addCount.current}`;
+		side.push({
+			key,
+			title: t("members.group.addMembers"),
+			content: <GroupAddMembersPage conversationId={conversation.id} personId={person} onDone={() => side.back(key)} />,
+		});
+	};
 
 	return (
-		<div className="flex flex-col gap-[var(--spacing-5)] p-[var(--spacing-4)]">
+		<div className="flex min-h-full flex-col gap-[var(--spacing-5)] p-[var(--spacing-4)]">
 			<GroupTitle
 				title={conversation.title ?? ""}
+				members={conversation.members}
 				editable={owner && !closed}
 				saving={actions.rename.isPending}
-				onRename={(value) => actions.rename.mutate(value, { onError: fail })}
+				onRename={actions.rename.mutateAsync}
 			/>
-
-			{owner && !closed && conversation.groupBotPayer !== undefined ? (
-				<label className="flex flex-wrap items-center justify-between gap-[var(--spacing-3)] text-body">
-					{t("members.group.botPayer")}
-					<select
-						className="rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] p-[var(--spacing-2)] text-[var(--color-text-primary)]"
-						value={conversation.groupBotPayer}
-						disabled={actions.setBotPayer.isPending}
-						onChange={(event) => {
-							const payer = event.currentTarget.value === "owner" ? "owner" : "mentioner";
-							actions.setBotPayer.mutate(payer, { onSuccess: () => setError(null), onError: fail });
-						}}
-					>
-						<option value="mentioner">{t("members.group.botPayerMentioner")}</option>
-						<option value="owner">{t("members.group.botPayerOwner")}</option>
-					</select>
-				</label>
-			) : null}
 
 			<div className="flex flex-col gap-[var(--spacing-3)]">
 				<div className="flex items-center justify-between gap-[var(--spacing-3)] px-[var(--spacing-1)]">
@@ -99,7 +100,21 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft }: Grou
 					</span>
 					<button
 						type="button"
-						onClick={() => setShowMembers(true)}
+						onClick={() =>
+							side.push({
+								key: "group-members",
+								title: t("members.group.allMembers"),
+								content: (
+									<GroupMembersPage
+										conversationId={conversation.id}
+										personId={person}
+										onOpenMember={onOpenMember}
+										onRemove={(member) => ask({ kind: "remove", member })}
+										onTransfer={(member) => ask({ kind: "transfer", member })}
+									/>
+								),
+							})
+						}
 						className="rounded-[var(--radius-sm)] text-caption text-[var(--color-accent-text)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 					>
 						{t("members.group.allMembers")}
@@ -119,75 +134,52 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft }: Grou
 				</div>
 			</div>
 
-			{error ? (
+			{closed ? null : preferences}
+
+			{error && !confirm ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
 					{error}
 				</p>
 			) : null}
 
-			<GroupActions
-				conversation={conversation}
-				owner={owner}
-				closed={closed}
-				busy={busy}
-				onAddMembers={() => setAdding(true)}
-				onTransfer={() => setTransferring(true)}
-				onDissolve={() => setConfirm({ kind: "dissolve" })}
-				onLeave={() => setConfirm({ kind: "leave" })}
-			/>
-
-			<Overlay open={adding} onClose={() => setAdding(false)} title={t("members.group.addMembers")} mode={mode}>
-				<div className="p-[var(--spacing-5)]">
-					<AddMembers
-						conversation={conversation}
-						adding={actions.addMembers.isPending}
-						error={actions.addMembers.error}
-						onCancel={() => setAdding(false)}
-						onAdd={(memberIds) =>
-							actions.addMembers.mutate({ memberIds }, { onSuccess: done(() => setAdding(false)), onError: fail })
-						}
-					/>
-				</div>
-			</Overlay>
+			{owner && !closed ? (
+				<GroupActions
+					conversation={conversation}
+					busy={busy}
+					onAddMembers={openAddMembers}
+					onTransfer={() => setTransferring(true)}
+					onBotSettings={() =>
+						side.push({
+							key: "group-bot-settings",
+							title: t("members.group.botSettings"),
+							content: <GroupBotSettings conversationId={conversation.id} personId={person} />,
+						})
+					}
+				/>
+			) : null}
+			{closed ? null : (
+				<GroupExit owner={owner} busy={busy} onClick={() => ask({ kind: owner ? "dissolve" : "leave" })} />
+			)}
 
 			<Overlay
-				open={showMembers}
-				onClose={() => setShowMembers(false)}
-				title={t("members.group.allMembers")}
+				open={adding && owner && !closed}
+				onClose={() => setAdding(false)}
+				title={t("members.group.addMembers")}
+				closeLabel={t("app.close")}
 				mode={mode}
+				mobilePresentation="sheet"
 			>
-				<div className="p-[var(--spacing-3)]">
-					<MemberList
-						members={conversation.members}
-						personId={person}
-						ownerId={conversation.ownerId}
-						onOpen={onOpenMember}
-						busy={busy}
-						onRemove={
-							owner && !closed
-								? (member) => {
-										setError(null);
-										setConfirm({ kind: "remove", member });
-									}
-								: undefined
-						}
-						onTransfer={
-							owner && !closed
-								? (member) => {
-										setError(null);
-										setConfirm({ kind: "transfer", member });
-									}
-								: undefined
-						}
-					/>
-				</div>
+				<GroupAddMembers conversation={conversation} onDone={() => setAdding(false)} />
 			</Overlay>
 
 			<Overlay
-				open={transferring}
+				open={transferring && owner && !closed}
 				onClose={() => setTransferring(false)}
 				title={t("members.group.transferPick")}
+				closeLabel={t("app.close")}
+				mobileBackLabel={t("app.back")}
 				mode={mode}
+				mobilePresentation={desktop ? "sheet" : "page"}
 			>
 				<div className="p-[var(--spacing-3)]">
 					<ListGroup>
@@ -208,7 +200,7 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft }: Grou
 									title={member.displayName}
 									onClick={() => {
 										setTransferring(false);
-										setConfirm({ kind: "transfer", member });
+										ask({ kind: "transfer", member });
 									}}
 								/>
 							))}
@@ -222,7 +214,8 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft }: Grou
 				body={confirmBody(confirm, t)}
 				confirmLabel={confirmLabel(confirm, t)}
 				busy={busy}
-				onCancel={() => setConfirm(null)}
+				error={error}
+				onCancel={() => ask(null)}
 				onConfirm={() => {
 					if (confirm?.kind === "dissolve")
 						actions.dissolve.mutate(undefined, { onSuccess: done(() => setConfirm(null)), onError: fail });

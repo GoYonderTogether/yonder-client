@@ -7,6 +7,7 @@ import type { Conversation, Message, Run } from "../chat/chat.ts";
 import type { Schedule } from "../chat/schedule.ts";
 import type { SubtaskSummary } from "../chat/subtask.ts";
 import type { ConnectorCommand } from "../connectors/connectors.ts";
+import type { FriendRequest } from "../member/friend-request.ts";
 import type { Member } from "../member/member.ts";
 import type { QuotaResponse } from "../quota/quota.ts";
 
@@ -16,13 +17,24 @@ export type ClientEvent =
 	| { type: "connector.ready"; connectionIds: string[] }
 	| { type: "connector.ready"; connections: { id: string; revision: number }[] };
 
+export interface MessageNotification {
+	id: string;
+	conversationId: string;
+	messageId: string;
+	senderName: string;
+	conversationTitle?: string;
+	senderKind: "person" | "bot";
+}
+
 /** Events this slice actually sends. A member change is what makes a second tab update. */
 export type ServerEvent =
+	| { type: "friend_request.updated"; eventId: string; at: string; request: FriendRequest }
 	| { type: "connectors.changed"; eventId: string; at: string }
 	| { type: "connector.command"; eventId: string; at: string; command: ConnectorCommand }
 	| { type: "connector.command.cancelled"; eventId: string; at: string; commandId: string }
 	| { type: "devices.changed"; eventId: string; at: string }
 	| { type: "conversation.updated"; eventId: string; at: string; conversation: Conversation }
+	| { type: "conversation.state_changed"; eventId: string; at: string; conversationId: string }
 	/** The conversation left this account's list: drop it, with its messages and any open view. */
 	| { type: "conversation.removed"; eventId: string; at: string; conversationId: string }
 	| { type: "member.updated"; eventId: string; at: string; member: Member }
@@ -32,6 +44,7 @@ export type ServerEvent =
 	/** The published catalog was edited: the client refetches it when the version differs. */
 	| { type: "quota.config_changed"; eventId: string; at: string; version: number }
 	| { type: "message.created" | "message.updated"; eventId: string; at: string; message: Message }
+	| { type: "notification.created"; eventId: string; at: string; notification: MessageNotification }
 	| { type: "run.updated"; eventId: string; at: string; run: Run }
 	| { type: "subtask.updated"; eventId: string; at: string; subtask: SubtaskSummary }
 	| { type: "schedule.changed"; eventId: string; at: string; schedule: Schedule }

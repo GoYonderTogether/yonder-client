@@ -1,7 +1,25 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { useMessageScroll } from "./use-message-scroll.ts";
+
+let resize: (() => void) | undefined;
+
+beforeEach(() => {
+	resize = undefined;
+	vi.stubGlobal(
+		"ResizeObserver",
+		class {
+			observe = vi.fn();
+			disconnect = vi.fn();
+			constructor(callback: () => void) {
+				resize = callback;
+			}
+		},
+	);
+});
+
+afterEach(() => vi.unstubAllGlobals());
 
 function Harness({ conversationId = "a", ids }: { conversationId?: string; ids: string[] }) {
 	const { bottom, showLatest, jumpToLatest } = useMessageScroll(
@@ -74,4 +92,37 @@ test("prepending history preserves the message under the reader's eyes", () => {
 	height = 1400;
 	view.rerender(<Harness ids={["1", "2", "3"]} />);
 	expect(scroll.scrollTop).toBe(700);
+});
+
+test("growing the dock keeps the latest message in view until the reader scrolls up", () => {
+	const view = render(<Harness ids={[]} />);
+	const scroll = screen.getByTestId("scroll");
+	let height = 1000;
+	let top = 0;
+	Object.defineProperties(scroll, {
+		scrollHeight: { get: () => height },
+		clientHeight: { value: 200 },
+		scrollTop: {
+			get: () => top,
+			set: (value: number) => {
+				top = Math.max(0, Math.min(value, height - 200));
+			},
+		},
+	});
+	view.rerender(<Harness ids={["1"]} />);
+	expect(top).toBe(800);
+	height += 108;
+	// The first jump's scroll event can arrive after the padding has already changed.
+	fireEvent.scroll(scroll);
+	resize?.();
+	expect(top).toBe(908);
+	fireEvent.wheel(scroll, { deltaY: -1 });
+	scroll.scrollTop = 500;
+	fireEvent.scroll(scroll);
+	height += 80;
+	resize?.();
+	expect(top).toBe(500);
+	height += 200;
+	view.rerender(<Harness ids={["0", "1"]} />);
+	expect(top).toBe(700);
 });

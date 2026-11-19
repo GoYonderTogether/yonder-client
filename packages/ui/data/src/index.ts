@@ -6,7 +6,7 @@
  * never copies server data into component or store state.
  */
 
-export type { Endpoints, SessionSummary } from "@yonder/api-client";
+export type { Endpoints, SessionSummary, UsageRunFilter } from "@yonder/api-client";
 // Re-exported so a feature can branch on a failure without depending on the HTTP client package.
 export { ApiError, NetworkError } from "@yonder/api-client";
 
@@ -49,10 +49,12 @@ export { useConversations, useMessages, useRunActions, useSendMessage } from "./
 export { useCompactConversation } from "./hooks/compact.ts";
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
-export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
+export { useMarkConversationRead, useSetConversationMuted } from "./hooks/conversation-state.ts";
+export { useDeviceRegistration, useDevices, useUpdateDeviceRemark } from "./hooks/devices.ts";
+export { useFriendRequest, useFriendRequestActions, useFriendRequests } from "./hooks/friend-requests.ts";
 export { useChangeGoal, useGoalSettings, useGoals } from "./hooks/goals.ts";
 export { useGroupActions } from "./hooks/groups.ts";
-export { useItem, useItemActions, useItems } from "./hooks/items.ts";
+export { useActiveBotSubtasks, useItem, useItemActions, useItems } from "./hooks/items.ts";
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
 export { useMemberProfile, usePublicMemberProfile } from "./hooks/members.ts";
 export {
@@ -74,9 +76,13 @@ export {
 	useQuotaRates,
 	useResolvedInvite,
 	useUsage,
+	useUsageOverview,
+	useUsageRunCalls,
+	useUsageRuns,
 } from "./hooks/quota.ts";
 export { useScheduleActions, useSchedules } from "./hooks/schedules.ts";
 export { useSkill, useSkillActions, useSkillFile, useSkills } from "./hooks/skills.ts";
+export { useEditSocialKnowledge, useSaveSocialPersona, useSocialKnowledge, useSocialPersona } from "./hooks/social.ts";
 export { useOutwardActions, useStartBotChat, useVisitActions } from "./hooks/visits.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
 export {

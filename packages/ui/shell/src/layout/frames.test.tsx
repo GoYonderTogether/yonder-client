@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
-import { ListFrame, PageFrame } from "./frames.tsx";
+import { ListFrame } from "./frames.tsx";
 import { ShellProvider } from "./shell-context.tsx";
 
 test("list titles and actions share the first row above full-size capsule tabs on every layout", () => {
@@ -53,24 +53,4 @@ test("restores each tab's list position after a tab switch or pushed page", () =
 	expect(screen.getByText("messages").parentElement?.scrollTop).toBe(145);
 	rerender(list("tasks"));
 	expect(screen.getByText("tasks").parentElement?.scrollTop).toBe(70);
-});
-
-test("page widths map to the width tokens, and padding reads --page-padding", () => {
-	const page = (width?: "form" | "sheet" | "reading" | "wide" | "full") => (
-		<ShellProvider value={{ mode: "wide", left: null, meOpen: false }}>
-			<PageFrame title="Account" {...(width ? { width } : {})}>
-				<p>content</p>
-			</PageFrame>
-		</ShellProvider>
-	);
-	const { rerender } = render(page());
-	const column = () => screen.getByText("content").parentElement as HTMLElement;
-	expect(column().className).toContain("max-w-[var(--width-reading)]");
-	expect(column().className).toContain("py-[var(--page-padding)]");
-	for (const width of ["form", "sheet", "reading", "wide"] as const) {
-		rerender(page(width));
-		expect(column().className).toContain(`max-w-[var(--width-${width})]`);
-	}
-	rerender(page("full"));
-	expect(column().className).not.toContain("max-w-");
 });

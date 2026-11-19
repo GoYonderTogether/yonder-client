@@ -14,7 +14,9 @@ fn directory() -> PathBuf {
 fn recover_committed_audio_even_if_manifest_was_not_updated() {
     let root = directory();
     let store = Store::new(root.clone()).unwrap();
-    let mut recording = store.create("owner_a", "Meeting", 8000, 1).unwrap();
+    let mut recording = store
+        .create_bound("owner_a", "Meeting", 8000, 1, None, true)
+        .unwrap();
     store.append(&mut recording, &vec![1200; 32_000]).unwrap();
     // Second WAV was durably renamed, but the process died before saving its manifest entry.
     let path = store.recording_path("owner_a", &recording.id).unwrap();
@@ -25,6 +27,7 @@ fn recover_committed_audio_even_if_manifest_was_not_updated() {
     .unwrap();
     let items = store.list("owner_a", None).unwrap();
     assert_eq!(items[0].state, "interrupted");
+    assert!(items[0].separate_speakers);
     assert_eq!(items[0].saved_duration_ms, 6000);
     assert_eq!(items[0].segments.len(), 2);
     assert_eq!(
@@ -52,6 +55,11 @@ fn incomplete_tail_never_invalidates_committed_segments() {
     fs::write(path.join("00000001.pending"), b"RIFF partial").unwrap();
     let items = store.list("owner_a", None).unwrap();
     assert_eq!(items[0].segments.len(), 1);
+    assert!(!items[0].separate_speakers);
+    assert!(serde_json::to_value(&items[0])
+        .unwrap()
+        .get("separateSpeakers")
+        .is_none());
     assert_eq!(items[0].saved_duration_ms, 4000);
     assert_eq!(
         store.read_audio("owner_a", &recording.id, 0).unwrap().len(),

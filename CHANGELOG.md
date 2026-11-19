@@ -2,6 +2,70 @@
 
 ## [Unreleased]
 
+## [0.3.26111904] - 2026-11-19
+
+### Added
+
+- quota：one-screen quota dashboard with pool meters, daily chart and drill-down pages
+
+## [0.3.26111903] - 2026-11-19
+
+### Added
+
+- memory：one memory page under a two-sided card; Codex's chat, meeting and voice updates
+- chat：read active subtasks for one Bot
+
+## [0.3.26111902] - 2026-11-19
+
+### Added
+
+- social：avatars open cards, cards list a person's Bots, memory page gets a shareable QR card
+
+### Fixed
+
+- ios：skip removing push keys the generated project does not have
+
+## [0.3.26111901] - 2026-11-19
+
+### Added
+
+- settings：one settings form standard across Bot, channel, reception and chat pages
+- integrate settings, notifications, voice messages and chat layout updates
+- meetings：choose speaker separation before recording
+- updates：add safe desktop restart shortcut to sidebar
+- friends：add contacts and system notification workflows
+
+### Fixed
+
+- meetings：keep idle browser recovery clear of recording start
+- chat：replace activity display with message sources
+- ui：limit QR camera scanning to mobile hosts
+
+## [0.3.26111802] - 2026-11-18
+
+### Fixed
+
+- memory：readable error sentences, and leave a deleted file cleanly
+- memory：name every file author, never by internal words
+- ui：align list headers and task creation actions
+- ui：dismiss action dialogs and toggle desktop settings
+
+### Added
+
+- memory：undo a reply's memory change across all its writes
+- memory：a meeting source on a timeline card opens that meeting
+- memory：memory page, file pages and the chat update line per design 24
+- shell：one right-hand side panel for group info, Bot detail and member cards
+- memory：wire the web memory page and file history
+- chat：open and revert a memory update
+- miniprogram：show the memory timeline and about files
+- data：wire memory files and realtime refresh
+- protocol：define memory files and update notices
+- integrate bot, goals, channels and recording updates
+- protocol：sync release handoff and connector contracts
+- protocol：extend channel and delivery contracts
+- protocol：align shared chat and channel contracts
+
 ## [0.3.26111801] - 2026-11-18
 
 ### Added

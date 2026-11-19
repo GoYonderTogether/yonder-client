@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import type { Conversation, Member } from "@yonder/protocol";
 import type { CachedMessage } from "@yonder/ui-data";
 import { createI18n } from "@yonder/ui-i18n";
@@ -78,7 +78,16 @@ function message(id: string, senderId: string, extra: Partial<CachedMessage> = {
 		...extra,
 	};
 }
-const props = { conversation, person, bot, disconnected: false, onResend: vi.fn(), onRetry: vi.fn(), retrying: false };
+const props = {
+	conversation,
+	person,
+	bot,
+	hasFullHistory: false,
+	disconnected: false,
+	onResend: vi.fn(),
+	onRetry: vi.fn(),
+	retrying: false,
+};
 function view(items: CachedMessage[], overrides: Partial<typeof props> = {}) {
 	return (
 		<I18nextProvider i18n={createI18n("zh-CN")}>
@@ -86,6 +95,112 @@ function view(items: CachedMessage[], overrides: Partial<typeof props> = {}) {
 		</I18nextProvider>
 	);
 }
+
+test("only separates loaded neighbors across midnight or after five minutes of quiet", () => {
+	vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+	try {
+		vi.setSystemTime(new Date(2026, 10, 19, 12));
+		const at = (id: string, day: number, hour: number, minute: number) =>
+			message(id, "alice", { createdAt: new Date(2026, 10, day, hour, minute).toISOString() });
+		const items = [
+			at("a", 18, 18, 40),
+			at("next", 18, 18, 41),
+			at("b", 18, 23, 59),
+			at("c", 19, 0, 2),
+			at("d", 19, 2, 47),
+			at("e", 19, 2, 51),
+			at("f", 19, 2, 56),
+		];
+		const { container, rerender } = render(view(items.slice(0, 1)));
+		const labels = () => [...container.querySelectorAll("time")].map((line) => line.textContent);
+		expect(labels()).toEqual([]);
+		rerender(view(items.slice(0, 2)));
+		expect(labels()).toEqual([]);
+		rerender(view(items));
+		const expected = ["11月18日 周三 23:59", "今天 00:02", "今天 02:47", "今天 02:56"];
+		expect(labels()).toEqual(expected);
+		expect(
+			[...container.querySelectorAll("[data-message-run]")].map((run) => run.querySelectorAll("article").length),
+		).toEqual([2, 1, 1, 2, 1]);
+		rerender(view([at("older", 18, 18, 39), ...items]));
+		expect(labels()).toEqual(expected);
+		rerender(view([at("older", 18, 18, 35), ...items]));
+		expect(labels()).toEqual(["11月18日 周三 18:40", ...expected]);
+	} finally {
+		vi.useRealTimers();
+	}
+});
+
+test("adds a top time only for a known first message after five minutes", () => {
+	vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+	try {
+		const sentAt = new Date(2026, 10, 19, 14);
+		vi.setSystemTime(sentAt.getTime() + 299_999);
+		const items = [message("first", "alice", { createdAt: sentAt.toISOString() })];
+		const { container, rerender } = render(view(items, { hasFullHistory: true }));
+		const label = () => container.querySelector("time");
+		expect(label()).toBeNull();
+		act(() => vi.advanceTimersByTime(1));
+		expect(label()?.textContent).toBe("5 分钟前");
+		act(() => vi.advanceTimersByTime(300_000));
+		expect(label()?.textContent).toBe("今天 14:00");
+		rerender(view(items));
+		expect(label()).toBeNull();
+	} finally {
+		vi.useRealTimers();
+	}
+});
+
+test("updates recent time labels at the two- and ten-minute boundaries", () => {
+	vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+	try {
+		const sentAt = new Date(2026, 10, 18, 23, 58, 30);
+		vi.setSystemTime(sentAt.getTime() + 119_999);
+		const item = message("recent", "alice", { createdAt: sentAt.toISOString() });
+		const older = message("older", "alice", { createdAt: new Date(2026, 10, 18, 23, 50).toISOString() });
+		const { container } = render(view([older, item]));
+		const label = () => container.querySelector("time")?.textContent;
+		expect(label()).toBe("刚刚");
+		act(() => vi.advanceTimersByTime(1));
+		expect(label()).toBe("2 分钟前");
+		for (let minute = 3; minute < 10; minute++) {
+			act(() => vi.advanceTimersByTime(60_000));
+			expect(label()).toBe(`${minute} 分钟前`);
+		}
+		act(() => vi.advanceTimersByTime(59_999));
+		expect(label()).toBe("9 分钟前");
+		act(() => vi.advanceTimersByTime(1));
+		expect(label()).toBe("11月18日 周三 23:58");
+	} finally {
+		vi.useRealTimers();
+	}
+});
+
+test("updates today's time label at local midnight without moving existing dividers", () => {
+	vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+	try {
+		vi.setSystemTime(new Date(2026, 10, 19, 23, 59, 59, 999));
+		const { container } = render(
+			view([
+				message("first", "alice", { createdAt: new Date(2026, 10, 18, 18).toISOString() }),
+				message("older", "alice", { createdAt: new Date(2026, 10, 18, 18, 30).toISOString() }),
+				message("today", "alice", { createdAt: new Date(2026, 10, 19, 23, 30).toISOString() }),
+			]),
+		);
+		const [older, today] = [...container.querySelectorAll("time")];
+		expect(older?.textContent).toBe("11月18日 周三 18:30");
+		expect(today?.textContent).toBe("今天 23:30");
+		act(() => vi.advanceTimersByTime(1));
+		const labels = container.querySelectorAll("time");
+		expect(labels).toHaveLength(2);
+		expect(labels[0]).toBe(older);
+		expect(labels[1]).toBe(today);
+		expect(older?.textContent).toBe("11月18日 周三 18:30");
+		expect(today?.textContent).toBe("11月19日 周四 23:30");
+	} finally {
+		vi.useRealTimers();
+	}
+});
 
 test("adjacent sender runs keep one side avatar and a name above the message column, preserving real member fields", () => {
 	const items = ["alice", "alice", "bob", "alice", "alice", "self", "self"].map((sender, index) =>
@@ -216,4 +331,16 @@ test("missing group members use existing person or Bot profiles and a localized 
 	expect(
 		container.querySelector('[data-message-run="bot"] [data-avatar-fallback]')?.classList.contains("rounded-[30%]"),
 	).toBe(true);
+});
+
+test("a sender's avatar opens their card, as in QQ and WeChat", () => {
+	const onOpenMember = vi.fn();
+	const view = render(
+		<I18nextProvider i18n={createI18n("zh-CN")}>
+			<ConversationMessages {...props} items={[message("m1", "alice")]} onOpenMember={onOpenMember} />
+		</I18nextProvider>,
+	);
+	fireEvent.click(view.getByRole("button", { name: "打开 真实成员甲 的资料" }));
+	expect(onOpenMember).toHaveBeenCalledWith("alice");
+	view.unmount();
 });

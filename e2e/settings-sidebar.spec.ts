@@ -62,6 +62,7 @@ test("wide desktop settings use flat selected rows and only deeper pages show Ba
 	await search.fill("1017");
 	await expect(page.getByText("glm-5.3-flash", { exact: true })).toHaveCount(0);
 	await search.clear();
+	await search.blur();
 	await page.mouse.move(1200, 850);
 	await page.screenshot({ path: testInfo.outputPath("desktop-settings-list.png"), fullPage: true });
 
@@ -81,21 +82,26 @@ test("wide desktop settings use flat selected rows and only deeper pages show Ba
 	await expect(page.getByRole("button", { name: "返回", exact: true })).toHaveCount(0);
 });
 
-test("narrow desktop keeps a named Close for the root and Back for the covering section", async ({ page }) => {
+test("narrow desktop uses the phone-style settings list and Back at both levels", async ({ page }, testInfo) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await isolate(page);
-	await page.goto("/me");
+	await page.goto("/messages");
 	await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "compact");
-	await expect(page.getByRole("button", { name: "关闭", exact: true })).toBeVisible();
-	await expect(page.getByRole("button", { name: "返回", exact: true })).toHaveCount(0);
-	await page
-		.getByRole("navigation", { name: "我", exact: true })
-		.getByRole("button", { name: "模型", exact: true })
-		.click();
+	await page.getByRole("button", { name: "我", exact: true }).click();
+	const back = page.getByRole("button", { name: "返回", exact: true });
+	const models = page.getByRole("button", { name: "模型", exact: true });
+	await expect(back).toBeVisible();
+	await expect(page.getByRole("button", { name: "关闭", exact: true })).toHaveCount(0);
+	await expect(models.locator("svg")).toHaveCount(2);
+	await page.screenshot({ path: testInfo.outputPath("narrow-desktop-settings-list.png"), fullPage: true });
+	await models.click();
 	await expect(page).toHaveURL(/\/me\/models$/);
-	await page.getByRole("button", { name: "返回", exact: true }).click();
+	// The pushed page covers the directory, which leaves the accessibility tree; only then is the
+	// one visible Back the page's own (the URL changes a render before that happens).
+	await expect(models).toHaveCount(0);
+	await back.click();
 	await expect(page).toHaveURL(/\/me$/);
-	await page.getByRole("button", { name: "关闭", exact: true }).click();
+	await back.click();
 	await expect(page).toHaveURL(/\/messages$/);
 });
 
@@ -131,38 +137,42 @@ test.describe("phone settings", () => {
 });
 
 for (const width of [1280, 820, 390]) {
-	test(`desktop rail toggles the same settings layer at ${width}px`, async ({ page }) => {
+	test(`desktop settings enter and restore focus at ${width}px`, async ({ page }) => {
 		await page.setViewportSize({ width, height: 900 });
 		await isolate(page);
 		await page.goto("/tasks");
 		const avatar = page.getByRole("button", { name: "我", exact: true });
 		const settings = page.getByRole("button", { name: "设置", exact: true });
-		const layer = page.locator('[data-page-layer="me"]');
-		await expect(settings).toBeVisible();
-		await avatar.click();
-		await expect(layer).toBeVisible();
-		await expect(avatar).toHaveAttribute("aria-expanded", "true");
-		await avatar.click();
-		await expect(page).toHaveURL(/\/tasks$/);
-		await expect(layer).toHaveCount(0);
-		await settings.click();
-		await expect(layer).toBeVisible();
-		await settings.click();
-		await expect(page).toHaveURL(/\/tasks$/);
-		await expect(layer).toHaveCount(0);
-		await avatar.click();
-		await settings.click();
-		await expect(page).toHaveURL(/\/tasks$/);
-		await expect(layer).toHaveCount(0);
-		await settings.click();
-		await page
-			.getByRole("navigation", { name: "我", exact: true })
-			.getByRole("button", { name: "模型", exact: true })
-			.click();
-		await expect(page).toHaveURL(/\/me\/models$/);
-		await avatar.click();
-		await expect(page).toHaveURL(/\/tasks$/);
-		await expect(layer).toHaveCount(0);
+		const rail = page.locator('nav[aria-label="主导航"]');
+		const dialog = page.getByRole("dialog", { name: "我", exact: true });
+		const backdrop = page.locator("[data-overlay-backdrop]");
+		for (const entry of [avatar, settings]) {
+			await expect(rail).toBeVisible();
+			await entry.click();
+			await expect(dialog).toBeFocused();
+			await expect(dialog).toHaveAttribute("aria-modal", "true");
+			await expect(rail.locator("..")).toHaveAttribute("inert", "");
+			const box = await dialog.boundingBox();
+			if (!box) throw new Error("Expected a visible settings surface");
+			if (width === 1280) {
+				await expect(rail).toBeVisible();
+				expect(box.x).toBeGreaterThan(0);
+				expect(box.y).toBeGreaterThan(0);
+				expect(box.x * 2 + box.width).toBeCloseTo(width, 0);
+				expect(box.y * 2 + box.height).toBeCloseTo(900, 0);
+				await page.mouse.click(box.x + box.width / 2, box.y + 4);
+				await expect(dialog).toBeVisible();
+				await backdrop.click({ position: { x: 5, y: 100 } });
+			} else {
+				await expect(rail).toBeHidden();
+				await expect(backdrop).toHaveCount(0);
+				expect(box).toEqual({ x: 0, y: 0, width, height: 900 });
+				await dialog.getByRole("button", { name: "返回", exact: true }).click();
+			}
+			await expect(page).toHaveURL(/\/tasks$/);
+			await expect(dialog).toHaveCount(0);
+			await expect(entry).toBeFocused();
+		}
 	});
 }
 

@@ -1,11 +1,9 @@
 import { cn } from "@yonder/ui-components";
-import { ICON_SIZE, ICON_STROKE } from "@yonder/ui-tokens";
-import { Settings } from "lucide-react";
-import type { ReactNode } from "react";
+import { ContactRound, Settings } from "lucide-react";
+import type { MouseEventHandler, ReactNode } from "react";
 import type { TabId } from "../navigation/routes.ts";
 import { TABS } from "../navigation/routes.ts";
 import { TAB_ICONS } from "./tab-icons.tsx";
-import { TopBar } from "./top-bar.tsx";
 
 export interface RailProps {
 	current: TabId;
@@ -13,11 +11,14 @@ export interface RailProps {
 	labels: Record<TabId, string>;
 	ariaLabel: string;
 	renderAvatar: (size: 32) => ReactNode;
-	onOpenMe: () => void;
+	onOpenMe: MouseEventHandler<HTMLButtonElement>;
 	meOpen: boolean;
 	meLabel: string;
 	settingsLabel: string;
+	updateAction?: ReactNode;
 	titlebarInset: boolean;
+	onOpenContacts?: () => void;
+	contactsLabel?: string;
 }
 
 /** The 52px traffic-light row belongs to the rail; the avatar is above the tabs. */
@@ -31,7 +32,10 @@ export function Rail({
 	meOpen,
 	meLabel,
 	settingsLabel,
+	updateAction,
 	titlebarInset,
+	onOpenContacts,
+	contactsLabel,
 }: RailProps) {
 	const avatar = (
 		<button
@@ -53,9 +57,12 @@ export function Rail({
 			aria-label={ariaLabel}
 			className="flex h-full w-[var(--rail-width)] shrink-0 flex-col items-center pb-[var(--spacing-4)]"
 		>
-			<div className="w-full">
-				<TopBar center={titlebarInset ? null : avatar} />
-			</div>
+			<header
+				data-tauri-drag-region
+				className="flex h-[var(--titlebar-height)] w-full shrink-0 items-center justify-center"
+			>
+				{titlebarInset ? null : avatar}
+			</header>
 			{titlebarInset ? (
 				<div className="flex h-[var(--titlebar-height)] items-center justify-center">{avatar}</div>
 			) : null}
@@ -70,39 +77,52 @@ export function Rail({
 								onClick={() => onSelect(tab)}
 								aria-current={selected ? "page" : undefined}
 								className={cn(
-									"flex w-14 flex-col items-center gap-[3px] rounded-[var(--radius-control)] py-[var(--spacing-2)]",
+									"flex w-14 flex-col items-center gap-[3px] rounded-[var(--radius-md)] py-[var(--spacing-2)]",
 									"transition-colors duration-[var(--duration-fast)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
 									selected
 										? "bg-[var(--color-bg-selected)] text-[var(--color-text-primary)]"
 										: "text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]",
 								)}
 							>
-								<Icon
-									size={ICON_SIZE.md}
-									strokeWidth={selected ? ICON_STROKE.selected : ICON_STROKE.normal}
-									aria-hidden="true"
-								/>
+								<Icon size={20} strokeWidth={selected ? 2.1 : 1.7} aria-hidden="true" />
 								<span className="text-[10px] font-medium leading-3">{labels[tab]}</span>
 							</button>
 						</li>
 					);
 				})}
+				{onOpenContacts ? (
+					<li>
+						<button
+							type="button"
+							onClick={onOpenContacts}
+							aria-label={contactsLabel}
+							title={contactsLabel}
+							className="flex min-h-11 min-w-11 flex-col items-center justify-center gap-[var(--spacing-1)] rounded-[var(--radius-md)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+						>
+							<ContactRound size={20} aria-hidden="true" />
+							<span className="text-micro">{contactsLabel}</span>
+						</button>
+					</li>
+				) : null}
 			</ul>
-			<button
-				type="button"
-				onClick={onOpenMe}
-				aria-label={settingsLabel}
-				title={settingsLabel}
-				aria-expanded={meOpen}
-				className={cn(
-					"mt-auto flex size-11 items-center justify-center rounded-[var(--radius-control)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]",
-					meOpen
-						? "bg-[var(--color-bg-selected)] text-[var(--color-text-primary)]"
-						: "text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]",
-				)}
-			>
-				<Settings size={ICON_SIZE.md} strokeWidth={ICON_STROKE.normal} aria-hidden="true" />
-			</button>
+			<div className="mt-auto flex flex-col items-center gap-[var(--spacing-2)]">
+				{updateAction}
+				<button
+					type="button"
+					onClick={onOpenMe}
+					aria-label={settingsLabel}
+					title={settingsLabel}
+					aria-expanded={meOpen}
+					className={cn(
+						"flex size-11 items-center justify-center rounded-[var(--radius-md)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]",
+						meOpen
+							? "bg-[var(--color-bg-selected)] text-[var(--color-text-primary)]"
+							: "text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]",
+					)}
+				>
+					<Settings size={20} strokeWidth={1.7} aria-hidden="true" />
+				</button>
+			</div>
 		</nav>
 	);
 }

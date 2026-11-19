@@ -1,5 +1,6 @@
 export const skillMessagesZhCN = {
 	title: "技能",
+	detail: "技能详情",
 	import: "导入技能",
 	chooseFiles: "选择文件",
 	chooseFolder: "选择文件夹",
@@ -41,7 +42,7 @@ export const skillMessagesZhCN = {
 	contact: "联系人",
 	noSuggestions: "没有匹配项，可继续输入或直接发送文字。",
 	selectionLimit: "每条消息最多使用 5 个技能。",
-	acceptHint: "Tab 或点击插入",
+	acceptHint: "Enter、Tab 或点击选择",
 	previousPage: "上一页",
 	nextPage: "下一页",
 	page: "{{current}} / {{total}}",

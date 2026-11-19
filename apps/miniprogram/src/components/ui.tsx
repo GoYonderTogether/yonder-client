@@ -11,15 +11,14 @@ export function Page({
 	children,
 	publicPage = false,
 	chatLayout = false,
-	onTitleClick,
+	onMore,
 }: {
-	title: string;
+	title: ReactNode;
 	back?: boolean;
 	children: ReactNode;
 	publicPage?: boolean;
 	chatLayout?: boolean;
-	/** Makes the title open the chat's detail page (a group's info, a person's card). */
-	onTitleClick?: () => void;
+	onMore?: () => void;
 }) {
 	const { status: sessionStatus } = useSession();
 	const route = useRouter();
@@ -68,16 +67,19 @@ export function Page({
 								else void Taro.reLaunch({ url: "/pages/conversations/index" });
 							}}
 						>
-							{chatLayout ? <View className="mini-chat-back-icon" /> : "‹"}
+							<View className="mini-nav-back-icon" />
 						</NativeButton>
 					)}
-					{onTitleClick ? (
-						<View className="mini-nav-title mini-nav-title-link" onClick={onTitleClick} ariaRole="button">
-							<Text>{title}</Text>
-						</View>
-					) : (
+					{typeof title === "string" ? (
 						<Text className="mini-nav-title">{title}</Text>
+					) : (
+						<View className="mini-nav-title">{title}</View>
 					)}
+					{onMore ? (
+						<NativeButton className="mini-nav-more" ariaLabel={t("聊天设置", "Chat settings")} onClick={onMore}>
+							<Text ariaHidden>⋯</Text>
+						</NativeButton>
+					) : null}
 				</View>
 			</View>
 			<View className={`mini-content ${chatLayout ? "mini-content-chat" : ""}`}>
@@ -108,7 +110,7 @@ export function Button({
 			className={`mini-button ${disabled || loading ? "mini-button-disabled" : ""} ${secondary ? "mini-button-secondary" : ""} ${danger ? "mini-button-danger" : ""}`}
 			openType={share ? "share" : undefined}
 			loading={loading}
-			disabled={disabled || loading}
+			disabled={disabled || loading || undefined}
 			onClick={onClick}
 		>
 			{children}
@@ -121,6 +123,7 @@ export function Field({
 	onInput,
 	password,
 	placeholder,
+	maxlength,
 	type = "text",
 }: {
 	label: string;
@@ -128,6 +131,7 @@ export function Field({
 	onInput: (value: string) => void;
 	password?: boolean;
 	placeholder?: string;
+	maxlength?: number;
 	type?: "text" | "number" | "digit";
 }) {
 	return (
@@ -138,6 +142,7 @@ export function Field({
 				value={value}
 				password={password}
 				placeholder={placeholder}
+				maxlength={maxlength}
 				type={type}
 				onInput={(event) => onInput(event.detail.value)}
 			/>

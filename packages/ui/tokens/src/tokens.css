@@ -217,6 +217,15 @@
 	--color-memory-other: #8a9096; /* grey-5 */
 	--color-memory-other-bg: rgba(46, 50, 56, 0.07);
 	--color-memory-other-fg: #41464c;
+	/* Quota pools, one categorical hue each in this fixed order (main, background, coding,
+	   external); validated as adjacent pairs for colour-blind separation on the light surface.
+	   Aqua and yellow sit under 3:1 here, so every chart that uses them prints its values. */
+	--color-pool-main: #2a78d6;
+	--color-pool-background: #eb6834;
+	--color-pool-coding: #1baf7a;
+	--color-pool-external: #eda100;
+	--color-pool-tools: #7b61d1;
+	--color-pool-track: rgba(46, 50, 56, 0.08);
 	/* Text and play marks laid over photos, in both themes. */
 	--color-on-media: #ffffff;
 	--color-media-scrim: rgba(0, 0, 0, 0.42);
@@ -306,6 +315,12 @@
 	--color-memory-other: #9aa0a6;
 	--color-memory-other-bg: rgba(255, 255, 255, 0.1);
 	--color-memory-other-fg: #c6cacd;
+	--color-pool-main: #3987e5;
+	--color-pool-background: #d95926;
+	--color-pool-coding: #199e70;
+	--color-pool-external: #c98500;
+	--color-pool-tools: #8f78e0;
+	--color-pool-track: rgba(255, 255, 255, 0.1);
 	--color-on-media: #ffffff;
 	--color-media-scrim: rgba(0, 0, 0, 0.42);
 
@@ -313,64 +328,6 @@
 	--shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.24);
 	--shadow-md: 0 10px 30px rgba(0, 0, 0, 0.32);
 	--shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.44);
-}
-
-/* Semi ai-background-top / ai-background-bottom, copied without changing stops, angles or alpha. */
-[data-style="glow"] {
-	--color-bg-chrome: var(--color-bg-base);
-	--color-bg-chrome-image:
-		linear-gradient(
-			201.15deg,
-			rgba(83, 56, 255, 0.16) 6.58%,
-			rgba(176, 48, 240, 0.096) 32.88%,
-			rgba(231, 45, 255, 0.048) 59.17%,
-			rgba(255, 255, 255, 0) 94.23%
-		),
-		linear-gradient(
-			201.15deg,
-			rgba(255, 255, 255, 0.04) 6.58%,
-			rgba(255, 226, 138, 0.04) 32.88%,
-			rgba(231, 45, 255, 0.04) 67.93%,
-			rgba(0, 115, 255, 0.04) 94.23%
-		);
-}
-
-[data-theme="dark"][data-style="glow"] {
-	--color-bg-chrome-image:
-		linear-gradient(
-			201.15deg,
-			rgba(83, 56, 255, 0.36) 6.58%,
-			rgba(176, 48, 240, 0.216) 32.88%,
-			rgba(154, 0, 174, 0.108) 59.17%,
-			rgba(0, 0, 0, 0) 94.23%
-		),
-		linear-gradient(
-			201.15deg,
-			rgba(255, 226, 138, 0.2) 6.58%,
-			rgba(231, 45, 255, 0.2) 50.4%,
-			rgba(0, 115, 255, 0.2) 94.23%
-		);
-}
-
-.yonder-chrome {
-	background-color: var(--color-bg-chrome);
-	background-image: var(--color-bg-chrome-image);
-}
-
-/* Semi text-2 is too faint at the strongest AI gradient stops; use the existing text-1 role. */
-[data-style="glow"] .yonder-chrome {
-	--color-text-tertiary: var(--color-text-secondary);
-	--color-accent-text: #004fb3; /* Semi light blue-7, primary-active; small text on tinted chrome */
-}
-
-[data-theme="dark"][data-style="glow"] .yonder-chrome {
-	--color-accent-text: #a9d7ff; /* Semi dark blue-7; small links on AI chrome */
-}
-
-/* White fill-2 over the strongest dark AI stop needs text-0 for selected-row captions too. */
-[data-theme="dark"][data-style="glow"] .yonder-chrome :is([aria-current="true"], [aria-current="page"]) {
-	--color-text-secondary: var(--color-text-primary);
-	--color-text-tertiary: var(--color-text-primary);
 }
 
 /* Motion: durations and curves live here so every transition speaks the same language. */
@@ -428,6 +385,13 @@
 	/* The right-hand side panel on a wide window: group info, Bot detail, a member's card. Wide enough
 	   for the member grid and the Bot form without wrapping, narrow enough to leave the chat in view. */
 	--side-panel-width: 400px;
+	/* Desktop dialogs use their available width as their minimum height. */
+	--dialog-width: 440px;
+	--dialog-width-wide: 640px;
+	--dialog-width-min: 320px;
+	--settings-window-width: 1120px;
+	--settings-window-height: 900px;
+	--group-form-column-min: 224px;
 	--tabbar-height: 54px;
 
 	/* Control sizes are fixed; density only affects rows and surrounding space. */

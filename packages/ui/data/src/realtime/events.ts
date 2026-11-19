@@ -4,10 +4,11 @@
  * everything.
  */
 import type { QueryClient } from "@tanstack/react-query";
-import type { Conversation, Member, QuotaConfigResponse, ServerEvent } from "@yonder/protocol";
+import type { Member, QuotaConfigResponse, ServerEvent } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { invalidateMemoryFiles } from "../query/memory-files.ts";
-import { removeConversation, removeMember, writeMember } from "./member-cache.ts";
+import { writeFriendRequest } from "./friend-request-cache.ts";
+import { removeConversation, removeMember, writeConversation, writeMember } from "./member-cache.ts";
 import { updateMessage, updateRun } from "./message-cache.ts";
 
 export interface EventHandlers {
@@ -21,6 +22,7 @@ export interface EventHandlers {
 
 /** A socket can miss events while disconnected; reconcile the currently observed data on open. */
 export function reconcileRealtime(queryClient: QueryClient): void {
+	void queryClient.invalidateQueries({ queryKey: keys.me() });
 	void queryClient.invalidateQueries({ queryKey: keys.devices() });
 	void queryClient.invalidateQueries({ queryKey: keys.connectors.list() });
 	void queryClient.invalidateQueries({ queryKey: keys.skills.all() });
@@ -28,8 +30,9 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 	void queryClient.invalidateQueries({ queryKey: keys.conversations.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.messages.root() });
 	void queryClient.invalidateQueries({ queryKey: keys.contacts() });
+	void queryClient.invalidateQueries({ queryKey: keys.friendRequests.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.quota() });
-	void queryClient.invalidateQueries({ queryKey: keys.usage("all") });
+	void queryClient.invalidateQueries({ queryKey: ["usage"] });
 	void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.items.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.memory.all() });
@@ -37,6 +40,10 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 
 export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, handlers: EventHandlers = {}): void {
 	switch (event.type) {
+		case "friend_request.updated": {
+			writeFriendRequest(queryClient, event.request);
+			break;
+		}
 		case "connectors.changed": {
 			void queryClient.invalidateQueries({ queryKey: keys.goals() });
 			void queryClient.invalidateQueries({ queryKey: keys.connectors.list() });
@@ -48,16 +55,12 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 			break;
 		}
 		case "conversation.updated": {
-			queryClient.setQueryData<{ items: Conversation[] }>(keys.conversations.list(), (current) => ({
-				items: current?.items.some((item) => item.id === event.conversation.id)
-					? current.items.map((item) =>
-							item.id === event.conversation.id && item.version <= event.conversation.version
-								? event.conversation
-								: item,
-						)
-					: [event.conversation, ...(current?.items ?? [])],
-			}));
+			writeConversation(queryClient, event.conversation);
 			void queryClient.invalidateQueries({ queryKey: keys.contacts() });
+			break;
+		}
+		case "conversation.state_changed": {
+			void queryClient.invalidateQueries({ queryKey: keys.conversations.list() });
 			break;
 		}
 		case "conversation.removed": {
@@ -88,7 +91,7 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 		case "quota.updated": {
 			queryClient.setQueryData(keys.quota(), event.quota);
 			void queryClient.invalidateQueries({ queryKey: keys.ledger() });
-			void queryClient.invalidateQueries({ queryKey: keys.usage("all") });
+			void queryClient.invalidateQueries({ queryKey: ["usage"] });
 			void queryClient.invalidateQueries({ queryKey: keys.invite() });
 			break;
 		}
@@ -110,9 +113,12 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 			break;
 		}
 		case "run.updated": {
-			updateRun(queryClient, event.run);
-			if (event.run.status === "completed" || event.run.status === "failed" || event.run.status === "cancelled")
+			if (event.run.messageId) updateRun(queryClient, event.run);
+			if (event.run.status === "completed" || event.run.status === "failed" || event.run.status === "cancelled") {
 				void queryClient.invalidateQueries({ queryKey: keys.skills.all() });
+				if (!event.run.messageId && !event.run.userMessageId)
+					void queryClient.invalidateQueries({ queryKey: keys.items.all() });
+			}
 			break;
 		}
 		case "subtask.updated": {
