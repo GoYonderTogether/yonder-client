@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.26111902] - 2026-11-19
+
+### Added
+
+- social：avatars open cards, cards list a person's Bots, memory page gets a shareable QR card
+
+### Fixed
+
+- ios：skip removing push keys the generated project does not have
+
 ## [0.3.26111901] - 2026-11-19
 
 ### Added

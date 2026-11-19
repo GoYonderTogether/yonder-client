@@ -1,6 +1,6 @@
 [package]
 name = "yonder-desktop"
-version = "0.3.26111901"
+version = "0.3.26111902"
 edition = "2021"
 
 # Desktop builds the binary from src/main.rs; mobile builds only the library.
