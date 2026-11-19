@@ -1,17 +1,99 @@
-import { Button, ListGroup } from "@yonder/ui-components";
-import { useQuota, useQuotaLedger } from "@yonder/ui-data";
-import { ExternalLink } from "lucide-react";
+import type { QuotaPool, UsagePurpose } from "@yonder/protocol";
+import { Button, FormSection, ListGroup, ListRow } from "@yonder/ui-components";
+import { useQuota, useUsageOverview } from "@yonder/ui-data";
+import type { TFunction } from "i18next";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { QuotaNumber } from "./quota-number.tsx";
-import { QuotaPools } from "./quota-pools.tsx";
+import { QuotaChart } from "./quota-chart.tsx";
+import { QuotaLedger } from "./quota-ledger.tsx";
+import { POOL_ORDER, QuotaMeters } from "./quota-meters.tsx";
+import { formatDay, formatQuota } from "./quota-number.tsx";
+import { QuotaDayPage, QuotaPoolPage, QuotaPurposePage } from "./quota-pages.tsx";
+import { type QuotaRange, RangeSwitch } from "./quota-range.tsx";
 import { QuotaRatesSection } from "./quota-rates.tsx";
-import { QuotaUsage } from "./quota-usage.tsx";
+import { QuotaRunList } from "./quota-runs.tsx";
 
-export function QuotaSection() {
-	const { t, i18n } = useTranslation();
+/**
+ * The pages under 「我 › 额度」, one level deep: a pool, a day, a purpose, every run, the ledger, the
+ * billing explanation. A page is a path segment so back, the browser and a shared link all work.
+ */
+export type QuotaPage =
+	| { kind: "pool"; pool: QuotaPool }
+	| { kind: "day"; date: string }
+	| { kind: "purpose"; purpose: UsagePurpose }
+	| { kind: "runs" }
+	| { kind: "ledger" }
+	| { kind: "rates" };
+
+const PURPOSES: readonly UsagePurpose[] = [
+	"chat",
+	"subtask",
+	"scheduled",
+	"meeting",
+	"memory",
+	"compact",
+	"outward",
+	"visiting",
+	"other",
+];
+
+export function parseQuotaPage(page: string | null): QuotaPage | null {
+	if (!page) return null;
+	if (page === "runs" || page === "ledger" || page === "rates") return { kind: page };
+	const [kind, value = ""] = [page.slice(0, page.indexOf("-")), page.slice(page.indexOf("-") + 1)];
+	if (kind === "pool" && (POOL_ORDER as string[]).includes(value)) return { kind, pool: value as QuotaPool };
+	if (kind === "day" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return { kind, date: value };
+	if (kind === "purpose" && (PURPOSES as string[]).includes(value)) return { kind, purpose: value as UsagePurpose };
+	return null;
+}
+
+export function quotaPagePath(page: QuotaPage): string {
+	switch (page.kind) {
+		case "pool":
+			return `pool-${page.pool}`;
+		case "day":
+			return `day-${page.date}`;
+		case "purpose":
+			return `purpose-${page.purpose}`;
+		default:
+			return page.kind;
+	}
+}
+
+export function quotaPageTitle(page: QuotaPage, t: TFunction, locale: string): string {
+	switch (page.kind) {
+		case "pool":
+			return t(`me.quota.pools.${page.pool}`);
+		case "day":
+			return formatDay(page.date, locale, true);
+		case "purpose":
+			return t(`me.quota.purposes.${page.purpose}`);
+		case "runs":
+			return t("me.quota.allRuns");
+		case "ledger":
+			return t("me.quota.ledger");
+		case "rates":
+			return t("me.quota.rates");
+	}
+}
+
+/**
+ * 「我 › 额度」. The first screen answers "how much is left and where did it go" on one phone screen:
+ * the pool meters, a month of daily spending by pool, and spending by purpose. Every figure opens
+ * the page behind it; per-call detail lives only in the runs, a tap further down.
+ */
+export function QuotaSection({
+	page = null,
+	onOpenPage = () => undefined,
+}: {
+	page?: string | null;
+	onOpenPage?: (page: string) => void;
+}) {
+	const { t } = useTranslation();
 	const quota = useQuota();
-	const ledger = useQuotaLedger();
-	const locale = i18n.resolvedLanguage ?? i18n.language;
+	const [range, setRange] = useState<QuotaRange>("cycle");
+	const open = (next: QuotaPage) => onOpenPage(quotaPagePath(next));
+	const sub = parseQuotaPage(page);
 
 	if (!quota.data) {
 		return quota.isError ? (
@@ -22,71 +104,104 @@ export function QuotaSection() {
 			<p role="status">{t("app.loading")}</p>
 		);
 	}
-
-	const entries = ledger.data?.pages.flatMap((page) => page.items) ?? [];
-	const reset = new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(quota.data.cycle.resetsAt));
+	switch (sub?.kind) {
+		case "pool":
+			return (
+				<QuotaPoolPage
+					quota={quota.data}
+					pool={sub.pool}
+					range={range}
+					onRange={setRange}
+					onOpenDay={(date) => open({ kind: "day", date })}
+				/>
+			);
+		case "day":
+			return <QuotaDayPage date={sub.date} />;
+		case "purpose":
+			return <QuotaPurposePage purpose={sub.purpose} range={range} />;
+		case "runs":
+			return <QuotaRunList filter={{}} />;
+		case "ledger":
+			return <QuotaLedger />;
+		case "rates":
+			return <QuotaRatesSection />;
+	}
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)]">
-			<QuotaPools quota={quota.data} />
-			<div className="flex flex-wrap gap-x-[var(--spacing-8)] gap-y-[var(--spacing-3)] text-body text-[var(--color-text-secondary)]">
-				<p>
-					{t("me.quota.granted")} <QuotaNumber value={quota.data.pools.main.granted} locale={locale} />
-				</p>
-				<p>
-					{t("me.quota.used")} <QuotaNumber value={quota.data.pools.main.used} locale={locale} />
-				</p>
-				<p>{t("me.quota.resetsAt", { date: reset })}</p>
-			</div>
-			<ListGroup title={t("me.quota.ledger")}>
-				{entries.map((entry) => (
-					<li
-						key={entry.id}
-						className="flex items-center justify-between gap-[var(--spacing-3)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] last:border-0"
-					>
-						<div className="min-w-0">
-							<p className="text-body text-[var(--color-text-primary)]">
-								{t(`me.quota.kinds.${entry.kind}`)}
-								{entry.pool === "legacy" ? "" : ` · ${t(`me.quota.pools.${entry.pool}`)}`}
-							</p>
-							<time dateTime={entry.at} className="text-caption text-[var(--color-text-secondary)]">
-								{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(
-									new Date(entry.at),
-								)}
-							</time>
-						</div>
-						<span className="shrink-0 text-body text-[var(--color-text-primary)]">
-							<QuotaNumber value={entry.amount} locale={locale} signed />
-						</span>
-					</li>
-				))}
-				{ledger.isLoading ? <li className="p-[var(--spacing-4)] text-caption">{t("app.loading")}</li> : null}
-				{ledger.isError ? (
-					<li className="px-[var(--spacing-4)]">
-						<Button variant="link" onClick={() => void ledger.refetch()}>
-							{t("app.retry")}
-						</Button>
-					</li>
-				) : null}
-				{!ledger.isLoading && !ledger.isError && entries.length === 0 ? (
-					<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">
-						{t("me.quota.ledgerEmpty")}
-					</li>
-				) : null}
+			<QuotaMeters quota={quota.data} onOpenPool={(pool) => open({ kind: "pool", pool })} />
+			<Overview
+				range={range}
+				onRange={setRange}
+				onOpenDay={(date) => open({ kind: "day", date })}
+				onOpenPurpose={(purpose) => open({ kind: "purpose", purpose })}
+			/>
+			<ListGroup>
+				<ListRow title={t("me.quota.allRuns")} chevron onClick={() => open({ kind: "runs" })} />
+				<ListRow title={t("me.quota.ledger")} chevron onClick={() => open({ kind: "ledger" })} />
+				<ListRow title={t("me.quota.rates")} chevron onClick={() => open({ kind: "rates" })} />
 			</ListGroup>
-			{ledger.hasNextPage ? (
-				<Button variant="secondary" onClick={() => void ledger.fetchNextPage()} loading={ledger.isFetchingNextPage}>
-					{t("me.quota.more")}
-				</Button>
-			) : null}
-			<QuotaUsage />
-			<QuotaRatesSection />
-			<a
-				href="/pricing"
-				className="inline-flex items-center gap-[var(--spacing-2)] self-start text-caption text-[var(--color-accent-text)] hover:underline"
-			>
-				<ExternalLink size={16} aria-hidden="true" />
-				{t("me.quota.pricing")}
-			</a>
 		</div>
+	);
+}
+
+function Overview({
+	range,
+	onRange,
+	onOpenDay,
+	onOpenPurpose,
+}: {
+	range: QuotaRange;
+	onRange: (range: QuotaRange) => void;
+	onOpenDay: (date: string) => void;
+	onOpenPurpose: (purpose: UsagePurpose) => void;
+}) {
+	const { t, i18n } = useTranslation();
+	const locale = i18n.resolvedLanguage ?? i18n.language;
+	const overview = useUsageOverview(range);
+	const total = overview.data?.totals.cost ?? 0;
+	return (
+		<>
+			<FormSection
+				title={
+					<span className="flex items-center justify-between gap-[var(--spacing-3)]">
+						{t("me.quota.chartTitle")}
+						<RangeSwitch range={range} onRange={onRange} />
+					</span>
+				}
+			>
+				{overview.data ? (
+					<QuotaChart overview={overview.data} onOpenDay={onOpenDay} />
+				) : overview.isError ? (
+					<Button variant="link" onClick={() => void overview.refetch()}>
+						{t("app.retry")}
+					</Button>
+				) : (
+					<p role="status" className="text-caption">
+						{t("app.loading")}
+					</p>
+				)}
+			</FormSection>
+			{overview.data?.byPurpose.length ? (
+				<ListGroup title={t("me.quota.whereTitle")}>
+					{overview.data.byPurpose.map((entry) => (
+						<ListRow
+							key={entry.purpose}
+							title={t(`me.quota.purposes.${entry.purpose}`)}
+							subtitle={t("me.quota.times", { count: entry.runs })}
+							trailing={
+								<span className="tabular-nums text-[var(--color-text-primary)]">
+									{formatQuota(entry.cost, locale)}
+									<span className="ms-[var(--spacing-2)] text-caption text-[var(--color-text-tertiary)]">
+										{total ? `${Math.round((entry.cost / total) * 100)}%` : ""}
+									</span>
+								</span>
+							}
+							chevron
+							onClick={() => onOpenPurpose(entry.purpose)}
+						/>
+					))}
+				</ListGroup>
+			) : null}
+		</>
 	);
 }

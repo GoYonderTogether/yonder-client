@@ -32,7 +32,7 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 	void queryClient.invalidateQueries({ queryKey: keys.contacts() });
 	void queryClient.invalidateQueries({ queryKey: keys.friendRequests.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.quota() });
-	void queryClient.invalidateQueries({ queryKey: keys.usage("all") });
+	void queryClient.invalidateQueries({ queryKey: ["usage"] });
 	void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.items.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.memory.all() });
@@ -91,7 +91,7 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 		case "quota.updated": {
 			queryClient.setQueryData(keys.quota(), event.quota);
 			void queryClient.invalidateQueries({ queryKey: keys.ledger() });
-			void queryClient.invalidateQueries({ queryKey: keys.usage("all") });
+			void queryClient.invalidateQueries({ queryKey: ["usage"] });
 			void queryClient.invalidateQueries({ queryKey: keys.invite() });
 			break;
 		}

@@ -9,7 +9,7 @@ import { DevicesSection } from "../components/devices-section.tsx";
 import { GeneralSection } from "../components/empty-sections.tsx";
 import { InviteSection } from "../components/invite-section.tsx";
 import { ProfileEditor } from "../components/profile-editor.tsx";
-import { QuotaSection } from "../components/quota-section.tsx";
+import { parseQuotaPage, QuotaSection, quotaPageTitle } from "../components/quota-section.tsx";
 import { ConnectorsSection } from "../connectors/connectors-section.tsx";
 import type { LocalFilesAdapter } from "../connectors/local-files-adapter.ts";
 import type { MeSectionId } from "./sections.tsx";
@@ -65,7 +65,7 @@ export function MeSectionPage({
 	renderChangePassword,
 	privacy,
 }: MeSectionPageProps) {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
 	const me = useMe();
 
 	if (!section) {
@@ -89,6 +89,16 @@ export function MeSectionPage({
 		return (
 			<PageFrame title={t("me.phoneChange.title")}>
 				<ChangePhoneForm onDone={() => onOpenPage(null)} />
+			</PageFrame>
+		);
+	}
+	if (section === "quota") {
+		const sub = parseQuotaPage(page);
+		if (page && !sub) return <PageFrame title={null}>{null}</PageFrame>;
+		const title = sub ? quotaPageTitle(sub, t, i18n.resolvedLanguage ?? i18n.language) : t("me.sections.quota");
+		return (
+			<PageFrame title={<h1 className="truncate">{title}</h1>}>
+				<QuotaSection page={page} onOpenPage={(next) => onOpenPage(next)} />
 			</PageFrame>
 		);
 	}
@@ -135,8 +145,6 @@ export function MeSectionPage({
 						{...(onOpenDevices ? { onOpenDevices } : {})}
 					/>
 				);
-			case "quota":
-				return <QuotaSection />;
 			case "models":
 				return <ModelsSection page={page} onOpenPage={onOpenPage} onDirtyChange={onModelDirtyChange} />;
 			case "devices":

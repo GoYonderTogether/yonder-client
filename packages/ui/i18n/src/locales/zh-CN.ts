@@ -299,7 +299,7 @@ export const zhCN: Messages = {
 		idleTimeout: "Bot 长时间没有进展，已经停下。",
 		toolRepeat: "Bot 反复执行同一个操作，已停止。",
 		subtaskBurst: "这个任务一分钟内派出了太多子任务，已经暂停，以免继续消耗额度。",
-		quotaCodingExhausted: "编程额度已用完，这个任务没有运行。",
+		quotaCodingExhausted: "执行额度已用完，这个任务没有运行。",
 		quotaExternalExhausted: "对外额度已用完，这条消息没有回复。",
 		loadingHistory: "正在加载消息…",
 		jumpToLatest: "跳至最新",

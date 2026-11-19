@@ -299,7 +299,7 @@ export const en = {
 		idleTimeout: "The Bot made no progress for a long time, so it was stopped.",
 		toolRepeat: "The Bot kept repeating the same action, so it was stopped.",
 		subtaskBurst: "This task issued too many subtasks within a minute, so it was paused before it spent more quota.",
-		quotaCodingExhausted: "Coding quota is used up, so this task did not run.",
+		quotaCodingExhausted: "Execution quota is used up, so this task did not run.",
 		quotaExternalExhausted: "External quota is used up, so this message was not answered.",
 		loadingHistory: "Loading messages…",
 		jumpToLatest: "Jump to latest",

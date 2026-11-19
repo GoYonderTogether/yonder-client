@@ -6,7 +6,7 @@
  * never copies server data into component or store state.
  */
 
-export type { Endpoints, SessionSummary } from "@yonder/api-client";
+export type { Endpoints, SessionSummary, UsageRunFilter } from "@yonder/api-client";
 // Re-exported so a feature can branch on a failure without depending on the HTTP client package.
 export { ApiError, NetworkError } from "@yonder/api-client";
 
@@ -76,6 +76,9 @@ export {
 	useQuotaRates,
 	useResolvedInvite,
 	useUsage,
+	useUsageOverview,
+	useUsageRunCalls,
+	useUsageRuns,
 } from "./hooks/quota.ts";
 export { useScheduleActions, useSchedules } from "./hooks/schedules.ts";
 export { useSkill, useSkillActions, useSkillFile, useSkills } from "./hooks/skills.ts";

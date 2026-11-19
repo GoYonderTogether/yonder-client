@@ -8,3 +8,4 @@ export type { ApiClientOptions, ApiResponse, RequestOptions, TokenStore } from "
 export { ApiClient, ApiError, NetworkError } from "./client.ts";
 export type { Endpoints, SessionSummary } from "./endpoints.ts";
 export { createEndpoints } from "./endpoints.ts";
+export type { UsageRunFilter } from "./quota.ts";

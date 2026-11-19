@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { InviteLifeIllustration } from "./invite-life-illustration.tsx";
 import { InviteShareCard } from "./invite-share-card.tsx";
-import { formatCompact, formatExact, QuotaNumber } from "./quota-number.tsx";
+import { formatExact, formatQuota, QuotaNumber } from "./quota-number.tsx";
 
 export function InviteSection() {
 	const { t, i18n } = useTranslation();
@@ -70,13 +70,13 @@ export function InviteSection() {
 						<p className="text-h3 text-[var(--color-text-primary)]">
 							{t("inviteExperience.invited")}{" "}
 							<strong className="text-h1 text-[var(--color-accent-text)]">
-								<QuotaNumber value={stats.invitedCount} locale={locale} />
+								<span className="tabular-nums">{formatExact(stats.invitedCount, locale)}</span>
 							</strong>
 						</p>
 						<p className="text-caption text-[var(--color-text-secondary)]">
 							{remaining === 0
 								? t("inviteExperience.limitReached")
-								: t("inviteExperience.nextReward", { amount: formatCompact(rewardRule.inviterGets, locale) })}
+								: t("inviteExperience.nextReward", { amount: formatQuota(rewardRule.inviterGets, locale) })}
 						</p>
 						{remaining !== null ? (
 							<p className="text-caption text-[var(--color-text-secondary)]">
@@ -88,14 +88,14 @@ export function InviteSection() {
 								<UserRoundCheck size={22} aria-hidden="true" />
 								<p className="text-caption text-[var(--color-text-primary)]">{t("inviteExperience.newFriend")}</p>
 								<p className="text-micro text-[var(--color-text-secondary)]">
-									{t("inviteExperience.friendReward", { amount: formatCompact(rewardRule.newUserGets, locale) })}
+									{t("inviteExperience.friendReward", { amount: formatQuota(rewardRule.newUserGets, locale) })}
 								</p>
 							</div>
 							<ArrowRight size={20} className="text-[var(--color-text-tertiary)]" aria-hidden="true" />
 							<div className="flex flex-col items-center gap-[var(--spacing-2)]">
 								<Gift size={22} aria-hidden="true" />
 								<p className="text-caption text-[var(--color-text-primary)]">
-									{t("inviteExperience.yourReward", { amount: formatCompact(rewardRule.inviterGets, locale) })}
+									{t("inviteExperience.yourReward", { amount: formatQuota(rewardRule.inviterGets, locale) })}
 								</p>
 								<p className="text-micro text-[var(--color-text-secondary)]">
 									{t("inviteExperience.received")} <QuotaNumber value={stats.grantedTotal} locale={locale} />

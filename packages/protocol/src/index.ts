@@ -193,7 +193,12 @@ export type {
 	RateCardResponse,
 	ResolveInviteResponse,
 	UsageEntry,
+	UsageOverview,
 	UsagePage,
+	UsagePurpose,
+	UsageRun,
+	UsageRunPage,
+	UsageTotals,
 } from "./quota/quota.ts";
 export type { ClientEvent, MessageNotification, ServerEvent, ServerEventType } from "./realtime/realtime.ts";
 export {

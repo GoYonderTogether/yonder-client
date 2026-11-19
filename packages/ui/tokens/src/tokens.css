@@ -203,6 +203,14 @@
 	--color-memory-other: #8a9096; /* grey-5 */
 	--color-memory-other-bg: rgba(46, 50, 56, 0.07);
 	--color-memory-other-fg: #41464c;
+	/* Quota pools, one categorical hue each in this fixed order (main, background, coding,
+	   external); validated as adjacent pairs for colour-blind separation on the light surface.
+	   Aqua and yellow sit under 3:1 here, so every chart that uses them prints its values. */
+	--color-pool-main: #2a78d6;
+	--color-pool-background: #eb6834;
+	--color-pool-coding: #1baf7a;
+	--color-pool-external: #eda100;
+	--color-pool-track: rgba(46, 50, 56, 0.08);
 	/* Text and play marks laid over photos, in both themes. */
 	--color-on-media: #ffffff;
 	--color-media-scrim: rgba(0, 0, 0, 0.42);
@@ -290,6 +298,11 @@
 	--color-memory-other: #9aa0a6;
 	--color-memory-other-bg: rgba(255, 255, 255, 0.1);
 	--color-memory-other-fg: #c6cacd;
+	--color-pool-main: #3987e5;
+	--color-pool-background: #d95926;
+	--color-pool-coding: #199e70;
+	--color-pool-external: #c98500;
+	--color-pool-track: rgba(255, 255, 255, 0.1);
 	--color-on-media: #ffffff;
 	--color-media-scrim: rgba(0, 0, 0, 0.42);
 

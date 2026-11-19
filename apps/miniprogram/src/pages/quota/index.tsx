@@ -35,7 +35,7 @@ export default function Quota() {
 						<Row title={t("累计获得", "Granted")} detail={String(data.quota.pools.main.granted)} />
 						<Row title={t("累计使用", "Used")} detail={String(data.quota.pools.main.used)} />
 						<Row
-							title={t("后台 / 编程 / 对外", "Background / coding / external")}
+							title={t("后台 / 执行 / 对外", "Background / execution / external")}
 							detail={[
 								data.quota.pools.background.remainingPercent,
 								data.quota.pools.coding.remainingPercent,
