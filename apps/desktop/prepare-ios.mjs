@@ -135,6 +135,12 @@ function applyNotifications() {
 			["aps-environment", entitlements],
 			["YonderPushEnvironment", infoPlist],
 		]) {
+			// A freshly generated project has neither key, and plutil exits 1 when asked to remove a missing one.
+			try {
+				execFileSync("/usr/bin/plutil", ["-extract", key, "raw", path], { stdio: "ignore" });
+			} catch {
+				continue;
+			}
 			execFileSync("/usr/bin/plutil", ["-remove", key, path], { stdio: "ignore" });
 		}
 	}
