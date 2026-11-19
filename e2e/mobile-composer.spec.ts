@@ -322,7 +322,12 @@ test("empty mobile composer holds one line; a held recording sends one playable 
 	await expect(page.getByRole("log").getByText(words, { exact: true })).toHaveCount(0);
 	await page.screenshot({ path: info.outputPath("mobile-voice-sent.png"), scale: "css" });
 	const pause = page.getByRole("button", { name: /^暂停语音/ });
-	await Promise.all([expect(pause).toHaveAttribute("data-voice-state", "playing", { timeout: 15_000 }), voice.tap()]);
+	// The sent voice bar is re-rendered once the server confirms the message; on a slow runner the
+	// first tap can land on the copy being replaced. Tap again until playback starts.
+	await expect(async () => {
+		if (await voice.isVisible()) await voice.tap({ timeout: 2_000 });
+		await expect(pause).toHaveAttribute("data-voice-state", "playing", { timeout: 4_000 });
+	}).toPass({ timeout: 20_000 });
 	await pause.tap();
 	await expect(voice).toHaveAttribute("data-voice-state", "paused");
 	await Promise.all([expect(pause).toHaveAttribute("data-voice-state", "playing"), voice.tap()]);
