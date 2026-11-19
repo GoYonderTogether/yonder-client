@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [0.3.26111901] - 2026-11-19
+
+### Added
+
+- settings：one settings form standard across Bot, channel, reception and chat pages
+- integrate settings, notifications, voice messages and chat layout updates
+- meetings：choose speaker separation before recording
+- updates：add safe desktop restart shortcut to sidebar
+- friends：add contacts and system notification workflows
+
+### Fixed
+
+- meetings：keep idle browser recovery clear of recording start
+- chat：replace activity display with message sources
+- ui：limit QR camera scanning to mobile hosts
+
 ## [0.3.26111802] - 2026-11-18
 
 ### Fixed
