@@ -35,6 +35,7 @@ export function ConversationMessages({
 	person,
 	bot,
 	onOpenRelated,
+	onOpenMember,
 	...actions
 }: Omit<MessageProps, "message" | "self"> & {
 	items: CachedMessage[];
@@ -42,6 +43,8 @@ export function ConversationMessages({
 	person?: Member | undefined;
 	bot?: Member | undefined;
 	onOpenRelated?: (id: string) => void;
+	/** A sender's avatar opens who they are, as in QQ and WeChat (profile-entry matrix 第二节). */
+	onOpenMember?: ((memberId: string) => void) | undefined;
 }) {
 	const { t, i18n } = useTranslation();
 	const locale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
@@ -139,6 +142,15 @@ export function ConversationMessages({
 			conversation.members.find((member) => member.memberId === first.senderId) ??
 			(self ? person : first.senderId === bot?.id ? bot : undefined);
 		const name = member?.displayName || t("chat.unknownSender");
+		const face = (
+			<Avatar
+				name={name}
+				src={member?.avatarUrl}
+				color={member?.avatarColor}
+				kind={member?.kind ?? first.senderKind}
+				size={32}
+			/>
+		);
 		return (
 			<MessageRun
 				as="div"
@@ -147,13 +159,18 @@ export function ConversationMessages({
 				senderId={first.senderId}
 				avatar={
 					showAvatars ? (
-						<Avatar
-							name={name}
-							src={member?.avatarUrl}
-							color={member?.avatarColor}
-							kind={member?.kind ?? first.senderKind}
-							size={32}
-						/>
+						member && onOpenMember ? (
+							<button
+								type="button"
+								aria-label={t("members.openOwner", { name })}
+								onClick={() => onOpenMember(first.senderId)}
+								className="rounded-[var(--radius-full)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+							>
+								{face}
+							</button>
+						) : (
+							face
+						)
 					) : null
 				}
 				sender={

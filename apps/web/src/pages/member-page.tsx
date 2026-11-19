@@ -1,8 +1,10 @@
 import { IconButton } from "@yonder/ui-components";
-import { useSessionStore } from "@yonder/ui-data";
+import { saveInvite, useData, useResolvedInvite, useSessionStore } from "@yonder/ui-data";
 import { ChevronLeft } from "lucide-react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
+import { cardInviteCode } from "../lib/card-link.ts";
 import { isMacDesktopShell } from "../lib/platform.ts";
 import { MemberCardView, PublicMemberCard } from "./member-card.tsx";
 import { Splash } from "./splash.tsx";
@@ -20,6 +22,13 @@ export function MemberCardPage({ handle }: { handle: string }) {
 	const location = useLocation();
 	const status = useSessionStore((state) => state.status);
 	const booting = useSessionStore((state) => state.booting);
+	const { storage } = useData();
+	// A card shared with its owner's invite code: a stranger who signs up from it counts as invited.
+	const code = cardInviteCode(location.search);
+	const invite = useResolvedInvite(code, !booting && status === "signed-out");
+	useEffect(() => {
+		if (code && invite.data?.valid) saveInvite(storage, code);
+	}, [code, invite.data?.valid, storage]);
 
 	if (booting || status === "unknown") return <Splash />;
 	const signedIn = status === "signed-in";
@@ -47,6 +56,7 @@ export function MemberCardPage({ handle }: { handle: string }) {
 							handle={handle}
 							onOpenConversation={(id) => navigate(`/messages/${encodeURIComponent(id)}`)}
 							onOpenOwner={(owner) => navigate(`/@${encodeURIComponent(owner)}`)}
+							onOpenBot={(bot) => navigate(`/@${encodeURIComponent(bot)}`)}
 							onOpenPrivacy={() => navigate("/me/privacy")}
 							onHome={home}
 						/>

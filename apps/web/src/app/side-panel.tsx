@@ -202,6 +202,7 @@ export function useSideStack({
 										navigate(`/messages/${encodeURIComponent(conversationId)}`);
 									}}
 									onOpenOwner={(owner) => layers.push({ kind: "member", handle: owner })}
+									onOpenBot={(bot) => layers.push({ kind: "member", handle: bot })}
 									onOpenPrivacy={() => {
 										layers.close();
 										navigate("/me/privacy");

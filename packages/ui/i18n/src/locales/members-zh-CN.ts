@@ -3,6 +3,9 @@ export const membersMessagesZhCN = {
 	openOwner: "打开 {{name}} 的资料",
 	card: {
 		title: "资料",
+		bots: "TA 的 Bot",
+		myBots: "我的 Bot",
+		receptionBadge: "接待",
 	},
 	actions: {
 		message: "发消息",

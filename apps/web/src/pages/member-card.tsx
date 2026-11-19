@@ -16,6 +16,8 @@ import { useTranslation } from "react-i18next";
 export interface MemberCardHandlers {
 	onOpenConversation: (conversationId: string) => void;
 	onOpenOwner: (handle: string) => void;
+	/** One of the person's Bots listed on their card. */
+	onOpenBot: (handle: string) => void;
 	/** Only on your own card: the three privacy switches (19 第四节). */
 	onOpenPrivacy: () => void;
 	/** Where a card that does not exist leads. */
@@ -152,6 +154,7 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 				{...(card.kind === "bot" ? { onChat: chat } : { onAddContact: sent ? undefined : add })}
 				{...(reception ? { onMatter: matter } : {})}
 				onOpenOwner={handlers.onOpenOwner}
+				onOpenBot={handlers.onOpenBot}
 				error={failure}
 				busy={contacts.addContact.isPending || startChat.isPending || requests.request.isPending}
 			/>

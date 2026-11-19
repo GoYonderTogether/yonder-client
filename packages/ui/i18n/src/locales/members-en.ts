@@ -8,6 +8,9 @@ export const membersMessagesEn = {
 	openOwner: "Open {{name}}'s profile",
 	card: {
 		title: "Profile",
+		bots: "Their Bots",
+		myBots: "My Bots",
+		receptionBadge: "Reception",
 	},
 	actions: {
 		message: "Message",

@@ -24,7 +24,8 @@ test("mobile add contacts shows scan, invitation and a decodable branded persona
 	await expect(qr).toBeVisible();
 	await page.screenshot({ path: `${previewDir}/friends-mobile.png`, animations: "disabled" });
 	const decoded = await decodeQr(page, await qr.screenshot());
-	expect(decoded).toBe("@chatcheck");
+	// The full card address, so a phone camera or WeChat opens it as well as Yonder's own scanner.
+	expect(decoded).toMatch(/\/@chatcheck$/);
 	await dialog.getByRole("button", { name: /扫一扫/ }).click();
 	await expect(page.locator("button").filter({ hasText: "从图片识别" })).toBeVisible();
 });

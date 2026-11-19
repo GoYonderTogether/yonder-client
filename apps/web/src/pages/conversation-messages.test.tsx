@@ -268,3 +268,15 @@ test("missing group members use existing person or Bot profiles and a localized 
 		container.querySelector('[data-message-run="bot"] [data-avatar-fallback]')?.classList.contains("rounded-[30%]"),
 	).toBe(true);
 });
+
+test("a sender's avatar opens their card, as in QQ and WeChat", () => {
+	const onOpenMember = vi.fn();
+	const view = render(
+		<I18nextProvider i18n={createI18n("zh-CN")}>
+			<ConversationMessages {...props} items={[message("m1", "alice")]} onOpenMember={onOpenMember} />
+		</I18nextProvider>,
+	);
+	fireEvent.click(view.getByRole("button", { name: "打开 真实成员甲 的资料" }));
+	expect(onOpenMember).toHaveBeenCalledWith("alice");
+	view.unmount();
+});

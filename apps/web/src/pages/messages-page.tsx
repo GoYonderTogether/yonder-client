@@ -313,6 +313,7 @@ export function ConversationPage({
 							disconnected={disconnected}
 							retrying={actions.retry.isPending}
 							onOpenRelated={(id) => navigate(`/messages/${encodeURIComponent(id)}`)}
+							onOpenMember={onOpenMember}
 							{...(onOpenMeeting ? { onOpenMeeting } : {})}
 							onResend={(message) =>
 								send.mutate({

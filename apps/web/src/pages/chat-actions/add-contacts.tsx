@@ -3,6 +3,7 @@ import { useContactActions, useContactSearch, useContacts, useFriendRequestActio
 import { ChevronRight, Gift, ScanLine } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { cardLink, cardOrigin } from "../../lib/card-link.ts";
 import { shouldShowScanner } from "../../lib/platform.ts";
 import { ActionError } from "./action-error.tsx";
 
@@ -132,7 +133,7 @@ export function AddContacts({
 			))}
 			{!query && !input.trim() && person?.handle ? (
 				<div className="flex flex-col items-center gap-[var(--spacing-2)] py-[var(--spacing-8)]">
-					<BrandedQrCode value={`@${person.handle}`} label={t("friendQr.myCode")} />
+					<BrandedQrCode value={cardLink(person.handle, cardOrigin())} label={t("friendQr.myCode")} />
 					<p className="text-body font-medium">{person.displayName}</p>
 					<p className="text-caption text-[var(--color-text-secondary)]">@{person.handle}</p>
 					<p className="text-caption text-[var(--color-text-secondary)]">{t("friendQr.myCodeDescription")}</p>

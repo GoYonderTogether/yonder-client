@@ -3,6 +3,7 @@ import { useMemoryFile } from "@yonder/ui-data";
 import { History, Pencil } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { MemoryCard } from "./memory-card.tsx";
 import { UserEditedBadge } from "./memory-edited.tsx";
 import { MemoryEditor } from "./memory-editor.tsx";
 import { useMinute } from "./memory-format.ts";
@@ -17,10 +18,14 @@ const TITLES: Record<(typeof ABOUT_PATHS)[number], string> = {
 	"/me/近期.md": "memory.recent",
 };
 
-/** 「了解」(24 第四节): what the Bot holds about the owner, the two files that go into every turn. */
+/**
+ * 「了解」(24 第四节): the public card others scan, then what the Bot holds about the owner, the two
+ * files that go into every turn (the two faces of the card, R27).
+ */
 export function MemoryAbout() {
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)] py-[var(--spacing-2)]">
+			<MemoryCard />
 			{ABOUT_PATHS.map((path) => (
 				<AboutCard key={path} path={path} />
 			))}

@@ -1,11 +1,14 @@
 /** Save exactly the displayed poster, with inline SVG styles and no remote image requests. */
-export async function saveInviteCard(poster: SVGSVGElement): Promise<void> {
+export async function saveInviteCard(poster: SVGSVGElement, filename = "yonder-invitation.png"): Promise<void> {
 	const copy = poster.cloneNode(true) as SVGSVGElement;
 	copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-	copy.setAttribute("width", "600");
-	copy.setAttribute("height", "800");
-	copy.style.width = "600px";
-	copy.style.height = "800px";
+	// The poster's own viewBox decides the size; jsdom and old engines without one fall back to 600 × 800.
+	const width = poster.viewBox?.baseVal?.width || 600;
+	const height = poster.viewBox?.baseVal?.height || 800;
+	copy.setAttribute("width", String(width));
+	copy.setAttribute("height", String(height));
+	copy.style.width = `${width}px`;
+	copy.style.height = `${height}px`;
 	copy.style.maxHeight = "none";
 	copy.style.fontFamily = getComputedStyle(poster).fontFamily;
 	const originals = [poster, ...poster.querySelectorAll("*")];
@@ -29,8 +32,8 @@ export async function saveInviteCard(poster: SVGSVGElement): Promise<void> {
 			image.src = source;
 		});
 		const canvas = document.createElement("canvas");
-		canvas.width = 1200;
-		canvas.height = 1600;
+		canvas.width = width * 2;
+		canvas.height = height * 2;
 		const context = canvas.getContext("2d");
 		if (!context) throw new Error("canvas unavailable");
 		context.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -39,7 +42,7 @@ export async function saveInviteCard(poster: SVGSVGElement): Promise<void> {
 		const url = URL.createObjectURL(blob);
 		const link = document.createElement("a");
 		link.href = url;
-		link.download = "yonder-invitation.png";
+		link.download = filename;
 		link.click();
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
 	} finally {

@@ -124,3 +124,27 @@ test("a failed action shows the real reason", () => {
 	});
 	expect(screen.getByRole("alert")).toHaveTextContent("This group chat is closed");
 });
+
+test("a person's card lists their Bots, the reception Bot marked, and a tap opens one", async () => {
+	const onOpenBot = vi.fn();
+	show(
+		person({
+			relation: "none",
+			memberId: "mem_1",
+			bots: [
+				{ handle: "botrecept1", displayName: "Front desk", avatarUrl: null, reception: true },
+				{ handle: "botother12", displayName: "Helper", avatarUrl: null, reception: false },
+			],
+		}),
+		{ onAddContact: vi.fn(), onOpenBot },
+	);
+	expect(screen.getByRole("heading", { name: "Their Bots" })).toBeVisible();
+	expect(screen.getByText("Reception")).toBeVisible();
+	await userEvent.click(screen.getByRole("button", { name: /Helper/ }));
+	expect(onOpenBot).toHaveBeenCalledWith("botother12");
+});
+
+test("an anonymous card has no Bot list", () => {
+	show(person(), { onSignIn: vi.fn(), onDownload: vi.fn() });
+	expect(screen.queryByRole("heading", { name: "Their Bots" })).toBeNull();
+});

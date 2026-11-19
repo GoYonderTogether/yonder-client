@@ -9,6 +9,7 @@ export { AboutSection } from "./components/about-section.tsx";
 export { AccountSection } from "./components/account-section.tsx";
 export { DevicesSection } from "./components/devices-section.tsx";
 export { GeneralSection } from "./components/empty-sections.tsx";
+export { saveInviteCard as savePosterImage } from "./components/invite-card-image.ts";
 export { InviteSection } from "./components/invite-section.tsx";
 export { ProfileEditor } from "./components/profile-editor.tsx";
 export type { QuotaLowBannerProps } from "./components/quota-low-banner.tsx";
