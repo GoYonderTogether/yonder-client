@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26111903] - 2026-11-19
+
+### Added
+
+- memory：one memory page under a two-sided card; Codex's chat, meeting and voice updates
+- chat：read active subtasks for one Bot
+
 ## [0.3.26111902] - 2026-11-19
 
 ### Added
