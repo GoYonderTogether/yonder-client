@@ -14,6 +14,7 @@ import type {
 	PushTokenRegistration,
 	SendCodeResponse,
 	SetPasswordRequest,
+	UpdateDeviceRemarkRequest,
 	UpdateMeRequest,
 } from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
@@ -93,6 +94,10 @@ export function accountEndpoints(client: ApiClient) {
 
 		devices(): Promise<DeviceListResponse> {
 			return client.request("/v1/devices");
+		},
+
+		updateDeviceRemark(deviceId: string, body: UpdateDeviceRemarkRequest): Promise<{ ok: true }> {
+			return client.request(`/v1/devices/${encodeURIComponent(deviceId)}`, { method: "PATCH", body });
 		},
 
 		registerDevice(body: DeviceInfo & { installationId: string }): Promise<{ ok: true }> {

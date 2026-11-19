@@ -103,7 +103,7 @@ export type {
 	LocalFilesResult,
 	UpdateConnectorRequest,
 } from "./connectors/connectors.ts";
-export type { DeviceListResponse, DeviceSummary } from "./devices/devices.ts";
+export type { DeviceListResponse, DeviceSummary, UpdateDeviceRemarkRequest } from "./devices/devices.ts";
 export type {
 	CreateMeetingRequest,
 	MeetingBatchState,
