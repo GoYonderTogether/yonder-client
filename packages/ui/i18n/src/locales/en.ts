@@ -110,6 +110,7 @@ export const en = {
 		title: "Messages",
 		pinned: "Pinned",
 		muted: "Mute notifications",
+		notificationsSection: "Notifications",
 		unread_one: "{{count}} unread message",
 		unread_other: "{{count}} unread messages",
 		enableSystemNotifications: "Allow system notifications",

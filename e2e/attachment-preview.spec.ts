@@ -186,7 +186,10 @@ test("real PCM audio and H264 video play; closing pauses media and invalid codec
 		);
 	}
 	await open(page, "broken.mp4");
-	await expect(page.getByRole("status")).toContainText("当前设备无法播放");
+	// The Bot chat header keeps its own status line; the codec notice belongs to the reader.
+	await expect(page.getByRole("dialog", { name: "预览 broken.mp4", exact: true }).getByRole("status")).toContainText(
+		"当前设备无法播放",
+	);
 	await expect(page.getByRole("button", { name: "下载原文件" })).toBeVisible();
 });
 
@@ -207,8 +210,10 @@ test.describe("phone attachment readers", () => {
 		await page.screenshot({ path: `${evidence}/mobile-message-list.png` });
 		await page.goto(`/messages/${conversation.id}`);
 		await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "mobile");
-		await expect(page.getByRole("navigation")).toHaveCount(0);
-		await expect(page.locator("[data-mobile-dock]")).toBeVisible();
+		// The main Bot conversation is the first phone tab: one dock holds the composer and the tabs.
+		await expect(page.getByRole("navigation")).toHaveCount(1);
+		await expect(page.locator("[data-mobile-dock] nav")).toBeVisible();
+		await expect(page.locator("[data-mobile-dock]").getByRole("textbox")).toBeVisible();
 		const text = page.getByRole("button", { name: "打开 note.txt", exact: true });
 		await expect(text).toBeVisible();
 		await expect(text.locator("pre")).toHaveCount(0);

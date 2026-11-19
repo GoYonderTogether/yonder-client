@@ -58,8 +58,9 @@ export function ChatBotSettings({
 				onPersona={() => open("persona")}
 				onChannels={() => open("channels")}
 				onDeleted={onDeleted}
-			/>
-			{preferences}
+			>
+				{preferences}
+			</BotSettingsOverview>
 		</ChatSettingsBody>
 	);
 }
@@ -90,7 +91,7 @@ export function ChatBotSettingsChild({
 						<p className="text-body text-[var(--color-text-secondary)]">
 							{t("members.social.personaScope", { name: bot.displayName })}
 						</p>
-						<SocialPersona botId={bot.id} onCancel={back} onSaved={back} onDirtyChange={onDirtyChange} />
+						<SocialPersona botId={bot.id} onSaved={back} onDirtyChange={onDirtyChange} />
 					</>
 				);
 			case "channels":
@@ -114,7 +115,7 @@ function ChatBotProfile({
 	const contacts = useContacts();
 	const bot = primary?.id === botId ? primary : contacts.data?.items.find((member) => member.id === botId);
 	return bot?.kind === "bot" ? (
-		<BotForm mode="edit" bot={bot} onSaved={back} onCancel={back} onDirtyChange={onDirtyChange} />
+		<BotForm mode="edit" settings bot={bot} onSaved={back} onDirtyChange={onDirtyChange} />
 	) : null;
 }
 

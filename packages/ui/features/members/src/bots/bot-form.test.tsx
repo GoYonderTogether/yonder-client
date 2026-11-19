@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Conversation, Member, Schedule } from "@yonder/protocol";
 import { ApiError } from "@yonder/ui-data";
 import { createI18n } from "@yonder/ui-i18n";
@@ -209,9 +209,11 @@ test("deleting asks first and names the number of plans in the Bot's own chat", 
 	const onDeleted = vi.fn();
 	render(overview(bot(), onDeleted));
 	fireEvent.click(screen.getByRole("button", { name: "Delete Bot" }));
-	expect(screen.getByText("Its 2 scheduled plans are deleted too.")).toBeInTheDocument();
-	expect(screen.getByText("Its chat history will no longer be shown.")).toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+	// The confirmation is the shared dialog, not an inline card, and it names both consequences.
+	const dialog = screen.getByRole("dialog", { name: "Delete this Bot?" });
+	expect(dialog).toHaveTextContent("Its 2 scheduled plans are deleted too.");
+	expect(dialog).toHaveTextContent("Its chat history will no longer be shown.");
+	fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 	expect(api.deleteBot).toHaveBeenCalledWith("bot_a", expect.anything());
 	// The chat that went with it is named, so the frame can leave that page.
 	await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("cnv_a"));

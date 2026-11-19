@@ -1,4 +1,4 @@
-import { Button } from "@yonder/ui-components";
+import { Button, ListGroup, ListSwitch } from "@yonder/ui-components";
 import { useSetConversationMuted } from "@yonder/ui-data";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,26 +12,20 @@ export function ConversationNotificationSettings({ id, muted }: { id: string; mu
 	const setMuted = useSetConversationMuted(id);
 	const checked = setMuted.isPending ? (setMuted.variables ?? muted) : muted;
 	return (
-		<div className="flex flex-col gap-[var(--spacing-2)]">
-			<label className="flex min-h-[var(--row-height)] cursor-pointer items-center justify-between gap-[var(--spacing-3)] rounded-[var(--radius-control)] bg-[var(--color-bg-surface)] px-[var(--spacing-4)] text-body hover:bg-[var(--color-bg-hover)]">
-				{t("messages.muted")}
-				<input
-					type="checkbox"
-					role="switch"
-					aria-checked={checked}
-					checked={checked}
-					disabled={setMuted.isPending}
-					onChange={(event) => setMuted.mutate(event.target.checked)}
-					className="relative h-[var(--spacing-6)] w-[var(--spacing-10)] shrink-0 appearance-none rounded-full bg-[var(--color-border-strong)] checked:bg-[var(--color-accent)] before:absolute before:top-[var(--spacing-1)] before:left-[var(--spacing-1)] before:size-[var(--spacing-4)] before:rounded-full before:bg-[var(--color-bg-surface)] checked:before:translate-x-[var(--spacing-4)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:cursor-wait"
-				/>
-			</label>
-			{setMuted.isError ? (
-				<p role="alert" className="text-caption text-[var(--color-danger)]">
-					{t("messages.muteFailed")}
-				</p>
-			) : null}
-			{checked ? null : <SystemNotificationPermission />}
-		</div>
+		<ListGroup title={t("messages.notificationsSection")}>
+			<ListSwitch
+				title={t("messages.muted")}
+				checked={checked}
+				busy={setMuted.isPending}
+				onChange={(value) => setMuted.mutate(value)}
+				error={setMuted.isError ? t("messages.muteFailed") : undefined}
+			/>
+			{checked ? null : (
+				<li className="flex flex-col px-[var(--spacing-1)] pt-[var(--spacing-2)]">
+					<SystemNotificationPermission />
+				</li>
+			)}
+		</ListGroup>
 	);
 }
 

@@ -78,7 +78,7 @@ export function MemoryFileList({ current, onOpen }: { current: string | null; on
 							{group.heading}
 						</h3>
 					) : null}
-					<ListGroup title={group.title}>
+					<ListGroup variant="card" title={group.title}>
 						{group.files.map((file) => (
 							<ListRow
 								key={file.path}

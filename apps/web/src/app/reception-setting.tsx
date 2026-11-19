@@ -1,5 +1,5 @@
 import { memberFailureText } from "@yonder/feature-members";
-import { Avatar, Button, IconTile, ListGroup, ListRow } from "@yonder/ui-components";
+import { Avatar, Button, ListGroup, ListOption, ListRow } from "@yonder/ui-components";
 import {
 	ownedBots,
 	useBot,
@@ -9,7 +9,6 @@ import {
 	useSetReception,
 	useSocialKnowledge,
 } from "@yonder/ui-data";
-import { Bot, ClipboardCheck, FileText } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -22,6 +21,7 @@ function useReceptionBots() {
 	return { bots, contacts };
 }
 
+/** 「对外接待」: who receives visitors, then what every Bot may tell them (docs/settings-forms.md). */
 export function ReceptionOverview({ onOpenPage }: { onOpenPage: (page: "bot" | "info" | "drafts") => void }) {
 	const { t } = useTranslation();
 	const { bots } = useReceptionBots();
@@ -31,44 +31,29 @@ export function ReceptionOverview({ onOpenPage }: { onOpenPage: (page: "bot" | "
 	const count = knowledge.data?.drafts.length;
 
 	return (
-		<ListGroup>
-			<ListRow
-				leading={
-					<IconTile>
-						<Bot size={18} />
-					</IconTile>
-				}
-				title={t("members.social.receptionTitle")}
-				subtitle={bot?.displayName}
-				chevron
-				onClick={() => onOpenPage("bot")}
-			/>
-			<ListRow
-				leading={
-					<IconTile>
-						<FileText size={18} />
-					</IconTile>
-				}
-				title={t("members.social.infoTitle")}
-				subtitle={t("members.social.sharedByAll")}
-				chevron
-				onClick={() => onOpenPage("info")}
-			/>
-			<ListRow
-				leading={
-					<IconTile>
-						<ClipboardCheck size={18} />
-					</IconTile>
-				}
-				title={t("members.social.draftsTitle")}
-				trailing={count ? new Intl.NumberFormat().format(count) : undefined}
-				chevron
-				onClick={() => onOpenPage("drafts")}
-			/>
-		</ListGroup>
+		<div className="flex flex-col gap-[var(--spacing-4)]">
+			<ListGroup title={t("members.social.receptionTitle")} footer={t("members.social.receptionScope")}>
+				<ListRow
+					title={t("members.social.receptionTitle")}
+					trailing={bot?.displayName}
+					chevron
+					onClick={() => onOpenPage("bot")}
+				/>
+			</ListGroup>
+			<ListGroup title={t("members.social.infoTitle")} footer={t("members.social.infoScope")}>
+				<ListRow title={t("members.social.infoTitle")} chevron onClick={() => onOpenPage("info")} />
+				<ListRow
+					title={t("members.social.draftsTitle")}
+					trailing={count ? new Intl.NumberFormat().format(count) : undefined}
+					chevron
+					onClick={() => onOpenPage("drafts")}
+				/>
+			</ListGroup>
+		</div>
 	);
 }
 
+/** One of the account's Bots receives visitors; a tap saves at once and the check mark moves. */
 export function ReceptionSetting() {
 	const { t } = useTranslation();
 	const group = useId();
@@ -105,36 +90,28 @@ export function ReceptionSetting() {
 				<legend className="sr-only">{t("members.social.chooseBot")}</legend>
 				<ListGroup>
 					{bots.map((bot) => (
-						<li key={bot.id} className="border-b border-[var(--color-border-subtle)] last:border-0">
-							<label className="flex min-h-[var(--row-height)] cursor-pointer items-center gap-[var(--spacing-3)] px-[var(--spacing-4)] py-[var(--spacing-2)] hover:bg-[var(--color-bg-hover)]">
+						<ListOption
+							key={bot.id}
+							name={group}
+							value={bot.id}
+							checked={current === bot.id}
+							onSelect={() => update.mutate(bot.isDefault ? null : bot.id)}
+							leading={
 								<Avatar name={bot.displayName} src={bot.avatarUrl} kind="bot" size={40} color={bot.avatarColor} />
-								<span className="flex min-w-0 flex-1 flex-col">
-									<span className="truncate text-body">{bot.displayName}</span>
-									<span className="truncate text-caption text-[var(--color-text-secondary)]">@{bot.handle}</span>
-								</span>
-								{bot.isDefault ? (
-									<span className="text-caption text-[var(--color-text-secondary)]">{t("bots.defaultLabel")}</span>
-								) : null}
-								<input
-									type="radio"
-									name={group}
-									value={bot.id}
-									aria-label={bot.displayName}
-									checked={current === bot.id}
-									onChange={() => update.mutate(bot.isDefault ? null : bot.id)}
-									className="shrink-0 accent-[var(--color-accent)]"
-								/>
-							</label>
-						</li>
+							}
+							title={bot.displayName}
+							subtitle={`@${bot.handle}`}
+							trailing={bot.isDefault ? t("bots.defaultLabel") : undefined}
+						/>
 					))}
 				</ListGroup>
 			</fieldset>
 			{update.isError ? (
-				<p role="alert" className="text-caption text-[var(--color-danger)]">
+				<p role="alert" className="px-[var(--spacing-1)] text-caption text-[var(--color-danger)]">
 					{memberFailureText(update.error, t)}
 				</p>
 			) : (
-				<p role="status" className="text-caption text-[var(--color-text-secondary)]">
+				<p role="status" className="px-[var(--spacing-1)] text-caption text-[var(--color-text-secondary)]">
 					{update.isPending ? t("app.saving") : update.isSuccess ? t("members.social.saved") : null}
 				</p>
 			)}

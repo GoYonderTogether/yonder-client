@@ -157,7 +157,9 @@ async function draft(page: Page, device: string) {
 		await page.locator(".composer-files").evaluate((element) => {
 			element.scrollLeft = element.scrollWidth;
 		});
-		const header = await page.locator('[data-page-layer="detail"] header').boundingBox();
+		// The main Bot page floats its header (avatar, status line, settings) instead of a top bar.
+		const header = await page.locator('[data-page-layer="detail"] [data-frame-header]').boundingBox();
+		expect(header).not.toBeNull();
 		expect(header?.x).toBeGreaterThanOrEqual(0);
 		await page.screenshot({ scale: "css", path: `${evidence}/mobile-draft-video.png` });
 	}

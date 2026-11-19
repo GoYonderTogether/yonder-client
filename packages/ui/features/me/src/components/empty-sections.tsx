@@ -71,9 +71,17 @@ function Choice({
 }) {
 	return (
 		<li className="group/row relative">
-			<label className="block cursor-pointer">
-				<input type="radio" name={group} checked={selected} onChange={onSelect} className="peer sr-only" />
-				<span className="flex min-h-[var(--row-height)] items-center justify-between px-[var(--spacing-4)] text-body text-[var(--color-text-primary)] transition-colors duration-[var(--duration-fast)] hover:bg-[var(--color-bg-hover)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-[-2px] peer-focus-visible:outline-[var(--color-accent)]">
+			<label className="relative block cursor-pointer">
+				{/* The native radio covers its row, as in Segmented, so pointer, touch and assistive
+				    technology all hit the same target. */}
+				<input
+					type="radio"
+					name={group}
+					checked={selected}
+					onChange={onSelect}
+					className="peer absolute inset-0 size-full cursor-pointer opacity-0"
+				/>
+				<span className="flex min-h-[var(--row-height)] items-center justify-between px-[var(--spacing-4)] text-body text-[var(--color-text-primary)] transition-colors duration-[var(--duration-fast)] peer-hover:bg-[var(--color-bg-hover)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-[-2px] peer-focus-visible:outline-[var(--color-accent)]">
 					{label}
 					{selected ? <Check size={18} strokeWidth={2.2} aria-hidden="true" /> : null}
 				</span>

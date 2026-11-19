@@ -47,6 +47,7 @@ export const botMessagesZhCN: Messages["bots"] = {
 	deletePlansUnknown: "它私聊里建的定时计划也会一起删除。",
 	deletePlansNone: "它没有定时计划。",
 	deleteHistory: "删除后，它的聊天记录不再显示。",
+	deleteBody: "{{plans}}{{history}}",
 	confirmDelete: "删除",
 	deleteFailed: "删除失败，请重试。",
 	defaultBotProtected: "默认 Bot 不能删除。",

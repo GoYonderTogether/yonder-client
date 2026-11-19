@@ -1,8 +1,8 @@
 import type { Member } from "@yonder/protocol";
-import { Button, cn, IconButton, TextField } from "@yonder/ui-components";
+import { Button, cn, FormFooter, FormSection, IconButton, TextField } from "@yonder/ui-components";
 import { useContactActions, useUpdateBot, useUploadBotAvatar } from "@yonder/ui-data";
 import { Check, Plus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BotAvatarPicker, botColor } from "./bot-avatar-picker.tsx";
 import { BOT_NAME_MAX, randomBotName } from "./bot-defaults.ts";
@@ -15,8 +15,11 @@ export interface BotFormProps {
 	bot?: Member | undefined;
 	onCreated?: (conversationId: string) => void;
 	onSaved?: () => void;
-	/** A dedicated settings page owns cancellation and uses a grouped editor. */
-	onCancel?: () => void;
+	/**
+	 * A dedicated settings page: the form is drawn in sections with one save button, and leaving
+	 * the page (back) is how the user cancels (docs/settings-forms.md).
+	 */
+	settings?: boolean;
 	onDirtyChange?: ((dirty: boolean) => void) | undefined;
 }
 
@@ -24,7 +27,7 @@ const NICKNAME_LIMIT = 5;
 const NO_NICKNAMES: string[] = [];
 
 /** The setup, chat and settings flows share the same Bot profile fields and mutations. */
-export function BotForm({ mode, bot, onCreated, onSaved, onCancel, onDirtyChange }: BotFormProps) {
+export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage, onDirtyChange }: BotFormProps) {
 	const { t, i18n } = useTranslation();
 	const { createBot } = useContactActions();
 	const update = useUpdateBot();
@@ -71,7 +74,7 @@ export function BotForm({ mode, bot, onCreated, onSaved, onCancel, onDirtyChange
 				? t("bots.nicknameDuplicate")
 				: null;
 	const canAddNickname = Boolean(nickname && !nicknameError && nicknames.length < NICKNAME_LIMIT);
-	const settings = mode === "edit" && Boolean(onCancel);
+	const settings = mode === "edit" && Boolean(settingsPage);
 	const renamed = trimmed !== bot?.displayName;
 	const recoloured = color !== botColor(bot);
 	const savedNicknames = canAddNickname ? [...nicknames, nickname] : nicknames;
@@ -162,14 +165,16 @@ export function BotForm({ mode, bot, onCreated, onSaved, onCancel, onDirtyChange
 
 	return (
 		<form
-			className={cn("flex flex-col gap-[var(--spacing-6)]", !settings && "p-[var(--spacing-6)]")}
+			className={cn(
+				"flex flex-col",
+				settings ? "gap-[var(--spacing-4)]" : "gap-[var(--spacing-6)] p-[var(--spacing-6)]",
+			)}
 			onSubmit={(event) => {
 				event.preventDefault();
 				void submit();
 			}}
 		>
-			<div className="flex flex-col gap-[var(--spacing-3)]">
-				{settings ? <h2 className="text-h3 font-semibold">{t("bots.avatarSection")}</h2> : null}
+			<Section title={settings ? t("bots.avatarSection") : null}>
 				<BotAvatarPicker
 					name={trimmed}
 					color={color}
@@ -182,9 +187,8 @@ export function BotForm({ mode, bot, onCreated, onSaved, onCancel, onDirtyChange
 					disabled={settings && saving}
 					{...(mode === "create" ? { onShuffle: shuffle } : {})}
 				/>
-			</div>
-			<div className={cn("flex flex-col", settings ? "gap-[var(--spacing-4)]" : "gap-[var(--spacing-6)]")}>
-				{settings ? <h2 className="text-h3 font-semibold">{t("bots.nameSection")}</h2> : null}
+			</Section>
+			<Section title={settings ? t("bots.nameSection") : null}>
 				<TextField
 					label={t("bots.name")}
 					value={name}
@@ -272,39 +276,37 @@ export function BotForm({ mode, bot, onCreated, onSaved, onCancel, onDirtyChange
 						) : null}
 					</div>
 				) : null}
-			</div>
+			</Section>
 			{error ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
 					{error}
 				</p>
 			) : null}
-			<div
-				className={cn(
-					settings &&
-						"flex flex-wrap justify-end gap-[var(--spacing-2)] border-t border-[var(--color-border-subtle)] pt-[var(--spacing-4)]",
-				)}
-			>
-				{settings ? (
+			{settings ? (
+				<FormFooter>
 					<Button
-						onClick={() => {
-							onDirtyChange?.(false);
-							onCancel?.();
-						}}
-						disabled={saving}
+						type="submit"
+						variant="primary"
+						loading={saving}
+						disabled={!valid || Boolean(nicknameError) || !changed}
 					>
-						{t("app.cancel")}
+						{t("bots.saveProfile")}
 					</Button>
-				) : null}
-				<Button
-					type="submit"
-					variant="primary"
-					block={!settings}
-					loading={saving}
-					disabled={!valid || Boolean(nicknameError) || (settings && !changed)}
-				>
-					{t(settings ? "bots.saveProfile" : mode === "create" ? "bots.create" : "bots.save")}
+				</FormFooter>
+			) : (
+				<Button type="submit" variant="primary" block loading={saving} disabled={!valid || Boolean(nicknameError)}>
+					{t(mode === "create" ? "bots.create" : "bots.save")}
 				</Button>
-			</div>
+			)}
 		</form>
+	);
+}
+
+/** A titled section on the settings page; the create and setup flows draw the same fields untitled. */
+function Section({ title, children }: { title: string | null; children: ReactNode }) {
+	return title ? (
+		<FormSection title={title}>{children}</FormSection>
+	) : (
+		<div className="flex flex-col gap-[var(--spacing-6)]">{children}</div>
 	);
 }

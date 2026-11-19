@@ -94,7 +94,7 @@ test("the channel owner can inspect and close an external chat without a compose
 		return route.fulfill({ json: { ok: true } });
 	});
 	await page.goto("/me/channels");
-	await expect(page.getByRole("checkbox", { name: "允许群聊" })).toBeChecked();
+	await expect(page.getByRole("switch", { name: "允许群聊" })).toBeChecked();
 	await expect(page.getByRole("button", { name: /群聊.*已开放/ })).toHaveCount(0);
 	await page.getByRole("button", { name: "外部会话", exact: true }).click();
 	await expect(page).toHaveURL(/\/me\/channels\/external\?bot=chat-bot$/);
@@ -107,7 +107,7 @@ test("the channel owner can inspect and close an external chat without a compose
 	await page.screenshot({ path: info.outputPath("feishu-read-only-closed.png") });
 	await page.getByRole("button", { name: "返回", exact: true }).click();
 	await expect(page).toHaveURL(/\/me\/channels$/);
-	await expect(page.getByRole("checkbox", { name: "允许群聊" })).toBeChecked();
+	await expect(page.getByRole("switch", { name: "允许群聊" })).toBeChecked();
 });
 
 test("iLink displays a QR only after explicit test authorization starts and QQ stays unavailable", async ({

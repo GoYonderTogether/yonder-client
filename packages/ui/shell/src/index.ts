@@ -27,6 +27,8 @@ export type { Layer, RouteEntry, TabId, TabSpec } from "./navigation/routes.ts";
 export { isTab, locate, MAIN_CONVERSATION, ROUTES, TAB_SPECS, TABS, tabPath } from "./navigation/routes.ts";
 export type { SwipeHandlers } from "./navigation/use-dismiss.ts";
 export { swipeToDismiss, useDismiss } from "./navigation/use-dismiss.ts";
+export type { ConfirmDialogProps } from "./overlay/confirm-dialog.tsx";
+export { ConfirmDialog } from "./overlay/confirm-dialog.tsx";
 export type { OverlayProps } from "./overlay/overlay.tsx";
 export { Overlay } from "./overlay/overlay.tsx";
 export {

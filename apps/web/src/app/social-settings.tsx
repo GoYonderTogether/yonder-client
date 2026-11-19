@@ -1,5 +1,5 @@
 import { memberFailureText } from "@yonder/feature-members";
-import { Button, Field, TextArea } from "@yonder/ui-components";
+import { Button, Field, FormFooter, TextArea } from "@yonder/ui-components";
 import { useEditSocialKnowledge, useSaveSocialPersona, useSocialKnowledge, useSocialPersona } from "@yonder/ui-data";
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +8,6 @@ interface EditorProps {
 	label: string;
 	value: string;
 	hint?: string;
-	onCancel?: (() => void) | undefined;
 	onSaved?: (() => void) | undefined;
 	onDirtyChange?: ((dirty: boolean) => void) | undefined;
 	onSave: (value: string, onSaved: () => void) => void;
@@ -22,7 +21,6 @@ function SocialEditor({
 	label,
 	value,
 	hint,
-	onCancel,
 	onSaved,
 	onDirtyChange,
 	onSave,
@@ -63,27 +61,16 @@ function SocialEditor({
 					disabled={pending}
 				/>
 			</Field>
-			<div className="flex flex-wrap items-center justify-end gap-[var(--spacing-2)] border-t border-[var(--color-border-subtle)] pt-[var(--spacing-4)]">
-				{saved && edit === null ? (
-					<p role="status" className="me-auto text-caption text-[var(--color-text-secondary)]">
-						{t("members.social.saved")}
-					</p>
-				) : null}
-				{onCancel ? (
-					<Button
-						disabled={pending}
-						onClick={() => {
-							onDirtyChange?.(false);
-							onCancel();
-						}}
-					>
-						{t("app.cancel")}
-					</Button>
-				) : null}
+			{saved && edit === null ? (
+				<p role="status" className="text-caption text-[var(--color-text-secondary)]">
+					{t("members.social.saved")}
+				</p>
+			) : null}
+			<FormFooter>
 				<Button variant="primary" type="submit" loading={pending} disabled={!changed || busy}>
 					{t("app.save")}
 				</Button>
-			</div>
+			</FormFooter>
 		</form>
 	);
 }
@@ -103,11 +90,10 @@ function SocialLoadFailure({ error, retry }: { error: unknown; retry: () => void
 }
 
 interface EditNavigation {
-	onCancel?: () => void;
 	onSaved?: () => void;
 }
 
-export function SocialInfo({ onCancel, onSaved }: EditNavigation) {
+export function SocialInfo({ onSaved }: EditNavigation) {
 	const { t } = useTranslation();
 	const query = useSocialKnowledge();
 	const { edit, busy } = useEditSocialKnowledge();
@@ -118,7 +104,6 @@ export function SocialInfo({ onCancel, onSaved }: EditNavigation) {
 		<SocialEditor
 			label={t("members.social.approved")}
 			value={query.data.approved}
-			onCancel={onCancel}
 			onSaved={onSaved}
 			onSave={(content, onSuccess) => edit.mutate({ content }, { onSuccess })}
 			busy={busy}
@@ -191,7 +176,6 @@ export function SocialDrafts() {
 
 export function SocialPersona({
 	botId,
-	onCancel,
 	onSaved,
 	onDirtyChange,
 }: EditNavigation & { botId: string; onDirtyChange?: ((dirty: boolean) => void) | undefined }) {
@@ -207,7 +191,6 @@ export function SocialPersona({
 			label={t("members.social.persona")}
 			value={query.data.content}
 			hint={t("members.social.personaHint")}
-			onCancel={onCancel}
 			onSaved={onSaved}
 			onDirtyChange={onDirtyChange}
 			onSave={(content, onSuccess) => save.mutate(content, { onSuccess })}

@@ -40,7 +40,7 @@ export function BotList({ onOpen }: BotListProps) {
 	if (bots.length === 0) return <p className="text-caption text-[var(--color-text-secondary)]">{t("bots.empty")}</p>;
 
 	return (
-		<ListGroup title={t("bots.list")}>
+		<ListGroup>
 			{bots.map((bot) => (
 				<ListRow
 					key={bot.id}

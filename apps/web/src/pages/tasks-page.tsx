@@ -109,7 +109,7 @@ function UpcomingOneOffs() {
 	const upcoming = upcomingOneOffs(schedules.data?.items ?? []);
 	if (!upcoming.length) return null;
 	return (
-		<ListGroup title={t("tasks.itemUpcoming")}>
+		<ListGroup variant="card" title={t("tasks.itemUpcoming")}>
 			{upcoming.map((plan) => (
 				<li
 					key={plan.id}
@@ -148,13 +148,13 @@ function GoalsList({ creating }: { creating: boolean }) {
 		: null;
 	if (schedules.isLoading)
 		return (
-			<ListGroup>
+			<ListGroup variant="card">
 				<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">{t("app.loading")}</li>
 			</ListGroup>
 		);
 	if (schedules.isError && !schedules.data)
 		return (
-			<ListGroup>
+			<ListGroup variant="card">
 				<li className="flex items-center gap-[var(--spacing-3)] p-[var(--spacing-4)] text-caption text-[var(--color-danger)]">
 					<span role="alert">
 						{schedules.error instanceof ApiError ? t(schedules.error.messageKey) : t("app.loadFailed")}
@@ -172,7 +172,7 @@ function GoalsList({ creating }: { creating: boolean }) {
 					{failure}
 				</p>
 			) : null}
-			<ListGroup title={t("tasks.tracking")}>
+			<ListGroup variant="card" title={t("tasks.tracking")}>
 				{tracking.map((item) => (
 					<ScheduleRow
 						key={item.id}

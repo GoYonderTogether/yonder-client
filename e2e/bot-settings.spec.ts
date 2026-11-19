@@ -99,7 +99,7 @@ for (const phone of [false, true]) {
 
 			await back.click();
 			await expect(page).toHaveURL(new RegExp(`${detailPath}$`));
-			await page.getByRole("button", { name: /^渠道\s*查看/ }).click();
+			await page.getByRole("button", { name: "渠道", exact: true }).click();
 			await expect(page).toHaveURL(new RegExp(`/me/channels\\?bot=${settingsBot.id}$`));
 			await page.getByRole("button", { name: "选择 Bot: 更名助手", exact: true }).click();
 			await page.getByRole("option", { name: defaultBot.displayName, exact: true }).click();

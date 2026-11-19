@@ -67,7 +67,9 @@ test("PDF red, Word blue and unknown blank gray icons stay consistent in sent ca
 			if (mobile) {
 				expect(await page.evaluate(() => navigator.userAgent)).toMatch(/iPhone/);
 				expect(await page.evaluate(() => navigator.maxTouchPoints)).toBeGreaterThan(0);
-				await expect(page.getByRole("navigation")).toHaveCount(0);
+				// The main Bot conversation is the first phone tab, so its dock carries the only navigation.
+				await expect(page.getByRole("navigation")).toHaveCount(1);
+				await expect(page.locator("[data-mobile-dock] nav")).toBeVisible();
 				await expect
 					.poll(() =>
 						page

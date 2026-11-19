@@ -19,7 +19,7 @@ export function GoalRecords() {
 	const settings = useGoalSettings();
 	const [editing, setEditing] = useState<string | null>(null);
 	return (
-		<ListGroup title={t("tasks.goalsGoals")}>
+		<ListGroup variant="card" title={t("tasks.goalsGoals")}>
 			{goals.data?.items.map((goal) => {
 				const available = actions(goal);
 				return (

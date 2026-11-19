@@ -19,12 +19,23 @@ async function selectStyle(page: Page, style: "classic" | "glow") {
 	await page.goto("/me/general");
 	await expect(page.locator("html")).toHaveAttribute("data-style", "classic");
 	const choice = page.getByRole("radio", { name: style === "glow" ? "渐变晕染" : "清爽克制", exact: true });
+	if (style === "classic") {
+		// Native radios ignore Space on the checked option, so move away first and come back: the
+		// stored value then comes from a real keyboard change, not from the default.
+		const other = page.getByRole("radio", { name: "渐变晕染", exact: true });
+		await other.focus();
+		await page.keyboard.press("Space");
+		await expect(page.locator("html")).toHaveAttribute("data-style", "glow");
+	}
 	await choice.focus();
 	await page.keyboard.press("Space");
 	await expect(choice).toBeChecked();
 	await expect(page.locator("html")).toHaveAttribute("data-style", style);
 	const dark = (await page.locator("html").getAttribute("data-theme")) === "dark";
-	await expect(choice.locator("svg")).toHaveCSS("color", neutralText(dark));
+	// The native radio is visually hidden; its label row carries the check mark.
+	const mark = page.locator("label", { has: choice }).locator("svg");
+	await expect(mark).toHaveCount(1);
+	await expect(mark).toHaveCSS("color", neutralText(dark));
 	await page.reload();
 	await expect(
 		page.getByRole("radio", { name: style === "glow" ? "渐变晕染" : "清爽克制", exact: true }),

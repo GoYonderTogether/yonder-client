@@ -96,6 +96,9 @@ test("narrow desktop uses the phone-style settings list and Back at both levels"
 	await page.screenshot({ path: testInfo.outputPath("narrow-desktop-settings-list.png"), fullPage: true });
 	await models.click();
 	await expect(page).toHaveURL(/\/me\/models$/);
+	// The pushed page covers the directory, which leaves the accessibility tree; only then is the
+	// one visible Back the page's own (the URL changes a render before that happens).
+	await expect(models).toHaveCount(0);
 	await back.click();
 	await expect(page).toHaveURL(/\/me$/);
 	await back.click();

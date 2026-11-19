@@ -48,6 +48,7 @@ export const botMessagesEn = {
 	deletePlansUnknown: "Its scheduled plans are deleted too.",
 	deletePlansNone: "It has no scheduled plans.",
 	deleteHistory: "Its chat history will no longer be shown.",
+	deleteBody: "{{plans}} {{history}}",
 	confirmDelete: "Delete",
 	deleteFailed: "Could not delete this Bot. Try again.",
 	defaultBotProtected: "The default Bot cannot be deleted.",

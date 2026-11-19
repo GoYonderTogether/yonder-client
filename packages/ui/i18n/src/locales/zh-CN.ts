@@ -111,6 +111,7 @@ export const zhCN: Messages = {
 		title: "消息",
 		pinned: "置顶",
 		muted: "消息免打扰",
+		notificationsSection: "消息通知",
 		unread_one: "{{count}} 条未读消息",
 		unread_other: "{{count}} 条未读消息",
 		enableSystemNotifications: "允许系统通知",

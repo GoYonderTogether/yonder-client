@@ -46,7 +46,16 @@ export { IconButton } from "./icon-button/icon-button.tsx";
 export type { ConversationRowProps } from "./list/conversation-row.tsx";
 export { ConversationList, ConversationRow } from "./list/conversation-row.tsx";
 export type { ListRowProps } from "./list/list.tsx";
-export { IconTile, ListGroup, ListRow } from "./list/list.tsx";
+export {
+	FormFooter,
+	FormSection,
+	IconTile,
+	ListGroup,
+	ListOption,
+	ListRow,
+	ListSwitch,
+	ListValue,
+} from "./list/list.tsx";
 export type { LogoProps } from "./logo/logo.tsx";
 export { AppIcon, Logo } from "./logo/logo.tsx";
 export type { BrandedQrCodeProps } from "./qr-code/branded-qr-code.tsx";

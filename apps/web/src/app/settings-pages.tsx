@@ -27,12 +27,11 @@ type SettingsRouteProps = {
 
 function SettingsPage({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
 	return (
-		<PageFrame>
-			<div className="flex flex-col gap-[var(--spacing-6)]">
-				<div className="flex flex-col gap-[var(--spacing-1)]">
-					<h1 className="break-words text-h1 font-semibold text-[var(--color-text-primary)]">{title}</h1>
-					{description ? <p className="text-body text-[var(--color-text-secondary)]">{description}</p> : null}
-				</div>
+		<PageFrame title={<h1 className="truncate">{title}</h1>}>
+			<div className="flex flex-col gap-[var(--spacing-4)]">
+				{description ? (
+					<p className="px-[var(--spacing-1)] text-caption text-[var(--color-text-tertiary)]">{description}</p>
+				) : null}
 				{children}
 			</div>
 		</PageFrame>
@@ -127,7 +126,7 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 		case "info":
 			return (
 				<SettingsPage title={t("members.social.infoTitle")} description={t("members.social.infoScope")}>
-					<SocialInfo onCancel={backToReception} onSaved={backToReception} />
+					<SocialInfo onSaved={backToReception} />
 				</SettingsPage>
 			);
 		case "drafts":
@@ -191,14 +190,7 @@ function BotSettingsPage({
 	if (leaf === "profile") {
 		return (
 			<SettingsPage title={t("bots.basicProfile")} description={`@${bot.handle}`}>
-				<BotForm
-					key={botId}
-					mode="edit"
-					bot={bot}
-					onSaved={backToBot}
-					onCancel={backToBot}
-					onDirtyChange={onBotDirtyChange}
-				/>
+				<BotForm key={botId} mode="edit" settings bot={bot} onSaved={backToBot} onDirtyChange={onBotDirtyChange} />
 			</SettingsPage>
 		);
 	}
@@ -208,13 +200,7 @@ function BotSettingsPage({
 				title={t("members.social.personaTitle")}
 				description={t("members.social.personaScope", { name: bot.displayName })}
 			>
-				<SocialPersona
-					key={botId}
-					botId={botId}
-					onCancel={backToBot}
-					onSaved={backToBot}
-					onDirtyChange={onBotDirtyChange}
-				/>
+				<SocialPersona key={botId} botId={botId} onSaved={backToBot} onDirtyChange={onBotDirtyChange} />
 			</SettingsPage>
 		);
 	}

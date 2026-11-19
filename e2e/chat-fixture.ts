@@ -60,7 +60,8 @@ export async function isolateChat(
 	const current = {
 		...conversation,
 		members: options.members ?? conversation.members,
-		...(options.group ? { kind: "group" as const, title: "界面验收群聊" } : {}),
+		// A group is never the account's primary (main Bot) conversation.
+		...(options.group ? { kind: "group" as const, title: "界面验收群聊", isPrimary: false } : {}),
 	};
 	const sent: { body: string; type: string; clientNonce: string }[] = [];
 	const sockets: WebSocketRoute[] = [];

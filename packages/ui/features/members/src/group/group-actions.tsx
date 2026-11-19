@@ -21,7 +21,7 @@ export function GroupActions({
 		(member) => member.kind === "person" && member.memberId !== conversation.ownerId,
 	);
 	return (
-		<ListGroup>
+		<ListGroup title={t("members.group.manage")}>
 			<ListRow
 				leading={<UserPlus size={18} aria-hidden />}
 				title={t("members.group.addMembers")}
@@ -52,14 +52,16 @@ export function GroupActions({
 export function GroupExit({ owner, busy, onClick }: { owner: boolean; busy: boolean; onClick: () => void }) {
 	const { t } = useTranslation();
 	return (
-		<ListGroup className="mt-auto">
-			<ListRow
-				leading={owner ? <Trash2 size={18} aria-hidden /> : <LogOut size={18} aria-hidden />}
-				title={t(owner ? "members.group.dissolve" : "members.group.leave")}
-				tone="danger"
-				disabled={busy}
-				onClick={onClick}
-			/>
-		</ListGroup>
+		<div className="mt-auto">
+			<ListGroup>
+				<ListRow
+					leading={owner ? <Trash2 size={18} aria-hidden /> : <LogOut size={18} aria-hidden />}
+					title={t(owner ? "members.group.dissolve" : "members.group.leave")}
+					tone="danger"
+					disabled={busy}
+					onClick={onClick}
+				/>
+			</ListGroup>
+		</div>
 	);
 }

@@ -1,4 +1,4 @@
-import { BrandedQrCode, Button, Checkbox, ListGroup, ListRow, SelectField } from "@yonder/ui-components";
+import { BrandedQrCode, Button, ListGroup, ListRow, ListSwitch, ListValue, SelectField } from "@yonder/ui-components";
 import {
 	ownedBots,
 	useBot,
@@ -8,6 +8,7 @@ import {
 	useContacts,
 	usePerson,
 } from "@yonder/ui-data";
+import { ConfirmDialog } from "@yonder/ui-shell";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -54,14 +55,21 @@ export function FeishuChannel({ botId, onOpenExternal }: { botId: string; onOpen
 	const { t } = useTranslation();
 	const channels = useChannels();
 	return (
-		<div className="grid gap-[var(--spacing-4)]">
+		<div className="flex flex-col gap-[var(--spacing-4)]">
 			<ChannelControls botId={botId} provider="feishu" channels={channels} onOpenExternal={onOpenExternal} />
 			<ChannelControls botId={botId} provider="wechat" channels={channels} />
-			<p className="text-caption text-[var(--color-text-secondary)]">{t("channels.qqPrerequisite")}</p>
+			<ListGroup title={t("channels.qq")} footer={t("channels.qqPrerequisite")}>
+				<ListValue title={t("channels.status")} value={t("channels.disconnected")} />
+			</ListGroup>
 		</div>
 	);
 }
 
+/**
+ * One channel as one settings section (docs/settings-forms.md): its status, the switches that
+ * decide who may reach the Bot through it, the page of its conversations, then disconnect, which
+ * asks first. Before it is connected the section holds one action row.
+ */
 function ChannelControls({
 	botId,
 	provider,
@@ -75,6 +83,7 @@ function ChannelControls({
 }) {
 	const { t } = useTranslation();
 	const actions = useChannelActions();
+	const [confirming, setConfirming] = useState(false);
 	const wechat = provider === "wechat";
 	const title = t(wechat ? "channels.wechat" : "channels.feishu");
 	const start = wechat ? actions.startWechat : actions.start;
@@ -89,116 +98,104 @@ function ChannelControls({
 				: connection.status
 		: "disconnected";
 	const attemptId = start.data?.id;
-	const failed =
-		channels.isError ||
-		start.isError ||
-		actions.toggle.isError ||
-		actions.disconnect.isError ||
-		actions.admission.isError;
+	const failed = channels.isError || start.isError || actions.toggle.isError || actions.admission.isError;
+	const available = wechat ? channels.data?.wechatAvailable : channels.data?.available;
+	const footer = connection?.missingPermissions.length
+		? t("channels.missing", { count: connection.missingPermissions.length })
+		: !connection && channels.isSuccess && !available
+			? t(wechat ? "channels.wechatPrerequisite" : "channels.unavailable")
+			: undefined;
 	return (
-		<section className="flex min-w-0 flex-col gap-[var(--spacing-3)] rounded-[var(--radius-lg)] bg-[var(--color-bg-surface)] p-[var(--spacing-4)]">
-			<div className="flex flex-wrap items-start justify-between gap-[var(--spacing-2)]">
-				<div className="min-w-0">
-					<h3 className="text-h3 font-medium">{title}</h3>
-					{connection?.name && connection.name !== title ? (
-						<p className="text-caption text-[var(--color-text-secondary)] [overflow-wrap:anywhere]">
-							{connection.name}
-						</p>
-					) : null}
-				</div>
-				{channels.isLoading ? (
-					<p role="status" className="text-caption">
-						{t("app.loading")}
-					</p>
+		<>
+			<ListGroup title={title} footer={footer}>
+				<ListValue
+					title={t("channels.status")}
+					value={channels.isLoading ? t("app.loading") : t(`channels.${state}`)}
+					tone={state === "connected" ? "success" : state === "connectionFailed" ? "danger" : "default"}
+				/>
+				{connection?.name && connection.name !== title ? (
+					<ListValue title={t("channels.account")} value={connection.name} />
 				) : null}
-				{channels.data ? (
-					<p
-						className={
-							state === "connected"
-								? "text-caption text-[var(--color-success)]"
-								: "text-caption text-[var(--color-text-secondary)]"
-						}
-					>
-						{t(`channels.${state}`)}
-					</p>
-				) : null}
-			</div>
-			{connection ? (
-				<>
-					{connection.missingPermissions.length > 0 && (
-						<p className="text-caption text-[var(--color-danger)]">
-							{t("channels.missing", { count: connection.missingPermissions.length })}
-						</p>
-					)}
-					{!wechat && (
-						<>
-							<Checkbox
-								checked={connection.allowExternalDm}
-								disabled={actions.admission.isPending}
-								onChange={(event) =>
-									actions.admission.mutate({
-										id: connection.id,
-										allowExternalDm: event.target.checked,
-										allowGroups: connection.allowGroups,
-									})
-								}
-							>
-								{t("channels.allowExternalDm")}
-							</Checkbox>
-							<Checkbox
-								checked={connection.allowGroups}
-								disabled={actions.admission.isPending}
-								onChange={(event) =>
-									actions.admission.mutate({
-										id: connection.id,
-										allowExternalDm: connection.allowExternalDm,
-										allowGroups: event.target.checked,
-									})
-								}
-							>
-								{t("channels.allowGroups")}
-							</Checkbox>
-						</>
-					)}
-					<Button
-						size="sm"
-						className="self-start"
-						loading={actions.toggle.isPending}
-						onClick={() => actions.toggle.mutate({ id: connection.id, enabled: !connection.enabled })}
-					>
-						{t(connection.enabled ? "channels.pause" : "channels.resume")}
-					</Button>
-					{onOpenExternal ? (
-						<ListGroup>
+				{connection ? (
+					<>
+						<ListSwitch
+							title={t("channels.active")}
+							checked={connection.enabled}
+							busy={actions.toggle.isPending}
+							onChange={(enabled) => actions.toggle.mutate({ id: connection.id, enabled })}
+						/>
+						{wechat ? null : (
+							<>
+								<ListSwitch
+									title={t("channels.allowExternalDm")}
+									checked={connection.allowExternalDm}
+									busy={actions.admission.isPending}
+									onChange={(allowExternalDm) =>
+										actions.admission.mutate({
+											id: connection.id,
+											allowExternalDm,
+											allowGroups: connection.allowGroups,
+										})
+									}
+								/>
+								<ListSwitch
+									title={t("channels.allowGroups")}
+									checked={connection.allowGroups}
+									busy={actions.admission.isPending}
+									onChange={(allowGroups) =>
+										actions.admission.mutate({
+											id: connection.id,
+											allowExternalDm: connection.allowExternalDm,
+											allowGroups,
+										})
+									}
+								/>
+							</>
+						)}
+						{onOpenExternal ? (
 							<ListRow title={t("channels.externalConversations")} chevron onClick={onOpenExternal} />
-						</ListGroup>
-					) : null}
-					<Button
-						size="sm"
-						className="self-start"
-						loading={actions.disconnect.isPending}
-						onClick={() => {
-							if (window.confirm(t(wechat ? "channels.confirmDisconnectWechat" : "channels.confirmDisconnect"))) {
-								start.reset();
-								actions.disconnect.mutate(connection.id);
-							}
-						}}
-					>
-						{t("channels.disconnect")}
-					</Button>
-				</>
-			) : (wechat ? channels.data?.wechatAvailable : channels.data?.available) ? (
-				<Button size="sm" className="self-start" loading={start.isPending} onClick={() => start.mutate(botId)}>
-					{t(wechat ? "channels.connectWechat" : "channels.connect")}
-				</Button>
-			) : channels.isSuccess ? (
-				<p className="text-caption text-[var(--color-text-secondary)]">
-					{t(wechat ? "channels.wechatPrerequisite" : "channels.unavailable")}
+						) : null}
+						<ListRow
+							title={t("channels.disconnect")}
+							tone="danger"
+							disabled={actions.disconnect.isPending}
+							onClick={() => setConfirming(true)}
+						/>
+					</>
+				) : available ? (
+					<ListRow
+						title={t(wechat ? "channels.connectWechat" : "channels.connect")}
+						tone="accent"
+						disabled={start.isPending}
+						onClick={() => start.mutate(botId)}
+					/>
+				) : null}
+			</ListGroup>
+			{failed ? (
+				<p role="alert" className="px-[var(--spacing-1)] text-caption text-[var(--color-danger)]">
+					{t("channels.failed")}
 				</p>
 			) : null}
-			{failed && <p role="alert">{t("channels.failed")}</p>}
-			{attemptId && <FeishuAttemptCard key={attemptId} id={attemptId} />}
-		</section>
+			{attemptId ? <FeishuAttemptCard key={attemptId} id={attemptId} /> : null}
+			{connection ? (
+				<ConfirmDialog
+					open={confirming}
+					title={t(wechat ? "channels.confirmDisconnectWechat" : "channels.confirmDisconnect")}
+					body={t("channels.disconnectBody")}
+					confirmLabel={t("channels.disconnect")}
+					cancelLabel={t("app.cancel")}
+					closeLabel={t("app.close")}
+					backLabel={t("app.back")}
+					busy={actions.disconnect.isPending}
+					error={actions.disconnect.isError ? t("channels.failed") : null}
+					onCancel={() => setConfirming(false)}
+					onConfirm={() => {
+						start.reset();
+						actions.disconnect.mutate(connection.id, { onSuccess: () => setConfirming(false) });
+					}}
+				/>
+			) : null}
+		</>
 	);
 }
 
@@ -236,17 +233,14 @@ export function ChannelsSection({
 	const selected = match ?? bots.find((bot) => bot.id === primary?.id) ?? bots[0];
 	if (!selected) return <p className="text-caption text-[var(--color-text-secondary)]">{t("bots.empty")}</p>;
 	return (
-		<div className="flex flex-col gap-[var(--spacing-6)]">
+		<div className="flex flex-col gap-[var(--spacing-4)]">
 			<SelectField
 				label={t("channels.selectBot")}
 				value={selected.id}
 				options={bots.map((bot) => ({ value: bot.id, label: bot.displayName }))}
 				onChange={onSelectBot ?? select}
 			/>
-			<section className="flex flex-col gap-[var(--spacing-3)]">
-				<h2 className="text-h3 font-semibold">{t("channels.connections")}</h2>
-				<FeishuChannel key={selected.id} botId={selected.id} onOpenExternal={() => onOpenExternal(selected.id)} />
-			</section>
+			<FeishuChannel key={selected.id} botId={selected.id} onOpenExternal={() => onOpenExternal(selected.id)} />
 		</div>
 	);
 }
