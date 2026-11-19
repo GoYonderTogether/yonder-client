@@ -169,7 +169,11 @@ function TimelinePage({
 
 function TimelineCard({ entry }: { entry: MemoryEntry }) {
 	const content = entry.body || entry.text;
-	const sourceLabels = { chat: t("对话", "Conversation"), meeting: t("会议", "Meeting"), task: t("任务", "Task") };
+	const sourceLabels = {
+		chat: t("对话", "Conversation"),
+		meeting: t("录音笔记", "Recording notes"),
+		task: t("任务", "Task"),
+	};
 	const sources = entry.sources.map((source) => source.title || sourceLabels[source.kind]);
 	return (
 		<View className="mini-card">

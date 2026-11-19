@@ -111,41 +111,33 @@ for (const viewport of ["desktop", "phone"] as const) {
 					else await expect(botSettings).toHaveCount(0);
 					await expect(avatars).toHaveCount(0);
 					await expect(senderNames).toHaveCount(0);
+					const name = heading.getByText(bot.displayName, { exact: true });
 					const status = heading.getByRole("status");
-					await expect(status).toHaveText(bot.displayName);
-					const [headerBox, avatarBox, statusBox, logBox] = await Promise.all([
+					await expect(name).toBeVisible();
+					await expect(status).toHaveCount(0);
+					const [headerBox, avatarBox, nameBox, logBox] = await Promise.all([
 						header.boundingBox(),
 						avatar.boundingBox(),
-						status.boundingBox(),
+						name.boundingBox(),
 						log.boundingBox(),
 					]);
-					if (!headerBox || !avatarBox || !statusBox || !logBox) throw new Error("Expected a visible Agent identity");
+					if (!headerBox || !avatarBox || !nameBox || !logBox) throw new Error("Expected a visible Agent identity");
 					const center = headerBox.x + headerBox.width / 2;
 					expect(avatarBox.x + avatarBox.width / 2).toBeCloseTo(center, 0);
-					expect(statusBox.x + statusBox.width / 2).toBeCloseTo(center, 0);
+					expect(nameBox.x + nameBox.width / 2).toBeCloseTo(center, 0);
 					expect(avatarBox.y - headerBox.y).toBeGreaterThanOrEqual(mobileBotHome ? 0 : headerBox.height);
-					expect(statusBox.y).toBeGreaterThanOrEqual(avatarBox.y + avatarBox.height);
-					expect(logBox.y).toBeGreaterThan(statusBox.y + statusBox.height);
+					expect(nameBox.y).toBeGreaterThanOrEqual(avatarBox.y + avatarBox.height);
+					expect(logBox.y).toBeGreaterThan(nameBox.y + nameBox.height);
 					await page.screenshot({ path: info.outputPath(`${viewport}-agent-idle.png`), animations: "disabled" });
-					api.updateRun(run);
-					await expect(status).toHaveText("排队中…");
-					api.updateRun({ ...run, status: "running" });
-					await expect(status).toHaveText("处理中…");
-					const activity = "正在整理会议纪要、核对待办事项和负责人，并将结果汇总到评审准备清单";
-					api.updateRun({ ...run, status: "running", activity: [{ label: activity }] });
-					await expect(status).toHaveText(activity);
-					await expect(status).not.toContainText(bot.displayName);
-					await expect(status.locator("[aria-hidden=true]")).toHaveCSS("animation-name", phone ? "none" : "pulse");
-					const caption = status.getByText(activity, { exact: true });
-					await expect(caption).toHaveAttribute("title", activity);
-					await expect(caption).toHaveCSS("text-overflow", "ellipsis");
-					await expect(caption).toHaveCSS("white-space", "nowrap");
-					expect(await caption.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
-					expect((await status.boundingBox())?.height).toBeCloseTo(statusBox.height, 0);
+					api.update({ ...reply, streaming: true, version: 2, run: { ...run, status: "running" } });
+					await expect(status).toHaveText("正在输入");
+					await expect(name).toBeVisible();
+					await expect(status.locator("[aria-hidden=true]")).toHaveCount(0);
+					expect((await status.boundingBox())?.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height);
 					await expect(mobileBotHome ? botSettings : more).toBeInViewport();
 					await page.screenshot({ path: info.outputPath(`${viewport}-agent.png`), animations: "disabled" });
 					api.updateRun({ ...run, status: "completed" });
-					await expect(status).toHaveText(bot.displayName);
+					await expect(status).toHaveCount(0);
 					if (mobileBotHome) {
 						await accountSettings.click();
 						await expect(page).toHaveURL(/\/me$/);
@@ -168,7 +160,8 @@ for (const viewport of ["desktop", "phone"] as const) {
 						await botBack.click();
 						await expect(botDetail).toHaveCount(0);
 						await expect(page).toHaveURL(/\/messages\/main$/);
-						await expect(status).toHaveText(bot.displayName);
+						await expect(name).toBeVisible();
+						await expect(status).toHaveCount(0);
 					}
 				} else {
 					const title = topbar.getByText(chat.title ?? friend.displayName, { exact: true });

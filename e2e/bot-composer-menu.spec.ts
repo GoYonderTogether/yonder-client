@@ -8,7 +8,7 @@ for (const mobile of [false, true]) {
 		await isolateChat(page, { items: [] });
 		await page.goto("/messages/main");
 		await page.getByRole("button", { name: "添加附件" }).click();
-		await expect(page.getByRole("button", { name: "会议录音" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "录音笔记", exact: true })).toBeVisible();
 		await expect(page.getByRole("button", { name: "上传文件" })).toBeVisible();
 		await mkdir("../reviews/20261118-bot-closure", { recursive: true });
 		await page.screenshot({ path: `../reviews/20261118-bot-closure/menu-${mobile ? "narrow" : "wide"}.png` });

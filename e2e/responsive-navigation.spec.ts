@@ -307,13 +307,11 @@ test("compact chat actions use the shared right layer and restore focus", async 
 	await checkChatAction(page);
 });
 
-test("desktop task and memory sections use compact capsules below the title row", async ({ page }) => {
+test("desktop task sections use compact capsules below the title row", async ({ page }) => {
 	for (const width of [390, 1280]) {
 		await page.setViewportSize({ width, height: 844 });
-		for (const [path, label] of [
-			["/tasks", "Tasks"],
-			["/memory", "Memory"],
-		]) {
+		// Memory has no sections since 11-19.
+		for (const [path, label] of [["/tasks", "Tasks"]]) {
 			await page.goto(path);
 			const header = page.locator("[data-frame-header]").filter({
 				has: page.getByRole("radiogroup", { name: label, exact: true }),
@@ -430,8 +428,8 @@ test.describe("phone", () => {
 		await page.keyboard.press("Escape");
 		await expect(page.locator('[data-page-layer="me"]')).not.toBeVisible();
 		for (const [label, option, path, screenshot] of [
+			// Memory has no sections since 11-19: it is one page under its card.
 			["任务", "目标", "/tasks/scheduled", "phone-tasks-zh.png"],
-			["记忆", "文件", "/memory/files", "phone-memory-zh.png"],
 		]) {
 			await page.getByRole("navigation").getByRole("button", { name: label, exact: true }).click();
 			const sections = page.getByRole("radiogroup", { name: label, exact: true });
@@ -447,7 +445,7 @@ test.describe("phone", () => {
 			expect(bounds?.width).toBeGreaterThanOrEqual(350);
 			const radios = await sections.getByRole("radio").all();
 			const targets = await Promise.all(radios.map((radio) => radio.boundingBox()));
-			// Segments share the row equally: two for tasks, three for memory (24 第二节).
+			// Segments share the row equally.
 			for (const target of targets) {
 				expect(target?.width).toBeCloseTo(targets[0]?.width ?? 0, 0);
 				expect(target?.height).toBe(44);

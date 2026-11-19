@@ -104,7 +104,7 @@ export default function Chat() {
 					? t("系统通知", "System notifications")
 					: conversationTitle(chat.conversation.members, chat.me?.member.id, chat.conversation.title)))) ||
 		t("聊天", "Chat");
-	const blocks = useMemo(() => groupMessages(chat.messages), [chat.messages]);
+	const blocks = useMemo(() => groupMessages(chat.messages, chat.hasFullHistory), [chat.messages, chat.hasFullHistory]);
 	const presentation = { showMessageAvatars, showSenderNames: isGroup, locale };
 	const openOptions = chat.messages
 		.slice()
@@ -229,7 +229,7 @@ export default function Chat() {
 				className={`mini-chat ${keyboardVisible ? "mini-chat-keyboard-open" : ""}`}
 				style={{ height: `${contentHeight}px` }}
 			>
-				{agentPeer ? <AgentTitle bot={agentPeer} messages={chat.messages} /> : null}
+				{agentPeer ? <AgentTitle key={agentPeer.memberId} bot={agentPeer} messages={chat.messages} /> : null}
 				{chat.loading || chat.error || uploads.error || uploadNotice || chat.closedError || chat.visitError ? (
 					<View className="mini-chat-status">
 						<State
@@ -298,10 +298,11 @@ export default function Chat() {
 								secondary
 								disabled={chat.olderLoading}
 								onClick={() => {
-									const firstId = chat.messages[0]?.id;
+									const firstId = blocks.find((block) => "run" in block)?.run[0]?.id;
 									setFollow(false);
 									setAnchor("");
-									if (!firstId || chat.olderLoading || pendingOlderAnchor.current) return;
+									if (chat.olderLoading || pendingOlderAnchor.current) return;
+									if (!firstId) return void chat.load(true);
 									void measureScrollAnchor(firstId).then((before) => {
 										if (!before || draftKeyRef.current !== draftKey || pendingOlderAnchor.current) return;
 										const pending = {

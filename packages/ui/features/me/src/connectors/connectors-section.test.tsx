@@ -267,32 +267,41 @@ test("a remote device never receives a fake local grant even when this adapter i
 	expect(native.authorize).not.toHaveBeenCalled();
 });
 
-test("unsupported web and supported devices stay rendered together with anchor-only navigation", () => {
+test("web and unsupported devices are absent from both device navigation and sections", () => {
+	const other = { ...firstDevice, id: "dev_b", name: "Work computer", current: false };
 	state.devices = [
 		{ ...firstDevice, id: "web", name: "Browser", platform: "web" },
+		{ ...firstDevice, id: "phone", name: "iPhone", platform: "ios", current: false },
 		{ ...firstDevice, current: false },
+		other,
 	];
 	show();
 	const nav = screen.getByRole("navigation", { name: "Device" });
-	expect(within(nav).getByRole("link", { name: "Browser · This device" })).toHaveAttribute(
-		"href",
-		"#connector-device-web",
-	);
-	expect(within(group("web")).getByText("No connectors available on this device")).toBeVisible();
-	const target = group("dev_a");
+	expect(within(nav).getAllByRole("link")).toHaveLength(2);
+	expect(screen.queryByRole("region", { name: /Browser|iPhone/ })).toBeNull();
+	expect(within(nav).getByRole("link", { name: "Windows PC" })).toHaveAttribute("aria-current", "true");
+	const link = within(nav).getByRole("link", { name: other.name });
+	const target = group(other.id);
 	const scroll = vi.fn();
 	target.scrollIntoView = scroll;
 	const hash = location.hash;
-	fireEvent.click(within(nav).getByRole("link", { name: "Windows PC" }));
+	fireEvent.click(link);
 	expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "instant" });
 	expect(location.hash).toBe(hash);
 	expect(target).toHaveFocus();
-	expect(group("dev_a")).toBe(target);
-	expect(within(group("web")).getByText("No connectors available on this device")).toBeVisible();
-	expect(within(target).getByRole("button", { name: /Read files Find/ })).toBeVisible();
+	expect(link).toHaveAttribute("aria-current", "true");
+	expect(within(group("dev_a")).getByRole("button", { name: /Read files Find/ })).toBeVisible();
 	expect(screen.queryByRole("combobox")).toBeNull();
 	expect(screen.queryByRole("tab")).toBeNull();
 	expect(state.create).not.toHaveBeenCalled();
+});
+
+test("shows the connector empty state when all signed-in devices are unsupported", () => {
+	state.devices = [{ ...firstDevice, id: "phone", name: "iPhone", platform: "ios" }];
+	show();
+	expect(screen.queryByRole("navigation", { name: "Device" })).toBeNull();
+	expect(screen.queryByRole("region", { name: /iPhone/ })).toBeNull();
+	expect(screen.getByText("No connectors available")).toBeVisible();
 });
 
 test.each(["online", "offline"] as const)(

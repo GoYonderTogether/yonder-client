@@ -72,8 +72,8 @@ for (const native of [false, true]) {
 		await expect(page.locator("[data-mobile-dock]")).toHaveCSS("position", native ? "absolute" : "relative");
 		const avatarButton = header.getByRole("button", { name: "Bot 设置" });
 		const gear = header.getByRole("button", { name: "设置", exact: true });
-		const status = header.getByRole("status");
-		const caption = status.getByText(bot.displayName);
+		const name = header.locator("[data-chat-agent-name]");
+		const caption = name.getByText(bot.displayName);
 		await expect(avatarButton).toBeVisible();
 		await expect(gear).toBeVisible();
 		await expect(caption).toHaveCSS("white-space", "nowrap");
@@ -113,7 +113,7 @@ for (const native of [false, true]) {
 		expect(gearStyle.alpha).toBeLessThan(255);
 		expect(gearStyle.blur).toContain("blur(");
 		const localBackdrop = await Promise.all(
-			[avatarButton, status].map((locator) =>
+			[avatarButton, name].map((locator) =>
 				locator.evaluate((element) => {
 					const style = getComputedStyle(element, "::before");
 					return { blur: style.backdropFilter, width: Number.parseFloat(style.width), hit: style.pointerEvents };

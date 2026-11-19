@@ -16,6 +16,7 @@ class MeetingRecorderService : Service() {
     companion object {
         internal var startResult: ((Result<Unit>) -> Unit)? = null
         private const val CHANNEL = "meeting-recording"
+        private const val TITLE = "录音笔记 / Recording notes"
         private const val NOTIFICATION = 7381
         internal fun startArguments(intent: Intent?): StartArguments? {
             if (intent?.action != "start") return null
@@ -33,7 +34,7 @@ class MeetingRecorderService : Service() {
         super.onCreate()
         val notifications = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
-            notifications.createNotificationChannel(NotificationChannel(CHANNEL, "Recording / 录音", NotificationManager.IMPORTANCE_LOW))
+            notifications.createNotificationChannel(NotificationChannel(CHANNEL, TITLE, NotificationManager.IMPORTANCE_LOW))
         }
         MeetingRecorderRuntime.didStop = { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
     }
@@ -51,7 +52,7 @@ class MeetingRecorderService : Service() {
         @Suppress("DEPRECATION")
         val builder = (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this))
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentTitle("Meeting recording / 会议录音")
+            .setContentTitle(TITLE)
             .setContentText("Audio is saved on this device / 音频保存在本机")
             .setOngoing(true)
         packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->

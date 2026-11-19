@@ -1,90 +1,73 @@
-import { EmptyState, Segmented } from "@yonder/ui-components";
+import { EmptyState } from "@yonder/ui-components";
 import { usePerson } from "@yonder/ui-data";
 import { ListFrame, PageFrame, useShellChrome } from "@yonder/ui-shell";
 import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { MemoryAbout } from "./memory/memory-about.tsx";
 import { MemoryFilePage } from "./memory/memory-file.tsx";
 import { MemoryFileList } from "./memory/memory-file-list.tsx";
-import { memoryFileRoute } from "./memory/memory-navigation.ts";
+import { MemoryColumn, MemoryHome, useGroupName } from "./memory/memory-home.tsx";
 import { MemoryTimeline } from "./memory/memory-timeline.tsx";
+import { type MemoryView, memoryFileParent, memoryFileRoute } from "./memory/memory-view.ts";
 import "./memory/memory.css";
 import "./memory/memory-entry.css";
 import "./memory/memory-drawer.css";
 import "./memory/memory-overlay.css";
 
-/** The three sections (24 第二节); the timeline is the default, the one looked at every day. */
-const SECTIONS = { timeline: "memory.timeline", about: "memory.aboutMe", files: "memory.files" } as const;
-export type MemorySection = keyof typeof SECTIONS;
-
 /**
- * The list column. On a wide window the timeline and 「了解」 read on the white detail page and the
- * column only holds the switch; 「文件」 keeps its list here and opens a file beside it. Narrower
- * windows read every section in this column, and a file covers it as a detail.
+ * The list column (11-19 layout). Narrower windows read the whole home here: the card, the latest
+ * of the timeline, then every group; what it opens covers it as a detail. A wide window keeps the
+ * card and the group list here and shows the selection on the white page beside it.
  */
-export function MemoryList({
-	section,
-	file,
-	onChange,
-}: {
-	section: MemorySection;
-	file: string | null;
-	onChange: (section: string) => void;
-}) {
+export function MemoryList({ view }: { view: MemoryView }) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
-	const navigate = useNavigate();
 	const person = usePerson();
-	const inList = mode !== "wide" || section === "files";
+	const selected =
+		view.kind === "group" ? view.group : view.kind === "home" || view.kind === "timeline" ? "timeline" : "";
 	return (
-		<ListFrame
-			title={t("nav.memory")}
-			center={
-				<Segmented
-					options={Object.entries(SECTIONS).map(([value, label]) => ({ value, label: t(label) }))}
-					value={section}
-					onChange={onChange}
-					aria-label={t("nav.memory")}
-				/>
-			}
-		>
-			{inList ? (
-				section === "files" ? (
-					<MemoryFileList key={person?.id} current={file} onOpen={(path) => navigate(memoryFileRoute(path))} />
-				) : (
-					<SectionBody key={person?.id} section={section} />
-				)
-			) : null}
+		<ListFrame title={t("nav.memory")}>
+			{mode === "wide" ? <MemoryColumn key={person?.id} selected={selected} /> : <MemoryHome key={person?.id} />}
 		</ListFrame>
 	);
 }
 
-export function MemoryPage({ section, file }: { section: MemorySection; file: string | null }) {
+export function MemoryPage({ view }: { view: MemoryView }) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
 	const navigate = useNavigate();
 	const person = usePerson();
-	if (file)
+	const groupName = useGroupName();
+	if (view.kind === "file")
 		return (
 			<PageFrame>
-				<MemoryFilePage key={`${person?.id}:${file}`} path={file} onDeleted={() => navigate("/memory/files")} />
+				<MemoryFilePage
+					key={`${person?.id}:${view.path}`}
+					path={view.path}
+					onDeleted={() => navigate(memoryFileParent(view.path))}
+				/>
 			</PageFrame>
 		);
-	if (mode !== "wide") return <PageFrame>{null}</PageFrame>;
-	if (section === "files")
+	if (view.kind === "group")
 		return (
-			<div className="flex flex-1 items-center justify-center">
-				<EmptyState icon={<FileText size={24} strokeWidth={1.6} />} title={t("memory.files")} />
-			</div>
+			<PageFrame title={groupName(view.group)}>
+				<MemoryFileList
+					key={`${person?.id}:${view.group}`}
+					group={view.group}
+					current={null}
+					onOpen={(path) => navigate(memoryFileRoute(path))}
+				/>
+			</PageFrame>
+		);
+	if (view.kind === "timeline" || mode === "wide")
+		return (
+			<PageFrame title={t("memory.timeline")}>
+				<MemoryTimeline key={person?.id} />
+			</PageFrame>
 		);
 	return (
-		<PageFrame title={t(SECTIONS[section])}>
-			<SectionBody key={person?.id} section={section} />
-		</PageFrame>
+		<div className="flex flex-1 items-center justify-center">
+			<EmptyState icon={<FileText size={24} strokeWidth={1.6} />} title={t("nav.memory")} />
+		</div>
 	);
-}
-
-function SectionBody({ section }: { section: "timeline" | "about" }) {
-	return section === "timeline" ? <MemoryTimeline /> : <MemoryAbout />;
 }

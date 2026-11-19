@@ -24,9 +24,11 @@ export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const dehydrateOptions: DehydrateOptions = {
 	// Memory can contain secret files, and member cards have revocable visibility.
 	shouldDehydrateQuery: (query) =>
+		!(query.queryKey[0] === "items" && query.queryKey[1] === "active-subtasks") &&
 		!["contact-search", "channel-messages", "channel-conversations", "memory", "member-profile"].includes(
 			String(query.queryKey[0]),
-		) && defaultShouldDehydrateQuery(query),
+		) &&
+		defaultShouldDehydrateQuery(query),
 	shouldDehydrateMutation: (mutation) =>
 		mutation.options.mutationKey?.[0] !== "memory" && defaultShouldDehydrateMutation(mutation),
 };

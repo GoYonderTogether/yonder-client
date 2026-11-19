@@ -33,7 +33,7 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let menu = Menu::with_items(app, &[&open, &stop, &quit])?;
     app.manage(RecordingControl(stop));
     let mut tray = TrayIconBuilder::with_id(TRAY)
-        .tooltip("录音纪要 / Meeting recordings")
+        .tooltip("录音笔记 / Recording notes")
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "meeting-open" => {

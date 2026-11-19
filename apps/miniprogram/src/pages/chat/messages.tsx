@@ -1,6 +1,6 @@
 import { Text, View } from "@tarojs/components";
 import type { MessageBlock } from "@yonder/chat-model";
-import { MessageAttachmentsFrame, MessageBubble, MessageRun, MessageTimeText } from "@yonder/chat-presentation";
+import { MessageAttachmentsFrame, MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
 import type { ReactNode } from "react";
 import { FriendRequestCard } from "../../components/friend-request-card";
 import { Button, go } from "../../components/ui";
@@ -57,11 +57,17 @@ export function renderMessageBlock(
 ) {
 	if ("time" in block)
 		return (
-			<View key={`time-${block.messageId}`} className="mini-chat-system">
-				<Text className="mini-chat-system-text">
-					<MessageTimeText at={block.time} locale={locale} />
-				</Text>
-			</View>
+			<MessageTime
+				key={`time-${block.messageId}`}
+				at={block.time}
+				locale={locale}
+				atStart={block.atStart}
+				render={(text) => (
+					<View className="mini-chat-system">
+						<Text className="mini-chat-system-text">{text}</Text>
+					</View>
+				)}
+			/>
 		);
 	const run = block.run;
 	const first = run[0];
@@ -122,7 +128,7 @@ export function renderMessageBlock(
 						>
 							{voice && file ? (
 								<VoiceMessage key={file.id} fileId={file.id} durationMs={voice.durationMs} self={self} />
-							) : message.body || message.streaming ? (
+							) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 								<MessageBubble as={ChatView} self={self}>
 									{message.body ? (
 										<MessageBody body={message.body} streaming={message.streaming} />

@@ -5,6 +5,7 @@ import type { Conversation } from "@yonder/protocol";
 import { Avatar, Button, ConversationList, ConversationRow, EmptyState, IconButton } from "@yonder/ui-components";
 import {
 	type CachedMessage,
+	useActiveBotSubtasks,
 	useBot,
 	useConversations,
 	useMarkConversationRead,
@@ -55,7 +56,7 @@ export function MessagesList({
 	current: string | null;
 	hidePrimary?: boolean;
 	onOpen: (id: string) => void;
-	onOpenMeetings?: (separateSpeakers?: boolean) => void;
+	onOpenMeetings?: () => void;
 }) {
 	const { t, i18n } = useTranslation();
 	const { mode } = useShellChrome();
@@ -151,6 +152,11 @@ export function ConversationPage({
 	const bot = useBot();
 	const conversations = useConversations();
 	const conversation = conversations.data?.items.find((item) => item.id === conversationId);
+	const peer = conversation?.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
+	const agent = peer?.kind === "bot" ? peer : undefined;
+	const { data: subtasks } = useActiveBotSubtasks(
+		conversation?.visit?.role === "visitor" ? undefined : agent?.memberId,
+	);
 	const quota = useQuota();
 	const messages = useMessages(conversationId);
 	const actions = useRunActions();
@@ -182,19 +188,17 @@ export function ConversationPage({
 				{null}
 			</PageFrame>
 		);
-	const peer = conversation.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
 	const title =
 		conversation.kind === "system"
 			? t("friendRequests.notifications")
 			: peer?.displayName || conversationTitle(conversation, person?.id);
-	const agent = peer?.kind === "bot" ? peer : undefined;
-	const status = agent ? agentChatStatus(items, agent.memberId) : undefined;
-	const statusText = status
-		? disconnected
-			? t("chat.reconnecting")
-			: (status.activity ?? t(`chat.agentStatus.${status.kind}`))
-		: undefined;
-	const agentCaption = statusText ?? title;
+	const status = agent && !disconnected ? agentChatStatus(items, agent.memberId, subtasks) : undefined;
+	const statusText =
+		status?.kind === "processing"
+			? t("chat.agentStatus.processing", { titles: status.titles.join(t("chat.agentStatus.separator")) })
+			: status?.kind === "typing"
+				? t("chat.agentStatus.typing")
+				: undefined;
 	const openPeer = peer && onOpenMember ? () => onOpenMember(peer.memberId) : undefined;
 	const openSettings = conversation.kind === "group" ? onOpenGroup : openPeer;
 	const agentAvatar = agent && (
@@ -229,19 +233,21 @@ export function ConversationPage({
 								agentAvatar
 							)}
 							<div
-								role="status"
-								className="flex max-w-[min(100%,calc(var(--control-lg)*4))] items-center gap-[var(--spacing-1)] text-body font-medium text-[var(--color-text-primary)]"
+								data-chat-agent-name
+								className="max-w-[75%] text-body font-medium text-[var(--color-text-primary)]"
+								title={title}
 							>
-								{statusText && !disconnected ? (
-									<span
-										aria-hidden="true"
-										className="motion-safe:animate-pulse size-[var(--spacing-1)] shrink-0 rounded-full bg-[var(--color-accent)]"
-									/>
-								) : null}
-								<span className="truncate" title={agentCaption}>
-									{agentCaption}
-								</span>
+								<span className="block truncate">{title}</span>
 							</div>
+							{statusText ? (
+								<div
+									role="status"
+									className="max-w-full text-center text-caption text-[var(--color-text-secondary)]"
+									title={statusText}
+								>
+									<span className="line-clamp-2 wrap-anywhere">{statusText}</span>
+								</div>
+							) : null}
 						</section>
 					) : null
 				}
@@ -307,6 +313,7 @@ export function ConversationPage({
 						) : null}
 						<ConversationMessages
 							items={items}
+							hasFullHistory={!messages.hasNextPage}
 							conversation={conversation}
 							person={person}
 							bot={bot}

@@ -31,7 +31,7 @@ export interface ComposerProps {
 	onRetryFile?: (id: string) => void;
 	onOriginalFileChange?: (id: string, original: boolean) => void;
 	mobilePicker?: boolean;
-	onMeeting?: ((separateSpeakers?: boolean) => void) | undefined;
+	onMeeting?: (() => void) | undefined;
 	scope?: string;
 	error?: string;
 	readOnly?: boolean;

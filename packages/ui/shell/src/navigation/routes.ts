@@ -39,9 +39,9 @@ export const ROUTES: readonly RouteEntry[] = [
 	{ path: "/tasks/scheduled", layer: "tab", tab: "tasks" },
 	{ path: "/tasks/:taskId", layer: "detail", tab: "tasks" },
 	{ path: "/memory", layer: "tab", tab: "memory" },
-	{ path: "/memory/about", layer: "tab", tab: "memory" },
-	{ path: "/memory/files", layer: "tab", tab: "memory" },
-	/** One memory file; the path is a single encoded segment. */
+	/** The whole timeline, one group of files, and one file (a single encoded segment). */
+	{ path: "/memory/timeline", layer: "detail", tab: "memory" },
+	{ path: "/memory/g/:group", layer: "detail", tab: "memory" },
 	{ path: "/memory/files/:path", layer: "detail", tab: "memory" },
 	{ path: "/me", layer: "detail" },
 	{ path: "/me/:section", layer: "detail" },

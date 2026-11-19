@@ -74,6 +74,7 @@ export const keys = {
 		all: () => ["items"] as const,
 		/** One account's list; `botId` narrows it to one Bot. */
 		list: (botId: string | null) => ["items", "list", botId ?? "all"] as const,
+		activeSubtasks: (botId: string) => ["items", "active-subtasks", botId] as const,
 		detail: (id: string) => ["items", "detail", id] as const,
 	},
 } as const;

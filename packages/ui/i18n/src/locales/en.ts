@@ -125,8 +125,7 @@ export const en = {
 	friendRequests: friendRequestsEn,
 	chatActions: {
 		contacts: "Contacts",
-		recordMeeting: "Meeting recording",
-		recordMeetingWithSpeakers: "Record with speaker labels",
+		recordMeeting: "Recording notes",
 		windowFallback: "Could not open a separate window. Continue here.",
 		menu: "New chat",
 		createBot: "Create BOT",
@@ -260,7 +259,7 @@ export const en = {
 
 	chat: {
 		settings: "Chat settings",
-		agentStatus: { queued: "Queued…", working: "Working…", replying: "Replying…" },
+		agentStatus: { typing: "Typing", processing: "Working on: {{titles}}", separator: ", " },
 		activityMore: "{{count}} activities",
 		sources: "Sources",
 		uploadFiles: "Upload files",
@@ -371,7 +370,7 @@ export const en = {
 		itemUpcoming: "Coming up",
 		itemSourceSubtask: "Handed to a task",
 		itemSourceSchedule: "Scheduled run",
-		itemSourceMeeting: "Meeting processing",
+		itemSourceMeeting: "Recording notes",
 		itemSourceVisit: "Visitor request",
 		itemStateRunning: "Running",
 		itemStateWaitingUser: "Waiting for you",

@@ -1,5 +1,5 @@
 import { groupMessages, isTwoPartyAgentChat } from "@yonder/chat-model";
-import { MessageBubble, MessageRun, MessageTimeText } from "@yonder/chat-presentation";
+import { MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
 import { FeishuAttemptCard } from "@yonder/feature-me";
 import { systemEventText } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
@@ -31,6 +31,7 @@ interface MessageProps {
 /** Sender identity belongs to a consecutive run, shared by text and attachment messages. */
 export function ConversationMessages({
 	items,
+	hasFullHistory,
 	conversation,
 	person,
 	bot,
@@ -39,6 +40,7 @@ export function ConversationMessages({
 	...actions
 }: Omit<MessageProps, "message" | "self"> & {
 	items: CachedMessage[];
+	hasFullHistory: boolean;
 	conversation: Conversation;
 	person?: Member | undefined;
 	bot?: Member | undefined;
@@ -81,16 +83,24 @@ export function ConversationMessages({
 				) : null}
 			</div>
 		));
-	return groupMessages(delivered.size ? items.filter((item) => !delivered.has(item.id)) : items).map((block) => {
+	const visibleItems = delivered.size ? items.filter((item) => !delivered.has(item.id)) : items;
+	return groupMessages(visibleItems, hasFullHistory).map((block) => {
 		if ("time" in block)
 			return (
-				<time
+				<MessageTime
 					key={`time-${block.messageId}`}
-					dateTime={block.time.toISOString()}
-					className="mx-auto text-center text-caption text-[var(--color-text-tertiary)]"
-				>
-					<MessageTimeText at={block.time} locale={locale} />
-				</time>
+					at={block.time}
+					locale={locale}
+					atStart={block.atStart}
+					render={(text) => (
+						<time
+							dateTime={block.time.toISOString()}
+							className="mx-auto text-center text-caption text-[var(--color-text-tertiary)]"
+						>
+							{text}
+						</time>
+					)}
+				/>
 			);
 		const run = block.run;
 		const first = run[0];
@@ -240,7 +250,7 @@ function MessageEntry({
 			{message.outwardDraft ? <p className="text-caption">{t("visits.relayPrivateDraft")}</p> : null}
 			{voice && attachment ? (
 				<VoiceMessage key={attachment.id} attachment={attachment} durationMs={voice.durationMs} self={self} />
-			) : message.body || message.streaming ? (
+			) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 				<MessageBubble as="div" self={self}>
 					{message.body ? (
 						<MessageContent body={message.body} streaming={message.streaming} />

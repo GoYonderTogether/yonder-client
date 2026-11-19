@@ -47,7 +47,7 @@ for (const mobile of [false, true]) {
 			const press = mobile ? "tap" : "click";
 			const trigger = page.getByRole("button", { name: "添加附件", exact: true });
 			const files = page.getByRole("button", { name: "上传文件", exact: true });
-			const recording = page.getByRole("button", { name: "会议录音", exact: true });
+			const recording = page.getByRole("button", { name: "录音笔记", exact: true });
 			const editor = page.getByRole("textbox", { name: /^对 界面验收/ });
 			await trigger[press]();
 			await expect(files).toBeVisible();

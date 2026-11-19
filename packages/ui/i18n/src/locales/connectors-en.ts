@@ -14,7 +14,7 @@ export const connectorMessagesEn = {
 	connected: "Connected",
 	connectedOffline: "Connected · Device offline",
 	connectedNotReady: "Connected · Not ready",
-	noConnectorsOnDevice: "No connectors available on this device",
+	empty: "No connectors available",
 	manage: "Manage",
 	enable: "Enable",
 	save: "Save changes",

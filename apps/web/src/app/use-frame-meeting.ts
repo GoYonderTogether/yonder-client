@@ -12,7 +12,7 @@ export function useFrameMeeting(ownerId: string | null) {
 	const [shortVoiceActive, setShortVoiceActive] = useState(false);
 	const active = recorder.state.recordings.find((recording) => recording.id === recorder.state.activeId);
 
-	function start(target: Conversation | undefined, separateSpeakers?: boolean) {
+	function start(target: Conversation | undefined) {
 		if (recorder.busy || active) return;
 		const reason = shortVoiceActive
 			? "microphoneOccupied"
@@ -27,7 +27,7 @@ export function useFrameMeeting(ownerId: string | null) {
 		}
 		if (!target) return;
 		setNotice(null);
-		void recorder.start(t("meetingRecorder.defaultTitle"), target.id, separateSpeakers);
+		void recorder.start(t("meetingRecorder.defaultTitle"), target.id, true);
 	}
 
 	return { recorder, notice, active, setShortVoiceActive, start };

@@ -11,13 +11,7 @@ import { type ChatAction, ChatMenu } from "./chat-menu.tsx";
 import { CreateBot } from "./create-bot.tsx";
 import { CreateGroup } from "./create-group.tsx";
 
-export function ChatActions({
-	onOpen,
-	onOpenMeetings,
-}: {
-	onOpen: (id: string) => void;
-	onOpenMeetings?: (separateSpeakers?: boolean) => void;
-}) {
+export function ChatActions({ onOpen, onOpenMeetings }: { onOpen: (id: string) => void; onOpenMeetings?: () => void }) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
 	const navigate = useNavigate();
@@ -32,8 +26,8 @@ export function ChatActions({
 		onOpen(id);
 	};
 	async function select(next: ChatAction) {
-		if (next === "recordMeeting" || next === "recordMeetingWithSpeakers") {
-			onOpenMeetings?.(next === "recordMeetingWithSpeakers");
+		if (next === "recordMeeting") {
+			onOpenMeetings?.();
 			return;
 		}
 		setWindowError(false);

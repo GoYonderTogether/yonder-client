@@ -5,6 +5,7 @@ import { Folder } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMinute } from "./memory-format.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
+import { groupPrefix } from "./memory-view.ts";
 import { VisibilityMark } from "./memory-visibility.tsx";
 import { relativeTime } from "./memory-who.ts";
 
@@ -26,7 +27,7 @@ interface Group {
 /**
  * Files grouped by what they are, named rather than shown as paths (24 第五节): notes, sources (one
  * group per connector, named by its folder), summaries (daily, weekly, monthly) and public. The two
- * `/me` files live in 「了解」 and are not repeated here.
+ * `/me` files sit on the back of the card and are not repeated here.
  */
 export function groupFiles(files: readonly MemoryFileSummary[], t: (key: string) => string): Group[] {
 	const newest = (items: MemoryFileSummary[]) => items.toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -60,42 +61,50 @@ export function groupFiles(files: readonly MemoryFileSummary[], t: (key: string)
 	return result;
 }
 
-export function MemoryFileList({ current, onOpen }: { current: string | null; onOpen: (path: string) => void }) {
+/** One group's files (a connector, notes, summaries, public); summaries keep their period sub-lists. */
+export function MemoryFileList({
+	group,
+	current,
+	onOpen,
+}: {
+	group: string;
+	current: string | null;
+	onOpen: (path: string) => void;
+}) {
 	const { t, i18n } = useTranslation();
 	const now = useMinute();
 	const query = useMemoryFiles();
 	const locale = i18n.resolvedLanguage ?? i18n.language;
 	if (query.error) return <MemoryError error={query.error} retry={() => void query.refetch()} />;
 	if (query.isPending) return <MemoryLoading />;
-	const groups = groupFiles(query.data.items, t);
+	const prefix = groupPrefix(group);
+	const groups = prefix
+		? groupFiles(
+				query.data.items.filter((file) => file.path.startsWith(prefix)),
+				t,
+			)
+		: [];
 	if (!groups.length) return <EmptyState icon={<Folder size={24} strokeWidth={1.6} />} title={t("memory.noFiles")} />;
 	return (
 		<div className="flex flex-col gap-[var(--spacing-5)] py-[var(--spacing-2)]">
-			{groups.map((group, index) => (
-				<section key={group.key} className="flex flex-col gap-[var(--spacing-2)]">
-					{groups[index - 1]?.heading !== group.heading ? (
-						<h3 className="px-[var(--spacing-2)] text-body font-semibold text-[var(--color-text-primary)]">
-							{group.heading}
-						</h3>
-					) : null}
-					<ListGroup variant="card" title={group.title}>
-						{group.files.map((file) => (
-							<ListRow
-								key={file.path}
-								title={file.title || file.path.split("/").at(-1)}
-								subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
-								trailing={
-									<span className="flex items-center gap-[var(--spacing-2)]">
-										{file.draft ? <span className="text-[var(--color-accent-text)]">{t("memory.pending")}</span> : null}
-										<VisibilityMark visibility={file.visibility} />
-									</span>
-								}
-								selected={file.path === current}
-								onClick={() => onOpen(file.path)}
-							/>
-						))}
-					</ListGroup>
-				</section>
+			{groups.map((sub) => (
+				<ListGroup key={sub.key} variant="card" title={sub.key.startsWith("digests:") ? sub.title : undefined}>
+					{sub.files.map((file) => (
+						<ListRow
+							key={file.path}
+							title={file.title || file.path.split("/").at(-1)}
+							subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
+							trailing={
+								<span className="flex items-center gap-[var(--spacing-2)]">
+									{file.draft ? <span className="text-[var(--color-warning)]">{t("memory.pending")}</span> : null}
+									<VisibilityMark visibility={file.visibility} />
+								</span>
+							}
+							selected={file.path === current}
+							onClick={() => onOpen(file.path)}
+						/>
+					))}
+				</ListGroup>
 			))}
 		</div>
 	);

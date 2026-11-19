@@ -29,6 +29,7 @@ import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
 import { ContactsOverlay } from "../pages/contacts-list.tsx";
 import { conversationTitle, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
 import { FlyToComposer } from "../pages/items-fly.tsx";
+import { memoryFileParent, readMemoryView } from "../pages/memory/memory-view.ts";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { BotTabAvatar } from "../pages/unread-badge.tsx";
@@ -212,10 +213,8 @@ export function AppFrame() {
 		mobile: phone,
 		path: location.pathname,
 	});
-	const memorySection = selection === "about" || selection === "files" ? selection : "timeline";
-	const memoryFile = tab === "memory" && selection === "files" ? subSelection : null;
-	const segmentRoot =
-		(tab === "tasks" && selection === "scheduled") || (tab === "memory" && memorySection !== "timeline" && !memoryFile);
+	const memoryView = readMemoryView(tab === "memory" ? selection : null, subSelection);
+	const segmentRoot = tab === "tasks" && selection === "scheduled";
 	const detailOpen = selection !== null && !segmentRoot;
 	/**
 	 * Back, Escape and a swipe are one exit, and a layer that is animating out still holds the props
@@ -226,8 +225,9 @@ export function AppFrame() {
 	const currentBack = () => {
 		const live = locate(navigation.current());
 		const liveMeOpen = live !== null && live.tab === null;
-		// A memory file goes back to the file list it was opened from.
-		if (live?.tab === "memory" && live.detail[0] === "files" && live.detail[1]) return navigation.back("/memory/files");
+		// A memory file goes back to its group; a group and the timeline go back to the memory home.
+		if (live?.tab === "memory" && live.detail[0] === "files" && live.detail[1])
+			return navigation.back(memoryFileParent(live.detail[1]));
 		if (!liveMeOpen) return navigation.back(tabPath(live?.tab ?? tab));
 		const state = navigation.currentState();
 		const parent = settingsPagePaths(live.detail, state?.channelOriginBotId).at(-2);
@@ -292,7 +292,7 @@ export function AppFrame() {
 							current={selection}
 							hidePrimary={phone}
 							onOpen={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
-							onOpenMeetings={(separateSpeakers) => meeting.start(primary, separateSpeakers)}
+							onOpenMeetings={() => meeting.start(primary)}
 						/>
 					),
 					content: (
@@ -327,14 +327,8 @@ export function AppFrame() {
 				};
 			case "memory":
 				return {
-					list: (
-						<MemoryList
-							section={memorySection}
-							file={memoryFile}
-							onChange={(value) => navigation.open(value === "timeline" ? "/memory" : `/memory/${value}`)}
-						/>
-					),
-					content: <MemoryPage section={memorySection} file={memoryFile} />,
+					list: <MemoryList view={memoryView} />,
+					content: <MemoryPage view={memoryView} />,
 				};
 		}
 	}
@@ -355,9 +349,7 @@ export function AppFrame() {
 			onOriginalFileChange={draft.toggleOriginal}
 			scope={`${person?.id}:${conversation?.id}`}
 			mobilePicker={!desktop}
-			onMeeting={
-				recordingConversation ? (separateSpeakers) => meeting.start(recordingConversation, separateSpeakers) : undefined
-			}
+			onMeeting={recordingConversation ? () => meeting.start(recordingConversation) : undefined}
 			error={draft.error}
 			disabled={
 				!conversation ||

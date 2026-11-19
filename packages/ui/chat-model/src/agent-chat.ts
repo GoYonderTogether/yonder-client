@@ -1,4 +1,4 @@
-import type { Conversation, Message } from "@yonder/protocol";
+import type { Conversation, ItemSummary, Message } from "@yonder/protocol";
 import { conversationPeer } from "./conversation-peer.ts";
 
 export function isTwoPartyAgentChat(conversation: Conversation, personId: string | undefined): boolean {
@@ -13,19 +13,17 @@ export function isTwoPartyAgentChat(conversation: Conversation, personId: string
 export function agentChatStatus(
 	items: readonly Message[] | undefined,
 	botId: string,
-): { kind: "queued" | "working" | "replying"; activity?: string } | undefined {
-	if (!items) return undefined;
-	for (let index = items.length - 1; index >= 0; index--) {
-		const message = items[index];
-		if (message?.senderId !== botId) continue;
-		const { run, streaming, body } = message;
-		if (run?.status === "queued") return { kind: "queued" };
-		if (run?.status === "running") {
-			const activity = run.activity?.at(-1)?.label.trim();
-			if (activity) return { kind: "working", activity };
-			return { kind: streaming && body ? "replying" : "working" };
-		}
-		if (!run && streaming) return { kind: "replying" };
-	}
-	return undefined;
+	subtasks: readonly ItemSummary[] | undefined,
+): { kind: "typing" } | { kind: "processing"; titles: string[] } | undefined {
+	if (
+		items?.some(
+			({ senderId, run, streaming, body }) =>
+				senderId === botId && streaming && body?.trim() && (!run || run.status === "running"),
+		)
+	)
+		return { kind: "typing" };
+	const titles = subtasks
+		?.filter((task) => task.botMemberId === botId && task.source === "subtask" && task.state === "running")
+		.map((task) => task.title);
+	return titles?.length ? { kind: "processing", titles } : undefined;
 }

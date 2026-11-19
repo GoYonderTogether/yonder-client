@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import type { MeetingRecording } from "@yonder/feature-meetings";
 import type { CreateMeetingRequest } from "@yonder/protocol";
 import { conversation, isolateChat } from "./chat-fixture.ts";
 
@@ -43,7 +44,7 @@ for (const mobile of [false, true]) {
 					const owner = "chat-person";
 					let activeId: string | null = null;
 					let paused = false;
-					const interrupted = {
+					const interrupted: MeetingRecording = {
 						id: "recovered-recording",
 						ownerId: owner,
 						title: "中断后保留的会议录音",
@@ -90,6 +91,7 @@ for (const mobile of [false, true]) {
 										id: activeId,
 										title: String(args.title),
 										conversationId: String(args.conversationId),
+										separateSpeakers: args.separateSpeakers === true,
 										state: "recording",
 										startedAt: Date.now(),
 										endedAt: 0,
@@ -114,7 +116,7 @@ for (const mobile of [false, true]) {
 			);
 			const openRecorder = async () => {
 				await page.getByRole("button", { name: "发起聊天" }).click();
-				await page.getByRole("menuitem", { name: "会议录音" }).click();
+				await page.getByRole("menuitem", { name: "录音笔记", exact: true }).click();
 			};
 			if (mobile) await page.getByRole("button", { name: "消息", exact: true }).click();
 			await openRecorder();
@@ -157,7 +159,8 @@ for (const mobile of [false, true]) {
 				expect(manifest).toMatchObject({
 					clientRecordingId: "new-recording",
 					conversationId: conversation.id,
-					title: "会议录音",
+					title: "录音笔记",
+					separateSpeakers: true,
 					state: "ended",
 				});
 			}

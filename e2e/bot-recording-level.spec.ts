@@ -28,7 +28,7 @@ for (const mobile of [false, true])
 			await page.route("**/v1/meetings**", (route) => route.fulfill({ json: { items: [] } }));
 			await page.goto("/messages/main");
 			await page.getByRole("button", { name: "添加附件" }).click();
-			await page.getByRole("button", { name: "会议录音" }).click();
+			await page.getByRole("button", { name: "录音笔记", exact: true }).click();
 			const meter = page.getByRole("meter", { name: "麦克风音量" });
 			await expect.poll(async () => Number(await meter.getAttribute("value")), { timeout: 15000 }).toBeGreaterThan(0);
 			await expect

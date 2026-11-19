@@ -131,24 +131,40 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	const api = await memoryApi(page);
 	await page.goto("/memory");
 	await expect(page.locator(`[data-layout-mode="${phone ? "mobile" : "wide"}"]`)).toBeVisible();
-	// The timeline is the default section; a private card carries no visibility mark.
-	await expect(page.getByRole("radio", { name: "时间线" })).toBeChecked();
-	await expect(page.getByText("来自 会议")).toBeVisible();
+	// The card heads the page; its back holds what the Bot knows.
+	const card = page.getByRole("region", { name: "我的名片" });
+	await expect(card.getByText("@chatcheck")).toBeVisible();
+	await card.getByRole("button", { name: "翻到背面" }).click({ position: { x: 24, y: 24 } });
+	await expect(card.getByRole("button", { name: /印象.*直接说明/ })).toBeVisible();
+	await card.getByRole("button", { name: "翻回正面" }).click({ position: { x: 24, y: 24 } });
+	// Phones see the latest entries on the home and open the whole timeline from there; a wide
+	// window shows the timeline beside the column.
+	if (phone) {
+		await expect(page.getByRole("button", { name: /会后决定/ })).toBeVisible();
+		await page.getByRole("button", { name: "查看全部时间线" }).click();
+		await expect(page).toHaveURL(/\/memory\/timeline$/);
+	}
+	// A private card carries no visibility mark.
+	await expect(page.getByText("来自 录音笔记")).toBeVisible();
 	await expect(page.getByRole("img", { name: "私人" })).toHaveCount(0);
 	await page.getByRole("button", { name: /会后决定/ }).click();
 	await expect(page.getByText("接口在周五完成。")).toBeVisible();
 
-	await page.getByRole("radio", { name: "了解" }).click();
-	await expect(page).toHaveURL(/\/memory\/about$/);
-	const impression = page.getByRole("article", { name: "印象" });
+	// The impression opens as its own file page from the back of the card.
+	if (phone) await page.goto("/memory");
+	await card.getByRole("button", { name: "翻到背面" }).click({ position: { x: 24, y: 24 } });
+	await card.getByRole("button", { name: /印象/ }).click();
+	await expect(page).toHaveURL(/\/memory\/files\/.+/);
+	const impression = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "印象" }) });
 	await expect(impression.locator("strong").getByText("直接说明")).toBeVisible();
-	await expect(impression.getByText(/小助手 · /)).toBeVisible();
 	await impression.getByRole("button", { name: "编辑" }).click();
 	await expect(impression.getByText("12 / 3,000")).toBeVisible();
 	await impression.getByRole("button", { name: "取消" }).click();
 
-	await page.getByRole("radio", { name: "文件" }).click();
-	await expect(page.getByRole("heading", { name: "来源" })).toBeVisible();
+	// Every group is a card under 「全部」 (a row in the wide column); the meeting folder holds the note.
+	await page.goto("/memory");
+	await page.getByRole("button", { name: /^会议/ }).click();
+	await expect(page).toHaveURL(/\/memory\/g\/.+/);
 	await page.getByRole("button", { name: /周会纪要/ }).click();
 	await expect(page).toHaveURL(/\/memory\/files\/.+/);
 	const reader = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "周会纪要" }) });
@@ -183,12 +199,12 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 
 	await reader.getByRole("button", { name: "删除" }).click();
 	await reader.getByRole("button", { name: "确认删除" }).click();
-	await expect(page).toHaveURL(/\/memory\/files$/);
+	await expect(page).toHaveURL(/\/memory\/g\/.+$/);
 	expect(api.writes.at(-1)).toEqual({ method: "DELETE", body: { path: notePath } });
 
 	api.disableFiles();
 	await page.reload();
-	await expect(page.getByRole("alert").getByText("没找到。")).toBeVisible();
+	await expect(page.getByRole("alert").getByText("没找到。").first()).toBeVisible();
 	if (phone) await page.screenshot({ path: testInfo.outputPath("memory-file-error.png") });
 }
 

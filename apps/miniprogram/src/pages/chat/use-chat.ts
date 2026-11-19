@@ -32,6 +32,8 @@ export function useChat(id: string) {
 	/** A send the visit ladder refused (`visit_limit`, `visit_denied`, `visit_cap`): the server's reason. */
 	const [visitError, setVisitError] = useState("");
 	const [cursor, setCursor] = useState<string | null>(null);
+	// A latest-page refresh retains the oldest message already loaded for this chat.
+	const [hasFullHistory, setHasFullHistory] = useState(false);
 	const [sending, setSending] = useState(false);
 	const [olderLoading, setOlderLoading] = useState(false);
 	const sendLock = useRef(false);
@@ -67,6 +69,7 @@ export function useChat(id: string) {
 		active.current = Boolean(id && me?.member.id);
 		cursorRef.current = null;
 		setCursor(null);
+		setHasFullHistory(false);
 		setOlderLoading(false);
 		setConversation(undefined);
 		setLoading(true);
@@ -113,6 +116,7 @@ export function useChat(id: string) {
 					if (older || cursorRef.current === null) {
 						cursorRef.current = page.nextCursor;
 						setCursor(page.nextCursor);
+						if (page.nextCursor === null) setHasFullHistory(true);
 					}
 					return true;
 				} catch {
@@ -324,6 +328,7 @@ export function useChat(id: string) {
 		closedError: messagesOwner.current === outboxKey ? closedError : "",
 		visitError: messagesOwner.current === outboxKey ? visitError : "",
 		cursor: messagesOwner.current === outboxKey ? cursor : null,
+		hasFullHistory: messagesOwner.current === outboxKey && hasFullHistory,
 		olderLoading: messagesOwner.current === outboxKey && olderLoading,
 		sending: messagesOwner.current === outboxKey && sending,
 		load,

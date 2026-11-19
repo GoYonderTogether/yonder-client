@@ -72,7 +72,7 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 	backdrop-filter: blur(var(--floating-frame-blur));
 }
 
-[data-floating-frame-header] [data-chat-agent-title] > [role="status"] {
+[data-floating-frame-header] [data-chat-agent-title] > :is([data-chat-agent-name], [role="status"]) {
 	position: relative;
 }
 
@@ -80,7 +80,7 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 	padding-inline: 0;
 }
 
-[data-floating-frame-header] [data-chat-agent-title] > :is(button, [role="status"])::before {
+[data-floating-frame-header] [data-chat-agent-title] > :is(button, [data-chat-agent-name], [role="status"])::before {
 	position: absolute;
 	inset: calc(-1 * var(--spacing-1));
 	z-index: -1;

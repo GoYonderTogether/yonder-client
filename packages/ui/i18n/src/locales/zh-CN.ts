@@ -126,8 +126,7 @@ export const zhCN: Messages = {
 	friendRequests: friendRequestsZhCN,
 	chatActions: {
 		contacts: "联系人",
-		recordMeeting: "会议录音",
-		recordMeetingWithSpeakers: "录音并区分发言人",
+		recordMeeting: "录音笔记",
 		windowFallback: "未能打开独立窗口，可在这里继续添加。",
 		menu: "发起聊天",
 		createBot: "创建 BOT",
@@ -261,7 +260,7 @@ export const zhCN: Messages = {
 
 	chat: {
 		settings: "聊天设置",
-		agentStatus: { queued: "排队中…", working: "处理中…", replying: "回复中…" },
+		agentStatus: { typing: "正在输入", processing: "正在处理：{{titles}}", separator: "、" },
 		activityMore: "等 {{count}} 项",
 		sources: "来源",
 		uploadFiles: "上传文件",
@@ -371,7 +370,7 @@ export const zhCN: Messages = {
 		itemUpcoming: "即将执行",
 		itemSourceSubtask: "Bot 分出去的",
 		itemSourceSchedule: "定时执行",
-		itemSourceMeeting: "会议处理",
+		itemSourceMeeting: "录音笔记",
 		itemSourceVisit: "来访",
 		itemStateRunning: "进行中",
 		itemStateWaitingUser: "等你",

@@ -43,7 +43,7 @@ test("browser recording starts directly, resumes a saved upload and skips submit
 			manifest = request.postDataJSON();
 			expect(manifest?.conversationId).toBe(conversation.id);
 			expect(manifest?.state).toBe("ended");
-			expect(manifest?.title).toBe("会议录音");
+			expect(manifest?.title).toBe("录音笔记");
 			expect(manifest?.separateSpeakers).toBe(true);
 		}
 		const index = /\/segments\/(\d+)$/.exec(path);
@@ -87,7 +87,8 @@ test("browser recording starts directly, resumes a saved upload and skips submit
 	const start = async () => {
 		await page.getByRole("button", { name: "发起聊天" }).click();
 		expect(await page.evaluate(() => sessionStorage.getItem("meeting-lock-requested"))).toBeNull();
-		await page.getByRole("menuitem", { name: "录音并区分发言人" }).click();
+		await expect(page.getByRole("menuitem", { name: /录音/ })).toHaveCount(1);
+		await page.getByRole("menuitem", { name: "录音笔记", exact: true }).click();
 		await expect(page.getByRole("button", { name: "结束录音", exact: true })).toBeVisible();
 		await expect(page.getByRole("textbox", { name: "录音标题" })).toHaveCount(0);
 		await expect(page.getByRole("button", { name: "开始录音", exact: true })).toHaveCount(0);
@@ -161,7 +162,8 @@ test.describe("mobile visibility", () => {
 		await page.route("**/v1/contacts", (route) => route.fulfill({ json: { items: [otherBot] } }));
 		await page.goto(`/messages/${otherConversation.id}`);
 		await page.getByRole("button", { name: "添加附件" }).click();
-		await page.getByRole("button", { name: "会议录音" }).click();
+		await expect(page.getByRole("button", { name: /录音/ })).toHaveCount(1);
+		await page.getByRole("button", { name: "录音笔记", exact: true }).click();
 		await expect(page.getByRole("button", { name: "结束录音", exact: true })).toBeVisible();
 		await page.evaluate(() => {
 			Object.defineProperty(document, "hidden", { configurable: true, value: true });

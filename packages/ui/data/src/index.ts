@@ -54,7 +54,7 @@ export { useDeviceRegistration, useDevices } from "./hooks/devices.ts";
 export { useFriendRequest, useFriendRequestActions, useFriendRequests } from "./hooks/friend-requests.ts";
 export { useChangeGoal, useGoalSettings, useGoals } from "./hooks/goals.ts";
 export { useGroupActions } from "./hooks/groups.ts";
-export { useItem, useItemActions, useItems } from "./hooks/items.ts";
+export { useActiveBotSubtasks, useItem, useItemActions, useItems } from "./hooks/items.ts";
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
 export { useMemberProfile, usePublicMemberProfile } from "./hooks/members.ts";
 export {

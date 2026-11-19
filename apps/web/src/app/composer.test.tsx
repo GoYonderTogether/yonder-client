@@ -31,7 +31,9 @@ test.each([false, true])("own Bot attachment menu opens before a picker (mobile=
 	fireEvent.click(screen.getByRole("button", { name: "Attach" }));
 	expect(picker).not.toHaveBeenCalled();
 	expect(Boolean(screen.queryByRole("button", { name: "Upload images" }))).toBe(mobilePicker);
-	fireEvent.click(screen.getByRole("button", { name: "Meeting recording" }));
+	const recording = screen.getByRole("button", { name: /record/i });
+	expect(recording).toHaveAccessibleName("Recording notes");
+	fireEvent.click(recording);
 	expect(meeting).toHaveBeenCalledOnce();
 	expect(picker).not.toHaveBeenCalled();
 	fireEvent.click(screen.getByRole("button", { name: "Attach" }));

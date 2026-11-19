@@ -48,39 +48,143 @@ async function setup(page: Page) {
 			},
 		}),
 	);
-	await page.route("**/v1/memory/**", (route) => route.fulfill({ status: 404, json: { error: "not_found" } }));
+	const now = new Date();
+	const today = now.toISOString().slice(0, 10);
+	const hoursAgo = (hours: number) => new Date(now.getTime() - hours * 3_600_000).toISOString();
+	const entry = (id: string, title: string, at: string) => ({
+		type: "entry",
+		entry: {
+			id,
+			at,
+			endsAt: null,
+			kind: "voice",
+			size: "note",
+			activity: null,
+			title,
+			text: null,
+			body: null,
+			place: null,
+			media: [],
+			mediaCount: 0,
+			materials: [],
+			tags: [],
+			people: [],
+			quote: null,
+			links: [],
+			visibility: "private",
+			weight: 2,
+			sources: [],
+			deletable: true,
+		},
+	});
+	const summary = (path: string, title: string, extra = {}) => ({
+		path,
+		title,
+		kind: "note",
+		visibility: "private",
+		updatedAt: hoursAgo(2),
+		updatedBy: "user",
+		updatedByName: null,
+		userEdited: false,
+		draft: false,
+		...extra,
+	});
+	const files = [
+		summary("/notes/合作方.md", "合作方"),
+		summary("/notes/内测反馈.md", "内测反馈"),
+		summary("/sources/会议/周会.md", "周会纪要"),
+		summary("/digests/day/2026-11-18.md", "11 月 18 日"),
+		summary("/public/草稿.md", "我在找什么", { draft: true }),
+	];
+	const content = (path: string, text: string) => ({
+		...summary(path, path.includes("印象") ? "印象" : "近期"),
+		content: text,
+		version: 1,
+		sources: [],
+		links: [],
+		limit: { length: 3000, unit: "characters" },
+	});
+	await page.route("**/v1/memory/**", (route) => {
+		const url = new URL(route.request().url());
+		if (url.pathname === "/v1/memory/days")
+			return route.fulfill({
+				json: {
+					items: [
+						{
+							date: today,
+							state: "ready",
+							failure: null,
+							digest: { steps: null, places: 0, photos: 0 },
+							digestPath: null,
+							blocks: [entry("e1", "和投资人确认下周路演", hoursAgo(1)), entry("e2", "整理内测用户反馈", hoursAgo(3))],
+						},
+					],
+					nextCursor: null,
+				},
+			});
+		if (url.pathname === "/v1/memory/files/content") {
+			const path = url.searchParams.get("path") ?? "";
+			return route.fulfill({
+				json: path.includes("印象")
+					? content(path, "# 印象\n喜欢直接的结论，先看表格再看细节；晚上效率最高。")
+					: content(path, "# 近期\n在准备 12 月路演，同时推进 Yonder 内测。"),
+			});
+		}
+		if (url.pathname === "/v1/memory/files") return route.fulfill({ json: { items: files } });
+		return route.fulfill({ status: 404, json: { error: "not_found" } });
+	});
 }
 
-test("the card in 了解 saves a PNG whose QR opens the owner's /@handle with their invite code", async ({ page }) => {
+test("the card shares a PNG whose QR opens /@handle with the invite code, and turns over to what the Bot knows", async ({
+	page,
+}) => {
 	await mkdir(previewDir, { recursive: true });
 	await page.setViewportSize({ width: 390, height: 844 });
 	await setup(page);
-	await page.goto("/memory/about");
-	const section = page.locator("section").filter({ has: page.getByRole("heading", { name: "我的名片" }) });
-	await expect(section.getByRole("img", { name: "我的名片二维码" }).first()).toBeVisible();
-	await expect(section.getByRole("button", { name: "谁可以看到" })).toBeVisible();
-	await page.screenshot({ path: `${previewDir}/memory-card-mobile.png`, animations: "disabled", fullPage: true });
+	await page.goto("/memory");
+	const card = page.getByRole("region", { name: "我的名片" });
+	await expect(card.getByText("做个人 AI 网络")).toBeVisible();
+	await expect(page.getByRole("heading", { name: "最近" })).toBeVisible();
+	await expect(page.getByRole("heading", { name: "全部" })).toBeVisible();
+	// Settings live in 「我」, not on the memory page.
+	await expect(page.getByRole("button", { name: "谁可以看到" })).toHaveCount(0);
+	await page.screenshot({ path: `${previewDir}/memory-home-mobile.png`, animations: "disabled", fullPage: true });
+	await card.getByRole("button", { name: "翻到背面" }).click({ position: { x: 24, y: 24 } });
+	await expect(card.getByText("只有你看得到")).toBeVisible();
+	await page.waitForTimeout(500);
+	await page.screenshot({ path: `${previewDir}/memory-back-mobile.png`, animations: "disabled" });
+	await card.getByRole("button", { name: "翻回正面" }).click({ position: { x: 24, y: 24 } });
+	await card.getByRole("button", { name: "分享我的名片" }).click();
+	const sheet = page.getByRole("dialog", { name: "我的名片" });
+	await expect(sheet.getByRole("img", { name: "我的名片二维码" }).first()).toBeVisible();
+	await page.waitForTimeout(400);
+	await page.screenshot({ path: `${previewDir}/memory-share-mobile.png`, animations: "disabled" });
 	const downloadPromise = page.waitForEvent("download");
-	await section.getByRole("button", { name: "保存图片" }).click();
+	await sheet.getByRole("button", { name: "保存图片" }).click();
 	const download = await downloadPromise;
 	expect(download.suggestedFilename()).toBe(`yonder-${person.handle}.png`);
 	const path = `${previewDir}/memory-card.png`;
 	await download.saveAs(path);
-	const decoded = await decodeQr(page, await readFile(path));
-	expect(decoded).toMatch(new RegExp(`/@${person.handle}\\?i=isolated-invite$`));
-	await expect(section.getByRole("status")).toHaveText("图片已保存");
-	await section.getByRole("button", { name: "谁可以看到" }).click();
-	await expect(page).toHaveURL(/\/me\/privacy$/);
+	expect(await decodeQr(page, await readFile(path))).toMatch(new RegExp(`/@${person.handle}\\?i=isolated-invite$`));
+	await expect(sheet.getByRole("status")).toHaveText("图片已保存");
+	await sheet.getByRole("button", { name: "名片设置" }).click();
+	await expect(page).toHaveURL(/\/me\/profile$/);
 });
 
-test("the card sits above what the Bot knows on a wide window", async ({ page }) => {
-	await mkdir(previewDir, { recursive: true });
-	await page.setViewportSize({ width: 1440, height: 1000 });
-	await setup(page);
-	await page.goto("/memory/about");
-	await expect(page.getByRole("heading", { name: "我的名片" })).toBeVisible();
-	await page.screenshot({ path: `${previewDir}/memory-card-desktop.png`, animations: "disabled" });
-});
+for (const [width, height, name] of [
+	[820, 900, "narrow"],
+	[1440, 1000, "wide"],
+] as const) {
+	test(`the memory home on a ${name} window`, async ({ page }) => {
+		await mkdir(previewDir, { recursive: true });
+		await page.setViewportSize({ width, height });
+		await setup(page);
+		await page.goto("/memory");
+		await expect(page.getByRole("region", { name: "我的名片" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "全部" })).toBeVisible();
+		await page.screenshot({ path: `${previewDir}/memory-home-${name}.png`, animations: "disabled" });
+	});
+}
 
 test("a group sender's avatar opens their card in the side panel", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 1000 });

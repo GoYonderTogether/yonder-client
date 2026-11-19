@@ -1,5 +1,6 @@
 import { mkdir } from "node:fs/promises";
-import { expect, type Page, type TestInfo, test } from "@playwright/test";
+import { devices, expect, type Page, type TestInfo, test } from "@playwright/test";
+import type { ItemSummary, SubtaskSummary } from "@yonder/protocol";
 import { bodies, bot, conversation, isolateChat, message } from "./chat-fixture.ts";
 
 const path = `/messages/${conversation.id}`;
@@ -191,22 +192,37 @@ test("desktop avatar selection, hover, keyboard focus and action icons keep thei
 	await capture(page, testInfo, "desktop-me-hover");
 });
 
-test("actual conversation keeps the empty streaming state inside a bubble and patches its reply through realtime", async ({
+test("actual conversation hides the empty Bot reply and shows reply text and proactive messages through realtime", async ({
 	page,
 }, testInfo) => {
 	await page.setViewportSize({ width: 1180, height: 760 });
+	const question = message("message-01", bodies.question, true);
 	const reply = message("message-02", null, false, true);
-	const api = await isolateChat(page, { items: [message("message-01", bodies.question, true), reply] });
+	const cancelled = message("message-03", "");
+	cancelled.run = {
+		id: "cancelled-run",
+		conversationId: conversation.id,
+		messageId: cancelled.id,
+		userMessageId: question.id,
+		status: "cancelled",
+	};
+	const api = await isolateChat(page, { items: [question, reply, cancelled] });
 	await openChat(page);
 	const bubble = page.locator('[data-message-id="message-02"] .message-bubble-incoming');
-	await expect(bubble.getByRole("status")).toBeVisible();
-	await capture(page, testInfo, "desktop-streaming-placeholder");
+	await expect(page.locator('[data-message-id="message-02"]')).toHaveCount(0);
+	await expect(page.locator('[data-message-id="message-03"]')).toHaveCount(0);
+	await capture(page, testInfo, "desktop-waiting-for-reply");
 	api.update({ ...reply, body: bodies.answer, version: 2 });
 	await expect(bubble).toContainText("双方都保留独立气泡");
 	api.update({ ...reply, body: bodies.answer, version: 3, streaming: false });
 	await expect(bubble.locator(".stream-character")).toHaveCount(0);
 	await assertBubbles(page);
-	await capture(page, testInfo, "desktop-realtime-reply");
+	const proactive = message("message-04", "定时任务已完成，整理结果可以查看了。");
+	api.create(proactive);
+	await expect(page.locator('[data-message-id="message-04"] .message-bubble-incoming')).toHaveText(
+		proactive.body ?? "",
+	);
+	await capture(page, testInfo, "desktop-reply-and-proactive-message");
 });
 
 test("actual group conversation preserves the sender beside their message run", async ({ page }) => {
@@ -215,6 +231,100 @@ test("actual group conversation preserves the sender beside their message run", 
 	const incoming = page.locator(`[data-message-run="${bot.id}"]`);
 	await expect(incoming.getByText("界面验收 BOT", { exact: true })).toBeVisible();
 	await expect(incoming.locator(".message-bubble-incoming")).toContainText("双方都保留独立气泡");
+});
+
+test("Bot header names its active child tasks and shows typing only for a real reply", async ({
+	page,
+	browser,
+	baseURL,
+}, testInfo) => {
+	await page.setViewportSize({ width: 1180, height: 760 });
+	const reply = message("message-02", null, false, true);
+	const history = [message("message-01", bodies.question, true), reply];
+	const api = await isolateChat(page, { items: history });
+	let tasks: ItemSummary[] = [];
+	const routeTasks = (target: Page) =>
+		target.route(
+			(url) => url.pathname === "/v1/items" && url.searchParams.get("activeSubtasks") === "1",
+			async (route) => {
+				const query = new URL(route.request().url()).searchParams;
+				expect(query.get("botId")).toBe(bot.id);
+				await route.fulfill({
+					json:
+						query.get("cursor") === "next"
+							? { items: tasks.slice(1), nextCursor: null }
+							: { items: tasks.slice(0, 1), nextCursor: tasks.length > 1 ? "next" : null },
+				});
+			},
+		);
+	await routeTasks(page);
+	const initialTasks = page.waitForResponse((response) => new URL(response.url()).searchParams.has("activeSubtasks"));
+	await openChat(page);
+	await initialTasks;
+	const header = page.locator("[data-chat-agent-title]");
+	const name = header.getByText(bot.displayName, { exact: true });
+	const status = header.getByRole("status");
+	await expect(name).toBeVisible();
+	await expect(status).toHaveCount(0);
+
+	const first: ItemSummary = {
+		id: "first",
+		title: "整理会议记录",
+		botMemberId: bot.id,
+		conversationId: conversation.id,
+		source: "subtask",
+		state: "running",
+		startedAt: "2026-11-15T00:00:00Z",
+		endedAt: null,
+		result: null,
+		failureReason: null,
+	};
+	tasks = [
+		first,
+		{ ...first, id: "second", title: "核对待办" },
+		{ ...first, id: "other", botMemberId: "other-bot", title: "别的 BOT 子任务" },
+		{ ...first, id: "schedule", source: "schedule_run", title: "定时任务" },
+		{ ...first, id: "finished", state: "completed", title: "已完成子任务" },
+	];
+	const subtask: SubtaskSummary = {
+		id: first.id,
+		title: first.title,
+		conversationId: first.conversationId,
+		parentRunId: "parent",
+		status: "background",
+		createdAt: first.startedAt,
+	};
+	api.updateSubtask(subtask);
+	await expect(status).toHaveText("正在处理：整理会议记录、核对待办");
+	await expect(name).toBeVisible();
+	await expect(header.locator('[aria-hidden="true"].rounded-full')).toHaveCount(0);
+	await capture(page, testInfo, "bot-processing");
+
+	api.update({ ...reply, body: "整理结果已经准备好了。", version: 2 });
+	await expect(status).toHaveText("正在输入");
+	await expect(name).toBeVisible();
+	await capture(page, testInfo, "bot-typing");
+	api.update({ ...reply, body: "整理结果已经准备好了。", version: 3, streaming: false });
+	await expect(status).toHaveText("正在处理：整理会议记录、核对待办");
+
+	const { defaultBrowserType: _browser, ...phoneOptions } = devices["iPhone 13"];
+	const phone = await browser.newContext({ ...phoneOptions, baseURL });
+	try {
+		const mobile = await phone.newPage();
+		await isolateChat(mobile, { items: history });
+		await routeTasks(mobile);
+		await mobile.goto("/messages/main");
+		const mobileStatus = mobile.locator("[data-floating-frame-header] [data-chat-agent-title]").getByRole("status");
+		await expect(mobileStatus).toHaveText("正在处理：整理会议记录、核对待办");
+		expect(await mobileStatus.locator("span").evaluate((label) => label.scrollHeight <= label.clientHeight)).toBe(true);
+		await capture(mobile, testInfo, "bot-processing-mobile");
+	} finally {
+		await phone.close();
+	}
+
+	tasks = [];
+	api.updateSubtask({ ...subtask, status: "completed" });
+	await expect(status).toHaveCount(0);
 });
 
 test("desktop actual route blocks IME Enter then sends only the finished message to the isolated API", async ({

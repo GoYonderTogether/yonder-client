@@ -14,7 +14,7 @@ export const connectorMessagesZhCN = {
 	connected: "已接入",
 	connectedOffline: "已接入 · 设备离线",
 	connectedNotReady: "已接入 · 未就绪",
-	noConnectorsOnDevice: "此设备没有可用连接器",
+	empty: "暂无可用连接器",
 	manage: "管理",
 	enable: "启用",
 	save: "保存更改",

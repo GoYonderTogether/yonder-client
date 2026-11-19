@@ -5,6 +5,7 @@ export { addableContacts, filterContacts, GROUP_MEMBER_LIMIT, recentContacts } f
 export { runSources } from "./run-sources.ts";
 
 import type { Message } from "@yonder/protocol";
+import { runSources } from "./run-sources.ts";
 
 /** Preserve a newer server message and an already received run when a snapshot omits it. */
 export function mergeMessage<T extends Message>(old: T, incoming: T): T {
@@ -38,22 +39,23 @@ export function newestReadableMessage(items: readonly Message[], personId: strin
 	return newest?.id;
 }
 
-export type MessageBlock<T> = { time: Date; messageId: string } | { run: T[] };
+export type MessageBlock<T> = { time: Date; messageId: string; atStart: boolean } | { run: T[] };
 
 /** A time label breaks a sender run, and a system message stands on its own. */
-export function groupMessages<T extends Pick<Message, "id" | "senderId" | "type" | "createdAt">>(items: readonly T[]) {
+export function groupMessages<T extends Message>(items: readonly T[], hasFullHistory = false) {
 	const blocks: MessageBlock<T>[] = [];
 	let previous: Date | undefined;
 	for (const item of items) {
+		if (isEmptyBotReply(item)) continue;
 		const at = new Date(item.createdAt);
 		const milliseconds = at.getTime();
 		if (Number.isFinite(milliseconds)) {
+			const atStart = hasFullHistory && blocks.length === 0;
 			if (
-				!previous ||
-				milliseconds - previous.getTime() >= 5 * 60_000 ||
-				at.toDateString() !== previous.toDateString()
+				atStart ||
+				(previous && (milliseconds - previous.getTime() >= 5 * 60_000 || at.toDateString() !== previous.toDateString()))
 			) {
-				blocks.push({ time: at, messageId: item.id });
+				blocks.push({ time: at, messageId: item.id, atStart });
 			}
 			previous = at;
 		}
@@ -67,6 +69,22 @@ export function groupMessages<T extends Pick<Message, "id" | "senderId" | "type"
 		}
 	}
 	return blocks;
+}
+
+/** A reply record can exist before it has content and stay empty after a run finishes. */
+function isEmptyBotReply(message: Message): boolean {
+	return (
+		message.type === "text" &&
+		message.senderKind === "bot" &&
+		(message.streaming || message.run?.messageId === message.id) &&
+		!message.body?.trim() &&
+		!message.attachments.length &&
+		!message.reaction &&
+		!message.connectorRequestId &&
+		!message.options?.length &&
+		message.run?.status !== "failed" &&
+		!runSources(message.run).length
+	);
 }
 
 export function isHttpLink(value: string): boolean {

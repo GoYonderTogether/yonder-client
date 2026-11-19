@@ -1,16 +1,9 @@
 import { IconButton } from "@yonder/ui-components";
-import { Bot, ContactRound, FileAudio, Plus, ScanLine, UserPlus, Users, UsersRound } from "lucide-react";
+import { Bot, ContactRound, FileAudio, Plus, ScanLine, UserPlus, Users } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-export type ChatAction =
-	| "createBot"
-	| "addContact"
-	| "createGroup"
-	| "scan"
-	| "recordMeeting"
-	| "recordMeetingWithSpeakers"
-	| "contacts";
+export type ChatAction = "createBot" | "addContact" | "createGroup" | "scan" | "recordMeeting" | "contacts";
 const ICONS = {
 	contacts: ContactRound,
 	createBot: Bot,
@@ -18,7 +11,6 @@ const ICONS = {
 	createGroup: Users,
 	scan: ScanLine,
 	recordMeeting: FileAudio,
-	recordMeetingWithSpeakers: UsersRound,
 };
 
 export function ChatMenu({
@@ -40,7 +32,7 @@ export function ChatMenu({
 	const actions: ChatAction[] = mobile
 		? ["scan", "createBot", "addContact", "createGroup", "contacts"]
 		: ["createBot", "addContact", "createGroup"];
-	if (meetings) actions.push("recordMeeting", "recordMeetingWithSpeakers");
+	if (meetings) actions.push("recordMeeting");
 	useEffect(() => {
 		if (!open) return;
 		const dismiss = (event: Event) => {

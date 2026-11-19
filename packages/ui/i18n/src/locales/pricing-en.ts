@@ -21,7 +21,7 @@ export const pricingMessagesEn = {
 	rulesTitle: "Each balance",
 	purpose: {
 		main: "Chatting with your Bot and its own tools",
-		background: "Scheduled tasks, meeting notes and background work",
+		background: "Scheduled tasks, recording notes and background work",
 		coding: "Subtasks that use a connector",
 		external: "Other people talking to your Bot",
 	},

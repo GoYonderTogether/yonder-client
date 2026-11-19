@@ -2,7 +2,8 @@ import type { MemoryFileSummary } from "@yonder/protocol";
 import { describe, expect, test } from "vitest";
 import { diffLines } from "./memory-diff.tsx";
 import { groupFiles } from "./memory-file-list.tsx";
-import { memoryFileRoute } from "./memory-navigation.ts";
+import { summarizeGroups } from "./memory-home.tsx";
+import { fileGroup, memoryFileParent, memoryFileRoute, readMemoryView } from "./memory-view.ts";
 import { measure, relativeTime } from "./memory-who.ts";
 
 const summary = (path: string, updatedAt = "2026-11-18T00:00:00Z"): MemoryFileSummary => ({
@@ -18,7 +19,7 @@ const summary = (path: string, updatedAt = "2026-11-18T00:00:00Z"): MemoryFileSu
 });
 
 describe("the file list", () => {
-	test("groups by what files are, newest first, and leaves the /me files to 「了解」", () => {
+	test("groups by what files are, newest first, and leaves the card's /me files out", () => {
 		const groups = groupFiles(
 			[
 				summary("/me/印象.md"),
@@ -44,9 +45,40 @@ describe("the file list", () => {
 });
 
 describe("routes", () => {
-	test("the /me files open 「了解」; every other file has its own page", () => {
-		expect(memoryFileRoute("/me/近期.md")).toBe("/memory/about");
+	test("every file has its own page; back goes to its group, the card's files back to the home", () => {
 		expect(memoryFileRoute("/notes/a b.md")).toBe(`/memory/files/${encodeURIComponent("/notes/a b.md")}`);
+		expect(memoryFileParent("/sources/会议/x.md")).toBe(`/memory/g/${encodeURIComponent("sources:会议")}`);
+		expect(memoryFileParent("/me/近期.md")).toBe("/memory");
+		expect(fileGroup("/me/印象.md")).toBeNull();
+	});
+
+	test("the URL names the view", () => {
+		expect(readMemoryView(null, null)).toEqual({ kind: "home" });
+		expect(readMemoryView("timeline", null)).toEqual({ kind: "timeline" });
+		expect(readMemoryView("g", "notes")).toEqual({ kind: "group", group: "notes" });
+		expect(readMemoryView("files", "/notes/a.md")).toEqual({ kind: "file", path: "/notes/a.md" });
+		expect(readMemoryView("about", null)).toEqual({ kind: "home" });
+	});
+});
+
+describe("the home's groups", () => {
+	test("count files and drafts per group, in a fixed order, with the card's files left out", () => {
+		const draft = { ...summary("/public/草稿.md"), draft: true };
+		expect(
+			summarizeGroups([
+				summary("/me/印象.md"),
+				summary("/public/资料.md"),
+				draft,
+				summary("/sources/会议/a.md"),
+				summary("/notes/a.md"),
+				summary("/digests/day/2026-11-18.md"),
+			]),
+		).toEqual([
+			{ group: "notes", files: 1, drafts: 0 },
+			{ group: "sources:会议", files: 1, drafts: 0 },
+			{ group: "digests", files: 1, drafts: 0 },
+			{ group: "public", files: 2, drafts: 1 },
+		]);
 	});
 });
 

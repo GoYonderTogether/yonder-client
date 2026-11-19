@@ -4,12 +4,12 @@ import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { useNavigate } from "react-router";
 import { primaryConversation } from "../conversation-presentation.tsx";
 
-/** The two `/me` files live in 「了解」; every other file has its own page under 「文件」. */
+import { memoryFileRoute } from "./memory-view.ts";
+
+/** The two `/me` files: the back of the card, what the Bot knows about the owner. */
 export const ABOUT_PATHS = ["/me/印象.md", "/me/近期.md"] as const;
 
-export function memoryFileRoute(path: string): string {
-	return path.startsWith("/me/") ? "/memory/about" : `/memory/files/${encodeURIComponent(path)}`;
-}
+export { memoryFileRoute };
 
 export function useOpenMemoryFile() {
 	const navigate = useNavigate();

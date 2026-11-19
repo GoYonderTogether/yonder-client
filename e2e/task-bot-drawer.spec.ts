@@ -72,13 +72,16 @@ test("the task drawer preserves the active meeting controls and blocks short dic
 	await isolateChat(page, { items: [] });
 	await page.goto("/messages/main");
 	await page.getByRole("button", { name: "添加附件" }).click();
-	await page.getByRole("button", { name: "会议录音", exact: true }).click();
+	await page.getByRole("button", { name: "录音笔记", exact: true }).click();
 	const stop = page.getByRole("button", { name: "结束录音", exact: true });
 	await expect(stop).toBeVisible();
 	await page.getByRole("button", { name: "任务", exact: true }).click();
 	await page.getByRole("button", { name: "新建事项" }).click();
 	const drawer = page.getByRole("dialog", { name: bot.displayName });
-	await drawer.getByRole("textbox", { name: /^对 界面验收/ }).fill("");
+	const input = drawer.getByRole("textbox", { name: /^对 界面验收/ });
+	await expect(input).toHaveValue("帮我做一件事：");
+	await input.fill("");
+	await expect(input).toHaveValue("");
 	await expect(drawer.getByRole("button", { name: "语音输入" })).toBeDisabled();
 	await expect(drawer.getByRole("button", { name: "结束录音", exact: true })).toBeVisible();
 	await expect(stop).toHaveCount(1);

@@ -1,5 +1,5 @@
 import { ComposerFrame, ComposerLayout } from "@yonder/chat-presentation";
-import { ArrowUp, FileAudio, FileText, Image, Keyboard, Mic, Plus, Square, UsersRound } from "lucide-react";
+import { ArrowUp, FileAudio, FileText, Image, Keyboard, Mic, Plus, Square } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -286,28 +286,16 @@ export function Composer({
 										{t("chat.uploadFiles")}
 									</button>
 									{onMeeting ? (
-										<>
-											<button
-												type="button"
-												onClick={() => {
-													setMenu(false);
-													onMeeting();
-												}}
-											>
-												<FileAudio size={18} aria-hidden="true" />
-												{t("chatActions.recordMeeting")}
-											</button>
-											<button
-												type="button"
-												onClick={() => {
-													setMenu(false);
-													onMeeting(true);
-												}}
-											>
-												<UsersRound size={18} aria-hidden="true" />
-												{t("chatActions.recordMeetingWithSpeakers")}
-											</button>
-										</>
+										<button
+											type="button"
+											onClick={() => {
+												setMenu(false);
+												onMeeting();
+											}}
+										>
+											<FileAudio size={18} aria-hidden="true" />
+											{t("chatActions.recordMeeting")}
+										</button>
 									) : null}
 								</fieldset>
 							) : null}

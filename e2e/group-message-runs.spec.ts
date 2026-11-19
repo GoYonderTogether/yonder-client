@@ -262,7 +262,7 @@ test("stream patches and same-sender appends keep one header, while a returning 
 	const api = await openGroup(page, { items });
 	const runs = page.locator("[data-message-run]");
 	const bubble = page.locator(`[data-message-id="${reply.id}"] .message-bubble`);
-	await expect(bubble.getByRole("status")).toBeVisible();
+	await expect(page.locator(`[data-message-id="${reply.id}"]`)).toHaveCount(0);
 	api.update({ ...reply, body: "正在整理群聊。", version: 2 });
 	await expect(bubble).toHaveText("正在整理群聊。");
 	await expect(page.locator("[data-message-sender-header]")).toHaveCount(5);
