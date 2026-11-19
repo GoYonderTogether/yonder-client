@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26111904] - 2026-11-19
+
+### Added
+
+- quota：one-screen quota dashboard with pool meters, daily chart and drill-down pages
+
 ## [0.3.26111903] - 2026-11-19
 
 ### Added
