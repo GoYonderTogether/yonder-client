@@ -5,6 +5,7 @@ import { Overlay, useShellChrome } from "@yonder/ui-shell";
 import { FolderSearch, MonitorCog } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { deviceDisplayName } from "../components/device-display-name.ts";
 import type { LocalFilesAdapter } from "./local-files-adapter.ts";
 
 export interface ConnectorPanelProps {
@@ -138,18 +139,11 @@ export function ConnectorPanel({
 					<Icon size={28} aria-hidden className="shrink-0 text-[var(--color-text-secondary)]" />
 					<p className="text-body text-[var(--color-text-secondary)]">{t(`connectors.${key}.description`)}</p>
 				</div>
-				{instance ? (
-					<p className="break-words text-body">
-						{instance.deviceName}
-						{legacy ? ` · ${instance.name}` : ""}
-						{instance.currentDevice ? ` · ${t("me.account.sessionCurrent")}` : ""}
-					</p>
-				) : (
-					<p className="text-body">
-						{device.name}
-						{device.current ? ` · ${t("me.account.sessionCurrent")}` : ""}
-					</p>
-				)}
+				<p className="break-words text-body">
+					{deviceDisplayName(device)}
+					{legacy ? ` · ${instance.name}` : ""}
+					{(instance?.currentDevice ?? device.current) ? ` · ${t("me.account.sessionCurrent")}` : ""}
+				</p>
 				{legacy ? <p className="text-body text-[var(--color-text-secondary)]">{t("connectors.legacyScope")}</p> : null}
 				<details className="text-caption text-[var(--color-text-secondary)]">
 					<summary className="cursor-pointer">{t("connectors.usage")}</summary>
@@ -157,7 +151,7 @@ export function ConnectorPanel({
 				</details>
 				{!canConfigure && changed ? (
 					<p className="text-caption text-[var(--color-text-secondary)]">
-						{t(device ? "connectors.onDevice" : "connectors.needsDesktop", { device: device?.name })}
+						{t("connectors.onDevice", { device: deviceDisplayName(device) })}
 					</p>
 				) : null}
 				{error ? (

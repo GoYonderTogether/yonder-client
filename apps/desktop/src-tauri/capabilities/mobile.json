@@ -2,5 +2,13 @@
 	"identifier": "mobile",
 	"windows": ["main"],
 	"platforms": ["android", "iOS"],
-	"permissions": ["core:default", "meeting-recorder:default", "yonder-notifications:default"]
+	"permissions": [
+		"core:default",
+		"meeting-recorder:default",
+		"yonder-device-download:allow-open",
+		"yonder-device-download:allow-share",
+		"yonder-device-download:allow-copy",
+		"yonder-device-info:default",
+		"yonder-notifications:default"
+	]
 }

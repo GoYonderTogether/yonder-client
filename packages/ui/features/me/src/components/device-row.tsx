@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 export function DeviceRow({
 	name,
+	systemName,
 	platform,
 	current,
 	status,
@@ -11,6 +12,7 @@ export function DeviceRow({
 	children,
 }: {
 	name: string;
+	systemName?: string | undefined;
 	platform: string;
 	current: boolean;
 	status?: "online" | "offline" | undefined;
@@ -23,15 +25,18 @@ export function DeviceRow({
 		<li className="group/row relative flex min-h-[var(--row-height)] items-center gap-[var(--spacing-3)] px-[var(--spacing-4)] py-[var(--spacing-2)]">
 			<Icon size={18} strokeWidth={1.7} className="shrink-0 text-[var(--color-text-tertiary)]" aria-hidden />
 			<span className="flex min-w-0 flex-1 flex-col">
-				<span className="truncate text-body text-[var(--color-text-primary)]">
-					{name}
+				<span className="flex items-baseline gap-[var(--spacing-2)] text-body text-[var(--color-text-primary)]">
+					<span className="truncate" title={name}>
+						{name}
+					</span>
 					{current ? (
-						<span className="ms-[var(--spacing-2)] text-micro text-[var(--color-accent-text)]">
+						<span className="shrink-0 text-micro text-[var(--color-accent-text)]">
 							{t("me.account.sessionCurrent")}
 						</span>
 					) : null}
 				</span>
-				<span className="text-caption text-[var(--color-text-tertiary)]">
+				<span className="break-words text-caption text-[var(--color-text-tertiary)]">
+					{systemName ? `${systemName} · ` : ""}
 					{t(`me.devices.platforms.${platform}`, { defaultValue: platform })}
 					{status ? ` · ${t(`me.devices.${status}`)}` : ""}
 					{lastSeenAt

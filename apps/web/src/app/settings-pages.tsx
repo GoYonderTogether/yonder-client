@@ -10,6 +10,7 @@ import { useLocation, useNavigate } from "react-router";
 import { BUILD_VERSION } from "../lib/config.ts";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
+import { useConnectDevice } from "./connect-device.tsx";
 import { ReceptionOverview, ReceptionSetting } from "./reception-setting.tsx";
 import { botSettingsPath, channelsSettingsPath } from "./settings-navigation.ts";
 import { SocialDrafts, SocialInfo, SocialPersona } from "./social-settings.tsx";
@@ -43,6 +44,7 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 	const location = useLocation();
 	const navigate = useNavigate();
 	const hasPassword = useHasPassword();
+	const connectDevice = useConnectDevice(props.onOpen);
 	const [section, page, leaf, extra] = locate(path)?.detail ?? [];
 	if (!isMeSection(section)) return <NotFoundPage />;
 	if (section === "bots") {
@@ -83,29 +85,32 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 	}
 	if (section !== "reception") {
 		return (
-			<MeSectionPage
-				{...legacy}
-				appVersion={BUILD_VERSION}
-				aboutUpdate={<UpdateControls />}
-				renderChangePassword={(onDone) => (
-					<PasswordSetupForm
-						mode={hasPassword ? "change" : "set"}
-						onDone={onDone}
-						onSkip={onDone}
-						showHeading={false}
-					/>
-				)}
-				section={section}
-				page={page ?? null}
-				onOpenPage={(next) =>
-					next ? props.onOpen(`/me/${section}/${encodeURIComponent(next)}`) : props.onBack(`/me/${section}`)
-				}
-				onOpenDevices={() => props.onOpen("/me/devices")}
-				onAddDevice={() => props.onOpen("/download?connect-device=1")}
-				onSignedOut={() => navigate("/sign-in", { replace: true })}
-				onOpenLegal={(document) => navigate(`/${document}`, { state: { backgroundLocation: location } })}
-				privacy={<PrivacySwitches />}
-			/>
+			<>
+				<MeSectionPage
+					{...legacy}
+					appVersion={BUILD_VERSION}
+					aboutUpdate={<UpdateControls />}
+					renderChangePassword={(onDone) => (
+						<PasswordSetupForm
+							mode={hasPassword ? "change" : "set"}
+							onDone={onDone}
+							onSkip={onDone}
+							showHeading={false}
+						/>
+					)}
+					section={section}
+					page={page ?? null}
+					onOpenPage={(next) =>
+						next ? props.onOpen(`/me/${section}/${encodeURIComponent(next)}`) : props.onBack(`/me/${section}`)
+					}
+					onOpenDevices={() => props.onOpen("/me/devices")}
+					onAddDevice={connectDevice.onAddDevice}
+					onSignedOut={() => navigate("/sign-in", { replace: true })}
+					onOpenLegal={(document) => navigate(`/${document}`, { state: { backgroundLocation: location } })}
+					privacy={<PrivacySwitches />}
+				/>
+				{connectDevice.overlay}
+			</>
 		);
 	}
 	if (leaf) return <NotFoundPage />;

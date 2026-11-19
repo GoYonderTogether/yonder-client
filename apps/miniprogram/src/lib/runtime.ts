@@ -98,7 +98,7 @@ subscribeEvents((event) => {
 });
 
 export function deviceInfo(): DeviceInfo & { installationId: string } {
-	const info = Taro.getSystemInfoSync();
+	const model = Taro.getSystemInfoSync().model?.trim();
 	const key = "yonder.mini.installation";
 	let installationId = Taro.getStorageSync(key);
 	if (!installationId) {
@@ -107,7 +107,7 @@ export function deviceInfo(): DeviceInfo & { installationId: string } {
 	}
 	return {
 		installationId,
-		name: `WeChat · ${info.model}`,
+		name: model && model.length <= 128 ? model : "WeChat",
 		platform: "miniprogram",
 		appVersion,
 	};

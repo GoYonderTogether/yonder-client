@@ -14,7 +14,7 @@ vi.mock("@tarojs/taro", () => ({
 		setStorageSync: (key: string, value: unknown) => mock.store.set(key, value),
 		removeStorageSync: (key: string) => mock.store.delete(key),
 		getStorageInfoSync: () => ({ keys: [...mock.store.keys()] }),
-		getSystemInfoSync: () => ({ language: "zh-CN", model: "test", system: "iOS" }),
+		getSystemInfoSync: () => ({ language: "zh-CN", model: " iPhone  ", system: "iOS" }),
 		getFileSystemManager: () => ({ unlink: mock.unlink, readFileSync: () => new ArrayBuffer(1) }),
 		downloadFile: mock.downloadFile,
 		reLaunch: mock.reLaunch,
@@ -97,9 +97,9 @@ test("switching the API base does not send another service's refresh credential"
 	}
 });
 
-test("identifies this device as a mini program", async () => {
+test("registers the system model as the mini program's device name", async () => {
 	const runtime = await import("./runtime");
-	expect(runtime.deviceInfo().platform).toBe("miniprogram");
+	expect(runtime.deviceInfo()).toMatchObject({ platform: "miniprogram", name: "iPhone" });
 });
 
 test("signing out clears the local session even when the server refuses the request", async () => {

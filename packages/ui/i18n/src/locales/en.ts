@@ -5,7 +5,7 @@ import { composerAttachmentsEn } from "./composer-attachments-en.ts";
 import { connectorMessagesEn } from "./connectors-en.ts";
 import { friendQrEn, friendRequestsEn } from "./friend-qr-en.ts";
 import { inviteExperienceEn } from "./invite-experience-en.ts";
-import { landingPageEn } from "./landing-page-en.ts";
+import { connectDeviceDownloadEn, landingPageEn } from "./landing-page-en.ts";
 import { meetingRecorderEn } from "./meeting-recorder-en.ts";
 import { membersMessagesEn } from "./members-en.ts";
 import { memoryMessagesEn } from "./memory-en.ts";
@@ -58,8 +58,7 @@ export const en = {
 	legal: { version: "Version {{version}}", effectiveDate: "Effective {{date}}" },
 
 	landing: {
-		deviceGuide:
-			"Install Yonder on the device you want to connect and sign in to the same account. It will appear automatically.",
+		...connectDeviceDownloadEn,
 		allDownloads: "All downloads",
 		backHome: "Yonder home",
 		choosePlatform: "Wrong platform? Choose manually",

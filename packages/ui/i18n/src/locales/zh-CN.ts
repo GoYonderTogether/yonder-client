@@ -6,7 +6,7 @@ import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
 import type { Messages } from "./en.ts";
 import { friendQrZhCN, friendRequestsZhCN } from "./friend-qr-zh-CN.ts";
 import { inviteExperienceZhCN } from "./invite-experience-zh-CN.ts";
-import { landingPageZhCN } from "./landing-page-zh-CN.ts";
+import { connectDeviceDownloadZhCN, landingPageZhCN } from "./landing-page-zh-CN.ts";
 import { meetingRecorderZhCN } from "./meeting-recorder-zh-CN.ts";
 import { membersMessagesZhCN } from "./members-zh-CN.ts";
 import { memoryMessagesZhCN } from "./memory-zh-CN.ts";
@@ -60,7 +60,7 @@ export const zhCN: Messages = {
 	legal: { version: "版本 {{version}}", effectiveDate: "生效日期 {{date}}" },
 
 	landing: {
-		deviceGuide: "在需要接入的设备安装 Yonder，并登录同一账号，设备会自动出现。",
+		...connectDeviceDownloadZhCN,
 		allDownloads: "全部下载",
 		backHome: "Yonder 首页",
 		choosePlatform: "不对？手动选",

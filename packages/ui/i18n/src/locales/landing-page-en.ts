@@ -1,3 +1,13 @@
+export const connectDeviceDownloadEn = {
+	deviceGuide: "Install Yonder on the device you want to connect and sign in to the same account.",
+	shareDownload: "Share download link",
+	shareDownloadFailed: "Could not share the download link.",
+	copyDownloadLink: "Copy download link",
+	openDownloadInBrowser: "Open in browser",
+	openDownloadFailed: "Could not open the download page.",
+	supportsConnector: "Supports connectors",
+};
+
 /** Landing page copy. People, conversations and figures on the page are illustrative scenes; the footer says so. */
 export const landingPageEn = {
 	nav: {

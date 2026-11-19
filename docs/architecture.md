@@ -97,6 +97,8 @@ packages/api-client ─▶ packages/protocol（不依赖任何包）
 
 公开路由：`/`（落地页）、`/download`、`/sign-in`、`/terms`、`/privacy`、`/pricing`、`/i/:code`（邀请）、`/@ID`（名片）。
 
+- 设备管理和连接器共用「连接其他设备」入口。网页在当前标签打开下载页，桌面壳调用系统默认浏览器，移动壳优先提供系统分享，并可复制链接或用浏览器打开。从连接器进入时，下载页优先列出该连接器支持的平台。链接只传递公开下载页和平台信息，原设备接收 `devices.changed` 后更新列表。
+
 ## 数据和缓存
 
 - 服务端数据都经 `packages/ui/data` 的 hooks 读写，页面不直接调 `api-client`。

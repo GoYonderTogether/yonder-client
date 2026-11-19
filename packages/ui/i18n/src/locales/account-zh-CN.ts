@@ -202,6 +202,12 @@ export const accountMessagesZhCN = {
 			offline: "离线",
 			loadFailed: "设备加载失败",
 			open: "查看设备",
+			editRemark: "编辑备注",
+			editRemarkFor: "编辑 {{device}} 的备注",
+			remark: "设备备注",
+			remarkHint: "留空时使用系统设备名。",
+			remarkTooLong: "备注最多 80 个字。",
+			remarkFailed: "备注保存失败，请重试。",
 			platforms: {
 				web: "网页",
 				macos: "macOS",

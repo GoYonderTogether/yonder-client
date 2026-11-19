@@ -1,5 +1,15 @@
 import type { LandingPageMessages } from "./landing-page-en.ts";
 
+export const connectDeviceDownloadZhCN = {
+	deviceGuide: "在要连接的设备上安装 Yonder，并登录同一账号。",
+	shareDownload: "分享下载链接",
+	shareDownloadFailed: "无法分享下载链接。",
+	copyDownloadLink: "复制下载链接",
+	openDownloadInBrowser: "在浏览器中打开",
+	openDownloadFailed: "无法打开下载页。",
+	supportsConnector: "支持连接器",
+};
+
 /** 落地页文案。页面中的人物、对话和数字是场景演示，页脚有一行说明。 */
 export const landingPageZhCN: LandingPageMessages = {
 	nav: {

@@ -1,5 +1,7 @@
 use tauri::Manager;
 
+mod device_download;
+mod device_info;
 mod notifications;
 
 #[cfg(desktop)]
@@ -36,7 +38,9 @@ mod android_update;
 /// with `rfd`; it is not a plugin, so there is no `dialog:` command for page script to call.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default().plugin(tauri_plugin_meeting_recorder::init());
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_meeting_recorder::init())
+        .plugin(device_info::init());
     #[cfg(target_os = "android")]
     let builder = builder.plugin(android_update::init());
     #[cfg(desktop)]
@@ -62,6 +66,9 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init());
     let app = builder
+        .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(device_download::init())
         .plugin(notifications::init())
         .setup(|app| {
             // Local/CI builds have no updater key. Release builds inject the real public key;

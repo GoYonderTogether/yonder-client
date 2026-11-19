@@ -11,7 +11,7 @@ The 「我」 overlay — layer three of the shell.
 | 额度 / 邀请和分享 | actual quota ledger and invitation data                                                   |
 | 模型              | user providers, key replacement, model discovery and connection test                      |
 | 技能              | platform/user skills, enablement, folder import/replacement and on-demand text files      |
-| 设备              | signed-in devices, current device and live connection status                              |
+| 设备              | signed-in devices, editable remarks, current device and live connection status            |
 | 连接器            | horizontal device anchors above per-device groups; inspect, connect locally or disconnect |
 | 通用              | language (中文 / English) and appearance (system / light / dark)                          |
 | 关于              | version, server version, and the two legal documents, not built yet                       |
@@ -35,6 +35,7 @@ The 「我」 overlay — layer three of the shell.
   attach up to five distinct confirmed skill IDs.
 
 - **Device connector grants stay separate.** The horizontal device navigation scrolls to stable device-ID sections and highlights the current section as the page scrolls. The navigation and sections list the same signed-in native devices with at least one supported connector. Each device has its own section, even when names match. Connected entries remain actionable while offline. System authorization happens on the target device. Another client may inspect or disconnect the grant.
+- **Device names and remarks.** The device list shows the name reported by the installation by default. A remark takes precedence in the device list and its connector group. Clearing the remark restores the reported name. Remarks sync across the account and survive re-registration of the same installation.
 
 ## What it does not do
 

@@ -204,6 +204,12 @@ export const accountMessagesEn = {
 			offline: "Offline",
 			loadFailed: "Could not load devices",
 			open: "View devices",
+			editRemark: "Edit remark",
+			editRemarkFor: "Edit remark for {{device}}",
+			remark: "Device remark",
+			remarkHint: "Leave blank to use the system device name.",
+			remarkTooLong: "Use at most 80 characters.",
+			remarkFailed: "Could not save the remark. Try again.",
 			platforms: {
 				web: "Web",
 				macos: "macOS",

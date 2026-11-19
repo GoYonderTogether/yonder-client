@@ -257,11 +257,13 @@ test("same-name devices keep independent connected state by id, including offlin
 });
 
 test("a remote device never receives a fake local grant even when this adapter is supported", () => {
-	state.devices.push({ ...firstDevice, id: "dev_b", name: "Work computer", current: false });
+	state.devices.push({ ...firstDevice, id: "dev_b", name: "Work computer", remark: "Studio computer", current: false });
 	const native = adapter();
 	show(native);
+	expect(screen.getByRole("link", { name: "Studio computer" })).toBeVisible();
+	expect(within(group("dev_b")).getByRole("heading", { name: "Studio computer" })).toBeVisible();
 	openRead("dev_b");
-	expect(screen.getByText("Continue in Yonder on Work computer to enable this connector.")).toBeVisible();
+	expect(screen.getByText("Continue in Yonder on Studio computer to enable this connector.")).toBeVisible();
 	expect(screen.queryByRole("button", { name: "Enable" })).toBeNull();
 	expect(state.create).not.toHaveBeenCalled();
 	expect(native.authorize).not.toHaveBeenCalled();

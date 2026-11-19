@@ -18,7 +18,7 @@ import {
 	requestMainAccessToken,
 	serveContactWindowSession,
 } from "../lib/contact-window.ts";
-import { deviceInfo } from "../lib/device-info.ts";
+import { loadSystemDeviceName, SystemDeviceName, useDeviceInfo } from "../lib/device-info.ts";
 import type { KeychainStorage } from "../lib/keychain.ts";
 import { createKeychainStorage, isTauri } from "../lib/keychain.ts";
 import { localFilesSupported, resetLocalFiles } from "../lib/local-files.ts";
@@ -35,37 +35,36 @@ import { AppRouter } from "./router.tsx";
  */
 export function App() {
 	const contactStorage = useMemo(() => (isContactWindow() ? createContactStorage() : undefined), []);
-	// In a shell, the refresh token comes from the OS keychain; the read is async, so the providers
-	// wait for it rather than starting a session-less boot.
-	const [keychain, setKeychain] = useState<KeychainStorage | null>(null);
-	const [ready, setReady] = useState(!isTauri() || isContactWindow());
+	const needsShellBoot = isTauri() && !contactStorage;
+	// Read the native device name alongside the keychain so sign-in and session restoration agree.
+	const [shell, setShell] = useState<{ keychain: KeychainStorage; name: string | null } | null>(null);
 
 	useEffect(() => {
-		if (!isTauri() || isContactWindow()) return;
+		if (!needsShellBoot) return;
 		let cancelled = false;
-		void createKeychainStorage().then(async (storage) => {
-			await storage.ready;
-			if (cancelled) return;
-			setKeychain(storage);
-			setReady(true);
+		void Promise.all([createKeychainStorage(), loadSystemDeviceName()]).then(async ([keychain, name]) => {
+			await keychain.ready;
+			if (!cancelled) setShell({ keychain, name });
 		});
 		return () => {
 			cancelled = true;
 		};
-	}, []);
+	}, [needsShellBoot]);
 
-	if (!ready) return <BootSplash />;
+	if (needsShellBoot && !shell) return <BootSplash />;
 
 	return (
 		<DataProvider
 			baseUrl={apiBaseUrl({ shell: isTauri(), dev: import.meta.env.DEV })}
 			appVersion={BUILD_VERSION}
 			clientKind={isTauri() ? "shell" : "web"}
-			{...(keychain ? { refreshTokenStorage: keychain } : {})}
+			{...(shell ? { refreshTokenStorage: shell.keychain } : {})}
 			{...(isContactWindow() ? { refreshAccessToken: requestMainAccessToken } : {})}
 			{...(contactStorage ? { storage: contactStorage } : { onSessionChange: changeSession })}
 		>
-			<Localised />
+			<SystemDeviceName value={shell?.name ?? null}>
+				<Localised />
+			</SystemDeviceName>
 		</DataProvider>
 	);
 }
@@ -76,7 +75,7 @@ export function App() {
  */
 function Localised() {
 	const { client, storage } = useData();
-	const device = useMemo(() => deviceInfo(storage, BUILD_VERSION), [storage]);
+	const device = useDeviceInfo(storage, BUILD_VERSION);
 	const registration = useDeviceRegistration(isContactWindow() ? null : device);
 	const { locale } = useLocalePreference();
 	useTheme();

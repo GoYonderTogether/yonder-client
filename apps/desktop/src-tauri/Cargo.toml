@@ -18,6 +18,8 @@ tauri = { version = "=2.12.5", features = [] }
 serde_json = "=1.0.145"
 serde = { version = "=1.0.229", features = ["derive"] }
 tauri-plugin-meeting-recorder = { path = "../../../plugins/meeting-recorder" }
+tauri-plugin-opener = "=2.5.4"
+tauri-plugin-clipboard-manager = "=2.5.0"
 
 # The refresh token lives in the OS credential store: Keychain on macOS, Credential Manager on
 # Windows, libsecret on Linux. The webview never persists it (10-质量 第四节). The plugin has no

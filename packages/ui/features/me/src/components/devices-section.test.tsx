@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import type { DeviceSummary } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
@@ -24,7 +25,7 @@ const state = vi.hoisted(() => ({
 			lastSeenAt: "2026-11-15T00:00:00Z",
 			appVersion: "1",
 		},
-	],
+	] as DeviceSummary[],
 	revoke: vi.fn(),
 }));
 vi.mock("@yonder/ui-data", () => ({
@@ -72,7 +73,7 @@ test.each(["zh-CN", "en"] as const)(
 		expect(screen.getByText(locale === "en" ? "Windows · Online" : "Windows · 在线", { exact: false })).toBeVisible();
 		expect(screen.getByText(locale === "en" ? "Windows · Offline" : "Windows · 离线", { exact: false })).toBeVisible();
 		expect(screen.queryByRole("switch")).toBeNull();
-		expect(screen.queryByRole("button")).toBeNull();
+		expect(screen.getAllByRole("button", { name: /edit remark|编辑.+的备注/i })).toHaveLength(2);
 	},
 );
 
@@ -95,6 +96,27 @@ test("the security list links to devices and signs out only the selected session
 	expect(within(rows[0]).queryByRole("button", { name: "Sign out" })).toBeNull();
 	fireEvent.click(within(rows[1]).getByRole("button", { name: "Sign out" }));
 	expect(state.revoke).toHaveBeenCalledWith("ses_1");
+});
+
+test("a session uses the device remark without changing the session sign-out target", () => {
+	const previous = state.items;
+	state.items = state.items.map((device) =>
+		device.id === "dev_b" ? { ...device, remark: "Studio computer" } : device,
+	);
+	try {
+		render(
+			<I18nextProvider i18n={createI18n("en")}>
+				<AccountSection onChangePassword={() => {}} onChangePhone={() => {}} onSignedOut={() => {}} />
+			</I18nextProvider>,
+		);
+		const row = screen.getByText("Studio computer").closest("li");
+		if (!row) throw new Error("missing remarked device row");
+		expect(within(row).getByText(/Windows PC · Windows · Offline/)).toBeVisible();
+		fireEvent.click(within(row).getByRole("button", { name: "Sign out" }));
+		expect(state.revoke).toHaveBeenLastCalledWith("ses_1");
+	} finally {
+		state.items = previous;
+	}
 });
 
 test("the empty device list still links to the connection guide", () => {

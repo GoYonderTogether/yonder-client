@@ -4,6 +4,7 @@ import { useConnectorCatalog, useConnectors, useDevices } from "@yonder/ui-data"
 import { Laptop, Smartphone } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { deviceDisplayName } from "../components/device-display-name.ts";
 import { ConnectorCard } from "./connector-card.tsx";
 import { ConnectorPanel } from "./connector-panel.tsx";
 import type { LocalFilesAdapter } from "./local-files-adapter.ts";
@@ -11,9 +12,10 @@ import type { LocalFilesAdapter } from "./local-files-adapter.ts";
 export interface ConnectorsSectionProps {
 	localFiles?: LocalFilesAdapter | undefined;
 	onOpenDevices?: (() => void) | undefined;
+	onAddDevice?: ((platforms: readonly DeviceSummary["platform"][]) => void) | undefined;
 }
 
-export function ConnectorsSection({ localFiles, onOpenDevices }: ConnectorsSectionProps) {
+export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: ConnectorsSectionProps) {
 	const { t, i18n } = useTranslation();
 	const catalog = useConnectorCatalog();
 	const connections = useConnectors();
@@ -106,12 +108,13 @@ export function ConnectorsSection({ localFiles, onOpenDevices }: ConnectorsSecti
 		setSelected({ connectorId: definition.id, deviceId: device.id, ...(instanceId ? { instanceId } : {}) });
 	};
 	function label(item: DeviceSummary) {
-		const name = item.current ? `${item.name} · ${t("me.account.sessionCurrent")}` : item.name;
+		const displayName = deviceDisplayName(item);
+		const name = item.current ? `${displayName} · ${t("me.account.sessionCurrent")}` : displayName;
 		if (!isDuplicate(item)) return name;
 		return `${name} · ${t(`me.devices.platforms.${item.platform}`)} · ${new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, { dateStyle: "short", timeStyle: "medium" }).format(new Date(item.lastSeenAt))}`;
 	}
 	function isDuplicate(item: DeviceSummary) {
-		return groups.some(({ device }) => device.id !== item.id && device.name === item.name);
+		return groups.some(({ device }) => device.id !== item.id && deviceDisplayName(device) === deviceDisplayName(item));
 	}
 	if (loading)
 		return (
@@ -133,15 +136,21 @@ export function ConnectorsSection({ localFiles, onOpenDevices }: ConnectorsSecti
 				/>
 			</ListGroup>
 		);
-	if (!groups.length)
+	if (!groups.length) {
+		const platforms = catalog.data?.items.flatMap((definition) => definition.platforms) ?? [];
+		const addDevice = platforms.length && onAddDevice ? () => onAddDevice(platforms) : undefined;
+		const onClick = addDevice ?? onOpenDevices;
 		return (
 			<ListGroup>
 				<ListRow
 					title={t(devices.data?.items.length ? "connectors.empty" : "me.devices.emptyTitle")}
-					{...(onOpenDevices ? { trailing: t("connectors.viewDevices"), onClick: onOpenDevices } : { disabled: true })}
+					{...(onClick
+						? { trailing: t(addDevice ? "me.devices.add" : "connectors.viewDevices"), onClick }
+						: { disabled: true })}
 				/>
 			</ListGroup>
 		);
+	}
 	return (
 		<>
 			<div className="flex min-w-0 flex-col gap-[var(--spacing-6)]">
@@ -173,7 +182,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices }: ConnectorsSecti
 								}}
 							>
 								<Icon size={18} strokeWidth={1.7} className="shrink-0" aria-hidden />
-								<span className="max-w-[calc(var(--spacing-16)*2)] truncate">{item.name}</span>
+								<span className="max-w-[calc(var(--spacing-16)*2)] truncate">{deviceDisplayName(item)}</span>
 								{item.current ? (
 									<span className="text-micro text-[var(--color-accent-text)]">{t("me.account.sessionCurrent")}</span>
 								) : null}
@@ -184,6 +193,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices }: ConnectorsSecti
 				{groups.map(({ device, definitions, target }) => {
 					const instances = connections.data?.items.filter((item) => item.deviceId === device.id) ?? [];
 					const duplicate = isDuplicate(device);
+					const name = deviceDisplayName(device);
 					return (
 						<section
 							key={device.id}
@@ -194,7 +204,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices }: ConnectorsSecti
 						>
 							<header>
 								<h2 className="break-words text-body font-medium">
-									{device.name}
+									{name}
 									{device.current ? (
 										<span className="ms-[var(--spacing-2)] text-micro text-[var(--color-accent-text)]">
 											{t("me.account.sessionCurrent")}
@@ -202,6 +212,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices }: ConnectorsSecti
 									) : null}
 								</h2>
 								<p className="text-caption text-[var(--color-text-tertiary)]">
+									{name !== device.name ? `${device.name} · ` : ""}
 									{t(`me.devices.platforms.${device.platform}`)} · {t(`me.devices.${device.status}`)}
 									{duplicate
 										? ` · ${new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, { dateStyle: "short", timeStyle: "medium" }).format(new Date(device.lastSeenAt))}`

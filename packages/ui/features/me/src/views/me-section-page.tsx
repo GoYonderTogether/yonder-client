@@ -1,3 +1,4 @@
+import type { DeviceSummary } from "@yonder/protocol";
 import { useMe } from "@yonder/ui-data";
 import { PageFrame } from "@yonder/ui-shell";
 import { lazy, type ReactNode } from "react";
@@ -28,7 +29,7 @@ export interface MeSectionPageProps {
 	page: string | null;
 	onOpenPage: (page: string | null) => void;
 	onOpenDevices?: () => void;
-	onAddDevice?: () => void;
+	onAddDevice?: (platforms?: readonly DeviceSummary["platform"][]) => void;
 	localFiles?: LocalFilesAdapter | undefined;
 	onModelDirtyChange?: (dirty: boolean) => void;
 	onSignedOut: () => void;
@@ -148,9 +149,9 @@ export function MeSectionPage({
 			case "models":
 				return <ModelsSection page={page} onOpenPage={onOpenPage} onDirtyChange={onModelDirtyChange} />;
 			case "devices":
-				return <DevicesSection {...(onAddDevice ? { onAddDevice } : {})} />;
+				return <DevicesSection onAddDevice={onAddDevice ? () => onAddDevice() : undefined} />;
 			case "connectors":
-				return <ConnectorsSection localFiles={localFiles} onOpenDevices={onOpenDevices} />;
+				return <ConnectorsSection localFiles={localFiles} onOpenDevices={onOpenDevices} onAddDevice={onAddDevice} />;
 			case "invite":
 				return <InviteSection />;
 			case "general":

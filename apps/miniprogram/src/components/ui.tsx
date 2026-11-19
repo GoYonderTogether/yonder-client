@@ -123,6 +123,7 @@ export function Field({
 	onInput,
 	password,
 	placeholder,
+	maxlength,
 	type = "text",
 }: {
 	label: string;
@@ -130,6 +131,7 @@ export function Field({
 	onInput: (value: string) => void;
 	password?: boolean;
 	placeholder?: string;
+	maxlength?: number;
 	type?: "text" | "number" | "digit";
 }) {
 	return (
@@ -140,6 +142,7 @@ export function Field({
 				value={value}
 				password={password}
 				placeholder={placeholder}
+				maxlength={maxlength}
 				type={type}
 				onInput={(event) => onInput(event.detail.value)}
 			/>
