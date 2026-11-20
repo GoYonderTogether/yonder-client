@@ -10,8 +10,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep the active main-push build; only the newest pending push is needed for preview.
+  # Manual runs keep their prior cancellation behavior without interrupting the preview.
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.event_name == 'push' && '-push' || '' }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 env:
   NODE_OPTIONS: --no-warnings
@@ -34,6 +36,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: node --test scripts/agent-land.test.mjs
       - run: node tools/check-entry-imports.mjs
       - run: node tools/check-dependency-direction.mjs
       - run: node tools/check-file-length.mjs
@@ -46,7 +49,7 @@ jobs:
           name: web-dist
           path: apps/web/dist
           if-no-files-found: error
-          retention-days: 7
+          retention-days: ${{ github.event_name == 'push' && 30 || 7 }}
 
   public-pages:
     name: Public browser flows
@@ -104,6 +107,57 @@ jobs:
           test "$identifier" = "dev.yonder.desktop"
           test "$version" = "$expected"
           codesign --verify --deep --strict "$app"
+      - name: Package the verified macOS app for internal preview
+        id: internal-preview
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.YONDER_PUBLIC_PREVIEW_ARTIFACTS == 'true'
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" = "$GITHUB_SHA" ]]
+          app=apps/desktop/src-tauri/target/release/bundle/macos/Yonder.app
+          plist="$app/Contents/Info.plist"
+          version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")"
+          executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$plist")"
+          arch="$(lipo -archs "$app/Contents/MacOS/$executable" | tr ' ' '-')"
+          name="Yonder-$version-$arch-${GITHUB_SHA:0:12}-macos-ad-hoc"
+          out="$RUNNER_TEMP/yonder-internal-preview"
+          stage="$(mktemp -d)"
+          mount_point="$(mktemp -d)"
+          mounted=0
+          cleanup() {
+            if [[ "$mounted" = "1" ]]; then
+              hdiutil detach "$mount_point"
+            fi
+            rm -rf "$stage" "$mount_point"
+          }
+          trap cleanup EXIT
+          mkdir -p "$out"
+          ditto "$app" "$stage/Yonder.app"
+          dmg="$out/$name.dmg"
+          hdiutil create -srcfolder "$stage" -volname "Yonder Internal Preview" -format UDZO "$dmg"
+          hdiutil verify "$dmg"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_point" "$dmg"
+          mounted=1
+          actual="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mount_point/Yonder.app/Contents/Info.plist")"
+          [[ "$actual" = "$version" ]]
+          codesign --verify --deep --strict "$mount_point/Yonder.app"
+          codesign -dvv "$mount_point/Yonder.app" 2>&1 | grep -Fx 'Signature=adhoc'
+          hdiutil detach "$mount_point"
+          mounted=0
+          (cd "$out" && shasum -a 256 "$name.dmg" > SHA256SUMS)
+          {
+            printf 'commit=%s\nversion=%s\narchitecture=%s\n' "$GITHUB_SHA" "$version" "$arch"
+            printf 'run=%s\nattempt=%s\nsigning=ad-hoc (not notarized)\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+          } > "$out/build-info.txt"
+          printf 'name=%s-attempt-%s\n' "$name" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - name: Upload internal preview DMG
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.YONDER_PUBLIC_PREVIEW_ARTIFACTS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.internal-preview.outputs.name }}
+          path: ${{ runner.temp }}/yonder-internal-preview/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
 
   ci:
     name: CI
