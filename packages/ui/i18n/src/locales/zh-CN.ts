@@ -14,6 +14,7 @@ import { modelMessagesZhCN } from "./models-zh-CN.ts";
 import { pricingMessagesZhCN } from "./pricing-zh-CN.ts";
 import { setupMessagesZhCN } from "./setup-zh-CN.ts";
 import { skillMessagesZhCN } from "./skills-zh-CN.ts";
+import { trayZhCN } from "./tray-zh-CN.ts";
 import { visitsMessagesZhCN } from "./visits-zh-CN.ts";
 import { voiceInputZhCN } from "./voice-input.ts";
 
@@ -35,6 +36,7 @@ export const zhCN: Messages = {
 	setup: setupMessagesZhCN,
 	skills: skillMessagesZhCN,
 	visits: visitsMessagesZhCN,
+	tray: trayZhCN,
 	app: {
 		name: "Yonder",
 		loading: "加载中…",

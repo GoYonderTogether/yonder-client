@@ -11,6 +11,7 @@ import { BUILD_VERSION } from "../lib/config.ts";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
 import { useConnectDevice } from "./connect-device.tsx";
+import { DesktopCloseBehavior } from "./desktop-close-behavior.tsx";
 import { ReceptionOverview, ReceptionSetting } from "./reception-setting.tsx";
 import { botSettingsPath, channelsSettingsPath } from "./settings-navigation.ts";
 import { SocialDrafts, SocialInfo, SocialPersona } from "./social-settings.tsx";
@@ -90,6 +91,7 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 					{...legacy}
 					appVersion={BUILD_VERSION}
 					aboutUpdate={<UpdateControls />}
+					generalExtra={<DesktopCloseBehavior />}
 					renderChangePassword={(onDone) => (
 						<PasswordSetupForm
 							mode={hasPassword ? "change" : "set"}

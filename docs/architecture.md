@@ -57,6 +57,10 @@ packages/api-client ─▶ packages/protocol（不依赖任何包）
 | `apps/miniprogram`         | Taro 小程序，独立依赖和 lockfile，不在 npm workspaces 里；登录复用 `auth-presentation`，聊天复用 `chat-presentation` 与 `chat-model`，键盘/滚动/文件与预览由宿主适配                                                         |
 | `plugins/meeting-recorder` | 录音笔记 Tauri 插件（Rust 桌面采集、iOS、Android），4 秒分段 WAV、异常恢复；桌面原生持久上传队列不依赖 WebView，手机在 WebView 可运行时自动提交；界面在 `features/meetings`                                                  |
 
+### 桌面托盘
+
+macOS / Windows 的托盘面板是固定尺寸的独立 Webview，不启动主窗口的数据层或会话。面板收到仅含刷新信号的本地 DOM 事件后，再通过原生按窗口标签授权的命令读取当前快照。主窗口仅发布已发送到本机执行的连接器命令；凭后端发来的会话和 Bot ID 与已认证的本地会话缓存精确匹配，未匹配时只显示本机任务状态不可归属，不猜测当前对话，也不并入云端任务。结束、取消、断线或换账号时不保留旧任务。
+
 ## 界面模型
 
 - 手机标签依次为主 Bot、消息、任务、记忆，主 Bot 直接打开原有主会话。标签使用 Bot 全名或主人选中的昵称。手机主 Bot 页左上角的设置图标进入账号设置，点击中间的 Bot 头像进入 Bot 详情。桌面竖栏的账号头像、消息、任务和记忆沿同一中轴排列。手机列表的账号头像和桌面竖栏的账号头像、底部设置按钮打开同一分组设置（`/me/:section`）。桌面宽窗（1024 CSS px 起）使用居中设置弹窗，点击外侧可关闭。桌面窄窗和手机使用从左侧滑入的整页设置，逐级返回原页面。

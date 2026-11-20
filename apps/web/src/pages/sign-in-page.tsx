@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { BUILD_VERSION } from "../lib/config.ts";
+import { defaultMessagePath } from "../lib/default-message-path.ts";
 import { useDeviceInfo } from "../lib/device-info.ts";
 
 /**
@@ -42,7 +43,7 @@ export function SignInPage() {
 			// The previous account's cache must not be visible for a moment under the new one.
 			await startSession(result);
 			if (result.isNewAccount) navigate("/setup/you", { replace: true });
-			else navigate(next?.startsWith("/") ? next : "/messages", { replace: true });
+			else navigate(next?.startsWith("/") && !next.startsWith("//") ? next : defaultMessagePath(), { replace: true });
 		},
 		[navigate, next, startSession],
 	);

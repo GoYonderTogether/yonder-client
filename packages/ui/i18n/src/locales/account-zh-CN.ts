@@ -220,6 +220,11 @@ export const accountMessagesZhCN = {
 			emptyTitle: "还没有设备",
 		},
 		general: {
+			closeBehavior: "关闭窗口时",
+			closeToTray: "留在托盘",
+			closeToQuit: "退出 Yonder",
+			closeBehaviorRecording: "正在录音或上传录音时，关闭窗口会保留后台运行。",
+			closeBehaviorError: "无法读取或保存此设置。",
 			title: "通用",
 		},
 		about: {
