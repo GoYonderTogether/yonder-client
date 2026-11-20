@@ -1,0 +1,22 @@
+export const trayZhCN = {
+	quitTitle: "退出 Yonder？",
+	quitWarning: "退出可能中断录音、上传和本机任务。",
+	connector: {
+		report: "回传执行结果",
+		list: "列出本机文件",
+		read: "读取本机文件",
+		search: "搜索本机文件",
+		index: "索引本机文件",
+		create: "新建本机文件",
+		edit: "编辑本机文件",
+		delete: "删除本机文件",
+		restore: "恢复本机文件",
+	},
+	title: "本机任务",
+	empty: "当前没有本机任务",
+	unattributed: "本机任务正在运行，暂无法识别 Bot 和会话",
+	unavailable: "任务状态暂不可用",
+	failure: "托盘操作暂不可用",
+	open: "打开 Yonder",
+	quit: "退出 Yonder",
+};

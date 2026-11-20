@@ -1,7 +1,8 @@
 import { ListGroup, ListRow } from "@yonder/ui-components";
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { useUpdater } from "./provider.tsx";
+import { RestartUpdateDialog } from "./restart-dialog.tsx";
 import type { Updater } from "./state.ts";
 
 export function UpdateControls() {
@@ -10,6 +11,16 @@ export function UpdateControls() {
 }
 
 export function UpdateControlsView({ updater }: { updater: Updater }) {
+	const [confirming, setConfirming] = useState(false);
+	return (
+		<>
+			<UpdateControlsViewContent updater={updater} onRestart={() => setConfirming(true)} />
+			<RestartUpdateDialog updater={updater} open={confirming} onCancel={() => setConfirming(false)} />
+		</>
+	);
+}
+
+function UpdateControlsViewContent({ updater, onRestart }: { updater: Updater; onRestart: () => void }) {
 	const { t } = useTranslation();
 	const state = useSyncExternalStore(updater.subscribe, updater.getSnapshot, updater.getSnapshot);
 	const busy = ["checking", "downloading", "installing"].includes(state.status);
@@ -60,7 +71,8 @@ export function UpdateControlsView({ updater }: { updater: Updater }) {
 				<ListRow
 					title={t(updater.platform === "desktop" ? "me.update.restart" : "me.update.download")}
 					onClick={() => {
-						if (updater.platform !== "desktop" || window.confirm(t("me.update.restartConfirm"))) void updater.install();
+						if (updater.platform === "desktop") onRestart();
+						else void updater.install();
 					}}
 				/>
 			) : null}

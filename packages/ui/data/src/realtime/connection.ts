@@ -31,7 +31,12 @@ export interface RealtimeOptions extends RealtimeHandlers {
 	cancel?: (handle: unknown) => void;
 }
 
-const BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000];
+// Keep jitter on every attempt without ever waiting more than three seconds.
+const BACKOFF_MS = [
+	[750, 1_250],
+	[1_500, 2_500],
+	[2_500, 3_000],
+] as const;
 
 export class RealtimeConnection {
 	readonly #options: RealtimeOptions;
@@ -158,9 +163,8 @@ export class RealtimeConnection {
 	#scheduleReconnect(): void {
 		if (!this.#wanted) return;
 		this.#setStatus("reconnecting");
-		const delay = BACKOFF_MS[Math.min(this.#attempt, BACKOFF_MS.length - 1)] as number;
-		// Jitter keeps a hundred clients from reconnecting in the same millisecond.
-		const jittered = delay * (0.75 + Math.random() * 0.5);
+		const [min, max] = BACKOFF_MS[Math.min(this.#attempt, BACKOFF_MS.length - 1)] ?? BACKOFF_MS[0];
+		const jittered = min + Math.random() * (max - min);
 		this.#attempt += 1;
 		const schedule = this.#options.schedule ?? ((fn, ms) => setTimeout(fn, ms));
 		this.#retryHandle = schedule(() => this.#open(), jittered);

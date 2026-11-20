@@ -1,7 +1,11 @@
-import type { ConnectorCommand, ConnectorCommandResult, ConnectorGrant } from "@yonder/protocol";
-import { useConnectors, useData } from "@yonder/ui-data";
-import { useEffect } from "react";
+import type { ConnectorCommand, ConnectorCommandResult, ConnectorGrant, Conversation } from "@yonder/protocol";
+import { keys, useConnectors, useData, useDataQueryClient } from "@yonder/ui-data";
+import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { invokeLocalFiles, onLocalFilesChanged, useLocalFilesContext } from "./local-files.ts";
+import { beginTrayConnectorWork } from "./tray-bridge.ts";
+
+type PendingCommand = { cancelled: boolean; tray?: ReturnType<typeof beginTrayConnectorWork> };
 
 const ERRORS = new Set([
 	"permission_denied",
@@ -29,8 +33,12 @@ function grantError(error: unknown): string {
  * device writes its local grant library and reports readiness without a second Yonder dialog.
  */
 export function LocalFilesRuntime() {
+	const { t } = useTranslation();
 	const context = useLocalFilesContext();
 	const { api, realtime } = useData();
+	const query = useDataQueryClient();
+	const activityLabel = useRef(t);
+	activityLabel.current = t;
 	const connectors = useConnectors({ enabled: context !== null });
 	const connectionIds = connectors.data?.items
 		.filter((connection) => connection.deviceId === context?.deviceId)
@@ -50,7 +58,8 @@ export function LocalFilesRuntime() {
 		// The connections list is what the server last told us; a grant stored just now is added here
 		// so readiness is reported without waiting for the list to refetch.
 		const known = new Map(connections.map((connection) => [connection.id, connection.revision]));
-		const pending = new Map<string, { cancelled: boolean }>();
+		const pending = new Map<string, PendingCommand>();
+		let trayConversations: Promise<{ items: Conversation[] }> | undefined;
 		const refreshReady = async () => {
 			if (!active || realtime.status !== "open") return;
 			try {
@@ -96,7 +105,7 @@ export function LocalFilesRuntime() {
 		};
 		const execute = async (command: ConnectorCommand) => {
 			if (!active || pending.has(command.id)) return;
-			const state = { cancelled: false };
+			const state: PendingCommand = { cancelled: false };
 			pending.set(command.id, state);
 			try {
 				let result: ConnectorCommandResult;
@@ -105,10 +114,45 @@ export function LocalFilesRuntime() {
 					result = { ok: false, error: "permission_denied" };
 				else if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) result = { ok: false, error: "cancelled" };
 				else {
+					const { origin, ...nativeCommand } = command;
+					const activity = activityLabel.current(`tray.connector.${command.operation}`);
+					const identify = (items: Conversation[] | undefined) => {
+						const conversation = items?.find((item) => item.id === origin?.conversationId);
+						const bot = conversation?.members.find(
+							(member) => member.kind === "bot" && member.memberId === origin?.botId,
+						);
+						const title = conversation?.title || (conversation?.kind === "direct" ? bot?.displayName : null);
+						return conversation && bot && title
+							? {
+									botId: bot.memberId,
+									botName: bot.displayName,
+									conversationId: conversation.id,
+									conversationTitle: title,
+									activity,
+								}
+							: null;
+					};
+					const cached = origin
+						? identify(query.getQueryData<{ items: Conversation[] }>(keys.conversations.list())?.items)
+						: null;
+					state.tray = beginTrayConnectorWork(cached);
+					if (origin && !cached) {
+						trayConversations ??= api.conversations().finally(() => {
+							trayConversations = undefined;
+						});
+						void trayConversations
+							.then(({ items }) => {
+								if (!active || state.cancelled || pending.get(command.id) !== state || realtime.status !== "open")
+									return;
+								const row = identify(items);
+								if (row) state.tray?.attribute(row);
+							})
+							.catch(() => {});
+					}
 					try {
 						result = await invokeLocalFiles<ConnectorCommandResult>("local_files_execute", {
 							context,
-							command: { ...command, expiresAtMs },
+							command: { ...nativeCommand, expiresAtMs },
 						});
 					} catch (error) {
 						result = {
@@ -117,11 +161,14 @@ export function LocalFilesRuntime() {
 						};
 					}
 				}
-				if (active && !state.cancelled && realtime.status === "open")
+				if (active && !state.cancelled && realtime.status === "open") {
+					state.tray?.update(activityLabel.current("tray.connector.report"));
 					await api.submitConnectorResult(command.id, result);
+				}
 			} catch {
 				// The server owns the deadline and rejects receipts after cancellation or expiry.
 			} finally {
+				state.tray?.finish();
 				pending.delete(command.id);
 			}
 		};
@@ -132,17 +179,24 @@ export function LocalFilesRuntime() {
 				const state = pending.get(event.commandId);
 				if (state) {
 					state.cancelled = true;
+					state.tray?.finish();
 					void invokeLocalFiles("local_files_cancel", { commandId: event.commandId }).catch(() => {});
 				}
 			}
 		});
-		const stopStatus = realtime.subscribe(() => void refreshReady());
+		const stopStatus = realtime.subscribe(() => {
+			if (realtime.status !== "open") {
+				for (const state of pending.values()) state.tray?.finish();
+			}
+			void refreshReady();
+		});
 		const stopGrants = onLocalFilesChanged(() => void refreshReady());
 		void refreshReady();
 		return () => {
 			active = false;
 			for (const [id, state] of pending) {
 				state.cancelled = true;
+				state.tray?.finish();
 				void invokeLocalFiles("local_files_cancel", { commandId: id }).catch(() => {});
 			}
 			stopEvents();
@@ -150,6 +204,6 @@ export function LocalFilesRuntime() {
 			stopGrants();
 			realtime.send({ type: "connector.ready", connections: [] });
 		};
-	}, [api, context, realtime, connectionIds]);
+	}, [api, context, realtime, connectionIds, query]);
 	return null;
 }

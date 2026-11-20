@@ -1,0 +1,22 @@
+export const trayEn = {
+	quitTitle: "Quit Yonder?",
+	quitWarning: "Quitting may interrupt recordings, uploads, and local tasks.",
+	connector: {
+		report: "Sending the result",
+		list: "Listing local files",
+		read: "Reading a local file",
+		search: "Searching local files",
+		index: "Indexing local files",
+		create: "Creating a local file",
+		edit: "Editing a local file",
+		delete: "Deleting a local file",
+		restore: "Restoring a local file",
+	},
+	title: "On this device",
+	empty: "No active tasks on this device",
+	unattributed: "Local task running · Bot and chat unavailable",
+	unavailable: "Task status unavailable",
+	failure: "Tray action unavailable",
+	open: "Open Yonder",
+	quit: "Quit Yonder",
+};

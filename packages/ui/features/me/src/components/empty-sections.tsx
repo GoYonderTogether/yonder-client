@@ -3,11 +3,11 @@ import { useLocalePreference, useTheme } from "@yonder/ui-data";
 import type { Locale } from "@yonder/ui-i18n";
 import { STYLE_CHOICES, THEME_CHOICES } from "@yonder/ui-tokens";
 import { Check } from "lucide-react";
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 
 /** 通用: language and appearance, as checkmark lists — the iOS pattern for "pick one". */
-export function GeneralSection() {
+export function GeneralSection({ children }: { children?: ReactNode }) {
 	const { t } = useTranslation();
 	const theme = useTheme();
 	const locale = useLocalePreference();
@@ -54,6 +54,7 @@ export function GeneralSection() {
 					))}
 				</ListGroup>
 			</fieldset>
+			{children}
 		</div>
 	);
 }

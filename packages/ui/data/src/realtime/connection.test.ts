@@ -102,3 +102,59 @@ test("a stopped socket cannot publish a late notification after sign-out", () =>
 		vi.unstubAllEnvs();
 	}
 });
+
+test("reconnect backs off with jitter capped at three seconds and resets after opening", () => {
+	TestSocket.instances = [];
+	const schedule = vi.fn((_retry: () => void, _delay: number) => Symbol());
+	const cancel = vi.fn();
+	const random = vi.spyOn(Math, "random").mockReturnValue(0.99);
+	const connection = new RealtimeConnection({
+		baseUrl: "http://localhost",
+		getAccessToken: () => "access",
+		WebSocketImpl: TestSocket as unknown as typeof WebSocket,
+		schedule,
+		cancel,
+	});
+	const close = () => TestSocket.instances.at(-1)?.dispatchEvent(new CloseEvent("close", { code: 1006 }));
+	try {
+		connection.connect();
+		for (let i = 0; i < 7; i += 1) {
+			close();
+			expect(connection.status).toBe("reconnecting");
+			schedule.mock.lastCall?.[0]();
+		}
+		expect(schedule.mock.calls.map(([, delay]) => delay)).toEqual([1245, 2490, 2995, 2995, 2995, 2995, 2995]);
+
+		TestSocket.instances.at(-1)?.dispatchEvent(new Event("open"));
+		expect(connection.status).toBe("open");
+		close();
+		expect(schedule.mock.lastCall?.[1]).toBe(1245);
+
+		const pendingRetry = schedule.mock.lastCall?.[0];
+		connection.stop();
+		expect(cancel).toHaveBeenLastCalledWith(schedule.mock.results.at(-1)?.value);
+		pendingRetry?.();
+		expect(TestSocket.instances).toHaveLength(8);
+	} finally {
+		connection.stop();
+		random.mockRestore();
+	}
+});
+
+test.each([4401, 4403])("does not retry a session rejected with close code %s", (code) => {
+	TestSocket.instances = [];
+	const schedule = vi.fn();
+	const onSessionLost = vi.fn();
+	const connection = new RealtimeConnection({
+		baseUrl: "http://localhost",
+		getAccessToken: () => "access",
+		WebSocketImpl: TestSocket as unknown as typeof WebSocket,
+		schedule,
+		onSessionLost,
+	});
+	connection.connect();
+	TestSocket.instances[0]?.dispatchEvent(new CloseEvent("close", { code }));
+	expect(connection.status).toBe("stopped");
+	expect(onSessionLost).toHaveBeenCalledOnce();
+	expect(schedule).not.toHaveBeenCalled();
+});

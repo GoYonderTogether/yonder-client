@@ -13,6 +13,7 @@ import { modelMessagesEn } from "./models-en.ts";
 import { pricingMessagesEn } from "./pricing-en.ts";
 import { setupMessagesEn } from "./setup-en.ts";
 import { skillMessagesEn } from "./skills-en.ts";
+import { trayEn } from "./tray-en.ts";
 import { visitsMessagesEn } from "./visits-en.ts";
 import { voiceInputEn } from "./voice-input.ts";
 /**
@@ -33,6 +34,7 @@ export const en = {
 	setup: setupMessagesEn,
 	skills: skillMessagesEn,
 	visits: visitsMessagesEn,
+	tray: trayEn,
 	app: {
 		name: "Yonder",
 		loading: "Loading…",
@@ -54,7 +56,6 @@ export const en = {
 		remove: "Remove",
 		confirm: "Confirm",
 	},
-
 	legal: { version: "Version {{version}}", effectiveDate: "Effective {{date}}" },
 
 	landing: {

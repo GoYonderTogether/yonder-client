@@ -103,6 +103,8 @@ export interface ConnectorCommandArgs {
 }
 
 export interface ConnectorCommand {
+	/** The server-authenticated Bot and conversation that issued this device command, when known. */
+	origin?: { botId: string; conversationId: string };
 	id: string;
 	connectionId: string;
 	deviceId: string;
