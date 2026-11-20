@@ -15,7 +15,7 @@ export type DayActions = EntryActions;
 
 /**
  * One day: a large title that scrolls with the page (the pinned bar takes over once it reaches the
- * top), a quiet digest line, then the day's entries on the spine, oldest first.
+ * top), a quiet digest line, then the day's entries on the spine, newest first.
  */
 export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: Date; actions: DayActions }) {
 	const { t, i18n } = useTranslation();
@@ -23,11 +23,15 @@ export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: D
 	const { name, sub } = dayName(day.date, now, t, i18n.language);
 	const isToday = ago === 0;
 	const nowAt = now.getTime();
-	const past = isToday ? day.blocks.filter((block) => blockAt(block) <= nowAt) : day.blocks;
-	const ahead = isToday ? day.blocks.filter((block) => blockAt(block) > nowAt) : [];
+	const blocks = day.blocks.slice().reverse();
+	const past = isToday ? blocks.filter((block) => blockAt(block) <= nowAt) : blocks;
+	const ahead = isToday ? blocks.filter((block) => blockAt(block) > nowAt) : [];
 	const fold = ago > FULL_DAYS;
-	const small = fold ? past.filter((block) => block.type === "entry" && block.entry.size === "line") : [];
-	const shown = past.filter((block) => !small.includes(block));
+	const foldFrom = fold
+		? past.findLastIndex((block) => block.type === "stay" || block.entry.size !== "line") + 1
+		: past.length;
+	const shown = past.slice(0, foldFrom);
+	const small = past.slice(foldFrom);
 	const entry = (item: Entry, upcoming = false) => (
 		<MemoryEntry key={item.id} entry={item} upcoming={upcoming} actions={actions} />
 	);
@@ -38,8 +42,6 @@ export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: D
 			className={cn("memory-day", isToday && "memory-day-today")}
 			aria-labelledby={`memory-day-title-${day.date}`}
 			data-day={day.date}
-			data-name={name}
-			data-sub={sub}
 		>
 			<h3 id={`memory-day-title-${day.date}`} className="memory-day-title">
 				<strong>{name}</strong>
@@ -74,16 +76,6 @@ export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: D
 				</p>
 			) : null}
 			<ol className="memory-flow">
-				{shown.map((block) =>
-					block.type === "entry" ? (
-						entry(block.entry)
-					) : (
-						<Stay key={block.stay.id} stay={block.stay} render={(item) => entry(item)} />
-					),
-				)}
-				{isToday ? (
-					<li className="memory-now">{t("memory.now", { time: memoryFormat.time(now, i18n.language) })}</li>
-				) : null}
 				{ahead.length ? (
 					<li className="memory-ahead">
 						<ol>
@@ -97,6 +89,18 @@ export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: D
 						</ol>
 					</li>
 				) : null}
+				{isToday ? (
+					<li className="memory-now">
+						<time dateTime={now.toISOString()}>{t("memory.now", { time: memoryFormat.time(now, i18n.language) })}</time>
+					</li>
+				) : null}
+				{shown.map((block) =>
+					block.type === "entry" ? (
+						entry(block.entry)
+					) : (
+						<Stay key={block.stay.id} stay={block.stay} render={(item) => entry(item)} />
+					),
+				)}
 				{small.length ? (
 					<Folded count={small.length}>
 						{small.map((block) => (block.type === "entry" ? entry(block.entry) : null))}
@@ -125,7 +129,12 @@ function Stay({ stay, render }: { stay: MemoryStay; render: (entry: Entry) => Re
 				{stay.place}
 				<small>{stay.area ? t("memory.joinNote", { first: stay.area, second: span }) : span}</small>
 			</p>
-			<ol>{stay.entries.map(render)}</ol>
+			<ol>
+				{stay.entries
+					.slice()
+					.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+					.map(render)}
+			</ol>
 		</li>
 	);
 }

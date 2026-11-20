@@ -10,10 +10,20 @@ export const person: Member = {
 	displayName: "界面验收用户",
 	avatarUrl: null,
 	bio: null,
+	ownerId: null,
+	isDefault: false,
 	createdAt: "2026-11-15T00:00:00Z",
 	version: 1,
 };
-export const bot: Member = { ...person, id: "chat-bot", kind: "bot", handle: "chatbot", displayName: "界面验收 BOT" };
+export const bot: Member = {
+	...person,
+	id: "chat-bot",
+	kind: "bot",
+	handle: "chatbot",
+	displayName: "界面验收 BOT",
+	ownerId: person.id,
+	isDefault: true,
+};
 export const conversation: Conversation = {
 	id: "chat-route-check",
 	kind: "direct",

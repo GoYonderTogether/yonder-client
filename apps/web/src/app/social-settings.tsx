@@ -134,7 +134,7 @@ export function SocialDrafts() {
 				return (
 					<article
 						key={item.id}
-						className="flex flex-col gap-[var(--spacing-3)] rounded-[var(--radius-lg)] bg-[var(--color-bg-surface)] p-[var(--spacing-4)]"
+						className="flex flex-col gap-[var(--spacing-3)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] p-[var(--spacing-4)]"
 					>
 						<time dateTime={item.createdAt} className="text-caption text-[var(--color-text-secondary)]">
 							{dateFormat.format(date)}

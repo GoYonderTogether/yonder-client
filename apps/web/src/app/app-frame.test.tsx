@@ -58,6 +58,8 @@ vi.mock("@yonder/ui-data", () => {
 			reset() {},
 		}),
 		useContacts: () => ({ data: { items: [] } }),
+		useCreateItem: () => ({}),
+		useItemSession: () => ({}),
 		useRunActions: () => ({ stop: { mutate: () => {} } }),
 		useSendMessage: () => ({ mutate: () => {} }),
 	};

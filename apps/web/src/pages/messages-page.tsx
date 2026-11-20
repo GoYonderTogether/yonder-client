@@ -1,7 +1,7 @@
-import { agentChatStatus, newestReadableMessage } from "@yonder/chat-model";
+import { agentChatStatus, conversationBotOwner, newestReadableMessage, ownedBotFor } from "@yonder/chat-model";
 import { exhaustedPools, QuotaLowBanner } from "@yonder/feature-me";
-import { systemEventText, type Translate } from "@yonder/feature-members";
-import type { Conversation } from "@yonder/protocol";
+import { BotName, systemEventText, type Translate } from "@yonder/feature-members";
+import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button, ConversationList, ConversationRow, EmptyState, IconButton } from "@yonder/ui-components";
 import {
 	type CachedMessage,
@@ -17,10 +17,10 @@ import {
 } from "@yonder/ui-data";
 import { ListFrame, MAIN_CONVERSATION, PageFrame, useShellChrome } from "@yonder/ui-shell";
 import { ArrowDown, BellOff, Ellipsis, Pin } from "lucide-react";
-import { useMemo } from "react";
+import { type ReactNode, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
-import { useForeground } from "../lib/foreground.ts";
+import { isForeground, useForeground } from "../lib/foreground.ts";
 import { ChatActions } from "./chat-actions/index.tsx";
 import { ConversationMessages } from "./conversation-messages.tsx";
 import {
@@ -49,12 +49,14 @@ function rowPreview(conversation: Conversation, t: Translate): string | undefine
 
 export function MessagesList({
 	current,
-	hidePrimary = false,
+	hidePrimaryUnread = false,
+	contacts,
 	onOpen,
 	onOpenMeetings,
 }: {
 	current: string | null;
-	hidePrimary?: boolean;
+	hidePrimaryUnread?: boolean;
+	contacts?: readonly Member[] | undefined;
 	onOpen: (id: string) => void;
 	onOpenMeetings?: () => void;
 }) {
@@ -75,50 +77,61 @@ export function MessagesList({
 				</Button>
 			) : null}
 			<ConversationList label={t("nav.messages")}>
-				{conversations.data?.items
-					.filter((conversation) => !hidePrimary || conversation.id !== primary?.id)
-					.map((conversation) => {
-						const selected =
-							current === conversation.id || (current === MAIN_CONVERSATION && conversation.id === primary?.id);
-						return (
-							<ConversationRow
-								key={conversation.id}
-								leading={<ConversationAvatar conversation={conversation} personId={person?.id} />}
-								title={
-									conversation.kind === "system"
-										? t("friendRequests.notifications")
-										: conversationTitle(conversation, person?.id)
-								}
-								preview={rowPreview(conversation, t)}
-								meta={
-									conversation.lastMessage?.createdAt
-										? new Intl.DateTimeFormat(i18n.resolvedLanguage, { hour: "numeric", minute: "2-digit" }).format(
-												new Date(conversation.lastMessage.createdAt),
-											)
-										: undefined
-								}
-								badge={
-									conversation.unreadCount ||
-									conversation.muted ||
-									conversation.pinned ||
-									(conversation.visit?.role === "host" && conversation.visit.state === "pending") ? (
-										<span className="flex items-center gap-[var(--spacing-1)]">
-											{conversation.visit?.role === "host" && conversation.visit.state === "pending" ? (
-												<span className="rounded-[var(--radius-control-sm)] bg-[var(--color-danger-subtle)] px-[var(--spacing-1)] text-micro text-[var(--color-danger)]">
-													{t("visits.waitingForYou")}
-												</span>
-											) : null}
-											{conversation.pinned ? <Pin size={13} aria-label={t("messages.pinned")} /> : null}
-											{conversation.muted ? <BellOff size={13} aria-label={t("messages.muted")} /> : null}
-											<UnreadBadge count={conversation.unreadCount} />
-										</span>
-									) : undefined
-								}
-								selected={selected}
-								onClick={() => onOpen(conversation.id === primary?.id ? MAIN_CONVERSATION : conversation.id)}
-							/>
-						);
-					})}
+				{conversations.data?.items.map((conversation) => {
+					const peer = conversation.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
+					const title =
+						conversation.kind === "system"
+							? t("friendRequests.notifications")
+							: conversationTitle(conversation, person?.id);
+					const unread = hidePrimaryUnread && conversation.id === primary?.id ? 0 : conversation.unreadCount;
+					const selected =
+						current === conversation.id || (current === MAIN_CONVERSATION && conversation.id === primary?.id);
+					return (
+						<ConversationRow
+							key={conversation.id}
+							leading={<ConversationAvatar conversation={conversation} personId={person?.id} />}
+							title={
+								peer?.kind === "bot" ? (
+									<BotName
+										name={title}
+										ownedBot={ownedBotFor(peer.memberId, person?.id, bot, contacts)}
+										owner={conversationBotOwner(peer, conversation)}
+										compact="list"
+									/>
+								) : (
+									title
+								)
+							}
+							preview={rowPreview(conversation, t)}
+							meta={
+								conversation.lastMessage?.createdAt
+									? new Intl.DateTimeFormat(i18n.resolvedLanguage, { hour: "numeric", minute: "2-digit" }).format(
+											new Date(conversation.lastMessage.createdAt),
+										)
+									: undefined
+							}
+							badge={
+								unread ||
+								conversation.muted ||
+								conversation.pinned ||
+								(conversation.visit?.role === "host" && conversation.visit.state === "pending") ? (
+									<span className="flex items-center gap-[var(--spacing-1)]">
+										{conversation.visit?.role === "host" && conversation.visit.state === "pending" ? (
+											<span className="rounded-[var(--radius-control-sm)] bg-[var(--color-danger-subtle)] px-[var(--spacing-1)] text-micro text-[var(--color-danger)]">
+												{t("visits.waitingForYou")}
+											</span>
+										) : null}
+										{conversation.pinned ? <Pin size={13} aria-label={t("messages.pinned")} /> : null}
+										{conversation.muted ? <BellOff size={13} aria-label={t("messages.muted")} /> : null}
+										<UnreadBadge count={unread} />
+									</span>
+								) : undefined
+							}
+							selected={selected}
+							onClick={() => onOpen(conversation.id === primary?.id ? MAIN_CONVERSATION : conversation.id)}
+						/>
+					);
+				})}
 			</ConversationList>
 		</ListFrame>
 	);
@@ -128,37 +141,49 @@ export function ConversationPage({
 	conversationId,
 	disconnected,
 	embedded = false,
-	mobileBotHome = false,
+	mainBotHome = false,
 	readActive = true,
+	contacts,
 	onOpenMeeting,
 	onOpenMember,
 	onOpenGroup,
+	item,
 }: {
 	conversationId: string | null;
 	disconnected: boolean;
 	embedded?: boolean;
-	mobileBotHome?: boolean;
+	mainBotHome?: boolean;
 	readActive?: boolean;
+	contacts?: readonly Member[] | undefined;
 	onOpenMeeting?: (id: string) => void;
 	/** A member id; the frame decides whether it opens a profile or a Bot detail. */
 	onOpenMember?: (memberId: string) => void;
 	/** Opens settings for a group conversation. */
 	onOpenGroup?: () => void;
+	item?: {
+		conversation: Conversation;
+		title: ReactNode;
+		action: ReactNode;
+		intro: ReactNode;
+	};
 }) {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const location = useLocation();
+	const { mode } = useShellChrome();
 	const person = usePerson();
 	const bot = useBot();
 	const conversations = useConversations();
-	const conversation = conversations.data?.items.find((item) => item.id === conversationId);
+	const conversation = item?.conversation ?? conversations.data?.items.find((item) => item.id === conversationId);
 	const peer = conversation?.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
 	const agent = peer?.kind === "bot" ? peer : undefined;
+	const floatingHeader = mainBotHome && (!conversation || Boolean(agent));
+	const mobileBotHome = floatingHeader && mode === "mobile";
 	const { data: subtasks } = useActiveBotSubtasks(
-		conversation?.visit?.role === "visitor" ? undefined : agent?.memberId,
+		item || conversation?.visit?.role === "visitor" ? undefined : agent?.memberId,
 	);
 	const quota = useQuota();
-	const messages = useMessages(conversationId);
+	const messages = useMessages(conversationId, Boolean(item || conversation?.unreadCount));
 	const actions = useRunActions();
 	const send = useSendMessage(conversationId, person?.id);
 	const items = useMemo(
@@ -170,21 +195,34 @@ export function ConversationPage({
 				| undefined,
 		[messages.data],
 	);
-	const { bottom, showLatest, atLatest, jumpToLatest } = useMessageScroll(conversationId, items);
+	const { bottom, showLatest, atBottom, atLatest, canReadLatest, jumpToLatest } = useMessageScroll(
+		conversationId,
+		items,
+	);
 	const foreground = useForeground();
+	const canRead = useCallback(() => isForeground() && canReadLatest(), [canReadLatest]);
 	useMarkConversationRead(
 		person?.id,
 		conversationId,
-		readActive && foreground && atLatest && !disconnected && person && items?.length && conversation?.unreadCount
+		readActive &&
+			foreground &&
+			atLatest &&
+			!disconnected &&
+			messages.isFetchedAfterMount &&
+			!messages.isFetching &&
+			person &&
+			items?.length &&
+			(item || conversation?.unreadCount)
 			? newestReadableMessage(items, person.id)
 			: undefined,
+		canRead,
 	);
 	// The 「我」 sections are a detail layer over the tab: leaving them returns to this chat, so the
 	// tab's location travels with the push, as the frame does for its own 「我」 entries.
 	const openSection = (target: string) => navigate(target, { state: { tabLocation: location.pathname } });
 	if (!conversationId || !conversation)
 		return (
-			<PageFrame title={null} hideHeader={embedded} floatingHeader={mobileBotHome}>
+			<PageFrame title={null} hideHeader={embedded} floatingHeader={floatingHeader}>
 				{null}
 			</PageFrame>
 		);
@@ -201,18 +239,18 @@ export function ConversationPage({
 				: undefined;
 	const openPeer = peer && onOpenMember ? () => onOpenMember(peer.memberId) : undefined;
 	const openSettings = conversation.kind === "group" ? onOpenGroup : openPeer;
-	const agentAvatar = agent && (
+	const agentAvatar = agent && !item && (
 		<Avatar name={title} src={agent.avatarUrl} color={agent.avatarColor} kind="bot" size={48} />
 	);
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
 			<PageFrame
 				hideHeader={embedded}
-				floatingHeader={mobileBotHome}
-				title={agent ? null : title}
-				titleAlign={agent ? "center" : "start"}
+				floatingHeader={floatingHeader}
+				title={item ? item.title : agent ? null : title}
+				titleAlign={agent && !item ? "center" : "start"}
 				afterTopBar={
-					agent ? (
+					agent && !item ? (
 						<section
 							data-chat-agent-title
 							aria-label={title}
@@ -220,6 +258,7 @@ export function ConversationPage({
 						>
 							{mobileBotHome && openPeer ? (
 								<Button
+									data-chat-agent-avatar
 									variant="ghost"
 									size="lg"
 									className="px-0"
@@ -230,14 +269,21 @@ export function ConversationPage({
 									{agentAvatar}
 								</Button>
 							) : (
-								agentAvatar
+								<div data-chat-agent-avatar className="flex">
+									{agentAvatar}
+								</div>
 							)}
 							<div
 								data-chat-agent-name
-								className="max-w-[75%] text-body font-medium text-[var(--color-text-primary)]"
+								className="w-full max-w-[75%] text-center text-body font-medium text-[var(--color-text-primary)]"
 								title={title}
 							>
-								<span className="block truncate">{title}</span>
+								<BotName
+									name={title}
+									ownedBot={ownedBotFor(agent.memberId, person?.id, bot, contacts)}
+									owner={conversationBotOwner(agent, conversation)}
+									compact="header"
+								/>
 							</div>
 							{statusText ? (
 								<div
@@ -252,7 +298,9 @@ export function ConversationPage({
 					) : null
 				}
 				action={
-					openSettings && !mobileBotHome ? (
+					item ? (
+						item.action
+					) : openSettings && !mobileBotHome ? (
 						<IconButton
 							aria-label={t("chat.settings")}
 							aria-haspopup="dialog"
@@ -290,65 +338,75 @@ export function ConversationPage({
 						{t("app.retry")}
 					</Button>
 				) : null}
-				{!messages.isLoading && !messages.isError && items?.length === 0 ? (
+				{!item?.intro && !messages.isLoading && !messages.isError && items?.length === 0 ? (
 					<div className="flex flex-1 items-center justify-center">
 						<EmptyState
 							icon={
-								agent && !embedded ? null : <ConversationAvatar conversation={conversation} personId={person?.id} />
+								item || (agent && !embedded) ? null : (
+									<ConversationAvatar conversation={conversation} personId={person?.id} />
+								)
 							}
 							title={t("chat.emptyTitle")}
 						/>
 					</div>
 				) : null}
-				{items?.length ? (
+				{item?.intro || items?.length ? (
 					<div
 						className="mx-auto flex w-full max-w-[680px] flex-col gap-[var(--spacing-4)]"
 						role="log"
 						aria-label={t("nav.messages")}
 					>
+						{!messages.hasNextPage ? item?.intro : null}
 						{messages.hasNextPage ? (
 							<Button size="sm" onClick={() => void messages.fetchNextPage()} loading={messages.isFetchingNextPage}>
 								{t("chat.loadOlder")}
 							</Button>
 						) : null}
-						<ConversationMessages
-							items={items}
-							hasFullHistory={!messages.hasNextPage}
-							conversation={conversation}
-							person={person}
-							bot={bot}
-							disconnected={disconnected}
-							retrying={actions.retry.isPending}
-							onOpenRelated={(id) => navigate(`/messages/${encodeURIComponent(id)}`)}
-							onOpenMember={onOpenMember}
-							{...(onOpenMeeting ? { onOpenMeeting } : {})}
-							onResend={(message) =>
-								send.mutate({
-									type: "text",
-									body: message.body ?? "",
-									clientNonce: message.clientNonce ?? "",
-									attachmentIds: message.attachments.map((attachment) => attachment.id),
-									attachments: message.attachments,
-									...(message.voice ? { voice: message.voice } : {}),
-									...(message.skillIds ? { skillIds: message.skillIds } : {}),
-									...(message.mentionedMemberIds ? { mentionedMemberIds: message.mentionedMemberIds } : {}),
-								})
-							}
-							onRetry={(id) => actions.retry.mutate(id)}
-							onChooseOption={(body, id) => {
-								if (!send.isPending) send.mutate({ type: "text", body, clientNonce: `option:${id}` });
-							}}
-						/>
-						<div ref={bottom} />
+						{items?.length ? (
+							<ConversationMessages
+								items={items}
+								hasFullHistory={!messages.hasNextPage}
+								conversation={conversation}
+								person={person}
+								bot={bot}
+								contacts={contacts}
+								disconnected={disconnected}
+								retrying={actions.retry.isPending}
+								onOpenRelated={(id) => navigate(`/messages/${encodeURIComponent(id)}`)}
+								onOpenMember={onOpenMember}
+								{...(onOpenMeeting ? { onOpenMeeting } : {})}
+								onResend={(message) =>
+									send.mutate({
+										type: "text",
+										body: message.body ?? "",
+										clientNonce: message.clientNonce ?? "",
+										attachmentIds: message.attachments.map((attachment) => attachment.id),
+										attachments: message.attachments,
+										...(message.voice ? { voice: message.voice } : {}),
+										...(message.skillIds ? { skillIds: message.skillIds } : {}),
+										...(message.mentionedMemberIds ? { mentionedMemberIds: message.mentionedMemberIds } : {}),
+									})
+								}
+								onRetry={(id) => actions.retry.mutate(id)}
+								onChooseOption={(body, id) => {
+									if (!send.isPending) send.mutate({ type: "text", body, clientNonce: `option:${id}` });
+								}}
+							/>
+						) : null}
+						<div ref={bottom} className="h-px shrink-0" />
 					</div>
 				) : null}
 			</PageFrame>
-			{showLatest ? (
+			{showLatest || (items?.length && conversation.unreadCount > 0 && !atBottom) ? (
 				<div className="absolute inset-x-0 bottom-[var(--spacing-4)] flex justify-center pointer-events-none">
-					<Button size="sm" onClick={jumpToLatest} className="pointer-events-auto">
+					<IconButton
+						aria-label={t("chat.jumpToLatest")}
+						variant="secondary"
+						onClick={jumpToLatest}
+						className="pointer-events-auto rounded-[var(--radius-full)] bg-[var(--color-bg-surface)]! shadow-md"
+					>
 						<ArrowDown size={16} aria-hidden="true" />
-						{t("chat.jumpToLatest")}
-					</Button>
+					</IconButton>
 				</div>
 			) : null}
 		</div>

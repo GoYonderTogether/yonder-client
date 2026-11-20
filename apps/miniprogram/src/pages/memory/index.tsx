@@ -1,5 +1,5 @@
 import { Button as NativeButton, Text, View } from "@tarojs/components";
-import type { MemoryEntry, MemoryVisibility } from "@yonder/protocol";
+import type { MemoryBlock, MemoryDay, MemoryEntry, MemoryVisibility } from "@yonder/protocol";
 import { useEffect, useRef, useState } from "react";
 import { Button, Page, State } from "../../components/ui";
 import { useResource } from "../../components/use-resource";
@@ -122,33 +122,76 @@ function TimelinePage({
 	onOlder: (cursor: string) => void;
 }) {
 	const { data, loading, error, reload } = useMemoryResource(() => api.memoryDays(cursor, deviceTimeZone()));
-	const days = data?.items.filter((day) => day.blocks.length > 0 || day.state !== "ready") ?? [];
+	const [now, setNow] = useState(() => new Date());
+	const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString();
+	const today = local.slice(0, 10);
+	const previousDay = useRef(today);
+	useEffect(() => {
+		if (cursor) return;
+		let timer: ReturnType<typeof setTimeout>;
+		const tick = () => {
+			const current = new Date();
+			setNow(current);
+			timer = setTimeout(tick, 60_000 - (current.getTime() % 60_000));
+		};
+		tick();
+		return () => clearTimeout(timer);
+	}, [cursor]);
+	useEffect(() => {
+		if (previousDay.current === today) return;
+		previousDay.current = today;
+		void reload();
+	}, [today, reload]);
+
+	const items = error ? [] : (data?.items ?? []);
+	const current: MemoryDay = items.find((day) => day.date === today) ?? {
+		date: today,
+		state: "ready",
+		failure: null,
+		digest: { steps: null, places: 0, photos: 0 },
+		digestPath: null,
+		blocks: [],
+	};
+	const history = items.flatMap((day) => {
+		if (day.date === today) return [];
+		// The server only projects scheduled tasks for today. Drop cached ones at midnight.
+		const blocks = day.blocks.filter(
+			(block) => block.type !== "entry" || block.entry.deletable || !block.entry.id.startsWith("plan-"),
+		);
+		return blocks.length || day.state !== "ready" ? [{ ...day, blocks }] : [];
+	});
+	const days = cursor ? history : [current, ...history];
 	const nextCursor = data?.nextCursor;
 	return (
 		<>
 			{error || (!days.length && !loading) || (loading && !data) ? (
 				<State loading={loading} error={error} retry={() => void reload()} empty={t("还没有记忆", "No memories yet")} />
 			) : null}
-			{!error &&
-				days.map((day) => (
+			{days.map((day) => {
+				const isToday = day.date === today;
+				return (
 					<View key={day.date}>
-						<Text className="mini-subtitle">{day.date}</Text>
+						<Text className="mini-subtitle">
+							{isToday ? t(`今天 ${now.getMonth() + 1}月${now.getDate()}日`, `Today ${today}`) : day.date}
+						</Text>
+						{isToday ? (
+							<Text className="mini-muted">{t(`现在 ${local.slice(11, 16)}`, `Now ${local.slice(11, 16)}`)}</Text>
+						) : null}
 						{day.failure ? <Text className="mini-error">{day.failure}</Text> : null}
 						{day.state === "organizing" ? <Text className="mini-muted">{t("正在整理…", "Organizing…")}</Text> : null}
-						{day.blocks.map((block) =>
-							block.type === "entry" ? (
-								<TimelineCard key={block.entry.id} entry={block.entry} />
-							) : (
-								<View key={block.stay.id}>
-									<Text className="mini-muted">{block.stay.place}</Text>
-									{block.stay.entries.map((entry) => (
-										<TimelineCard key={entry.id} entry={entry} />
-									))}
-								</View>
-							),
-						)}
+						{day.blocks
+							.slice()
+							.reverse()
+							.map((block) => (
+								<TimelineBlock
+									key={block.type === "entry" ? block.entry.id : block.stay.id}
+									block={block}
+									now={isToday ? now.getTime() : undefined}
+								/>
+							))}
 					</View>
-				))}
+				);
+			})}
 			{onNewer || (nextCursor && !error) ? (
 				<View className="actions">
 					{onNewer ? (
@@ -167,8 +210,24 @@ function TimelinePage({
 	);
 }
 
-function TimelineCard({ entry }: { entry: MemoryEntry }) {
+function TimelineBlock({ block, now }: { block: MemoryBlock; now: number | undefined }) {
+	if (block.type === "entry") return <TimelineCard entry={block.entry} now={now} />;
+	return (
+		<View>
+			<Text className="mini-muted">{block.stay.place}</Text>
+			{block.stay.entries
+				.slice()
+				.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+				.map((entry) => (
+					<TimelineCard key={entry.id} entry={entry} now={now} />
+				))}
+		</View>
+	);
+}
+
+function TimelineCard({ entry, now }: { entry: MemoryEntry; now: number | undefined }) {
 	const content = entry.body || entry.text;
+	const upcoming = now !== undefined && Date.parse(entry.at) > now;
 	const sourceLabels = {
 		chat: t("对话", "Conversation"),
 		meeting: t("录音笔记", "Recording notes"),
@@ -181,6 +240,7 @@ function TimelineCard({ entry }: { entry: MemoryEntry }) {
 				<Text className="mini-memory-title">{entry.title}</Text>
 				<Visibility value={entry.visibility} />
 			</View>
+			{upcoming ? <Text className="mini-muted">{t("计划", "Planned")}</Text> : null}
 			{content ? <MessageBody body={content} /> : null}
 			{sources.length ? <Text className="mini-muted">{sources.join(t("、", ", "))}</Text> : null}
 		</View>

@@ -1,4 +1,4 @@
-/* Native insets come from the host. The main Bot also uses floating chrome in the mobile browser. */
+/* Native insets come from the host. The main Bot also uses floating chrome in the browser. */
 html[data-native-mobile="true"] {
 	--safe-area-top: var(--native-safe-area-inset-top, env(safe-area-inset-top));
 	--safe-area-right: var(--native-safe-area-inset-right, env(safe-area-inset-right));
@@ -46,25 +46,39 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 
 :is(html[data-native-mobile="true"] [data-floating-frame-header], [data-floating-frame-header])::before {
 	inset: 0 0 auto;
-	height: calc(max(var(--spacing-4), var(--floating-frame-safe-top)) + var(--spacing-2));
-	background: var(--color-bg-base);
+	height: calc(100% + var(--spacing-2));
+	background: color-mix(in srgb, var(--color-bg-base) 65%, transparent);
 	-webkit-backdrop-filter: blur(var(--floating-frame-blur));
 	backdrop-filter: blur(var(--floating-frame-blur));
+	-webkit-mask-image: linear-gradient(var(--color-mask-solid), transparent);
+	mask-image: linear-gradient(var(--color-mask-solid), transparent);
+}
+
+html[data-native-mobile="true"] [data-floating-frame-header]::before {
+	height: calc(max(var(--spacing-4), var(--floating-frame-safe-top)) + var(--spacing-2));
+	background: var(--color-bg-base);
 	-webkit-mask-image: linear-gradient(var(--color-mask-solid) 50%, transparent);
 	mask-image: linear-gradient(var(--color-mask-solid) 50%, transparent);
 }
 
-[data-floating-frame-leading] {
+:is([data-floating-frame-leading], [data-floating-frame-trailing]) {
 	position: absolute;
 	top: var(--floating-frame-top);
+}
+
+[data-floating-frame-leading] {
 	inset-inline-start: var(--spacing-3);
+}
+
+[data-floating-frame-trailing] {
+	inset-inline-end: var(--spacing-3);
 }
 
 [data-floating-frame-header] button {
 	pointer-events: auto;
 }
 
-[data-floating-frame-leading] > button {
+:is([data-floating-frame-leading], [data-floating-frame-trailing]) > button {
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius-full);
 	background-color: color-mix(in srgb, var(--color-bg-base) 50%, transparent);
@@ -72,7 +86,9 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 	backdrop-filter: blur(var(--floating-frame-blur));
 }
 
-[data-floating-frame-header] [data-chat-agent-title] > :is([data-chat-agent-name], [role="status"]) {
+[data-floating-frame-header]
+	[data-chat-agent-title]
+	> :is([data-chat-agent-avatar], [data-chat-agent-name], [role="status"]) {
 	position: relative;
 }
 
@@ -80,7 +96,9 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 	padding-inline: 0;
 }
 
-[data-floating-frame-header] [data-chat-agent-title] > :is(button, [data-chat-agent-name], [role="status"])::before {
+[data-floating-frame-header]
+	[data-chat-agent-title]
+	> :is([data-chat-agent-avatar], [data-chat-agent-name], [role="status"])::before {
 	position: absolute;
 	inset: calc(-1 * var(--spacing-1));
 	z-index: -1;
@@ -93,7 +111,7 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 	content: "";
 }
 
-[data-floating-frame-header] [data-chat-agent-title] > button::before {
+[data-floating-frame-header] [data-chat-agent-avatar]::before {
 	border-radius: calc(var(--radius-control) + var(--spacing-1));
 }
 

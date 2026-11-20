@@ -27,6 +27,7 @@ export interface ShellTab {
 	labels: Record<TabId, string>;
 	ariaLabel: string;
 	mobileBot?: MobileDockProps["botTab"];
+	messagesUnread?: MobileDockProps["messagesUnread"];
 }
 
 export interface MeStack {
@@ -169,6 +170,7 @@ export function AppShell({
 							onSelect={tab.onSelect}
 							labels={tab.labels}
 							ariaLabel={tab.ariaLabel}
+							messagesUnread={tab.messagesUnread}
 							renderAvatar={renderAvatar}
 							onOpenMe={(event) => {
 								if (desktop) meTrigger.current = event.currentTarget;
@@ -188,6 +190,7 @@ export function AppShell({
 						<aside
 							inert={meOpen || covering || sideOpen}
 							aria-hidden={meOpen || covering || sideOpen || undefined}
+							data-surface="chrome"
 							className="relative flex h-full shrink-0 flex-col"
 							style={{ width: wide && !pane.collapsed ? pane.width : "100%" }}
 						>
@@ -213,6 +216,7 @@ export function AppShell({
 									labels={tab.labels}
 									ariaLabel={tab.ariaLabel}
 									botTab={tab.mobileBot}
+									messagesUnread={tab.messagesUnread}
 								/>
 							) : null}
 						</aside>
@@ -252,6 +256,7 @@ export function AppShell({
 									labels={tab.labels}
 									ariaLabel={tab.ariaLabel}
 									botTab={tab.mobileBot}
+									messagesUnread={tab.messagesUnread}
 								/>
 							) : null}
 						</main>
@@ -362,6 +367,7 @@ function MeLayers({
 				<div
 					inert={!wide && hasPage}
 					aria-hidden={(!wide && hasPage) || undefined}
+					data-surface="chrome"
 					className={cn(
 						"yonder-chrome flex min-h-0 shrink-0 flex-col",
 						wide ? "w-[var(--list-pane-default,320px)]" : "w-full",

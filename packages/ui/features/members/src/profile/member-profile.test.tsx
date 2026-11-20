@@ -104,7 +104,7 @@ test("the anonymous form shows the card with sign-in and download, and nothing e
 	const onSignIn = vi.fn();
 	const onDownload = vi.fn();
 	show(bot(), { onSignIn, onDownload, onMessage: vi.fn(), onChat: vi.fn() });
-	expect(screen.getByRole("heading", { name: "A Bot" })).toBeVisible();
+	expect(screen.getByRole("heading", { name: "A Bot AI" })).toBeVisible();
 	expect(screen.getByText("Answers questions")).toBeVisible();
 	await userEvent.click(screen.getByRole("button", { name: "Sign in to add" }));
 	expect(onSignIn).toHaveBeenCalledTimes(1);

@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import type { Conversation, Member, MeResponse } from "@yonder/protocol";
+import type { ConnectorRequestView, Conversation, Member, MeResponse } from "@yonder/protocol";
 import { describe, expect, test } from "vitest";
 import { keys } from "../query/keys.ts";
 import { applyServerEvent, reconcileRealtime } from "./events.ts";
@@ -27,6 +27,28 @@ const me: MeResponse = {
 };
 
 describe("applyServerEvent", () => {
+	test("a task conversation reply refreshes its item status without touching ordinary chats", () => {
+		const client = new QueryClient();
+		const list = keys.items.list(null);
+		const detail = keys.items.detail("task");
+		const another = keys.items.detail("another");
+		client.setQueryData(keys.items.session("task"), { conversation: { id: "task" } });
+		for (const key of [list, detail, another, keys.conversations.list()]) client.setQueryData(key, {});
+		for (const conversationId of ["ordinary", "task"]) {
+			applyServerEvent(client, {
+				type: "run.updated",
+				eventId: conversationId,
+				at: "2026-11-20T00:00:00Z",
+				run: { id: "run", conversationId, messageId: "bot", userMessageId: "owner", status: "completed" },
+			});
+			for (const key of [list, detail])
+				expect(client.getQueryState(key)?.isInvalidated).toBe(conversationId === "task");
+		}
+		expect(client.getQueryState(another)?.isInvalidated).toBe(false);
+		expect(client.getQueryState(keys.conversations.list())?.isInvalidated).toBe(false);
+		client.clear();
+	});
+
 	test("terminal runs without a chat message refresh skills and task results", () => {
 		for (const status of ["queued", "running", "completed", "failed", "cancelled"] as const) {
 			const queryClient = new QueryClient();
@@ -67,6 +89,31 @@ describe("applyServerEvent", () => {
 		reconcileRealtime(queryClient);
 		for (const key of unrelated) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
 		queryClient.clear();
+	});
+	test("a connector request update replaces the card in every endpoint's cache without a request", () => {
+		const queryClient = new QueryClient();
+		const request: ConnectorRequestView = {
+			id: "request",
+			connectorIds: ["local-files"],
+			reason: "Read the notes",
+			state: "pending",
+			deviceId: null,
+			deviceName: null,
+			connectionIds: [],
+			failure: null,
+		};
+		queryClient.setQueryData(keys.connectorRequest("request"), request);
+		applyServerEvent(queryClient, {
+			type: "connector_request.updated",
+			eventId: "cr-1",
+			at: "2026-11-20T00:00:00Z",
+			request: { ...request, connectorIds: ["local-files"], state: "granted", deviceId: "dev_a", deviceName: "Mac" },
+		});
+		expect(queryClient.getQueryData(keys.connectorRequest("request"))).toMatchObject({
+			state: "granted",
+			deviceName: "Mac",
+		});
+		expect(queryClient.getQueryState(keys.connectorRequest("request"))?.isInvalidated).toBe(false);
 	});
 	test("device changes and reconnects reconcile the device list and linked login sessions", () => {
 		const queryClient = new QueryClient();

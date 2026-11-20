@@ -1,13 +1,24 @@
 import { Text, View } from "@tarojs/components";
-import { agentChatStatus } from "@yonder/chat-model";
+import { agentChatStatus, ownedBotFor } from "@yonder/chat-model";
 import type { ConversationMember, Message } from "@yonder/protocol";
 import { useEffect, useRef } from "react";
+import { MiniBotName } from "../../components/bot-name";
 import { useResource } from "../../components/use-resource";
 import { t } from "../../lib/i18n";
-import { api, client, subscribeEvents, useRealtimeRevision } from "../../lib/runtime";
+import { api, client, subscribeEvents, useCachedBots, useRealtimeRevision, useSession } from "../../lib/runtime";
 import { ChatAvatar } from "./avatar";
 
-export function AgentTitle({ bot, messages }: { bot: ConversationMember; messages: readonly Message[] }) {
+export function AgentTitle({
+	bot,
+	messages,
+	owner,
+}: {
+	bot: ConversationMember;
+	messages: readonly Message[];
+	owner?: ConversationMember["botOwner"];
+}) {
+	const { me } = useSession();
+	const owned = ownedBotFor(bot.memberId, me?.member.id, me?.bot, useCachedBots());
 	const { data, reload } = useResource(() => api.activeBotSubtasks(bot.memberId));
 	const revision = useRealtimeRevision();
 	const lastRevision = useRef(revision);
@@ -34,7 +45,7 @@ export function AgentTitle({ bot, messages }: { bot: ConversationMember; message
 	return (
 		<View className="mini-agent-title" ariaRole="group" ariaLabel={bot.displayName}>
 			<ChatAvatar name={bot.displayName} kind="bot" src={avatar} color={bot.avatarColor} size={48} />
-			<Text className="mini-agent-title-line">{bot.displayName}</Text>
+			<MiniBotName name={bot.displayName} ownedBot={owned} owner={owner} compact="header" />
 			{label ? (
 				<Text className="mini-agent-title-line mini-agent-title-status" ariaRole="status">
 					{label}

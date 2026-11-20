@@ -1,4 +1,5 @@
 import { ApiError } from "@yonder/api-client";
+import { botRoleProblem } from "@yonder/chat-model";
 import type { Member, UpdateBotRequest } from "@yonder/protocol";
 import { t } from "../../lib/i18n";
 
@@ -25,11 +26,15 @@ export function nameProblem(name: string): string | null {
 }
 
 /** Only the fields that differ go in the patch; an untouched field is not sent at all. */
-export function botChanges(bot: Member, name: string, color: string): UpdateBotRequest {
+export function botChanges(bot: Member, name: string, color: string, roleLabel?: string): UpdateBotRequest {
 	const changes: UpdateBotRequest = {};
 	const trimmed = name.trim();
 	if (trimmed && !nameProblem(trimmed) && trimmed !== bot.displayName) changes.displayName = trimmed;
 	if (isBotColor(color) && color !== colorOf(bot)) changes.avatarColor = color;
+	if (roleLabel !== undefined && !botRoleProblem(roleLabel)) {
+		const role = roleLabel.trim() || null;
+		if (role !== (bot.botRoleLabel ?? null)) changes.botRoleLabel = role;
+	}
 	return changes;
 }
 

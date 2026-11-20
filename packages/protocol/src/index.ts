@@ -65,8 +65,10 @@ export type {
 export type { CompactConversationRequest, CompactConversationResponse } from "./chat/compaction.ts";
 export type { Goal, GoalAction, GoalChange, GoalProgress, GoalState, OnboardingStep } from "./chat/goals.ts";
 export type {
+	CreateItemResponse,
 	ItemDetail,
 	ItemListResponse,
+	ItemSessionResponse,
 	ItemSource,
 	ItemState,
 	ItemStep,
@@ -95,9 +97,15 @@ export type {
 	ConnectorCommandResult,
 	ConnectorDefinition,
 	ConnectorExecutionError,
+	ConnectorGrant,
+	ConnectorId,
 	ConnectorInstance,
 	ConnectorListResponse,
 	ConnectorOperation,
+	ConnectorRequestDevice,
+	ConnectorRequestDevicesResponse,
+	ConnectorRequestState,
+	ConnectorRequestView,
 	ConnectorScope,
 	CreateConnectorRequest,
 	LocalFilesResult,

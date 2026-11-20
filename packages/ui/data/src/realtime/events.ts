@@ -4,7 +4,7 @@
  * everything.
  */
 import type { QueryClient } from "@tanstack/react-query";
-import type { Member, QuotaConfigResponse, ServerEvent } from "@yonder/protocol";
+import type { ItemSessionResponse, Member, QuotaConfigResponse, ServerEvent } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { invalidateMemoryFiles } from "../query/memory-files.ts";
 import { writeFriendRequest } from "./friend-request-cache.ts";
@@ -31,6 +31,9 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 	void queryClient.invalidateQueries({ queryKey: keys.messages.root() });
 	void queryClient.invalidateQueries({ queryKey: keys.contacts() });
 	void queryClient.invalidateQueries({ queryKey: keys.friendRequests.all() });
+	// The card is a mirror of server state; a socket that was down may have missed the update that
+	// settled it, and the card would otherwise keep showing `pending`.
+	void queryClient.invalidateQueries({ queryKey: ["connector-request"] });
 	void queryClient.invalidateQueries({ queryKey: keys.quota() });
 	void queryClient.invalidateQueries({ queryKey: ["usage"] });
 	void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
@@ -42,6 +45,11 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 	switch (event.type) {
 		case "friend_request.updated": {
 			writeFriendRequest(queryClient, event.request);
+			break;
+		}
+		case "connector_request.updated": {
+			// The payload is the whole view, so the card every endpoint is showing updates in place.
+			queryClient.setQueryData(keys.connectorRequest(event.request.id), event.request);
 			break;
 		}
 		case "connectors.changed": {
@@ -114,10 +122,20 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 		}
 		case "run.updated": {
 			if (event.run.messageId) updateRun(queryClient, event.run);
-			if (event.run.status === "completed" || event.run.status === "failed" || event.run.status === "cancelled") {
+			const finished = ["completed", "failed", "cancelled"].includes(event.run.status);
+			if (finished) {
 				void queryClient.invalidateQueries({ queryKey: keys.skills.all() });
 				if (!event.run.messageId && !event.run.userMessageId)
 					void queryClient.invalidateQueries({ queryKey: keys.items.all() });
+			}
+			// A user-created item's id is its private conversation id. Its chat runs carry the same
+			// message ids as other chat runs, so refresh the item for a queued or settled reply.
+			if (
+				(finished || event.run.status === "queued") &&
+				queryClient.getQueryData<ItemSessionResponse>(keys.items.session(event.run.conversationId))
+			) {
+				void queryClient.invalidateQueries({ queryKey: keys.items.detail(event.run.conversationId) });
+				void queryClient.invalidateQueries({ queryKey: keys.items.lists() });
 			}
 			break;
 		}

@@ -20,12 +20,10 @@ export function useChangeGoal() {
 export function useGoalSettings() {
 	const api = useApi();
 	const client = useQueryClient();
-	const refresh = () => client.invalidateQueries({ queryKey: keys.goals() });
 	return {
 		transfer: useMutation({
 			mutationFn: ({ id, botId }: { id: string; botId: string }) => api.transferGoal(id, botId),
-			onSuccess: refresh,
+			onSuccess: () => client.invalidateQueries({ queryKey: keys.goals() }),
 		}),
-		disable: useMutation({ mutationFn: () => api.disableOnboarding(), onSuccess: refresh }),
 	};
 }

@@ -1,4 +1,11 @@
-import type { ItemDetail, ItemListResponse, ItemSummary } from "@yonder/protocol";
+import type {
+	CreateItemResponse,
+	ItemDetail,
+	ItemListResponse,
+	ItemSessionResponse,
+	ItemSummary,
+	SendMessageRequest,
+} from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
 
 /** The items page: one merged list over the sources, its detail, and a subtask's lifecycle. */
@@ -30,6 +37,12 @@ export function itemEndpoints(client: ApiClient) {
 		},
 		item(id: string): Promise<ItemDetail> {
 			return client.request(`/v1/items/${encodeURIComponent(id)}`);
+		},
+		openItemSession(id: string): Promise<ItemSessionResponse> {
+			return client.request(`/v1/items/${encodeURIComponent(id)}/session`, { body: {} });
+		},
+		createItem(body: SendMessageRequest): Promise<CreateItemResponse> {
+			return client.request("/v1/items", { body, idempotencyKey: body.clientNonce });
 		},
 		cancelItem(id: string): Promise<ItemSummary> {
 			return client.request(`/v1/items/${encodeURIComponent(id)}/cancel`, { body: {} });

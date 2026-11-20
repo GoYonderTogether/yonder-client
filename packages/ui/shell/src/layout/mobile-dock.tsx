@@ -1,5 +1,6 @@
-import { cn } from "@yonder/ui-components";
+import { cn, UnreadBadge } from "@yonder/ui-components";
 import type { ReactNode } from "react";
+import { useId } from "react";
 import type { TabId } from "../navigation/routes.ts";
 import { TABS } from "../navigation/routes.ts";
 import { TAB_ICONS } from "./tab-icons.tsx";
@@ -15,6 +16,7 @@ export interface MobileDockProps {
 	labels: Record<TabId, string>;
 	ariaLabel: string;
 	botTab?: { label: string; active: boolean; icon: ReactNode; onSelect(): void } | undefined;
+	messagesUnread?: { count: number; label: string } | undefined;
 	onHeightChange?: (height: number) => void;
 }
 
@@ -30,9 +32,11 @@ export function MobileDock({
 	labels,
 	ariaLabel,
 	botTab,
+	messagesUnread,
 	onHeightChange,
 }: MobileDockProps) {
 	const ref = useChromeSize("--native-dock-height", true, onHeightChange);
+	const badgeId = useId();
 	if (!composer && !showTabs)
 		return (
 			<div
@@ -73,6 +77,7 @@ export function MobileDock({
 								};
 							}),
 						].map(({ id, label, displayLabel, active, icon, onSelect }) => {
+							const unread = id === "messages" && messagesUnread?.count ? messagesUnread : undefined;
 							return (
 								<li
 									key={id}
@@ -82,6 +87,7 @@ export function MobileDock({
 										type="button"
 										onClick={onSelect}
 										aria-label={label}
+										aria-describedby={unread ? badgeId : undefined}
 										aria-current={active ? "page" : undefined}
 										className={cn(
 											"flex size-full flex-col items-center justify-center gap-[3px]",
@@ -90,7 +96,17 @@ export function MobileDock({
 											active ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-tertiary)]",
 										)}
 									>
-										{icon}
+										<span className="relative">
+											{icon}
+											{unread ? (
+												<UnreadBadge
+													{...unread}
+													id={badgeId}
+													dot
+													className="absolute -end-[var(--spacing-2)] -top-[var(--spacing-1)]"
+												/>
+											) : null}
+										</span>
 										<span className="max-w-full truncate px-[var(--spacing-1)]">{displayLabel}</span>
 									</button>
 								</li>

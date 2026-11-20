@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { MeResponse, SendMessageRequest } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
@@ -15,6 +16,12 @@ export function useItems(botId?: string | null) {
 		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
 		staleTime: 15_000,
 		refetchOnWindowFocus: true,
+		refetchInterval: (query) =>
+			query.state.data?.pages.some((page) =>
+				page.items.some((item) => item.source === "conversation" && item.state === "running"),
+			)
+				? 3000
+				: false,
 	});
 }
 
@@ -37,6 +44,30 @@ export function useItem(id: string | null) {
 		queryFn: () => api.item(id ?? ""),
 		enabled: Boolean(id),
 		staleTime: 10_000,
+		refetchInterval: (query) => (query.state.data?.state === "running" ? 3000 : false),
+	});
+}
+
+export function useItemSession(id: string | null) {
+	const api = useApi();
+	return useQuery({
+		queryKey: keys.items.session(id ?? ""),
+		queryFn: () => api.openItemSession(id ?? ""),
+		enabled: Boolean(id),
+		staleTime: 60_000,
+	});
+}
+
+export function useCreateItem(personId: string | undefined) {
+	const api = useApi();
+	const client = useQueryClient();
+	return useMutation({
+		mutationFn: (input: SendMessageRequest) => api.createItem(input),
+		onSuccess: ({ item, conversation }) => {
+			if (client.getQueryData<MeResponse>(keys.me())?.member.id !== personId) return;
+			client.setQueryData(keys.items.session(item.id), { conversation });
+			void client.invalidateQueries({ queryKey: keys.items.lists() });
+		},
 	});
 }
 

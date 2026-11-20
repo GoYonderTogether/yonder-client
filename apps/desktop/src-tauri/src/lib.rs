@@ -12,8 +12,6 @@ mod local_files;
 #[cfg(desktop)]
 mod local_files_access;
 #[cfg(desktop)]
-mod local_files_confirm;
-#[cfg(desktop)]
 mod local_files_operations;
 
 #[cfg(desktop)]
@@ -33,9 +31,6 @@ mod android_update;
 /// On desktop the keyring plugin is the one capability the shell adds beyond a window: the refresh
 /// token is kept in the OS credential store rather than in the webview's storage. The plugin does not
 /// exist on mobile; see apps/web/src/lib/keychain.ts for what the mobile shells do instead.
-///
-/// The local-file grant confirmation (`local_files_confirm`) is a native message box built in Rust
-/// with `rfd`; it is not a plugin, so there is no `dialog:` command for page script to call.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()

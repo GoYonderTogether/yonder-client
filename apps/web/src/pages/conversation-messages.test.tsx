@@ -82,6 +82,7 @@ const props = {
 	conversation,
 	person,
 	bot,
+	contacts: [] as Member[],
 	hasFullHistory: false,
 	disconnected: false,
 	onResend: vi.fn(),
@@ -331,6 +332,18 @@ test("missing group members use existing person or Bot profiles and a localized 
 	expect(
 		container.querySelector('[data-message-run="bot"] [data-avatar-fallback]')?.classList.contains("rounded-[30%]"),
 	).toBe(true);
+});
+
+test("group names show a private responsibility for the viewer's Bot and AI for another person's Bot", () => {
+	const other = { ...bot, id: "other-bot", ownerId: "alice", botRoleLabel: "Private note" };
+	const { container } = render(
+		view([message("1", bot.id, { senderKind: "bot" }), message("2", other.id, { senderKind: "bot" })], {
+			bot: { ...bot, botRoleLabel: "安排日程" },
+			contacts: [other],
+		}),
+	);
+	expect([...container.querySelectorAll("[data-bot-label]")].map((node) => node.textContent)).toEqual(["主 Bot", "AI"]);
+	expect([...container.querySelectorAll("[data-bot-duty]")].map((node) => node.textContent)).toEqual(["安排日程"]);
 });
 
 test("a sender's avatar opens their card, as in QQ and WeChat", () => {

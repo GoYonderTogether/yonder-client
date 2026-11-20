@@ -1,7 +1,7 @@
-import { groupMessages, isTwoPartyAgentChat } from "@yonder/chat-model";
+import { groupMessages, isTwoPartyAgentChat, ownedBotFor } from "@yonder/chat-model";
 import { MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
 import { FeishuAttemptCard } from "@yonder/feature-me";
-import { systemEventText } from "@yonder/feature-members";
+import { BotName, systemEventText } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button } from "@yonder/ui-components";
 import type { CachedMessage } from "@yonder/ui-data";
@@ -35,6 +35,7 @@ export function ConversationMessages({
 	conversation,
 	person,
 	bot,
+	contacts,
 	onOpenRelated,
 	onOpenMember,
 	...actions
@@ -44,6 +45,7 @@ export function ConversationMessages({
 	conversation: Conversation;
 	person?: Member | undefined;
 	bot?: Member | undefined;
+	contacts?: readonly Member[] | undefined;
 	onOpenRelated?: (id: string) => void;
 	/** A sender's avatar opens who they are, as in QQ and WeChat (profile-entry matrix 第二节). */
 	onOpenMember?: ((memberId: string) => void) | undefined;
@@ -148,9 +150,8 @@ export function ConversationMessages({
 				</div>
 			);
 		});
-		const member =
-			conversation.members.find((member) => member.memberId === first.senderId) ??
-			(self ? person : first.senderId === bot?.id ? bot : undefined);
+		const peer = conversation.members.find((member) => member.memberId === first.senderId);
+		const member = peer ?? (self ? person : first.senderId === bot?.id ? bot : undefined);
 		const name = member?.displayName || t("chat.unknownSender");
 		const face = (
 			<Avatar
@@ -185,14 +186,22 @@ export function ConversationMessages({
 				}
 				sender={
 					conversation.kind === "group" ? (
-						<div data-message-sender-header>
-							<span
-								data-message-sender-name
-								title={name}
-								className="message-run-name text-caption text-[var(--color-text-secondary)]"
-							>
-								{name}
-							</span>
+						<div data-message-sender-header className="text-start text-caption text-[var(--color-text-secondary)]">
+							{first.senderKind === "bot" ? (
+								<BotName
+									name={
+										<span data-message-sender-name title={name} className="inline-block max-w-full align-top">
+											{name}
+										</span>
+									}
+									ownedBot={ownedBotFor(first.senderId, person?.id, bot, contacts)}
+									owner={peer?.botOwner}
+								/>
+							) : (
+								<span data-message-sender-name title={name} className="message-run-name">
+									{name}
+								</span>
+							)}
 						</div>
 					) : null
 				}
@@ -264,9 +273,7 @@ function MessageEntry({
 			{voice ? null : <MessageAttachments attachments={message.attachments} self={self} />}
 			{message.reaction ? <span>{message.reaction}</span> : null}
 			<MessageSources run={message.run} />
-			{message.connectorRequestId ? (
-				<ConnectorRequestCard id={message.connectorRequestId} ready={message.run?.status === "completed"} />
-			) : null}
+			{message.connectorRequestId ? <ConnectorRequestCard id={message.connectorRequestId} /> : null}
 			{message.options?.length ? (
 				<div className="flex flex-wrap gap-[var(--spacing-2)]">
 					{message.options.map((option) => (

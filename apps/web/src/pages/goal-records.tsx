@@ -1,6 +1,7 @@
 import type { Goal, GoalAction } from "@yonder/protocol";
-import { Button, ListGroup, TextField } from "@yonder/ui-components";
+import { Button, EmptyState, ListGroup, TextField } from "@yonder/ui-components";
 import { useChangeGoal, useGoalSettings, useGoals } from "@yonder/ui-data";
+import { Target } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BotHandoff } from "./bot-handoff.tsx";
@@ -19,7 +20,7 @@ export function GoalRecords() {
 	const settings = useGoalSettings();
 	const [editing, setEditing] = useState<string | null>(null);
 	return (
-		<ListGroup variant="card" title={t("tasks.goalsGoals")}>
+		<ListGroup title={t("tasks.goalsGoals")}>
 			{goals.data?.items.map((goal) => {
 				const available = actions(goal);
 				return (
@@ -126,27 +127,11 @@ export function GoalRecords() {
 					</li>
 				);
 			})}
-			{goals.data?.onboarding ? (
-				<li className="p-[var(--spacing-4)] text-caption">
-					{goals.data.onboarding.disabled ? (
-						t("tasks.onboardingDisabled")
-					) : (
-						<Button
-							variant="secondary"
-							size="sm"
-							disabled={settings.disable.isPending}
-							onClick={() => settings.disable.mutate()}
-						>
-							{t("tasks.disableOnboarding")}
-						</Button>
-					)}
-					{settings.disable.isError ? <span role="alert">{t("tasks.actionFailed")}</span> : null}
-				</li>
+			{goals.isLoading ? (
+				<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">{t("app.loading")}</li>
 			) : null}
-			{goals.isLoading || (goals.data?.items.length === 0 && !goals.isError) ? (
-				<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">
-					{t(goals.isLoading ? "app.loading" : "tasks.goalsEmptyGoals")}
-				</li>
+			{goals.data?.items.length === 0 && !goals.isLoading && !goals.isError ? (
+				<EmptyState as="li" icon={<Target size={24} strokeWidth={1.6} />} title={t("tasks.goalsEmptyGoals")} />
 			) : null}
 			{goals.isError ? (
 				<li className="p-[var(--spacing-4)] text-caption">

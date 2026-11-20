@@ -1,5 +1,10 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
+function atEnd(scroll: HTMLElement) {
+	// scrollTop can be fractional while the scroll dimensions are rounded.
+	return scroll.clientHeight > 0 && scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop <= 2;
+}
+
 /** Follow the reader's position, never the arrival rate of the response. */
 export function useMessageScroll(conversationId: string | null, items: readonly { id: string }[] | undefined) {
 	const bottom = useRef<HTMLDivElement>(null);
@@ -8,8 +13,17 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 	const previous = useRef<{ conversationId: string | null; first: string; last: string; height: number } | null>(null);
 	const [showLatest, setShowLatest] = useState(false);
 	const [atLatest, setAtLatest] = useState(false);
+	const [endVisible, setEndVisible] = useState(typeof IntersectionObserver === "undefined");
 	const hasItems = Boolean(items?.length);
 	const viewport = useCallback(() => bottom.current?.closest<HTMLElement>(".overflow-y-auto"), []);
+	const canReadLatest = useCallback(() => {
+		const scroll = viewport();
+		return Boolean(scroll && atEnd(scroll) && !scroll.closest("[inert], [hidden], [aria-hidden=true]"));
+	}, [viewport]);
+	const measure = useCallback((scroll: HTMLElement) => {
+		setAtLatest(atEnd(scroll));
+		setShowLatest(scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop > 120);
+	}, []);
 	const scrollToEnd = useCallback((scroll: HTMLElement) => {
 		scroll.scrollTop = scroll.scrollHeight;
 		pendingScrollTop.current = scroll.scrollTop;
@@ -19,9 +33,8 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 		if (!scroll) return;
 		scrollToEnd(scroll);
 		follow.current = true;
-		setShowLatest(false);
-		setAtLatest(true);
-	}, [scrollToEnd, viewport]);
+		measure(scroll);
+	}, [measure, scrollToEnd, viewport]);
 
 	useLayoutEffect(() => {
 		if (!conversationId || !hasItems) return;
@@ -35,10 +48,9 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 			const top = scroll.scrollTop;
 			const distance = scroll.scrollHeight - scroll.clientHeight - top;
 			// A jump's event can arrive after the dock has already changed the scroll range.
-			if (top !== pendingScrollTop.current) follow.current = distance <= 40;
+			if (top !== pendingScrollTop.current) follow.current = distance <= 2;
 			pendingScrollTop.current = null;
-			setAtLatest(distance <= 40);
-			setShowLatest(distance > 120);
+			measure(scroll);
 		};
 		const interrupt = () => {
 			follow.current = false;
@@ -55,17 +67,27 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 		const observer = new ResizeObserver(() => {
 			if (previous.current) previous.current.height = scroll.scrollHeight;
 			if (follow.current) scrollToEnd(scroll);
+			measure(scroll);
 		});
 		observer.observe(scroll);
+		if (bottom.current?.parentElement) observer.observe(bottom.current.parentElement);
+		const intersection =
+			typeof IntersectionObserver === "undefined"
+				? null
+				: new IntersectionObserver(([entry]) => {
+						setEndVisible(Boolean(entry?.isIntersecting));
+					});
+		if (bottom.current) intersection?.observe(bottom.current);
 		return () => {
 			observer.disconnect();
+			intersection?.disconnect();
 			scroll.removeEventListener("scroll", onScroll);
 			scroll.removeEventListener("wheel", interrupt);
 			scroll.removeEventListener("touchmove", interrupt);
 			scroll.removeEventListener("pointerdown", interrupt);
 			scroll.removeEventListener("keydown", onKeyDown);
 		};
-	}, [conversationId, hasItems, scrollToEnd, viewport]);
+	}, [conversationId, hasItems, measure, scrollToEnd, viewport]);
 
 	useLayoutEffect(() => {
 		const scroll = viewport();
@@ -79,11 +101,9 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 		} else if (follow.current) {
 			scrollToEnd(scroll);
 		}
-		const distance = scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop;
-		setShowLatest(distance > 120);
-		setAtLatest(distance <= 40);
+		measure(scroll);
 		previous.current = { conversationId, first, last, height: scroll.scrollHeight };
-	}, [conversationId, items, scrollToEnd, viewport]);
+	}, [conversationId, items, measure, scrollToEnd, viewport]);
 
-	return { bottom, showLatest, atLatest, jumpToLatest };
+	return { bottom, showLatest, atBottom: atLatest, atLatest: atLatest && endVisible, canReadLatest, jumpToLatest };
 }

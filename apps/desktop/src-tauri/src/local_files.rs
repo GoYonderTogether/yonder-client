@@ -1,4 +1,3 @@
-use crate::local_files_confirm;
 use crate::local_files_operations;
 use crate::local_files_store::{Capabilities, Context, Grant, LocalFilesState};
 use serde_json::{json, Value};
@@ -103,28 +102,9 @@ pub async fn local_files_authorize(
     off_thread(move || {
         let file = grant_file(&app)?;
         let state = app.state::<LocalFilesState>();
-        let existing = {
-            let store = state.lock().map_err(|_| "read_failed".to_string())?;
-            store.require(&context)?;
-            store
-                .grants
-                .iter()
-                .find(|g| g.connection_id == id && g.matches(&context))
-                .cloned()
-        };
-        // The request decides what to ask for; the person decides whether it is granted. The box
-        // is built and shown by Rust (`local_files_confirm`), owned by the main window, and the
-        // page has no way to open or answer it. It runs with the store unlocked: a person may take
-        // a while, and other local-file commands must not queue behind that.
-        if local_files_confirm::must_ask(existing.as_ref(), &scope, &connector, &caps)
-            && !local_files_confirm::confirm(&app, &scope, &caps)
-        {
-            return Err("permission_denied".into());
-        }
         let mut store = state.lock().map_err(|_| "read_failed".to_string())?;
-        // The person's answer is not the only thing that can change while the box is open: the
-        // account, device or session can switch, and a revoke can land, so the check and the
-        // previous root are read again from the store rather than reused from before the box.
+        // The account, device or session can switch, and a revoke can land, between the request
+        // and this write, so the context is checked again against the store itself.
         store.require(&context)?;
         let root = store
             .grants

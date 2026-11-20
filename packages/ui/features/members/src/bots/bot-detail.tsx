@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../group/confirm-dialog.tsx";
 import { botColor } from "./bot-avatar-picker.tsx";
 import { describeBotError } from "./bot-error.ts";
+import { BotName } from "./bot-name.tsx";
 
 /** The Bot's own private chat: a direct conversation whose members are the Bot and me. */
 export function botConversation(botId: string, items: readonly Conversation[] | undefined): Conversation | undefined {
@@ -55,14 +56,9 @@ export function BotSettingsOverview({
 			<div className="flex min-w-0 items-center gap-[var(--spacing-4)] px-[var(--spacing-1)] py-[var(--spacing-2)]">
 				<Avatar name={bot.displayName} src={bot.avatarUrl} color={botColor(bot)} kind="bot" size={64} />
 				<div className="flex min-w-0 flex-col gap-[var(--spacing-1)]">
-					<div className="flex min-w-0 items-center gap-[var(--spacing-2)]">
-						<p className="truncate text-h2 font-semibold text-[var(--color-text-primary)]">{bot.displayName}</p>
-						{bot.isDefault ? (
-							<span className="shrink-0 rounded-[var(--radius-full)] bg-[var(--color-bg-subtle)] px-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
-								{t("bots.defaultLabel")}
-							</span>
-						) : null}
-					</div>
+					<p className="text-h2 font-semibold text-[var(--color-text-primary)]">
+						<BotName name={bot.displayName} ownedBot={bot} />
+					</p>
 					<p className="truncate text-caption text-[var(--color-text-tertiary)]">@{bot.handle}</p>
 				</div>
 			</div>

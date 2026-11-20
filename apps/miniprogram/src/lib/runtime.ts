@@ -1,8 +1,9 @@
 import Taro from "@tarojs/taro";
 import { ApiClient, createEndpoints } from "@yonder/api-client";
-import type { Attachment, DeviceInfo, MeResponse } from "@yonder/protocol";
+import type { Attachment, DeviceInfo, Member, MeResponse } from "@yonder/protocol";
 import { useSyncExternalStore } from "react";
 import { setLocale } from "./i18n";
+import { upsertOwnedBot } from "./member-cache";
 import {
 	configureRealtime,
 	resumeRealtime as connectRealtime,
@@ -21,6 +22,7 @@ export const REFRESH_STORAGE_KEY = `yonder.mini.refresh.${encodeURIComponent(bas
 Taro.removeStorageSync("yonder.mini.refresh");
 let accessToken: string | null = null;
 const listeners = new Set<() => void>();
+let cachedBots: readonly Member[] = [];
 let session: { status: "booting" | "signed-out" | "signed-in"; me: MeResponse | null } = {
 	status: "booting",
 	me: null,
@@ -38,6 +40,7 @@ export function newNonce(): string {
 }
 
 function publish(next: typeof session): void {
+	if (next.me?.member.id !== session.me?.member.id) cachedBots = [];
 	session = next;
 	for (const listener of [...listeners]) listener();
 }
@@ -78,7 +81,26 @@ export const client = new ApiClient({
 	},
 	onSessionLost: clearLocal,
 });
-export const api = createEndpoints(client);
+const endpoints = createEndpoints(client);
+export const api = {
+	...endpoints,
+	async contacts() {
+		const expected = generation;
+		const result = await endpoints.contacts();
+		assertCurrent(expected);
+		if (session.me) {
+			const ownerId = session.me.member.id;
+			cachedBots = result.items
+				.filter((member) => member.kind === "bot" && member.ownerId === ownerId)
+				.map((member) => {
+					const current = cachedBots.find((bot) => bot.id === member.id);
+					return current && current.version > member.version ? current : member;
+				});
+			publish(session);
+		}
+		return result;
+	},
+};
 
 configureRealtime({
 	baseUrl,
@@ -88,12 +110,28 @@ configureRealtime({
 });
 
 subscribeEvents((event) => {
+	const me = session.me;
+	if (!me) return;
+	if (event.type === "member.removed" && cachedBots.some((bot) => bot.id === event.memberId)) {
+		cachedBots = cachedBots.filter((bot) => bot.id !== event.memberId);
+		publish(session);
+	}
 	if (
 		event.type === "member.updated" &&
 		session.me?.member.id === event.member.id &&
 		session.me.member.version <= event.member.version
 	) {
 		publish({ ...session, me: { ...session.me, member: event.member } });
+	}
+	if (event.type === "member.updated" && event.member.kind === "bot" && event.member.ownerId === me.member.id) {
+		const current = cachedBots.find((bot) => bot.id === event.member.id);
+		if (!current || current.version <= event.member.version)
+			cachedBots = upsertOwnedBot([...cachedBots], event.member, me.member.id);
+		publish(
+			me.bot.id === event.member.id && me.bot.version <= event.member.version
+				? { ...session, me: { ...me, bot: event.member } }
+				: session,
+		);
 	}
 });
 
@@ -183,16 +221,19 @@ export async function signOut(): Promise<void> {
 	}
 }
 
+function subscribeSession(listener: () => void) {
+	listeners.add(listener);
+	return () => {
+		listeners.delete(listener);
+	};
+}
+
+export function useCachedBots(): readonly Member[] {
+	return useSyncExternalStore(subscribeSession, () => cachedBots);
+}
+
 export function useSession() {
-	const snapshot = useSyncExternalStore(
-		(listener) => {
-			listeners.add(listener);
-			return () => {
-				listeners.delete(listener);
-			};
-		},
-		() => session,
-	);
+	const snapshot = useSyncExternalStore(subscribeSession, () => session);
 	return { ...snapshot, startSession, signOut, refreshMe };
 }
 

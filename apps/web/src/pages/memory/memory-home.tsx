@@ -99,7 +99,7 @@ function Recent() {
 	);
 	const open = () => navigate("/memory/timeline");
 	return (
-		<ul className="overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-bg-surface)]">
+		<ul className="overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-bg-card)]">
 			{recent.length ? (
 				recent.map(({ date, entry }, index) => (
 					<li key={entry.id} className="border-b border-dashed border-[var(--color-border)]">
@@ -170,7 +170,7 @@ function Tiles() {
 	if (query.isPending) return <MemoryLoading />;
 	if (!groups.length)
 		return (
-			<p className="rounded-[var(--radius-card)] bg-[var(--color-bg-surface)] px-[var(--spacing-4)] py-[var(--spacing-4)] text-body text-[var(--color-text-tertiary)]">
+			<p className="rounded-[var(--radius-card)] bg-[var(--color-bg-card)] px-[var(--spacing-4)] py-[var(--spacing-4)] text-body text-[var(--color-text-tertiary)]">
 				{t("memory.noFiles")}
 			</p>
 		);
@@ -181,7 +181,7 @@ function Tiles() {
 					key={summary.group}
 					type="button"
 					onClick={() => navigate(memoryGroupRoute(summary.group))}
-					className="flex min-h-[calc(var(--spacing-16)+var(--spacing-8))] flex-col justify-between gap-[var(--spacing-4)] rounded-[var(--radius-card)] bg-[var(--color-bg-surface)] p-[var(--spacing-4)] text-start transition-colors hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+					className="flex min-h-[calc(var(--spacing-16)+var(--spacing-8))] flex-col justify-between gap-[var(--spacing-4)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] p-[var(--spacing-4)] text-start transition-colors hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 				>
 					<span className="flex size-8 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent-text)]">
 						<GroupIcon group={summary.group} />
@@ -228,7 +228,7 @@ export function MemoryColumn({ selected }: { selected: string }) {
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)] px-[var(--spacing-2)] py-[var(--spacing-2)]">
 			<MemoryIdCard compact />
-			<ListGroup variant="card" title={t("memory.allTitle")}>
+			<ListGroup title={t("memory.allTitle")}>
 				<ListRow
 					leading={<History size={18} aria-hidden="true" />}
 					title={t("memory.timeline")}

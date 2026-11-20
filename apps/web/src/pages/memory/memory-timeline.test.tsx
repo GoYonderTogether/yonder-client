@@ -7,7 +7,7 @@ import { I18nextProvider } from "react-i18next";
 import { MemoryRouter, useLocation } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { MemoryTimeline } from "./memory-timeline.tsx";
-import { older, today, yesterday } from "./memory-timeline-fixture.ts";
+import { day, entry, older, today, yesterday } from "./memory-timeline-fixture.ts";
 
 // Photo bytes come from the authorized attachment cache; this test only checks layout and behaviour.
 vi.mock("../../preview/use-attachment-blob.ts", () => ({
@@ -103,9 +103,15 @@ test("days read newest first with a large title, a digest and entries at their o
 	const todaySection = screen.getByRole("region", { name: /Today/ });
 	expect(within(todaySection).getByText("Office")).toBeVisible();
 	expect(within(todaySection).getByText("Wensan Road, since 09:02, still here")).toBeVisible();
-	expect(within(todaySection).getByText("Now 15:40")).toBeVisible();
-	// What is still ahead tonight sits after "now" and reads as planned.
-	expect(document.getElementById("memory-entry-reading")).toHaveClass("memory-upcoming");
+	const now = within(todaySection).getByText("Now 15:40");
+	const reading = document.getElementById("memory-entry-reading") as HTMLElement;
+	const plan = document.getElementById("memory-entry-plan") as HTMLElement;
+	const wake = document.getElementById("memory-entry-wake") as HTMLElement;
+	expect(now).toBeVisible();
+	expect(reading).toHaveClass("memory-upcoming");
+	expect(reading.compareDocumentPosition(now) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	expect(now.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	expect(plan.compareDocumentPosition(wake) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	expect(document.getElementById("memory-entry-plan")).toHaveClass("memory-size-note", "memory-kind-doc");
 	expect(screen.getByText("#Yonder")).toBeVisible();
 	// Private is the default and is not marked on a card (24 第三节).
@@ -236,7 +242,7 @@ test("older days fold their one-line entries away until asked", () => {
 	expect(screen.getByText("Fixed the demo on the train")).toBeInTheDocument();
 });
 
-test("a failed load shows the server's reason and a retry; no days shows an empty state", () => {
+test("a failed load shows the server's reason and a retry; no days still shows today's date and time", () => {
 	data.query = {
 		...pages([]),
 		isError: true,
@@ -253,5 +259,23 @@ test("a failed load shows the server's reason and a retry; no days shows an empt
 	unmount();
 	data.query = pages([]);
 	show();
-	expect(screen.getByText("No timeline entries")).toBeVisible();
+	const section = screen.getByRole("region", { name: /Today.*November 16/ });
+	expect(within(section).getByText("Now 15:40")).toBeVisible();
+});
+
+test("the clock rolls into a new day and drops days without records", () => {
+	vi.setSystemTime(new Date(2026, 10, 16, 23, 59, 59));
+	data.query = pages([
+		day(today.date, [{ type: "entry", entry: entry("plan-pending", "line", "Planned task", { deletable: false }) }]),
+		day("2026-11-14", []),
+		older,
+	]);
+	show();
+	expect(screen.getByText("Planned task")).toBeVisible();
+	expect(document.getElementById("memory-day-2026-11-14")).toBeNull();
+	act(() => vi.advanceTimersByTime(1000));
+	const section = screen.getByRole("region", { name: /Today.*November 17/ });
+	expect(within(section).getByText("Now 00:00")).toBeVisible();
+	expect(document.getElementById(`memory-day-${today.date}`)).toBeNull();
+	expect(screen.getByRole("button", { name: /AI turned both meetings into a follow-up list/ })).toBeVisible();
 });

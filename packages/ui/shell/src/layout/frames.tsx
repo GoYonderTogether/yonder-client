@@ -107,7 +107,10 @@ export function PageFrame({
 					className="shrink-0"
 				>
 					{floatingHeader ? (
-						<div data-floating-frame-leading>{left}</div>
+						<>
+							{left ? <div data-floating-frame-leading>{left}</div> : null}
+							{action ? <div data-floating-frame-trailing>{action}</div> : null}
+						</>
 					) : (
 						<TopBar left={left} center={title} right={action} titleAlign={titleAlign} phone={phone} />
 					)}

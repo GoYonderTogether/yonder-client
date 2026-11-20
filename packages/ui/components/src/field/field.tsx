@@ -161,7 +161,7 @@ export function TextArea({ invalid = false, className, id, ...rest }: TextAreaPr
 				"min-h-[88px] w-full resize-y rounded-[var(--radius-control)]",
 				"px-[var(--spacing-4)] py-[var(--spacing-3)] text-body text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]",
 				"transition-colors duration-[var(--duration-fast)] focus-visible:outline-none",
-				invalid ? "bg-[var(--color-danger-subtle)]" : "bg-[var(--color-bg-subtle)] focus:bg-[var(--color-bg-surface)]",
+				invalid ? "bg-[var(--color-danger-subtle)]" : "bg-[var(--color-bg-subtle)] focus:bg-[var(--color-bg-card)]",
 				className,
 			)}
 			{...rest}

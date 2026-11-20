@@ -49,6 +49,10 @@ export const ERROR_CODES = [
 	"memory_secret_refused",
 	/** A Bot tried to replace a file the owner edited; it may only append (23 7.5). */
 	"memory_user_edited",
+	/** A connector request could be authorized on several devices; the user picks one. */
+	"device_required",
+	/** No online device can carry out the connector grant right now. */
+	"device_offline",
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

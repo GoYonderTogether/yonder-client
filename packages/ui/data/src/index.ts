@@ -47,6 +47,11 @@ export {
 export type { CachedMessage } from "./hooks/chat.ts";
 export { useConversations, useMessages, useRunActions, useSendMessage } from "./hooks/chat.ts";
 export { useCompactConversation } from "./hooks/compact.ts";
+export {
+	useConnectorRequest,
+	useConnectorRequestActions,
+	useConnectorRequestDevices,
+} from "./hooks/connector-requests.ts";
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
 export { useMarkConversationRead, useSetConversationMuted } from "./hooks/conversation-state.ts";
@@ -54,7 +59,14 @@ export { useDeviceRegistration, useDevices, useUpdateDeviceRemark } from "./hook
 export { useFriendRequest, useFriendRequestActions, useFriendRequests } from "./hooks/friend-requests.ts";
 export { useChangeGoal, useGoalSettings, useGoals } from "./hooks/goals.ts";
 export { useGroupActions } from "./hooks/groups.ts";
-export { useActiveBotSubtasks, useItem, useItemActions, useItems } from "./hooks/items.ts";
+export {
+	useActiveBotSubtasks,
+	useCreateItem,
+	useItem,
+	useItemActions,
+	useItemSession,
+	useItems,
+} from "./hooks/items.ts";
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
 export { useMemberProfile, usePublicMemberProfile } from "./hooks/members.ts";
 export {

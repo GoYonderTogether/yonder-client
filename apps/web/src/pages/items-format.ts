@@ -33,15 +33,6 @@ export function itemStateKey(state: ItemState): string {
 	}
 }
 
-export function itemSourceKey(source: ItemSummary["source"]): string {
-	if (source === "visit") return "tasks.itemSourceVisit";
-	return source === "subtask"
-		? "tasks.itemSourceSubtask"
-		: source === "schedule_run"
-			? "tasks.itemSourceSchedule"
-			: "tasks.itemSourceMeeting";
-}
-
 /**
  * The one line under an item's title. A finished item shows its result; a failed or cancelled one
  * shows the real reason, never a stand-in sentence; a running one shows nothing to say yet.
@@ -161,9 +152,4 @@ export function upcomingOneOffs(schedules: readonly Schedule[]): Schedule[] {
 	return schedules
 		.filter((plan) => plan.kind === "once" && plan.status === "active" && plan.nextRunAt !== null)
 		.sort((left, right) => (left.nextRunAt ?? "").localeCompare(right.nextRunAt ?? ""));
-}
-
-/** The plus button's preset sentence, per tab (16-3 第十节). */
-export function presetPhrase(scheduled: boolean): string {
-	return scheduled ? "tasks.presetGoal" : "tasks.presetItem";
 }

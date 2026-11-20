@@ -40,6 +40,8 @@ vi.mock("@yonder/ui-data", () => {
 		useHealth: () => ({ data: null }),
 		useSkills: () => ({ data: { items: [] } }),
 		useContacts: () => ({ data: { items: [] } }),
+		useCreateItem: () => ({}),
+		useItemSession: () => ({}),
 		useRunActions: () => ({ stop: { mutate: () => {} } }),
 		useSendMessage: () => ({ mutate: () => {} }),
 		useCompactConversation: () => ({ isPending: false, isError: false, run() {}, reset() {} }),
