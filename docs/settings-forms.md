@@ -14,14 +14,15 @@ page never draws its own version.
 
 ## Sections
 
-- Content is cut into sections. A section has a title: body-plus size (`text-h3`), semibold,
-  primary text colour. A page with one section, and a section holding a lone action (delete, sign
-  out), skip the title.
-- A solid hairline runs under the title, across the section width.
+- Content is cut into sections, and a section is a card: one rounded block holding its rows, filled
+  with `--color-bg-card` so it contrasts with the surface under it (grey on a white page, white on
+  the grey 「我」 directory). A section's title sits above the card, caption size, tertiary colour,
+  the way a grouped list labels a block (iOS, WeChat); a page with one section, and a section
+  holding a lone action (delete, sign out), skip the title.
 - Rows inside a section are separated by a dashed line; the last row has none.
 - Sections stand at least 32 px apart (a following section adds its own top margin to the column
   gap); rows inside a section have no gap.
-- An explanation of the whole section goes in its footer, under the last row, in caption text.
+- An explanation of the whole section goes in its footer, under the card, in caption text.
 
 ## Rows
 

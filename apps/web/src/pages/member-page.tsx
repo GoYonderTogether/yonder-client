@@ -50,7 +50,7 @@ export function MemberCardPage({ handle }: { handle: string }) {
 				</div>
 			</header>
 			<div className="mx-auto w-full max-w-[560px] px-[var(--spacing-4)] pb-[max(var(--spacing-12),var(--safe-area-bottom,env(safe-area-inset-bottom)))]">
-				<div className="rounded-[var(--radius-panel)] bg-[var(--color-bg-surface)] py-[var(--spacing-2)]">
+				<div className="rounded-[var(--radius-card)] bg-[var(--color-bg-card)] py-[var(--spacing-2)]">
 					{signedIn ? (
 						<MemberCardView
 							handle={handle}

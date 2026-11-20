@@ -11,8 +11,8 @@ export function Card({ variant = "plain", className, children, ...rest }: CardPr
 	return (
 		<div
 			className={cn(
-				// White on the grey page, no outline: the contrast between surfaces is the border.
-				"rounded-[var(--radius-card)] bg-[var(--color-bg-surface)]",
+				// The fill comes from the surface under the card, so it is never the page's own colour.
+				"rounded-[var(--radius-card)] bg-[var(--color-bg-card)]",
 				"p-[var(--card-padding)]",
 				variant === "raised" && "shadow-[var(--shadow-sm)]",
 				variant === "interactive" &&

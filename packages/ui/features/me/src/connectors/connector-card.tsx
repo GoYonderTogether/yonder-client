@@ -36,7 +36,7 @@ export function ConnectorCard({ definition, device, instances, onOpen }: Connect
 	const primary = connected.find((item) => item.scope === "device") ?? connected[0];
 	const status = connectorStatusKey(device, primary);
 	return (
-		<section className="overflow-hidden rounded-[var(--radius-lg)] bg-[var(--color-bg-surface)]">
+		<section className="overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-bg-card)]">
 			<div className="flex items-center gap-[var(--spacing-3)] p-[var(--spacing-4)]">
 				<button
 					type="button"

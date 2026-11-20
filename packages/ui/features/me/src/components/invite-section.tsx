@@ -53,7 +53,7 @@ export function InviteSection() {
 						{t("inviteExperience.rules")}
 					</Button>
 				</div>
-				<section className="flex flex-col items-center gap-[var(--spacing-8)] rounded-[var(--radius-panel)] bg-[var(--color-bg-surface)] px-[var(--spacing-5)] py-[var(--spacing-8)] text-center">
+				<section className="flex flex-col items-center gap-[var(--spacing-8)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] px-[var(--spacing-5)] py-[var(--spacing-8)] text-center">
 					<div className="flex min-w-0 w-full flex-col items-center gap-[var(--spacing-5)]">
 						<div className="w-[calc(var(--spacing-16)*4)] max-w-full" aria-hidden="true">
 							<InviteLifeIllustration />

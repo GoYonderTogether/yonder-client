@@ -48,7 +48,7 @@ export function DeleteAccountFlow({ onCancel }: DeleteAccountFlowProps) {
 	const fail = (failure: unknown) => setError(describeAccountFailure(failure, t as unknown as Translate));
 
 	return (
-		<div className="flex flex-col gap-[var(--spacing-4)] rounded-[var(--radius-lg)] bg-[var(--color-bg-surface)] p-[var(--spacing-4)]">
+		<div className="flex flex-col gap-[var(--spacing-4)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] p-[var(--spacing-4)]">
 			<p className="text-caption text-[var(--color-text-secondary)]">{t("me.account.deleteAccountBody")}</p>
 
 			<div className="flex flex-col gap-[var(--spacing-2)]">

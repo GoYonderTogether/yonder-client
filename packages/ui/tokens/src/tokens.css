@@ -140,8 +140,16 @@
 	--color-bg-chrome-image: none;
 	--color-bg-subtle: rgba(46, 50, 56, 0.05); /* fill-0 */
 	--color-bg-subtle-hover: rgba(46, 50, 56, 0.09); /* fill-1 */
-	--color-bg-surface: #ffffff; /* bg-1 */
+	--color-bg-surface: #ffffff; /* bg-1: a sheet that floats above everything, never a card */
 	--color-bg-raised: #ffffff; /* bg-2 */
+	/* A card contrasts with the surface it sits on, and the surface decides which way: grey card on
+	   the white page, white card on a grey chrome column. Every card reads `--color-bg-card` and
+	   never names a colour; `[data-surface="chrome"]` (below) flips it, so a component dropped into
+	   either column comes out right. `--color-bg-page` is the colour of the surface a subtree is
+	   painted on, for the few places that must punch a hole in a card (a timeline's node ring). */
+	--color-bg-page: var(--color-bg-base);
+	--color-bg-card: color-mix(in srgb, #2e3238 5%, #ffffff);
+	--color-bg-card-chrome: #ffffff;
 	--color-bg-dock: var(--color-bg-base);
 	--color-bg-overlay: rgba(22, 22, 26, 0.6); /* overlay-bg */
 	--color-bg-hover: rgba(46, 50, 56, 0.09); /* fill-1 */
@@ -245,8 +253,12 @@
 	--color-bg-chrome: #232429; /* bg-1 */
 	--color-bg-subtle: rgba(255, 255, 255, 0.12); /* fill-0 */
 	--color-bg-subtle-hover: rgba(255, 255, 255, 0.16); /* fill-1 */
-	--color-bg-surface: #232429; /* bg-1 */
+	--color-bg-surface: #232429; /* bg-1: a sheet that floats above everything, never a card */
 	--color-bg-raised: #35363c; /* bg-2 */
+	/* Dark keeps the same rule as light, one step up instead of one step down. */
+	--color-bg-page: var(--color-bg-base);
+	--color-bg-card: var(--color-bg-chrome);
+	--color-bg-card-chrome: var(--color-bg-raised);
 	--color-bg-dock: var(--color-bg-base);
 	--color-bg-overlay: rgba(22, 22, 26, 0.6);
 	--color-bg-hover: rgba(255, 255, 255, 0.16);
@@ -328,6 +340,14 @@
 	--shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.24);
 	--shadow-md: 0 10px 30px rgba(0, 0, 0, 0.32);
 	--shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.44);
+}
+
+/* A grey column and the white page differ in one thing: which half of the card pair they take.
+   `data-surface` marks the element that paints the surface, so a card inside it needs no class of
+   its own. A column is grey; a page is white and inherits the default pair. */
+[data-surface="chrome"] {
+	--color-bg-page: var(--color-bg-chrome);
+	--color-bg-card: var(--color-bg-card-chrome);
 }
 
 /* Motion: durations and curves live here so every transition speaks the same language. */

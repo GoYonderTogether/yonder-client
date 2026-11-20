@@ -40,14 +40,14 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)] py-[var(--spacing-3)]">
 			{query.isLoading ? (
-				<ListGroup variant="card">
+				<ListGroup>
 					<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">
 						{t("tasks.itemsLoading")}
 					</li>
 				</ListGroup>
 			) : null}
 			{query.isError && !query.data ? (
-				<ListGroup variant="card">
+				<ListGroup>
 					<li className="flex items-center gap-[var(--spacing-3)] p-[var(--spacing-4)] text-caption text-[var(--color-danger)]">
 						<span role="alert">
 							{query.error instanceof ApiError ? t(query.error.messageKey) : t("app.loadFailed")}
@@ -65,7 +65,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 				const earlier = section.group === "earlier";
 				const shown = earlier && !showEarlier ? section.items.slice(0, EARLIER_PREVIEW) : section.items;
 				return (
-					<ListGroup variant="card" key={section.group} title={t(itemGroupKey(section.group))}>
+					<ListGroup key={section.group} title={t(itemGroupKey(section.group))}>
 						{shown.map((item) => (
 							<ItemRow
 								key={item.id}

@@ -12,16 +12,14 @@
 	margin-inline: auto;
 	padding-bottom: var(--spacing-16);
 }
-/* The list column sits on chrome with white cards; the desktop page sits on white with chrome cards. */
+/* The timeline is drawn straight on the surface it sits on, so it follows the same pair as every
+   other card: the node ring is punched in the surface's colour, the entry's own plate is the card
+   colour. It reads the shell's tokens instead of deciding which column it is in. */
 .memory-timeline,
 .memory-overlay,
 .memory-rail {
-	--memory-page: var(--color-bg-chrome);
-	--memory-card: var(--color-bg-surface);
-}
-[data-memory-surface="base"] {
-	--memory-page: var(--color-bg-base);
-	--memory-card: var(--color-bg-chrome);
+	--memory-page: var(--color-bg-page);
+	--memory-card: var(--color-bg-card);
 }
 .memory-kind-place {
 	--memory-dot: var(--color-memory-place);
