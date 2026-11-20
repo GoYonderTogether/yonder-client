@@ -188,6 +188,7 @@ export function AppShell({
 						<aside
 							inert={meOpen || covering || sideOpen}
 							aria-hidden={meOpen || covering || sideOpen || undefined}
+							data-surface="chrome"
 							className="relative flex h-full shrink-0 flex-col"
 							style={{ width: wide && !pane.collapsed ? pane.width : "100%" }}
 						>
@@ -362,6 +363,7 @@ function MeLayers({
 				<div
 					inert={!wide && hasPage}
 					aria-hidden={(!wide && hasPage) || undefined}
+					data-surface="chrome"
 					className={cn(
 						"yonder-chrome flex min-h-0 shrink-0 flex-col",
 						wide ? "w-[var(--list-pane-default,320px)]" : "w-full",

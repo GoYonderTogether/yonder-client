@@ -61,7 +61,7 @@ export function ScheduleForm({ onCancel, onDone }: { onCancel: () => void; onDon
 
 	return (
 		<form
-			className="flex flex-col gap-[var(--spacing-4)] rounded-[var(--radius-lg)] bg-[var(--color-bg-surface)] p-[var(--spacing-4)]"
+			className="flex flex-col gap-[var(--spacing-4)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] p-[var(--spacing-4)]"
 			onSubmit={(event) => {
 				event.preventDefault();
 				void submit();

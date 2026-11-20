@@ -49,7 +49,7 @@ export function FileTypeIcon({ file, size = 30 }: { file: { name: string; mimeTy
 			{mark ? (
 				<span
 					className="file-type-icon-mark"
-					style={{ fontSize: size * 0.24, backgroundColor: color, color: "var(--color-bg-surface)" }}
+					style={{ fontSize: size * 0.24, backgroundColor: color, color: "var(--color-on-accent)" }}
 				>
 					{mark}
 				</span>

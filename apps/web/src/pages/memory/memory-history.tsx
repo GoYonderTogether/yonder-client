@@ -44,7 +44,7 @@ function MemoryHistory({ path }: { path: string }) {
 		);
 	return (
 		<div className="p-[var(--spacing-4)]">
-			<ListGroup variant="card">
+			<ListGroup>
 				{revisions.map((revision, index) => {
 					const older = revisions[index + 1];
 					const current = revision.version === file.data?.version;

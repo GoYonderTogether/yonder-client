@@ -67,7 +67,11 @@
 
 ### 颜色
 
-只用语义名：`--color-bg-*`（base 页面、chrome 侧栏、surface 卡片、raised 浮层、subtle 次级块、hover/active/selected 交互）、`--color-text-primary/secondary/tertiary`、`--color-border-subtle/default/strong`、`--color-accent*`、`--color-danger*`、`--color-warning*`、`--color-success`。头像、记忆、媒体有专用色。新增 `--color-warning-subtle`（Banner warning 底）和 `--color-switch-thumb`（开关滑块，两种主题都是白）。
+只用语义名：`--color-bg-*`（base 页面、chrome 侧栏、surface 浮层、raised 浮起的浮层、subtle 次级块、hover/active/selected 交互）、`--color-text-primary/secondary/tertiary`、`--color-border-subtle/default/strong`、`--color-accent*`、`--color-danger*`、`--color-warning*`、`--color-success`。头像、记忆、媒体有专用色。新增 `--color-warning-subtle`（Banner warning 底）和 `--color-switch-thumb`（开关滑块，两种主题都是白）。
+
+**卡片和它所在的面对比，不和自己比。** 页面是白的，页面上的卡片就是灰的；列表列、侧栏是灰的（`.yonder-chrome`），里面的卡片就是白的。组件只读 `--color-bg-card`，由所在容器通过 `data-surface="chrome"` 决定用哪一半，所以同一个组件放进哪一列都自动对；页面和面板用 `--color-bg-page` 表示自己这一面的颜色（时间轴节点的镂空环用它）。`--color-bg-surface` 只留给浮在一切之上的面（对话框、菜单），它不进这个互换，因为浮层永远比底下那一层亮/暗一档。
+
+规则的理由：浅色主题里白页配白卡，边界只能靠阴影，而阴影在小面积上几乎看不见（收藏、任务列表就是这样糊掉的）。灰卡落在白页上，边界是颜色本身。深色主题原本就是这个结构（页面 `#16161a`、卡片 `#232429`），浅色补上之后两个主题是同一种层次。
 
 ## 二、组件目录
 
@@ -125,9 +129,9 @@
 
 ## 六、列表和分隔
 
-- 设置项只用 `ListGroup` + `ListRow`。分隔线只有一种：`ListRow` 自带的从文字起始处开始的细线，最后一行没有。
+- 设置项只用 `ListGroup` + `ListRow`。一个分组就是一张卡片，行之间用 `ListRow` 自带的虚线分隔，最后一行没有；卡片之间的间距就是分组之间的距离。
 - 不写 `border-b` 贯穿整行的分隔，不在行外再画 `h-px`。
-- 分组标题用 `ListGroup title`（caption medium tertiary）。
+- 分组标题用 `ListGroup title`（caption medium tertiary），放在卡片上方。
 
 ## 七、错误、加载、空
 
@@ -166,25 +170,25 @@
 
 - 只换 `data-theme`，组件不写 `dark:`、不写色值。
 - 深色字重整体减 40，所以字重必须走 token。
-- 深色靠 `bg-raised` 比 `bg-surface` 亮一档分层，阴影只是辅助。
+- 深色和浅色是同一种层次：页面和卡片差一档，靠 `--color-bg-page` / `--color-bg-card` 这一对表达，深色只是往上加一档而不是往下压一档。浮层再亮一档（`bg-raised`），阴影只是辅助。
 - 例外：`AmbientField` 着色器参数、App 图标色、`--color-switch-thumb` 两种主题相同，都在 tokens 或其组件里登记。
 
 ## 十一、小程序对应
 
 小程序只共享 tokens（`generate-tokens.mjs` 生成）、`auth-presentation`、`chat-presentation`，组件是 Taro 重写。以后按下表对齐外观：
 
-| 小程序 `components/ui.tsx` | 对应 Web                                           | 现在的差别                    |
-| -------------------------- | -------------------------------------------------- | ----------------------------- |
-| `Page`                     | `TopBar` + `PageFrame`                             | 标题左对齐、返回是字符 `‹`    |
-| `Button`                   | `Button`                                           | 只有 48 高块级一种            |
-| `Field`                    | `TextField`                                        | 48 高，无聚焦样式             |
-| `Row`                      | `ListRow`                                          | 48 高，无细线，箭头是字符 `›` |
-| `State`                    | `LoadingRow` / `InlineError` / `EmptyState inline` | 一个组件合三态                |
-| `.mini-card`               | `Card` / `ListGroup`                               | 白卡在白底上                  |
-| `.mini-avatar`             | `Avatar`                                           | Bot 也是圆形，色固定          |
-| `.mini-badge`              | `Badge`                                            | 圆角全圆、body 字号           |
-| `Taro.showToast`           | 无（Web 没有 Toast）                               | —                             |
-| 字符 `× ↑ ✓`               | lucide `X` `ArrowUp` `Check`                       | 应改成 SVG                    |
+| 小程序 `components/ui.tsx` | 对应 Web                                           | 现在的差别                                |
+| -------------------------- | -------------------------------------------------- | ----------------------------------------- |
+| `Page`                     | `TopBar` + `PageFrame`                             | 标题左对齐、返回是字符 `‹`                |
+| `Button`                   | `Button`                                           | 只有 48 高块级一种                        |
+| `Field`                    | `TextField`                                        | 48 高，无聚焦样式                         |
+| `Row`                      | `ListRow`                                          | 48 高，无细线，箭头是字符 `›`             |
+| `State`                    | `LoadingRow` / `InlineError` / `EmptyState inline` | 一个组件合三态                            |
+| `.mini-card`               | `Card` / `ListGroup`                               | 小程序还没跟 `--color-bg-card` 的对比规则 |
+| `.mini-avatar`             | `Avatar`                                           | Bot 也是圆形，色固定                      |
+| `.mini-badge`              | `Badge`                                            | 圆角全圆、body 字号                       |
+| `Taro.showToast`           | 无（Web 没有 Toast）                               | —                                         |
+| 字符 `× ↑ ✓`               | lucide `X` `ArrowUp` `Check`                       | 应改成 SVG                                |
 
 禁用透明度小程序是 0.5，对齐时改成 `--opacity-disabled`。
 

@@ -67,7 +67,7 @@ test("items are grouped into today, yesterday and earlier, with earlier collapse
 		item({ id: "yesterday", title: "昨天的事", startedAt: yesterday }),
 		item({ id: "old", title: "很久以前的事", startedAt: older }),
 	]);
-	const headings = [...container.querySelectorAll("h3")].map((heading) => heading.textContent);
+	const headings = [...container.querySelectorAll("h2")].map((heading) => heading.textContent);
 	expect(headings).toEqual(["Today", "Yesterday", "Earlier"]);
 	expect(screen.getByText("今天的事")).toBeVisible();
 	expect(screen.getByText("昨天的事")).toBeVisible();

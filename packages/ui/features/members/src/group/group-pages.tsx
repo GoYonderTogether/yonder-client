@@ -24,7 +24,7 @@ export function GroupBotSettings({ conversationId, personId }: GroupPageProps) {
 			<label className="flex flex-wrap items-center justify-between gap-[var(--spacing-3)] text-body">
 				{t("members.group.botPayer")}
 				<select
-					className="w-full rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] p-[var(--spacing-2)] text-[var(--color-text-primary)]"
+					className="w-full rounded-[var(--radius-control-sm)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-[var(--spacing-2)] text-[var(--color-text-primary)]"
 					value={group.groupBotPayer}
 					disabled={
 						setBotPayer.isPending || Boolean(group.closedReason) || !group.ownerId || group.ownerId !== personId

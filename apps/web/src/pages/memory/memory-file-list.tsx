@@ -88,7 +88,7 @@ export function MemoryFileList({
 	return (
 		<div className="flex flex-col gap-[var(--spacing-5)] py-[var(--spacing-2)]">
 			{groups.map((sub) => (
-				<ListGroup key={sub.key} variant="card" title={sub.key.startsWith("digests:") ? sub.title : undefined}>
+				<ListGroup key={sub.key} title={sub.key.startsWith("digests:") ? sub.title : undefined}>
 					{sub.files.map((file) => (
 						<ListRow
 							key={file.path}
