@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [0.3.26112001] - 2026-11-20
+
+### Fixed
+
+- cap realtime reconnect delays at three seconds
+- show compact update progress and confirm restart in app
+- landing：drop the invented people from the landing page
+- web：scan every UI feature package for Tailwind classes
+
+### Added
+
+- devices：device remarks, native device names, and connect-a-device downloads
+- devices：define the device remark API
+- quota：show the tools pool, tool charges and tool prices
+- tools：fail on new raw UI values above a committed baseline
+- shell：page widths, overlay footer and ConfirmDialog
+- ui：canonical feedback, menu, switch and badge components
+- tokens：add icon, width, layer, opacity, spring and motion tokens
+
 ## [0.3.26111904] - 2026-11-19
 
 ### Added
