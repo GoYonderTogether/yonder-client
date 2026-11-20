@@ -275,7 +275,7 @@ export function ConversationPage({
 							)}
 							<div
 								data-chat-agent-name
-								className="w-full max-w-[75%] text-center text-body font-medium text-[var(--color-text-primary)]"
+								className="w-fit max-w-[75%] text-center text-body font-medium text-[var(--color-text-primary)]"
 								title={title}
 							>
 								<BotName
@@ -403,7 +403,7 @@ export function ConversationPage({
 						aria-label={t("chat.jumpToLatest")}
 						variant="secondary"
 						onClick={jumpToLatest}
-						className="pointer-events-auto rounded-[var(--radius-full)] bg-[var(--color-bg-surface)]! shadow-md"
+						className="pointer-events-auto rounded-[var(--radius-full)] bg-[var(--color-bg-surface)]!"
 					>
 						<ArrowDown size={16} aria-hidden="true" />
 					</IconButton>

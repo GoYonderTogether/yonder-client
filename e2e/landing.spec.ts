@@ -87,7 +87,7 @@ test.describe("in-app landing", () => {
 		await expect(page.locator('a[href$=".exe"], a[href$=".dmg"], a[href$=".apk"]')).toHaveCount(0);
 		expect(await seenDownloads(page)).toEqual([]);
 		await page.getByRole("button", { name: "复制链接" }).click();
-		await expect(page.getByRole("status")).toHaveText("已复制");
+		await expect(page.getByRole("status").filter({ hasText: /^已复制$/ })).toBeVisible();
 		expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url());
 	});
 });

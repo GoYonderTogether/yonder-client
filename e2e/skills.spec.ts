@@ -72,7 +72,7 @@ test("skills import whole folders, load references on demand and attach an expli
 		await page.getByRole("button", { name: "导入技能", exact: true }).click();
 		await expect(page.getByRole("heading", { name: "导入技能", exact: true })).toBeVisible();
 		await page.locator('input[aria-label="选择文件夹"]').setInputFiles(folder);
-		await expect(page.getByRole("status")).toContainText("已选择 2 个文件");
+		await expect(page.getByRole("status").filter({ hasText: /^已选择 2 个文件$/ })).toBeVisible();
 		await page.getByRole("button", { name: "导入技能", exact: true }).click();
 		await expect(page.getByRole("button", { name: "删除技能" })).toBeVisible();
 		await page.getByRole("button", { name: "替换技能文件" }).click();
