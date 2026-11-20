@@ -32,7 +32,8 @@ const setup = vi.hoisted(() => {
 			onStatus?.();
 		},
 		query: { getQueryData: vi.fn() },
-		beginTrayWork: vi.fn(() => ({ finish: vi.fn(), update: vi.fn() })),
+		beginTrayWork: vi.fn(() => ({ attribute: vi.fn(), finish: vi.fn(), update: vi.fn() })),
+		conversations: vi.fn(),
 		realtime,
 		submit: vi.fn(async () => ({ ok: true })),
 		complete: vi.fn(async () => ({ id: "request", state: "completed" })),
@@ -45,7 +46,11 @@ vi.mock("@yonder/ui-data", () => ({
 	useDataQueryClient: () => setup.query,
 	useConnectors: () => ({ data: { items: [{ id: "con_a", deviceId: "dev_a", revision: 2 }] } }),
 	useData: () => ({
-		api: { submitConnectorResult: setup.submit, completeConnectorRequest: setup.complete },
+		api: {
+			submitConnectorResult: setup.submit,
+			completeConnectorRequest: setup.complete,
+			conversations: setup.conversations,
+		},
 		realtime: setup.realtime,
 	}),
 }));
@@ -66,6 +71,7 @@ afterEach(() => {
 	setup.invoke.mockReset();
 	setup.beginTrayWork.mockClear();
 	setup.query.getQueryData.mockReset();
+	setup.conversations.mockReset();
 	setup.account.current = setup.context;
 	setup.status("open");
 });
@@ -246,5 +252,65 @@ test("unknown local connector work clears on disconnect, cancellation and accoun
 	setup.account.current = { ...setup.context, ownerId: "mem_other" };
 	rerender(<LocalFilesRuntime />);
 	expect(third).toHaveBeenCalledOnce();
+	unmount();
+});
+
+test("cold-cache commands execute immediately, share one authenticated lookup, and never revive cancelled rows", async () => {
+	let resolve!: (value: unknown) => void;
+	setup.conversations.mockImplementation(
+		() =>
+			new Promise((done) => {
+				resolve = done;
+			}),
+	);
+	setup.invoke.mockImplementation(async (command: string) => {
+		if (command === "local_files_ready") return [{ id: "con_a", revision: 2 }];
+		if (command === "local_files_execute") return new Promise(() => {});
+	});
+	const { unmount } = render(<LocalFilesRuntime />);
+	const send = (id: string) =>
+		setup.event({
+			type: "connector.command",
+			eventId: id,
+			at: new Date().toISOString(),
+			command: {
+				id,
+				connectorId: "local-files",
+				scope: "device",
+				capabilities: { fileTools: false },
+				revision: 2,
+				connectionId: "con_a",
+				deviceId: "dev_a",
+				operation: "read",
+				path: "note.txt",
+				expiresAt: new Date(Date.now() + 15000).toISOString(),
+				origin: { botId: "bot_a", conversationId: "chat_a" },
+			},
+		});
+	act(() => {
+		send("cmd_cold_a");
+		send("cmd_cold_b");
+	});
+	expect(setup.conversations).toHaveBeenCalledOnce();
+	expect(setup.invoke.mock.calls.filter(([name]) => name === "local_files_execute")).toHaveLength(2);
+	act(() =>
+		setup.event({
+			type: "connector.command.cancelled",
+			eventId: "cancel",
+			at: new Date().toISOString(),
+			commandId: "cmd_cold_b",
+		}),
+	);
+	await act(async () =>
+		resolve({
+			items: [
+				{ id: "chat_a", title: "Cold chat", members: [{ memberId: "bot_a", kind: "bot", displayName: "Bot A" }] },
+			],
+		}),
+	);
+	expect(setup.beginTrayWork.mock.results[0]?.value.attribute).toHaveBeenCalledWith(
+		expect.objectContaining({ conversationTitle: "Cold chat", botName: "Bot A" }),
+	);
+	expect(setup.beginTrayWork.mock.results[1]?.value.attribute).not.toHaveBeenCalled();
 	unmount();
 });

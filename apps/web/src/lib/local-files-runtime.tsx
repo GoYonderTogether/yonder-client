@@ -49,6 +49,7 @@ export function LocalFilesRuntime() {
 			: [];
 		const eligible = new Set(connections.map((c) => c.id));
 		const pending = new Map<string, PendingCommand>();
+		let trayConversations: Promise<{ items: Conversation[] }> | undefined;
 		let readyIds = new Set<string>();
 		let completing = false;
 		let retryQueued = false;
@@ -117,26 +118,40 @@ export function LocalFilesRuntime() {
 				else if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) result = { ok: false, error: "cancelled" };
 				else {
 					const { origin, ...nativeCommand } = command;
-					const conversation = origin
-						? query
-								.getQueryData<{ items: Conversation[] }>(keys.conversations.list())
-								?.items.find((item) => item.id === origin.conversationId)
-						: undefined;
-					const bot = conversation?.members.find(
-						(member) => member.kind === "bot" && member.memberId === origin?.botId,
-					);
-					const title = conversation?.title || (conversation?.kind === "direct" ? bot?.displayName : null);
-					state.tray = beginTrayConnectorWork(
-						conversation && bot && title
+					const activity = activityLabel.current(`tray.connector.${command.operation}`);
+					const identify = (items: Conversation[] | undefined) => {
+						const conversation = items?.find((item) => item.id === origin?.conversationId);
+						const bot = conversation?.members.find(
+							(member) => member.kind === "bot" && member.memberId === origin?.botId,
+						);
+						const title = conversation?.title || (conversation?.kind === "direct" ? bot?.displayName : null);
+						return conversation && bot && title
 							? {
 									botId: bot.memberId,
 									botName: bot.displayName,
 									conversationId: conversation.id,
 									conversationTitle: title,
-									activity: activityLabel.current(`tray.connector.${command.operation}`),
+									activity,
 								}
-							: null,
-					);
+							: null;
+					};
+					const cached = origin
+						? identify(query.getQueryData<{ items: Conversation[] }>(keys.conversations.list())?.items)
+						: null;
+					state.tray = beginTrayConnectorWork(cached);
+					if (origin && !cached) {
+						trayConversations ??= api.conversations().finally(() => {
+							trayConversations = undefined;
+						});
+						void trayConversations
+							.then(({ items }) => {
+								if (!active || state.cancelled || pending.get(command.id) !== state || realtime.status !== "open")
+									return;
+								const row = identify(items);
+								if (row) state.tray?.attribute(row);
+							})
+							.catch(() => {});
+					}
 					try {
 						result = await invokeLocalFiles<ConnectorCommandResult>("local_files_execute", {
 							context,

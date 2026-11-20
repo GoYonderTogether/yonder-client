@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
-import { TrayPanelView } from "./panel.tsx";
+import type { TraySnapshot } from "../../lib/tray-bridge.ts";
+import { TrayPanel, TrayPanelView } from "./panel.tsx";
+
+const bridge = vi.hoisted(() => ({ observe: vi.fn() }));
+vi.mock("../../lib/tray-bridge.ts", () => ({ observeTrayActivity: bridge.observe, sendTrayAction: vi.fn() }));
 
 test("the tray distinguishes empty from local work whose conversation is unknown", () => {
 	const i18n = createI18n("en");
@@ -60,4 +64,36 @@ test("a changing activity keeps its existing conversation row in the Bot group",
 	rerender(renderPanel("Searching local files"));
 	expect(screen.getByRole("listitem")).toBe(row);
 	expect(within(row).getByTitle("Searching local files")).toHaveClass("truncate");
+});
+
+test("a successful snapshot clears a previous native read failure", async () => {
+	let recover!: (snapshot: TraySnapshot) => void;
+	let fail!: () => void;
+	bridge.observe.mockImplementation(async (next: typeof recover, rejected: typeof fail) => {
+		recover = next;
+		fail = rejected;
+		fail();
+		return () => {};
+	});
+	render(<TrayPanel />);
+	expect(await screen.findByText("Task status unavailable")).toBeInTheDocument();
+	act(() => recover({ groups: [], unattributed: false }));
+	expect(screen.getByText("No active tasks on this device")).toBeInTheDocument();
+	act(() => fail());
+	act(() =>
+		recover({
+			groups: [
+				{
+					botId: "bot-a",
+					botName: "Bot A",
+					entries: [{ id: "chat-a", conversationTitle: "Review", activity: "Reading" }],
+				},
+			],
+			unattributed: false,
+		}),
+	);
+	expect(screen.getByText("Review")).toBeInTheDocument();
+	act(() => recover({ groups: [], unattributed: false }));
+	expect(screen.getByText("No active tasks on this device")).toBeInTheDocument();
+	expect(screen.queryByText("Task status unavailable")).not.toBeInTheDocument();
 });

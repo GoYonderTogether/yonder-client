@@ -35,14 +35,23 @@ const activeConnectorWork = new Map<symbol, LocalActivity | null>();
 let pendingReport = Promise.resolve();
 
 export function beginTrayConnectorWork(row: LocalActivity | null) {
-	if (!isDesktopShell()) return { update: () => undefined, finish: () => undefined };
+	if (!isDesktopShell())
+		return { attribute: (_row: LocalActivity) => undefined, update: () => undefined, finish: () => undefined };
 	const key = Symbol();
+	let latestActivity = row?.activity;
 	activeConnectorWork.set(key, row);
 	reportConnectorWork();
 	return {
+		attribute(next: LocalActivity) {
+			if (!activeConnectorWork.has(key)) return;
+			activeConnectorWork.set(key, { ...next, activity: latestActivity ?? next.activity });
+			reportConnectorWork();
+		},
 		update(activity: string) {
-			if (!row || !activeConnectorWork.has(key)) return;
-			activeConnectorWork.set(key, { ...row, activity });
+			latestActivity = activity;
+			const current = activeConnectorWork.get(key);
+			if (!current) return;
+			activeConnectorWork.set(key, { ...current, activity });
 			reportConnectorWork();
 		},
 		finish() {

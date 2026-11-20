@@ -39,7 +39,7 @@ export function TrayPanel() {
 		void observeTrayActivity((snapshot) => {
 			if (!disposed) {
 				setSnapshot(snapshot);
-				setFailure(false);
+				setActivityUnavailable(false);
 			}
 		}, unavailable)
 			.then((stop) => {
