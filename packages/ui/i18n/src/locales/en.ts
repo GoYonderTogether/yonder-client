@@ -282,7 +282,6 @@ export const en = {
 		composerTo: "Message {{name}}",
 		attach: "Attach",
 		disabledSend: "Send",
-		stop: "Stop generating",
 		stopSend: "Cancel sending",
 		streaming: "Responding…",
 		reconnecting: "Connection lost. Reconnecting.",

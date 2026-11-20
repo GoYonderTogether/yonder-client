@@ -18,7 +18,6 @@ test.each([false, true])("own Bot attachment menu opens before a picker (mobile=
 				draft=""
 				onDraftChange={vi.fn()}
 				onSend={vi.fn()}
-				onStop={vi.fn()}
 				streaming={false}
 				disabled={false}
 				disconnected={false}
@@ -49,7 +48,6 @@ test("mobile swaps the empty composer between typing and holding to talk", () =>
 		onDraftChange: vi.fn(),
 		onSend: send,
 		onSendVoice: vi.fn().mockResolvedValue(undefined),
-		onStop: vi.fn(),
 		streaming: false,
 		disabled: false,
 		disconnected: false,
@@ -85,7 +83,6 @@ test("desktop Enter sends, while Shift, composition and mobile Enter do not", ()
 		draft: "hello",
 		onDraftChange: vi.fn(),
 		onSend: send,
-		onStop: vi.fn(),
 		streaming: false,
 		disabled: false,
 		disconnected: false,
@@ -113,15 +110,15 @@ test("desktop Enter sends, while Shift, composition and mobile Enter do not", ()
 			<Composer {...props} sendOnEnter streaming />
 		</I18nextProvider>,
 	);
-	fireEvent.click(screen.getByRole("button", { name: "Stop generating" }));
-	expect(props.onStop).toHaveBeenCalledTimes(1);
+	expect(screen.queryByRole("button", { name: "Stop generating" })).not.toBeInTheDocument();
+	expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
 	view.rerender(
 		<I18nextProvider i18n={createI18n("en")}>
 			<Composer {...props} sendOnEnter streaming disconnected />
 		</I18nextProvider>,
 	);
 	expect(screen.queryByRole("status")).not.toBeInTheDocument();
-	expect(screen.getByRole("button", { name: "Stop generating" })).toBeDisabled();
+	expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
 	view.rerender(
 		<I18nextProvider i18n={createI18n("en")}>
 			<Composer {...props} sendOnEnter disconnected disabled />
@@ -141,7 +138,6 @@ test("IME keyCode 229 and the first 500ms after composition cannot send", () => 
 				draft="中文"
 				onDraftChange={vi.fn()}
 				onSend={send}
-				onStop={vi.fn()}
 				streaming={false}
 				disabled={false}
 				disconnected={false}
@@ -171,23 +167,21 @@ test.each([
 	{ draft: "draft", disabled: true, disconnected: false, streaming: false, blocked: true, label: "Send" },
 	{ draft: "draft", disabled: false, disconnected: true, streaming: false, blocked: true, label: "Send" },
 	{ draft: "draft", disabled: false, disconnected: false, streaming: false, blocked: false, label: "Send" },
-	{ draft: "", disabled: true, disconnected: false, streaming: true, blocked: false, label: "Stop generating" },
-	{ draft: "draft", disabled: false, disconnected: true, streaming: true, blocked: true, label: "Stop generating" },
+	{ draft: "draft", disabled: false, disconnected: false, streaming: true, blocked: true, label: "Send" },
+	{ draft: "draft", disabled: false, disconnected: true, streaming: true, blocked: true, label: "Send" },
 ])("composer action gates: $label, draft=$draft, blocked=$blocked", (state) => {
 	const send = vi.fn();
-	const stop = vi.fn();
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
-			<Composer {...state} recipientName={null} onDraftChange={vi.fn()} onSend={send} onStop={stop} sendOnEnter />
+			<Composer {...state} recipientName={null} onDraftChange={vi.fn()} onSend={send} sendOnEnter />
 		</I18nextProvider>,
 	);
 	const button = screen.getByRole("button", { name: state.label });
 	expect(button).toHaveProperty("disabled", state.blocked);
 	fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
-	expect(send).toHaveBeenCalledTimes(state.blocked || state.streaming ? 0 : 1);
+	expect(send).toHaveBeenCalledTimes(state.blocked ? 0 : 1);
 	fireEvent.click(button);
-	expect(send).toHaveBeenCalledTimes(state.blocked || state.streaming ? 0 : 2);
-	expect(stop).toHaveBeenCalledTimes(!state.blocked && state.streaming ? 1 : 0);
+	expect(send).toHaveBeenCalledTimes(state.blocked ? 0 : 2);
 });
 
 test("native candidate confirmation and newline keys keep their browser default; clicking send restores the editor", () => {
@@ -196,7 +190,6 @@ test("native candidate confirmation and newline keys keep their browser default;
 		draft: "first\nsecond",
 		onDraftChange: vi.fn(),
 		onSend: vi.fn(),
-		onStop: vi.fn(),
 		streaming: false,
 		disabled: false,
 		disconnected: false,
@@ -232,13 +225,11 @@ test("native candidate confirmation and newline keys keep their browser default;
 test("an in-flight send turns the send arrow into a working cancel", () => {
 	const send = vi.fn();
 	const cancel = vi.fn();
-	const stop = vi.fn();
 	const props = {
 		recipientName: null,
 		draft: "hello",
 		onDraftChange: vi.fn(),
 		onSend: send,
-		onStop: stop,
 		onCancelSend: cancel,
 		streaming: false,
 		disabled: false,
@@ -264,5 +255,4 @@ test("an in-flight send turns the send arrow into a working cancel", () => {
 	expect(send).toHaveBeenCalledOnce();
 	fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
 	expect(send).toHaveBeenCalledOnce();
-	expect(stop).not.toHaveBeenCalled();
 });

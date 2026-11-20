@@ -284,7 +284,6 @@ export const zhCN: Messages = {
 		composerTo: "对 {{name}} 说点什么",
 		attach: "添加附件",
 		disabledSend: "发送",
-		stop: "停止生成",
 		stopSend: "取消发送",
 		streaming: "回复中…",
 		reconnecting: "连接已断开，正在重连。",

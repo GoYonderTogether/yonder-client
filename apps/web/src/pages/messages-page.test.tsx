@@ -15,7 +15,7 @@ vi.mock("@yonder/ui-data", async (original) => ({
 	useConversations: () => ({ data: { items: data.items } }),
 	useMessages: () => ({ data: { pages: [] } }),
 	useQuota: () => ({ data: undefined }),
-	useRunActions: () => ({ stop: { mutate: vi.fn() }, retry: { mutate: vi.fn(), isPending: false } }),
+	useRunActions: () => ({ retry: { mutate: vi.fn(), isPending: false } }),
 	useSendMessage: () => ({ mutate: vi.fn(), isPending: false }),
 	useVisitActions: () => ({
 		approve: { mutate: vi.fn(), isPending: false, error: null },

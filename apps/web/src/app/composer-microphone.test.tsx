@@ -21,7 +21,6 @@ test("meeting capture blocks only chat microphone startup, while its own pause s
 		draft: "",
 		onDraftChange: vi.fn(),
 		onSend: vi.fn(),
-		onStop: vi.fn(),
 		streaming: false,
 		disabled: false,
 		disconnected: false,

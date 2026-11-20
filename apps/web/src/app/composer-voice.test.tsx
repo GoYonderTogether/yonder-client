@@ -30,7 +30,6 @@ function Frame({ initial, sent }: { initial: string; sent: string[] }) {
 				setDraft(value);
 			}}
 			onSend={() => sent.push(current.current)}
-			onStop={() => {}}
 			streaming={false}
 			disabled={false}
 			disconnected={false}

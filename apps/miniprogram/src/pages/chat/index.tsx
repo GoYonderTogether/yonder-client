@@ -121,16 +121,15 @@ export default function Chat() {
 		.slice()
 		.reverse()
 		.find((message) => message.options?.length || (message.senderId === chat.me?.member.id && !message.sendFailed))?.id;
-	const activeRun = [...chat.messages]
-		.reverse()
-		.find(
-			(message) =>
-				message.senderKind === "bot" &&
-				(message.streaming || message.run?.status === "queued" || message.run?.status === "running"),
-		);
+	const hasActiveRun = chat.messages.some(
+		(message) =>
+			message.senderKind === "bot" &&
+			(message.streaming || message.run?.status === "queued" || message.run?.status === "running"),
+	);
 	const expanded = text.includes("\n") || uploads.uploads.length > 0 || showSkills;
 	const layoutSignature = `${contentHeight}:${expanded}`;
 	const canSend =
+		!hasActiveRun &&
 		Boolean(text.trim() || uploads.uploads.length) &&
 		uploads.uploads.every((file) => file.attachment && !file.uploading);
 
@@ -476,17 +475,12 @@ export default function Chat() {
 								onError={(value) => setUploadNotice(value)}
 							/>
 							<NativeButton
-								className={`composer-send mini-chat-send ${activeRun ? "mini-chat-send-stop" : ""}`}
-								ariaLabel={activeRun ? t("停止生成", "Stop generating") : t("发送", "Send")}
-								disabled={!activeRun && (!canSend || chat.sending) ? true : undefined}
-								onClick={() => {
-									if (activeRun) void chat.action(activeRun);
-									else void send();
-								}}
+								className="composer-send mini-chat-send"
+								ariaLabel={t("发送", "Send")}
+								disabled={!canSend || chat.sending ? true : undefined}
+								onClick={() => void send()}
 							>
-								<Text className={activeRun ? "mini-chat-stop-icon" : "mini-chat-send-icon"}>
-									{activeRun ? "" : "↑"}
-								</Text>
+								<Text className="mini-chat-send-icon">↑</Text>
 							</NativeButton>
 						</ComposerLayout>
 					</ComposerFrame>

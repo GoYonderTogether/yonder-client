@@ -138,7 +138,6 @@ export function useRunActions() {
 	const api = useApi();
 	const client = useQueryClient();
 	return {
-		stop: useMutation({ mutationFn: (id: string) => api.stopMessage(id) }),
 		retry: useMutation({
 			mutationFn: (id: string) => api.retryMessage(id, crypto.randomUUID()),
 			onSuccess: (result) => {

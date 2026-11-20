@@ -1,12 +1,5 @@
 import type { Conversation } from "@yonder/protocol";
-import {
-	useCompactConversation,
-	useCreateItem,
-	useItemSession,
-	useMessages,
-	useRunActions,
-	useSendMessage,
-} from "@yonder/ui-data";
+import { useCompactConversation, useCreateItem, useItemSession, useMessages, useSendMessage } from "@yonder/ui-data";
 import { useChatDraft } from "./use-chat-draft.ts";
 
 export function useFrameChat({
@@ -29,7 +22,6 @@ export function useFrameChat({
 	const send = useSendMessage(target?.id ?? null, personId);
 	const create = useCreateItem(personId);
 	const compact = useCompactConversation(target?.id);
-	const actions = useRunActions();
 	const streaming = history.data?.pages
 		.flatMap((page) => page.items)
 		.findLast((message) => message.senderKind === "bot" && message.streaming);
@@ -59,9 +51,6 @@ export function useFrameChat({
 		submit,
 		compact,
 		streaming: Boolean(streaming),
-		stop: () => {
-			if (streaming) actions.stop.mutate(streaming.id);
-		},
 		blocked:
 			(!target && !creating) ||
 			!personId ||

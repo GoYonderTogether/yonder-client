@@ -392,7 +392,6 @@ export function AppFrame() {
 			onAcceptCompletion={draft.acceptCompletion}
 			onCompact={compact.run}
 			commandStatus={<CompactStatus command={compact} />}
-			onStop={chat.stop}
 			onSendVoice={chat.submit}
 			onSend={() => {
 				void chat.submit();

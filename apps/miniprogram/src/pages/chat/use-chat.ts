@@ -270,6 +270,11 @@ export function useChat(id: string) {
 		}
 	};
 	const action = async (message: ChatMessage) => {
+		if (
+			!message.sendFailed &&
+			(message.streaming || message.run?.status !== "failed" || message.run.canRetry === false)
+		)
+			return;
 		if (actionLock.current || messagesOwner.current !== outboxKey) return;
 		actionLock.current = true;
 		const ticket = epoch.current;
@@ -279,13 +284,9 @@ export function useChat(id: string) {
 				await send(message.body ?? "", message.attachments, message.skillIds ?? [], message.clientNonce ?? undefined);
 				return;
 			}
-			if (message.streaming || message.run?.status === "running" || message.run?.status === "queued")
-				await api.stopMessage(message.id);
-			else {
-				const result = await api.retryMessage(message.run?.userMessageId ?? message.id, newNonce());
-				if (active.current && ticket === epoch.current)
-					setMessages((current) => mergeMessages(current, [result.message]));
-			}
+			const result = await api.retryMessage(message.run?.userMessageId ?? message.id, newNonce());
+			if (active.current && ticket === epoch.current)
+				setMessages((current) => mergeMessages(current, [result.message]));
 		} catch {
 			if (active.current && ticket === epoch.current)
 				setError(t("操作失败，请重试", "Could not complete the action. Try again."));

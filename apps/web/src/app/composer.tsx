@@ -25,7 +25,6 @@ export function Composer({
 	onDraftChange: setDraft,
 	onSend,
 	onSendVoice,
-	onStop,
 	streaming,
 	sending = false,
 	onCancelSend,
@@ -433,12 +432,12 @@ export function Composer({
 						{showSend ? (
 							<button
 								type="button"
-								disabled={sending ? false : disconnected || (!streaming && !canSend && !voiceActive)}
-								onClick={streaming ? onStop : sending ? onCancelSend : send}
-								aria-label={t(streaming ? "chat.stop" : sending ? "chat.stopSend" : "chat.disabledSend")}
+								disabled={sending ? false : streaming || disconnected || (!canSend && !voiceActive)}
+								onClick={sending ? onCancelSend : send}
+								aria-label={t(sending ? "chat.stopSend" : "chat.disabledSend")}
 								className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"
 							>
-								{streaming || sending ? (
+								{sending ? (
 									<Square size={15} fill="currentColor" aria-hidden="true" />
 								) : (
 									<ArrowUp size={18} strokeWidth={2.2} aria-hidden="true" />

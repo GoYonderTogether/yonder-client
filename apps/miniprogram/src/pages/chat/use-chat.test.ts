@@ -8,6 +8,7 @@ const mock = vi.hoisted(() => ({
 	messages: vi.fn(),
 	conversations: vi.fn(),
 	retry: vi.fn(),
+	stop: vi.fn(),
 	send: vi.fn(),
 	rejectPendingWrites: false,
 	owner: "a",
@@ -25,7 +26,13 @@ vi.mock("@tarojs/taro", () => ({
 }));
 vi.mock("../../lib/i18n", () => ({ t: (zh: string) => zh }));
 vi.mock("../../lib/runtime", () => ({
-	api: { messages: mock.messages, conversations: mock.conversations, retryMessage: mock.retry, sendMessage: mock.send },
+	api: {
+		messages: mock.messages,
+		conversations: mock.conversations,
+		retryMessage: mock.retry,
+		stopMessage: mock.stop,
+		sendMessage: mock.send,
+	},
 	newNonce: () => "nonce",
 	subscribeEvents: () => () => {},
 	useRealtimeRevision: () => 0,
@@ -114,6 +121,27 @@ test("retries the original user message once for a failed run", async () => {
 		finish({ message: row });
 		await first;
 	});
+	await act(async () => root.unmount());
+});
+
+test("a queued, running, or streaming assistant reply cannot be stopped or retried by the chat action", async () => {
+	mock.owner = "a";
+	mock.store.clear();
+	mock.messages.mockReset().mockResolvedValue({ items: [], nextCursor: null });
+	mock.retry.mockClear();
+	mock.stop.mockClear();
+	const host = document.createElement("div");
+	const root = createRoot(host);
+	await act(async () => root.render(createElement(Probe, { id: "one" })));
+	const assistant: Message = { ...row, senderKind: "bot" };
+	const run = { id: "run", messageId: row.id, conversationId: "one", userMessageId: "original" };
+	await act(async () => {
+		await state.action({ ...assistant, run: { ...run, status: "queued" } });
+		await state.action({ ...assistant, run: { ...run, status: "running" } });
+		await state.action({ ...assistant, streaming: true });
+	});
+	expect(mock.stop).not.toHaveBeenCalled();
+	expect(mock.retry).not.toHaveBeenCalled();
 	await act(async () => root.unmount());
 });
 

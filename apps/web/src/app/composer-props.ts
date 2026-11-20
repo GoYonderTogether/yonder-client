@@ -11,7 +11,6 @@ export interface ComposerProps {
 	onDraftChange: (value: string, edit?: TextEditRange) => void;
 	onSend: () => void;
 	onSendVoice?: (file: File) => Promise<unknown>;
-	onStop: () => void;
 	streaming: boolean;
 	/** A send (upload included) is in flight; the button becomes a working cancel. */
 	sending?: boolean;

@@ -106,6 +106,7 @@ macOS / Windows 的托盘面板是固定尺寸的独立 Webview，不启动主�
 ## 数据和缓存
 
 - 服务端数据都经 `packages/ui/data` 的 hooks 读写，页面不直接调 `api-client`。
+- 聊天输入区不提供停止 Bot 回复的操作；发送失败和回复失败仍可重试。
 - 查询缓存持久化，`CACHE_VERSION` 变了就整体失效。草稿、未发送附件和发件箱存在 IndexedDB（`chat-cache`），重启不丢。
 - 额度配置按版本缓存：服务端版本变了才重新拉，用户每次看额度不额外请求配置。客户端不写任何额度数字或价格。
 - 实时事件走 `/v1/realtime` WebSocket，事件名和载荷在 `packages/protocol/src/realtime`。
