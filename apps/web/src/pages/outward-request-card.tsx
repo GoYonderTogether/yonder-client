@@ -59,6 +59,7 @@ export function OutwardRequestCard({
 	const { t } = useTranslation();
 	const { act } = useOutwardActions(conversationId);
 	const [reply, setReply] = useState("");
+	const [confirmCancel, setConfirmCancel] = useState(false);
 	const current = act.data && card.state === "open" ? act.data : card;
 	const owner = current.owner;
 	const pending = current.state === "open";
@@ -133,9 +134,21 @@ export function OutwardRequestCard({
 				</>
 			) : null}
 			{pending && canCancel ? (
-				<Button size="sm" variant="link" disabled={act.isPending} onClick={() => submit({ action: "cancel" })}>
-					{t("visits.relayCancel")}
-				</Button>
+				confirmCancel ? (
+					<div className="flex flex-wrap items-center gap-[var(--spacing-2)]">
+						<span className="text-caption">{t("visits.relayCancelAsk")}</span>
+						<Button size="sm" variant="secondary" disabled={act.isPending} onClick={() => submit({ action: "cancel" })}>
+							{t("visits.relayCancelConfirm")}
+						</Button>
+						<Button size="sm" variant="link" disabled={act.isPending} onClick={() => setConfirmCancel(false)}>
+							{t("visits.relayKeep")}
+						</Button>
+					</div>
+				) : (
+					<Button size="sm" variant="link" disabled={act.isPending} onClick={() => setConfirmCancel(true)}>
+						{t("visits.relayCancel")}
+					</Button>
+				)
 			) : null}
 			{openLinked ? (
 				<Button size="sm" variant="link" onClick={openLinked}>
