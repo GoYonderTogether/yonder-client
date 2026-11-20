@@ -1,3 +1,4 @@
+import { defaultMessagePath } from "../lib/default-message-path.ts";
 /**
  * The route table from 11 第四节, wired to React Router. The guard runs here, once: an unauthenticated
  * visit to a protected path is remembered and returned to after signing in (05 第四节第 1 条).
@@ -10,6 +11,7 @@ import { createBrowserRouter, Navigate, Route, RouterProvider, Routes, useLocati
 import { Splash } from "../pages/splash.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { MemberCardRoute } from "./member-card-route.tsx";
+import { TrayMainActions } from "./tray/main-actions.tsx";
 
 const ContactWindowPage = lazy(() =>
 	import("../pages/chat-actions/contact-window-page.tsx").then((module) => ({ default: module.ContactWindowPage })),
@@ -39,6 +41,7 @@ export function AppRoutes() {
 	const background = (location.state as { backgroundLocation?: Location } | null)?.backgroundLocation;
 	return (
 		<>
+			<TrayMainActions />
 			<div hidden={Boolean(background)}>
 				<ChunkBoundary resetKey={(background ?? location).pathname}>
 					{/* `/@对外号` is not a route React Router can express; this guard answers it first (17 3.7). */}
@@ -128,8 +131,8 @@ function RequireSession({ children }: { children: React.ReactNode }) {
 		const search = new URLSearchParams(location.search);
 		search.delete("me");
 		const query = search.toString();
-		const next = `${location.pathname}${query ? `?${query}` : ""}`;
-		const target = next === "/messages" ? "/sign-in" : `/sign-in?next=${encodeURIComponent(next)}`;
+		const next = `${location.pathname}${query ? `?${query}` : ""}${location.hash}`;
+		const target = next === defaultMessagePath() ? "/sign-in" : `/sign-in?next=${encodeURIComponent(next)}`;
 		return <Navigate to={target} replace />;
 	}
 	return <>{children}</>;

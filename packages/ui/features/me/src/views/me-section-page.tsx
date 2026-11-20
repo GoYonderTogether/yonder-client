@@ -37,6 +37,7 @@ export interface MeSectionPageProps {
 	appVersion: string;
 	serverVersion: string | null;
 	aboutUpdate?: ReactNode;
+	generalExtra?: ReactNode;
 	/** The change-password screen is provided by the app, which owns the auth feature. */
 	renderChangePassword: (onDone: () => void) => ReactNode;
 	/**
@@ -63,6 +64,7 @@ export function MeSectionPage({
 	appVersion,
 	serverVersion,
 	aboutUpdate,
+	generalExtra,
 	renderChangePassword,
 	privacy,
 }: MeSectionPageProps) {
@@ -155,7 +157,7 @@ export function MeSectionPage({
 			case "invite":
 				return <InviteSection />;
 			case "general":
-				return <GeneralSection />;
+				return <GeneralSection>{generalExtra}</GeneralSection>;
 			case "about":
 				return (
 					<AboutSection

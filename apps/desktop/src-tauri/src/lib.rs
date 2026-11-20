@@ -8,6 +8,9 @@ mod notifications;
 mod contact_window;
 
 #[cfg(desktop)]
+mod desktop_tray;
+
+#[cfg(desktop)]
 mod local_files;
 #[cfg(desktop)]
 mod local_files_access;
@@ -46,7 +49,14 @@ pub fn run() {
     #[cfg(desktop)]
     let builder = builder
         .on_window_event(contact_window::on_window_event)
+        .on_window_event(desktop_tray::on_window_event)
+        .manage(desktop_tray::TrayState::default())
         .invoke_handler(tauri::generate_handler![
+            desktop_tray::get_desktop_close_behavior,
+            desktop_tray::set_desktop_close_behavior,
+            desktop_tray::tray_get_activity,
+            desktop_tray::tray_publish_activity,
+            desktop_tray::tray_panel_action,
             contact_window::open_add_contacts,
             contact_window::request_main_session,
             contact_window::provide_contacts_session,
@@ -85,11 +95,19 @@ pub fn run() {
                 .get_webview_window("main")
                 .ok_or("tauri.conf.json declares no window labelled \"main\"")?;
             window.show()?;
+            #[cfg(desktop)]
+            desktop_tray::setup(app.handle());
             Ok(())
         })
         .build(tauri::generate_context!())
         .expect("failed to run Yonder");
     #[cfg(target_os = "ios")]
     notifications::install_ios_delegate();
-    app.run(|_, _| {});
+    app.run(|app, event| {
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Reopen { has_visible_windows: false, .. } = event {
+            let _ = desktop_tray::show_main(app);
+        }
+        let _ = (app, event);
+    });
 }

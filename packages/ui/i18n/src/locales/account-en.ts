@@ -222,6 +222,11 @@ export const accountMessagesEn = {
 			emptyTitle: "No devices yet",
 		},
 		general: {
+			closeBehavior: "When closing the window",
+			closeToTray: "Keep running in tray",
+			closeToQuit: "Quit Yonder",
+			closeBehaviorRecording: "Closing the window while recording or uploading a recording keeps Yonder running.",
+			closeBehaviorError: "Could not access this setting.",
 			title: "General",
 		},
 		about: {

@@ -7,10 +7,16 @@ import { pendingConnectorRequest, setPendingConnectorRequest } from "./connector
 const setup = vi.hoisted(() => {
 	const context = { ownerId: "mem_a", deviceId: "dev_a", sessionId: "ses_a" };
 	let onEvent: ((event: ServerEvent) => void) | undefined;
+	let onStatus: (() => void) | undefined;
 	const realtime = {
 		status: "open",
 		send: vi.fn(() => true),
-		subscribe: vi.fn(() => () => {}),
+		subscribe: (listener: () => void) => {
+			onStatus = listener;
+			return () => {
+				onStatus = undefined;
+			};
+		},
 		subscribeEvents: (listener: (event: ServerEvent) => void) => {
 			onEvent = listener;
 			return () => {
@@ -20,6 +26,13 @@ const setup = vi.hoisted(() => {
 	};
 	return {
 		context,
+		account: { current: context },
+		status(next: string) {
+			realtime.status = next;
+			onStatus?.();
+		},
+		query: { getQueryData: vi.fn() },
+		beginTrayWork: vi.fn(() => ({ finish: vi.fn(), update: vi.fn() })),
 		realtime,
 		submit: vi.fn(async () => ({ ok: true })),
 		complete: vi.fn(async () => ({ id: "request", state: "completed" })),
@@ -28,6 +41,8 @@ const setup = vi.hoisted(() => {
 	};
 });
 vi.mock("@yonder/ui-data", () => ({
+	keys: { conversations: { list: () => ["conversations"] } },
+	useDataQueryClient: () => setup.query,
 	useConnectors: () => ({ data: { items: [{ id: "con_a", deviceId: "dev_a", revision: 2 }] } }),
 	useData: () => ({
 		api: { submitConnectorResult: setup.submit, completeConnectorRequest: setup.complete },
@@ -37,8 +52,10 @@ vi.mock("@yonder/ui-data", () => ({
 vi.mock("./local-files.ts", () => ({
 	invokeLocalFiles: setup.invoke,
 	onLocalFilesChanged: () => () => {},
-	useLocalFilesContext: () => setup.context,
+	useLocalFilesContext: () => setup.account.current,
 }));
+
+vi.mock("./tray-bridge.ts", () => ({ beginTrayConnectorWork: setup.beginTrayWork }));
 
 import { LocalFilesRuntime } from "./local-files-runtime.tsx";
 
@@ -47,6 +64,10 @@ afterEach(() => {
 	setup.complete.mockClear();
 	setup.realtime.send.mockClear();
 	setup.invoke.mockReset();
+	setup.beginTrayWork.mockClear();
+	setup.query.getQueryData.mockReset();
+	setup.account.current = setup.context;
+	setup.status("open");
 });
 
 test("the original request resumes only after the matching native authorization becomes ready", async () => {
@@ -126,4 +147,104 @@ test("ready uses the existing socket and cancelled or foreign-device work cannot
 	expect(setup.invoke.mock.calls.filter(([name]) => name === "local_files_execute")).toHaveLength(1);
 	unmount();
 	expect(setup.realtime.send).toHaveBeenLastCalledWith({ type: "connector.ready", connections: [] });
+});
+
+test("only accepted local commands appear in the tray, using their exact Bot and conversation", async () => {
+	let finish: ((value: unknown) => void) | undefined;
+	setup.invoke.mockImplementation(async (command: string) => {
+		if (command === "local_files_ready") return [{ id: "con_a", revision: 2 }];
+		if (command === "local_files_execute")
+			return new Promise((resolve) => {
+				finish = resolve;
+			});
+		return undefined;
+	});
+	setup.query.getQueryData.mockReturnValue({
+		items: [{ id: "chat_a", title: "Work chat", members: [{ memberId: "bot_a", kind: "bot", displayName: "Bot A" }] }],
+	});
+	const { unmount } = render(<LocalFilesRuntime />);
+	const command = {
+		id: "cmd_a",
+		connectorId: "local-files" as const,
+		scope: "device" as const,
+		capabilities: { fileTools: false },
+		revision: 2,
+		connectionId: "con_a",
+		deviceId: "dev_other",
+		operation: "read" as const,
+		path: "note.txt",
+		expiresAt: new Date(Date.now() + 15000).toISOString(),
+		origin: { botId: "bot_a", conversationId: "chat_a" },
+	};
+	const emit = (value: typeof command) =>
+		setup.event({ type: "connector.command", eventId: value.id, at: new Date().toISOString(), command: value });
+	act(() => emit(command));
+	expect(setup.beginTrayWork).not.toHaveBeenCalled();
+
+	act(() => emit({ ...command, id: "cmd_local", deviceId: "dev_a" }));
+	expect(setup.beginTrayWork).toHaveBeenCalledWith({
+		botId: "bot_a",
+		botName: "Bot A",
+		conversationId: "chat_a",
+		conversationTitle: "Work chat",
+		activity: expect.any(String),
+	});
+	const released = setup.beginTrayWork.mock.results[0]?.value.finish;
+	expect(released).not.toHaveBeenCalled();
+	await act(async () => finish?.({ ok: false, error: "cancelled" }));
+	expect(setup.beginTrayWork.mock.results[0]?.value.update).toHaveBeenCalledOnce();
+	expect(released).toHaveBeenCalledOnce();
+	unmount();
+});
+
+test("unknown local connector work clears on disconnect, cancellation and account change", async () => {
+	setup.invoke.mockImplementation(async (command: string) => {
+		if (command === "local_files_ready") return [{ id: "con_a", revision: 2 }];
+		if (command === "local_files_execute") return new Promise(() => {});
+		return undefined;
+	});
+	const { rerender, unmount } = render(<LocalFilesRuntime />);
+	const emit = (id: string) =>
+		setup.event({
+			type: "connector.command",
+			eventId: id,
+			at: new Date().toISOString(),
+			command: {
+				id,
+				connectorId: "local-files",
+				scope: "device",
+				capabilities: { fileTools: false },
+				revision: 2,
+				connectionId: "con_a",
+				deviceId: "dev_a",
+				operation: "read",
+				path: "note.txt",
+				expiresAt: new Date(Date.now() + 15000).toISOString(),
+			},
+		});
+	act(() => emit("cmd_a"));
+	expect(setup.beginTrayWork).toHaveBeenCalledWith(null);
+	const first = setup.beginTrayWork.mock.results[0]?.value.finish;
+	act(() => setup.status("reconnecting"));
+	expect(first).toHaveBeenCalledOnce();
+
+	act(() => setup.status("open"));
+	act(() => emit("cmd_b"));
+	const second = setup.beginTrayWork.mock.results[1]?.value.finish;
+	act(() =>
+		setup.event({
+			type: "connector.command.cancelled",
+			eventId: "evt_b",
+			at: new Date().toISOString(),
+			commandId: "cmd_b",
+		}),
+	);
+	expect(second).toHaveBeenCalledOnce();
+
+	act(() => emit("cmd_c"));
+	const third = setup.beginTrayWork.mock.results[2]?.value.finish;
+	setup.account.current = { ...setup.context, ownerId: "mem_other" };
+	rerender(<LocalFilesRuntime />);
+	expect(third).toHaveBeenCalledOnce();
+	unmount();
 });

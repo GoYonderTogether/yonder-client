@@ -1,9 +1,12 @@
-import type { ConnectorCommand, ConnectorCommandResult } from "@yonder/protocol";
-import { useConnectors, useData } from "@yonder/ui-data";
+import type { ConnectorCommand, ConnectorCommandResult, Conversation } from "@yonder/protocol";
+import { keys, useConnectors, useData, useDataQueryClient } from "@yonder/ui-data";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { pendingConnectorRequest, setPendingConnectorRequest } from "./connector-request.ts";
 import { invokeLocalFiles, onLocalFilesChanged, useLocalFilesContext } from "./local-files.ts";
+import { beginTrayConnectorWork } from "./tray-bridge.ts";
+
+type PendingCommand = { cancelled: boolean; tray?: ReturnType<typeof beginTrayConnectorWork> };
 
 const ERRORS = new Set([
 	"permission_denied",
@@ -26,6 +29,9 @@ export function LocalFilesRuntime() {
 	const retryContinuation = useRef<() => void>(() => {});
 	const context = useLocalFilesContext();
 	const { api, realtime } = useData();
+	const query = useDataQueryClient();
+	const activityLabel = useRef(t);
+	activityLabel.current = t;
 	const connectors = useConnectors({ enabled: context !== null });
 	const connectionIds = connectors.data?.items
 		.filter((connection) => connection.deviceId === context?.deviceId)
@@ -42,7 +48,7 @@ export function LocalFilesRuntime() {
 				})
 			: [];
 		const eligible = new Set(connections.map((c) => c.id));
-		const pending = new Map<string, { cancelled: boolean }>();
+		const pending = new Map<string, PendingCommand>();
 		let readyIds = new Set<string>();
 		let completing = false;
 		let retryQueued = false;
@@ -101,7 +107,7 @@ export function LocalFilesRuntime() {
 		};
 		const execute = async (command: ConnectorCommand) => {
 			if (!active || pending.has(command.id)) return;
-			const state = { cancelled: false };
+			const state: PendingCommand = { cancelled: false };
 			pending.set(command.id, state);
 			try {
 				let result: ConnectorCommandResult;
@@ -110,10 +116,31 @@ export function LocalFilesRuntime() {
 					result = { ok: false, error: "permission_denied" };
 				else if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) result = { ok: false, error: "cancelled" };
 				else {
+					const { origin, ...nativeCommand } = command;
+					const conversation = origin
+						? query
+								.getQueryData<{ items: Conversation[] }>(keys.conversations.list())
+								?.items.find((item) => item.id === origin.conversationId)
+						: undefined;
+					const bot = conversation?.members.find(
+						(member) => member.kind === "bot" && member.memberId === origin?.botId,
+					);
+					const title = conversation?.title || (conversation?.kind === "direct" ? bot?.displayName : null);
+					state.tray = beginTrayConnectorWork(
+						conversation && bot && title
+							? {
+									botId: bot.memberId,
+									botName: bot.displayName,
+									conversationId: conversation.id,
+									conversationTitle: title,
+									activity: activityLabel.current(`tray.connector.${command.operation}`),
+								}
+							: null,
+					);
 					try {
 						result = await invokeLocalFiles<ConnectorCommandResult>("local_files_execute", {
 							context,
-							command: { ...command, expiresAtMs },
+							command: { ...nativeCommand, expiresAtMs },
 						});
 					} catch (error) {
 						result = {
@@ -122,11 +149,14 @@ export function LocalFilesRuntime() {
 						};
 					}
 				}
-				if (active && !state.cancelled && realtime.status === "open")
+				if (active && !state.cancelled && realtime.status === "open") {
+					state.tray?.update(activityLabel.current("tray.connector.report"));
 					await api.submitConnectorResult(command.id, result);
+				}
 			} catch {
 				// The server owns the deadline and rejects receipts after cancellation or expiry.
 			} finally {
+				state.tray?.finish();
 				pending.delete(command.id);
 			}
 		};
@@ -137,11 +167,17 @@ export function LocalFilesRuntime() {
 				const state = pending.get(event.commandId);
 				if (state) {
 					state.cancelled = true;
+					state.tray?.finish();
 					void invokeLocalFiles("local_files_cancel", { commandId: event.commandId }).catch(() => {});
 				}
 			}
 		});
-		const stopStatus = realtime.subscribe(() => void refreshReady());
+		const stopStatus = realtime.subscribe(() => {
+			if (realtime.status !== "open") {
+				for (const state of pending.values()) state.tray?.finish();
+			}
+			void refreshReady();
+		});
 		const stopGrants = onLocalFilesChanged(() => void refreshReady());
 		void refreshReady();
 		return () => {
@@ -149,6 +185,7 @@ export function LocalFilesRuntime() {
 			retryContinuation.current = () => {};
 			for (const [id, state] of pending) {
 				state.cancelled = true;
+				state.tray?.finish();
 				void invokeLocalFiles("local_files_cancel", { commandId: id }).catch(() => {});
 			}
 			stopEvents();
@@ -156,7 +193,7 @@ export function LocalFilesRuntime() {
 			stopGrants();
 			realtime.send({ type: "connector.ready", connections: [] });
 		};
-	}, [api, context, realtime, connectionIds]);
+	}, [api, context, realtime, connectionIds, query]);
 	return continuationError ? (
 		<div role="alert" className="text-caption text-[var(--color-danger)]">
 			{t("connectors.requestContinueFailed")}{" "}
