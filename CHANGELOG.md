@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [0.3.26112002] - 2026-11-20
+
+### Fixed
+
+- ui：restore compact chat header and disambiguate notices
+- chat：keep Bot replies running without a stop control
+- ui：raise the system notice slightly
+- ci：retain the existing Web artifact policy
+- ui：unify transient notices and connector recovery
+- recover tray activity and resolve cold-cache connector context
+- visits：confirm inline before a visitor cancels a relay request
+- preserve explicit sign-in return paths
+
+### Added
+
+- connectors：authorize from any client; the device applies the grant without a confirmation box
+- ui：a card's fill follows the surface under it
+- add desktop tray and default main Bot entry (#1)
+- add desktop tray and open the main Bot by default
+
 ## [0.3.26112001] - 2026-11-20
 
 ### Fixed
