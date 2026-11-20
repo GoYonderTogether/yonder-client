@@ -6,7 +6,7 @@ export function completionItems(
 	contacts: readonly Member[],
 	members: readonly ConversationMember[],
 	bot: Member | undefined,
-	compactLabel: string,
+	compactLabel?: string,
 ): CompletionItem[] {
 	const people = new Map<string, CompletionItem>();
 	for (const member of [...contacts, ...(bot ? [bot] : [])]) {
@@ -30,7 +30,9 @@ export function completionItems(
 		});
 	}
 	return [
-		{ id: "command:compact", kind: "command", name: "compact", description: compactLabel },
+		...(compactLabel
+			? [{ id: "command:compact", kind: "command" as const, name: "compact", description: compactLabel }]
+			: []),
 		...skills
 			.filter((skill) => skill.enabled)
 			.map(

@@ -1,7 +1,9 @@
 import { Text, View } from "@tarojs/components";
-import type { MessageBlock } from "@yonder/chat-model";
+import { type MessageBlock, ownedBotFor } from "@yonder/chat-model";
 import { MessageAttachmentsFrame, MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
+import type { Member } from "@yonder/protocol";
 import type { ReactNode } from "react";
+import { MiniBotName } from "../../components/bot-name";
 import { FriendRequestCard } from "../../components/friend-request-card";
 import { Button, go } from "../../components/ui";
 import { type Locale, t } from "../../lib/i18n";
@@ -51,7 +53,8 @@ export function renderMessageBlock(
 		showMessageAvatars,
 		showSenderNames,
 		locale,
-	}: { showMessageAvatars: boolean; showSenderNames: boolean; locale: Locale },
+		contacts,
+	}: { showMessageAvatars: boolean; showSenderNames: boolean; locale: Locale; contacts: readonly Member[] },
 	followAfterLayout: () => void,
 	openOptions?: string,
 ) {
@@ -115,7 +118,19 @@ export function renderMessageBlock(
 				self={self}
 				senderId={first.senderId}
 				avatar={botId && avatar ? <BotAvatarLink id={botId}>{avatar}</BotAvatarLink> : avatar}
-				sender={showSenderNames ? <View className="message-run-name">{name}</View> : null}
+				sender={
+					showSenderNames ? (
+						first.senderKind === "bot" ? (
+							<MiniBotName
+								name={name}
+								ownedBot={ownedBotFor(first.senderId, chat.me?.member.id, chat.me?.bot, contacts)}
+								owner={sender?.botOwner}
+							/>
+						) : (
+							<View className="message-run-name">{name}</View>
+						)
+					) : null
+				}
 			>
 				{run.map((message) => {
 					const file = message.attachments?.length === 1 ? message.attachments[0] : undefined;
@@ -140,6 +155,9 @@ export function renderMessageBlock(
 								</MessageBubble>
 							) : null}
 							{message.reaction ? <Text>{message.reaction}</Text> : null}
+							{message.outwardRequest && !message.body?.trim() ? (
+								<Text className="mini-muted">{outwardStatus(message.outwardRequest.state)}</Text>
+							) : null}
 							<MessageSources run={message.run} />
 							{message.options?.map((option) => (
 								<Button
@@ -181,4 +199,19 @@ export function renderMessageBlock(
 			</MessageRun>
 		</View>
 	);
+}
+
+function outwardStatus(state: NonNullable<ChatMessage["outwardRequest"]>["state"]) {
+	switch (state) {
+		case "open":
+			return t("等待主人答复", "Waiting for the owner’s reply");
+		case "answered":
+			return t("主人已处理请求", "The owner responded");
+		case "declined":
+			return t("主人已拒绝请求", "The owner declined the request");
+		case "cancelled":
+			return t("请求已取消", "Request cancelled");
+		case "expired":
+			return t("请求已过期", "Request expired");
+	}
 }

@@ -129,6 +129,27 @@ test("editing changes the name in place and offers no shuffle", async () => {
 	expect(api.updateBot).toHaveBeenCalledWith({ id: "bot_a", displayName: "Beta" });
 });
 
+test("the private responsibility note counts Unicode characters, trims and clears via the same PATCH", async () => {
+	const onSaved = vi.fn();
+	const current = bot({ botRoleLabel: "Old responsibility" });
+	api.updateBot.mockResolvedValue(current);
+	const form = render(localised(<BotForm mode="edit" settings bot={current} onSaved={onSaved} />));
+	const input = screen.getByRole("textbox", { name: "Responsibility note" });
+	const save = screen.getByRole("button", { name: "Save profile" });
+	const role = "🧪".repeat(24);
+	fireEvent.change(input, { target: { value: `${role}试` } });
+	expect(save).toBeDisabled();
+	fireEvent.change(input, { target: { value: ` ${role} ` } });
+	fireEvent.click(save);
+	await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+	expect(api.updateBot).toHaveBeenLastCalledWith({ id: "bot_a", botRoleLabel: role });
+	form.rerender(localised(<BotForm mode="edit" settings bot={bot({ botRoleLabel: role })} onSaved={onSaved} />));
+	fireEvent.change(input, { target: { value: " " } });
+	fireEvent.click(save);
+	await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(2));
+	expect(api.updateBot).toHaveBeenLastCalledWith({ id: "bot_a", botRoleLabel: null });
+});
+
 test("selects nickname tags, returns to the full name when a selection is removed, and caps additions at five", async () => {
 	const nicknames = ["栗子", "栗子助理", "小栗", "栗", "Alpha"];
 	api.updateBot.mockResolvedValue(bot({ nicknames, selectedNickname: "栗子", version: 2 }));
@@ -239,8 +260,8 @@ test("the list shows only Bots this account owns, the default one first", () => 
 	const open = vi.fn();
 	render(localised(<BotList onOpen={open} />));
 	const [main, later] = screen.getAllByRole("button");
-	expect(main).toHaveAccessibleName(/^Main\s*@bota\s*Default Bot$/);
-	expect(later).toHaveAccessibleName(/^Later\s*@bota$/);
+	expect(main).toHaveAccessibleName(/^Main\s*Main Bot\s*@bota$/);
+	expect(later).toHaveAccessibleName(/^Later\s*AI\s*@bota$/);
 	fireEvent.click(screen.getByRole("button", { name: /Main/ }));
 	expect(open).toHaveBeenCalledWith("bot_default");
 });

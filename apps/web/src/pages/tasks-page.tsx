@@ -1,8 +1,8 @@
 import type { Schedule, ScheduleStatus } from "@yonder/protocol";
 import { Button, EmptyState, ListGroup, Segmented } from "@yonder/ui-components";
-import { ApiError, useScheduleActions, useSchedules } from "@yonder/ui-data";
+import { ApiError, type useItemSession, useScheduleActions, useSchedules } from "@yonder/ui-data";
 import { ListFrame, PageFrame } from "@yonder/ui-shell";
-import { CalendarClock, ListChecks } from "lucide-react";
+import { CalendarClock, ListChecks, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoalRecords } from "./goal-records.tsx";
@@ -79,21 +79,59 @@ export function TasksList({
 
 export function TaskPage({
 	taskId,
+	session,
+	disconnected,
+	readActive,
+	onPrompt,
 	onOpenConversation,
 }: {
 	taskId: string | null;
+	session: ReturnType<typeof useItemSession>;
+	disconnected: boolean;
+	readActive: boolean;
+	onPrompt: ((prompt: string) => void) | undefined;
 	onOpenConversation: (id: string) => void;
 }) {
 	const { t } = useTranslation();
-	return (
-		<PageFrame title={taskId ? t("tasks.itemHeading") : null}>
-			{taskId ? (
-				<ItemDetailPage itemId={taskId} onOpenConversation={onOpenConversation} />
-			) : (
-				<div className="flex flex-1 items-center justify-center">
-					<EmptyState icon={<ListChecks size={24} strokeWidth={1.6} />} title={t("tasks.emptyTitle")} />
+	if (taskId === "new")
+		return (
+			<PageFrame title={<h1 className="truncate">{t("tasks.newItemHeading")}</h1>} titleAlign="start">
+				<div className="flex flex-1 flex-col">
+					<div className="flex flex-1 items-center justify-center">
+						<EmptyState title={t("chat.emptyTitle")} />
+					</div>
+					{onPrompt ? (
+						<div className="flex flex-col items-start gap-[var(--spacing-2)]">
+							{["meeting", "research", "travel"].map((kind) => {
+								const prompt = t(`tasks.itemPrompts.${kind}`);
+								return (
+									<Button key={kind} variant="secondary" onClick={() => onPrompt(prompt)}>
+										<Sparkles size={16} aria-hidden="true" />
+										{prompt}
+									</Button>
+								);
+							})}
+						</div>
+					) : null}
 				</div>
-			)}
+			</PageFrame>
+		);
+	if (taskId)
+		return (
+			<ItemDetailPage
+				key={taskId}
+				itemId={taskId}
+				session={session}
+				disconnected={disconnected}
+				readActive={readActive}
+				onOpenConversation={onOpenConversation}
+			/>
+		);
+	return (
+		<PageFrame title={null}>
+			<div className="flex flex-1 items-center justify-center">
+				<EmptyState icon={<ListChecks size={24} strokeWidth={1.6} />} title={t("tasks.emptyTitle")} />
+			</div>
 		</PageFrame>
 	);
 }
@@ -109,7 +147,7 @@ function UpcomingOneOffs() {
 	const upcoming = upcomingOneOffs(schedules.data?.items ?? []);
 	if (!upcoming.length) return null;
 	return (
-		<ListGroup variant="card" title={t("tasks.itemUpcoming")}>
+		<ListGroup title={t("tasks.itemUpcoming")}>
 			{upcoming.map((plan) => (
 				<li
 					key={plan.id}
@@ -148,13 +186,13 @@ function GoalsList({ creating }: { creating: boolean }) {
 		: null;
 	if (schedules.isLoading)
 		return (
-			<ListGroup variant="card">
+			<ListGroup>
 				<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">{t("app.loading")}</li>
 			</ListGroup>
 		);
 	if (schedules.isError && !schedules.data)
 		return (
-			<ListGroup variant="card">
+			<ListGroup>
 				<li className="flex items-center gap-[var(--spacing-3)] p-[var(--spacing-4)] text-caption text-[var(--color-danger)]">
 					<span role="alert">
 						{schedules.error instanceof ApiError ? t(schedules.error.messageKey) : t("app.loadFailed")}
@@ -172,7 +210,7 @@ function GoalsList({ creating }: { creating: boolean }) {
 					{failure}
 				</p>
 			) : null}
-			<ListGroup variant="card" title={t("tasks.tracking")}>
+			<ListGroup title={t("tasks.tracking")}>
 				{tracking.map((item) => (
 					<ScheduleRow
 						key={item.id}

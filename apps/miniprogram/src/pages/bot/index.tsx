@@ -1,7 +1,9 @@
 import { Text, View } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
+import { botRoleProblem } from "@yonder/chat-model";
 import type { Member } from "@yonder/protocol";
 import { useEffect, useRef, useState } from "react";
+import { MiniBotName } from "../../components/bot-name";
 import { ConversationMute } from "../../components/conversation-mute";
 import { action, Button, Field, go, Page, State } from "../../components/ui";
 import { loadOwnedBot } from "../../lib/bots";
@@ -49,6 +51,7 @@ export default function Bot() {
 	const [loadError, setLoadError] = useState("");
 	const [error, setError] = useState("");
 	const [name, setName] = useState("");
+	const [roleDraft, setRoleDraft] = useState<string | null>(null);
 	const [color, setColor] = useState<string>(BOT_COLORS[0]);
 	const [saving, setSaving] = useState(false);
 	const [uploading, setUploading] = useState(false);
@@ -88,17 +91,26 @@ export default function Bot() {
 		if (status === "signed-in" && loaded.current) void loadRef.current();
 	});
 
-	const changes = bot ? botChanges(bot, name, color) : {};
+	const role = roleDraft ?? bot?.botRoleLabel ?? "";
+	const roleProblem = botRoleProblem(role);
+	const roleError =
+		roleProblem === "length"
+			? t("最多输入 24 个字。", "Use no more than 24 characters.")
+			: roleProblem
+				? t("请输入单行文字。", "Enter plain text on one line.")
+				: null;
+	const changes = bot ? botChanges(bot, name, color, role) : {};
 	const problem = nameProblem(name);
 	const save = () =>
 		void action(async () => {
-			if (!bot || problem || !hasChanges(changes)) return;
+			if (!bot || problem || roleError || !hasChanges(changes)) return;
 			setSaving(true);
 			setError("");
 			try {
 				const updated = await api.updateBot(bot.id, changes);
 				setBot(updated);
 				setName(updated.displayName);
+				setRoleDraft(null);
 				setColor(colorOf(updated));
 				void Taro.showToast({ title: t("已保存", "Saved"), icon: "success" });
 			} catch (cause) {
@@ -195,9 +207,15 @@ export default function Bot() {
 						</Button>
 					) : null}
 					<Field label={t("名字", "Name")} value={name} onInput={setName} />
+					<Field
+						label={t("职责备注（仅自己可见）", "Responsibility note (only visible to you)")}
+						value={role}
+						onInput={setRoleDraft}
+					/>
 					{problem ? <Text className="mini-error">{problem}</Text> : null}
+					{roleError ? <Text className="mini-error">{roleError}</Text> : null}
 					{error ? <Text className="mini-error">{error}</Text> : null}
-					<Button loading={saving} disabled={Boolean(problem) || !hasChanges(changes)} onClick={save}>
+					<Button loading={saving} disabled={Boolean(problem || roleError) || !hasChanges(changes)} onClick={save}>
 						{t("保存", "Save")}
 					</Button>
 				</View>
@@ -213,7 +231,7 @@ export default function Bot() {
 							size={48}
 						/>
 						<View className="mini-row-main">
-							<Text>{bot.displayName}</Text>
+							<MiniBotName name={bot.displayName} ownedBot={bot} />
 							<Text className="mini-muted">ID @{bot.handle}</Text>
 						</View>
 						<View className="mini-bot-edit-action">

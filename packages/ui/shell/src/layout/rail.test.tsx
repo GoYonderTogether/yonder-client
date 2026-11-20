@@ -30,11 +30,11 @@ test("the macOS inset reserves a draggable 52px row above the avatar", () => {
 	expect(rail.children[1]).toContainElement(screen.getByRole("button", { name: "Me" }));
 });
 
-test("desktop contacts entry opens independently of the three main tabs", () => {
+test("the Messages red dot keeps its accessible count while on Tasks or opening Contacts", () => {
 	const open = vi.fn();
 	render(
 		<Rail
-			current="messages"
+			current="tasks"
 			onSelect={vi.fn()}
 			labels={{ messages: "Messages", tasks: "Tasks", memory: "Memory" }}
 			ariaLabel="Tabs"
@@ -46,8 +46,11 @@ test("desktop contacts entry opens independently of the three main tabs", () => 
 			titlebarInset={false}
 			onOpenContacts={open}
 			contactsLabel="Contacts"
+			messagesUnread={{ count: 3, label: "3 unread messages" }}
 		/>,
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Contacts" }));
 	expect(open).toHaveBeenCalledOnce();
+	expect(screen.getByRole("button", { name: "Messages" })).toHaveAccessibleDescription("3 unread messages");
+	expect(screen.getByRole("img", { name: "3 unread messages" }).firstElementChild).toHaveClass("sr-only");
 });

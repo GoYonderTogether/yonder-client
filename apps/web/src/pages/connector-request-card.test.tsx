@@ -1,58 +1,148 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { ConnectorRequestView } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
-import { afterEach, expect, test, vi } from "vitest";
-import { pendingConnectorRequest } from "../lib/connector-request.ts";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-const mock = vi.hoisted(() => ({
-	read: vi.fn().mockResolvedValue({
-		id: "request",
-		connectorId: "local-files",
-		state: "pending",
-		originalPrompt: "Read my files",
-	}),
-	confirm: vi.fn().mockResolvedValue({
-		id: "request",
-		connectorId: "local-files",
-		state: "approved",
-		originalPrompt: "Read my files",
-	}),
+const state = vi.hoisted(() => ({
+	request: null as unknown,
+	devices: { items: [] as unknown[] },
+	devicesError: false,
+	confirm: vi.fn(),
 	cancel: vi.fn(),
-	navigate: vi.fn(),
+	refetch: vi.fn(),
 }));
-vi.mock("@yonder/ui-data", () => ({
-	useApi: () => ({
-		connectorRequest: mock.read,
-		confirmConnectorRequest: mock.confirm,
-		cancelConnectorRequest: mock.cancel,
-	}),
-	usePerson: () => ({ id: "owner" }),
-}));
-vi.mock("react-router", () => ({ useNavigate: () => mock.navigate }));
+vi.mock("@yonder/ui-data", async (original) => {
+	const actual = await original<typeof import("@yonder/ui-data")>();
+	return {
+		...actual,
+		useConnectorRequest: () => ({ data: state.request, isPending: false, refetch: state.refetch }),
+		useConnectorRequestDevices: () => ({ data: state.devices, isError: state.devicesError, isPending: false }),
+		useConnectorRequestActions: () => ({
+			confirm: { mutate: state.confirm, isPending: false, error: null, variables: undefined },
+			cancel: { mutate: state.cancel, isPending: false, error: null },
+		}),
+	};
+});
 
+import { ApiError } from "@yonder/ui-data";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
 
-afterEach(() => {
-	sessionStorage.clear();
-	vi.clearAllMocks();
-});
-test("the card never confirms or authorizes before the owner clicks", async () => {
-	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	render(
-		<QueryClientProvider client={client}>
-			<I18nextProvider i18n={createI18n("en")}>
-				<ConnectorRequestCard id="request" ready />
-			</I18nextProvider>
-		</QueryClientProvider>,
+function view(overrides: Partial<ConnectorRequestView> = {}): ConnectorRequestView {
+	return {
+		id: "request",
+		connectorIds: ["local-files"],
+		reason: "Need to read the quarterly notes",
+		state: "pending",
+		deviceId: null,
+		deviceName: null,
+		connectionIds: [],
+		failure: null,
+		...overrides,
+	};
+}
+function show() {
+	return render(
+		<I18nextProvider i18n={createI18n("en")}>
+			<ConnectorRequestCard id="request" />
+		</I18nextProvider>,
 	);
-	expect(await screen.findByText("Read my files")).toBeVisible();
-	expect(mock.confirm).not.toHaveBeenCalled();
-	expect(pendingConnectorRequest()).toBeNull();
-	fireEvent.click(screen.getByRole("button", { name: "Confirm and authorize" }));
-	await waitFor(() => expect(mock.confirm).toHaveBeenCalledWith("request"));
-	await waitFor(() => expect(mock.navigate).toHaveBeenCalledWith("/me/connectors"));
-	expect(pendingConnectorRequest()).toEqual({ id: "request", connectorId: "local-files", ownerId: "owner" });
+}
+beforeEach(() => {
+	state.request = view();
+	state.devices = { items: [] };
+	state.devicesError = false;
+	state.confirm.mockReset();
+	state.cancel.mockReset();
+	state.refetch.mockReset();
+});
+afterEach(() => vi.clearAllMocks());
+
+test("shows the connectors, the Bot's reason and the capability line, never the user's own words", () => {
+	state.request = view({ connectorIds: ["local-files", "computer-control"] });
+	show();
+	expect(screen.getByText("Bot requests connector access")).toBeVisible();
+	expect(screen.getByText("Read files · Modify files")).toBeVisible();
+	expect(screen.getByText("Need to read the quarterly notes")).toBeVisible();
+	expect(screen.getByText(/shares files across the selected device/)).toBeVisible();
+	expect(screen.getByText(/recoverably delete files across the selected device/)).toBeVisible();
+	expect(screen.queryByText(/Read my files/)).toBeNull();
+});
+
+test("allowing is the consent and does not wait for the Bot or navigate anywhere", () => {
+	show();
+	fireEvent.click(screen.getByRole("button", { name: "Allow" }));
+	expect(state.confirm).toHaveBeenCalledWith({ id: "request" }, expect.anything());
+});
+
+test("a device_required answer lists the usable devices once so the user picks one", () => {
+	state.devices = {
+		items: [
+			{ id: "dev_mac", name: "MacBook Pro", platform: "macos", online: true, supported: true },
+			{ id: "dev_win", name: "Studio PC", platform: "windows", online: true, supported: true },
+			{ id: "dev_off", name: "Old laptop", platform: "macos", online: false, supported: true },
+		],
+	};
+	state.confirm.mockImplementation((_body, options) => {
+		if (!options) return;
+		options.onError(new ApiError({ code: "device_required", status: 409, message: "device_required" }));
+	});
+	show();
+	fireEvent.click(screen.getByRole("button", { name: "Allow" }));
+	expect(screen.getByText("Choose a device")).toBeVisible();
+	expect(screen.queryByRole("button", { name: "Old laptop" })).toBeNull();
+	fireEvent.click(screen.getByRole("button", { name: "Studio PC" }));
+	expect(state.confirm).toHaveBeenLastCalledWith({ id: "request", deviceId: "dev_win" }, expect.anything());
+});
+
+test("a device_offline answer keeps the card pending and says the device is offline", () => {
+	state.confirm.mockImplementation((_body, options) => {
+		options?.onError(new ApiError({ code: "device_offline", status: 409, message: "device_offline" }));
+	});
+	show();
+	fireEvent.click(screen.getByRole("button", { name: "Allow" }));
+	expect(screen.getByText(/target device is offline/i)).toBeVisible();
+	expect(screen.getByRole("button", { name: "Allow" })).toBeEnabled();
+	expect(screen.getByText("Waiting for you")).toBeVisible();
+});
+
+test("a dispatched request waits for the device and can only be cancelled", () => {
+	state.request = view({ state: "dispatched", deviceId: "dev_mac", deviceName: "MacBook Pro" });
+	show();
+	expect(screen.getByText("Waiting for the device")).toBeVisible();
+	expect(screen.getByText("Device: MacBook Pro")).toBeVisible();
+	expect(screen.queryByRole("button", { name: "Allow" })).toBeNull();
+	fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+	expect(state.cancel).toHaveBeenCalledWith("request");
+});
+
+test("a granted request is final and offers no further action", () => {
+	state.request = view({ state: "granted", deviceId: "dev_mac", deviceName: "MacBook Pro" });
+	show();
+	expect(screen.getByText("Allowed")).toBeVisible();
+	expect(screen.queryByRole("button")).toBeNull();
+});
+
+test("expired offers a retry on the device the request already named", () => {
+	state.request = view({ state: "expired", deviceId: "dev_mac", deviceName: "MacBook Pro" });
+	show();
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	expect(state.confirm).toHaveBeenCalledWith({ id: "request", deviceId: "dev_mac" }, expect.anything());
+});
+
+test("failed shows the real reason and retries", () => {
+	state.request = view({ state: "failed", failure: "permission_denied" });
+	show();
+	expect(screen.getByRole("alert")).toHaveTextContent("permission_denied");
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	expect(state.confirm).toHaveBeenCalledWith({ id: "request" }, expect.anything());
+});
+
+test("cancelled is final", () => {
+	state.request = view({ state: "cancelled" });
+	show();
+	expect(screen.getByText("Cancelled")).toBeVisible();
+	expect(screen.queryByRole("button")).toBeNull();
 });

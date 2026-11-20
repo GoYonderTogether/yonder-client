@@ -70,6 +70,7 @@ async function assertRuns(page: Page) {
 		assistant.displayName,
 	]);
 	await expect(page.locator("[data-message-sender-header]")).toHaveCount(5);
+	await expect(page.locator("[data-message-sender-header] [data-bot-label]")).toHaveText("主 Bot");
 	for (let index = 0; index < 5; index++) {
 		const run = runs.nth(index);
 		await expect(run.locator("article[data-message-id]")).toHaveCount(2);

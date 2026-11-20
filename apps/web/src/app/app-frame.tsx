@@ -5,16 +5,12 @@ import { AppIcon, Avatar } from "@yonder/ui-components";
 import {
 	keys,
 	useBot,
-	useCompactConversation,
 	useContacts,
 	useConversations,
 	useData,
 	useDataQueryClient,
 	useHealth,
-	useMessages,
 	usePerson,
-	useRunActions,
-	useSendMessage,
 	useSkills,
 } from "@yonder/ui-data";
 import type { LayoutMode, TabId } from "@yonder/ui-shell";
@@ -27,7 +23,12 @@ import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
 import { ContactsOverlay } from "../pages/contacts-list.tsx";
-import { conversationTitle, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
+import {
+	conversationPeer,
+	conversationTitle,
+	primaryConversation,
+	selectedConversation,
+} from "../pages/conversation-presentation.tsx";
 import { FlyToComposer } from "../pages/items-fly.tsx";
 import { memoryFileParent, readMemoryView } from "../pages/memory/memory-view.ts";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
@@ -44,7 +45,7 @@ import { settingsPagePaths } from "./settings-navigation.ts";
 import { SettingsRoutePage } from "./settings-pages.tsx";
 import { useFrameLayers, useSideStack } from "./side-panel.tsx";
 import { TaskBotDrawer } from "./task-bot-drawer.tsx";
-import { useChatDraft } from "./use-chat-draft.ts";
+import { useFrameChat } from "./use-frame-chat.ts";
 import { useFrameMeeting } from "./use-frame-meeting.ts";
 import { useMeEntry } from "./use-me-entry.ts";
 import { useMeetingLink } from "./use-meeting-link.ts";
@@ -80,6 +81,7 @@ export function AppFrame() {
 	const skills = useSkills();
 	const contacts = useContacts();
 	const [layoutMode, setLayoutMode] = useState<LayoutMode | null>(null);
+	const [chatOpen, setChatOpen] = useState(0);
 	const phone = !desktop && (layoutMode === "mobile" || layoutMode === null);
 	const { modelDirty, setBotDirty } = useModelDirtyGuard();
 	const previousLocation = useRef("/messages");
@@ -95,7 +97,8 @@ export function AppFrame() {
 	const tabLocation = meOpen ? remembered || previousLocation.current : path;
 	const base = meOpen ? locate(tabLocation.split(/[?#]/)[0] ?? "/messages") : located;
 	const tab = base?.tab ?? "messages";
-	const [selection = null, subSelection = null] = base?.detail ?? [];
+	const [openedDetail = null, subSelection = null] = base?.detail ?? [];
+	const selection = openedDetail ?? (desktop && layoutMode === "wide" && tab === "messages" ? MAIN_CONVERSATION : null);
 	const settingsDetail = meOpen ? located.detail : [];
 	const [first = null] = settingsDetail;
 	const section = first && isMeSection(first) ? first : null;
@@ -127,13 +130,26 @@ export function AppFrame() {
 	}, []);
 	const messageSelection = tab === "messages" ? selection : null;
 	const conversation = selectedConversation(conversations.data?.items, messageSelection, bot?.id);
-	const hasBot = conversation?.members.some((member) => member.kind === "bot") ?? false;
+	const taskSelection = tab === "tasks" && selection !== "scheduled" ? selection : null;
+	const chat = useFrameChat({
+		personId: person?.id,
+		conversation,
+		task: taskSelection,
+		onCreated: (id) => {
+			if (navigation.current() === "/tasks/new") navigate(`/tasks/${encodeURIComponent(id)}`, { replace: true });
+		},
+	});
+	const { draft, compact } = chat;
 	const primary = primaryConversation(conversations.data?.items, bot?.id);
-	const mobileBot =
-		phone &&
-		tab === "messages" &&
-		(selection === MAIN_CONVERSATION || (selection !== null && selection === primary?.id));
+	const unreadCount =
+		conversations.data?.items.reduce(
+			(total, item) => total + (phone && item.id === primary?.id ? 0 : (item.unreadCount ?? 0)),
+			0,
+		) ?? 0;
+	const mainBot = tab === "messages" && (selection === MAIN_CONVERSATION || selection === primary?.id);
+	const mobileBot = phone && mainBot;
 	const recordingConversation =
+		!taskSelection &&
 		conversation?.kind === "direct" &&
 		!conversation.visit &&
 		conversation.members.some(
@@ -145,11 +161,6 @@ export function AppFrame() {
 			? conversation
 			: undefined;
 	useMeetingLink();
-	const draft = useChatDraft(person?.id, conversation?.id);
-	const history = useMessages(conversation?.id ?? null);
-	const send = useSendMessage(conversation?.id ?? null, person?.id);
-	const compact = useCompactConversation(conversation?.id);
-	const actions = useRunActions();
 	const layers = useFrameLayers();
 	/** From the chat a member replaces the side panel; from inside it (group info) one stacks on it. */
 	const openMember = useEffectEvent((memberId: string, stacked = false) => {
@@ -182,9 +193,6 @@ export function AppFrame() {
 			}),
 		[realtime],
 	);
-	const streaming = history.data?.pages
-		.flatMap((page) => page.items)
-		.findLast((message) => message.senderKind === "bot" && message.streaming);
 	const side = useSideStack({
 		layers,
 		conversation,
@@ -206,7 +214,7 @@ export function AppFrame() {
 	const preset = useTaskPreset({
 		person,
 		bot,
-		conversation,
+		conversation: taskSelection ? undefined : conversation,
 		conversations: conversations.data?.items,
 		draft,
 		open: navigation.open,
@@ -290,17 +298,23 @@ export function AppFrame() {
 					list: mobileBot ? null : (
 						<MessagesList
 							current={selection}
-							hidePrimary={phone}
-							onOpen={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
+							hidePrimaryUnread={phone}
+							contacts={contacts.data?.items}
+							onOpen={(id) => {
+								setChatOpen((previous) => previous + 1);
+								navigation.open(`/messages/${encodeURIComponent(id)}`);
+							}}
 							onOpenMeetings={() => meeting.start(primary)}
 						/>
 					),
 					content: (
 						<ConversationPage
+							key={`${selection ? (conversation?.id ?? "") : ""}:${chatOpen}`}
 							conversationId={selection ? (conversation?.id ?? null) : null}
 							disconnected={disconnected}
-							mobileBotHome={mobileBot}
-							readActive={!meOpen && !side.pages.length && !preset.drawerOpen}
+							mainBotHome={mainBot}
+							contacts={contacts.data?.items}
+							readActive={!meOpen && !side.pages.length && !contactsOpen && !preset.drawerOpen}
 							onOpenMeeting={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
 							onOpenMember={openMember}
 							onOpenGroup={layers.openGroup}
@@ -314,13 +328,17 @@ export function AppFrame() {
 							scheduled={selection === "scheduled"}
 							onChange={(value) => navigation.open(value ? "/tasks/scheduled" : "/tasks")}
 							onOpenItem={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
-							onAdd={() => preset.addFromTasks(selection === "scheduled")}
+							onAdd={selection === "scheduled" ? preset.addGoal : () => navigation.open("/tasks/new")}
 							onSchedule={preset.addSchedule}
 						/>
 					),
 					content: (
 						<TaskPage
-							taskId={segmentRoot ? null : selection}
+							taskId={taskSelection}
+							session={chat.itemSession}
+							disconnected={disconnected}
+							readActive={!meOpen && !side.pages.length && !contactsOpen}
+							onPrompt={draft.loaded && !draft.text && !draft.files.length ? draft.setText : undefined}
 							onOpenConversation={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
 						/>
 					),
@@ -333,7 +351,12 @@ export function AppFrame() {
 		}
 	}
 
-	const talkingTo = tab === "messages" && conversation ? conversationTitle(conversation, person?.id) : undefined;
+	const talkingTo =
+		taskSelection && chat.target
+			? conversationPeer(chat.target, person?.id)?.displayName
+			: tab === "messages" && conversation
+				? conversationTitle(conversation, person?.id)
+				: undefined;
 	const composer = (
 		<Composer
 			microphoneOccupied={Boolean(meeting.active || meeting.recorder.busy)}
@@ -347,41 +370,32 @@ export function AppFrame() {
 			onRemoveFile={draft.removeFile}
 			onRetryFile={draft.retryFile}
 			onOriginalFileChange={draft.toggleOriginal}
-			scope={`${person?.id}:${conversation?.id}`}
+			scope={`${person?.id}:${chat.scope}`}
 			mobilePicker={!desktop}
+			showMobilePlaceholder={Boolean(taskSelection)}
 			onMeeting={recordingConversation ? () => meeting.start(recordingConversation) : undefined}
 			error={draft.error}
-			disabled={
-				!conversation ||
-				!draft.loaded ||
-				history.isLoading ||
-				history.isError ||
-				draft.sending ||
-				send.isPending ||
-				disconnected
-			}
+			disabled={chat.blocked || disconnected}
 			disconnected={disconnected}
 			sendOnEnter={desktop}
-			streaming={Boolean(streaming)}
+			streaming={chat.streaming}
 			completionItems={completionItems(
-				hasBot ? (skills.data?.items ?? []) : [],
+				chat.hasBot ? (skills.data?.items ?? []) : [],
 				contacts.data?.items ?? [],
-				conversation?.members ?? [],
+				chat.target?.members ?? [],
 				bot,
-				t("skills.compact"),
+				chat.target ? t("skills.compact") : undefined,
 			)}
 			selectedSkillIds={draft.skillIds}
 			bindings={draft.bindings ?? []}
 			onAcceptCompletion={draft.acceptCompletion}
 			onCompact={compact.run}
 			commandStatus={<CompactStatus command={compact} />}
-			onStop={() => {
-				if (streaming) actions.stop.mutate(streaming.id);
-			}}
-			onSendVoice={(file) => draft.submit(send.mutateAsync, { file, transcribe: hasBot })}
+			onStop={chat.stop}
+			onSendVoice={chat.submit}
 			onSend={() => {
-				if (!conversation) return;
-				void draft.submit((input) => send.mutateAsync(input));
+				void chat.submit();
+				if (taskSelection || !conversation) return;
 				if (!preset.drawerOpen && (tab !== "messages" || !selection)) navigation.open(`/messages/${MAIN_CONVERSATION}`);
 			}}
 		/>
@@ -396,12 +410,13 @@ export function AppFrame() {
 	// viewer was removed from, is read only for the same reason: the notice takes its place (19 3.2).
 	const watchingVisit = conversation?.visit?.role === "host";
 	const closed = Boolean(conversation?.closedReason);
-	const dock =
-		tab !== "messages" || watchingVisit || conversation?.kind === "system" ? null : closed && conversation ? (
-			<ClosedGroupNotice conversation={conversation} />
-		) : (
-			composer
-		);
+	const dock = taskSelection ? (
+		composer
+	) : tab !== "messages" || watchingVisit || conversation?.kind === "system" ? null : closed && conversation ? (
+		<ClosedGroupNotice conversation={conversation} />
+	) : (
+		composer
+	);
 	const meetingStatus =
 		meeting.active || meeting.recorder.busy || meeting.recorder.error || meeting.notice ? (
 			<MeetingRecorderCapsule recorder={meeting.recorder} notice={meeting.notice} />
@@ -415,6 +430,7 @@ export function AppFrame() {
 					onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : navigation.open(tabPath(id))),
 					labels,
 					ariaLabel: t("nav.tabs"),
+					messagesUnread: { count: unreadCount, label: t("messages.unread", { count: unreadCount }) },
 					mobileBot: {
 						label: bot?.selectedNickname || bot?.displayName || t("nav.mainBot"),
 						active: mobileBot,

@@ -1,18 +1,22 @@
 import { Image, Input, Text, View } from "@tarojs/components";
 import Taro, { useDidShow, usePullDownRefresh } from "@tarojs/taro";
+import { conversationBotOwner, conversationPeer, ownedBotFor } from "@yonder/chat-model";
 import type { Conversation } from "@yonder/protocol";
 import { useCallback, useEffect, useState } from "react";
+import { MiniBotName } from "../../components/bot-name";
 import { Button, go, Page, State } from "../../components/ui";
 import { t, useLocale } from "../../lib/i18n";
 import "./style.scss";
 import { patchConversations, removeConversation, removeMemberFromConversations } from "../../lib/member-cache";
-import { api, client, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
+import { api, client, subscribeEvents, useCachedBots, useRealtimeRevision, useSession } from "../../lib/runtime";
 import { directPartner, isObserver } from "../chat/model";
 import { conversationPreview } from "./preview";
 
 export default function Conversations() {
 	const { status, me } = useSession();
+	const cachedBots = useCachedBots();
 	const { locale } = useLocale();
+	const timeFormat = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" });
 	const revision = useRealtimeRevision();
 	const [items, setItems] = useState<Conversation[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -62,6 +66,7 @@ export default function Conversations() {
 	}, [load]);
 	const title = (item: Conversation) =>
 		(item.kind === "system" ? t("系统通知", "System notifications") : item.title) ||
+		(item.kind === "direct" ? conversationPeer(item, me?.member.id)?.displayName : undefined) ||
 		item.members
 			.filter((member) => member.memberId !== me?.member.id && !isObserver(member))
 			.map((member) => member.displayName)
@@ -99,7 +104,8 @@ export default function Conversations() {
 					retry={() => void load()}
 				/>
 				{visible.map((item) => {
-					const other = directPartner(item.members, me?.member.id);
+					const other =
+						item.kind === "direct" ? conversationPeer(item, me?.member.id) : directPartner(item.members, me?.member.id);
 					return (
 						<View
 							key={item.id}
@@ -115,17 +121,33 @@ export default function Conversations() {
 								<View className="mini-avatar">{title(item).slice(0, 1)}</View>
 							)}
 							<View className="mini-conversation-copy">
-								<View className="row">
-									<Text className="mini-conversation-title">{title(item)}</Text>
+								<View className="mini-conversation-line">
+									{other?.kind === "bot" && item.kind === "direct" ? (
+										<MiniBotName
+											name={title(item)}
+											ownedBot={ownedBotFor(other.memberId, me?.member.id, me?.bot, cachedBots)}
+											owner={conversationBotOwner(other, item)}
+											compact="list"
+										/>
+									) : (
+										<Text className="mini-conversation-title">{title(item)}</Text>
+									)}
+									{item.lastMessage?.createdAt ? (
+										<Text className="mini-conversation-time">
+											{timeFormat.format(new Date(item.lastMessage.createdAt))}
+										</Text>
+									) : null}
+								</View>
+								<View className="mini-conversation-line">
+									<Text className="muted mini-preview">
+										{conversationPreview(item, locale, {
+											group: t("群聊", "Group"),
+											direct: t("开始对话", "Start a conversation"),
+										})}
+									</Text>
 									{item.unreadCount > 0 && <Text className="mini-badge">{item.unreadCount}</Text>}
 									{item.muted ? <Text className="mini-muted">{t("免打扰", "Muted")}</Text> : null}
 								</View>
-								<Text className="muted mini-preview">
-									{conversationPreview(item, locale, {
-										group: t("群聊", "Group"),
-										direct: t("开始对话", "Start a conversation"),
-									})}
-								</Text>
 							</View>
 						</View>
 					);

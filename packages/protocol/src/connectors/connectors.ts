@@ -28,6 +28,51 @@ export interface ConnectorInstance {
 	createdAt: string;
 }
 
+export type ConnectorId = ConnectorDefinition["id"];
+
+/** `pending` → `dispatched` → `granted`; `cancelled`, `expired` and `failed` are side exits. */
+export type ConnectorRequestState = "pending" | "dispatched" | "granted" | "cancelled" | "expired" | "failed";
+
+/**
+ * A Bot's request for connector access, as every endpoint sees it. One card can carry several
+ * connectors; `deviceId` and `connectionIds` exist only after the user allows it.
+ */
+export interface ConnectorRequestView {
+	id: string;
+	connectorIds: ConnectorId[];
+	/** The Bot's one-line reason, not the user's own message. */
+	reason: string;
+	state: ConnectorRequestState;
+	deviceId: string | null;
+	deviceName: string | null;
+	/** Same order as `connectorIds`. */
+	connectionIds: string[];
+	/** The real reason when `state` is `failed`. */
+	failure: string | null;
+}
+
+/** One grant a device session is asked to store; the device reports readiness through `connector.ready`. */
+export interface ConnectorGrant {
+	connectionId: string;
+	connectorId: ConnectorId;
+	scope: "device";
+	capabilities: ConnectorCapabilities;
+	revision: number;
+}
+
+/** A device a pending request could be authorized on. */
+export interface ConnectorRequestDevice {
+	id: string;
+	name: string;
+	platform: DeviceInfo["platform"];
+	online: boolean;
+	supported: boolean;
+}
+
+export interface ConnectorRequestDevicesResponse {
+	items: ConnectorRequestDevice[];
+}
+
 export interface ConnectorCatalogResponse {
 	items: ConnectorDefinition[];
 }

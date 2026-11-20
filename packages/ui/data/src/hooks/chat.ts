@@ -36,7 +36,7 @@ export function useConversations() {
 	return useQuery({ queryKey: keys.conversations.list(), queryFn: () => api.conversations(), staleTime: 60_000 });
 }
 
-export function useMessages(conversationId: string | null) {
+export function useMessages(conversationId: string | null, refreshOnMount = false) {
 	const api = useApi();
 	const client = useQueryClient();
 	return useInfiniteQuery({
@@ -56,6 +56,7 @@ export function useMessages(conversationId: string | null) {
 		getNextPageParam: (page) => page.nextCursor ?? undefined,
 		enabled: Boolean(conversationId),
 		staleTime: Infinity,
+		refetchOnMount: refreshOnMount ? "always" : true,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: "always",
 	});

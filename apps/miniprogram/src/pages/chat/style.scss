@@ -239,8 +239,17 @@
 	bottom: calc(var(--composer-button-size) + var(--spacing-10));
 }
 
-.mini-chat-latest .mini-button {
+.mini-chat-latest-button {
 	margin: 0;
+	padding: 0;
+	width: var(--control-md);
+	height: var(--control-md);
+	line-height: var(--control-md);
+	border: 1px solid var(--color-border-default);
+	border-radius: var(--radius-full);
+	background-color: var(--color-bg-surface);
+	color: var(--color-text-primary);
+	font-size: var(--text-h3);
 }
 
 .mini-chat .composer-box {

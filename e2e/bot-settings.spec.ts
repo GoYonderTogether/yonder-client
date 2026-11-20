@@ -63,7 +63,7 @@ for (const phone of [false, true]) {
 				await expect(back).toBeHidden();
 			}
 			await expect(page.getByRole("heading", { name: "我的 Bot", exact: true })).toBeVisible();
-			await expect(page.getByText("默认 Bot", { exact: true })).toBeVisible();
+			await expect(page.getByRole("button", { name: /主 Bot @chatbot/ }).locator("[data-bot-label]")).toBeVisible();
 			await snapshot("bot-list.png");
 
 			await page.getByRole("button", { name: /设置助手.*@settingsbot/ }).click();
@@ -82,6 +82,9 @@ for (const phone of [false, true]) {
 			expect((await updated).postDataJSON()).toEqual({ displayName: "更名助手" });
 			await expect(page).toHaveURL(new RegExp(`${detailPath}$`));
 			await expect(page.getByRole("heading", { name: "更名助手", exact: true })).toBeVisible();
+			await expect(
+				page.getByRole("region", { name: "我", exact: true }).getByText("AI", { exact: true }),
+			).toBeVisible();
 
 			await page.getByRole("button", { name: /^对外人格/ }).click();
 			await expect(page).toHaveURL(new RegExp(`${detailPath}/persona$`));

@@ -29,14 +29,12 @@ export function MemoryRail({
 	timeline,
 	scroller,
 	style,
-	surface,
 	onJump,
 }: {
 	days: RailDay[];
 	timeline: HTMLElement;
 	scroller: HTMLElement;
 	style: React.CSSProperties;
-	surface: "base" | "chrome";
 	onJump: (date: string) => void;
 }) {
 	const { t } = useTranslation();
@@ -218,7 +216,6 @@ export function MemoryRail({
 				pressing && "memory-rail-pressing",
 			)}
 			style={style}
-			data-memory-surface={surface}
 			onFocus={() => armed && setOpen(true)}
 			onBlur={() => setOpen(false)}
 			onKeyDown={(event) => {

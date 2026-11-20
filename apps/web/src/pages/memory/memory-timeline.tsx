@@ -1,15 +1,14 @@
 import type { MemoryDay, MemoryLink } from "@yonder/protocol";
-import { Button, EmptyState } from "@yonder/ui-components";
+import { Button } from "@yonder/ui-components";
 import { useMemoryActions, useMemoryDays } from "@yonder/ui-data";
-import { useShellChrome } from "@yonder/ui-shell";
-import { History } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { AttachmentPreview } from "../../preview/attachment-preview.tsx";
 import type { PreviewFile } from "../../preview/file-kind.ts";
+import { localDay } from "../items-format.ts";
 import { type DayActions, MemoryDaySection } from "./memory-day.tsx";
-import { dayName, daysAgo, useMinute } from "./memory-format.ts";
+import { dayName, useMinute } from "./memory-format.ts";
 import { useSourceNavigation } from "./memory-navigation.ts";
 import { useOverlayBox } from "./memory-overlay.ts";
 import { MemoryPinBar } from "./memory-pin.tsx";
@@ -24,8 +23,6 @@ import { MemoryError, useErrorText } from "./memory-status.tsx";
 export function MemoryTimeline() {
 	const { t, i18n } = useTranslation();
 	const now = useMinute();
-	// Wide layouts show the timeline on the white detail page; others in the chrome list column.
-	const surface = useShellChrome().mode === "wide" ? "base" : "chrome";
 	const query = useMemoryDays();
 	const { remove } = useMemoryActions();
 	const onSource = useSourceNavigation().target;
@@ -38,11 +35,21 @@ export function MemoryTimeline() {
 	const scroller = timeline?.closest<HTMLElement>("[data-frame-scroll]") ?? null;
 	const frame = scroller?.parentElement ?? null;
 	const box = useOverlayBox(timeline, scroller);
-	const days = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
-	const today = days.find((day) => daysAgo(day.date, now) === 0)?.date ?? null;
+	const today = localDay(now);
+	const days = useMemo(
+		() => timelineDays(query.data?.pages.flatMap((page) => page.items) ?? [], today),
+		[query.data, today],
+	);
+	const previousDay = useRef(today);
 	const more = useRef<HTMLDivElement>(null);
-	const { hasNextPage, isFetchingNextPage, fetchNextPage, isFetchNextPageError } = query;
+	const { hasNextPage, isFetchingNextPage, fetchNextPage, isFetchNextPageError, refetch } = query;
 	const pageError = isFetchNextPageError ? (query.error as Error | null) : null;
+
+	useEffect(() => {
+		if (previousDay.current === today) return;
+		previousDay.current = today;
+		void refetch();
+	}, [today, refetch]);
 
 	// Load older days as the end of the list comes near.
 	useEffect(() => {
@@ -111,26 +118,17 @@ export function MemoryTimeline() {
 		};
 	});
 
-	if (query.isError && !query.data)
-		return (
-			<section className="memory-timeline" aria-label={t("memory.timeline")}>
-				<MemoryError title={t("memory.loadFailed")} error={query.error} retry={() => void query.refetch()} />
-			</section>
-		);
-	if (query.isSuccess && !days.length)
-		return <EmptyState icon={<History size={24} strokeWidth={1.6} />} title={t("memory.timelineEmpty")} />;
 	return (
 		<section
 			ref={setTimeline}
 			className="memory-timeline"
-			data-memory-surface={surface}
 			aria-label={t("memory.timeline")}
 			aria-busy={query.isPending}
 		>
-			{query.isRefetchError && !pageError ? (
-				<MemoryError title={t("memory.loadFailed")} error={query.error} retry={() => void query.refetch()} />
+			{query.isError && !pageError ? (
+				<MemoryError title={t("memory.loadFailed")} error={query.error} retry={() => void refetch()} />
 			) : null}
-			{days.map((day: MemoryDay) => (
+			{days.map((day) => (
 				<MemoryDaySection key={day.date} day={day} now={now} actions={actions} />
 			))}
 			<div ref={more} className="memory-more">
@@ -148,7 +146,6 @@ export function MemoryTimeline() {
 						<>
 							<div
 								className="memory-overlay"
-								data-memory-surface={surface}
 								style={
 									{
 										top: box.top,
@@ -162,12 +159,11 @@ export function MemoryTimeline() {
 									scroller={scroller}
 									today={today}
 									now={now}
-									onToday={() => today && scrollToDay(today, true)}
+									onToday={() => scrollToDay(today, true)}
 								/>
 							</div>
 							<MemoryRail
 								days={railDays}
-								surface={surface}
 								timeline={timeline}
 								scroller={scroller}
 								style={{ top: box.top + 64, bottom: box.bottom + 24 }}
@@ -180,6 +176,26 @@ export function MemoryTimeline() {
 			{preview ? <AttachmentPreview file={preview} onClose={() => setPreview(undefined)} /> : null}
 		</section>
 	);
+}
+
+function timelineDays(days: MemoryDay[], today: string): MemoryDay[] {
+	const current = days.find((day) => day.date === today) ?? {
+		date: today,
+		state: "ready",
+		failure: null,
+		digest: { steps: null, places: 0, photos: 0 },
+		digestPath: null,
+		blocks: [],
+	};
+	const history = days.flatMap((day) => {
+		if (day.date === today) return [];
+		// The server only projects scheduled tasks for today. Drop cached ones at midnight.
+		const blocks = day.blocks.filter(
+			(block) => block.type !== "entry" || block.entry.deletable || !block.entry.id.startsWith("plan-"),
+		);
+		return blocks.length || day.digestPath || day.state !== "ready" ? [{ ...day, blocks }] : [];
+	});
+	return [current, ...history];
 }
 
 const rank = (size: string) => ({ line: 0, note: 1, media: 2, moment: 3 })[size] ?? 0;

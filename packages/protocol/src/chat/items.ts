@@ -1,3 +1,5 @@
+import type { Conversation } from "./chat.ts";
+
 /**
  * The item list (16-3 事项与 Bot 分工 第八节): one user-visible list merged from the three records
  * that already carry an owner and a lifecycle — a Bot's subtask, one firing of a schedule, and a
@@ -5,7 +7,7 @@
  */
 
 /** Where an item came from. The client does not group by it, but the detail view names it. */
-export type ItemSource = "subtask" | "schedule_run" | "meeting" | "visit";
+export type ItemSource = "subtask" | "schedule_run" | "meeting" | "visit" | "conversation";
 
 /**
  * The one state an item is in. It is the source's own stored state, not a derived one: `background`
@@ -61,4 +63,12 @@ export interface ItemDetail extends ItemSummary {
 export interface ItemListResponse {
 	items: ItemSummary[];
 	nextCursor: string | null;
+}
+
+export interface ItemSessionResponse {
+	conversation: Conversation;
+}
+
+export interface CreateItemResponse extends ItemSessionResponse {
+	item: ItemSummary;
 }

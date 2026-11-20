@@ -1,7 +1,7 @@
 import { Button, cn } from "@yonder/ui-components";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { memoryFormat } from "./memory-format.ts";
+import { dayName, memoryFormat } from "./memory-format.ts";
 
 /** Height of the pinned bar; the rail and the title hand-off both measure from it. */
 export const PIN_HEIGHT = 52;
@@ -20,15 +20,16 @@ export function MemoryPinBar({
 }: {
 	timeline: HTMLElement;
 	scroller: HTMLElement;
-	today: string | null;
+	today: string;
 	now: Date;
 	onToday: () => void;
 }) {
 	const { t, i18n } = useTranslation();
 	const bar = useRef<HTMLDivElement>(null);
 	const inner = useRef<HTMLDivElement>(null);
-	const [day, setDay] = useState<{ date: string; name: string; sub: string } | null>(null);
+	const [date, setDate] = useState("");
 	const last = useRef({ date: "", top: 0, down: true });
+	// biome-ignore lint/correctness/useExhaustiveDependencies: A new day can replace a section without resizing the timeline.
 	useEffect(() => {
 		const update = () => {
 			const top = bar.current?.getBoundingClientRect().top ?? 0;
@@ -45,7 +46,7 @@ export function MemoryPinBar({
 			const date = current?.dataset.day ?? "";
 			if (date !== last.current.date) {
 				last.current.date = date;
-				setDay(current ? { date, name: current.dataset.name ?? "", sub: current.dataset.sub ?? "" } : null);
+				setDate(date);
 			}
 			// The next title pushes the bar up as it arrives.
 			const next = sections[index + 1]?.querySelector(".memory-day-title");
@@ -64,17 +65,18 @@ export function MemoryPinBar({
 			scroller.removeEventListener("scroll", update);
 			observer.disconnect();
 		};
-	}, [timeline, scroller]);
+	}, [timeline, scroller, today]);
 	// A new day slides in from the direction the reader is scrolling.
 	useEffect(() => {
 		const element = inner.current;
-		if (!day || !element?.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+		if (!date || !element?.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 		element.animate([{ translate: `0 ${last.current.down ? 60 : -60}%`, opacity: 0 }, { translate: "0 0" }], {
 			duration: 280,
 			easing: "cubic-bezier(0.05, 0.7, 0.1, 1)",
 		});
-	}, [day]);
-	const isToday = day?.date === today;
+	}, [date]);
+	const day = date ? dayName(date, now, t, i18n.language) : null;
+	const isToday = date === today;
 	return (
 		<div ref={bar} className={cn("memory-pin", day && "memory-pin-shown")} aria-hidden={!day}>
 			<div ref={inner} className={cn("memory-pin-inner", isToday && "memory-pin-today")}>
@@ -88,11 +90,11 @@ export function MemoryPinBar({
 							<span className="memory-pin-side">
 								{t("memory.now", { time: memoryFormat.time(now, i18n.language) })}
 							</span>
-						) : today ? (
+						) : (
 							<Button size="sm" variant="link" className="memory-pin-side" onClick={onToday}>
 								{t("memory.backToToday")}
 							</Button>
-						) : null}
+						)}
 					</>
 				) : null}
 			</div>

@@ -82,8 +82,14 @@ export const RELATIVE_DAY: Record<number, string> = {
 export function useMinute() {
 	const [now, setNow] = useState(() => new Date());
 	useEffect(() => {
-		const timer = setInterval(() => setNow(new Date()), 60_000);
-		return () => clearInterval(timer);
+		let timer: ReturnType<typeof setTimeout>;
+		const tick = () => {
+			const current = new Date();
+			setNow(current);
+			timer = setTimeout(tick, 60_000 - (current.getTime() % 60_000));
+		};
+		tick();
+		return () => clearTimeout(timer);
 	}, []);
 	return now;
 }

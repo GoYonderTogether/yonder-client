@@ -2,6 +2,7 @@ import { Text, View } from "@tarojs/components";
 import { useDidShow } from "@tarojs/taro";
 import type { Member } from "@yonder/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { MiniBotName } from "../../components/bot-name";
 import { errorText, go, Page, State } from "../../components/ui";
 import { listOwnedBots } from "../../lib/bots";
 import { t } from "../../lib/i18n";
@@ -89,7 +90,7 @@ export default function BotList() {
 						}}
 					>
 						<Text>
-							{bot.displayName}
+							<MiniBotName name={bot.displayName} ownedBot={bot} />
 							{reception === bot.id ? " ✓" : ""}
 						</Text>
 					</View>
@@ -108,8 +109,8 @@ export default function BotList() {
 							size={40}
 						/>
 						<View className="mini-row-main">
-							<Text>{bot.displayName}</Text>
-							<Text className="mini-muted">{bot.isDefault ? t("默认", "Default") : `@${bot.handle}`}</Text>
+							<MiniBotName name={bot.displayName} ownedBot={bot} />
+							<Text className="mini-muted">@{bot.handle}</Text>
 						</View>
 						<Text className="mini-muted">›</Text>
 					</View>

@@ -17,11 +17,12 @@ export function useMarkConversationRead(
 	personId: string | undefined,
 	conversationId: string | null,
 	messageId: string | undefined,
+	canRead: () => boolean,
 ) {
 	const api = useApi();
 	const ack = useRef<string | undefined>(undefined);
 	useEffect(() => {
-		if (!personId || !conversationId || !messageId) return;
+		if (!personId || !conversationId || !messageId || !canRead()) return;
 		const scope = `${personId}:${conversationId}:${messageId}`;
 		if (ack.current === scope) return;
 		let active = true;
@@ -34,5 +35,5 @@ export function useMarkConversationRead(
 		return () => {
 			active = false;
 		};
-	}, [api, conversationId, messageId, personId]);
+	}, [api, canRead, conversationId, messageId, personId]);
 }

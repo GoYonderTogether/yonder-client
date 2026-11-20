@@ -61,7 +61,7 @@ test("the header shows name, handle and bio, and the Bot's owner line is tappabl
 			/>,
 		),
 	);
-	expect(screen.getByRole("heading", { name: "Helper" })).toBeVisible();
+	expect(screen.getByRole("heading", { name: "Helper AI" })).toBeVisible();
 	expect(screen.getByText("@bot12345")).toBeVisible();
 	expect(screen.getByText("Answers questions")).toBeVisible();
 	await userEvent.click(screen.getByRole("button", { name: "The owner's Bot" }));

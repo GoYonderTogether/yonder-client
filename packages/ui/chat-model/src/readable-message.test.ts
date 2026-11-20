@@ -27,6 +27,21 @@ test("a Bot reply becomes readable when it finishes, after later messages have b
 	};
 	expect(newestReadableMessage([bot, human], "mem_reader")).toBe(human.id);
 	expect(
+		newestReadableMessage(
+			[
+				human,
+				{
+					...bot,
+					streaming: false,
+					body: "",
+					readableAt: "2026-11-19T01:00:02.000Z",
+					outwardRequest: { id: "owr_test", state: "answered", expiresAt: "2026-11-19T01:05:00.000Z", result: true },
+				},
+			],
+			"mem_reader",
+		),
+	).toBe(bot.id);
+	expect(
 		newestReadableMessage([{ ...bot, streaming: false, readableAt: "2026-11-19T01:00:02.000Z" }, human], "mem_reader"),
 	).toBe(bot.id);
 });

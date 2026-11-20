@@ -44,6 +44,7 @@ export function Composer({
 	onRetryFile,
 	onOriginalFileChange,
 	mobilePicker = false,
+	showMobilePlaceholder = false,
 	onMeeting,
 	scope = "composer",
 	error,
@@ -363,7 +364,7 @@ export function Composer({
 									}
 								}}
 								aria-label={placeholder}
-								placeholder={mobilePicker ? undefined : placeholder}
+								placeholder={mobilePicker && !showMobilePlaceholder ? undefined : placeholder}
 								rows={1}
 								aria-autocomplete="list"
 								aria-controls={completion.token ? completion.id : undefined}

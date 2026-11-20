@@ -2,6 +2,7 @@ import { Avatar, Button, ListGroup, ListRow } from "@yonder/ui-components";
 import { ownedBots, useContacts, usePerson } from "@yonder/ui-data";
 import { useTranslation } from "react-i18next";
 import { botColor } from "./bot-avatar-picker.tsx";
+import { BotName } from "./bot-name.tsx";
 
 export interface BotListProps {
 	/** Tapping a row opens that Bot's detail. */
@@ -45,9 +46,9 @@ export function BotList({ onOpen }: BotListProps) {
 				<ListRow
 					key={bot.id}
 					leading={<Avatar name={bot.displayName} src={bot.avatarUrl} size={40} kind="bot" color={botColor(bot)} />}
-					title={bot.displayName}
+					title={<BotName name={bot.displayName} ownedBot={bot} />}
+					wrapTitle
 					subtitle={`@${bot.handle}`}
-					trailing={bot.isDefault ? t("bots.defaultLabel") : undefined}
 					chevron
 					onClick={() => onOpen(bot.id)}
 				/>

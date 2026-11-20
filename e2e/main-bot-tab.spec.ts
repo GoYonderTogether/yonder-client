@@ -10,6 +10,9 @@ test.use({
 
 test("the first phone tab opens the existing primary chat and truncates only the visible label", async ({ page }) => {
 	await isolateChat(page);
+	await page.route("**/v1/conversations", (route) =>
+		route.fulfill({ json: { items: [{ ...conversation, unreadCount: 1 }] } }),
+	);
 	const longName = "甲乙丙丁戊🧑🏼‍🚀庚辛壬癸";
 	await page.route("**/v1/me", (route) =>
 		route.fulfill({
@@ -25,8 +28,12 @@ test("the first phone tab opens the existing primary chat and truncates only the
 	const mainBot = nav.getByRole("button", { name: longName, exact: true });
 	await expect(mainBot).toBeVisible();
 	await expect(nav.getByRole("button").first()).toHaveAccessibleName(longName);
-	await expect(mainBot).toHaveText("甲乙丙丁戊🧑🏼‍🚀…");
-	await expect(page.getByRole("button", { name: "界面验收 BOT" })).toHaveCount(0);
+	await expect(mainBot.getByText("甲乙丙丁戊🧑🏼‍🚀…", { exact: true })).toBeVisible();
+	const mainRow = page.getByRole("list", { name: "消息" }).getByRole("button", { name: /界面验收 BOT/ });
+	await expect(mainRow).toBeVisible();
+	await expect(mainRow.locator("[data-bot-label]")).toHaveText("主 Bot");
+	await expect(mainRow.getByRole("img", { name: /未读消息/ })).toHaveCount(0);
+	await expect(mainBot.getByRole("img", { name: /未读消息/ })).toBeVisible();
 
 	await mainBot.click();
 	await expect(page).toHaveURL(/\/messages\/main$/);

@@ -8,14 +8,14 @@ import { GoalRecords } from "./goal-records.tsx";
 
 const model = vi.hoisted(() => ({
 	goals: [] as Goal[],
+	onboardingDisabled: false,
 	mutate: vi.fn(),
 	transfer: vi.fn(),
-	disable: vi.fn(),
 }));
 vi.mock("@yonder/ui-data", () => ({
-	useGoals: () => ({ data: { items: model.goals, onboarding: { version: 1, disabled: false } } }),
+	useGoals: () => ({ data: { items: model.goals, onboarding: { version: 1, disabled: model.onboardingDisabled } } }),
 	useChangeGoal: () => ({ mutate: model.mutate, isPending: false, isError: false }),
-	useGoalSettings: () => ({ transfer: { mutate: model.transfer }, disable: { mutate: model.disable } }),
+	useGoalSettings: () => ({ transfer: { mutate: model.transfer } }),
 	useContacts: () => ({ data: { items: [] } }),
 	usePerson: () => ({ id: "owner" }),
 	ownedBots: () => [{ id: "research", displayName: "Research Bot" }],
@@ -59,8 +59,6 @@ test("renders confirmed goals independently of tracking and supports explicit ch
 	fireEvent.change(screen.getByRole("combobox", { name: "Receiving Bot" }), { target: { value: "research" } });
 	fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
 	expect(model.transfer).toHaveBeenCalledWith({ id: goal.id, botId: "research" });
-	fireEvent.click(screen.getByRole("button", { name: "Stop future onboarding tips" }));
-	expect(model.disable).toHaveBeenCalledOnce();
 	expect(
 		within(screen.getAllByRole("listitem")[1] as HTMLElement).queryByRole("button", { name: "Mark achieved" }),
 	).toBeNull();
@@ -71,4 +69,17 @@ test("renders confirmed goals independently of tracking and supports explicit ch
 		{ id: goal.id, action: "progress", progress: "Checks passed", nextStep: "Run the checks" },
 		expect.any(Object),
 	);
+});
+
+test.each([false, true])("shows the goal empty state without onboarding controls (disabled: %s)", (disabled) => {
+	model.goals = [];
+	model.onboardingDisabled = disabled;
+	render(
+		<I18nextProvider i18n={createI18n("en")}>
+			<GoalRecords />
+		</I18nextProvider>,
+	);
+	expect(screen.queryByText(/onboarding tips/i)).toBeNull();
+	const heading = screen.getByRole("heading", { name: "No goals yet" });
+	expect(heading.closest("li")?.querySelector('[aria-hidden="true"] svg')).toBeInstanceOf(SVGElement);
 });

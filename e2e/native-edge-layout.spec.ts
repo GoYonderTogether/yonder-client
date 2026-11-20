@@ -141,7 +141,7 @@ for (const native of [false, true]) {
 		});
 		expect(blur.blur).toBe("blur(24px)");
 		expect(blur.mask).toContain("linear-gradient");
-		expect(blur.height).toBeCloseTo(Math.max(16, safeTop) + 8, 0);
+		expect(blur.height).toBeCloseTo((native ? Math.max(16, safeTop) : headerBox.height) + 8, 0);
 		expect(blur.width).toBeCloseTo(headerBox.width, 0);
 		expect(blur.pointerEvents).toBe("none");
 		const first = scroll.locator(".message-bubble").first();

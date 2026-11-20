@@ -1,5 +1,6 @@
 export { agentChatStatus, isTwoPartyAgentChat } from "./agent-chat.ts";
 export { BOT_FACE_IDS, type BotFaceId, botFaceFor, botFacePaths, firstCharacter, tintFor } from "./avatar.ts";
+export { BOT_ROLE_LIMIT, botRoleProblem, conversationBotOwner, ownedBotFor } from "./bot-label.ts";
 export { conversationPeer } from "./conversation-peer.ts";
 export { addableContacts, filterContacts, GROUP_MEMBER_LIMIT, recentContacts } from "./group-invites.ts";
 export { runSources } from "./run-sources.ts";
@@ -29,7 +30,11 @@ export function newestReadableMessage(items: readonly Message[], personId: strin
 			message.senderId === personId ||
 			message.streaming ||
 			message.system?.event === "memory_updated" ||
-			(message.type === "text" && !message.body?.trim() && !message.attachments.length)
+			(message.type === "text" &&
+				!message.body?.trim() &&
+				!message.attachments.length &&
+				!message.outwardRequest &&
+				!message.friendRequestId)
 		)
 			continue;
 		const at = message.readableAt ?? message.createdAt;
@@ -80,6 +85,8 @@ function isEmptyBotReply(message: Message): boolean {
 		!message.body?.trim() &&
 		!message.attachments.length &&
 		!message.reaction &&
+		!message.outwardRequest &&
+		!message.friendRequestId &&
 		!message.connectorRequestId &&
 		!message.options?.length &&
 		message.run?.status !== "failed" &&

@@ -70,7 +70,8 @@ for (const viewport of ["desktop", "phone"] as const) {
 		for (const mode of ["person", "group", "agent"] as const) {
 			test(`${mode} heading and message identities`, async ({ page }, info) => {
 				const chat = chats[mode];
-				const mobileBotHome = phone && mode === "agent";
+				const botHome = mode === "agent";
+				const mobileBotHome = phone && botHome;
 				const api = await isolateChat(page, { items: items[mode] });
 				await page.route("**/v1/me", (route) =>
 					route.fulfill({
@@ -90,11 +91,11 @@ for (const viewport of ["desktop", "phone"] as const) {
 				await expect
 					.poll(() => detail.evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).m41))
 					.toBeCloseTo(0, 2);
-				const more = topbar.getByRole("button", { name: "聊天设置", exact: true });
-				const header = detail.locator(mobileBotHome ? "[data-floating-frame-header]" : "[data-shell-topbar]");
+				const header = detail.locator(botHome ? "[data-floating-frame-header]" : "[data-shell-topbar]");
+				const more = header.getByRole("button", { name: "聊天设置", exact: true });
 				const accountSettings = header.getByRole("button", { name: "设置", exact: true });
+				if (botHome) await expect(topbar).toHaveCount(0);
 				if (mobileBotHome) {
-					await expect(topbar).toHaveCount(0);
 					await expect(accountSettings).toBeInViewport();
 					await expect(accountSettings).toBeEmpty();
 				} else await expect(more).toBeInViewport();
@@ -111,9 +112,11 @@ for (const viewport of ["desktop", "phone"] as const) {
 					else await expect(botSettings).toHaveCount(0);
 					await expect(avatars).toHaveCount(0);
 					await expect(senderNames).toHaveCount(0);
-					const name = heading.getByText(bot.displayName, { exact: true });
+					const name = heading.locator("[data-chat-agent-name]");
 					const status = heading.getByRole("status");
 					await expect(name).toBeVisible();
+					await expect(name).toContainText(bot.displayName);
+					await expect(name.locator("[data-bot-label]")).toHaveText("主 Bot");
 					await expect(status).toHaveCount(0);
 					const [headerBox, avatarBox, nameBox, logBox] = await Promise.all([
 						header.boundingBox(),
@@ -125,7 +128,7 @@ for (const viewport of ["desktop", "phone"] as const) {
 					const center = headerBox.x + headerBox.width / 2;
 					expect(avatarBox.x + avatarBox.width / 2).toBeCloseTo(center, 0);
 					expect(nameBox.x + nameBox.width / 2).toBeCloseTo(center, 0);
-					expect(avatarBox.y - headerBox.y).toBeGreaterThanOrEqual(mobileBotHome ? 0 : headerBox.height);
+					expect(avatarBox.y).toBeGreaterThanOrEqual(headerBox.y);
 					expect(nameBox.y).toBeGreaterThanOrEqual(avatarBox.y + avatarBox.height);
 					expect(logBox.y).toBeGreaterThan(nameBox.y + nameBox.height);
 					await page.screenshot({ path: info.outputPath(`${viewport}-agent-idle.png`), animations: "disabled" });
@@ -195,6 +198,39 @@ for (const viewport of ["desktop", "phone"] as const) {
 	});
 }
 
+test("desktop main Bot opens on the latest messages under its floating heading", async ({ page }) => {
+	const history = Array.from({ length: 32 }, (_, index) =>
+		message(
+			`message-${String(index).padStart(2, "0")}`,
+			`会议纪要 ${index}，整理已确认的待办和时间。`,
+			index % 2 === 0,
+		),
+	);
+	await isolateChat(page, { items: history });
+	await page.goto("/messages");
+	const detail = page.locator('[data-page-layer="detail"]');
+	const header = detail.locator("[data-floating-frame-header]");
+	await expect(header.getByRole("button", { name: "聊天设置", exact: true })).toBeVisible();
+	await expect(detail.getByText(history.at(-1)?.body ?? "", { exact: true })).toBeInViewport();
+	await expect
+		.poll(() =>
+			header.evaluate((element) => {
+				const scroll = element.nextElementSibling;
+				if (!scroll) return false;
+				const top = scroll.getBoundingClientRect().top;
+				const heading = element.getBoundingClientRect();
+				return (
+					top === heading.top &&
+					[...scroll.querySelectorAll(".message-bubble")].some((bubble) => {
+						const box = bubble.getBoundingClientRect();
+						return box.bottom > top && box.top < heading.bottom;
+					})
+				);
+			}),
+		)
+		.toBe(true);
+});
+
 test("The empty Agent conversation retains its label and one avatar", async ({ page }) => {
 	await isolateChat(page, { items: [] });
 	await page.goto(`/messages/${conversation.id}`);
@@ -219,6 +255,8 @@ test("Agent visit with an owner keeps participant avatars", async ({ page }) => 
 	});
 	await page.route("**/v1/conversations", (route) => route.fulfill({ json: { items: [visit] } }));
 	await page.goto(`/messages/${visit.id}`);
-	await expect(page.locator("[data-chat-agent-title]")).toHaveText(bot.displayName);
+	const identity = page.locator("[data-chat-agent-title]");
+	await expect(identity.locator("[data-bot-display-name]")).toHaveText(bot.displayName);
+	await expect(identity.locator("[data-bot-owner]")).toHaveAttribute("title", "他人的 Bot");
 	await expect(page.getByRole("log").locator("[data-message-sender-avatar]")).toHaveCount(3);
 });

@@ -36,7 +36,8 @@ export function ConversationRow({
 				type={type}
 				aria-current={selected ? "true" : undefined}
 				className={cn(
-					"flex h-[var(--conversation-row-height)] w-full items-center gap-[var(--spacing-3)] rounded-[var(--radius-control)] px-[var(--spacing-3)] text-start",
+					"flex w-full items-center gap-[var(--spacing-3)] rounded-[var(--radius-control)] px-[var(--spacing-3)] text-start",
+					"h-[var(--conversation-row-height)]",
 					"transition-colors duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
 					"focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
 					selected
@@ -53,7 +54,9 @@ export function ConversationRow({
 							{title}
 						</span>
 						{meta ? (
-							<span className="shrink-0 text-micro tabular-nums text-[var(--color-text-tertiary)]">{meta}</span>
+							<span className="shrink-0 whitespace-nowrap text-micro tabular-nums text-[var(--color-text-tertiary)]">
+								{meta}
+							</span>
 						) : null}
 					</span>
 					{preview || badge ? (

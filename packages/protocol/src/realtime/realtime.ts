@@ -6,7 +6,7 @@
 import type { Conversation, Message, Run } from "../chat/chat.ts";
 import type { Schedule } from "../chat/schedule.ts";
 import type { SubtaskSummary } from "../chat/subtask.ts";
-import type { ConnectorCommand } from "../connectors/connectors.ts";
+import type { ConnectorCommand, ConnectorGrant, ConnectorRequestView } from "../connectors/connectors.ts";
 import type { FriendRequest } from "../member/friend-request.ts";
 import type { Member } from "../member/member.ts";
 import type { QuotaResponse } from "../quota/quota.ts";
@@ -32,6 +32,16 @@ export type ServerEvent =
 	| { type: "connectors.changed"; eventId: string; at: string }
 	| { type: "connector.command"; eventId: string; at: string; command: ConnectorCommand }
 	| { type: "connector.command.cancelled"; eventId: string; at: string; commandId: string }
+	/** A connector request changed state; every endpoint patches the card from this payload. */
+	| { type: "connector_request.updated"; eventId: string; at: string; request: ConnectorRequestView }
+	/** Sent only to the target device's sessions: store these grants locally, then report `connector.ready`. */
+	| {
+			type: "connector.grant.request";
+			eventId: string;
+			at: string;
+			requestId: string;
+			grants: ConnectorGrant[];
+	  }
 	| { type: "devices.changed"; eventId: string; at: string }
 	| { type: "conversation.updated"; eventId: string; at: string; conversation: Conversation }
 	| { type: "conversation.state_changed"; eventId: string; at: string; conversationId: string }

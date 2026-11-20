@@ -27,6 +27,7 @@ export interface ShellTab {
 	labels: Record<TabId, string>;
 	ariaLabel: string;
 	mobileBot?: MobileDockProps["botTab"];
+	messagesUnread?: MobileDockProps["messagesUnread"];
 }
 
 export interface MeStack {
@@ -169,6 +170,7 @@ export function AppShell({
 							onSelect={tab.onSelect}
 							labels={tab.labels}
 							ariaLabel={tab.ariaLabel}
+							messagesUnread={tab.messagesUnread}
 							renderAvatar={renderAvatar}
 							onOpenMe={(event) => {
 								if (desktop) meTrigger.current = event.currentTarget;
@@ -214,6 +216,7 @@ export function AppShell({
 									labels={tab.labels}
 									ariaLabel={tab.ariaLabel}
 									botTab={tab.mobileBot}
+									messagesUnread={tab.messagesUnread}
 								/>
 							) : null}
 						</aside>
@@ -253,6 +256,7 @@ export function AppShell({
 									labels={tab.labels}
 									ariaLabel={tab.ariaLabel}
 									botTab={tab.mobileBot}
+									messagesUnread={tab.messagesUnread}
 								/>
 							) : null}
 						</main>

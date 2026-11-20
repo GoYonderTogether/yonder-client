@@ -5,13 +5,29 @@
 .mini-conversation-title {
 	font-weight: var(--font-weight-semibold);
 }
+.mini-conversation-line {
+	display: flex;
+	align-items: baseline;
+	gap: var(--spacing-2);
+}
+.mini-conversation-time {
+	flex-shrink: 0;
+	white-space: nowrap;
+	font-size: var(--text-micro);
+	font-variant-numeric: tabular-nums;
+	color: var(--color-text-tertiary);
+}
+.mini-conversation-title,
 .mini-preview {
+	flex: 1;
+	min-width: 0;
 	overflow: hidden;
 	display: block;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
 .mini-badge {
+	flex-shrink: 0;
 	background: var(--color-accent);
 	color: var(--color-on-accent);
 	border-radius: var(--radius-full);

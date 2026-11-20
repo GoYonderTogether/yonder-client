@@ -7,8 +7,8 @@ import { draftKey, type PresetOutcome, registerPresetTarget, requestPreset } fro
 import type { useChatDraft } from "./use-chat-draft.ts";
 
 /**
- * The task plus fills the main Bot's draft. On mobile the existing draft stays in the frame while
- * the task list is visible behind the chat sheet.
+ * The goals menu fills the main Bot's draft. On mobile the existing draft stays in the frame
+ * while the goals list is visible behind the chat sheet.
  */
 export function useTaskPreset({
 	person,
@@ -78,8 +78,8 @@ export function useTaskPreset({
 		setDrawerPath(path);
 	}
 
-	function addFromTasks(scheduled: boolean) {
-		const phrase = t(scheduled ? "tasks.presetGoal" : "tasks.presetItem");
+	function addGoal() {
+		const phrase = t("tasks.presetGoal");
 		if (mobile) {
 			openDrawer(phrase);
 			return;
@@ -93,7 +93,7 @@ export function useTaskPreset({
 
 	return {
 		flying,
-		addFromTasks,
+		addGoal,
 		flown: () => setFlying(null),
 		drawerOpen,
 		closeDrawer,

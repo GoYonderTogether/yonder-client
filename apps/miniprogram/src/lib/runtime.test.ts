@@ -39,10 +39,11 @@ beforeEach(() => {
 	mock.fetch.mockResolvedValue({ status: 200, ok: true, json: async () => ({ ok: true }) });
 });
 
+const me = (id = "test-person") => ({ member: { id }, settings: { locale: "zh-CN" } }) as MeResponse;
+
 test("a previous account's late attachment is discarded and its temporary file removed", async () => {
 	const runtime = await import("./runtime");
-	const me = { settings: { locale: "zh-CN" } } as MeResponse;
-	await runtime.startSession({ accessToken: "a", refreshToken: "ra", me });
+	await runtime.startSession({ accessToken: "a", refreshToken: "ra", me: me() });
 	let finish: (value: { statusCode: number; tempFilePath: string }) => void = () => {};
 	mock.downloadFile.mockImplementation(
 		() =>
@@ -51,7 +52,7 @@ test("a previous account's late attachment is discarded and its temporary file r
 			}),
 	);
 	const pending = runtime.downloadAttachment("att_old").catch((error: unknown) => error);
-	await runtime.startSession({ accessToken: "b", refreshToken: "rb", me });
+	await runtime.startSession({ accessToken: "b", refreshToken: "rb", me: me("second-person") });
 	finish({ statusCode: 200, tempFilePath: "/tmp/old-account.png" });
 	expect(await pending).toMatchObject({ name: "AbortError" });
 	expect(mock.unlink).toHaveBeenCalledWith(expect.objectContaining({ filePath: "/tmp/old-account.png" }));
@@ -72,7 +73,7 @@ test("offline startup retains the refresh credential and foreground retries afte
 			url.endsWith("/refresh")
 				? { accessToken: "restored-access", refreshToken: "rotated-refresh" }
 				: url.endsWith("/me")
-					? { settings: { locale: "zh-CN" } }
+					? me()
 					: { ok: true },
 	}));
 	await runtime.resumeRealtime();
@@ -104,8 +105,7 @@ test("registers the system model as the mini program's device name", async () =>
 
 test("signing out clears the local session even when the server refuses the request", async () => {
 	const runtime = await import("./runtime");
-	const me = { settings: { locale: "zh-CN" } } as MeResponse;
-	await runtime.startSession({ accessToken: "a", refreshToken: "ra", me });
+	await runtime.startSession({ accessToken: "a", refreshToken: "ra", me: me() });
 	mock.store.set("yonder.mini.draft.one", "draft");
 	mock.fetch.mockResolvedValue({
 		status: 500,

@@ -14,6 +14,7 @@ export interface Member {
 	/** Private display preferences for a Bot, returned only to its owner. */
 	nicknames?: string[];
 	selectedNickname?: string | null;
+	botRoleLabel?: string | null;
 	/** Content-addressed: the `v` query parameter changes when the image changes. */
 	avatarUrl: string | null;
 	avatarColor?: string | null;

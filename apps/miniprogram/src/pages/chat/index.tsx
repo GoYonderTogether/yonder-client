@@ -1,12 +1,12 @@
 import { Checkbox, Image, Button as NativeButton, ScrollView, Text, Textarea, View } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
-import { groupMessages, isTwoPartyAgentChat } from "@yonder/chat-model";
+import { conversationBotOwner, groupMessages, isTwoPartyAgentChat } from "@yonder/chat-model";
 import { ComposerFrame, ComposerLayout, UploadTile } from "@yonder/chat-presentation";
 import type { SkillSummary } from "@yonder/protocol";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, go, Page, State } from "../../components/ui";
 import { t, useLocale } from "../../lib/i18n";
-import { api } from "../../lib/runtime";
+import { api, useCachedBots } from "../../lib/runtime";
 import { AgentTitle } from "./agent-title";
 import { ChatAvatar } from "./avatar";
 import { chatBotId } from "./bot-entry";
@@ -63,7 +63,18 @@ export default function Chat() {
 	const lastScrollTop = useRef(0);
 	const followRef = useRef(follow);
 	followRef.current = follow;
-	useVisibleRead(id, chat.me?.member.id, chat.messages, follow && Boolean(chat.conversation?.unreadCount));
+	const followAfterLayout = useCallback(() => {
+		if (!followRef.current) return;
+		setScrollTop(undefined);
+		setAnchor("");
+		Taro.nextTick(() => setAnchor("message-end"));
+	}, []);
+	const reportEnd = useVisibleRead(
+		id,
+		chat.me?.member.id,
+		chat.messages,
+		follow && !chat.loading && Boolean(chat.conversation?.unreadCount),
+	);
 	const lastMessage = chat.messages.at(-1);
 	const isGroup = chat.conversation?.kind === "group";
 	// A closed group keeps its history and loses the composer; the reason is the server's.
@@ -105,7 +116,7 @@ export default function Chat() {
 					: conversationTitle(chat.conversation.members, chat.me?.member.id, chat.conversation.title)))) ||
 		t("聊天", "Chat");
 	const blocks = useMemo(() => groupMessages(chat.messages, chat.hasFullHistory), [chat.messages, chat.hasFullHistory]);
-	const presentation = { showMessageAvatars, showSenderNames: isGroup, locale };
+	const presentation = { showMessageAvatars, showSenderNames: isGroup, locale, contacts: useCachedBots() };
 	const openOptions = chat.messages
 		.slice()
 		.reverse()
@@ -131,19 +142,8 @@ export default function Chat() {
 		if (chat.me && draft.scope === draftKey) Taro.setStorageSync(draftKey, draft.value);
 	}, [draft, draftKey, chat.me]);
 	useEffect(() => {
-		if (follow && lastMessage) {
-			setScrollTop(undefined);
-			setAnchor("");
-			Taro.nextTick(() => setAnchor("message-end"));
-		}
-	}, [lastMessage, follow]);
-	useEffect(() => {
-		if (follow && layoutSignature) {
-			setScrollTop(undefined);
-			setAnchor("");
-			Taro.nextTick(() => setAnchor("message-end"));
-		}
-	}, [layoutSignature, follow]);
+		if (follow && lastMessage && layoutSignature) followAfterLayout();
+	}, [lastMessage, layoutSignature, follow, followAfterLayout]);
 	useEffect(() => {
 		const pending = pendingOlderAnchor.current;
 		if (!pending || pending.scope !== draftKey || !pending.ready || anchorRevision < pending.revision) return;
@@ -165,13 +165,6 @@ export default function Chat() {
 			});
 		});
 	}, [chat.messages, draftKey, anchorRevision]);
-	const followAfterLayout = () => {
-		if (!followRef.current) return;
-		setScrollTop(undefined);
-		setAnchor("");
-		Taro.nextTick(() => setAnchor("message-end"));
-	};
-
 	const send = async () => {
 		if (
 			sending.current ||
@@ -229,7 +222,14 @@ export default function Chat() {
 				className={`mini-chat ${keyboardVisible ? "mini-chat-keyboard-open" : ""}`}
 				style={{ height: `${contentHeight}px` }}
 			>
-				{agentPeer ? <AgentTitle key={agentPeer.memberId} bot={agentPeer} messages={chat.messages} /> : null}
+				{agentPeer ? (
+					<AgentTitle
+						key={agentPeer.memberId}
+						bot={agentPeer}
+						messages={chat.messages}
+						owner={conversationBotOwner(agentPeer, chat.conversation)}
+					/>
+				) : null}
 				{chat.loading || chat.error || uploads.error || uploadNotice || chat.closedError || chat.visitError ? (
 					<View className="mini-chat-status">
 						<State
@@ -281,6 +281,7 @@ export default function Chat() {
 					scrollIntoView={anchor}
 					{...(scrollTop === undefined ? {} : { scrollTop })}
 					scrollWithAnimation={false}
+					lowerThreshold={2}
 					onTouchMove={() => setFollow(false)}
 					onScroll={(event) => {
 						const scrollTop = event.detail.scrollTop;
@@ -290,6 +291,7 @@ export default function Chat() {
 					onScrollToLower={() => {
 						setScrollTop(undefined);
 						setFollow(true);
+						reportEnd();
 					}}
 				>
 					{chat.cursor ? (
@@ -348,17 +350,13 @@ export default function Chat() {
 				</ScrollView>
 				{!follow ? (
 					<View className="mini-chat-latest">
-						<Button
-							secondary
-							onClick={() => {
-								setFollow(true);
-								setScrollTop(undefined);
-								setAnchor("");
-								Taro.nextTick(() => setAnchor("message-end"));
-							}}
+						<NativeButton
+							className="mini-chat-latest-button"
+							ariaLabel={t("回到最新消息", "Latest messages")}
+							onClick={() => setFollow(true)}
 						>
-							{t("回到最新消息", "Latest messages")}
-						</Button>
+							↓
+						</NativeButton>
 					</View>
 				) : null}
 				{closedReason ? (

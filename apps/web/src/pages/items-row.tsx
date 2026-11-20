@@ -29,16 +29,18 @@ export function ItemRow({
 }) {
 	const { t } = useTranslation();
 	const line = itemSummaryLine(item);
-	const visitOutcome =
+	const fallback =
 		item.source === "visit"
 			? t(item.state === "completed" ? "visits.relayApproved" : "visits.relayOpen")
-			: t("tasks.itemNoResult");
+			: item.source === "conversation"
+				? null
+				: t("tasks.itemNoResult");
 	const outcome =
 		line.kind === "failure"
 			? t(itemFailureKey(line.text), { title: item.title })
 			: line.kind === "result"
 				? line.text
-				: (item.waitingReason ?? visitOutcome);
+				: (item.waitingReason ?? fallback);
 	const meta = [botName, itemTimeLabel(item.startedAt, locale)].filter(Boolean).join(" · ");
 	return (
 		<ListRow
@@ -47,7 +49,7 @@ export function ItemRow({
 			title={item.title}
 			subtitle={
 				<span className="flex flex-col gap-[var(--spacing-1)]">
-					<span className="truncate">{outcome}</span>
+					{outcome ? <span className="truncate">{outcome}</span> : null}
 					{meta ? <span className="text-[var(--color-text-tertiary)]">{meta}</span> : null}
 				</span>
 			}

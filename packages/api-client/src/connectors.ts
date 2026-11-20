@@ -3,17 +3,12 @@ import type {
 	ConnectorCommandResult,
 	ConnectorInstance,
 	ConnectorListResponse,
+	ConnectorRequestDevicesResponse,
+	ConnectorRequestView,
 	CreateConnectorRequest,
 	UpdateConnectorRequest,
 } from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
-
-export interface ConnectorRequestView {
-	id: string;
-	connectorId: "local-files" | "computer-control";
-	state: "pending" | "approved" | "completed" | "cancelled";
-	originalPrompt: string;
-}
 
 /** Connectors and the results a local connector reports back. */
 export function connectorEndpoints(client: ApiClient) {
@@ -21,14 +16,19 @@ export function connectorEndpoints(client: ApiClient) {
 		connectorRequest(id: string): Promise<ConnectorRequestView> {
 			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}`);
 		},
-		confirmConnectorRequest(id: string): Promise<ConnectorRequestView> {
-			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/confirm`, { body: {} });
+		/** Any signed-in session may allow it; without a device the server picks one or answers 409. */
+		confirmConnectorRequest(id: string, body: { deviceId?: string } = {}): Promise<ConnectorRequestView> {
+			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/confirm`, { body });
 		},
 		cancelConnectorRequest(id: string): Promise<ConnectorRequestView> {
 			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/cancel`, { body: {} });
 		},
-		completeConnectorRequest(id: string, connectionId: string): Promise<ConnectorRequestView> {
-			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/complete`, { body: { connectionId } });
+		/** The target device's session reports a failed local grant; other sessions get 403. */
+		failConnectorRequest(id: string, error: string): Promise<ConnectorRequestView> {
+			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/fail`, { body: { error } });
+		},
+		connectorRequestDevices(id: string): Promise<ConnectorRequestDevicesResponse> {
+			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/devices`);
 		},
 		connectorCatalog(): Promise<ConnectorCatalogResponse> {
 			return client.request("/v1/connectors/catalog");

@@ -1,3 +1,4 @@
+import { botRoleProblem } from "@yonder/chat-model";
 import type { Member } from "@yonder/protocol";
 import { Button, cn, FormFooter, FormSection, IconButton, TextField } from "@yonder/ui-components";
 import { useContactActions, useUpdateBot, useUploadBotAvatar } from "@yonder/ui-data";
@@ -46,6 +47,7 @@ export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage,
 		null,
 	);
 	const [newNickname, setNewNickname] = useState("");
+	const [roleDraft, setRoleDraft] = useState<string | null>(null);
 
 	// Another tab renamed the same Bot while this form was open; the field follows the server.
 	const storedName = bot?.displayName;
@@ -75,13 +77,20 @@ export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage,
 				: null;
 	const canAddNickname = Boolean(nickname && !nicknameError && nicknames.length < NICKNAME_LIMIT);
 	const settings = mode === "edit" && Boolean(settingsPage);
+	const storedRole = bot?.botRoleLabel ?? "";
+	const roleInput = roleDraft ?? storedRole;
+	const role = roleInput.trim();
+	const roleProblem = botRoleProblem(roleInput);
+	const roleError = roleProblem === "length" ? t("bots.roleTooLong") : roleProblem ? t("bots.roleControls") : null;
+	const roleChanged = Boolean(settings && role !== storedRole);
 	const renamed = trimmed !== bot?.displayName;
 	const recoloured = color !== botColor(bot);
 	const savedNicknames = canAddNickname ? [...nicknames, nickname] : nicknames;
 	const nicknamesChanged =
 		JSON.stringify(savedNicknames) !== JSON.stringify(storedNicknames) ||
 		selectedNickname !== (bot?.selectedNickname ?? null);
-	const changed = renamed || recoloured || nicknamesChanged || Boolean(file) || Boolean(bot?.avatarUrl && cleared);
+	const changed =
+		renamed || recoloured || nicknamesChanged || roleChanged || Boolean(file) || Boolean(bot?.avatarUrl && cleared);
 	useEffect(() => {
 		onDirtyChange?.(changed || Boolean(nickname));
 	}, [changed, nickname, onDirtyChange]);
@@ -119,7 +128,7 @@ export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage,
 			setError(tooLong ? t("bots.nameTooLong") : t("bots.nameRequired"));
 			return;
 		}
-		if (nicknameError) return;
+		if (nicknameError || roleError) return;
 		setError(null);
 		setSaving(true);
 		let step: "save" | "upload" = "save";
@@ -137,15 +146,17 @@ export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage,
 			// One call changes one appearance: the server refuses a colour together with "remove the
 			// image", so the picture is cleared first and the colour set after it.
 			if (bot.avatarUrl && (cleared || recoloured)) await update.mutateAsync({ id: bot.id, clearAvatar: true });
-			if (renamed || recoloured || nicknamesChanged)
+			if (renamed || recoloured || nicknamesChanged || roleChanged)
 				await update.mutateAsync({
 					id: bot.id,
 					...(renamed ? { displayName: trimmed } : {}),
 					...(recoloured ? { avatarColor: color } : {}),
 					...(nicknamesChanged ? { nicknames: savedNicknames, selectedNickname } : {}),
+					...(roleChanged ? { botRoleLabel: role || null } : {}),
 				});
 			setNicknameEdit(null);
 			setNewNickname("");
+			setRoleDraft(null);
 			if (file) {
 				step = "upload";
 				await upload.mutateAsync({ id: bot.id, file });
@@ -276,6 +287,16 @@ export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage,
 						) : null}
 					</div>
 				) : null}
+				{settings ? (
+					<TextField
+						label={t("bots.roleLabel")}
+						hint={t("bots.rolePrivate")}
+						value={roleInput}
+						onChange={(event) => setRoleDraft(event.target.value)}
+						disabled={saving}
+						error={roleError}
+					/>
+				) : null}
 			</Section>
 			{error ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
@@ -288,7 +309,7 @@ export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage,
 						type="submit"
 						variant="primary"
 						loading={saving}
-						disabled={!valid || Boolean(nicknameError) || !changed}
+						disabled={!valid || Boolean(nicknameError || roleError) || !changed}
 					>
 						{t("bots.saveProfile")}
 					</Button>

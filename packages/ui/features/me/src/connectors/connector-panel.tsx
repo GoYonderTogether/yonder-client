@@ -47,7 +47,6 @@ export function ConnectorPanel({
 	const Icon = control ? MonitorCog : FolderSearch;
 	const canConfigure = device.current && localFiles?.supported && definition.platforms.includes(device.platform);
 	const changed = !instance || legacy || instance.capabilities.fileTools !== control;
-	const requested = localFiles?.requested?.(definition.id) ?? false;
 
 	async function apply() {
 		if (!device || !localFiles || !canConfigure) return;
@@ -74,7 +73,7 @@ export function ConnectorPanel({
 								capabilities,
 							});
 			if (!active.current) throw new Error("cancelled");
-			await localFiles.authorize(saved, { resumeRequest: true });
+			await localFiles.authorize(saved);
 			if (!active.current) throw new Error("cancelled");
 			close();
 		} catch {
@@ -162,7 +161,7 @@ export function ConnectorPanel({
 				<p className="text-caption text-[var(--color-text-secondary)]">
 					{t(control ? "connectors.fileToolsScope" : "connectors.readScope")}
 				</p>
-				{canConfigure && (changed || requested) ? (
+				{canConfigure && changed ? (
 					<Button variant="primary" loading={busy} onClick={() => void apply()}>
 						{t(legacy ? "connectors.upgrade" : instance ? "connectors.save" : "connectors.enable")}
 					</Button>

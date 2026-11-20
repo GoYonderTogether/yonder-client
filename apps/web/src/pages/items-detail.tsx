@@ -1,90 +1,226 @@
-import { Button, EmptyState, ListGroup } from "@yonder/ui-components";
-import { ApiError, useContacts, useItem, useItemActions } from "@yonder/ui-data";
-import { ListChecks } from "lucide-react";
+import { MessageBubble, MessageRun } from "@yonder/chat-presentation";
+import type { ItemDetail } from "@yonder/protocol";
+import { Button, EmptyState } from "@yonder/ui-components";
+import { ApiError, useItem, useItemActions, type useItemSession } from "@yonder/ui-data";
+import { PageFrame } from "@yonder/ui-shell";
+import { CircleCheck, CircleX, Clock3, Ellipsis, ListChecks } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BotHandoff } from "./bot-handoff.tsx";
-import { itemActions, itemFailureKey, itemSourceKey, itemStateKey } from "./items-format.ts";
+import { ItemMeetingCard } from "./item-meeting-card.tsx";
+import { itemActions, itemFailureKey, itemGroup, itemStateKey, itemTimeLabel, localDay } from "./items-format.ts";
+import { MessageContent } from "./message-content.tsx";
+import { ConversationPage } from "./messages-page.tsx";
 import { OutwardRequestCard } from "./outward-request-card.tsx";
 
-/**
- * One item (16-3 第五节、第八节): what it is, what it produced or why it stopped, the steps the source
- * recorded, and — for a subtask that is still going — pause, resume and cancel. A blocked item shows
- * one reason and one action; the other sources are records and offer none.
- */
 export function ItemDetailPage({
 	itemId,
+	session,
+	disconnected,
+	readActive,
 	onOpenConversation,
 }: {
-	itemId: string | null;
+	itemId: string;
+	session: ReturnType<typeof useItemSession>;
+	disconnected: boolean;
+	readActive: boolean;
 	onOpenConversation: (id: string) => void;
 }) {
 	const { t, i18n } = useTranslation();
 	const query = useItem(itemId);
 	const actions = useItemActions();
-	const contacts = useContacts();
+	const item = query.data;
 	const locale = i18n.resolvedLanguage ?? i18n.language;
-	const failure = actions.cancel.error ?? actions.pause.error ?? actions.resume.error;
-	const failedKey = actions.cancel.isError
+	if (!item)
+		return (
+			<PageFrame title={t("tasks.itemHeading")}>
+				{query.isError ? (
+					<EmptyState
+						icon={<ListChecks size={24} strokeWidth={1.6} />}
+						title={
+							query.error instanceof ApiError && query.error.code === "not_found"
+								? t("tasks.itemNotFound")
+								: t("app.loadFailed")
+						}
+						action={
+							<Button variant="secondary" onClick={() => void query.refetch()}>
+								{t("app.retry")}
+							</Button>
+						}
+					/>
+				) : (
+					<p role="status" className="text-center text-caption text-[var(--color-text-secondary)]">
+						{t("app.loading")}
+					</p>
+				)}
+			</PageFrame>
+		);
+
+	const title = <ItemHeader item={item} locale={locale} t={t} />;
+	const allowed = itemActions(item);
+	const busy =
+		actions.cancel.isPending || actions.pause.isPending || actions.resume.isPending || actions.transfer.isPending;
+	const action = allowed.cancel ? (
+		<details className="relative z-10">
+			<summary
+				aria-label={t("tasks.itemActions")}
+				className="flex size-[var(--control-md)] cursor-pointer list-none items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] [&::-webkit-details-marker]:hidden"
+			>
+				<Ellipsis size={20} aria-hidden="true" />
+			</summary>
+			<div className="absolute end-0 top-full flex min-w-max flex-col gap-[var(--spacing-2)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-raised)] p-[var(--spacing-3)] shadow-[var(--shadow-lg)]">
+				{allowed.pause ? (
+					<Button variant="secondary" size="sm" disabled={busy} onClick={() => actions.pause.mutate(item.id)}>
+						{t("tasks.pause")}
+					</Button>
+				) : null}
+				{allowed.resume ? (
+					<Button variant="secondary" size="sm" disabled={busy} onClick={() => actions.resume.mutate(item.id)}>
+						{t("tasks.resume")}
+					</Button>
+				) : null}
+				<Button variant="danger" size="sm" disabled={busy} onClick={() => actions.cancel.mutate(item.id)}>
+					{t("tasks.itemCancel")}
+				</Button>
+				{item.state === "paused" ? (
+					<BotHandoff
+						key={item.botMemberId}
+						botId={item.botMemberId}
+						busy={busy}
+						error={actions.transfer.error}
+						onTransfer={(botId) => actions.transfer.mutate({ id: item.id, botId })}
+					/>
+				) : null}
+			</div>
+		</details>
+	) : null;
+	const actionError = actions.cancel.isError
 		? "tasks.itemCancelFailed"
 		: actions.pause.isError
 			? "tasks.itemPauseFailed"
 			: actions.resume.isError
 				? "tasks.itemResumeFailed"
 				: null;
+	const reason = actions.cancel.error ?? actions.pause.error ?? actions.resume.error;
+	const hasSeed =
+		item.source !== "conversation" &&
+		(item.source === "meeting" || item.instruction || item.outwardRequest || item.failureReason || item.result);
+	const intro =
+		hasSeed || actionError ? (
+			<>
+				{actionError ? (
+					<p role="alert" className="text-caption text-[var(--color-danger)]">
+						{t(actionError)}
+						{reason instanceof ApiError ? ` ${t(reason.messageKey)}` : null}
+					</p>
+				) : null}
+				{hasSeed ? <ItemIntroduction item={item} onOpenConversation={onOpenConversation} /> : null}
+			</>
+		) : null;
+	const conversation = session.data?.conversation;
 
-	if (!itemId) return null;
-	if (query.isError)
-		return (
-			<EmptyState
-				icon={<ListChecks size={24} strokeWidth={1.6} />}
-				title={
-					query.error instanceof ApiError && query.error.code === "not_found"
-						? t("tasks.itemNotFound")
-						: t("app.loadFailed")
-				}
-				action={
-					<Button variant="secondary" onClick={() => void query.refetch()}>
-						{t("app.retry")}
-					</Button>
-				}
-			/>
-		);
-	const item = query.data;
-	if (!item) return null;
-	const allowed = itemActions(item);
-	const bot = contacts.data?.items.find((member) => member.id === item.botMemberId);
-	const busy =
-		actions.cancel.isPending || actions.pause.isPending || actions.resume.isPending || actions.transfer.isPending;
+	return conversation ? (
+		<ConversationPage
+			key={conversation.id}
+			conversationId={conversation.id}
+			disconnected={disconnected}
+			readActive={readActive}
+			item={{ conversation, title, action, intro }}
+		/>
+	) : (
+		<PageFrame title={title} titleAlign="start" action={action}>
+			<div className="flex flex-col gap-[var(--spacing-4)]">
+				{intro}
+				{session.isError ? (
+					<EmptyState
+						icon={<ListChecks size={24} strokeWidth={1.6} />}
+						title={t("app.loadFailed")}
+						action={
+							<Button variant="secondary" onClick={() => void session.refetch()}>
+								{t("app.retry")}
+							</Button>
+						}
+					/>
+				) : (
+					<p role="status" className="text-center text-caption text-[var(--color-text-secondary)]">
+						{t("chat.loadingHistory")}
+					</p>
+				)}
+			</div>
+		</PageFrame>
+	);
+}
+
+function ItemHeader({
+	item,
+	locale,
+	t,
+}: {
+	item: ItemDetail;
+	locale: string;
+	t: ReturnType<typeof useTranslation>["t"];
+}) {
+	const Status =
+		item.state === "completed" ? CircleCheck : item.state === "failed" || item.state === "cancelled" ? CircleX : Clock3;
+	const dates = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" });
+	const start = new Date(item.startedAt);
+	const end = item.endedAt ? new Date(item.endedAt) : null;
+	const group = itemGroup(item.startedAt, new Date());
+	const day =
+		group === "earlier" ? dates.format(start) : t(group === "today" ? "tasks.itemsToday" : "tasks.itemsYesterday");
+	const started = itemTimeLabel(item.startedAt, locale);
+	const ended = item.endedAt ? itemTimeLabel(item.endedAt, locale) : null;
+	const endDay = end && localDay(end) !== localDay(start) ? dates.format(end) : null;
 	return (
-		<article className="flex flex-col gap-[var(--spacing-4)] py-[var(--spacing-4)]">
-			<header className="flex flex-col gap-[var(--spacing-1)]">
-				<h1 className="text-h3 font-semibold text-[var(--color-text-primary)]">{item.title}</h1>
-				<p className="text-caption text-[var(--color-text-secondary)]">
-					{t(itemStateKey(item.state))} · {t(itemSourceKey(item.source))}
-					{bot ? ` · ${t("tasks.itemDetailBot", { name: bot.displayName })}` : null}
-				</p>
-				<p className="text-caption text-[var(--color-text-tertiary)]">
-					{t("tasks.itemStartedAt", { at: when(item.startedAt, locale) })}
-					{item.endedAt ? ` · ${t("tasks.itemEndedAt", { at: when(item.endedAt, locale) })}` : null}
-				</p>
-			</header>
-			{failedKey ? (
-				<p role="alert" className="text-caption text-[var(--color-danger)]">
-					{failure instanceof ApiError
-						? t(failedKey, { reason: t(failure.messageKey) })
-						: t(failedKey, { reason: t("chat.runFailed") })}
-				</p>
-			) : null}
-			{item.instruction ? (
-				<ListGroup variant="card" title={t("tasks.itemDetailInstruction")}>
-					<li className="whitespace-pre-wrap p-[var(--spacing-4)] text-body text-[var(--color-text-primary)]">
-						{item.instruction}
-					</li>
-				</ListGroup>
+		<div className="flex min-w-0 flex-col gap-[calc(var(--spacing-1)/2)]">
+			<h1 className="truncate text-h3 font-semibold" title={item.title}>
+				{item.title}
+			</h1>
+			<div className="flex min-w-0 items-center gap-[var(--spacing-1)] text-caption font-normal text-[var(--color-text-secondary)]">
+				<Status size={14} aria-hidden="true" className="shrink-0" />
+				<span className="shrink-0">{t(itemStateKey(item.state))}</span>
+				<span aria-hidden="true">·</span>
+				<span className="truncate">
+					<time dateTime={item.startedAt} title={t("tasks.itemStartedAt", { at: `${dates.format(start)} ${started}` })}>
+						{day} {started}
+					</time>
+					{item.endedAt && end && ended ? (
+						<>
+							<span aria-hidden="true"> – </span>
+							<time dateTime={item.endedAt} title={t("tasks.itemEndedAt", { at: `${dates.format(end)} ${ended}` })}>
+								{endDay ? `${endDay} ` : ""}
+								{ended}
+							</time>
+						</>
+					) : null}
+				</span>
+			</div>
+		</div>
+	);
+}
+
+function ItemIntroduction({
+	item,
+	onOpenConversation,
+}: {
+	item: ItemDetail;
+	onOpenConversation: (id: string) => void;
+}) {
+	const { t } = useTranslation();
+	return (
+		<>
+			{item.source === "meeting" ? (
+				<ItemMeetingCard id={item.id} />
+			) : item.instruction ? (
+				<MessageRun as="div" self>
+					<div className="flex justify-end">
+						<MessageBubble as="div" self>
+							<MessageContent body={item.instruction} />
+						</MessageBubble>
+					</div>
+				</MessageRun>
 			) : null}
 			{item.outwardRequest ? (
 				<OutwardRequestCard
-					key={item.id}
 					card={item.outwardRequest}
 					conversationId={item.conversationId}
 					openLinked={
@@ -94,74 +230,20 @@ export function ItemDetailPage({
 					}
 				/>
 			) : null}
-			{!item.outwardRequest || item.result ? (
-				<ListGroup
-					variant="card"
-					title={item.failureReason ? t("tasks.itemDetailFailure") : t("tasks.itemDetailResult")}
-				>
-					<li className="whitespace-pre-wrap p-[var(--spacing-4)] text-body text-[var(--color-text-primary)]">
-						{item.failureReason
-							? t(itemFailureKey(item.failureReason), { title: item.title })
-							: (item.result ?? t("tasks.itemNoResult"))}
-					</li>
-				</ListGroup>
+			{item.failureReason ? (
+				<p role="note" className="text-center text-caption text-[var(--color-danger)]">
+					{t(itemFailureKey(item.failureReason), { title: item.title })}
+				</p>
 			) : null}
-			{item.steps.length ? (
-				<ListGroup variant="card" title={t("tasks.itemDetailSteps")}>
-					{item.steps.map((step) => (
-						<li
-							key={`${step.kind}-${step.at}`}
-							className="flex flex-col gap-[var(--spacing-1)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] last:border-0"
-						>
-							<span className="text-caption text-[var(--color-text-primary)]">
-								{step.kind === "task_transferred"
-									? t("tasks.handoffHistory", {
-											from: String(step.detail?.from ?? ""),
-											to: String(step.detail?.to ?? ""),
-										})
-									: step.kind}
-							</span>
-							<span className="text-caption text-[var(--color-text-tertiary)]">{when(step.at, locale)}</span>
-						</li>
-					))}
-				</ListGroup>
+			{item.source !== "meeting" && item.result ? (
+				<MessageRun as="div" self={false}>
+					<div className="flex justify-start">
+						<MessageBubble as="div" self={false}>
+							<MessageContent body={item.result} />
+						</MessageBubble>
+					</div>
+				</MessageRun>
 			) : null}
-			<div className="flex flex-wrap gap-[var(--spacing-2)]">
-				<Button variant="secondary" onClick={() => onOpenConversation(item.conversationId)}>
-					{t("tasks.itemOpenConversation")}
-				</Button>
-				{allowed.pause ? (
-					<Button variant="secondary" disabled={busy} onClick={() => actions.pause.mutate(item.id)}>
-						{t("tasks.pause")}
-					</Button>
-				) : null}
-				{allowed.resume ? (
-					<Button variant="secondary" disabled={busy} onClick={() => actions.resume.mutate(item.id)}>
-						{t("tasks.resume")}
-					</Button>
-				) : null}
-				{allowed.cancel ? (
-					<Button variant="danger" disabled={busy} onClick={() => actions.cancel.mutate(item.id)}>
-						{t("tasks.itemCancel")}
-					</Button>
-				) : null}
-			</div>
-			{item.source === "subtask" && item.state === "paused" ? (
-				<BotHandoff
-					key={item.botMemberId}
-					botId={item.botMemberId}
-					busy={busy}
-					error={actions.transfer.error}
-					onTransfer={(botId) => actions.transfer.mutate({ id: item.id, botId })}
-				/>
-			) : null}
-		</article>
+		</>
 	);
-}
-
-/** An instant in the reader's own format; the record keeps ISO, the page shows local time. */
-function when(iso: string, locale: string): string {
-	const at = new Date(iso);
-	if (Number.isNaN(at.getTime())) return iso;
-	return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(at);
 }

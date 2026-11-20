@@ -1,8 +1,6 @@
-import type { ConnectorCommand, ConnectorCommandResult } from "@yonder/protocol";
+import type { ConnectorCommand, ConnectorCommandResult, ConnectorGrant } from "@yonder/protocol";
 import { useConnectors, useData } from "@yonder/ui-data";
-import { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { pendingConnectorRequest, setPendingConnectorRequest } from "./connector-request.ts";
+import { useEffect } from "react";
 import { invokeLocalFiles, onLocalFilesChanged, useLocalFilesContext } from "./local-files.ts";
 
 const ERRORS = new Set([
@@ -19,11 +17,18 @@ const ERRORS = new Set([
 	"operation_failed",
 ]);
 
-/** The main desktop webview provides local tools over its existing account socket. */
+/** A native refusal is the real error code; anything else is a write that did not finish. */
+function grantError(error: unknown): string {
+	const code = error instanceof Error ? error.message : String(error);
+	return ERRORS.has(code) ? code : "operation_failed";
+}
+
+/**
+ * The main desktop webview provides local tools over its existing account socket. It also stores
+ * the grants a `connector.grant.request` names: the user's tap on the card was the consent, so the
+ * device writes its local grant library and reports readiness without a second Yonder dialog.
+ */
 export function LocalFilesRuntime() {
-	const { t } = useTranslation();
-	const [continuationError, setContinuationError] = useState(false);
-	const retryContinuation = useRef<() => void>(() => {});
 	const context = useLocalFilesContext();
 	const { api, realtime } = useData();
 	const connectors = useConnectors({ enabled: context !== null });
@@ -42,44 +47,10 @@ export function LocalFilesRuntime() {
 				})
 			: [];
 		const eligible = new Set(connections.map((c) => c.id));
+		// The connections list is what the server last told us; a grant stored just now is added here
+		// so readiness is reported without waiting for the list to refetch.
+		const known = new Map(connections.map((connection) => [connection.id, connection.revision]));
 		const pending = new Map<string, { cancelled: boolean }>();
-		let readyIds = new Set<string>();
-		let completing = false;
-		let retryQueued = false;
-		const complete = async () => {
-			const request = pendingConnectorRequest();
-			if (
-				!active ||
-				!request ||
-				request.ownerId !== context.ownerId ||
-				!request.connectionId ||
-				!readyIds.has(request.connectionId)
-			)
-				return;
-			if (completing) {
-				retryQueued = true;
-				return;
-			}
-			completing = true;
-			try {
-				await api.completeConnectorRequest(request.id, request.connectionId);
-				if (pendingConnectorRequest()?.id === request.id) setPendingConnectorRequest(null);
-				if (active) setContinuationError(false);
-			} catch {
-				const latest = await api.connectorRequest(request.id).catch(() => null);
-				if (latest?.state === "cancelled" || latest?.state === "completed") {
-					if (pendingConnectorRequest()?.id === request.id) setPendingConnectorRequest(null);
-					if (active) setContinuationError(false);
-				} else if (active) setContinuationError(true);
-			} finally {
-				completing = false;
-				if (retryQueued) {
-					retryQueued = false;
-					void complete();
-				}
-			}
-		};
-		retryContinuation.current = () => void complete();
 		const refreshReady = async () => {
 			if (!active || realtime.status !== "open") return;
 			try {
@@ -87,16 +58,40 @@ export function LocalFilesRuntime() {
 				if (!active) return;
 				const ready = await invokeLocalFiles<{ id: string; revision: number }[]>("local_files_ready", {
 					context,
-					connections,
+					connections: [...known].map(([id, revision]) => ({ id, revision })),
 				});
-				readyIds = new Set(ready.map((item) => item.id));
-				if (active) {
-					realtime.send({ type: "connector.ready", connections: ready });
-					void complete();
-				}
+				if (active) realtime.send({ type: "connector.ready", connections: ready });
 			} catch {
-				readyIds = new Set();
 				if (active) realtime.send({ type: "connector.ready", connections: [] });
+			}
+		};
+		/**
+		 * Store each grant the server dispatched here, then report readiness once, as before. One
+		 * failed grant fails the whole request with its real code: a partly stored set must not look
+		 * ready to the Bot.
+		 */
+		const grant = async (requestId: string, grants: ConnectorGrant[]) => {
+			if (!active) return;
+			try {
+				await invokeLocalFiles("local_files_activate", { context });
+				for (const item of grants) {
+					if (!active) return;
+					await invokeLocalFiles("local_files_authorize", {
+						context,
+						config: {
+							id: item.connectionId,
+							connectorId: item.connectorId,
+							scope: item.scope,
+							capabilities: item.capabilities,
+							revision: item.revision,
+						},
+					});
+					known.set(item.connectionId, item.revision);
+				}
+				await refreshReady();
+			} catch (error) {
+				if (!active) return;
+				await api.failConnectorRequest(requestId, grantError(error)).catch(() => {});
 			}
 		};
 		const execute = async (command: ConnectorCommand) => {
@@ -132,7 +127,7 @@ export function LocalFilesRuntime() {
 		};
 		const stopEvents = realtime.subscribeEvents((event) => {
 			if (event.type === "connector.command") void execute(event.command);
-			else if (event.type === "connectors.changed") void complete();
+			else if (event.type === "connector.grant.request") void grant(event.requestId, event.grants);
 			else if (event.type === "connector.command.cancelled") {
 				const state = pending.get(event.commandId);
 				if (state) {
@@ -146,7 +141,6 @@ export function LocalFilesRuntime() {
 		void refreshReady();
 		return () => {
 			active = false;
-			retryContinuation.current = () => {};
 			for (const [id, state] of pending) {
 				state.cancelled = true;
 				void invokeLocalFiles("local_files_cancel", { commandId: id }).catch(() => {});
@@ -157,12 +151,5 @@ export function LocalFilesRuntime() {
 			realtime.send({ type: "connector.ready", connections: [] });
 		};
 	}, [api, context, realtime, connectionIds]);
-	return continuationError ? (
-		<div role="alert" className="text-caption text-[var(--color-danger)]">
-			{t("connectors.requestContinueFailed")}{" "}
-			<button type="button" onClick={() => retryContinuation.current()}>
-				{t("app.retry")}
-			</button>
-		</div>
-	) : null;
+	return null;
 }

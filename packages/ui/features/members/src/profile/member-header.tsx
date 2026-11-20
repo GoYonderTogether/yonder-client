@@ -1,6 +1,7 @@
 import type { MemberCard } from "@yonder/protocol";
-import { Avatar } from "@yonder/ui-components";
+import { Avatar, cn } from "@yonder/ui-components";
 import { useTranslation } from "react-i18next";
+import { BotName } from "../bots/bot-name.tsx";
 
 export interface MemberHeaderProps {
 	/** The four things a card shows, for a person and for a Bot alike (19 第四节). */
@@ -21,7 +22,14 @@ export function MemberHeader({ card, onOpenOwner }: MemberHeaderProps) {
 		<div className="flex flex-col items-center gap-[var(--spacing-3)] px-[var(--spacing-5)] pt-[var(--spacing-6)] pb-[var(--spacing-4)]">
 			<Avatar name={card.displayName} src={card.avatarUrl} color={card.avatarColor} kind={card.kind} size={80} />
 			<div className="flex min-w-0 flex-col items-center gap-[var(--spacing-1)]">
-				<h1 className="max-w-full truncate text-h2 text-[var(--color-text-primary)]">{card.displayName}</h1>
+				<h1
+					className={cn(
+						"max-w-full text-h2 text-[var(--color-text-primary)]",
+						card.kind === "bot" ? "text-center wrap-anywhere" : "truncate",
+					)}
+				>
+					{card.kind === "bot" ? <BotName name={card.displayName} /> : card.displayName}
+				</h1>
 				<p className="tabular-nums text-caption text-[var(--color-text-secondary)]">@{card.handle}</p>
 				{owner ? (
 					onOpenOwner ? (

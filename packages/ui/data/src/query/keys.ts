@@ -56,6 +56,9 @@ export const keys = {
 		catalog: () => ["connectors", "catalog"] as const,
 		list: () => ["connectors", "list"] as const,
 	},
+	connectorRequest: (id: string) => ["connector-request", id] as const,
+	/** Devices a pending request may be allowed on; fetched only when the user must choose. */
+	connectorRequestDevices: (id: string) => ["connector-request", id, "devices"] as const,
 	skills: {
 		all: () => ["skills"] as const,
 		list: () => ["skills", "list"] as const,
@@ -76,9 +79,11 @@ export const keys = {
 	items: {
 		all: () => ["items"] as const,
 		/** One account's list; `botId` narrows it to one Bot. */
+		lists: () => ["items", "list"] as const,
 		list: (botId: string | null) => ["items", "list", botId ?? "all"] as const,
 		activeSubtasks: (botId: string) => ["items", "active-subtasks", botId] as const,
 		detail: (id: string) => ["items", "detail", id] as const,
+		session: (id: string) => ["items", "session", id] as const,
 	},
 } as const;
 

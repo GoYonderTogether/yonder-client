@@ -38,7 +38,7 @@ function Harness({ conversationId = "a", ids }: { conversationId?: string; ids: 
 	);
 }
 
-test("follows only within 40px, interrupts immediately, offers latest after 120px, and resets per conversation", () => {
+test("follows only at the bottom, interrupts immediately, and resets per conversation", () => {
 	const view = render(<Harness ids={[]} />);
 	const scroll = screen.getByTestId("scroll");
 	let height = 1000;
@@ -55,17 +55,16 @@ test("follows only within 40px, interrupts immediately, offers latest after 120p
 	});
 	view.rerender(<Harness ids={["1"]} />);
 	expect(top).toBe(800);
-	top = 760;
+	top = 798;
 	fireEvent.scroll(scroll);
 	height = 1040;
 	view.rerender(<Harness ids={["1", "2"]} />);
 	expect(top).toBe(840);
-	top = 799;
+	top = 837;
 	fireEvent.scroll(scroll);
 	height = 1100;
 	view.rerender(<Harness ids={["1", "2", "3"]} />);
-	expect(top).toBe(799);
-	expect(screen.queryByRole("button")).toBeNull();
+	expect(top).toBe(837);
 	top = 779;
 	fireEvent.scroll(scroll);
 	fireEvent.click(screen.getByRole("button", { name: "Latest" }));
