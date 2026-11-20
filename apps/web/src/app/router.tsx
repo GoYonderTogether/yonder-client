@@ -1,4 +1,3 @@
-import { defaultMessagePath } from "../lib/default-message-path.ts";
 /**
  * The route table from 11 第四节, wired to React Router. The guard runs here, once: an unauthenticated
  * visit to a protected path is remembered and returned to after signing in (05 第四节第 1 条).
@@ -132,8 +131,7 @@ function RequireSession({ children }: { children: React.ReactNode }) {
 		search.delete("me");
 		const query = search.toString();
 		const next = `${location.pathname}${query ? `?${query}` : ""}${location.hash}`;
-		const target = next === defaultMessagePath() ? "/sign-in" : `/sign-in?next=${encodeURIComponent(next)}`;
-		return <Navigate to={target} replace />;
+		return <Navigate to={`/sign-in?next=${encodeURIComponent(next)}`} replace />;
 	}
 	return <>{children}</>;
 }
