@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { afterEach, expect, test, vi } from "vitest";
@@ -42,7 +42,7 @@ test("web and iOS have no updater controls or check", () => {
 });
 
 test("desktop shows the downloaded version and a user-controlled restart", async () => {
-	const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+	const confirm = vi.spyOn(window, "confirm");
 	const install = vi.fn(async () => {});
 	const candidate: UpdateCandidate = { version: "0.3.12", required: false, download: async () => {}, install };
 	const updater = createUpdater({ platform: "desktop", check: async () => candidate });
@@ -52,8 +52,12 @@ test("desktop shows the downloaded version and a user-controlled restart", async
 	expect(install).not.toHaveBeenCalled();
 	fireEvent.click(screen.getByRole("button", { name: "重启并安装" }));
 	expect(install).not.toHaveBeenCalled();
-	confirm.mockReturnValue(true);
+	expect(confirm).not.toHaveBeenCalled();
+	expect(screen.getByRole("dialog")).toHaveTextContent("录音、上传及本地任务");
+	fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "取消" }));
+	await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 	fireEvent.click(screen.getByRole("button", { name: "重启并安装" }));
+	fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "重启并安装" }));
 	await waitFor(() => expect(install).toHaveBeenCalledOnce());
 });
 

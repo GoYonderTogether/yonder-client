@@ -6,7 +6,7 @@
 		"text-px": 4,
 		"radius-raw": 6,
 		"font-weight-number": 9,
-		"window-confirm": 7
+		"window-confirm": 5
 	},
 	"files": {
 		"apps/web/src/app/chunk-boundary.tsx": {
@@ -27,12 +27,6 @@
 		},
 		"apps/web/src/preview/preview.css": {
 			"font-weight-number": 2
-		},
-		"apps/web/src/updates/controls.tsx": {
-			"window-confirm": 1
-		},
-		"apps/web/src/updates/ready-button.tsx": {
-			"window-confirm": 1
 		},
 		"packages/ui/auth-presentation/src/styles.css": {
 			"radius-raw": 1
