@@ -3,7 +3,7 @@
 	inset-block-start: calc(
 		var(--safe-area-top, env(safe-area-inset-top, 0px)) +
 		var(--titlebar-height) +
-		var(--spacing-2) +
+		var(--spacing-1) +
 		var(--app-notice-bot-title, 0px) +
 		var(--app-notice-bot-status, 0px)
 	);
