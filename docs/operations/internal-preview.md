@@ -13,8 +13,8 @@ Open the newest successful run that has the **Yonder-…-macos-ad-hoc-…** arti
 The green **CI** badge is the verification gate. Individual artifacts from a red, canceled, or
 still-running workflow are not verified previews. Historical runs created before this feature
 do not contain the Mac artifact; a first new green run is required. A failed new candidate leaves
-earlier green runs and downloads intact. Both preview artifacts expire after 30 days (or sooner
-if the repository's retention limit is shorter), so this is not permanent archival. GitHub login
+earlier green runs and downloads intact. The Mac artifact expires after 30 days at most; the
+existing Web artifact expires after 7 days. This is not permanent archival. GitHub login
 and repository read access are required to download artifacts. This is a public source repository;
 any signed-in GitHub user with read access can download its Actions artifacts. Mac packaging is
 therefore off by default: it only runs when the repository variable

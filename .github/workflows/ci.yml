@@ -49,7 +49,7 @@ jobs:
           name: web-dist
           path: apps/web/dist
           if-no-files-found: error
-          retention-days: ${{ github.event_name == 'push' && 30 || 7 }}
+          retention-days: 7
 
   public-pages:
     name: Public browser flows
