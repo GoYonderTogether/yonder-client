@@ -1,5 +1,4 @@
 import { Pause, Play, Square } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { MeetingRecorderController } from "./types.ts";
 import "./meeting-recorder.css";
@@ -13,24 +12,16 @@ export function recordingDuration(ms: number): string {
 
 const DOTS = [0, 1, 2, 3, 4, 5];
 
-export function MeetingRecorderCapsule({
-	recorder,
-	notice,
-}: {
-	recorder: MeetingRecorderController;
-	notice: { message: string; startedAt: number } | null;
-}) {
+export function MeetingRecorderCapsule({ recorder }: { recorder: MeetingRecorderController }) {
 	const { t } = useTranslation();
 	const { activeId, audioLevel, paused, pauseSupported, recordings } = recorder.state;
 	const active = recordings.find((item) => item.id === activeId);
-	const error = notice?.message ?? (recorder.error ? t(`meetingRecorder.errors.${recorder.error}`) : null);
 	const { pause, resume } = recorder;
-	if (!active && !error && !recorder.busy) return null;
+	if (!active && !recorder.busy) return null;
 	const PauseResume = paused ? Play : Pause;
 	const canPause = active && pauseSupported && pause && resume;
 	return (
 		<div className="meeting-capsule-stack">
-			{error ? <MeetingNotice key={notice?.startedAt ?? recorder.error} message={error} /> : null}
 			{active ? (
 				<section
 					className="meeting-capsule"
@@ -88,17 +79,4 @@ export function MeetingRecorderCapsule({
 			) : null}
 		</div>
 	);
-}
-
-function MeetingNotice({ message }: { message: string }) {
-	const [visible, setVisible] = useState(true);
-	useEffect(() => {
-		const timeout = setTimeout(() => setVisible(false), 5000);
-		return () => clearTimeout(timeout);
-	}, []);
-	return visible ? (
-		<p className="meeting-capsule-notice" role="alert">
-			{message}
-		</p>
-	) : null;
 }

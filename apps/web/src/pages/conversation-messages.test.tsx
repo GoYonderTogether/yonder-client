@@ -306,12 +306,23 @@ test("grouping preserves streaming placeholders, pending and failure actions on 
 				status: "failed",
 			},
 		}),
+		message("event-run", "alice", {
+			run: {
+				id: "event-run",
+				conversationId: conversation.id,
+				messageId: "event-run",
+				userMessageId: "event",
+				status: "failed",
+				canRetry: false,
+			},
+		}),
 	];
 	const { container, getAllByRole, getByText } = render(view(items, { onResend, onRetry }));
 	expect(container.querySelector('[data-message-id="stream"] .message-bubble [role="status"]')?.textContent).toBe(
 		"回复中…",
 	);
 	expect(getByText("发送中…")).toBeTruthy();
+	expect(container.querySelector('[data-message-id="event-run"] [role="alert"]')?.textContent).toBeTruthy();
 	for (const button of getAllByRole("button", { name: "重试" })) fireEvent.click(button);
 	expect(onResend).toHaveBeenCalledExactlyOnceWith(failed);
 	expect(onRetry).toHaveBeenCalledExactlyOnceWith("original");

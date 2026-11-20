@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import type { MeetingRecorderState } from "@yonder/feature-meetings";
+import { createI18n } from "@yonder/ui-i18n";
+import type { ReactNode } from "react";
+import { I18nextProvider } from "react-i18next";
 import { afterEach, expect, test, vi } from "vitest";
+import { AppNoticeProvider } from "./app-notice.tsx";
+import { useFrameMeeting } from "./use-frame-meeting.ts";
 import { useMeetingRecorder } from "./use-meeting-recorder.ts";
 
 const { invoke, supported } = vi.hoisted(() => ({ invoke: vi.fn(), supported: { value: true } }));
@@ -10,6 +15,7 @@ vi.mock("../lib/meeting-recorder.ts", async (original) => ({
 	invokeMeetingRecorder: invoke,
 	meetingRecorderSupported: () => supported.value,
 }));
+vi.mock("./use-meeting-upload.ts", () => ({ useMeetingUpload: () => {} }));
 afterEach(() => {
 	vi.clearAllMocks();
 	supported.value = true;
@@ -113,7 +119,8 @@ test("browser fallback does not request microphone or invoke a native command", 
 
 test("mobile permission and notification errors become actionable messages without raw paths", async () => {
 	invoke.mockResolvedValue(saved);
-	const { result } = renderHook(() => useMeetingRecorder("person"));
+	const onActionError = vi.fn();
+	const { result } = renderHook(() => useMeetingRecorder("person", onActionError));
 	await waitFor(() => expect(result.current.ready).toBe(true));
 	for (const [native, expected] of [
 		["microphone_denied", "permission_denied"],
@@ -125,6 +132,38 @@ test("mobile permission and notification errors become actionable messages witho
 	] as const) {
 		invoke.mockRejectedValueOnce(`${native}: /private/internal/path`);
 		await act(async () => result.current.start("Meeting"));
-		expect(result.current.error).toBe(expected);
+		expect(onActionError).toHaveBeenLastCalledWith(expected);
+	}
+});
+
+test("only an observed interruption of the active recording is announced", async () => {
+	vi.useFakeTimers();
+	invoke.mockResolvedValue(saved);
+	const i18n = createI18n("en");
+	const { unmount } = renderHook(() => useFrameMeeting("person"), {
+		wrapper: ({ children }: { children: ReactNode }) => (
+			<I18nextProvider i18n={i18n}>
+				<AppNoticeProvider scope="person">{children}</AppNoticeProvider>
+			</I18nextProvider>
+		),
+	});
+	try {
+		await act(async () => {});
+		const status = screen.getByRole("status");
+		expect(status.textContent).toBe("");
+		invoke.mockResolvedValue({
+			...saved,
+			activeId: "saved",
+			recordings: saved.recordings.map((recording) => ({ ...recording, state: "recording" })),
+		});
+		await act(async () => vi.advanceTimersByTimeAsync(1000));
+		invoke.mockResolvedValue(saved);
+		await act(async () => vi.advanceTimersByTimeAsync(100));
+		expect(status.textContent).toBe(i18n.t("meetingRecorder.interrupted"));
+		await act(async () => vi.advanceTimersByTimeAsync(5500));
+		expect(status.textContent).toBe("");
+	} finally {
+		unmount();
+		vi.useRealTimers();
 	}
 });

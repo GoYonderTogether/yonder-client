@@ -35,6 +35,7 @@ import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { BotTabAvatar } from "../pages/unread-badge.tsx";
 import { UpdateReadyButton } from "../updates/ready-button.tsx";
+import { useReconnectNotice } from "./app-notice.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
@@ -417,10 +418,10 @@ export function AppFrame() {
 	) : (
 		composer
 	);
+	const chatVisible = !meOpen && dock === composer && Boolean(chat.target || taskSelection === "new");
+	useReconnectNotice(disconnected, chatVisible, person?.id);
 	const meetingStatus =
-		meeting.active || meeting.recorder.busy || meeting.recorder.error || meeting.notice ? (
-			<MeetingRecorderCapsule recorder={meeting.recorder} notice={meeting.notice} />
-		) : null;
+		meeting.active || meeting.recorder.busy ? <MeetingRecorderCapsule recorder={meeting.recorder} /> : null;
 
 	return (
 		<SidePanelProvider value={layers.controls}>

@@ -3,7 +3,9 @@ import {
 	useData,
 	useDeviceRegistration,
 	useLocalePreference,
+	useMe,
 	useRealtimeSync,
+	useSessionStore,
 	useTheme,
 } from "@yonder/ui-data";
 import type { Locale } from "@yonder/ui-i18n";
@@ -26,6 +28,8 @@ import { LocalFilesRuntime } from "../lib/local-files-runtime.tsx";
 import { resetMeetingRecorder } from "../lib/meeting-recorder.ts";
 import { isNativeMobileNotifications } from "../lib/native-notifications.ts";
 import { UpdateProvider } from "../updates/provider.tsx";
+import { AppNoticeProvider } from "./app-notice.tsx";
+import { ConnectorContinuationNotices } from "./connector-continuation-notices.tsx";
 import { NativePushRegistration } from "./native-push-registration.tsx";
 import { AppRouter } from "./router.tsx";
 
@@ -75,6 +79,8 @@ export function App() {
  */
 function Localised() {
 	const { client, storage } = useData();
+	const signedIn = useSessionStore((state) => state.status === "signed-in");
+	const personId = useMe({ enabled: signedIn }).data?.member.id;
 	const device = useDeviceInfo(storage, BUILD_VERSION);
 	const registration = useDeviceRegistration(isContactWindow() ? null : device);
 	const { locale } = useLocalePreference();
@@ -100,11 +106,14 @@ function Localised() {
 
 	return (
 		<I18nextProvider i18n={i18n}>
-			{registration.isSuccess && isNativeMobileNotifications() ? <NativePushRegistration /> : null}
-			{localFilesSupported() ? <LocalFilesRuntime /> : null}
-			<UpdateProvider>
-				<AppRouter />
-			</UpdateProvider>
+			<AppNoticeProvider scope={signedIn ? personId : undefined}>
+				{signedIn && personId && !isContactWindow() ? <ConnectorContinuationNotices key={personId} /> : null}
+				{registration.isSuccess && isNativeMobileNotifications() ? <NativePushRegistration /> : null}
+				{localFilesSupported() ? <LocalFilesRuntime /> : null}
+				<UpdateProvider>
+					<AppRouter />
+				</UpdateProvider>
+			</AppNoticeProvider>
 		</I18nextProvider>
 	);
 }

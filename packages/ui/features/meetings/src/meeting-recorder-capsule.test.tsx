@@ -33,7 +33,6 @@ test("the recording capsule shows active controls only and keeps time while paus
 		},
 		ready: true,
 		busy: false,
-		error: null,
 		start: vi.fn(),
 		stop: vi.fn(),
 		pause: vi.fn(),
@@ -43,7 +42,7 @@ test("the recording capsule shows active controls only and keeps time while paus
 	};
 	const capsule = () => (
 		<I18nextProvider i18n={createI18n("en")}>
-			<MeetingRecorderCapsule recorder={recorder} notice={null} />
+			<MeetingRecorderCapsule recorder={recorder} />
 		</I18nextProvider>
 	);
 	const view = render(capsule());

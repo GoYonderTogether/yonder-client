@@ -120,14 +120,14 @@ test("desktop Enter sends, while Shift, composition and mobile Enter do not", ()
 			<Composer {...props} sendOnEnter streaming disconnected />
 		</I18nextProvider>,
 	);
-	expect(screen.getByRole("status")).toHaveTextContent("response status is unknown");
+	expect(screen.queryByRole("status")).not.toBeInTheDocument();
 	expect(screen.getByRole("button", { name: "Stop generating" })).toBeDisabled();
 	view.rerender(
 		<I18nextProvider i18n={createI18n("en")}>
 			<Composer {...props} sendOnEnter disconnected disabled />
 		</I18nextProvider>,
 	);
-	expect(screen.getByRole("status")).toHaveTextContent("Connection lost. Reconnecting.");
+	expect(screen.queryByRole("status")).not.toBeInTheDocument();
 	expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
 });
 

@@ -45,12 +45,14 @@ function errorCode(error: unknown): string {
 }
 
 /** Unmounting a view never stops capture. */
-export function useMeetingRecorder(ownerId: string | null): MeetingRecorderController {
+export function useMeetingRecorder(
+	ownerId: string | null,
+	onActionError?: (code: string) => void,
+): MeetingRecorderController {
 	const [state, setState] = useState<MeetingRecorderState>(EMPTY_RECORDER);
 	const [stateOwner, setStateOwner] = useState(ownerId);
 	const [ready, setReady] = useState(false);
 	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 	const owner = useRef(ownerId);
 	const actionVersion = useRef(0);
 	owner.current = ownerId;
@@ -62,10 +64,9 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 			if (owner.current !== ownerId) return;
 			setState(next);
 			setStateOwner(ownerId);
-			setError(null);
 			setReady(true);
-		} catch (cause) {
-			if (owner.current === ownerId) setError(errorCode(cause));
+		} catch {
+			// The recorder observer will check again.
 		}
 	}, [ownerId, supported]);
 	useEffect(() => {
@@ -73,7 +74,6 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 		setStateOwner(ownerId);
 		setReady(!supported);
 		setBusy(false);
-		setError(null);
 		if (!supported || !ownerId) return;
 		let disposed = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
@@ -93,11 +93,9 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 				setState(next);
 				setStateOwner(ownerId);
 				setReady(true);
-				if (first) setError(null);
-			} catch (cause) {
+			} catch {
 				if (disposed) return;
 				setReady(true);
-				setError(errorCode(cause));
 			}
 			if (!disposed) timer = setTimeout(() => void observe(false), recording ? 100 : 1000);
 		}
@@ -111,13 +109,12 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 		if (!supported || !ownerId || busy) return;
 		actionVersion.current++;
 		setBusy(true);
-		setError(null);
 		try {
 			const next = recorderState(await invokeMeetingRecorder<unknown>(command, { ownerId, ...args }));
 			actionVersion.current++;
 			if (owner.current === ownerId) setState(next);
 		} catch (cause) {
-			if (owner.current === ownerId) setError(errorCode(cause));
+			if (owner.current === ownerId) onActionError?.(errorCode(cause));
 		} finally {
 			if (owner.current === ownerId) setBusy(false);
 		}
@@ -126,7 +123,6 @@ export function useMeetingRecorder(ownerId: string | null): MeetingRecorderContr
 		state: stateOwner === ownerId ? state : EMPTY_RECORDER,
 		ready: stateOwner === ownerId && ready,
 		busy: stateOwner === ownerId && busy,
-		error: stateOwner === ownerId ? error : null,
 		start: (title, conversationId, separateSpeakers) =>
 			action("start", {
 				title,

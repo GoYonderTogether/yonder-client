@@ -288,7 +288,7 @@ export const zhCN: Messages = {
 		stopSend: "取消发送",
 		streaming: "回复中…",
 		reconnecting: "连接已断开，正在重连。",
-		reconnectingReply: "连接已断开，正在重连。回复状态待确认。",
+		reconnectingReply: "回复状态待确认。",
 		sending: "发送中…",
 		sendFailed: "消息没有发出",
 		runFailed: "回复失败",
@@ -474,6 +474,7 @@ export const zhCN: Messages = {
 		memory_user_edited: "这份文件你改过，只能在后面追加。",
 		device_required: "请选择在哪台设备上授权。",
 		device_offline: "现在没有在线的设备可以完成授权。",
+		request_changed: "卡片内容有变，请重新确认。",
 	},
 
 	notFound: {

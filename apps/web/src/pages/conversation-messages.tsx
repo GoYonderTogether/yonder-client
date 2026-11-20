@@ -313,7 +313,7 @@ function MessageEntry({
 			{message.run?.status === "failed" ? (
 				<div role="alert" className="flex items-center gap-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
 					{t(runFailureKey(message.run.failureReason))}{" "}
-					{!message.outwardDraft ? (
+					{!message.outwardDraft && message.run.canRetry !== false ? (
 						<Button
 							variant="link"
 							size="sm"

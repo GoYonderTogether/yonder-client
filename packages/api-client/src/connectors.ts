@@ -1,6 +1,7 @@
 import type {
 	ConnectorCatalogResponse,
 	ConnectorCommandResult,
+	ConnectorId,
 	ConnectorInstance,
 	ConnectorListResponse,
 	ConnectorRequestDevicesResponse,
@@ -16,16 +17,25 @@ export function connectorEndpoints(client: ApiClient) {
 		connectorRequest(id: string): Promise<ConnectorRequestView> {
 			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}`);
 		},
-		/** Any signed-in session may allow it; without a device the server picks one or answers 409. */
-		confirmConnectorRequest(id: string, body: { deviceId?: string } = {}): Promise<ConnectorRequestView> {
+		/**
+		 * Any signed-in session may allow it; without a device the server picks one or answers 409.
+		 * `connectorIds` is what the user saw on the card: the server refuses a card that changed.
+		 */
+		confirmConnectorRequest(
+			id: string,
+			body: { deviceId?: string; connectorIds?: ConnectorId[] } = {},
+		): Promise<ConnectorRequestView> {
 			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/confirm`, { body });
 		},
 		cancelConnectorRequest(id: string): Promise<ConnectorRequestView> {
 			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/cancel`, { body: {} });
 		},
+		continueConnectorRequest(id: string): Promise<ConnectorRequestView> {
+			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/continue`, { method: "POST" });
+		},
 		/** The target device's session reports a failed local grant; other sessions get 403. */
-		failConnectorRequest(id: string, error: string): Promise<ConnectorRequestView> {
-			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/fail`, { body: { error } });
+		failConnectorRequest(id: string, error: string, dispatchSeq?: number): Promise<ConnectorRequestView> {
+			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/fail`, { body: { error, dispatchSeq } });
 		},
 		connectorRequestDevices(id: string): Promise<ConnectorRequestDevicesResponse> {
 			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/devices`);

@@ -90,7 +90,7 @@ describe("applyServerEvent", () => {
 		for (const key of unrelated) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
 		queryClient.clear();
 	});
-	test("a connector request update replaces the card in every endpoint's cache without a request", () => {
+	test("a connector request update wins over an older in-flight card query", async () => {
 		const queryClient = new QueryClient();
 		const request: ConnectorRequestView = {
 			id: "request",
@@ -102,18 +102,27 @@ describe("applyServerEvent", () => {
 			connectionIds: [],
 			failure: null,
 		};
-		queryClient.setQueryData(keys.connectorRequest("request"), request);
+		const queryKey = keys.connectorRequest(request.id);
+		queryClient.setQueryData(queryKey, request);
+		let finishOldFetch: () => void = () => {};
+		const oldView = new Promise<ConnectorRequestView>((resolve) => {
+			finishOldFetch = () => resolve(request);
+		});
+		const fetch = queryClient.fetchQuery({ queryKey, queryFn: () => oldView });
 		applyServerEvent(queryClient, {
 			type: "connector_request.updated",
 			eventId: "cr-1",
 			at: "2026-11-20T00:00:00Z",
-			request: { ...request, connectorIds: ["local-files"], state: "granted", deviceId: "dev_a", deviceName: "Mac" },
+			request: { ...request, state: "granted", continuation: "started", deviceId: "dev_a", deviceName: "Mac" },
 		});
-		expect(queryClient.getQueryData(keys.connectorRequest("request"))).toMatchObject({
+		finishOldFetch();
+		await fetch;
+		expect(queryClient.getQueryData(queryKey)).toMatchObject({
 			state: "granted",
+			continuation: "started",
 			deviceName: "Mac",
 		});
-		expect(queryClient.getQueryState(keys.connectorRequest("request"))?.isInvalidated).toBe(false);
+		expect(queryClient.getQueryState(queryKey)).toMatchObject({ isInvalidated: false, fetchStatus: "idle" });
 	});
 	test("device changes and reconnects reconcile the device list and linked login sessions", () => {
 		const queryClient = new QueryClient();

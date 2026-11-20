@@ -123,6 +123,8 @@ export interface Run {
 	userMessageId: string;
 	status: "queued" | "running" | "completed" | "failed" | "cancelled";
 	failureReason?: string | null;
+	/** Some event-triggered turns have no user message to retry. */
+	canRetry?: false;
 	activity?: { label: string; sources?: { title: string; url: string; site?: string | null }[] }[];
 }
 

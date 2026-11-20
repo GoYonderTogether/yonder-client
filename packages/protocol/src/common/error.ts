@@ -53,6 +53,8 @@ export const ERROR_CODES = [
 	"device_required",
 	/** No online device can carry out the connector grant right now. */
 	"device_offline",
+	/** The card's connector set changed since the caller read it; show the latest view, do not send. */
+	"request_changed",
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

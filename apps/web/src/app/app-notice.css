@@ -1,0 +1,74 @@
+.app-notice-viewport {
+	position: fixed;
+	inset-block-start: calc(
+		var(--safe-area-top, env(safe-area-inset-top, 0px)) +
+		var(--titlebar-height) +
+		var(--spacing-2) +
+		var(--app-notice-bot-title, 0px) +
+		var(--app-notice-bot-status, 0px)
+	);
+	inset-inline-start: max(var(--spacing-3), var(--safe-area-left, env(safe-area-inset-left, 0px)));
+	inset-inline-end: max(var(--spacing-3), var(--safe-area-right, env(safe-area-inset-right, 0px)));
+	z-index: var(--z-toast);
+	display: grid;
+	justify-items: center;
+}
+
+/* The Bot heading adds an avatar and name below a regular top bar. Its floating variant
+   puts the avatar alongside the navigation controls, already covered by the title-bar inset. */
+:root:has([data-page-layer="detail"]:not([inert]) [data-chat-agent-title]) {
+	--app-notice-bot-title: calc(var(--control-lg) + var(--text-body--line-height) + var(--spacing-3));
+}
+
+:root:has([data-page-layer="detail"]:not([inert]) [data-floating-frame-header] [data-chat-agent-title]) {
+	--app-notice-bot-title: calc(var(--text-body--line-height) + var(--spacing-3));
+}
+
+:root:has([data-page-layer="detail"]:not([inert]) [data-chat-agent-title] > [role="status"]) {
+	--app-notice-bot-status: calc(2 * var(--text-caption--line-height) + var(--spacing-1));
+}
+
+.app-notice-viewport,
+.app-notice-viewport * {
+	pointer-events: none;
+}
+
+.app-notice {
+	display: flex;
+	align-items: start;
+	gap: var(--spacing-2);
+	min-inline-size: 0;
+	max-inline-size: min(100%, var(--width-form));
+	padding: var(--spacing-2) var(--spacing-3);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-control);
+	background: var(--color-bg-raised);
+	box-shadow: var(--shadow-md);
+	color: var(--color-text-primary);
+	font-size: var(--text-body);
+	line-height: var(--text-body--line-height);
+	overflow-wrap: anywhere;
+	animation: app-notice-enter var(--duration-base) var(--ease-decelerate) both;
+}
+
+.app-notice-icon {
+	flex: none;
+	inline-size: var(--icon-sm);
+	block-size: var(--text-body--line-height);
+	color: var(--color-text-secondary);
+}
+
+.app-notice[data-tone="warning"] .app-notice-icon {
+	color: var(--color-warning);
+}
+
+.app-notice[data-tone="error"] .app-notice-icon {
+	color: var(--color-danger);
+}
+
+@keyframes app-notice-enter {
+	from {
+		opacity: 0;
+		transform: translateY(calc(-1 * var(--spacing-1)));
+	}
+}

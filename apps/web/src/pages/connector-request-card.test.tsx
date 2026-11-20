@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
 	devicesError: false,
 	confirm: vi.fn(),
 	cancel: vi.fn(),
+	resume: vi.fn(),
 	refetch: vi.fn(),
 }));
 vi.mock("@yonder/ui-data", async (original) => {
@@ -23,6 +24,7 @@ vi.mock("@yonder/ui-data", async (original) => {
 		useConnectorRequestActions: () => ({
 			confirm: { mutate: state.confirm, isPending: false, error: null, variables: undefined },
 			cancel: { mutate: state.cancel, isPending: false, error: null },
+			resume: { mutate: state.resume, isPending: false, error: null },
 		}),
 	};
 });
@@ -74,7 +76,7 @@ test("shows the connectors, the Bot's reason and the capability line, never the 
 test("allowing is the consent and does not wait for the Bot or navigate anywhere", () => {
 	show();
 	fireEvent.click(screen.getByRole("button", { name: "Allow" }));
-	expect(state.confirm).toHaveBeenCalledWith({ id: "request" }, expect.anything());
+	expect(state.confirm).toHaveBeenCalledWith({ id: "request", connectorIds: ["local-files"] }, expect.anything());
 });
 
 test("a device_required answer lists the usable devices once so the user picks one", () => {
@@ -94,7 +96,10 @@ test("a device_required answer lists the usable devices once so the user picks o
 	expect(screen.getByText("Choose a device")).toBeVisible();
 	expect(screen.queryByRole("button", { name: "Old laptop" })).toBeNull();
 	fireEvent.click(screen.getByRole("button", { name: "Studio PC" }));
-	expect(state.confirm).toHaveBeenLastCalledWith({ id: "request", deviceId: "dev_win" }, expect.anything());
+	expect(state.confirm).toHaveBeenLastCalledWith(
+		{ id: "request", connectorIds: ["local-files"], deviceId: "dev_win" },
+		expect.anything(),
+	);
 });
 
 test("a device_offline answer keeps the card pending and says the device is offline", () => {
@@ -125,19 +130,73 @@ test("a granted request is final and offers no further action", () => {
 	expect(screen.queryByRole("button")).toBeNull();
 });
 
-test("expired offers a retry on the device the request already named", () => {
+test("continuation starts silently and retries the original task without reenabling device access", () => {
+	const locale = createI18n("en");
+	const card = () => (
+		<I18nextProvider i18n={locale}>
+			<ConnectorRequestCard id="request" />
+		</I18nextProvider>
+	);
+	state.request = view({ state: "granted", continuation: "pending" });
+	const { rerender } = render(card());
+	expect(screen.getByText("Device authorized. Resuming the task…")).toBeVisible();
+	expect(screen.queryByRole("button")).toBeNull();
+	expect(screen.queryByRole("alert")).toBeNull();
+
+	state.request = view({ state: "granted", continuation: "failed" });
+	rerender(card());
+	expect(screen.getByText("Device authorized. The task has not resumed.")).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "Continue task" }));
+	expect(state.resume).toHaveBeenCalledExactlyOnceWith("request");
+	expect(state.confirm).not.toHaveBeenCalled();
+
+	state.request = view({ state: "granted", continuation: "started" });
+	rerender(card());
+	expect(screen.getByText("Device authorized. Task submitted.")).toBeVisible();
+	expect(screen.queryByRole("button")).toBeNull();
+});
+
+test.each([
+	["grant_changed", "Device permissions changed. The task did not resume."],
+	["target_unavailable", "The original conversation is unavailable. The task did not resume."],
+] as const)("shows why the task can no longer continue after %s", (continuationFailure, label) => {
+	state.request = view({ state: "granted", continuation: "failed", continuationFailure });
+	show();
+	expect(screen.getByText(label)).toBeVisible();
+	expect(screen.queryByRole("button")).toBeNull();
+});
+
+test("expired retries through confirm with the connectors the card shows, free to pick another device", () => {
 	state.request = view({ state: "expired", deviceId: "dev_mac", deviceName: "MacBook Pro" });
 	show();
 	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-	expect(state.confirm).toHaveBeenCalledWith({ id: "request", deviceId: "dev_mac" }, expect.anything());
+	// No device: the server starts a new dispatch and may pick a different one.
+	expect(state.confirm).toHaveBeenCalledWith({ id: "request", connectorIds: ["local-files"] }, expect.anything());
 });
 
-test("failed shows the real reason and retries", () => {
-	state.request = view({ state: "failed", failure: "permission_denied" });
+test("failed shows the real reason and retries with the connectors the card shows", () => {
+	state.request = view({
+		state: "failed",
+		connectorIds: ["local-files", "computer-control"],
+		failure: "permission_denied",
+	});
 	show();
 	expect(screen.getByRole("alert")).toHaveTextContent("permission_denied");
 	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-	expect(state.confirm).toHaveBeenCalledWith({ id: "request" }, expect.anything());
+	expect(state.confirm).toHaveBeenCalledWith(
+		{ id: "request", connectorIds: ["local-files", "computer-control"] },
+		expect.anything(),
+	);
+});
+
+test("request_changed shows the card the server has now instead of a stale allow button", () => {
+	state.confirm.mockImplementation((_body, options) => {
+		options?.onError(new ApiError({ code: "request_changed", status: 409, message: "request_changed" }));
+	});
+	show();
+	expect(screen.queryByText(/create, edit and recoverably delete files across the selected device/)).toBeNull();
+	fireEvent.click(screen.getByRole("button", { name: "Allow" }));
+	expect(state.refetch).toHaveBeenCalled();
 });
 
 test("cancelled is final", () => {

@@ -29,7 +29,6 @@ export interface MeetingRecorderController {
 	state: MeetingRecorderState;
 	ready: boolean;
 	busy: boolean;
-	error: string | null;
 	start(title: string, conversationId?: string, separateSpeakers?: boolean): Promise<void>;
 	stop(recordingId: string): Promise<void>;
 	pause?(recordingId: string): Promise<void>;

@@ -1,6 +1,6 @@
 import type { ConnectorCommand, ConnectorCommandResult, ConnectorGrant, Conversation } from "@yonder/protocol";
 import { keys, useConnectors, useData, useDataQueryClient } from "@yonder/ui-data";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { invokeLocalFiles, onLocalFilesChanged, useLocalFilesContext } from "./local-files.ts";
 import { beginTrayConnectorWork } from "./tray-bridge.ts";
@@ -31,6 +31,11 @@ function grantError(error: unknown): string {
  * The main desktop webview provides local tools over its existing account socket. It also stores
  * the grants a `connector.grant.request` names: the user's tap on the card was the consent, so the
  * device writes its local grant library and reports readiness without a second Yonder dialog.
+ *
+ * The sockets, the writes and the readiness reports live as long as the account, device and session.
+ * The connection list is data they read, never part of that lifetime: a `connectors.changed` refresh
+ * arrives while a grant is being written, and must neither restart the handlers nor stop the rest of
+ * that dispatch.
  */
 export function LocalFilesRuntime() {
 	const { t } = useTranslation();
@@ -40,46 +45,77 @@ export function LocalFilesRuntime() {
 	const activityLabel = useRef(t);
 	activityLabel.current = t;
 	const connectors = useConnectors({ enabled: context !== null });
-	const connectionIds = connectors.data?.items
-		.filter((connection) => connection.deviceId === context?.deviceId)
-		.map((connection) => `${connection.id}:${connection.revision}`)
-		.sort()
-		.join("\n");
+	// `null` means the list has not loaded yet, which is not the same as having no connections.
+	const connections = useMemo<{ id: string; revision: number }[] | null>(
+		() =>
+			connectors.data
+				? connectors.data.items
+						.filter((connection) => connection.deviceId === context?.deviceId)
+						.map((connection) => ({ id: connection.id, revision: connection.revision }))
+				: null,
+		[connectors.data, context?.deviceId],
+	);
+	const connectionsRef = useRef(connections);
+	connectionsRef.current = connections;
+	const listKey = connections
+		? connections
+				.map((connection) => `${connection.id}:${connection.revision}`)
+				.sort()
+				.join("\n")
+		: null;
+	/** Set by the effect below: answer a list that changed since the last one answered for. */
+	const syncListRef = useRef<((listed: { id: string; revision: number }[]) => void) | null>(null);
+	const answeredKey = useRef<string | null>(null);
 	useEffect(() => {
-		if (!context || connectionIds === undefined) return;
+		if (connections === null || listKey === null || listKey === answeredKey.current) return;
+		answeredKey.current = listKey;
+		syncListRef.current?.(connections);
+	}, [connections, listKey]);
+	useEffect(() => {
+		if (!context) return;
 		let active = true;
-		const connections = connectionIds
-			? connectionIds.split("\n").map((key) => {
-					const [id, revision] = key.split(":");
-					return { id: id as string, revision: Number(revision) };
-				})
-			: [];
-		const eligible = new Set(connections.map((c) => c.id));
-		// The connections list is what the server last told us; a grant stored just now is added here
-		// so readiness is reported without waiting for the list to refetch.
-		const known = new Map(connections.map((connection) => [connection.id, connection.revision]));
 		const pending = new Map<string, PendingCommand>();
+		// Grants this runtime stored that the server's list has not shown yet. The list arrives a moment
+		// later; a grant written now is reported ready without waiting for it.
+		const written = new Map<string, number>();
 		let trayConversations: Promise<{ items: Conversation[] }> | undefined;
-		const refreshReady = async () => {
+		const knownConnections = () =>
+			[
+				...new Map([...(connectionsRef.current ?? []).map((item) => [item.id, item.revision] as const), ...written]),
+			].map(([id, revision]) => ({ id, revision }));
+		const eligible = (connectionId: string) =>
+			written.has(connectionId) || (connectionsRef.current ?? []).some((item) => item.id === connectionId);
+		const failRequest = (requestId: string, error: string, dispatchSeq?: number) =>
+			api.failConnectorRequest(requestId, error, dispatchSeq).catch(() => {});
+		/**
+		 * Tell the server which connections this device can serve. A failure is reported twice: an
+		 * empty list, because nothing can be vouched for, and a failure receipt for the request that
+		 * asked, carrying the real code, so the card does not wait for a grant that will never arrive.
+		 */
+		const refreshReady = async (requestId?: string, dispatchSeq?: number) => {
 			if (!active || realtime.status !== "open") return;
+			// Before the list has loaded nothing can be vouched for; an empty answer would mark this
+			// device's existing connections offline. Grants written by this runtime are known already.
+			if (connectionsRef.current === null && written.size === 0) return;
 			try {
 				await invokeLocalFiles("local_files_activate", { context });
 				if (!active) return;
 				const ready = await invokeLocalFiles<{ id: string; revision: number }[]>("local_files_ready", {
 					context,
-					connections: [...known].map(([id, revision]) => ({ id, revision })),
+					connections: knownConnections(),
 				});
 				if (active) realtime.send({ type: "connector.ready", connections: ready });
-			} catch {
-				if (active) realtime.send({ type: "connector.ready", connections: [] });
+			} catch (error) {
+				if (!active) return;
+				realtime.send({ type: "connector.ready", connections: [] });
+				if (requestId) void failRequest(requestId, grantError(error), dispatchSeq);
 			}
 		};
 		/**
-		 * Store each grant the server dispatched here, then report readiness once, as before. One
-		 * failed grant fails the whole request with its real code: a partly stored set must not look
-		 * ready to the Bot.
+		 * Store each grant the server dispatched here, then report readiness once. One failed grant
+		 * fails the whole request with its real code: a partly stored set must not look ready to the Bot.
 		 */
-		const grant = async (requestId: string, grants: ConnectorGrant[]) => {
+		const grant = async (requestId: string, grants: ConnectorGrant[], dispatchSeq?: number) => {
 			if (!active) return;
 			try {
 				await invokeLocalFiles("local_files_activate", { context });
@@ -95,13 +131,13 @@ export function LocalFilesRuntime() {
 							revision: item.revision,
 						},
 					});
-					known.set(item.connectionId, item.revision);
+					written.set(item.connectionId, item.revision);
 				}
-				await refreshReady();
 			} catch (error) {
-				if (!active) return;
-				await api.failConnectorRequest(requestId, grantError(error)).catch(() => {});
+				if (active) await failRequest(requestId, grantError(error), dispatchSeq);
+				return;
 			}
+			await refreshReady(requestId, dispatchSeq);
 		};
 		const execute = async (command: ConnectorCommand) => {
 			if (!active || pending.has(command.id)) return;
@@ -110,7 +146,7 @@ export function LocalFilesRuntime() {
 			try {
 				let result: ConnectorCommandResult;
 				const expiresAtMs = Date.parse(command.expiresAt);
-				if (!eligible.has(command.connectionId) || command.deviceId !== context.deviceId)
+				if (!eligible(command.connectionId) || command.deviceId !== context.deviceId)
 					result = { ok: false, error: "permission_denied" };
 				else if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) result = { ok: false, error: "cancelled" };
 				else {
@@ -174,7 +210,7 @@ export function LocalFilesRuntime() {
 		};
 		const stopEvents = realtime.subscribeEvents((event) => {
 			if (event.type === "connector.command") void execute(event.command);
-			else if (event.type === "connector.grant.request") void grant(event.requestId, event.grants);
+			else if (event.type === "connector.grant.request") void grant(event.requestId, event.grants, event.dispatchSeq);
 			else if (event.type === "connector.command.cancelled") {
 				const state = pending.get(event.commandId);
 				if (state) {
@@ -191,9 +227,21 @@ export function LocalFilesRuntime() {
 			void refreshReady();
 		});
 		const stopGrants = onLocalFilesChanged(() => void refreshReady());
+		// A list that changed since the last one answered for: drop written grants it no longer names (a
+		// cancel or a rollback), then report again so the server sees what this device now serves.
+		syncListRef.current = (listed) => {
+			// The server's list is authoritative once it arrives: a written grant it no longer names was
+			// cancelled or rolled back, and one it names with another revision was replaced.
+			const current = new Map(listed.map((connection) => [connection.id, connection.revision]));
+			for (const [id, revision] of [...written]) {
+				if (current.get(id) !== revision) written.delete(id);
+			}
+			void refreshReady();
+		};
 		void refreshReady();
 		return () => {
 			active = false;
+			syncListRef.current = null;
 			for (const [id, state] of pending) {
 				state.cancelled = true;
 				state.tray?.finish();
@@ -204,6 +252,6 @@ export function LocalFilesRuntime() {
 			stopGrants();
 			realtime.send({ type: "connector.ready", connections: [] });
 		};
-	}, [api, context, realtime, connectionIds, query]);
+	}, [api, context, realtime, query]);
 	return null;
 }

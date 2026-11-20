@@ -75,6 +75,3 @@
 	box-shadow: var(--shadow-sm);
 	font-size: var(--text-caption);
 }
-.meeting-capsule-notice[role="alert"] {
-	color: var(--color-danger);
-}

@@ -286,7 +286,7 @@ export const en = {
 		stopSend: "Cancel sending",
 		streaming: "Responding…",
 		reconnecting: "Connection lost. Reconnecting.",
-		reconnectingReply: "Connection lost. Reconnecting; response status is unknown.",
+		reconnectingReply: "Response status is unknown.",
 		sending: "Sending…",
 		sendFailed: "Message not sent",
 		runFailed: "The response failed",
@@ -480,6 +480,7 @@ export const en = {
 		memory_user_edited: "You edited this file, so it can only be added to.",
 		device_required: "Choose which device to allow this on.",
 		device_offline: "No online device can carry this out right now.",
+		request_changed: "This request changed. Please confirm it again.",
 	},
 
 	notFound: {

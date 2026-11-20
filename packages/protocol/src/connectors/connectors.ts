@@ -45,10 +45,18 @@ export interface ConnectorRequestView {
 	state: ConnectorRequestState;
 	deviceId: string | null;
 	deviceName: string | null;
+	/** The device the Bot asked for, as the picker's default; never the target until the user allows. */
+	deviceHintId?: string | null;
 	/** Same order as `connectorIds`. */
 	connectionIds: string[];
 	/** The real reason when `state` is `failed`. */
 	failure: string | null;
+	/** Which dispatch this view describes: the server adds one each time the request is dispatched. */
+	dispatchSeq?: number;
+	/** A granted card's subsequent task; absent for historical cards or older servers. */
+	continuation?: "pending" | "started" | "failed";
+	/** A permanent continuation failure; keep the grant and show the reason in the card. */
+	continuationFailure?: "grant_changed" | "target_unavailable";
 }
 
 /** One grant a device session is asked to store; the device reports readiness through `connector.ready`. */

@@ -188,9 +188,11 @@ export function renderMessageBlock(
 							{message.run?.status === "failed" ? (
 								<View className="mini-chat-run-error">
 									<Text className="mini-error">{runFailureText(message.run.failureReason)}</Text>
-									<Button secondary onClick={() => void chat.action(message)}>
-										{t("重试", "Retry")}
-									</Button>
+									{message.run.canRetry !== false ? (
+										<Button secondary onClick={() => void chat.action(message)}>
+											{t("重试", "Retry")}
+										</Button>
+									) : null}
 								</View>
 							) : null}
 						</View>

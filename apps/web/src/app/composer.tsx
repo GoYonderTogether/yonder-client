@@ -184,11 +184,6 @@ export function Composer({
 					{t(visibleError)}
 				</p>
 			) : null}
-			{disconnected ? (
-				<p role="status" className="text-caption text-[var(--color-text-secondary)]">
-					{t(streaming ? "chat.reconnectingReply" : "chat.reconnecting")}
-				</p>
-			) : null}
 			<fieldset
 				aria-label={t("chat.attach")}
 				onDragEnter={(event) => {

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ConnectorRequestView } from "@yonder/protocol";
+import type { ConnectorId, ConnectorRequestView } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
@@ -22,16 +22,32 @@ export function useConnectorRequestDevices(id: string, enabled: boolean) {
 export function useConnectorRequestActions() {
 	const api = useApi();
 	const client = useQueryClient();
-	const write = (view: ConnectorRequestView) => client.setQueryData(keys.connectorRequest(view.id), view);
+	const actions = {
+		onMutate: (input: string | { id: string }) =>
+			client.getQueryData<ConnectorRequestView>(keys.connectorRequest(typeof input === "string" ? input : input.id)),
+		onSuccess: (view: ConnectorRequestView, _input: unknown, previous: ConnectorRequestView | undefined) => {
+			const filter = { queryKey: keys.connectorRequest(view.id), exact: true };
+			// A socket update or another request may have settled the card during this mutation.
+			if (client.getQueryData(filter.queryKey) !== previous) return client.invalidateQueries(filter);
+			void client.cancelQueries(filter);
+			client.setQueryData(filter.queryKey, view);
+		},
+	};
 	return {
 		confirm: useMutation({
-			mutationFn: ({ id, deviceId }: { id: string; deviceId?: string }) =>
-				api.confirmConnectorRequest(id, deviceId ? { deviceId } : {}),
-			onSuccess: write,
+			...actions,
+			/** `connectorIds` is what the card showed; the server refuses a card that changed since. */
+			mutationFn: ({ id, deviceId, connectorIds }: { id: string; deviceId?: string; connectorIds: ConnectorId[] }) =>
+				api.confirmConnectorRequest(id, { ...(deviceId ? { deviceId } : {}), connectorIds }),
 		}),
 		cancel: useMutation({
+			...actions,
 			mutationFn: (id: string) => api.cancelConnectorRequest(id),
-			onSuccess: write,
+		}),
+		resume: useMutation({
+			...actions,
+			mutationFn: (id: string) => api.continueConnectorRequest(id),
+			onError: (_error, id) => client.invalidateQueries({ queryKey: keys.connectorRequest(id), exact: true }),
 		}),
 	};
 }

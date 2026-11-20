@@ -49,7 +49,9 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 		}
 		case "connector_request.updated": {
 			// The payload is the whole view, so the card every endpoint is showing updates in place.
-			queryClient.setQueryData(keys.connectorRequest(event.request.id), event.request);
+			const queryKey = keys.connectorRequest(event.request.id);
+			void queryClient.cancelQueries({ queryKey, exact: true });
+			queryClient.setQueryData(queryKey, event.request);
 			break;
 		}
 		case "connectors.changed": {

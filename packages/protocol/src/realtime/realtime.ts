@@ -40,6 +40,7 @@ export type ServerEvent =
 			eventId: string;
 			at: string;
 			requestId: string;
+			dispatchSeq?: number;
 			grants: ConnectorGrant[];
 	  }
 	| { type: "devices.changed"; eventId: string; at: string }

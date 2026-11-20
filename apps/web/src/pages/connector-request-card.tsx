@@ -42,10 +42,15 @@ export function ConnectorRequestCard({ id }: { id: string }) {
 	const row = request.data;
 	const scopeKeys = [...new Set(row.connectorIds.map((connectorId) => SCOPE_KEYS[connectorId]))];
 	const selectable = (devices.data?.items ?? []).filter((device) => device.online && device.supported);
+	/**
+	 * Allow, and retry after an expiry or a failure: both are a `confirm` with the connectors this card
+	 * shows. Without a device the server picks one and may start a new dispatch on another device, so a
+	 * retry is not pinned to the device that just failed.
+	 */
 	function allow(deviceId?: string) {
 		setOffline(false);
 		actions.confirm.mutate(
-			{ id, ...(deviceId ? { deviceId } : {}) },
+			{ id, connectorIds: row.connectorIds, ...(deviceId ? { deviceId } : {}) },
 			{
 				onSuccess: () => setChoosing(false),
 				onError: (error) => {
@@ -55,11 +60,17 @@ export function ConnectorRequestCard({ id }: { id: string }) {
 						setOffline(true);
 						setChoosing(false);
 					}
+					// The card changed after it was shown (a connector was added): nothing was dispatched.
+					// Show what it says now so the next tap is consent to that.
+					if (error.code === "request_changed") void request.refetch();
 				},
 			},
 		);
 	}
 	const retry = row.state === "expired" || row.state === "failed";
+	const continuation = row.state === "granted" ? row.continuation : undefined;
+	const continuationLabel = continuation === "failed" ? (row.continuationFailure ?? continuation) : continuation;
+	const canResume = continuation === "failed" && !row.continuationFailure;
 	const failure = actions.confirm.error ?? actions.cancel.error;
 	// The device answer named none, or the server said the target is not online: same sentence, and
 	// the card stays pending so the user can try again once the client is open.
@@ -81,7 +92,11 @@ export function ConnectorRequestCard({ id }: { id: string }) {
 					{t(scopeKey)}
 				</p>
 			))}
-			<p className="text-caption text-[var(--color-text-secondary)]">{t(`connectors.requestState.${row.state}`)}</p>
+			<p className="text-caption text-[var(--color-text-secondary)]">
+				{continuationLabel
+					? t(`connectors.requestContinuation.${continuationLabel}`)
+					: t(`connectors.requestState.${row.state}`)}
+			</p>
 			{row.state === "failed" && row.failure ? <InlineError>{failureText(row.failure, t)}</InlineError> : null}
 			{choosing ? (
 				<div className="flex min-w-0 flex-col gap-[var(--spacing-2)]">
@@ -101,12 +116,7 @@ export function ConnectorRequestCard({ id }: { id: string }) {
 			) : null}
 			<div className="flex flex-wrap gap-[var(--spacing-2)]">
 				{(row.state === "pending" || retry) && !choosing ? (
-					<Button
-						variant="primary"
-						size="sm"
-						loading={actions.confirm.isPending}
-						onClick={() => allow(retry ? (row.deviceId ?? undefined) : undefined)}
-					>
+					<Button variant="primary" size="sm" loading={actions.confirm.isPending} onClick={() => allow()}>
 						{t(retry ? "connectors.requestRetry" : "connectors.requestAllow")}
 					</Button>
 				) : null}
@@ -115,8 +125,14 @@ export function ConnectorRequestCard({ id }: { id: string }) {
 						{t("app.cancel")}
 					</Button>
 				) : null}
+				{canResume ? (
+					<Button size="sm" loading={actions.resume.isPending} onClick={() => actions.resume.mutate(id)}>
+						{t("connectors.requestContinue")}
+					</Button>
+				) : null}
 			</div>
-			{failure && !noDevice && !choosing ? (
+			{canResume && actions.resume.error ? <InlineError>{t("connectors.requestContinueFailed")}</InlineError> : null}
+			{failure && row.state !== "granted" && !noDevice && !choosing ? (
 				<InlineError>
 					{failure instanceof ApiError ? t(`errors.${failure.code}`) : t("connectors.requestFailed")}
 				</InlineError>
