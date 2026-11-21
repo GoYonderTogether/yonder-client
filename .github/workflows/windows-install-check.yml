@@ -206,32 +206,60 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          # 先把窗口抬到前台，否则截到的是 runner 桌面而不是应用。
+          Add-Type -AssemblyName System.Drawing
           $signature = @'
-          [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-          [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+          [StructLayout(LayoutKind.Sequential)]
+          public struct RECT
+          {
+              public int Left;
+              public int Top;
+              public int Right;
+              public int Bottom;
+          }
+          [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+          [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdc, uint flags);
           '@
           $user32 = Add-Type -MemberDefinition $signature -Name Win32 -Namespace Shell -PassThru
           $process = Get-Process -Id $env:APP_PID -ErrorAction Stop
           $handle = $process.MainWindowHandle
-          if ($handle -ne [IntPtr]::Zero) {
-            $null = $user32::ShowWindow($handle, 5)
-            $null = $user32::SetForegroundWindow($handle)
-            Start-Sleep -Seconds 2
-          } else {
-            Write-Warning '进程没有主窗口句柄，截到的可能是整个桌面'
+          if ($handle -eq [IntPtr]::Zero) {
+            throw "进程 $env:APP_PID 没有主窗口句柄"
           }
-          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
-          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-          $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          $out = Join-Path $PWD "artifacts/yonder-$env:VERSION-windows.png"
-          $bitmap.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
-          $graphics.Dispose()
-          $bitmap.Dispose()
-          Write-Host "截图 $out（$((Get-Item $out).Length) 字节）"
+
+          $bounds = [Shell.Win32+RECT]::new()
+          if (-not ($user32::GetWindowRect($handle, [ref]$bounds))) {
+            throw "GetWindowRect 无法获取进程 $env:APP_PID 的主窗口尺寸"
+          }
+          $width = $bounds.Right - $bounds.Left
+          $height = $bounds.Bottom - $bounds.Top
+          if ($width -le 0 -or $height -le 0) {
+            throw "主窗口尺寸无效：${width}x${height}"
+          }
+
+          $bitmap = [System.Drawing.Bitmap]::new($width, $height)
+          try {
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            try {
+              $hdc = $graphics.GetHdc()
+              try {
+                $PW_RENDERFULLCONTENT = 2
+                if (-not ($user32::PrintWindow($handle, $hdc, $PW_RENDERFULLCONTENT))) {
+                  throw "PrintWindow 无法捕获进程 $env:APP_PID 的主窗口"
+                }
+              } finally {
+                $graphics.ReleaseHdc($hdc)
+              }
+            } finally {
+              $graphics.Dispose()
+            }
+
+            New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+            $out = Join-Path $PWD "artifacts/yonder-$env:VERSION-windows.png"
+            $bitmap.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
+          } finally {
+            $bitmap.Dispose()
+          }
+          Write-Host "截图 $out（${width}x${height}，$((Get-Item $out).Length) 字节）"
         env:
           APP_PID: ${{ steps.launch.outputs.pid }}
           VERSION: ${{ steps.download.outputs.version }}
