@@ -314,7 +314,6 @@ export const accountMessagesZhCN = {
 		setupProfileTitle: "Bot 该怎么称呼你？",
 		avatarFormats: "PNG · JPEG · WebP · ≤ 2 MB",
 		finish: "开始用 Yonder",
-		changeHandleHint: "你的 ID 是 {{handle}}。",
 		errors: {
 			invalidPhone: "这不像一个手机号。请带上国家代码。",
 			codeInvalid: "验证码不对。还能试 {{remaining}} 次。",
