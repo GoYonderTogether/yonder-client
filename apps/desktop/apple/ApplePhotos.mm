@@ -99,7 +99,9 @@ static void listPhotos(NSDictionary *args, void *context, YonderAppleReply reply
         for (NSMutableDictionary *photo in photos) {
             PHCloudIdentifier *cloud = mappings[photo[@"id"]].cloudIdentifier;
             NSString *key;
-            if (@available(macOS 15.2, iOS 18.2, *)) key = cloud.archivalStringValue;
+            // Read by name: the property exists from macOS 15.2 / iOS 18.2, but an older Xcode SDK
+            // (the macOS CI runner's 26.6) has no declaration for it and would fail to compile.
+            if (@available(macOS 15.2, iOS 18.2, *)) key = [cloud respondsToSelector:NSSelectorFromString(@"archivalStringValue")] ? [cloud valueForKey:@"archivalStringValue"] : nil;
             else {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"

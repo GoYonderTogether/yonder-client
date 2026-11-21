@@ -320,14 +320,24 @@ test("a macOS Tauri host keeps desktop navigation and clears the traffic lights 
 		Object.defineProperty(navigator, "userAgent", { value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" });
 		Object.defineProperty(window, "__TAURI_INTERNALS__", {
 			value: {
-				invoke: async (command: string) => (command.endsWith("get_password") ? "public-ui-test" : null),
+				// The Mac permission step is already done, so the app opens on its normal navigation.
+				invoke: async (command: string) =>
+					command.endsWith("get_password")
+						? "public-ui-test"
+						: command.endsWith("yonder-mac-permissions|permission_status")
+							? { accessibility: "granted", microphone: "granted" }
+							: command.endsWith("yonder-mac-permissions|login_item_status")
+								? "enabled"
+								: null,
 				transformCallback: () => 1,
 				unregisterCallback: () => undefined,
-				metadata: { currentWindow: { label: "main" } },
+				metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
 			},
 		});
 	});
 	await page.goto("/messages");
+	// A Mac signing in for the first time sees the permission step once; this test is about what follows it.
+	await page.getByRole("button", { name: "Continue to Yonder" }).click();
 	await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "compact");
 	await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
 	await expect(page.getByRole("button", { name: /Test Bot/ })).toBeVisible();

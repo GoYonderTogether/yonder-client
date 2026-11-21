@@ -268,7 +268,8 @@ test("empty mobile composer holds one line; a held recording sends one playable 
 	const text = "手机文字输入";
 	await input.fill(text);
 	await expect(send).toBeEnabled();
-	await expect(mic).toHaveCount(0);
+	// The left toggle stays while text is typed; only the right-hand button changes to Send.
+	await expect(mic).toBeVisible();
 	expect((await composer.boundingBox())?.height).toBeCloseTo(emptyHeight, 0);
 	await send.tap();
 	await expect.poll(() => wire.sent).toMatchObject([{ body: { body: text } }]);

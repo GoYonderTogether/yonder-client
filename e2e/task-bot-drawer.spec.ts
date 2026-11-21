@@ -25,7 +25,7 @@ test("the scheduled-task action opens the main Bot chat without leaving Goals", 
 	expect(box.height / viewport.height).toBeCloseTo(0.7, 2);
 	expect(box.y + box.height).toBeCloseTo(viewport.height, 0);
 	await page.screenshot({ path: info.outputPath("scheduled-task-drawer.png"), animations: "disabled" });
-	await expect(drawer.getByRole("button", { name: "语音输入" })).toHaveCount(0);
+	await expect(drawer.getByRole("button", { name: "语音输入" })).toBeVisible();
 	const body = "请帮我创建一个定时任务，每周五提醒我写周报";
 	await input.fill(body);
 	const sent = page.waitForRequest(

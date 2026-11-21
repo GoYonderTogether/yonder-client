@@ -30,7 +30,7 @@ export const receptionDropHighlight =
 
 export function ReceptionDragProvider({ library, children }: { library: SocialLibrary; children: ReactNode }) {
 	const { t } = useTranslation();
-	const { mode } = useShellChrome();
+	const { desktop } = useShellChrome();
 	const { edit, busy } = useEditSocialLibrary();
 	const dragged = useRef<DragItem | null>(null);
 	const highlighted = useRef<HTMLElement | null>(null);
@@ -103,7 +103,9 @@ export function ReceptionDragProvider({ library, children }: { library: SocialLi
 		};
 	}
 
-	if (mode === "mobile" || !window.matchMedia?.("(any-pointer: fine)").matches) return children;
+	// Dragging belongs to a desktop with a mouse, at any window width; a narrow desktop window shows the
+	// phone-style layout but is still driven by a pointer. Touch and keyboard use the edit form instead.
+	if (!desktop || !window.matchMedia?.("(any-pointer: fine)").matches) return children;
 	return (
 		<ReceptionDrag.Provider value={{ source, target }}>
 			<ReceptionMutationError error={edit.error} />
