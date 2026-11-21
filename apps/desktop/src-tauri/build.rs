@@ -2,15 +2,20 @@ fn main() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
         println!("cargo:rerun-if-changed=../apple/MacPermissions.mm");
         println!("cargo:rerun-if-changed=../apple/SelectedNote.mm");
+        println!("cargo:rerun-if-changed=../apple/AppleVoiceMemos.mm");
+        println!("cargo:rerun-if-changed=../apple/AppleResourceAttachment.h");
         println!("cargo:rustc-link-lib=framework=ApplicationServices");
         println!("cargo:rustc-link-lib=framework=AVFoundation");
         println!("cargo:rustc-link-lib=framework=CoreServices");
         println!("cargo:rustc-link-lib=framework=ServiceManagement");
+        println!("cargo:rustc-link-lib=framework=UniformTypeIdentifiers");
+        println!("cargo:rustc-link-lib=sqlite3");
         cc::Build::new()
             .cpp(true)
             .flag("-fobjc-arc")
             .file("../apple/MacPermissions.mm")
             .file("../apple/SelectedNote.mm")
+            .file("../apple/AppleVoiceMemos.mm")
             .compile("yonder_macos");
     }
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
@@ -82,6 +87,7 @@ fn main() {
                         "revoke",
                         "ready",
                         "execute",
+                        "execute_attachment",
                         "cancel",
                     ])
                     .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),

@@ -1,8 +1,10 @@
 #import <AppKit/AppKit.h>
 #import <CoreServices/CoreServices.h>
+#import "AppleResourceAttachment.h"
 
 static NSString *const NotesBundle = @"com.apple.Notes";
 static constexpr DescType NoteClass = 'note';
+static constexpr DescType AttachmentClass = 'atts';
 
 static bool notesRunning() {
     return [NSRunningApplication runningApplicationsWithBundleIdentifier:NotesBundle].count != 0;
@@ -53,16 +55,20 @@ static NSAppleEventDescriptor *object(DescType kind, DescType form, NSAppleEvent
     return [record coerceToDescriptorType:typeObjectSpecifier];
 }
 
-static NSAppleEventDescriptor *request(AEEventID action, NSAppleEventDescriptor *item, OSStatus *status) {
+static NSAppleEventDescriptor *request(AEEventID action, NSAppleEventDescriptor *item, OSStatus *status,
+                                      DescType countedClass = NoteClass, NSURL *destination = nil) {
     NSAppleEventDescriptor *target = [NSAppleEventDescriptor descriptorWithBundleIdentifier:NotesBundle];
     NSAppleEventDescriptor *event = [NSAppleEventDescriptor appleEventWithEventClass:kAECoreSuite eventID:action
         targetDescriptor:target returnID:kAutoGenerateReturnID transactionID:kAnyTransactionID];
     [event setParamDescriptor:item forKeyword:keyDirectObject];
     if (action == kAECountElements) {
-        [event setParamDescriptor:[NSAppleEventDescriptor descriptorWithTypeCode:NoteClass] forKeyword:keyAEObjectClass];
+        [event setParamDescriptor:[NSAppleEventDescriptor descriptorWithTypeCode:countedClass] forKeyword:keyAEObjectClass];
     }
+    if (destination) [event setParamDescriptor:[NSAppleEventDescriptor descriptorWithFileURL:destination]
+                                    forKeyword:keyAEFile];
     AppleEvent reply = {typeNull, nullptr};
-    *status = AESendMessage(event.aeDesc, &reply, kAEWaitReply | kAEDoNotPromptForUserConsent, 120);
+    *status = AESendMessage(event.aeDesc, &reply, kAEWaitReply | kAEDoNotPromptForUserConsent,
+                            destination ? 1200 : 120);
     if (*status != noErr) return nil;
     NSAppleEventDescriptor *response = [[NSAppleEventDescriptor alloc] initWithAEDescNoCopy:&reply];
     *status = [[response paramDescriptorForKeyword:keyErrorNumber] int32Value];
@@ -81,6 +87,23 @@ static NSString *bounded(NSString *entry, NSUInteger maximum) {
     return [entry substringToIndex:maximum];
 }
 
+static NSString *noteContentFingerprint(NSAppleEventDescriptor *note, NSUInteger &budget) {
+    if (!budget) return nil;
+    OSStatus status = noErr;
+    NSAppleEventDescriptor *attachments = request(kAECountElements, note, &status, AttachmentClass);
+    // A partial fingerprint cannot identify a note whose body refers to embedded assets.
+    if (!attachments || attachments.int32Value != 0) return nil;
+    NSString *body = property(note, 'body', &status).stringValue;
+    NSUInteger size = [body lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+    if (size == 0 || size > budget) return nil;
+    NSData *data = [body dataUsingEncoding:NSUTF8StringEncoding];
+    if (data.length != size) return nil;
+    budget -= size;
+    uint8_t hash[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(data.bytes, (CC_LONG)data.length, hash);
+    return YonderHashHex(hash);
+}
+
 static NSDictionary *listNotes(int limit, int offset, OSStatus *status) {
     NSAppleEventDescriptor *root = [NSAppleEventDescriptor nullDescriptor];
     NSAppleEventDescriptor *count = request(kAECountElements, root, status);
@@ -89,6 +112,8 @@ static NSDictionary *listNotes(int limit, int offset, OSStatus *status) {
     int end = MIN(total, offset + limit);
     NSMutableArray *rows = [NSMutableArray arrayWithCapacity:limit];
     NSISO8601DateFormatter *dateFormatter = [[NSISO8601DateFormatter alloc] init];
+    NSUInteger fingerprintBudget = 128 * 1024;
+    int fingerprintReads = 8;
     for (int index = offset + 1; index <= end; ++index) {
         NSAppleEventDescriptor *record = object(NoteClass, formAbsolutePosition,
             [NSAppleEventDescriptor descriptorWithInt32:index], root);
@@ -102,12 +127,18 @@ static NSDictionary *listNotes(int limit, int offset, OSStatus *status) {
         NSDate *modified = property(record, 'asmo', status).dateValue;
         if (*status != noErr) return nil;
         id timestamp = modified ? [dateFormatter stringFromDate:modified] : NSNull.null;
-        [rows addObject:@{@"id": noteID, @"title": bounded(title, 300), @"modifiedAt": timestamp}];
+        NSMutableDictionary *item = [@{@"id": noteID, @"title": bounded(title, 300), @"modifiedAt": timestamp} mutableCopy];
+        if (fingerprintReads > 0 && fingerprintBudget > 0) {
+            --fingerprintReads;
+            NSString *fingerprint = noteContentFingerprint(record, fingerprintBudget);
+            if (fingerprint) item[@"sourceIdentity"] = @{@"contentSha256": fingerprint};
+        }
+        [rows addObject:item];
     }
     return @{@"kind": @"apple_notes_list", @"notes": rows, @"more": @(total > end)};
 }
 
-static NSDictionary *readNote(NSString *noteID, OSStatus *status) {
+static NSAppleEventDescriptor *unlockedNote(NSString *noteID, OSStatus *status) {
     NSAppleEventDescriptor *record = object(NoteClass, formUniqueID,
         [NSAppleEventDescriptor descriptorWithString:noteID], [NSAppleEventDescriptor nullDescriptor]);
     NSAppleEventDescriptor *locked = property(record, 'pwpr', status);
@@ -116,10 +147,40 @@ static NSDictionary *readNote(NSString *noteID, OSStatus *status) {
         *status = errAEEventNotPermitted;
         return nil;
     }
+    return record;
+}
+
+static NSString *attachmentName(NSAppleEventDescriptor *attachment, OSStatus *status) {
+    NSString *name = property(attachment, pName, status).stringValue.lastPathComponent;
+    return name.length == 0 ? @"attachment" : bounded(name, 250);
+}
+
+static NSArray *listAttachments(NSAppleEventDescriptor *note, OSStatus *status) {
+    NSAppleEventDescriptor *total = request(kAECountElements, note, status, AttachmentClass);
+    if (!total) return nil;
+    int limit = MIN(total.int32Value, 20);
+    NSMutableArray *rows = [NSMutableArray arrayWithCapacity:limit];
+    for (int index = 1; index <= limit; ++index) {
+        NSAppleEventDescriptor *attachment = object(AttachmentClass, formAbsolutePosition,
+            [NSAppleEventDescriptor descriptorWithInt32:index], note);
+        NSString *identifier = property(attachment, 'ID  ', status).stringValue;
+        if (identifier.length == 0) continue;
+        NSString *name = attachmentName(attachment, status);
+        [rows addObject:@{@"id": identifier, @"name": name, @"mimeType": YonderAttachmentMIME(name)}];
+    }
+    return rows;
+}
+
+static NSDictionary *readNote(NSString *noteID, OSStatus *status) {
+    NSAppleEventDescriptor *record = unlockedNote(noteID, status);
+    if (!record) return nil;
     NSString *text = property(record, 'text', status).stringValue;
     if (!text) return nil;
-    return @{@"kind": @"apple_notes_read", @"id": noteID, @"text": bounded(text, 10000),
-             @"truncated": @(text.length > 10000)};
+    NSMutableDictionary *result = [@{@"kind": @"apple_notes_read", @"id": noteID,
+        @"text": bounded(text, 10000), @"truncated": @(text.length > 10000)} mutableCopy];
+    NSArray *attachments = listAttachments(record, status);
+    if (attachments) result[@"attachments"] = attachments;
+    return result;
 }
 
 extern "C" void yonder_notes_execute(bool list, int limit, int offset, const char *note,
@@ -140,5 +201,53 @@ extern "C" void yonder_notes_execute(bool list, int limit, int offset, const cha
         }
         NSData *data = [NSJSONSerialization dataWithJSONObject:result options:0 error:nil];
         reply(context, 0, data.bytes, data.length);
+    }
+}
+
+static int32_t attachmentError(OSStatus status) {
+    if (status == errAEEventNotPermitted || status == errAEEventWouldRequireUserConsent) return ApplePermissionDenied;
+    return status == errAENoSuchObject ? AppleNotFound : AppleReadFailed;
+}
+
+extern "C" void yonder_notes_attachment(const char *noteID, const char *attachmentID,
+                                         void *context, YonderAppleReply reply) {
+    @autoreleasepool {
+        if (yonder_notes_status(false, true) != 0) {
+            reply(context, ApplePermissionDenied, nullptr, 0);
+            return;
+        }
+        OSStatus status = noErr;
+        NSAppleEventDescriptor *note = unlockedNote([NSString stringWithUTF8String:noteID], &status);
+        if (!note) {
+            reply(context, attachmentError(status), nullptr, 0);
+            return;
+        }
+        NSString *requested = [NSString stringWithUTF8String:attachmentID];
+        NSAppleEventDescriptor *attachment = object(AttachmentClass, formUniqueID,
+            [NSAppleEventDescriptor descriptorWithString:requested], note);
+        NSString *actual = property(attachment, 'ID  ', &status).stringValue;
+        if (![actual isEqualToString:requested]) {
+            reply(context, status == noErr ? AppleNotFound : attachmentError(status), nullptr, 0);
+            return;
+        }
+        NSString *name = attachmentName(attachment, &status);
+        YonderTemporaryAttachmentDirectory temporary;
+        if (!temporary.url) {
+            reply(context, AppleReadFailed, nullptr, 0);
+            return;
+        }
+        NSURL *destination = [temporary.url URLByAppendingPathComponent:@"contents" isDirectory:NO];
+        request(kAESave, attachment, &status, NoteClass, destination);
+        int32_t result = attachmentError(status);
+        NSData *bytes = nil;
+        if (status == noErr) {
+            int fd = open(temporary.url.fileSystemRepresentation, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+            if (fd >= 0) {
+                bytes = YonderReadAttachment(fd, @"contents", &result);
+                close(fd);
+            }
+        }
+        if (bytes) YonderReplyAttachment(context, reply, name, YonderAttachmentMIME(name), bytes);
+        else reply(context, result, nullptr, 0);
     }
 }

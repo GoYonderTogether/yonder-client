@@ -76,16 +76,16 @@ static void listPhotos(NSDictionary *args, void *context, YonderAppleReply reply
     options.fetchLimit = offset + limit + 1;
     PHFetchResult<PHAsset *> *assets = [PHAsset fetchAssetsWithMediaType:PHAssetMediaTypeImage options:options];
     NSISO8601DateFormatter *formatter = [NSISO8601DateFormatter new];
-    NSMutableArray *photos = [NSMutableArray arrayWithCapacity:limit];
+    NSMutableArray<NSMutableDictionary *> *photos = [NSMutableArray arrayWithCapacity:limit];
     for (NSUInteger index = offset; index < MIN(assets.count, offset + limit); index++) {
         PHAsset *asset = assets[index];
         if (!visiblePhoto(asset) || asset.pixelWidth == 0 || asset.pixelHeight == 0) continue;
-        [photos addObject:@{
+        [photos addObject:[@{
             @"id": asset.localIdentifier,
             @"createdAt": asset.creationDate == nil ? (id)NSNull.null : [formatter stringFromDate:asset.creationDate],
             @"width": @(asset.pixelWidth),
             @"height": @(asset.pixelHeight),
-        }];
+        } mutableCopy]];
     }
     if (!hasPhotoAccess()) {
         reply(context, ApplePermissionDenied, nullptr, 0);
@@ -93,6 +93,22 @@ static void listPhotos(NSDictionary *args, void *context, YonderAppleReply reply
     }
     BOOL more = assets.count > offset + limit;
     NSMutableArray<NSString *> *identifiers = [[photos valueForKey:@"id"] mutableCopy];
+    if (@available(macOS 12, iOS 15, *)) {
+        NSDictionary<NSString *, PHCloudIdentifierMapping *> *mappings = identifiers.count ?
+            [PHPhotoLibrary.sharedPhotoLibrary cloudIdentifierMappingsForLocalIdentifiers:identifiers] : @{};
+        for (NSMutableDictionary *photo in photos) {
+            PHCloudIdentifier *cloud = mappings[photo[@"id"]].cloudIdentifier;
+            NSString *key;
+            if (@available(macOS 15.2, iOS 18.2, *)) key = cloud.archivalStringValue;
+            else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+                key = cloud.stringValue;
+#pragma clang diagnostic pop
+            }
+            if (key.length != 0 && key.length <= 2048) photo[@"sourceIdentity"] = @{@"globalId": key};
+        }
+    }
     if (more) [identifiers addObject:assets[offset + limit].localIdentifier];
     if (identifiers.count != 0) {
         PHFetchResult<PHAsset *> *current = [PHAsset fetchAssetsWithLocalIdentifiers:identifiers options:nil];
@@ -106,6 +122,10 @@ static void listPhotos(NSDictionary *args, void *context, YonderAppleReply reply
                 return;
             }
         }
+    }
+    if (!hasPhotoAccess()) {
+        reply(context, ApplePermissionDenied, nullptr, 0);
+        return;
     }
     YonderReplyJSON(context, reply, @{
         @"kind": @"apple_photos_list", @"photos": photos, @"more": @(more),

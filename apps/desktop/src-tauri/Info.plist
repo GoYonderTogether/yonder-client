@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSAppDataUsageDescription</key>
+    <string>Allow your Bot to read recordings when you use the Voice Memos connector / 允许你的 Bot 通过语音备忘录连接器读取录音</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>Read notes when you ask your Bot to use the Apple Notes connector / 按你的要求读取 Apple 备忘录</string>
     <key>NSCalendarsUsageDescription</key>

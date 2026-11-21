@@ -69,6 +69,7 @@ enum Source {
     AppleCalendar,
     ApplePhotos,
     AppleNotes,
+    AppleVoiceMemos,
 }
 
 impl Source {
@@ -77,6 +78,7 @@ impl Source {
             Self::AppleCalendar => "apple-calendar",
             Self::ApplePhotos => "apple-photos",
             Self::AppleNotes => "apple-notes",
+            Self::AppleVoiceMemos => "apple-voice-memos",
         }
     }
 }
@@ -107,6 +109,8 @@ extern "C" {
     fn yonder_ios_open_apple_resource_settings(context: *mut c_void, reply: PermissionReply);
     #[cfg(target_os = "macos")]
     fn yonder_apple_open_resource_settings(resource: i32) -> bool;
+    #[cfg(target_os = "macos")]
+    fn yonder_voice_memos_permission(probe: bool, explicit_request: bool) -> i32;
 }
 
 fn permission_name(status: i32) -> &'static str {
@@ -116,6 +120,7 @@ fn permission_name(status: i32) -> &'static str {
         2 => "limited",
         3 => "denied",
         4 => "restricted",
+        6 => "unavailable",
         _ => "unsupported",
     }
 }
@@ -128,6 +133,12 @@ fn permission_status(source: Source) -> &'static str {
         Source::AppleNotes => crate::selected_note::status(false),
         #[cfg(not(target_os = "macos"))]
         Source::AppleNotes => "unsupported",
+        #[cfg(target_os = "macos")]
+        Source::AppleVoiceMemos => {
+            permission_name(unsafe { yonder_voice_memos_permission(false, false) })
+        }
+        #[cfg(not(target_os = "macos"))]
+        Source::AppleVoiceMemos => "unsupported",
     }
 }
 
@@ -154,6 +165,7 @@ async fn statuses() -> Result<Value, String> {
             Source::AppleCalendar,
             Source::ApplePhotos,
             Source::AppleNotes,
+            Source::AppleVoiceMemos,
         ] {
             statuses.insert(
                 source.id().into(),
@@ -178,13 +190,24 @@ async fn request_permission(connector_id: Source) -> Result<&'static str, String
         #[cfg(not(target_os = "macos"))]
         return Ok("unsupported");
     }
+    if connector_id == Source::AppleVoiceMemos {
+        #[cfg(target_os = "macos")]
+        return blocking(|| {
+            Ok(permission_name(unsafe {
+                yonder_voice_memos_permission(true, true)
+            }))
+        })
+        .await;
+        #[cfg(not(target_os = "macos"))]
+        return Ok("unsupported");
+    }
     let (sender, mut receiver) = async_runtime::channel(1);
     let context = Box::into_raw(Box::new(sender)).cast();
     unsafe {
         match connector_id {
             Source::AppleCalendar => yonder_apple_calendar_request(context, permission_reply),
             Source::ApplePhotos => yonder_apple_photos_request(context, permission_reply),
-            Source::AppleNotes => unreachable!(),
+            Source::AppleNotes | Source::AppleVoiceMemos => unreachable!(),
         }
     }
     Ok(permission_name(
@@ -200,13 +223,14 @@ async fn open_settings(connector_id: Source) -> Result<(), String> {
             Source::AppleCalendar => 0,
             Source::ApplePhotos => 1,
             Source::AppleNotes => 2,
+            Source::AppleVoiceMemos => 3,
         };
         Ok(unsafe { yonder_apple_open_resource_settings(resource) })
     })
     .await?;
     #[cfg(target_os = "ios")]
     let opened = {
-        if connector_id == Source::AppleNotes {
+        if matches!(connector_id, Source::AppleNotes | Source::AppleVoiceMemos) {
             return Err("unsupported".into());
         }
         let (sender, mut receiver) = async_runtime::channel(1);
@@ -257,6 +281,10 @@ fn can_read_granted(source: Source) -> bool {
     #[cfg(target_os = "macos")]
     if source == Source::AppleNotes {
         return crate::selected_note::status_for_grant() == "granted";
+    }
+    #[cfg(target_os = "macos")]
+    if source == Source::AppleVoiceMemos {
+        return permission_name(unsafe { yonder_voice_memos_permission(true, false) }) == "granted";
     }
     can_read(source)
 }
@@ -359,6 +387,7 @@ async fn ready<R: Runtime>(
                 Source::AppleCalendar,
                 Source::ApplePhotos,
                 Source::AppleNotes,
+                Source::AppleVoiceMemos,
             ]
             .into_iter()
             .filter(|source| present(*source))
@@ -392,6 +421,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             revoke,
             ready,
             commands::execute,
+            commands::execute_attachment,
             commands::cancel,
         ])
         .build()
