@@ -6,6 +6,7 @@
  * These are the only writers of that shape; the realtime events and the Bot hooks both call them.
  */
 import type { QueryClient } from "@tanstack/react-query";
+import { isNewChatHistoryCutoff } from "@yonder/chat-model";
 import type { Conversation, Member, MeResponse } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 
@@ -80,6 +81,11 @@ export function writeConversation(client: QueryClient, conversation: Conversatio
 		const existing = items.find((item) => item.id === conversation.id);
 		if (!existing) return { items: [conversation, ...items] };
 		if (existing.version > conversation.version) return current;
+		if (
+			existing.historyClearedThrough &&
+			isNewChatHistoryCutoff(existing.historyClearedThrough, conversation.historyClearedThrough)
+		)
+			return current;
 		return { items: items.map((item) => (item.id === conversation.id ? conversation : item)) };
 	});
 }

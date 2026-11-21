@@ -9,7 +9,7 @@ import { keys } from "../query/keys.ts";
 import { invalidateMemoryFiles } from "../query/memory-files.ts";
 import { writeFriendRequest } from "./friend-request-cache.ts";
 import { removeConversation, removeMember, writeConversation, writeMember } from "./member-cache.ts";
-import { updateMessage, updateRun } from "./message-cache.ts";
+import { applyChatHistoryClear, updateMessage, updateRun } from "./message-cache.ts";
 
 export interface EventHandlers {
 	onSessionLost?: () => void;
@@ -65,6 +65,8 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 			break;
 		}
 		case "conversation.updated": {
+			const cutoff = event.conversation.historyClearedThrough;
+			if (cutoff) applyChatHistoryClear(queryClient, event.conversation.id, cutoff);
 			writeConversation(queryClient, event.conversation);
 			void queryClient.invalidateQueries({ queryKey: keys.contacts() });
 			break;

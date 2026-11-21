@@ -54,7 +54,11 @@ export {
 } from "./hooks/connector-requests.ts";
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
-export { useMarkConversationRead, useSetConversationMuted } from "./hooks/conversation-state.ts";
+export {
+	useMarkConversationRead,
+	useResetBotConversation,
+	useSetConversationMuted,
+} from "./hooks/conversation-state.ts";
 export { useDeviceRegistration, useDevices, useUpdateDeviceRemark } from "./hooks/devices.ts";
 export { useFriendRequest, useFriendRequestActions, useFriendRequests } from "./hooks/friend-requests.ts";
 export { useChangeGoal, useGoalSettings, useGoals } from "./hooks/goals.ts";
