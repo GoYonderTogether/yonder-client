@@ -5,6 +5,9 @@ mod apple_resources;
 
 mod device_download;
 mod device_info;
+
+#[cfg(target_os = "ios")]
+mod ios_chat_attachments;
 mod notifications;
 
 #[cfg(target_os = "macos")]
@@ -50,6 +53,8 @@ pub fn run() {
         .plugin(device_info::init());
     #[cfg(any(target_os = "ios", target_os = "macos"))]
     let builder = builder.plugin(apple_resources::init());
+    #[cfg(target_os = "ios")]
+    let builder = builder.plugin(ios_chat_attachments::init());
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(mac_permissions::init());
     #[cfg(target_os = "android")]

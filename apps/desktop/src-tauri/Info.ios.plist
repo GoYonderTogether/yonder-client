@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Browse recent photos to attach to chats, and allow your Agent to analyze permitted photos when using the Photos connector / 在聊天中浏览和添加最近照片，并在使用照片连接器时允许智能体分析授权范围内的照片</string>
+</dict>
+</plist>

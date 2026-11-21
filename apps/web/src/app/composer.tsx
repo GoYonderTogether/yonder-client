@@ -8,8 +8,10 @@ import { CompletionHighlight } from "./completion/highlight.tsx";
 import { useComposerCompletion } from "./completion/use-composer-completion.ts";
 import { useTextareaEdit } from "./completion/use-textarea-edit.ts";
 import { ComposerFiles } from "./composer-files.tsx";
+import { IosComposerAttachmentPanel, useIosComposerAttachments } from "./composer-ios-attachments.tsx";
 import { isFileDrag } from "./file-drop-zone.tsx";
 import { HoldToTalk } from "./hold-to-talk.tsx";
+import { CHAT_ATTACHMENT_LIMIT } from "./use-chat-draft.ts";
 import { useComposerVoice } from "./use-composer-voice.ts";
 import { VoiceControl } from "./voice-control.tsx";
 import "./composer.css";
@@ -174,7 +176,22 @@ export function Composer({
 		microphoneOccupied,
 		onActivityChange: mobilePicker ? undefined : onVoiceActivityChange,
 	});
-	const visibleError = error || voice.error || (holdError?.scope === scope ? holdError.message : "");
+	const iosAttachments = useIosComposerAttachments({
+		scope,
+		mobile: mobilePicker,
+		enabled: !disabled && !readOnly && !sending,
+		limit: Math.max(0, CHAT_ATTACHMENT_LIMIT - files.length),
+		addButton: addMenu,
+		onFiles: (selected) => {
+			interrupt();
+			onFiles?.(selected);
+		},
+	});
+	const pickError =
+		iosAttachments.issue === "pickFailed"
+			? "composerAttachments.pickFailed"
+			: iosAttachments.issue && `chat.${iosAttachments.issue}`;
+	const visibleError = pickError || error || voice.error || (holdError?.scope === scope ? holdError.message : "");
 
 	return (
 		<div data-composer-mobile={mobilePicker || undefined} className="relative flex flex-col gap-[var(--spacing-2)]">
@@ -183,8 +200,14 @@ export function Composer({
 					{t(visibleError)}
 				</p>
 			) : null}
+			{iosAttachments.importing ? (
+				<p role="status" className="text-caption text-[var(--color-text-secondary)]">
+					{t("composerAttachments.preparingAttachments")}
+				</p>
+			) : null}
 			<fieldset
 				aria-label={t("chat.attach")}
+				className={iosAttachments.iphone ? "min-w-0" : undefined}
 				onDragEnter={(event) => {
 					if (isFileDrag(event) && !disabled) {
 						event.preventDefault();
@@ -218,6 +241,7 @@ export function Composer({
 						<ComposerFiles
 							files={files}
 							disabled={disabled}
+							iphonePhotos={iosAttachments.iphone}
 							onRemove={(id) => {
 								interrupt();
 								onRemoveFile?.(id);
@@ -243,14 +267,20 @@ export function Composer({
 							<button
 								type="button"
 								className="composer-tool"
-								disabled={disabled}
+								disabled={disabled || (iosAttachments.iphone && (readOnly || sending || iosAttachments.importing))}
 								aria-label={t("chat.attach")}
-								aria-expanded={mobilePicker || onMeeting ? menu : undefined}
-								onClick={() => (mobilePicker || onMeeting ? setMenu(!menu) : picker.current?.click())}
+								aria-expanded={mobilePicker || onMeeting ? iosAttachments.open || menu : undefined}
+								onClick={() => {
+									if (iosAttachments.iphone) {
+										input.current?.blur();
+										iosAttachments.toggle();
+									} else if (mobilePicker || onMeeting) setMenu(!menu);
+									else picker.current?.click();
+								}}
 							>
 								<Plus size={21} aria-hidden="true" />
 							</button>
-							{menu ? (
+							{!iosAttachments.iphone && menu ? (
 								<fieldset
 									className="composer-add-menu"
 									aria-label={t("chat.attach")}
@@ -338,6 +368,7 @@ export function Composer({
 									completion.sync(event.currentTarget, composing.current);
 								}}
 								onBlur={completion.close}
+								onFocus={iosAttachments.close}
 								onScroll={(event) => {
 									if (highlight.current) {
 										highlight.current.scrollTop = event.currentTarget.scrollTop;
@@ -405,7 +436,7 @@ export function Composer({
 						{holdMode ? (
 							<HoldToTalk
 								key={scope}
-								disabled={voiceUnavailable || menu || sending || streaming}
+								disabled={voiceUnavailable || menu || iosAttachments.busy || sending || streaming}
 								onSend={sendVoice}
 								onError={(message) => setHoldError({ scope, message })}
 								onActivityChange={onVoiceActivityChange}
@@ -423,7 +454,7 @@ export function Composer({
 								type="button"
 								className="composer-tool composer-mobile-toggle"
 								aria-label={t(holdMode ? "chat.textInput" : "chat.voiceInput")}
-								disabled={!holdMode && voiceUnavailable}
+								disabled={iosAttachments.importing || (!holdMode && voiceUnavailable)}
 								onClick={toggleVoiceMode}
 							>
 								{holdMode ? <Keyboard size={20} aria-hidden="true" /> : <Mic size={20} aria-hidden="true" />}
@@ -432,7 +463,9 @@ export function Composer({
 						{showSend ? (
 							<button
 								type="button"
-								disabled={sending ? false : streaming || disconnected || (!canSend && !voiceActive)}
+								disabled={
+									iosAttachments.importing || (!sending && (streaming || disconnected || (!canSend && !voiceActive)))
+								}
 								onClick={sending ? onCancelSend : send}
 								aria-label={t(sending ? "chat.stopSend" : "chat.disabledSend")}
 								className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"
@@ -447,6 +480,9 @@ export function Composer({
 					</ComposerLayout>
 				</ComposerFrame>
 			</fieldset>
+			{iosAttachments.open ? (
+				<IosComposerAttachmentPanel key={scope} picker={iosAttachments} onMeeting={onMeeting} />
+			) : null}
 			{commandStatus}
 		</div>
 	);

@@ -200,13 +200,6 @@ for (const key of ["NSCalendarsUsageDescription", "NSCalendarsFullAccessUsageDes
 }
 execFileSync("/usr/bin/plutil", [
 	"-replace",
-	"NSPhotoLibraryUsageDescription",
-	"-string",
-	"Allow your Agent to analyze permitted photos on this device / 允许智能体在此设备上分析授权范围内的照片",
-	infoPlist,
-]);
-execFileSync("/usr/bin/plutil", [
-	"-replace",
 	"PHPhotoLibraryPreventAutomaticLimitedAccessAlert",
 	"-bool",
 	"true",
