@@ -207,7 +207,14 @@ export type AppleConnectorResult =
 			notes: { id: string; title: string; modifiedAt: string | null; sourceIdentity?: AppleSourceIdentity }[];
 			more: boolean;
 	  }
-	| { kind: "apple_notes_read"; id: string; text: string; truncated?: boolean; attachments?: AppleNoteAttachment[] }
+	| {
+			kind: "apple_notes_read";
+			id: string;
+			text: string;
+			truncated?: boolean;
+			attachments?: AppleNoteAttachment[];
+			moreAttachments?: boolean;
+	  }
 	| { kind: "apple_notes_attachment_read"; id: string; attachmentId: string; attachment: Attachment }
 	| {
 			kind: "apple_voice_memos_list";
