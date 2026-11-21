@@ -186,8 +186,9 @@ test("leaving the main Bot tab removes its root without a detail exit animation"
 		const previousRoot = await root.elementHandle();
 		const tab = nav.getByRole("button", { name: title, exact: true });
 		await tab.click();
-		expect(await previousRoot.evaluate((element) => element.isConnected)).toBe(false);
+		// Observe the tab commit, then check the old layer immediately rather than waiting out an exit.
 		await expect(tab).toHaveAttribute("aria-current", "page");
+		expect(await previousRoot.evaluate((element) => element.isConnected)).toBe(false);
 		await mainBot.click();
 		await expect(mainBot).toHaveAttribute("aria-current", "page");
 		await expect(page.getByText(bodies.question, { exact: true })).toBeVisible();
