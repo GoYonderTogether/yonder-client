@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112108] - 2026-11-21
+
+### Fixed
+
+- meetings：start live recording directly and report upload status
+
 ## [0.3.26112107] - 2026-11-21
 
 ### Added
