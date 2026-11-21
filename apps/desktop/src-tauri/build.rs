@@ -21,6 +21,7 @@ fn main() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
         println!("cargo:rerun-if-changed=../apple/DeviceDownload.mm");
         println!("cargo:rerun-if-changed=../apple/ChatAttachmentPicker.mm");
+        println!("cargo:rustc-link-lib=framework=AVFoundation");
         println!("cargo:rustc-link-lib=framework=PhotosUI");
         println!("cargo:rustc-link-lib=framework=UniformTypeIdentifiers");
         cc::Build::new()
@@ -109,6 +110,7 @@ fn main() {
                 tauri_build::InlinedPlugin::new()
                     .commands(&[
                         "photo_access",
+                        "photo_albums",
                         "photo_page",
                         "photo_thumbnail",
                         "manage_photo_access",

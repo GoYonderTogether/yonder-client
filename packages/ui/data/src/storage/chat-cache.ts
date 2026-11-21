@@ -42,7 +42,7 @@ export async function writeChatCache(key: string, value: unknown, current = gene
 
 export async function updateChatCache<T>(
 	key: string,
-	update: (value: T | undefined) => T,
+	update: (value: T | undefined) => T | undefined,
 	current = generation,
 ): Promise<T | undefined> {
 	const db = await open();
@@ -55,7 +55,8 @@ export async function updateChatCache<T>(
 		request.onsuccess = () => {
 			if (generation !== current) return;
 			value = update(request.result as T | undefined);
-			store.put(value, key);
+			if (value === undefined) store.delete(key);
+			else store.put(value, key);
 		};
 		transaction.oncomplete = () => resolve(value);
 		transaction.onerror = () => reject(transaction.error);

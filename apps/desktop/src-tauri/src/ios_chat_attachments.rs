@@ -26,7 +26,10 @@ type DataSender = tauri::async_runtime::Sender<Option<Vec<u8>>>;
 extern "C" {
     fn yonder_apple_photos_status() -> i32;
     fn yonder_apple_photos_request(context: *mut c_void, callback: extern "C" fn(*mut c_void, i32));
+    fn yonder_ios_observe_chat_photos(webview: *mut c_void);
+    fn yonder_ios_chat_photo_albums(context: *mut c_void, callback: DataCallback);
     fn yonder_ios_chat_photo_page(
+        album_id: *const c_char,
         offset: u32,
         limit: u32,
         context: *mut c_void,
@@ -48,7 +51,7 @@ extern "C" {
         session: *const c_char,
         directory: *const c_char,
         documents: bool,
-        all_photos: bool,
+        camera: bool,
         photo_ids_json: *const c_char,
         limit: u32,
         context: *mut c_void,
@@ -64,7 +67,13 @@ extern "C" fn complete_access(context: *mut c_void, status: i32) {
 
 // AppleResourceBridge.h defines the permission values shared with the Photos connector.
 #[tauri::command]
-async fn photo_access(request: bool) -> Result<&'static str, String> {
+async fn photo_access<R: Runtime>(
+    window: WebviewWindow<R>,
+    request: bool,
+) -> Result<&'static str, String> {
+    window
+        .with_webview(|webview| unsafe { yonder_ios_observe_chat_photos(webview.inner()) })
+        .map_err(|error| error.to_string())?;
     let mut status = unsafe { yonder_apple_photos_status() };
     if request && status == 0 {
         let (send, mut receive) = tauri::async_runtime::channel::<i32>(1);
@@ -100,13 +109,32 @@ async fn read_result(mut receive: DataReceiver) -> Result<Vec<u8>, String> {
 }
 
 #[tauri::command]
-async fn photo_page(offset: u32, limit: u32) -> Result<Value, String> {
-    if offset > 5000 || !(1..=60).contains(&limit) {
+async fn photo_albums() -> Result<Value, String> {
+    let (send, receive) = tauri::async_runtime::channel::<Option<Vec<u8>>>(1);
+    unsafe { yonder_ios_chat_photo_albums(Box::into_raw(Box::new(send)).cast(), complete_data) };
+    let bytes = read_result(receive).await?;
+    serde_json::from_slice(&bytes).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn photo_page(offset: u32, limit: u32, album_id: Option<String>) -> Result<Value, String> {
+    if !(1..=60).contains(&limit) {
         return Err("invalid photo page size".into());
     }
+    if album_id
+        .as_ref()
+        .is_some_and(|id| id.is_empty() || id.len() > 256)
+    {
+        return Err("invalid photo album identifier".into());
+    }
+    let album_id = album_id
+        .map(CString::new)
+        .transpose()
+        .map_err(|error| error.to_string())?;
     let (send, receive) = tauri::async_runtime::channel::<Option<Vec<u8>>>(1);
     unsafe {
         yonder_ios_chat_photo_page(
+            album_id.as_ref().map_or(std::ptr::null(), |id| id.as_ptr()),
             offset,
             limit,
             Box::into_raw(Box::new(send)).cast(),
@@ -173,7 +201,7 @@ fn pick<R: Runtime>(
     picks: State<'_, Picks>,
     session: String,
     documents: bool,
-    all_photos: Option<bool>,
+    camera: Option<bool>,
     photo_ids: Option<Vec<String>>,
     limit: u32,
     result: Channel<Option<Value>>,
@@ -186,10 +214,10 @@ fn pick<R: Runtime>(
     {
         return Err("invalid attachment selection".into());
     }
-    let all_photos = all_photos.unwrap_or(false);
+    let camera = camera.unwrap_or(false);
     let photo_ids = photo_ids.unwrap_or_default();
-    if (documents && (all_photos || !photo_ids.is_empty()))
-        || (!documents && !all_photos && photo_ids.is_empty())
+    if (documents && camera)
+        || ((documents || camera) != photo_ids.is_empty())
         || photo_ids.len() > limit as usize
         || photo_ids.iter().any(|id| id.is_empty() || id.len() > 256)
     {
@@ -214,7 +242,7 @@ fn pick<R: Runtime>(
                 identifier.as_ptr(),
                 directory.as_ptr(),
                 documents,
-                all_photos,
+                camera,
                 photo_ids.as_ptr(),
                 limit,
                 Box::into_raw(Box::new(result)).cast(),
@@ -277,6 +305,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
     tauri::plugin::Builder::new("yonder-ios-chat-attachments")
         .invoke_handler(tauri::generate_handler![
             photo_access,
+            photo_albums,
             photo_page,
             photo_thumbnail,
             manage_photo_access,

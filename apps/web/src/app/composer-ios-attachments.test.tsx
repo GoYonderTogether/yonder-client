@@ -43,8 +43,8 @@ function pending() {
 	return { promise, resolve };
 }
 
-function renderIphone(major: number, overrides: Partial<ComposerProps> = {}) {
-	vi.stubGlobal("__TAURI_INTERNALS__", {});
+function renderIphone(major: number, overrides: Partial<ComposerProps> = {}, native = true) {
+	if (native) vi.stubGlobal("__TAURI_INTERNALS__", {});
 	vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(`Mozilla/5.0 (iPhone; CPU iPhone OS ${major}_0)`);
 	vi.stubGlobal(
 		"ResizeObserver",
@@ -78,91 +78,64 @@ function renderIphone(major: number, overrides: Partial<ComposerProps> = {}) {
 	return { attach, onFiles, onSend: props.onSend, switchChat: () => view.rerender(composer("chat-b")) };
 }
 
-test("iPhone rail selects in tap order, preserves selection after All Photos cancellation, and adds to the draft", async () => {
-	const fullPicker = pending();
-	const recentImport = pending();
+test("iPhone Plus opens an icon grid and Album chooses ordered photos across sources", async () => {
 	invoke.mockImplementation(async (name: string, args) => {
 		if (name === command("photo_access")) return "full";
+		if (name === command("photo_albums")) return [{ id: "trip", title: "Trip" }];
 		if (name === command("photo_page")) {
-			return {
-				assets: [
-					{ id: "most-recent", createdAt: 2 },
-					{ id: "older", createdAt: 1 },
-				],
-			};
+			return args.albumId
+				? { assets: [{ id: "trip-photo", createdAt: 1 }], more: false }
+				: { assets: [{ id: "recent-photo", createdAt: 2 }], more: false };
 		}
 		if (name === command("photo_thumbnail")) return [];
 		if (name === command("take")) return [1, 2, 3];
-		if (name !== command("pick")) return;
-		void (args.allPhotos ? fullPicker : recentImport).promise.then(args.result.onmessage);
+		if (name === command("pick")) {
+			args.result.onmessage({
+				files: [
+					{ index: 0, name: "recent.png", mime: "image/png" },
+					{ index: 1, name: "trip.png", mime: "image/png" },
+				],
+			});
+		}
 	});
-	const htmlFileClick = vi.spyOn(HTMLInputElement.prototype, "click");
-	const { attach, onFiles, onSend } = renderIphone(16, { onMeeting: vi.fn() });
+	const { attach, onFiles } = renderIphone(16, { onMeeting: vi.fn() });
 	attach();
-
-	const newer = await screen.findByRole("button", { name: "Select photo 1" });
-	const older = screen.getByRole("button", { name: "Select photo 2" });
-	const tray = within(screen.getByRole("group", { name: "Recent photos" }));
-	expect(tray.getAllByRole("button")).toEqual([
-		newer,
-		older,
-		tray.getByRole("button", { name: "Files" }),
-		tray.getByRole("button", { name: "Recording notes" }),
-		tray.getByRole("button", { name: "All photos" }),
-		tray.getByRole("button", { name: "Add" }),
+	const tray = within(screen.getByRole("button", { name: "Album" }).closest("fieldset") as HTMLFieldSetElement);
+	expect(tray.getAllByRole("button").map((button) => button.textContent)).toEqual([
+		"Album",
+		"Camera",
+		"Files",
+		"Recording notes",
 	]);
-	expect(invoke).toHaveBeenCalledWith(command("photo_access"), { request: false });
-	expect(invoke).not.toHaveBeenCalledWith(command("photo_access"), { request: true });
-	expect(invoke.mock.calls.some(([name]) => name === command("pick"))).toBe(false);
-	fireEvent.click(older);
-	fireEvent.click(newer);
-	expect(older).toHaveAttribute("aria-pressed", "true");
-	expect(older).toHaveTextContent("1");
-	expect(newer).toHaveTextContent("2");
-
-	fireEvent.click(screen.getByRole("button", { name: "All photos" }));
+	expect(invoke).not.toHaveBeenCalled();
+	fireEvent.click(tray.getByRole("button", { name: "Album" }));
+	expect(await screen.findByRole("dialog", { name: "Album" })).toBeVisible();
+	fireEvent.click(await screen.findByRole("button", { name: "Select photo 1" }));
+	fireEvent.click(await screen.findByRole("button", { name: "Recent photos" }));
+	fireEvent.click(screen.getByRole("button", { name: "Trip" }));
+	await waitFor(() =>
+		expect(invoke).toHaveBeenCalledWith(command("photo_page"), { albumId: "trip", offset: 0, limit: 36 }),
+	);
+	const trip = await screen.findByRole("button", { name: "Select photo 1", pressed: false });
+	fireEvent.click(trip);
+	expect(trip).toHaveTextContent("2");
+	fireEvent.click(screen.getByRole("button", { name: "Add (2)" }));
 	await waitFor(() =>
 		expect(invoke).toHaveBeenCalledWith(command("pick"), {
 			session: expect.any(String),
 			documents: false,
-			allPhotos: true,
-			photoIds: undefined,
+			camera: false,
+			photoIds: ["recent-photo", "trip-photo"],
 			limit: 10,
 			result: expect.anything(),
 		}),
 	);
-	await act(async () => fullPicker.resolve({}));
-	const add = screen.getByRole("button", { name: "Add (2)" });
-	expect(add).toBeEnabled();
-	expect(onFiles).not.toHaveBeenCalled();
-
-	fireEvent.click(add);
-	expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
 	await waitFor(() =>
-		expect(invoke).toHaveBeenCalledWith(command("pick"), {
-			session: expect.any(String),
-			documents: false,
-			allPhotos: false,
-			photoIds: ["older", "most-recent"],
-			limit: 10,
-			result: expect.anything(),
-		}),
+		expect(onFiles).toHaveBeenCalledExactlyOnceWith([
+			expect.objectContaining({ name: "recent.png", type: "image/png" }),
+			expect.objectContaining({ name: "trip.png", type: "image/png" }),
+		]),
 	);
-	await act(async () => {
-		recentImport.resolve({
-			files: [
-				{ index: 0, name: "photo.heic", mime: "image/heic" },
-				{ index: 1, name: "screenshot.png", mime: "image/png" },
-			],
-		});
-	});
-	expect(onFiles).toHaveBeenCalledExactlyOnceWith([
-		expect.objectContaining({ name: "photo.heic", type: "image/heic", size: 3 }),
-		expect.objectContaining({ name: "screenshot.png", type: "image/png", size: 3 }),
-	]);
-	expect(screen.getByRole("textbox")).toHaveValue("Unsent text");
-	expect(onSend).not.toHaveBeenCalled();
-	expect(htmlFileClick).not.toHaveBeenCalled();
 });
 
 test("Files opens directly without requesting photo access and discards a stale selection after switching drafts", async () => {
@@ -177,13 +150,13 @@ test("Files opens directly without requesting photo access and discards a stale 
 	const htmlFileClick = vi.spyOn(HTMLInputElement.prototype, "click");
 	const { attach, onFiles, switchChat } = renderIphone(17);
 	attach();
-	expect(await screen.findByRole("button", { name: "Allow recent photos" })).toBeEnabled();
+	expect(screen.getByRole("button", { name: "Album" })).toBeEnabled();
 	fireEvent.click(screen.getByRole("button", { name: "Files" }));
 	await waitFor(() =>
 		expect(invoke).toHaveBeenCalledWith(command("pick"), {
 			session: expect.any(String),
 			documents: true,
-			allPhotos: false,
+			camera: false,
 			photoIds: undefined,
 			limit: 10,
 			result: expect.anything(),
@@ -202,21 +175,99 @@ test("Files opens directly without requesting photo access and discards a stale 
 	expect(htmlFileClick).not.toHaveBeenCalled();
 });
 
-test("recent photos asks permission only on its own action and displays limited authorization", async () => {
+test("an open Album refreshes after limited Photos access changes", async () => {
+	let permission = "undetermined";
+	let permitted = false;
+	vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
 	invoke.mockImplementation(async (name: string, args) => {
-		if (name === command("photo_access")) return args.request ? "limited" : "undetermined";
-		if (name === command("photo_page")) return { assets: [{ id: "permitted", createdAt: null }] };
+		if (name === command("photo_access")) {
+			if (args.request) permission = "limited";
+			return permission;
+		}
+		if (name === command("photo_albums")) return [];
+		if (name === command("photo_page"))
+			return { assets: permitted ? [{ id: "permitted", createdAt: null }] : [], more: false };
 		if (name === command("photo_thumbnail")) return [];
 	});
 	const { attach } = renderIphone(17);
 	attach();
+	expect(invoke).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Album" }));
 	const allow = await screen.findByRole("button", { name: "Allow recent photos" });
 	expect(invoke).not.toHaveBeenCalledWith(command("photo_access"), { request: true });
 	fireEvent.click(allow);
+	expect(await screen.findByRole("button", { name: "Manage access" })).toBeEnabled();
+	permitted = true;
+	act(() => void window.dispatchEvent(new Event("yonder-ios-photo-library-change")));
 	expect(await screen.findByRole("button", { name: "Select photo 1" })).toBeEnabled();
-	expect(screen.getByRole("button", { name: "Manage access" })).toBeEnabled();
 	expect(invoke).toHaveBeenCalledWith(command("photo_access"), { request: true });
-	expect(invoke).toHaveBeenCalledWith(command("photo_page"), { offset: 0, limit: 24 });
+	expect(invoke).toHaveBeenCalledWith(command("photo_page"), { albumId: null, offset: 0, limit: 36 });
+});
+
+test("confirmed Album selections and Files send independently, while Camera failure sends nothing", async () => {
+	invoke.mockImplementation(async (name: string, args) => {
+		if (name === command("photo_access")) return "full";
+		if (name === command("photo_albums")) return [];
+		if (name === command("photo_page")) return { assets: [{ id: "photo", createdAt: null }], more: false };
+		if (name === command("photo_thumbnail")) return [];
+		if (name === command("pick")) {
+			if (args.camera) args.result.onmessage({ issue: "cameraUnavailable" });
+			else
+				args.result.onmessage({
+					files: [{ index: 0, name: args.documents ? "file.png" : "photo.png", mime: "image/png" }],
+				});
+		}
+		if (name === command("take")) return [1, 2, 3];
+	});
+	const directSend = vi.fn();
+	const { attach, onSend, onFiles } = renderIphone(17, {
+		pickedFiles: { send: directSend, retry: vi.fn(), discard: vi.fn(), sending: false, failed: false },
+	});
+	attach();
+	fireEvent.click(screen.getByRole("button", { name: "Album" }));
+	fireEvent.click(await screen.findByRole("button", { name: "Select photo 1" }));
+	fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+	await waitFor(() => expect(invoke).toHaveBeenCalledWith(command("photo_thumbnail"), { id: "photo", preview: true }));
+	fireEvent.click(screen.getByRole("button", { name: "Back to photos" }));
+	fireEvent.click(screen.getByRole("checkbox", { name: "Send original" }));
+	fireEvent.click(screen.getByRole("button", { name: "Send (1)" }));
+	await waitFor(() =>
+		expect(directSend).toHaveBeenNthCalledWith(1, [expect.objectContaining({ name: "photo.png" })], true),
+	);
+
+	attach();
+	fireEvent.click(await screen.findByRole("button", { name: "Camera" }));
+	expect(await screen.findByText("Camera unavailable on this device.")).toBeVisible();
+	expect(directSend).toHaveBeenCalledTimes(1);
+
+	fireEvent.click(screen.getByRole("button", { name: "Send file" }));
+	await waitFor(() =>
+		expect(directSend).toHaveBeenNthCalledWith(2, [expect.objectContaining({ name: "file.png" })], true),
+	);
+	expect(onFiles).not.toHaveBeenCalled();
+	expect(onSend).not.toHaveBeenCalled();
+	expect(screen.getByRole("textbox")).toHaveValue("Unsent text");
+});
+
+test("mobile Web uses its actual image input without accepting a result from an old conversation", () => {
+	const directSend = vi.fn();
+	const { attach, onFiles, switchChat } = renderIphone(
+		17,
+		{ pickedFiles: { send: directSend, retry: vi.fn(), discard: vi.fn(), sending: false, failed: false } },
+		false,
+	);
+	const photo = new File(["photo"], "one.png", { type: "image/png" });
+	attach();
+	fireEvent.click(screen.getByRole("button", { name: "Album" }));
+	fireEvent.change(screen.getByLabelText("Upload images"), { target: { files: [photo] } });
+	expect(directSend).toHaveBeenCalledExactlyOnceWith([photo], false);
+	attach();
+	fireEvent.click(screen.getByRole("button", { name: "Send file" }));
+	switchChat();
+	fireEvent.change(screen.getByLabelText("Upload files"), { target: { files: [photo] } });
+	expect(directSend).toHaveBeenCalledTimes(1);
+	expect(onFiles).not.toHaveBeenCalled();
+	expect(screen.getByRole("textbox")).toHaveValue("Unsent text");
 });
 
 test("iPhone draft photos show the thumbnail and original switch while documents retain their name", async () => {

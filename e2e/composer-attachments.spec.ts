@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { conversation, isolateChat, message } from "./chat-fixture.ts";
@@ -122,9 +122,67 @@ test("mobile separates image and file pickers and naturally wrapped text puts co
 	await input.fill("这是一段没有手动换行但会在手机上自然折行的中文提示词，需要完整保留并让按钮留在底部。");
 	await expect(page.locator(".composer-layout")).toHaveClass(/composer-expanded/);
 	await page.getByRole("button", { name: "添加附件", exact: true }).click();
-	await expect(page.getByRole("button", { name: "上传图片", exact: true })).toBeVisible();
-	await expect(page.getByRole("button", { name: "上传文件", exact: true })).toBeVisible();
+	const grid = page.locator(".composer-mobile-attachment-grid");
+	await expect(grid.getByRole("button", { name: "相册", exact: true })).toBeVisible();
+	await expect(grid.getByRole("button", { name: "拍照", exact: true })).toBeVisible();
+	await expect(grid.getByRole("button", { name: "发送文件", exact: true })).toBeVisible();
+	const menuBounds = await grid.boundingBox();
+	const composerBounds = await page.locator(".composer-box").boundingBox();
+	expect(menuBounds && composerBounds && menuBounds.y >= composerBounds.y + composerBounds.height).toBe(true);
 	await mkdir(testInfo.outputPath("previews"), { recursive: true });
 	await page.screenshot({ path: testInfo.outputPath("previews/mobile-picker.png"), animations: "disabled" });
 	await context.close();
+});
+
+test("three draft attachments scroll within the iPhone composer and leave Send fully visible", async ({ browser }) => {
+	const width = 390;
+	const context = await browser.newContext({
+		viewport: { width, height: 844 },
+		isMobile: true,
+		hasTouch: true,
+		userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+	});
+	try {
+		const page = await context.newPage();
+		await isolateChat(page);
+		await page.addInitScript(() => {
+			localStorage.setItem("dev.yonder.desktop.refresh-token", "isolated-attachment-draft");
+			Object.defineProperty(window, "__TAURI_INTERNALS__", {
+				value: {
+					invoke: async () => null,
+					transformCallback: () => 1,
+					unregisterCallback: () => undefined,
+					metadata: { currentWindow: { label: "main" } },
+				},
+			});
+		});
+		await page.goto("/messages/main");
+		await expect(page.locator("html")).toHaveAttribute("data-native-mobile", "true");
+		await page.getByRole("textbox", { name: /^对 界面验收/ }).fill("未发送的草稿");
+		const png = await readFile(image);
+		await page.getByLabel("上传文件", { exact: true }).setInputFiles([
+			{ name: "one.png", mimeType: "image/png", buffer: png },
+			{ name: "two.png", mimeType: "image/png", buffer: png },
+			{ name: "资料.txt", mimeType: "text/plain", buffer: Buffer.from("附件") },
+		]);
+		await expect(page.locator(".composer-file")).toHaveCount(3);
+		const send = page.getByRole("button", { name: "发送", exact: true });
+		await expect(send).toBeVisible();
+		const geometry = await send.evaluate((button) => {
+			const composer = button.closest(".composer-box");
+			const files = composer?.querySelector(".composer-files");
+			if (!composer || !files) throw new Error("Expected draft attachment geometry");
+			files.scrollLeft = files.scrollWidth;
+			return {
+				sendRight: button.getBoundingClientRect().right,
+				frameRight: composer.getBoundingClientRect().right,
+				scroll: files.scrollLeft,
+			};
+		});
+		expect(geometry.sendRight).toBeLessThan(width);
+		expect(geometry.frameRight).toBeLessThan(width);
+		expect(geometry.scroll).toBeGreaterThan(0);
+	} finally {
+		await context.close();
+	}
 });

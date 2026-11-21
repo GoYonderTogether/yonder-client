@@ -1,6 +1,8 @@
 import type { Conversation } from "@yonder/protocol";
 import { useCompactConversation, useCreateItem, useItemSession, useMessages, useSendMessage } from "@yonder/ui-data";
+import { isDesktopExperience } from "../lib/platform.ts";
 import { useChatDraft } from "./use-chat-draft.ts";
+import { useDirectAttachmentSend } from "./use-direct-attachment-send.ts";
 
 export function useFrameChat({
 	personId,
@@ -20,6 +22,14 @@ export function useFrameChat({
 	const draft = useChatDraft(personId, scope);
 	const history = useMessages(target?.id ?? null);
 	const send = useSendMessage(target?.id ?? null, personId);
+	const directAttachments = useDirectAttachmentSend({
+		owner: isDesktopExperience() ? undefined : personId,
+		conversation: target?.id,
+		uploadFile: draft.uploadDirectFile,
+		send: send.mutateAsync,
+		knownNonce: (nonce) =>
+			history.data?.pages.some((page) => page.items.some((message) => message.clientNonce === nonce)) ?? false,
+	});
 	const create = useCreateItem(personId);
 	const compact = useCompactConversation(target?.id);
 	const streaming = history.data?.pages
@@ -50,6 +60,7 @@ export function useFrameChat({
 		itemSession,
 		submit,
 		compact,
+		directAttachments,
 		streaming: Boolean(streaming),
 		blocked:
 			(!target && !creating) ||
@@ -58,6 +69,8 @@ export function useFrameChat({
 			history.isLoading ||
 			history.isError ||
 			draft.sending ||
+			directAttachments.sending ||
+			!directAttachments.ready ||
 			send.isPending ||
 			create.isPending,
 	};

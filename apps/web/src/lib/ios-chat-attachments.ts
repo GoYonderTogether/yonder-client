@@ -1,8 +1,9 @@
 import { isTauri } from "./keychain.ts";
 
-export type IosAttachmentIssue = "pickFailed" | "fileTooLarge" | "tooManyFiles";
+export type IosAttachmentIssue = "pickFailed" | "fileTooLarge" | "tooManyFiles" | "cameraUnavailable" | "cameraDenied";
 export type IosPhotoAccess = "undetermined" | "full" | "limited" | "denied" | "restricted";
 export type IosRecentPhoto = { id: string; createdAt: number | null };
+export type IosPhotoAlbum = { id: string; title: string };
 
 type PickedFile = { index: number; name: string; mime: string };
 type PickResult = { files?: PickedFile[]; issue?: IosAttachmentIssue | null };
@@ -26,27 +27,30 @@ export function manageIphonePhotoAccess() {
 	return call<void>("manage_photo_access");
 }
 
-export async function listIphoneRecentPhotos() {
-	const page = await call<{ assets: IosRecentPhoto[] }>("photo_page", { offset: 0, limit: 24 });
-	return page.assets;
+export function listIphonePhotoAlbums() {
+	return call<IosPhotoAlbum[]>("photo_albums");
 }
 
-export async function readIphonePhotoThumbnail(id: string) {
-	const bytes = await call<ArrayBuffer | number[]>("photo_thumbnail", { id });
+export function listIphonePhotos(albumId: string | null, offset: number, limit: number) {
+	return call<{ assets: IosRecentPhoto[]; more: boolean }>("photo_page", { albumId, offset, limit });
+}
+
+export async function readIphonePhotoThumbnail(id: string, preview = false) {
+	const bytes = await call<ArrayBuffer | number[]>("photo_thumbnail", { id, preview });
 	const buffer = Array.isArray(bytes) ? new Uint8Array(bytes) : bytes;
 	return buffer.byteLength ? new Blob([buffer], { type: "image/jpeg" }) : undefined;
 }
 
 export async function pickIphoneAttachments({
 	documents,
-	allPhotos,
+	camera,
 	photoIds,
 	limit,
 	signal,
 	onImport,
 }: {
 	documents: boolean;
-	allPhotos: boolean;
+	camera: boolean;
 	photoIds: string[] | undefined;
 	limit: number;
 	signal: AbortSignal;
@@ -65,7 +69,7 @@ export async function pickIphoneAttachments({
 		if (event && "importing" in event) onImport();
 		else resolveSelection(event);
 	});
-	const started = command<void>("pick", { documents, allPhotos, photoIds, limit, result });
+	const started = command<void>("pick", { documents, camera, photoIds, limit, result });
 	let released = false;
 	const release = () => {
 		if (released) return;

@@ -368,6 +368,7 @@ export function AppFrame() {
 			readOnly={!draft.loaded}
 			files={draft.files}
 			onFiles={draft.addFiles}
+			pickedFiles={chat.directAttachments.enabled ? chat.directAttachments : undefined}
 			onRemoveFile={draft.removeFile}
 			onRetryFile={draft.retryFile}
 			onOriginalFileChange={draft.toggleOriginal}
@@ -375,7 +376,7 @@ export function AppFrame() {
 			mobilePicker={!desktop}
 			showMobilePlaceholder={Boolean(taskSelection)}
 			onMeeting={recordingConversation ? () => meeting.start(recordingConversation) : undefined}
-			error={draft.error}
+			error={draft.error || chat.directAttachments.error}
 			disabled={chat.blocked || disconnected}
 			disconnected={disconnected}
 			sendOnEnter={desktop}
