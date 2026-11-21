@@ -316,7 +316,6 @@ export const accountMessagesEn = {
 		setupProfileTitle: "What should the Bot call you?",
 		avatarFormats: "PNG · JPEG · WebP · ≤ 2 MB",
 		finish: "Start using Yonder",
-		changeHandleHint: "Your ID is {{handle}}.",
 		errors: {
 			invalidPhone: "That does not look like a phone number. Include the country code.",
 			codeInvalid: "That code is not right. {{remaining}} tries left.",

@@ -125,7 +125,6 @@ export function ProfileSetupForm({
 			<TextField
 				id="setup-name"
 				label={t("profile.name")}
-				hint={t("auth.changeHandleHint", { handle })}
 				fieldSize="lg"
 				value={name}
 				onChange={(event) => setName(event.target.value)}
