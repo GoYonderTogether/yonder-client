@@ -33,24 +33,30 @@ export function ConnectorRequestCard({ id }: { id: string }) {
 	const [offline, setOffline] = useState(false);
 	const devices = useConnectorRequestDevices(id, choosing);
 	if (request.isPending) return <p role="status">{t("app.loading")}</p>;
-	if (!request.data)
+	const row = request.data;
+	const connectorIds = row?.connectorIds;
+	if (
+		!row ||
+		!Array.isArray(connectorIds) ||
+		connectorIds.length === 0 ||
+		connectorIds.some((connectorId) => typeof connectorId !== "string" || !Object.hasOwn(SCOPE_KEYS, connectorId))
+	)
 		return (
 			<InlineError onRetry={() => void request.refetch()} retryLabel={t("app.retry")}>
 				{t("connectors.requestFailed")}
 			</InlineError>
 		);
-	const row = request.data;
-	const scopeKeys = [...new Set(row.connectorIds.map((connectorId) => SCOPE_KEYS[connectorId]))];
+	const scopeKeys = [...new Set(connectorIds.map((connectorId) => SCOPE_KEYS[connectorId]))];
 	const selectable = (devices.data?.items ?? []).filter((device) => device.online && device.supported);
 	/**
 	 * Allow, and retry after an expiry or a failure: both are a `confirm` with the connectors this card
 	 * shows. Without a device the server picks one and may start a new dispatch on another device, so a
 	 * retry is not pinned to the device that just failed.
 	 */
-	function allow(deviceId?: string) {
+	const allow = (deviceId?: string) => {
 		setOffline(false);
 		actions.confirm.mutate(
-			{ id, connectorIds: row.connectorIds, ...(deviceId ? { deviceId } : {}) },
+			{ id, connectorIds, ...(deviceId ? { deviceId } : {}) },
 			{
 				onSuccess: () => setChoosing(false),
 				onError: (error) => {
@@ -66,7 +72,7 @@ export function ConnectorRequestCard({ id }: { id: string }) {
 				},
 			},
 		);
-	}
+	};
 	const retry = row.state === "expired" || row.state === "failed";
 	const continuation = row.state === "granted" ? row.continuation : undefined;
 	const continuationLabel = continuation === "failed" ? (row.continuationFailure ?? continuation) : continuation;
@@ -79,7 +85,7 @@ export function ConnectorRequestCard({ id }: { id: string }) {
 		<section className="flex min-w-0 flex-col gap-[var(--spacing-2)] rounded-[var(--radius-card)] bg-[var(--color-bg-subtle)] p-[var(--spacing-4)]">
 			<strong>{t("connectors.requestCardTitle")}</strong>
 			<p className="break-words text-body font-medium">
-				{row.connectorIds.map((connectorId) => t(NAME_KEYS[connectorId])).join(" · ")}
+				{connectorIds.map((connectorId) => t(NAME_KEYS[connectorId])).join(" · ")}
 			</p>
 			{row.reason ? <p className="whitespace-pre-wrap break-words text-body">{row.reason}</p> : null}
 			{row.deviceName ? (

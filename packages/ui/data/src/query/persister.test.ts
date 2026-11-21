@@ -48,6 +48,33 @@ test("does not persist private content and skips legacy cached cards on restore"
 	client.clear();
 });
 
+test("skips old connector request cards and restores current cards and their device lists", async () => {
+	const client = createQueryClient();
+	const legacy = keys.connectorRequest("legacy");
+	const current = keys.connectorRequest("current");
+	const devices = keys.connectorRequestDevices("current");
+	client.setQueryData(legacy, { id: "legacy", connectorId: "local-files", state: "pending" });
+	client.setQueryData(current, { id: "current", connectorIds: ["local-files"], state: "pending" });
+	client.setQueryData(devices, { items: [] });
+
+	const storage = createMemoryStorage();
+	storage.set(
+		CACHE_STORAGE_KEY,
+		JSON.stringify({ buster: CACHE_VERSION, timestamp: Date.now(), clientState: dehydrate(client) }),
+	);
+	const restored = createQueryClient();
+	await persistQueryClientRestore({
+		queryClient: restored,
+		persister: createPersister(storage),
+		buster: CACHE_VERSION,
+	});
+	expect(restored.getQueryData(legacy)).toBeUndefined();
+	expect(restored.getQueryData(current)).toEqual(client.getQueryData(current));
+	expect(restored.getQueryData(devices)).toEqual(client.getQueryData(devices));
+	client.clear();
+	restored.clear();
+});
+
 test("coalesces a burst and keeps saving during a continuous stream", async () => {
 	vi.useFakeTimers();
 	const storage = createMemoryStorage();

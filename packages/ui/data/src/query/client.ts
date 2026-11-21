@@ -16,6 +16,7 @@ import {
 } from "@tanstack/react-query";
 import type { PersistedClient, Persister } from "@tanstack/react-query-persist-client";
 import { ApiError, NetworkError } from "@yonder/api-client";
+import type { ConnectorRequestView } from "@yonder/protocol";
 
 export const CACHE_STORAGE_KEY = "yonder.query-cache";
 export const CACHE_VERSION = "4";
@@ -91,9 +92,13 @@ export function createPersister(store: KeyValueStore): Persister & { activate():
 			if (!raw) return undefined;
 			try {
 				const client = JSON.parse(raw) as PersistedClient;
-				client.clientState.queries = client.clientState.queries.filter(
-					({ queryKey }) => queryKey[0] !== "member-profile",
-				);
+				client.clientState.queries = client.clientState.queries.filter(({ queryKey, state }) => {
+					if (queryKey[0] === "member-profile") return false;
+					if (queryKey[0] !== "connector-request" || queryKey.length !== 2) return true;
+					// Legacy cards held one connectorId. Reload the current scopes before offering consent.
+					const request = state.data as Partial<ConnectorRequestView> | undefined;
+					return Array.isArray(request?.connectorIds);
+				});
 				return client;
 			} catch {
 				// A corrupt blob is dropped, not repaired: a broken cache must not block a start.

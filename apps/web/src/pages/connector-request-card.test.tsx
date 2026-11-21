@@ -79,6 +79,21 @@ test("allowing is the consent and does not wait for the Bot or navigate anywhere
 	expect(state.confirm).toHaveBeenCalledWith({ id: "request", connectorIds: ["local-files"] }, expect.anything());
 });
 
+test.each([
+	{ connectorIds: undefined },
+	{ connectorIds: [] },
+	{ connectorIds: ["unknown"] },
+	{ connectorIds: [["local-files"]] },
+])("offers a local retry for undisplayable connector scopes %j", ({ connectorIds }) => {
+	state.request = { ...view(), connectorId: "local-files", connectorIds };
+	show();
+	expect(screen.getByRole("alert")).toBeVisible();
+	expect(screen.queryByRole("button", { name: "Allow" })).toBeNull();
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	expect(state.refetch).toHaveBeenCalledOnce();
+	expect(state.confirm).not.toHaveBeenCalled();
+});
+
 test("a device_required answer lists the usable devices once so the user picks one", () => {
 	state.devices = {
 		items: [
