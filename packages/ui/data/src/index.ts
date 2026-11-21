@@ -98,14 +98,7 @@ export {
 } from "./hooks/quota.ts";
 export { useScheduleActions, useSchedules } from "./hooks/schedules.ts";
 export { useSkill, useSkillActions, useSkillFile, useSkills } from "./hooks/skills.ts";
-export {
-	useEditSocialKnowledge,
-	useEditSocialLibrary,
-	useSaveSocialPersona,
-	useSocialKnowledge,
-	useSocialLibrary,
-	useSocialPersona,
-} from "./hooks/social.ts";
+export { useEditSocialKnowledge, useSaveSocialPersona, useSocialKnowledge, useSocialPersona } from "./hooks/social.ts";
 export { useOutwardActions, useStartBotChat, useVisitActions } from "./hooks/visits.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
 export {
