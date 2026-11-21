@@ -96,6 +96,8 @@ export type {
 	AppleConnectorId,
 	AppleConnectorOperation,
 	AppleConnectorResult,
+	AppleNoteAttachment,
+	AppleSourceIdentity,
 	ConnectorCapabilities,
 	ConnectorCatalogResponse,
 	ConnectorCommand,

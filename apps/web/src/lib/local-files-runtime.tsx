@@ -8,7 +8,12 @@ import type {
 import { keys, useConnectors, useData, useDataQueryClient } from "@yonder/ui-data";
 import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { cancelAppleResource, executeAppleResource, readyAppleResourceGrants } from "./apple-resources.ts";
+import {
+	cancelAppleResource,
+	executeAppleResource,
+	executeAppleResourceFile,
+	readyAppleResourceGrants,
+} from "./apple-resources.ts";
 import { isForeground, subscribeForeground } from "./foreground.ts";
 import {
 	activateAppleConnectors,
@@ -20,7 +25,12 @@ import {
 } from "./local-files.ts";
 import { beginTrayConnectorWork } from "./tray-bridge.ts";
 
-type PendingCommand = { cancelled: boolean; apple: boolean; tray?: ReturnType<typeof beginTrayConnectorWork> };
+type PendingCommand = {
+	cancelled: boolean;
+	apple: boolean;
+	upload?: AbortController;
+	tray?: ReturnType<typeof beginTrayConnectorWork>;
+};
 
 const ERRORS = new Set([
 	"permission_denied",
@@ -249,17 +259,52 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 							.catch(() => {});
 					}
 					try {
-						if (appleCommand)
-							result = { ok: true, result: await executeAppleResource(context, { ...nativeCommand, expiresAtMs }) };
-						else
+						const native = { ...nativeCommand, expiresAtMs };
+						const { operation, args } = command;
+						if (!appleCommand) {
 							result = await invokeLocalFiles<ConnectorCommandResult>("local_files_execute", {
 								context,
-								command: { ...nativeCommand, expiresAtMs },
+								command: native,
 							});
+						} else if (
+							operation === "apple_notes_attachment_read" ||
+							operation === "apple_voice_memos_read" ||
+							operation === "apple_voice_memos_transcribe"
+						) {
+							const { id, attachmentId } = args ?? {};
+							if (!id || (operation === "apple_notes_attachment_read" && !attachmentId))
+								throw new Error("path_invalid");
+							const file = await executeAppleResourceFile(context, native);
+							if (
+								!active ||
+								state.cancelled ||
+								realtime.status !== "open" ||
+								!eligibleApple(command) ||
+								expiresAtMs <= Date.now()
+							)
+								throw new Error("cancelled");
+							state.upload = new AbortController();
+							if (operation === "apple_voice_memos_transcribe") {
+								const { text } = await api.transcribeConnectorAudio(command.id, file, state.upload.signal);
+								result = { ok: true, result: { kind: operation, id, text } };
+							} else {
+								const attachment = await api.uploadConnectorAttachment(command.id, file, state.upload.signal);
+								result = {
+									ok: true,
+									result:
+										operation === "apple_notes_attachment_read" && attachmentId
+											? { kind: operation, id, attachmentId, attachment }
+											: { kind: "apple_voice_memos_read", id, attachment },
+								};
+							}
+						} else {
+							result = { ok: true, result: await executeAppleResource(context, native) };
+						}
 					} catch (error) {
+						const code = error instanceof Error ? error.message : String(error);
 						result = {
 							ok: false,
-							error: ERRORS.has(String(error)) ? (String(error) as "permission_denied") : "read_failed",
+							error: ERRORS.has(code) ? (code as "permission_denied") : "read_failed",
 						};
 					}
 				}
@@ -279,6 +324,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 		};
 		const cancel = (id: string, state: PendingCommand) => {
 			state.cancelled = true;
+			state.upload?.abort();
 			state.tray?.finish();
 			if (state.apple) void cancelAppleResource(id).catch(() => {});
 			else if (files) void invokeLocalFiles("local_files_cancel", { commandId: id }).catch(() => {});

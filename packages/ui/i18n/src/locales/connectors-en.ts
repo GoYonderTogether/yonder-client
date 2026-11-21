@@ -43,6 +43,11 @@ export const connectorMessagesEn = {
 		"Enabling this shares files across the selected device that the OS account can access for reading, finding and on-demand indexing.",
 	disconnect: "Disconnect",
 	device: "Device",
+	view: "Connector view",
+	byDevice: "By device",
+	byConnector: "By connector",
+	noSources: "No authorized sources",
+	sourceNotReady: "Not ready",
 	available: "Available",
 	unavailable: "Unavailable",
 	loadFailed: "Could not load connectors",
@@ -70,7 +75,7 @@ export const connectorMessagesEn = {
 		iosPermissionDenied:
 			"Set Calendar to Full Access in Settings. If access hasn’t updated, quit and reopen Yonder, then connect again.",
 		name: "Apple Calendar",
-		description: "Let your Bot find and read events on this device",
+		description: "Let your Bot find and read calendar events",
 		scope: "Your Bot can find calendar events and read their details when you ask.",
 	},
 	applePhotos: {
@@ -81,8 +86,15 @@ export const connectorMessagesEn = {
 	},
 	appleNotes: {
 		name: "Apple Notes",
-		description: "Let your Bot find and read notes on this Mac",
-		scope: "Your Bot can list notes and read the text of unlocked notes.",
+		description: "Let your Bot find and read notes",
+		scope: "Your Bot can find unlocked notes and read their text and attachments.",
 		unavailable: "Notes could not be opened. Open Notes on this Mac and try again.",
+	},
+	appleVoiceMemos: {
+		name: "Apple Voice Memos",
+		description: "Let your Bot find recordings, read the original audio, and transcribe it",
+		scope: "Your Bot can find recordings, read the original audio, and transcribe it when you ask.",
+		unavailable: "Open Voice Memos on this Mac and wait for recordings to sync before trying again.",
+		unsupported: "Voice Memos on this Mac cannot be read by Yonder yet.",
 	},
 } as const;

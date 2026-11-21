@@ -111,6 +111,7 @@ for (const platform of ["ios", "macos"] as const) {
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		await page.setViewportSize({ width: isMac ? 1180 : 390, height: 770 });
 		const target = device("dev_apple", isMac ? "MacBook Pro" : "iPhone", platform, true);
+		const remoteMac = { ...device("dev_source", "Studio Mac", "macos"), status: "offline" as const };
 		const instance: ConnectorInstance = {
 			id: "con_calendar",
 			connectorId: "apple-calendar",
@@ -124,14 +125,36 @@ for (const platform of ["ios", "macos"] as const) {
 			status: "offline",
 			createdAt: "2026-11-21T00:00:00Z",
 		};
-		await page.route("**/v1/devices", (route) => route.fulfill({ json: { items: [target] } }));
+		const remoteSources: ConnectorInstance[] = isMac
+			? []
+			: [
+					{
+						...instance,
+						id: "con_notes",
+						connectorId: "apple-notes",
+						deviceId: remoteMac.id,
+						deviceName: remoteMac.name,
+						currentDevice: false,
+					},
+					{
+						...instance,
+						id: "con_voice",
+						connectorId: "apple-voice-memos",
+						deviceId: remoteMac.id,
+						deviceName: remoteMac.name,
+						currentDevice: false,
+					},
+				];
+		await page.route("**/v1/devices", (route) =>
+			route.fulfill({ json: { items: isMac ? [target] : [target, remoteMac] } }),
+		);
 		await page.route("**/v1/me/sessions", (route) =>
 			route.fulfill({ json: { items: [{ id: "ses_iphone", current: true }] } }),
 		);
 		await page.route(
 			(url) => url.pathname === "/v1/connectors/catalog",
 			(route) => {
-				expect(new URL(route.request().url()).searchParams.get("apple")).toBe("1");
+				expect(new URL(route.request().url()).searchParams.get("apple")).toBe("2");
 				const items: ConnectorDefinition[] = [
 					{
 						id: "apple-calendar",
@@ -142,6 +165,7 @@ for (const platform of ["ios", "macos"] as const) {
 					},
 					{ id: "apple-photos", name: "Apple Photos", description: "", kind: "device", platforms: ["ios", "macos"] },
 					{ id: "apple-notes", name: "Apple Notes", description: "", kind: "device", platforms: ["macos"] },
+					{ id: "apple-voice-memos", name: "Apple Voice Memos", description: "", kind: "device", platforms: ["macos"] },
 				];
 				return route.fulfill({ json: { items } });
 			},
@@ -160,7 +184,7 @@ for (const platform of ["ios", "macos"] as const) {
 					current = instance;
 					return route.fulfill({ json: current });
 				}
-				return route.fulfill({ json: { items: current ? [current] : [] } });
+				return route.fulfill({ json: { items: current ? [current, ...remoteSources] : remoteSources } });
 			},
 		);
 		await page.route("**/v1/connectors/con_calendar", (route) => {
@@ -216,6 +240,7 @@ for (const platform of ["ios", "macos"] as const) {
 								"apple-calendar": granted ? "granted" : "undetermined",
 								"apple-photos": "undetermined",
 								"apple-notes": isMac ? "undetermined" : "unsupported",
+								"apple-voice-memos": isMac ? "undetermined" : "unsupported",
 							};
 						if (action === "request_permission") {
 							actions.push(action);
@@ -259,8 +284,30 @@ for (const platform of ["ios", "macos"] as const) {
 			);
 		await page.goto("/me/connectors");
 		if (isMac) await page.getByRole("button", { name: "继续使用 Yonder" }).click();
-		await expect(page.getByText("Apple 相册", { exact: true })).toBeVisible();
-		await expect(page.getByText("Apple 备忘录", { exact: true })).toHaveCount(isMac ? 1 : 0);
+		const currentDevice = page.getByRole("region", { name: `${target.name} · 这台设备` });
+		await expect(currentDevice.getByText("Apple 相册", { exact: true })).toBeVisible();
+		await expect(currentDevice.getByText("Apple 备忘录", { exact: true })).toHaveCount(isMac ? 1 : 0);
+		await expect(currentDevice.getByText("Apple 语音备忘录", { exact: true })).toHaveCount(isMac ? 1 : 0);
+		if (!isMac) {
+			const remote = page.getByRole("region", { name: remoteMac.name, exact: true });
+			await expect(remote.getByRole("button", { name: "连接 · Apple 日历", exact: true })).toHaveCount(0);
+			await page.getByRole("radio", { name: "按连接器" }).check();
+			await expect(page.getByRole("navigation", { name: "设备" })).toHaveCount(0);
+			for (const name of ["Apple 备忘录", "Apple 语音备忘录"]) {
+				const source = page.getByRole("region", { name, exact: true });
+				await expect(source.getByText(`${remoteMac.name} · macOS`)).toBeVisible();
+				await expect(source.getByText("未就绪", { exact: true })).toBeVisible();
+				await expect(source.getByRole("button")).toHaveCount(0);
+			}
+			for (const width of [390, 320]) {
+				await page.setViewportSize({ width, height: 770 });
+				await page.screenshot({
+					path: info.outputPath(`ios-connectors-by-capability-${width}.png`),
+					animations: "disabled",
+				});
+			}
+			await page.setViewportSize({ width: 390, height: 770 });
+		}
 		const connect = page.getByRole("button", { name: "连接 · Apple 日历" });
 		await expect(connect.locator("svg.lucide-plus")).toBeVisible();
 		await expect(connect).toHaveText("");
@@ -289,6 +336,11 @@ for (const platform of ["ios", "macos"] as const) {
 		consentActions.push("request_permission");
 		await expect.poll(actions).toEqual(consentActions);
 		await permission(true);
+		if (!isMac) {
+			const source = page.getByRole("region", { name: "Apple 日历", exact: true });
+			await expect(source.getByText("iPhone · iOS")).toBeVisible();
+			await page.getByRole("radio", { name: "按设备" }).check();
+		}
 		const connected = page.getByRole("button", { name: "已接入 · Apple 日历" });
 		await expect(connected.locator("svg.lucide-check")).toBeVisible();
 		await expect(connected).toHaveText("");
@@ -296,7 +348,7 @@ for (const platform of ["ios", "macos"] as const) {
 		expect(created).toBe(1);
 		await expect.poll(() => ready).toBe(true);
 		await expect(dialog).toBeHidden();
-		await expect(page.getByText("Apple 日历", { exact: true })).toBeInViewport();
+		await expect(currentDevice.getByText("Apple 日历", { exact: true })).toBeInViewport();
 		await page.screenshot({
 			path: info.outputPath(`${platform}-apple-connectors-authorization.png`),
 			animations: "disabled",

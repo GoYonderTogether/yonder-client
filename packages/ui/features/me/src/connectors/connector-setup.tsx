@@ -3,7 +3,7 @@ import { useConnectorCatalog, useConnectors, useDevices } from "@yonder/ui-data"
 import { useState } from "react";
 import { ConnectorCard } from "./connector-card.tsx";
 import { ConnectorPanel } from "./connector-panel.tsx";
-import type { LocalFilesAdapter } from "./local-files-adapter.ts";
+import { canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
 
 export interface ConnectorSetupProps {
 	localFiles?: LocalFilesAdapter | undefined;
@@ -46,6 +46,7 @@ export function ConnectorSetup({ localFiles }: ConnectorSetupProps) {
 						definition={definition}
 						device={device}
 						instances={instances}
+						canConfigure={canConfigureConnector(device, definition, localFiles)}
 						onOpen={(chosen, instanceId) => setSelected({ definition: chosen, ...(instanceId ? { instanceId } : {}) })}
 					/>
 				))}

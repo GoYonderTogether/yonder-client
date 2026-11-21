@@ -70,3 +70,46 @@ test("publishes one readiness snapshot and blocks stale or revoked Apple command
 	expect(setup.submit).toHaveBeenCalledWith(command.id, { ok: false, error: "cancelled" });
 	unmount();
 });
+
+test("uploads Apple audio under its command and only submits the server attachment", async () => {
+	const apple = {
+		id: "con_recording",
+		deviceId: "dev_a",
+		connectorId: "apple-voice-memos",
+		scope: "device",
+		capabilities: { fileTools: false },
+		revision: 1,
+	} as const;
+	setup.connections.set([apple]);
+	setup.invoke.mockResolvedValue(undefined);
+	const audio = new File(["test"], "recording.m4a", { type: "audio/mp4" });
+	const attachment = { id: "attachment-a", kind: "audio", name: "recording.m4a", mimeType: "audio/mp4", size: 4 };
+	setup.readyApple.mockImplementation(async (_context, connections) => connections);
+	setup.executeAppleFile.mockResolvedValueOnce(audio);
+	setup.data.api.uploadConnectorAttachment.mockResolvedValueOnce(attachment);
+	const { unmount } = render(<LocalFilesRuntime apple />);
+	await waitFor(() =>
+		expect(setup.realtime.send).toHaveBeenLastCalledWith({
+			type: "connector.ready",
+			connections: [{ id: apple.id, revision: apple.revision }],
+		}),
+	);
+	const command = {
+		...apple,
+		id: "cmd_recording",
+		connectionId: apple.id,
+		operation: "apple_voice_memos_read",
+		path: "",
+		args: { id: "recording-a" },
+		expiresAt: new Date(Date.now() + 15000).toISOString(),
+	} as const;
+	act(() => setup.event({ type: "connector.command", eventId: command.id, at: new Date().toISOString(), command }));
+	await waitFor(() =>
+		expect(setup.submit).toHaveBeenCalledWith(command.id, {
+			ok: true,
+			result: { kind: command.operation, id: command.args.id, attachment },
+		}),
+	);
+	expect(setup.data.api.uploadConnectorAttachment).toHaveBeenCalledWith(command.id, audio, expect.any(AbortSignal));
+	unmount();
+});

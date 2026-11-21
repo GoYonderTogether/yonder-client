@@ -6,7 +6,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
 import { connectorPresentation } from "./connector-card.tsx";
-import type { LocalFilesAdapter } from "./local-files-adapter.ts";
+import { canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
 
 export interface ConnectorPanelProps {
 	definition: ConnectorDefinition;
@@ -47,8 +47,7 @@ export function ConnectorPanel({
 	const apple = definition.id.startsWith("apple-");
 	const legacy = instance?.scope === "folder";
 	const { key, Icon } = connectorPresentation[definition.id];
-	const supported = localFiles?.supports?.(definition.id) ?? (!apple && localFiles?.supported);
-	const canConfigure = device.current && supported && definition.platforms.includes(device.platform);
+	const canConfigure = canConfigureConnector(device, definition, localFiles);
 	const changed = !instance || legacy || instance.capabilities.fileTools !== control;
 	const repair = apple && instance?.status === "offline" && canConfigure;
 	const permissionError =
@@ -127,14 +126,15 @@ export function ConnectorPanel({
 				}
 			}
 			const code = failure instanceof Error ? failure.message : String(failure);
-			if (active.current)
-				setError(
-					code === "notes_unavailable"
-						? "connectors.appleNotes.unavailable"
-						: apple && code === "permission_denied"
-							? "connectors.systemPermissionDenied"
-							: "connectors.connectFailed",
-				);
+			if (active.current) {
+				if (code === "notes_unavailable") setError("connectors.appleNotes.unavailable");
+				else if (code === "voice_memos_unavailable") setError("connectors.appleVoiceMemos.unavailable");
+				else if (code === "voice_memos_unsupported") setError("connectors.appleVoiceMemos.unsupported");
+				else
+					setError(
+						apple && code === "permission_denied" ? "connectors.systemPermissionDenied" : "connectors.connectFailed",
+					);
+			}
 		} finally {
 			setBusy(false);
 		}

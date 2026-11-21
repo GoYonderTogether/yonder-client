@@ -3,6 +3,7 @@ import { expect, test, vi } from "vitest";
 import {
 	appleResourceStatuses,
 	executeAppleResource,
+	executeAppleResourceFile,
 	requestAppleResourcePermission,
 	writeAppleResourceGrant,
 } from "./apple-resources.ts";
@@ -47,4 +48,35 @@ test("keeps passive status, explicit OS consent, persistent grant, and agent exe
 		"plugin:yonder-apple-resources|execute",
 		expect.objectContaining({ context }),
 	);
+});
+
+test("decodes one native Apple attachment as a bounded binary file", async () => {
+	const context = { ownerId: "mem_a", deviceId: "dev_a", sessionId: "ses_a" };
+	const command = {
+		id: "cmd_a",
+		connectionId: "con_a",
+		deviceId: context.deviceId,
+		connectorId: "apple-voice-memos",
+		revision: 1,
+		scope: "device",
+		capabilities: { fileTools: false },
+		operation: "apple_voice_memos_read",
+		path: "",
+		args: { id: "recording-a" },
+		expiresAt: "2026-11-21T02:30:00Z",
+		expiresAtMs: 1_795_312_200_000,
+	} as const;
+	const metadata = new TextEncoder().encode(JSON.stringify({ name: "recording.m4a", mimeType: "audio/mp4" }));
+	const buffer = new ArrayBuffer(4 + metadata.length + 3);
+	new DataView(buffer).setUint32(0, metadata.length);
+	new Uint8Array(buffer, 4).set(metadata);
+	new Uint8Array(buffer, 4 + metadata.length).set([4, 5, 6]);
+	invoke.mockResolvedValueOnce(buffer).mockResolvedValueOnce(buffer.slice(0, 5));
+	await expect(executeAppleResourceFile(context, command)).resolves.toMatchObject({
+		name: "recording.m4a",
+		type: "audio/mp4",
+		size: 3,
+	});
+	expect(invoke).toHaveBeenLastCalledWith("plugin:yonder-apple-resources|execute_attachment", { context, command });
+	await expect(executeAppleResourceFile(context, command)).rejects.toThrow("read_failed");
 });
