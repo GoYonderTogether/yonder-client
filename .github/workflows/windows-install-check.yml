@@ -219,7 +219,7 @@ jobs:
           [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
           [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdc, uint flags);
           '@
-          $user32 = Add-Type -MemberDefinition $signature -Name Win32 -Namespace Shell -PassThru
+          Add-Type -MemberDefinition $signature -Name Win32 -Namespace Shell
           $process = Get-Process -Id $env:APP_PID -ErrorAction Stop
           $handle = $process.MainWindowHandle
           if ($handle -eq [IntPtr]::Zero) {
@@ -227,7 +227,7 @@ jobs:
           }
 
           $bounds = [Shell.Win32+RECT]::new()
-          if (-not ($user32::GetWindowRect($handle, [ref]$bounds))) {
+          if (-not ([Shell.Win32]::GetWindowRect($handle, [ref]$bounds))) {
             throw "GetWindowRect 无法获取进程 $env:APP_PID 的主窗口尺寸"
           }
           $width = $bounds.Right - $bounds.Left
@@ -236,14 +236,14 @@ jobs:
             throw "主窗口尺寸无效：${width}x${height}"
           }
 
-          $bitmap = [System.Drawing.Bitmap]::new($width, $height)
+          $bitmap = [System.Drawing.Bitmap]::new($width, $height, [System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
           try {
             $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
             try {
               $hdc = $graphics.GetHdc()
               try {
                 $PW_RENDERFULLCONTENT = 2
-                if (-not ($user32::PrintWindow($handle, $hdc, $PW_RENDERFULLCONTENT))) {
+                if (-not ([Shell.Win32]::PrintWindow($handle, $hdc, $PW_RENDERFULLCONTENT))) {
                   throw "PrintWindow 无法捕获进程 $env:APP_PID 的主窗口"
                 }
               } finally {
