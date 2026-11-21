@@ -2,6 +2,41 @@
 
 ## [Unreleased]
 
+## [0.3.26112103] - 2026-11-21
+
+### Fixed
+
+- ci：make main green again after merging the day's work
+- desktop：build the local-files mutations module on desktop only
+- ios：keep the camera usage description when preparing the project
+- merge the composer focus handlers and drop the unused Me back label
+- ci：align internal iOS web build version
+- support native QuickTime Voice Memos recordings
+- page macOS Notes attachments
+- expose Apple Notes attachment pagination
+- clarify iPhone Calendar access recovery
+- show mobile chat unread dots and open iOS notification settings
+- guide Apple connector permissions and simplify actions
+- devices：leave social exports with their implementation
+- settings：keep device downloads in the application
+- ui：anchor overlay actions below the scroll body
+
+### Added
+
+- export native macOS Apple connector media
+- show cross-device connector sources and route Apple media
+- reception：drag files and folders between directories
+- connectors：connect Apple data through device permissions
+- reception：review Bot organization of shared memory files
+- settings：group channels and scale reception browsing
+- settings：redesign Bot selection and reception library
+- devices：group platforms and confirm device sign-out
+- contacts：open desktop contacts as a tab page
+- chat：add Bot restart and clear history actions
+- connectors：implement desktop file tools v2
+- mobile：follow the finger to a stop, round close on Me, form header, Me card
+- tasks：one plus menu on Items and Goals; scrim leaves as the overlay closes
+
 ## [0.3.26112102] - 2026-11-21
 
 ### Added
