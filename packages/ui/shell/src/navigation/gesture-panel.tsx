@@ -1,10 +1,17 @@
 import { cn } from "@yonder/ui-components";
 import { SPRING } from "@yonder/ui-tokens";
-import { animate, motion, useMotionValue, usePresence, useReducedMotion } from "motion/react";
-import type { PointerEvent, ReactNode } from "react";
+import {
+	animate,
+	motion,
+	type PanInfo,
+	useDragControls,
+	useMotionValue,
+	usePresence,
+	useReducedMotion,
+} from "motion/react";
+import type { ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { shellHaptic } from "./feedback.ts";
-import { closeDistance, type DragSample, releaseVelocity, shouldDismiss } from "./release.ts";
 import { useDismiss } from "./use-dismiss.ts";
 
 export interface GesturePanelProps {
@@ -23,7 +30,11 @@ export interface GesturePanelProps {
 	priority?: number;
 }
 
-/** Shared navigation surface: direct pointer tracking, interruptible spring settling, one exit. */
+/** Letting go closes past a quarter of the panel (at least 64px), or on a flick of 300px/s or more. */
+const FLING_SPEED = 300;
+const closeDistance = (size: number) => Math.max(64, size / 4);
+
+/** Shared navigation surface: Motion drag from the edge, interruptible spring settling, one exit. */
 export function GesturePanel({
 	open,
 	inline = false,
@@ -53,19 +64,27 @@ export function GesturePanel({
 	const animation = useRef<ReturnType<typeof animate> | null>(null);
 	const direction = side === "left" ? -1 : 1;
 	const vertical = side === "bottom";
-	const gesture = useRef<{
-		id: number;
-		startX: number;
-		startY: number;
-		offset: number;
-		samples: DragSample[];
-		dragging: boolean;
-		armed: boolean;
-	} | null>(null);
+	const controls = useDragControls();
+	const [size, setSize] = useState(0);
+	const armed = useRef(false);
 	const dragged = useRef(false);
 	const dismiss = useRef(onBack);
 	dismiss.current = onBack;
 	useDismiss(shown && active && !inline, onBack, priority);
+
+	useLayoutEffect(() => {
+		const element = panel.current;
+		if (!element) return;
+		const measure = () => {
+			const bounds = element.getBoundingClientRect();
+			setSize(vertical ? bounds.height : bounds.width);
+		};
+		measure();
+		if (typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(measure);
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, [vertical]);
 
 	useLayoutEffect(() => {
 		const element = panel.current;
@@ -119,31 +138,18 @@ export function GesturePanel({
 		};
 	}, [shown, active, role]);
 
-	function finish(event: PointerEvent<HTMLElement>, cancel: boolean) {
-		const current = gesture.current;
-		if (!current || current.id !== event.pointerId) return;
-		gesture.current = null;
-		if (!current.dragging) return;
-		if (event.currentTarget.hasPointerCapture(event.pointerId))
-			event.currentTarget.releasePointerCapture(event.pointerId);
-		const bounds = event.currentTarget.getBoundingClientRect();
-		const width = vertical ? bounds.height : bounds.width;
-		// Toward closing is positive. The finger's own speed at release decides; a layer that was
-		// held still stays where it is, and one that is thrown carries its speed into the spring.
-		const speed = cancel ? 0 : direction * releaseVelocity(current.samples, performance.now());
-		const close = !cancel && shouldDismiss(direction * x.get(), speed, width);
+	function release(info: PanInfo) {
+		const axis = vertical ? "y" : "x";
+		// Toward closing is positive. Motion samples the release frame too, so a held finger reads ~0.
+		const speed = direction * info.velocity[axis];
+		const offset = direction * info.offset[axis];
+		const close = speed > -FLING_SPEED && (offset >= closeDistance(size) || (speed >= FLING_SPEED && offset >= 16));
 		if (close) dismiss.current();
-		const velocity = direction * speed;
-		// A router blocker can reject the exit, so the layer cannot assume it is leaving. When it is,
-		// the `shown` effect takes over from this very position and speed (`x.getVelocity()`); the
-		// settle below waits a frame so it never fights that exit, and runs only if the layer stayed.
+		// A router blocker can reject the exit; if the layer stayed, settle back from where the finger left it.
 		requestAnimationFrame(() => {
-			if (!panel.current?.isConnected || openRef.current === false) return;
-			if (reduced) {
-				x.set(0);
-				return;
-			}
-			animation.current = animate(x, 0, { type: "spring", ...SPRING.panel, velocity });
+			if (!panel.current?.isConnected || !openRef.current) return;
+			if (reduced) x.set(0);
+			else animation.current = animate(x, 0, { type: "spring", ...SPRING.panel, velocity: direction * speed });
 		});
 	}
 
@@ -169,6 +175,17 @@ export function GesturePanel({
 					: "absolute inset-0 flex min-h-0 flex-col overflow-hidden bg-[var(--color-bg-base)]",
 				className,
 			)}
+			drag={inline ? false : vertical ? "y" : "x"}
+			dragControls={controls}
+			dragListener={false}
+			dragMomentum={false}
+			dragElastic={0}
+			dragConstraints={{
+				left: direction > 0 || vertical ? 0 : -size,
+				right: direction > 0 && !vertical ? size : 0,
+				top: 0,
+				bottom: vertical ? size : 0,
+			}}
 			onPointerDown={(event) => {
 				if (!shown || !active || inline || event.button !== 0 || !event.isPrimary) return;
 				dragged.current = false;
@@ -187,58 +204,22 @@ export function GesturePanel({
 						? event.clientX - rect.left
 						: rect.right - event.clientX;
 				if (edge > 32) return;
-				gesture.current = {
-					id: event.pointerId,
-					startX: event.clientX,
-					startY: event.clientY,
-					offset: x.get(),
-					samples: [],
-					dragging: false,
-					armed: false,
-				};
+				animation.current?.stop();
+				armed.current = false;
+				controls.start(event);
 			}}
-			onPointerMove={(event) => {
-				const current = gesture.current;
-				if (!current || current.id !== event.pointerId) return;
-				const dx = vertical ? event.clientY - current.startY : event.clientX - current.startX;
-				const dy = vertical ? event.clientX - current.startX : event.clientY - current.startY;
-				if (!current.dragging) {
-					if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
-						gesture.current = null;
-						return;
-					}
-					if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return;
-					animation.current?.stop();
-					current.offset = x.get();
-					if (vertical) current.startY = event.clientY;
-					else current.startX = event.clientX;
-					current.dragging = true;
-					dragged.current = true;
-					event.currentTarget.setPointerCapture(event.pointerId);
-				}
-				event.preventDefault();
-				const now = performance.now();
-				const point = vertical ? event.clientY : event.clientX;
-				current.samples.push({ time: now, point });
-				while (current.samples.length > 2 && now - (current.samples[0]?.time ?? now) > 150) current.samples.shift();
-				const bounds = event.currentTarget.getBoundingClientRect();
-				const width = vertical ? bounds.height : bounds.width;
-				const start = vertical ? current.startY : current.startX;
-				const offset = Math.min(width, Math.max(0, direction * (current.offset + point - start)));
-				x.set(direction * offset);
+			onDragStart={() => {
+				dragged.current = true;
+			}}
+			onDrag={(_, info) => {
 				// One tick when the page would leave on release; drifting back and over again stays quiet.
-				if (!current.armed && offset > closeDistance(width)) {
-					current.armed = true;
+				const offset = direction * info.offset[vertical ? "y" : "x"];
+				if (!armed.current && offset > closeDistance(size)) {
+					armed.current = true;
 					shellHaptic("selection");
 				}
 			}}
-			onPointerUp={(event) => finish(event, false)}
-			onPointerCancel={(event) => finish(event, true)}
-			onLostPointerCapture={(event) => {
-				// Touch initially captures the child under the finger. Transferring capture to this
-				// panel bubbles the child's loss here, even though the panel now owns the pointer.
-				if (event.target === event.currentTarget) finish(event, true);
-			}}
+			onDragEnd={(_, info) => release(info)}
 			onClickCapture={(event) => {
 				if (dragged.current) {
 					event.preventDefault();

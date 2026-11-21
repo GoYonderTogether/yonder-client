@@ -130,7 +130,7 @@ test("mobile contact navigation exposes a back control without changing desktop 
 	expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
 });
 
-test("a bottom sheet keeps body scrolling and uses its handle for dismissal", () => {
+test("a bottom sheet keeps body scrolling and uses its handle for dismissal", async () => {
 	const onClose = vi.fn();
 	render(
 		<Overlay open onClose={onClose} title="Connect" mode="mobile" mobilePresentation="sheet">
@@ -154,11 +154,15 @@ test("a bottom sheet keeps body scrolling and uses its handle for dismissal", ()
 	expect(onClose).not.toHaveBeenCalled();
 	const handle = dialog.querySelector("[data-sheet-handle]") as HTMLElement;
 	expect(handle).toHaveClass("touch-none");
+	// Motion applies pointer moves on animation frames, so each step waits for one.
+	const frame = () => act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
 	pointer(handle, "pointerdown", 10);
 	pointer(handle, "pointermove", 30);
+	await frame();
 	pointer(handle, "pointermove", 230);
+	await frame();
 	pointer(handle, "pointerup", 230);
-	expect(onClose).toHaveBeenCalledOnce();
+	await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
 });
 
 function DismissibleOverlay({ mode }: { mode: "wide" | "medium" | "compact" | "mobile" }) {
