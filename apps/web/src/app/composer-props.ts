@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { CompletionBinding, CompletionMarker, TextEditRange } from "./completion/bindings.ts";
 import type { CompletionItem } from "./completion/tokens.ts";
 import type { DraftFile } from "./use-chat-draft.ts";
+import type { useDirectAttachmentSend } from "./use-direct-attachment-send.ts";
 
 export interface ComposerProps {
 	/** Who the message would go to; the placeholder names them. */
@@ -26,6 +27,9 @@ export interface ComposerProps {
 	commandStatus?: ReactNode;
 	files?: DraftFile[];
 	onFiles?: (files: File[]) => void;
+	pickedFiles?:
+		| Pick<ReturnType<typeof useDirectAttachmentSend>, "send" | "retry" | "discard" | "sending" | "failed">
+		| undefined;
 	onRemoveFile?: (id: string) => void;
 	onRetryFile?: (id: string) => void;
 	onOriginalFileChange?: (id: string, original: boolean) => void;

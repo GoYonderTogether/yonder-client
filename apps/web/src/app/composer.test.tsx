@@ -29,7 +29,8 @@ test.each([false, true])("own Bot attachment menu opens before a picker (mobile=
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Attach" }));
 	expect(picker).not.toHaveBeenCalled();
-	expect(Boolean(screen.queryByRole("button", { name: "Upload images" }))).toBe(mobilePicker);
+	expect(Boolean(screen.queryByRole("button", { name: "Album" }))).toBe(mobilePicker);
+	expect(Boolean(screen.queryByRole("button", { name: "Camera" }))).toBe(mobilePicker);
 	const recording = screen.getByRole("button", { name: /record/i });
 	expect(recording).toHaveAccessibleName("Recording notes");
 	fireEvent.click(recording);
@@ -69,7 +70,16 @@ test("mobile swaps the empty composer between typing and holding to talk", () =>
 	fireEvent.click(screen.getByRole("button", { name: "Text input" }));
 	expect(screen.getByRole("textbox")).toHaveFocus();
 	view.rerender(composer("A message"));
-	expect(screen.queryByRole("button", { name: "Voice input" })).not.toBeInTheDocument();
+	const toggle = screen.getByRole("button", { name: "Voice input" });
+	const attach = screen.getByRole("button", { name: "Attach" });
+	const sendButton = screen.getByRole("button", { name: "Send" });
+	expect(toggle.compareDocumentPosition(screen.getByRole("textbox"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+	expect(sendButton.compareDocumentPosition(attach)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+	fireEvent.click(toggle);
+	expect(screen.getByRole("button", { name: "Hold to talk" })).toBeEnabled();
+	expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Text input" }));
+	expect(screen.getByRole("textbox")).toHaveValue("A message");
 	fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
 	expect(send).not.toHaveBeenCalled();
 	fireEvent.click(screen.getByRole("button", { name: "Send" }));

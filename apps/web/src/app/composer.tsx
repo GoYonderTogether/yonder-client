@@ -1,5 +1,5 @@
 import { ComposerFrame, ComposerLayout } from "@yonder/chat-presentation";
-import { ArrowUp, FileAudio, FileText, Image, Keyboard, Mic, Plus, Square } from "lucide-react";
+import { ArrowUp, Keyboard, Mic, Plus, Square } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -8,8 +8,13 @@ import { CompletionPopup } from "./completion/completion-popup.tsx";
 import { CompletionHighlight } from "./completion/highlight.tsx";
 import { useComposerCompletion } from "./completion/use-composer-completion.ts";
 import { useTextareaEdit } from "./completion/use-textarea-edit.ts";
+import { ComposerAttachmentMenu, ComposerFileInputs } from "./composer-attachment-menu.tsx";
 import { ComposerFiles } from "./composer-files.tsx";
-import { IosComposerAttachmentPanel, useIosComposerAttachments } from "./composer-ios-attachments.tsx";
+import {
+	IosAttachmentSendStatus,
+	IosComposerAttachmentPanel,
+	useIosComposerAttachments,
+} from "./composer-ios-attachments.tsx";
 import { isFileDrag } from "./file-drop-zone.tsx";
 import { HoldToTalk } from "./hold-to-talk.tsx";
 import { CHAT_ATTACHMENT_LIMIT } from "./use-chat-draft.ts";
@@ -42,6 +47,7 @@ export function Composer({
 	commandStatus,
 	files = [],
 	onFiles,
+	pickedFiles,
 	onRemoveFile,
 	onRetryFile,
 	onOriginalFileChange,
@@ -59,20 +65,27 @@ export function Composer({
 	const highlight = useRef<HTMLDivElement>(null);
 	const picker = useRef<HTMLInputElement>(null);
 	const imagePicker = useRef<HTMLInputElement>(null);
+	const cameraPicker = useRef<HTMLInputElement>(null);
+	const legacyPickerScope = useRef<string | undefined>(undefined);
 	const addMenu = useRef<HTMLDivElement>(null);
-	const [menu, setMenu] = useState(false);
+	const menuPanel = useRef<HTMLFieldSetElement>(null);
+	const [menuScope, setMenuScope] = useState<string>();
+	const menu = menuScope === scope;
+	if (menuScope !== undefined && !menu) setMenuScope(undefined);
 	const [voiceScope, setVoiceScope] = useState<string | null>(null);
 	const [voiceSendingScope, setVoiceSendingScope] = useState<string | null>(null);
 	const [holdError, setHoldError] = useState<{ scope: string; message: string }>();
 	useEffect(() => {
 		const root = addMenu.current;
 		if (!menu || !root) return;
-		const dismiss = (event: PointerEvent) => {
-			if (!event.composedPath().includes(root)) setMenu(false);
+		const outsideEvent = mobilePicker ? "click" : "pointerdown";
+		const dismiss = (event: Event) => {
+			const path = event.composedPath();
+			if (!path.includes(root) && (!menuPanel.current || !path.includes(menuPanel.current))) setMenuScope(undefined);
 		};
-		root.ownerDocument.addEventListener("pointerdown", dismiss, true);
-		return () => root.ownerDocument.removeEventListener("pointerdown", dismiss, true);
-	}, [menu]);
+		root.ownerDocument.addEventListener(outsideEvent, dismiss, true);
+		return () => root.ownerDocument.removeEventListener(outsideEvent, dismiss, true);
+	}, [menu, mobilePicker]);
 	const [expanded, setExpanded] = useState(false);
 	const [dragging, setDragging] = useState(false);
 	const dragDepth = useRef(0);
@@ -113,9 +126,9 @@ export function Composer({
 	const placeholder = recipientName ? t("chat.composerTo", { name: recipientName }) : t("chat.composerPlaceholder");
 	const hasContent = Boolean(draft.trim() || files.length);
 	const voiceSending = voiceSendingScope === scope;
-	const holdMode = mobilePicker && voiceScope === scope && (!hasContent || voiceSending);
+	const holdMode = mobilePicker && voiceScope === scope;
 	const compactMobile = mobilePicker && (!draft || holdMode);
-	const showSend = !mobilePicker || streaming || sending || (hasContent && !voiceSending);
+	const showSend = !mobilePicker || streaming || sending || (hasContent && !holdMode && !voiceSending);
 	const voiceUnavailable = disabled || readOnly || disconnected || microphoneOccupied || !onSendVoice;
 	const canSend = !disabled && !disconnected && !streaming && hasContent;
 	function toggleVoiceMode() {
@@ -128,12 +141,17 @@ export function Composer({
 			setVoiceScope(scope);
 		}
 	}
+	function addDraftFiles(files: File[]) {
+		if (files.length) setVoiceScope(null);
+		onFiles?.(files);
+	}
 	async function sendVoice(file: File) {
 		setVoiceSendingScope(scope);
 		try {
 			await onSendVoice?.(file);
 		} finally {
 			setVoiceSendingScope((pending) => (pending === scope ? null : pending));
+			if (hasContent) setVoiceScope((active) => (active === scope ? null : active));
 		}
 	}
 	useLayoutEffect(() => {
@@ -177,39 +195,99 @@ export function Composer({
 		microphoneOccupied,
 		onActivityChange: mobilePicker ? undefined : onVoiceActivityChange,
 	});
+	const attachmentPickerBlocked = Boolean(pickedFiles && (streaming || pickedFiles.failed));
 	const iosAttachments = useIosComposerAttachments({
 		scope,
 		mobile: mobilePicker,
-		enabled: !disabled && !readOnly && !sending,
-		limit: Math.max(0, CHAT_ATTACHMENT_LIMIT - files.length),
+		enabled: !disabled && !readOnly && !sending && !attachmentPickerBlocked,
+		direct: Boolean(pickedFiles),
+		limit: pickedFiles ? CHAT_ATTACHMENT_LIMIT : Math.max(0, CHAT_ATTACHMENT_LIMIT - files.length),
 		addButton: addMenu,
-		onFiles: (selected) => {
+		onFiles: (selected, original) => {
 			interrupt();
-			onFiles?.(selected);
+			if (pickedFiles) pickedFiles.send(selected, original);
+			else addDraftFiles(selected);
 		},
 	});
+	const issue = iosAttachments.issue;
 	const pickError =
-		iosAttachments.issue === "pickFailed"
-			? "composerAttachments.pickFailed"
-			: iosAttachments.issue && `chat.${iosAttachments.issue}`;
+		issue === "fileTooLarge" || issue === "tooManyFiles" ? `chat.${issue}` : issue && `composerAttachments.${issue}`;
 	const visibleError = pickError || error || voice.error || (holdError?.scope === scope ? holdError.message : "");
 	// A send that did not go through is the one outcome worth feeling; success stays quiet.
 	useEffect(() => {
 		if (visibleError) haptic("error");
 	}, [visibleError]);
 
+	function openFileInput(input: HTMLInputElement | null) {
+		legacyPickerScope.current = scope;
+		input?.click();
+	}
+	function receiveFileInput(selected: File[], original: boolean) {
+		const requestedScope = legacyPickerScope.current;
+		legacyPickerScope.current = undefined;
+		interrupt();
+		if (mobilePicker && requestedScope !== undefined && requestedScope !== scope) return;
+		if (mobilePicker && pickedFiles && requestedScope !== undefined) {
+			pickedFiles.send(selected, original);
+			return;
+		}
+		addDraftFiles(selected);
+	}
+
+	const attachmentMenu =
+		!iosAttachments.iphone && menu ? (
+			<ComposerAttachmentMenu
+				panel={menuPanel}
+				mobile={mobilePicker}
+				direct={Boolean(mobilePicker && pickedFiles)}
+				onImages={mobilePicker ? () => openFileInput(imagePicker.current) : undefined}
+				onCamera={mobilePicker ? () => openFileInput(cameraPicker.current) : undefined}
+				onFiles={() => openFileInput(picker.current)}
+				onMeeting={onMeeting}
+				onClose={() => setMenuScope(undefined)}
+			/>
+		) : null;
+	const addControl = (
+		<div ref={addMenu} className="composer-add">
+			<button
+				type="button"
+				className="composer-tool"
+				disabled={
+					disabled ||
+					(mobilePicker && attachmentPickerBlocked) ||
+					(iosAttachments.iphone && (readOnly || sending || iosAttachments.importing))
+				}
+				aria-label={t("chat.attach")}
+				aria-expanded={mobilePicker || onMeeting ? iosAttachments.open || menu : undefined}
+				onClick={() => {
+					if (mobilePicker) input.current?.blur();
+					if (iosAttachments.iphone) iosAttachments.toggle();
+					else if (mobilePicker || onMeeting) setMenuScope(menu ? undefined : scope);
+					else picker.current?.click();
+				}}
+			>
+				<Plus size={21} aria-hidden="true" />
+			</button>
+			{!mobilePicker ? attachmentMenu : null}
+		</div>
+	);
+
 	return (
-		<div data-composer-mobile={mobilePicker || undefined} className="relative flex flex-col gap-[var(--spacing-2)]">
+		<div
+			data-composer-mobile={mobilePicker || undefined}
+			data-mobile-send={(mobilePicker && showSend) || undefined}
+			className="relative flex flex-col gap-[var(--spacing-2)]"
+		>
 			{visibleError ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
 					{t(visibleError)}
 				</p>
 			) : null}
-			{iosAttachments.importing ? (
-				<p role="status" className="text-caption text-[var(--color-text-secondary)]">
-					{t("composerAttachments.preparingAttachments")}
-				</p>
-			) : null}
+			<IosAttachmentSendStatus
+				pickedFiles={pickedFiles}
+				importing={iosAttachments.importing}
+				disabled={disabled || streaming}
+			/>
 			<fieldset
 				aria-label={t("chat.attach")}
 				className={iosAttachments.iphone ? "min-w-0" : undefined}
@@ -236,7 +314,7 @@ export function Composer({
 					setDragging(false);
 					if (!disabled) {
 						interrupt();
-						onFiles?.([...event.dataTransfer.files]);
+						addDraftFiles([...event.dataTransfer.files]);
 					}
 				}}
 			>
@@ -268,92 +346,24 @@ export function Composer({
 						as="div"
 						expanded={!compactMobile && Boolean(expanded || draft.includes("\n") || files.length)}
 					>
-						<div ref={addMenu} className="composer-add">
+						{mobilePicker ? (
 							<button
 								type="button"
-								className="composer-tool"
-								disabled={disabled || (iosAttachments.iphone && (readOnly || sending || iosAttachments.importing))}
-								aria-label={t("chat.attach")}
-								aria-expanded={mobilePicker || onMeeting ? iosAttachments.open || menu : undefined}
-								onClick={() => {
-									if (iosAttachments.iphone) {
-										input.current?.blur();
-										iosAttachments.toggle();
-									} else if (mobilePicker || onMeeting) setMenu(!menu);
-									else picker.current?.click();
-								}}
+								className="composer-tool composer-mobile-toggle"
+								aria-label={t(holdMode ? "chat.textInput" : "chat.voiceInput")}
+								disabled={iosAttachments.importing || (!holdMode && voiceUnavailable)}
+								onClick={toggleVoiceMode}
 							>
-								<Plus size={21} aria-hidden="true" />
+								{holdMode ? <Keyboard size={20} aria-hidden="true" /> : <Mic size={20} aria-hidden="true" />}
 							</button>
-							{!iosAttachments.iphone && menu ? (
-								<fieldset
-									className="composer-add-menu"
-									aria-label={t("chat.attach")}
-									onKeyDown={(event) => {
-										if (event.key === "Escape") setMenu(false);
-									}}
-								>
-									{mobilePicker ? (
-										<button
-											type="button"
-											onClick={() => {
-												imagePicker.current?.click();
-												setMenu(false);
-											}}
-										>
-											<Image size={18} aria-hidden="true" />
-											{t("chat.uploadImages")}
-										</button>
-									) : null}
-									<button
-										type="button"
-										onClick={() => {
-											picker.current?.click();
-											setMenu(false);
-										}}
-									>
-										<FileText size={18} aria-hidden="true" />
-										{t("chat.uploadFiles")}
-									</button>
-									{onMeeting ? (
-										<button
-											type="button"
-											onClick={() => {
-												setMenu(false);
-												onMeeting();
-											}}
-										>
-											<FileAudio size={18} aria-hidden="true" />
-											{t("chatActions.recordMeeting")}
-										</button>
-									) : null}
-								</fieldset>
-							) : null}
-						</div>
-						<input
-							ref={picker}
-							type="file"
-							multiple
-							className="hidden"
-							aria-label={t("chat.uploadFiles")}
-							onChange={(event) => {
-								interrupt();
-								onFiles?.([...(event.target.files ?? [])]);
-								event.target.value = "";
-							}}
-						/>
-						<input
-							ref={imagePicker}
-							type="file"
-							accept="image/*"
-							multiple
-							className="hidden"
-							aria-label={t("chat.uploadImages")}
-							onChange={(event) => {
-								interrupt();
-								onFiles?.([...(event.target.files ?? [])]);
-								event.target.value = "";
-							}}
+						) : (
+							addControl
+						)}
+						<ComposerFileInputs
+							files={picker}
+							images={imagePicker}
+							camera={mobilePicker && !iosAttachments.iphone ? cameraPicker : undefined}
+							onFiles={receiveFileInput}
 						/>
 						<div className="composer-editor" hidden={holdMode}>
 							<div ref={highlight} className="composer-highlight composer-text-style" aria-hidden="true">
@@ -393,7 +403,7 @@ export function Composer({
 									const files = [...event.clipboardData.files];
 									if (files.length && !disabled) {
 										event.preventDefault();
-										onFiles?.(files);
+										addDraftFiles(files);
 									}
 								}}
 								aria-label={placeholder}
@@ -457,16 +467,6 @@ export function Composer({
 								onStart={startVoice}
 								onPause={pauseVoice}
 							/>
-						) : !showSend ? (
-							<button
-								type="button"
-								className="composer-tool composer-mobile-toggle"
-								aria-label={t(holdMode ? "chat.textInput" : "chat.voiceInput")}
-								disabled={iosAttachments.importing || (!holdMode && voiceUnavailable)}
-								onClick={toggleVoiceMode}
-							>
-								{holdMode ? <Keyboard size={20} aria-hidden="true" /> : <Mic size={20} aria-hidden="true" />}
-							</button>
 						) : null}
 						{showSend ? (
 							<button
@@ -485,9 +485,11 @@ export function Composer({
 								)}
 							</button>
 						) : null}
+						{mobilePicker ? addControl : null}
 					</ComposerLayout>
 				</ComposerFrame>
 			</fieldset>
+			{mobilePicker && !attachmentPickerBlocked ? attachmentMenu : null}
 			{iosAttachments.open ? (
 				<IosComposerAttachmentPanel key={scope} picker={iosAttachments} onMeeting={onMeeting} />
 			) : null}

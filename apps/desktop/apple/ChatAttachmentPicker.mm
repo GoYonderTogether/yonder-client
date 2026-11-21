@@ -1,3 +1,4 @@
+#import <AVFoundation/AVFoundation.h>
 #import <Photos/Photos.h>
 #import <PhotosUI/PhotosUI.h>
 #import <UIKit/UIKit.h>
@@ -9,6 +10,7 @@ using PickCallback = void (*)(void *, const char *);
 using DataCallback = void (*)(void *, const void *, size_t);
 typedef void (^PickCompletion)(NSDictionary *);
 static char pickerKey;
+static char photoObserverKey;
 static const NSUInteger maxFileBytes = 20 * 1024 * 1024;
 
 // The Tauri Channel evaluates JavaScript using the WebView. Leave with_webview's dispatcher
@@ -37,15 +39,85 @@ static void replyData(void *context, DataCallback reply, NSData *data) {
     reply(context, data ? (data.length ? data.bytes : &empty) : nullptr, data.length);
 }
 
-extern "C" void yonder_ios_chat_photo_page(unsigned int offset, unsigned int limit, void *context, DataCallback reply) {
+@interface YonderChatPhotoObserver : NSObject <PHPhotoLibraryChangeObserver>
+@property(nonatomic, weak) WKWebView *webView;
+@end
+
+@implementation YonderChatPhotoObserver
+- (void)photoLibraryDidChange:(PHChange *)change {
+    (void)change;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.webView evaluateJavaScript:@"window.dispatchEvent(new Event('yonder-ios-photo-library-change'))"
+            completionHandler:nil];
+    });
+}
+
+- (void)dealloc {
+    [PHPhotoLibrary.sharedPhotoLibrary unregisterChangeObserver:self];
+}
+@end
+
+extern "C" void yonder_ios_observe_chat_photos(void *webview) {
+    WKWebView *view = (__bridge WKWebView *)webview;
+    if (objc_getAssociatedObject(view, &photoObserverKey)) return;
+    YonderChatPhotoObserver *observer = [YonderChatPhotoObserver new];
+    observer.webView = view;
+    [PHPhotoLibrary.sharedPhotoLibrary registerChangeObserver:observer];
+    objc_setAssociatedObject(view, &photoObserverKey, observer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+static PHFetchOptions *imageOptions() {
+    PHFetchOptions *options = [PHFetchOptions new];
+    options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %d", PHAssetMediaTypeImage];
+    return options;
+}
+
+extern "C" void yonder_ios_chat_photo_albums(void *context, DataCallback reply) {
+    // Limited access grants individual photos, without exposing the user's album names.
+    if ([PHPhotoLibrary authorizationStatusForAccessLevel:PHAccessLevelReadWrite] != PHAuthorizationStatusAuthorized) {
+        replyData(context, reply, [@"[]" dataUsingEncoding:NSUTF8StringEncoding]);
+        return;
+    }
+    PHFetchOptions *options = imageOptions();
+    options.fetchLimit = 1;
+    NSMutableArray *albums = [NSMutableArray array];
+    PHFetchResult<PHAssetCollection *> *collections = [PHAssetCollection fetchAssetCollectionsWithType:
+        PHAssetCollectionTypeAlbum subtype:PHAssetCollectionSubtypeAny options:nil];
+    for (PHAssetCollection *album in collections) {
+        if (album.localizedTitle.length && [PHAsset fetchAssetsInAssetCollection:album options:options].count) {
+            [albums addObject:@{ @"id": album.localIdentifier, @"title": album.localizedTitle }];
+        }
+    }
+    if ([PHPhotoLibrary authorizationStatusForAccessLevel:PHAccessLevelReadWrite] != PHAuthorizationStatusAuthorized) {
+        [albums removeAllObjects];
+    }
+    NSArray *sorted = [albums sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *left, NSDictionary *right) {
+        return [left[@"title"] localizedStandardCompare:right[@"title"]];
+    }];
+    replyData(context, reply, [NSJSONSerialization dataWithJSONObject:sorted options:0 error:nil]);
+}
+
+extern "C" void yonder_ios_chat_photo_page(const char *albumId, unsigned int offset, unsigned int limit,
+                                           void *context, DataCallback reply) {
     if (!hasPhotoAccess()) {
         replyData(context, reply, nil);
         return;
     }
-    PHFetchOptions *options = [PHFetchOptions new];
+    PHFetchOptions *options = imageOptions();
     options.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"creationDate" ascending:NO]];
     options.fetchLimit = (NSUInteger)offset + limit + 1;
-    PHFetchResult<PHAsset *> *photos = [PHAsset fetchAssetsWithMediaType:PHAssetMediaTypeImage options:options];
+    PHFetchResult<PHAsset *> *photos;
+    if (albumId) {
+        if ([PHPhotoLibrary authorizationStatusForAccessLevel:PHAccessLevelReadWrite] != PHAuthorizationStatusAuthorized) {
+            replyData(context, reply, nil);
+            return;
+        }
+        NSString *identifier = [NSString stringWithUTF8String:albumId];
+        PHAssetCollection *album = [PHAssetCollection fetchAssetCollectionsWithLocalIdentifiers:@[identifier] options:nil].firstObject;
+        photos = album ? [PHAsset fetchAssetsInAssetCollection:album options:options] : nil;
+    } else {
+        photos = [PHAsset fetchAssetsWithMediaType:PHAssetMediaTypeImage options:options];
+    }
     NSMutableArray *assets = [NSMutableArray arrayWithCapacity:limit];
     NSMutableArray<NSString *> *ids = [NSMutableArray arrayWithCapacity:limit];
     for (NSUInteger index = offset; index < MIN(photos.count, (NSUInteger)offset + limit); ++index) {
@@ -57,7 +129,9 @@ extern "C" void yonder_ios_chat_photo_page(unsigned int offset, unsigned int lim
         }];
     }
     // A Settings change can narrow the accessible library while a page is being read.
-    if (!hasPhotoAccess() || (ids.count && [PHAsset fetchAssetsWithLocalIdentifiers:ids options:nil].count != ids.count)) {
+    if (!hasPhotoAccess() ||
+        (albumId && [PHPhotoLibrary authorizationStatusForAccessLevel:PHAccessLevelReadWrite] != PHAuthorizationStatusAuthorized) ||
+        (ids.count && [PHAsset fetchAssetsWithLocalIdentifiers:ids options:nil].count != ids.count)) {
         replyData(context, reply, nil);
         return;
     }
@@ -107,13 +181,12 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
     }
 }
 
-@interface YonderChatAttachmentPicker : NSObject <PHPickerViewControllerDelegate, UIDocumentPickerDelegate>
+@interface YonderChatAttachmentPicker : NSObject <UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIDocumentPickerDelegate>
 @property(nonatomic, weak) WKWebView *webView;
 @property(nonatomic, copy) NSString *session;
 @property(nonatomic, copy) NSString *directory;
 @property(nonatomic) NSUInteger limit;
 @property(nonatomic, strong) UIViewController *picker;
-@property(nonatomic, strong) NSProgress *providerProgress;
 @property(nonatomic) PHAssetResourceDataRequestID resourceRequest;
 @property(nonatomic, copy) PickCompletion completion;
 @property(nonatomic, strong) NSMutableArray<NSDictionary *> *files;
@@ -130,8 +203,6 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
     PickCompletion complete = self.completion;
     if (!complete) return;
     self.completion = nil;
-    [self.providerProgress cancel];
-    self.providerProgress = nil;
     if (self.resourceRequest) {
         [PHAssetResourceManager.defaultManager cancelDataRequest:self.resourceRequest];
         self.resourceRequest = PHInvalidAssetResourceDataRequestID;
@@ -153,7 +224,7 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
 }
 
 // Copies synchronously while the system picker grants access to the selected URL.
-- (NSDictionary *)stageURL:(NSURL *)url name:(NSString *)name photo:(BOOL)photo index:(NSUInteger)index {
+- (NSDictionary *)stageURL:(NSURL *)url name:(NSString *)name index:(NSUInteger)index {
     if (!url.isFileURL) return @{ @"issue": @"pickFailed" };
     NSDictionary *values = [url resourceValuesForKeys:@[NSURLIsRegularFileKey, NSURLFileSizeKey, NSURLContentTypeKey]
                                                error:nil];
@@ -165,9 +236,6 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
     }
     NSString *filename = name.length ? name.lastPathComponent : url.lastPathComponent;
     NSString *extension = url.pathExtension;
-    if (photo && extension.length && [filename.pathExtension caseInsensitiveCompare:extension] != NSOrderedSame) {
-        filename = [filename.stringByDeletingPathExtension stringByAppendingPathExtension:extension];
-    }
     UTType *type = values[NSURLContentTypeKey];
     if (!type.preferredMIMEType && extension.length) type = [UTType typeWithFilenameExtension:extension];
     return [self stagedFile:index name:filename type:type];
@@ -244,46 +312,74 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
     if (started) [manager cancelDataRequest:started];
 }
 
-- (void)importPhotos:(NSArray *)photos at:(NSUInteger)index {
+- (void)importPhotos:(NSArray<NSString *> *)photos at:(NSUInteger)index {
     if (!self.completion) return;
     if (index == photos.count) {
         [self finish:NO];
         return;
     }
-    void (^next)(NSDictionary *) = ^(NSDictionary *item) {
+    [self importLibraryPhoto:photos[index] completion:^(NSDictionary *item) {
         if (!self.completion) return;
         [self record:item];
         [self importPhotos:photos at:index + 1];
-    };
-    id photo = photos[index];
-    if ([photo isKindOfClass:NSString.class]) {
-        [self importLibraryPhoto:photo completion:next];
-        return;
-    }
-    PHPickerResult *result = photo;
-    NSItemProvider *provider = result.itemProvider;
-    if (![provider hasItemConformingToTypeIdentifier:UTTypeImage.identifier]) {
-        next(@{ @"issue": @"pickFailed" });
-        return;
-    }
-    NSUInteger fileIndex = self.files.count;
-    NSString *name = provider.suggestedName;
-    self.providerProgress = [provider loadFileRepresentationForTypeIdentifier:UTTypeImage.identifier
-        completionHandler:^(NSURL *url, NSError *error) {
-            NSDictionary *item = error ? @{ @"issue": @"pickFailed" } : [self stageURL:url name:name photo:YES index:fileIndex];
-            dispatch_async(dispatch_get_main_queue(), ^{ next(item); });
-        }];
+    }];
 }
 
-- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results {
-    if (picker != self.picker) return;
-    if (!results.count) {
-        [self finish:YES];
+- (void)showCamera:(UIViewController *)parent {
+    if (![UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera]) {
+        self.issue = @"cameraUnavailable";
+        [self finish:NO];
         return;
     }
+    AVAuthorizationStatus status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
+    if (status == AVAuthorizationStatusNotDetermined) {
+        [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (!self.completion) return;
+                if (granted) [self showCamera:parent];
+                else {
+                    self.issue = @"cameraDenied";
+                    [self finish:NO];
+                }
+            });
+        }];
+        return;
+    }
+    if (status != AVAuthorizationStatusAuthorized) {
+        self.issue = @"cameraDenied";
+        [self finish:NO];
+        return;
+    }
+    UIImagePickerController *camera = [UIImagePickerController new];
+    camera.sourceType = UIImagePickerControllerSourceTypeCamera;
+    camera.mediaTypes = @[UTTypeImage.identifier];
+    camera.delegate = self;
+    camera.modalPresentationStyle = UIModalPresentationFullScreen;
+    self.picker = camera;
+    [parent presentViewController:camera animated:YES completion:nil];
+}
+
+- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
+    if (picker == self.picker) [self finish:YES];
+}
+
+- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey,id> *)info {
+    if (picker != self.picker) return;
     self.completion(@{ @"importing": @YES });
     [self closePicker];
-    [self importPhotos:results at:0];
+    UIImage *image = info[UIImagePickerControllerOriginalImage];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSData *jpeg = image ? UIImageJPEGRepresentation(image, 0.95) : nil;
+        NSDictionary *item;
+        if (jpeg.length > maxFileBytes) item = @{ @"issue": @"fileTooLarge" };
+        else if (![jpeg writeToURL:[self outputAt:0] options:0 error:nil]) item = @{ @"issue": @"pickFailed" };
+        else item = [self stagedFile:0 name:@"Photo.jpg" type:UTTypeJPEG];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!self.completion) return;
+            [self record:item];
+            [self finish:NO];
+        });
+    });
 }
 
 - (void)documentPicker:(UIDocumentPickerViewController *)picker didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
@@ -304,7 +400,7 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
             NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
             __block NSDictionary *item;
             [coordinator coordinateReadingItemAtURL:url options:0 error:nil byAccessor:^(NSURL *accessibleURL) {
-                item = [self stageURL:accessibleURL name:url.lastPathComponent photo:NO index:index];
+                item = [self stageURL:accessibleURL name:url.lastPathComponent index:index];
             }];
             if (access) [url stopAccessingSecurityScopedResource];
             [items addObject:item ?: @{ @"issue": @"pickFailed" }];
@@ -324,7 +420,7 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
 @end
 
 extern "C" void yonder_ios_pick_chat_attachments(void *webview, const char *session, const char *directory,
-                                                  bool documents, bool allPhotos, const char *photoIdsJSON,
+                                                  bool documents, bool camera, const char *photoIdsJSON,
                                                   unsigned int limit, void *context, PickCallback callback) {
     WKWebView *view = (__bridge WKWebView *)webview;
     YonderChatAttachmentPicker *previous = objc_getAssociatedObject(view, &pickerKey);
@@ -351,15 +447,9 @@ extern "C" void yonder_ios_pick_chat_attachments(void *webview, const char *sess
         picker.allowsMultipleSelection = limit > 1;
         picker.delegate = sessionPicker;
         sessionPicker.picker = picker;
-    } else if (allPhotos) {
-        PHPickerConfiguration *config = [PHPickerConfiguration new];
-        config.filter = PHPickerFilter.imagesFilter;
-        config.selection = PHPickerConfigurationSelectionOrdered;
-        config.selectionLimit = limit;
-        config.preferredAssetRepresentationMode = PHPickerConfigurationAssetRepresentationModeCurrent;
-        PHPickerViewController *picker = [[PHPickerViewController alloc] initWithConfiguration:config];
-        picker.delegate = sessionPicker;
-        sessionPicker.picker = picker;
+    } else if (camera) {
+        [sessionPicker showCamera:parent];
+        return;
     } else {
         sessionPicker.completion(@{ @"importing": @YES });
         [sessionPicker importPhotos:photoIds at:0];

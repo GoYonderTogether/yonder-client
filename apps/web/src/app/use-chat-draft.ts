@@ -76,8 +76,19 @@ interface Draft {
 	bindings?: CompletionBinding[];
 }
 const empty = (): Draft => ({ text: "", files: [], revision: 0 });
-const MAX_BYTES = 20 * 1024 * 1024;
+export const CHAT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
 export const CHAT_ATTACHMENT_LIMIT = 10;
+
+export function draftFile(file: File, voiceTranscript?: string | null): DraftFile {
+	return {
+		id: crypto.randomUUID(),
+		name: file.name,
+		mimeType: file.type,
+		blob: file,
+		status: isImageFile(file.name, file.type) ? "preparing" : "ready",
+		...(voiceTranscript !== undefined ? { voiceTranscript } : {}),
+	};
+}
 
 export function useChatDraft(owner: string | undefined, conversation: string | undefined) {
 	const api = useApi();
@@ -161,19 +172,12 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 
 	function addFiles(files: File[], voiceTranscript?: string | null) {
 		if (!current.current.loaded || current.current.key !== key) return;
-		const accepted = files.filter((file) => file.size <= MAX_BYTES);
+		const accepted = files.filter((file) => file.size <= CHAT_ATTACHMENT_MAX_BYTES);
 		const available = Math.max(0, CHAT_ATTACHMENT_LIMIT - current.current.value.files.length);
 		if (accepted.length !== files.length) setError("chat.fileTooLarge");
 		else if (accepted.length > available) setError("chat.tooManyFiles");
 		else setError("");
-		const additions: DraftFile[] = accepted.slice(0, available).map((file) => ({
-			id: crypto.randomUUID(),
-			name: file.name,
-			mimeType: file.type,
-			blob: file,
-			status: isImageFile(file.name, file.type) ? "preparing" : "ready",
-			...(voiceTranscript !== undefined ? { voiceTranscript } : {}),
-		}));
+		const additions = accepted.slice(0, available).map((file) => draftFile(file, voiceTranscript));
 		change((draft) => ({
 			...draft,
 			revision: draft.revision + 1,
@@ -182,7 +186,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		for (const file of additions) if (isImageFile(file.name, file.mimeType)) void prepare(file, key);
 	}
 
-	function prepare(file: DraftFile, scope: string): Promise<PreparedImage | undefined> {
+	function prepare(file: DraftFile, scope?: string): Promise<PreparedImage | undefined> {
 		if (file.imagePrepared) return Promise.resolve(file.optimized);
 		const existing = preparations.current.get(file.id);
 		if (existing) return existing;
@@ -197,6 +201,8 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				failed = true;
 			}
 			if (generation !== chatCacheGeneration()) return;
+			// A direct send has fixed bytes. Keep the same upload identity even if preparation ran again after restart.
+			if (!scope) return optimized && { ...optimized, nonce: file.id };
 			const apply = (draft = empty()): Draft => ({
 				...draft,
 				files: draft.files.map((item) =>
@@ -215,7 +221,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			else await updateChatCache<Draft>(scope, apply, generation).catch(() => {});
 			return optimized;
 		});
-		preparations.current.set(file.id, operation);
+		if (scope) preparations.current.set(file.id, operation);
 		imageQueue.current = operation.then(
 			() => {},
 			() => {},
@@ -223,19 +229,21 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		return operation;
 	}
 
-	async function upload(file: DraftFile, scope: string, signal?: AbortSignal) {
+	async function upload(file: DraftFile, scope: string | undefined, signal?: AbortSignal) {
 		const cacheGeneration = chatCacheGeneration();
 		const optimized =
 			!file.sendOriginal && isImageFile(file.name, file.mimeType) ? await prepare(file, scope) : file.optimized;
+		if (!scope && signal?.aborted) throw new DOMException("Attachment upload canceled", "AbortError");
 		if (cacheGeneration !== chatCacheGeneration()) throw new Error("session_changed");
 		const selected = selectedDraftFile({ ...file, optimized });
-		change(
-			(draft) => ({
-				...draft,
-				files: draft.files.map((item) => (item.id === file.id ? { ...item, status: "uploading" } : item)),
-			}),
-			scope,
-		);
+		if (scope)
+			change(
+				(draft) => ({
+					...draft,
+					files: draft.files.map((item) => (item.id === file.id ? { ...item, status: "uploading" } : item)),
+				}),
+				scope,
+			);
 		try {
 			const attachment = await api.uploadAttachment(
 				new File([selected.blob], selected.name, { type: selected.mimeType }),
@@ -243,31 +251,33 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				signal,
 			);
 			// The blob cache only speeds up a resend; a full or blocked store must not fail an upload the server took.
-			if (owner)
+			if (owner && scope)
 				void writeChatCache(attachmentCacheKey(owner, attachment.id), selected.blob, cacheGeneration).catch(() => {});
-			if (cacheGeneration !== chatCacheGeneration()) return attachment;
-			change(
-				(draft) => ({
-					...draft,
-					files: draft.files.map((item) =>
-						item.id === file.id ? { ...item, status: "ready", uploaded: attachment } : item,
-					),
-				}),
-				scope,
-			);
-			return attachment;
+			if (cacheGeneration !== chatCacheGeneration()) return { attachment, blob: selected.blob };
+			if (scope)
+				change(
+					(draft) => ({
+						...draft,
+						files: draft.files.map((item) =>
+							item.id === file.id ? { ...item, status: "ready", uploaded: attachment } : item,
+						),
+					}),
+					scope,
+				);
+			return { attachment, blob: selected.blob };
 		} catch (error) {
 			if (cacheGeneration !== chatCacheGeneration()) throw error;
 			// A cancelled upload is not a failure: the file stays ready so the draft can be sent again.
-			change(
-				(draft) => ({
-					...draft,
-					files: draft.files.map((item) =>
-						item.id === file.id ? { ...item, status: signal?.aborted ? "ready" : "failed" } : item,
-					),
-				}),
-				scope,
-			);
+			if (scope)
+				change(
+					(draft) => ({
+						...draft,
+						files: draft.files.map((item) =>
+							item.id === file.id ? { ...item, status: signal?.aborted ? "ready" : "failed" } : item,
+						),
+					}),
+					scope,
+				);
 			throw error;
 		}
 	}
@@ -328,7 +338,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				}
 				if (transcript) transcripts.push(transcript);
 				if (interrupted()) return;
-				attachments.push(await upload(file, scope, controller.signal));
+				attachments.push((await upload(file, scope, controller.signal)).attachment);
 			}
 			if (interrupted()) return;
 			const recording = draft.files[0];
@@ -428,6 +438,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				text: [draft.text, text].filter(Boolean).join("\n"),
 			})),
 		addFiles,
+		uploadDirectFile: (file: DraftFile, signal: AbortSignal) => upload(file, undefined, signal),
 		toggleOriginal: (id: string, sendOriginal: boolean) =>
 			void change((draft) => ({
 				...draft,
