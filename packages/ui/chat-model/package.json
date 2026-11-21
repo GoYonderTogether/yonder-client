@@ -1,13 +1,13 @@
 {
 	"name": "@yonder/chat-model",
 	"private": true,
-	"version": "0.3.26112108",
+	"version": "0.3.26112109",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/protocol": "0.3.26112108"
+		"@yonder/protocol": "0.3.26112109"
 	},
 	"scripts": {
 		"typecheck": "tsc -b"

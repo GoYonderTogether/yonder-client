@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112109] - 2026-11-21
+
+### Added
+
+- memory：make the AI profile a private reading page
+- meetings：open a recording archive with source-linked notes
+
 ## [0.3.26112108] - 2026-11-21
 
 ### Fixed
