@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { MeResponse, SendMessageRequest } from "@yonder/protocol";
+import type { ItemDetail, MeResponse, SendMessageRequest } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
@@ -57,6 +57,23 @@ export function useItemSession(id: string | null) {
 		queryFn: () => api.openItemSession(id ?? ""),
 		enabled: Boolean(id),
 		staleTime: 60_000,
+	});
+}
+
+export function useRenameItemSession(personId: string | undefined) {
+	const api = useApi();
+	const client = useQueryClient();
+	return useMutation({
+		mutationFn: ({ id, title }: { id: string; title: string }) => api.renameItemSession(id, title),
+		onSuccess: (session, { id }) => {
+			if (client.getQueryData<MeResponse>(keys.me())?.member.id !== personId) return;
+			client.setQueryData(keys.items.session(id), session);
+			const title = session.conversation.title;
+			if (title) client.setQueryData<ItemDetail>(keys.items.detail(id), (item) => item && { ...item, title });
+			void client.invalidateQueries({ queryKey: keys.items.detail(id) });
+			void client.invalidateQueries({ queryKey: keys.items.lists() });
+			void client.invalidateQueries({ queryKey: keys.meetings.detail(id) });
+		},
 	});
 }
 

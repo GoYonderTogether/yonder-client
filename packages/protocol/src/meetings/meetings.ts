@@ -33,6 +33,8 @@ export interface MeetingTranscriptBatch {
 	index: number;
 	firstSegment: number;
 	lastSegment: number;
+	startMs?: number;
+	endMs?: number;
 	state: MeetingBatchState;
 	text: string | null;
 	errorCode: string | null;
@@ -47,6 +49,10 @@ export interface MeetingRecord {
 	clientRecordingId: string;
 	conversationId: string;
 	title: string;
+	/** The task conversation's current title; the source title above stays unchanged. */
+	topic?: string;
+	/** A separate short display brief, not the organized notes. */
+	brief?: string | null;
 	sourceState: "ended" | "interrupted";
 	startedAt: number;
 	endedAt: number;

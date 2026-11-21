@@ -13,10 +13,10 @@ import { Avatar, Button } from "@yonder/ui-components";
 import type { CachedMessage } from "@yonder/ui-data";
 import { resolveLocale } from "@yonder/ui-i18n";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
-import { ChevronRight, FileAudio } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
 import { FriendRequestCard } from "./friend-request-card.tsx";
+import { MeetingMessageCard } from "./meeting-message-card.tsx";
 import { MemoryUpdatedLine } from "./memory-updated-line.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
@@ -295,19 +295,7 @@ function MessageEntry({
 			{message.reaction ? <span>{message.reaction}</span> : null}
 			<MessageSources run={message.run} />
 			{message.connectorRequestId ? <ConnectorRequestCard id={message.connectorRequestId} /> : null}
-			{meeting && onOpenMeeting ? (
-				<button
-					type="button"
-					data-meeting-task-card
-					aria-label={t("meetingRecorder.openResult", { title: meeting.title })}
-					onClick={() => onOpenMeeting(meeting.id)}
-					className="flex min-h-[var(--control-lg)] w-full max-w-[calc(var(--control-lg)*6)] items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-raised)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-start text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]"
-				>
-					<FileAudio aria-hidden="true" size={22} className="shrink-0 text-[var(--color-accent-text)]" />
-					<span className="min-w-0 flex-1 truncate text-body font-medium">{meeting.title}</span>
-					<ChevronRight aria-hidden="true" size={18} className="shrink-0 text-[var(--color-text-secondary)]" />
-				</button>
-			) : null}
+			{meeting && onOpenMeeting ? <MeetingMessageCard meeting={meeting} onOpen={onOpenMeeting} /> : null}
 			{message.pending ? (
 				<span className="text-caption text-[var(--color-text-secondary)]">{t("chat.sending")}</span>
 			) : null}

@@ -66,27 +66,66 @@ const newItem = {
 	steps: [],
 };
 
-async function isolateItems(page: Page, taskOnlyRecording: boolean, withRunningMeeting = false) {
+async function isolateItems(page: Page, taskOnlyRecording: boolean, withRunningMeeting = false, rich = false) {
 	const meetingNotice = {
 		...message("recording-notice-03", null),
-		meeting: { id: recording.id, title: recording.title },
+		meeting: rich
+			? {
+					id: recording.id,
+					title: recording.title,
+					startedAt: recording.startedAt,
+					endedAt: recording.endedAt,
+					durationMs: recording.durationMs,
+					photoCount: 2,
+				}
+			: { id: recording.id, title: recording.title },
 		createdAt: endedAt,
 	};
 	const api = await isolateChat(
 		page,
 		withRunningMeeting ? { items: [message("message-01", bodies.question, true), meetingNotice] } : {},
 	);
-	const meeting = withRunningMeeting
-		? { ...recording, summary: null, photos: [{ clientPhotoId: "photo-1", elapsedMs: 12_000, byteLength: 42 }] }
-		: taskOnlyRecording
-			? { ...recording, summary: null }
-			: recording;
-	let legacyItem: ItemDetail = withRunningMeeting
-		? { ...meetingItem, state: "running", result: null, endedAt: null }
-		: taskOnlyRecording
-			? { ...meetingItem, result: recording.transcript }
-			: meetingItem;
+	const evidence = "后半部分：动效由小何负责。";
+	const older = "前半部分：先交付登录页。";
+	const lateBatches: MeetingRecord["batches"] = [
+		{
+			index: 1,
+			firstSegment: 2,
+			lastSegment: 3,
+			startMs: 8000,
+			endMs: 16000,
+			state: "completed",
+			text: evidence,
+			errorCode: null,
+		},
+	];
+	let detailRequests = 0;
+	let meeting: MeetingRecord = rich
+		? {
+				...recording,
+				brief: "登录页先交付",
+				summary:
+					"## 决定\n\n本轮先交付新版登录页，动效验收不与其他页面绑在一起。[查看依据](#batch-2)\n\n## 下一步\n\n- 小何跟进登录页动效验收。\n- 补齐手机端回归用例，覆盖进出页面和低性能设备。\n\n## 待确认\n\n[正式上线日期](#batch-99)还没有确定。\n\n![外部照片](https://external-example.invalid/photo.png)",
+				photos: [
+					{ clientPhotoId: "photo-2", elapsedMs: 12000, byteLength: 42 },
+					{ clientPhotoId: "photo-1", elapsedMs: 4000, byteLength: 42 },
+				],
+				batches: lateBatches,
+			}
+		: withRunningMeeting
+			? { ...recording, summary: null, photos: [{ clientPhotoId: "photo-1", elapsedMs: 12_000, byteLength: 42 }] }
+			: taskOnlyRecording
+				? { ...recording, summary: null }
+				: recording;
+	let legacyItem: ItemDetail = rich
+		? meetingItem
+		: withRunningMeeting
+			? { ...meetingItem, state: "running", result: null, endedAt: null }
+			: taskOnlyRecording
+				? { ...meetingItem, result: recording.transcript }
+				: meetingItem;
 	const sessionRequests: string[] = [];
+	const renames: string[] = [];
 	const newRequests: SendMessageRequest[] = [];
 	const followUps: SendMessageRequest[] = [];
 	const histories = new Map<string, Message[]>([
@@ -128,6 +167,13 @@ async function isolateItems(page: Page, taskOnlyRecording: boolean, withRunningM
 				[newItem, newSession],
 			] as const) {
 				if (url.pathname === `/v1/items/${item.id}` && request.method() === "GET") return route.fulfill({ json: item });
+				if (url.pathname === `/v1/items/${item.id}/session` && request.method() === "PATCH") {
+					const { title } = request.postDataJSON();
+					renames.push(title);
+					legacyItem = { ...legacyItem, title };
+					meeting = { ...meeting, topic: title };
+					return route.fulfill({ json: { conversation: { ...session, title } } });
+				}
 				if (url.pathname === `/v1/items/${item.id}/session` && request.method() === "POST") {
 					sessionRequests.push(item.id);
 					return route.fulfill({ json: { conversation: session } });
@@ -136,10 +182,13 @@ async function isolateItems(page: Page, taskOnlyRecording: boolean, withRunningM
 			return route.fulfill({ status: 404, json: { error: { code: "not_found" } } });
 		},
 	);
-	await page.route(`**/v1/meetings/${meetingId}`, (route) => route.fulfill({ json: meeting }));
+	await page.route(`**/v1/meetings/${meetingId}`, (route) => {
+		detailRequests++;
+		return route.fulfill({ json: meeting });
+	});
 	const photoRequests: string[] = [];
-	if (withRunningMeeting)
-		await page.route(`**/v1/meetings/${meetingId}/live/photos/photo-1/content`, async (route) => {
+	if (withRunningMeeting || rich)
+		await page.route(`**/v1/meetings/${meetingId}/live/photos/*/content`, async (route) => {
 			photoRequests.push(route.request().headers().authorization ?? "");
 			await route.fulfill({ path: new URL("./fixtures/meeting-check-photo.jpg", import.meta.url).pathname });
 		});
@@ -173,6 +222,28 @@ async function isolateItems(page: Page, taskOnlyRecording: boolean, withRunningM
 		newRequests,
 		followUps,
 		photoRequests,
+		renames,
+		evidence,
+		older,
+		detailRequests: () => detailRequests,
+		backfill: () => {
+			meeting = {
+				...meeting,
+				batches: [
+					{
+						index: 0,
+						firstSegment: 0,
+						lastSegment: 1,
+						startMs: 0,
+						endMs: 8000,
+						state: "completed",
+						text: older,
+						errorCode: null,
+					},
+					...lateBatches,
+				],
+			};
+		},
 		finishMeetingTask: () => {
 			legacyItem = meetingItem;
 			const result = {
@@ -204,7 +275,7 @@ for (const layout of ["desktop", "mobile"] as const) {
 			timezoneId: "Asia/Singapore",
 		});
 
-		test("a recording item folds its transcript and keeps the follow-up in the item", async ({ page }, info) => {
+		test("a recording item opens its transcript and keeps the follow-up in the item", async ({ page }, info) => {
 			const api = await isolateItems(page, layout === "mobile");
 			await page.goto("/tasks");
 			await page.getByRole("button", { name: new RegExp(recording.title) }).click();
@@ -221,20 +292,21 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await expect(input).toBeEditable();
 			const card = page.locator("[data-item-recording]");
 			await expect(card).toContainText("00:00:20");
-			const transcript = card.getByText(recording.transcript, { exact: true });
-			const expand = page.getByText("转写全文", { exact: true });
-			await expect(expand).toBeVisible();
-			await expect(transcript).toBeHidden();
+			await expect(card.getByText(recording.transcript, { exact: true })).toHaveCount(0);
 			await page.screenshot({ path: info.outputPath(`recording-${layout}.png`), animations: "disabled", scale: "css" });
-			await expand.click();
-			await expect(transcript).toBeVisible();
+			await card.getByRole("button", { name: `查看录音笔记 · ${recording.title}` }).click();
+			const reader = page.locator("[data-recording-reader]");
+			if (layout === "mobile") await expect(reader.getByRole("radio", { name: "整理稿" })).toBeDisabled();
+			else await reader.getByRole("radio", { name: "原文" }).click();
+			await expect(reader.getByRole("radio", { name: "原文" })).toBeChecked();
+			await expect(reader.getByText(recording.transcript, { exact: true })).toBeVisible();
 			await page.screenshot({
 				path: info.outputPath(`recording-expanded-${layout}.png`),
 				animations: "disabled",
 				scale: "css",
 			});
-			await expand.click();
-			await expect(transcript).toBeHidden();
+			await reader.getByRole("button", { name: "关闭", exact: true }).click();
+			await expect(reader).toHaveCount(0);
 
 			await input.fill(followUp);
 			await page.getByRole("button", { name: "发送", exact: true }).click();
@@ -282,15 +354,76 @@ for (const layout of ["desktop", "mobile"] as const) {
 			api.finishMeetingTask();
 			await expect(log.getByText(recording.summary ?? "", { exact: true })).toBeVisible();
 			await expect(header).toContainText("已完成");
-			expect(api.photoRequests).toEqual([]);
 			await page.getByRole("button", { name: "00:00:12 的照片" }).click();
 			await expect(page.getByRole("img", { name: "00:00:12 的照片" })).toBeVisible();
-			expect(api.photoRequests).toEqual(["Bearer isolated-chat-ui"]);
+			expect(api.photoRequests.length).toBeGreaterThan(0);
+			expect(new Set(api.photoRequests)).toEqual(new Set(["Bearer isolated-chat-ui"]));
 			await page.screenshot({
 				path: info.outputPath(`recording-task-delivery-${layout}.png`),
 				animations: "disabled",
 				scale: "css",
 			});
+		});
+
+		test("archived notes show private ordered media and stable batch citations after backfill", async ({
+			page,
+		}, info) => {
+			const api = await isolateItems(page, false, true, true);
+			const externalRequests: string[] = [];
+			await page.route("https://external-example.invalid/**", (route) => {
+				externalRequests.push(route.request().url());
+				return route.abort();
+			});
+			await page.goto("/messages/main");
+			const entry = page.getByRole("button", { name: `查看录音笔记 · ${recording.title}` });
+			await expect(entry).toContainText("09:24:00 – 09:24:20");
+			await expect(entry).toContainText("00:00:20");
+			await expect(entry).toContainText("2 张照片");
+			expect(api.detailRequests()).toBe(0);
+			await entry.click();
+			const card = page.locator("[data-item-recording]");
+			await expect(card).toContainText("登录页先交付");
+			await expect(card.locator("[data-recording-photos] button")).toHaveCount(2);
+			await expect(card.locator("[data-recording-photos] button").first()).toHaveAccessibleName("00:00:04 的照片");
+			await expect(card.locator("[data-recording-photos] img")).toHaveCount(2);
+			await page.screenshot({ path: info.outputPath("archive-card.png"), animations: "disabled", scale: "css" });
+			await card.getByRole("button", { name: `查看录音笔记 · ${recording.title}` }).click();
+			const reader = page.locator("[data-recording-reader]");
+			await expect(reader.getByRole("heading", { name: "决定" })).toBeVisible();
+			await expect(reader.getByText("正式上线日期")).toBeVisible();
+			await expect(reader.getByRole("button", { name: "正式上线日期" })).toHaveCount(0);
+			await expect(reader.locator("script")).toHaveCount(0);
+			expect(externalRequests).toEqual([]);
+			await page.screenshot({ path: info.outputPath("archive-notes.png"), animations: "disabled", scale: "css" });
+			await reader.getByRole("button", { name: "查看依据" }).click();
+			await expect(page).toHaveURL(/recording=original&source=batch-2/);
+			const anchored = reader.locator("#batch-2");
+			await expect(anchored).toBeFocused();
+			await expect(anchored).toContainText(api.evidence);
+			api.backfill();
+			await page.reload();
+			await expect(anchored).toBeFocused();
+			await expect(reader.locator("#batch-0")).toContainText(api.older);
+			await expect(anchored).toContainText(api.evidence);
+			expect(await reader.locator(".recording-reader-entry").evaluateAll((nodes) => nodes.map((n) => n.id))).toEqual([
+				"batch-0",
+				"photo-photo-1",
+				"batch-2",
+				"photo-photo-2",
+			]);
+			await reader.locator("#photo-photo-1").getByRole("button", { name: "下一张照片" }).click();
+			await expect(reader.locator("#photo-photo-2")).toBeFocused();
+			await expect(reader.getByRole("img", { name: "00:00:12 的照片" })).toBeVisible();
+			expect(new Set(api.photoRequests)).toEqual(new Set(["Bearer isolated-chat-ui"]));
+			await page.screenshot({ path: info.outputPath("archive-original.png"), animations: "disabled", scale: "css" });
+			await reader.getByRole("button", { name: "关闭", exact: true }).click();
+			await expect(reader).toHaveCount(0);
+			await page.getByRole("button", { name: "重命名事项" }).click();
+			await page.getByRole("textbox", { name: "重命名事项" }).fill("  登录页  交付确认  ");
+			await page.getByRole("button", { name: "保存", exact: true }).click();
+			await expect(page.getByRole("heading", { name: "登录页 交付确认" })).toBeVisible();
+			await expect(card.getByRole("button", { name: "查看录音笔记 · 登录页 交付确认" })).toBeVisible();
+			expect(api.renames).toEqual(["登录页 交付确认"]);
 		});
 
 		test("adding an item opens a fresh composer and saves the first message under Tasks", async ({ page }, info) => {

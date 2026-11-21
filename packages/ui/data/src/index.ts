@@ -70,6 +70,7 @@ export {
 	useItemActions,
 	useItemSession,
 	useItems,
+	useRenameItemSession,
 } from "./hooks/items.ts";
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
 export { useMemberProfile, usePublicMemberProfile } from "./hooks/members.ts";

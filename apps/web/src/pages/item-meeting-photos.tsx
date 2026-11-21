@@ -1,63 +1,46 @@
 import { recordingDuration } from "@yonder/feature-meetings";
-import type { MeetingRecord } from "@yonder/protocol";
-import { Button } from "@yonder/ui-components";
+import type { MeetingPhoto } from "@yonder/protocol";
 import { useApi } from "@yonder/ui-data";
 import { Image } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useObjectUrl } from "../lib/use-object-url.ts";
 
-export function ItemMeetingPhotos({
+export function MeetingArchiveImage({
 	meetingId,
-	photos,
+	photo,
+	thumb = false,
+	lazy = false,
 }: {
 	meetingId: string;
-	photos: NonNullable<MeetingRecord["photos"]>;
+	photo: MeetingPhoto;
+	thumb?: boolean;
+	lazy?: boolean;
 }) {
-	const { t } = useTranslation();
-	const [selected, setSelected] = useState<string>();
-	const ordered = [...photos].sort((a, b) => a.elapsedMs - b.elapsedMs);
-	const active = ordered.find((photo) => photo.clientPhotoId === selected);
-	const label = (elapsedMs: number) => t("meetingRecorder.archivePhoto", { time: recordingDuration(elapsedMs) });
-	return (
-		<div className="mt-[var(--spacing-3)] flex flex-col gap-[var(--spacing-2)]">
-			<div className="flex flex-wrap gap-[var(--spacing-2)]">
-				{ordered.map((photo) => (
-					<Button
-						key={photo.clientPhotoId}
-						variant="secondary"
-						size="sm"
-						aria-expanded={photo === active}
-						onClick={() =>
-							setSelected((current) => (current === photo.clientPhotoId ? undefined : photo.clientPhotoId))
-						}
-					>
-						<Image aria-hidden="true" size={16} />
-						{label(photo.elapsedMs)}
-					</Button>
-				))}
-			</div>
-			{active ? (
-				<MeetingPhotoPreview
-					key={active.clientPhotoId}
-					meetingId={meetingId}
-					photoId={active.clientPhotoId}
-					label={label(active.elapsedMs)}
-				/>
-			) : null}
-		</div>
-	);
-}
-
-function MeetingPhotoPreview({ meetingId, photoId, label }: { meetingId: string; photoId: string; label: string }) {
 	const api = useApi();
 	const { t } = useTranslation();
 	const [blob, setBlob] = useState<Blob>();
 	const [failed, setFailed] = useState(false);
 	const url = useObjectUrl(blob);
+	const placeholder = useRef<HTMLParagraphElement>(null);
+	const [visible, setVisible] = useState(false);
+	const load = !lazy || visible;
 	useEffect(() => {
+		if (!lazy || visible || !placeholder.current) return;
+		if (typeof IntersectionObserver !== "function") {
+			setVisible(true);
+			return;
+		}
+		const observer = new IntersectionObserver((entries) => {
+			if (entries.some(({ isIntersecting }) => isIntersecting)) setVisible(true);
+		});
+		observer.observe(placeholder.current);
+		return () => observer.disconnect();
+	}, [lazy, visible]);
+	useEffect(() => {
+		if (!load) return;
 		const controller = new AbortController();
-		void api.meetingPhoto(meetingId, photoId, controller.signal).then(
+		void api.meetingPhoto(meetingId, photo.clientPhotoId, controller.signal).then(
 			(value) => {
 				if (!controller.signal.aborted) setBlob(value);
 			},
@@ -66,24 +49,23 @@ function MeetingPhotoPreview({ meetingId, photoId, label }: { meetingId: string;
 			},
 		);
 		return () => controller.abort();
-	}, [api, meetingId, photoId]);
-	if (failed)
-		return (
-			<p role="alert" className="text-caption">
-				{t("meetingRecorder.archivePhotoFailed")}
-			</p>
-		);
+	}, [api, meetingId, photo.clientPhotoId, load]);
+	if (!url && thumb) return <Image size={18} aria-hidden="true" className="text-[var(--color-accent-text)]" />;
 	if (!url)
 		return (
-			<p role="status" className="text-caption">
-				{t("app.loading")}
+			<p ref={placeholder} role={failed ? "alert" : "status"} className="text-caption">
+				{t(failed ? "meetingRecorder.archivePhotoFailed" : "app.loading")}
 			</p>
 		);
 	return (
 		<img
 			src={url}
-			alt={label}
-			className="max-h-[calc(var(--control-lg)*6)] w-full rounded-[var(--radius-control)] object-contain"
+			alt={thumb ? "" : t("meetingRecorder.archivePhoto", { time: recordingDuration(photo.elapsedMs) })}
+			className={
+				thumb
+					? "size-full object-cover"
+					: "max-h-[calc(var(--control-lg)*6)] w-full rounded-[var(--radius-control)] object-contain"
+			}
 		/>
 	);
 }

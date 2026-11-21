@@ -24,6 +24,8 @@ export function useMeeting(id: string | null) {
 		queryKey: keys.meetings.detail(id ?? ""),
 		queryFn: () => api.meeting(id ?? ""),
 		enabled: Boolean(id),
+		// Cached raw evidence may get backfilled after a link to a later batch was shared.
+		staleTime: 0,
 		refetchOnWindowFocus: true,
 		refetchInterval: (query) =>
 			query.state.data && !["completed", "failed", "unknown"].includes(query.state.data.status) ? 2000 : false,

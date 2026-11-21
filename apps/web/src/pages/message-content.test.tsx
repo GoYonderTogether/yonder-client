@@ -19,6 +19,28 @@ test("renders Markdown without executing raw HTML, unsafe links or loading image
 	expect(container.querySelector("a")?.getAttribute("href") ?? "").not.toMatch(/^javascript:/i);
 });
 
+test("archive citations only activate known stable sources, while HTML and diagrams stay inert", () => {
+	const open = vi.fn();
+	const { container, getByRole, getByText } = render(
+		<I18nextProvider i18n={createI18n("en")}>
+			<MessageContent
+				body={[
+					"[evidence](#batch-2) [unavailable](#batch-9)",
+					"<script>alert(1)</script>",
+					"![external](https://example.org/photo.jpg)",
+					`\`\`\`mermaid\ngraph TD; A-->B\n\`\`\``,
+				].join("\n\n")}
+				sourceAction={(id) => (id === "batch-2" ? () => open(id) : undefined)}
+			/>
+		</I18nextProvider>,
+	);
+	fireEvent.click(getByRole("button", { name: "evidence" }));
+	expect(open).toHaveBeenCalledExactlyOnceWith("batch-2");
+	expect(getByText("unavailable").tagName).toBe("SPAN");
+	expect(container.querySelector("script,img")).toBeNull();
+	expect(container.querySelector("pre")?.textContent).toContain("graph TD; A-->B");
+});
+
 test.each(["https://yonder.zethai.cn", "https://example.org/path?q=1"])(
 	"keeps Chinese punctuation after %s out of the link",
 	(url) => {

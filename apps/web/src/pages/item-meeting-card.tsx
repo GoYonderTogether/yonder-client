@@ -1,66 +1,99 @@
 import { recordingDuration } from "@yonder/feature-meetings";
 import { Button } from "@yonder/ui-components";
 import { useMeeting } from "@yonder/ui-data";
-import { ChevronDown, FileAudio } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { ItemMeetingPhotos } from "./item-meeting-photos.tsx";
-import { MessageContent } from "./message-content.tsx";
-import { messagePreview } from "./message-preview.ts";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
+import { MeetingArchiveImage } from "./item-meeting-photos.tsx";
+import { MeetingReader, orderedPhotos } from "./item-meeting-reader.tsx";
+import { MeetingMetadata } from "./meeting-message-card.tsx";
 
-export function ItemMeetingCard({ id }: { id: string }) {
+export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 	const { t } = useTranslation();
 	const query = useMeeting(id);
 	const meeting = query.data;
-	const transcript = meeting?.transcript.trim();
-	const summary = meeting?.summary?.trim();
+	const [params, setParams] = useSearchParams();
+	const location = useLocation();
+	const navigate = useNavigate();
+	const mode = params.get("recording");
+	const openedHere = location.state?.recordingOpenedHere === true;
+	function open(value: "notes" | "original" | null, source?: string) {
+		if (!value && openedHere) {
+			navigate(-1);
+			return;
+		}
+		setParams(
+			(current) => {
+				const next = new URLSearchParams(current);
+				if (value) next.set("recording", value);
+				else next.delete("recording");
+				if (source) next.set("source", source);
+				else next.delete("source");
+				return next;
+			},
+			{ replace: Boolean(mode), state: mode ? location.state : { ...location.state, recordingOpenedHere: true } },
+		);
+	}
+	const photos = orderedPhotos(meeting?.photos);
+	const topic = title || meeting?.topic?.trim() || meeting?.title || t("meetingRecorder.name");
 	return (
 		<div
 			data-item-recording
-			className="ms-auto w-full max-w-[calc(var(--control-lg)*8)] min-w-0 rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-accent-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] text-[var(--color-text-primary)]"
+			className="ms-auto w-full max-w-[calc(var(--control-lg)*8)] min-w-0 overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-accent-subtle)] text-[var(--color-text-primary)]"
 		>
-			<div className="flex items-center gap-[var(--spacing-3)]">
-				<span className="flex size-[var(--control-md)] shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-bg-surface)] text-[var(--color-accent-text)]">
-					<FileAudio size={20} aria-hidden="true" />
-				</span>
-				<div className="min-w-0 flex-1">
-					<p className="text-body font-medium">{t("tasks.itemRecording")}</p>
-					{meeting ? (
-						<p className="text-caption tabular-nums text-[var(--color-text-secondary)]">
-							{recordingDuration(meeting.durationMs)}
+			{meeting ? (
+				<button
+					type="button"
+					aria-label={t("meetingRecorder.openResult", { title: topic })}
+					onClick={() => open(meeting.summary?.trim() ? "notes" : "original")}
+					className="flex min-h-[var(--control-lg)] w-full items-center gap-[var(--spacing-3)] px-[var(--spacing-4)] py-[var(--spacing-3)] text-start"
+				>
+					<span className="min-w-0 flex-1">
+						{meeting.brief?.trim() ? (
+							<span className="mb-[var(--spacing-1)] block truncate text-body font-medium">{meeting.brief}</span>
+						) : null}
+						<MeetingMetadata {...meeting} photoCount={meeting.photos?.length} />
+					</span>
+					<ChevronRight size={18} aria-hidden="true" className="shrink-0 text-[var(--color-accent-text)]" />
+				</button>
+			) : (
+				<div className="px-[var(--spacing-4)] py-[var(--spacing-3)]">
+					{query.isError ? (
+						<div className="flex items-center justify-between gap-[var(--spacing-2)] text-caption">
+							<span role="alert">{t("meetingRecorder.processingFailed")}</span>
+							<Button variant="link" size="sm" onClick={() => void query.refetch()}>
+								{t("app.retry")}
+							</Button>
+						</div>
+					) : (
+						<p role="status" className="text-caption">
+							{t("app.loading")}
 						</p>
+					)}
+				</div>
+			)}
+			{photos.length ? (
+				<div className="mb-[var(--spacing-3)] flex items-center px-[var(--spacing-4)]" data-recording-photos>
+					{photos.slice(0, 3).map((photo, index) => (
+						<button
+							key={photo.clientPhotoId}
+							type="button"
+							aria-label={t("meetingRecorder.archivePhoto", { time: recordingDuration(photo.elapsedMs) })}
+							onClick={() => open("original", `photo-${photo.clientPhotoId}`)}
+							className={`flex size-[var(--control-lg)] shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] border border-[var(--color-bg-surface)] bg-[var(--color-bg-raised)] hover:z-10 focus-visible:z-10 ${index ? "-ms-[var(--spacing-2)]" : ""}`}
+						>
+							<MeetingArchiveImage meetingId={id} photo={photo} thumb />
+						</button>
+					))}
+					{photos[3] ? (
+						<Button size="sm" variant="link" onClick={() => open("original", `photo-${photos[3]?.clientPhotoId}`)}>
+							+{photos.length - 3}
+						</Button>
 					) : null}
 				</div>
-			</div>
-			{query.isPending ? (
-				<p role="status" className="mt-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
-					{t("app.loading")}
-				</p>
 			) : null}
-			{query.isError && !meeting ? (
-				<div className="mt-[var(--spacing-2)] flex items-center justify-between gap-[var(--spacing-2)] text-caption">
-					<span role="alert">{t("meetingRecorder.processingFailed")}</span>
-					<Button variant="link" size="sm" onClick={() => void query.refetch()}>
-						{t("app.retry")}
-					</Button>
-				</div>
-			) : null}
-			{summary ? (
-				<p className="mt-[var(--spacing-2)] line-clamp-2 text-caption text-[var(--color-text-secondary)]">
-					{messagePreview(summary)}
-				</p>
-			) : null}
-			{meeting?.photos?.length ? <ItemMeetingPhotos key={id} meetingId={id} photos={meeting.photos} /> : null}
-			{transcript || summary ? (
-				<details className="group mt-[var(--spacing-3)] border-t border-[var(--color-border-subtle)]">
-					<summary className="flex min-h-[var(--control-sm)] cursor-pointer list-none items-center justify-between gap-[var(--spacing-2)] pt-[var(--spacing-2)] text-caption font-medium [&::-webkit-details-marker]:hidden">
-						{t(transcript ? "tasks.itemTranscript" : "tasks.itemRecordingSummary")}
-						<ChevronDown size={16} aria-hidden="true" className="shrink-0 group-open:rotate-180" />
-					</summary>
-					<div className="mt-[var(--spacing-3)] flex flex-col gap-[var(--spacing-3)] text-body">
-						{summary ? <MessageContent body={summary} /> : null}
-						{transcript ? <p className="whitespace-pre-wrap wrap-anywhere">{transcript}</p> : null}
-					</div>
-				</details>
+			{meeting && (mode === "notes" || mode === "original") ? (
+				<MeetingReader meeting={meeting} title={topic} mode={mode} source={params.get("source")} onOpen={open} />
 			) : null}
 		</div>
 	);

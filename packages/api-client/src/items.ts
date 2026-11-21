@@ -41,6 +41,9 @@ export function itemEndpoints(client: ApiClient) {
 		openItemSession(id: string): Promise<ItemSessionResponse> {
 			return client.request(`/v1/items/${encodeURIComponent(id)}/session`, { body: {} });
 		},
+		renameItemSession(id: string, title: string): Promise<ItemSessionResponse> {
+			return client.request(`/v1/items/${encodeURIComponent(id)}/session`, { method: "PATCH", body: { title } });
+		},
 		createItem(body: SendMessageRequest): Promise<CreateItemResponse> {
 			return client.request("/v1/items", { body, idempotencyKey: body.clientNonce });
 		},

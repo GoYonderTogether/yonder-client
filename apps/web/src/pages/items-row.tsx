@@ -41,7 +41,13 @@ export function ItemRow({
 			: line.kind === "result"
 				? line.text
 				: (item.waitingReason ?? fallback);
-	const meta = [botName, itemTimeLabel(item.startedAt, locale)].filter(Boolean).join(" · ");
+	const meta = [
+		item.source === "meeting" ? t("meetingRecorder.name") : null,
+		botName,
+		itemTimeLabel(item.startedAt, locale),
+	]
+		.filter(Boolean)
+		.join(" · ");
 	return (
 		<ListRow
 			chevron

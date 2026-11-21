@@ -188,7 +188,14 @@ export interface Message {
 	version: number;
 	clientNonce?: string | null;
 	/** Server-owned reference; opens the inline meeting capsule. */
-	meeting?: { id: string; title: string };
+	meeting?: {
+		id: string;
+		title: string;
+		startedAt?: number;
+		endedAt?: number;
+		durationMs?: number;
+		photoCount?: number;
+	};
 	/** Present on a `task_notice`: which subtask it is about. */
 	taskNotice?: { id: string; title: string; status: string };
 	/** Present when a scheduled run could not happen: the plan and the real reason, shown as an error. */

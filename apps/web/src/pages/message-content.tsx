@@ -6,7 +6,15 @@ import { MessageCodeBlock } from "./message-code-block.tsx";
 import "./message-content.css";
 
 /** Raw HTML and images are not loaded from untrusted model output. */
-export function MessageContent({ body, streaming = false }: { body: string; streaming?: boolean }) {
+export function MessageContent({
+	body,
+	streaming = false,
+	sourceAction,
+}: {
+	body: string;
+	streaming?: boolean;
+	sourceAction?: (source: string) => (() => void) | undefined;
+}) {
 	const options: MarkdownToJSX.Options = {
 		...messageMarkdownOptions,
 		forceWrapper: true,
@@ -62,6 +70,18 @@ export function MessageContent({ body, streaming = false }: { body: string; stre
 		};
 	}
 	options.renderRule = (next, node, renderChildren, state) => {
+		const source = node.type === RuleType.link && node.target?.match(/^#(batch-\d+)$/)?.[1];
+		if (source && sourceAction && node.type === RuleType.link) {
+			const action = sourceAction(source);
+			const label = renderChildren(node.children, state);
+			return action ? (
+				<button key={state.key} type="button" className="message-content-link" onClick={action}>
+					{label}
+				</button>
+			) : (
+				<span key={state.key}>{label}</span>
+			);
+		}
 		if (streaming && node.type === RuleType.text) return <StreamingText key={state.key} as="span" text={node.text} />;
 		if (
 			node.type === RuleType.link &&

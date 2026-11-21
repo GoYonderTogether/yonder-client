@@ -7,6 +7,7 @@ import { CircleCheck, CircleX, Clock3, Ellipsis, ListChecks } from "lucide-react
 import { useTranslation } from "react-i18next";
 import { BotHandoff } from "./bot-handoff.tsx";
 import { ItemMeetingCard } from "./item-meeting-card.tsx";
+import { ItemSessionTitle } from "./item-session-title.tsx";
 import { itemActions, itemFailureKey, itemGroup, itemStateKey, itemTimeLabel, localDay } from "./items-format.ts";
 import { MessageContent } from "./message-content.tsx";
 import { ConversationPage } from "./messages-page.tsx";
@@ -55,7 +56,8 @@ export function ItemDetailPage({
 			</PageFrame>
 		);
 
-	const title = <ItemHeader item={item} locale={locale} t={t} />;
+	const canRename = Boolean(session.data) && (item.source === "meeting" || item.source === "conversation");
+	const title = <ItemHeader item={item} locale={locale} t={t} canRename={canRename && !disconnected} />;
 	const allowed = itemActions(item);
 	const busy =
 		actions.cancel.isPending || actions.pause.isPending || actions.resume.isPending || actions.transfer.isPending;
@@ -154,10 +156,12 @@ function ItemHeader({
 	item,
 	locale,
 	t,
+	canRename,
 }: {
 	item: ItemDetail;
 	locale: string;
 	t: ReturnType<typeof useTranslation>["t"];
+	canRename: boolean;
 }) {
 	const Status =
 		item.state === "completed" ? CircleCheck : item.state === "failed" || item.state === "cancelled" ? CircleX : Clock3;
@@ -172,9 +176,7 @@ function ItemHeader({
 	const endDay = end && localDay(end) !== localDay(start) ? dates.format(end) : null;
 	return (
 		<div className="flex min-w-0 flex-col gap-[calc(var(--spacing-1)/2)]">
-			<h1 className="truncate text-h3 font-semibold" title={item.title}>
-				{item.title}
-			</h1>
+			<ItemSessionTitle key={item.id} id={item.id} title={item.title} canRename={canRename} />
 			<div className="flex min-w-0 items-center gap-[var(--spacing-1)] text-caption font-normal text-[var(--color-text-secondary)]">
 				<Status size={14} aria-hidden="true" className="shrink-0" />
 				<span className="shrink-0">{t(itemStateKey(item.state))}</span>
@@ -209,7 +211,7 @@ function ItemIntroduction({
 	return (
 		<>
 			{item.source === "meeting" ? (
-				<ItemMeetingCard id={item.id} />
+				<ItemMeetingCard id={item.id} title={item.title} />
 			) : item.instruction ? (
 				<MessageRun as="div" self>
 					<div className="flex justify-end">
