@@ -59,7 +59,7 @@ export {
 	useResetBotConversation,
 	useSetConversationMuted,
 } from "./hooks/conversation-state.ts";
-export { useDeviceRegistration, useDevices, useUpdateDeviceRemark } from "./hooks/devices.ts";
+export { useDeviceRegistration, useDevices, useSignOutDevice, useUpdateDeviceRemark } from "./hooks/devices.ts";
 export { useFriendRequest, useFriendRequestActions, useFriendRequests } from "./hooks/friend-requests.ts";
 export { useChangeGoal, useGoalSettings, useGoals } from "./hooks/goals.ts";
 export { useGroupActions } from "./hooks/groups.ts";
@@ -98,7 +98,14 @@ export {
 } from "./hooks/quota.ts";
 export { useScheduleActions, useSchedules } from "./hooks/schedules.ts";
 export { useSkill, useSkillActions, useSkillFile, useSkills } from "./hooks/skills.ts";
-export { useEditSocialKnowledge, useSaveSocialPersona, useSocialKnowledge, useSocialPersona } from "./hooks/social.ts";
+export {
+	useEditSocialKnowledge,
+	useEditSocialLibrary,
+	useSaveSocialPersona,
+	useSocialKnowledge,
+	useSocialLibrary,
+	useSocialPersona,
+} from "./hooks/social.ts";
 export { useOutwardActions, useStartBotChat, useVisitActions } from "./hooks/visits.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
 export {

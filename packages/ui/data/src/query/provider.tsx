@@ -8,7 +8,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import type { Endpoints } from "@yonder/api-client";
 import { ApiClient, createEndpoints } from "@yonder/api-client";
 import type { ReactNode } from "react";
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { useSessionStore } from "../auth/session-store.ts";
 import { createMemoryTokenStore } from "../auth/token-store.ts";
 import { RealtimeConnection } from "../realtime/connection.ts";
@@ -108,6 +108,7 @@ export function DataProvider({
 		() => new RealtimeConnection({ baseUrl, getAccessToken: () => client.accessToken }),
 		[baseUrl, client],
 	);
+	const pendingSignOut = useRef<Promise<void> | undefined>(undefined);
 
 	const value = useMemo<DataContextValue>(
 		() => ({
@@ -125,17 +126,24 @@ export function DataProvider({
 				client.setSession(session);
 				setStatus("signed-in");
 			},
-			async signOutLocal() {
-				await onSessionChange?.();
-				await clearChatCache();
-				client.clearTokens();
-				realtime.stop();
-				queryClient.clear();
-				await persister.removeClient();
-				// The query cache holds the account's data and goes. Theme and language are device
-				// preferences, not the account's, and stay: the sign-in screen should not change colour.
-				storage.remove(CACHE_STORAGE_KEY);
-				setStatus("signed-out");
+			signOutLocal() {
+				// An explicit sign-out and the realtime revocation can arrive together.
+				pendingSignOut.current ??= Promise.resolve()
+					.then(async () => {
+						await onSessionChange?.();
+						await clearChatCache();
+						client.clearTokens();
+						realtime.stop();
+						queryClient.clear();
+						await persister.removeClient();
+						// Theme and language are device preferences and stay on the sign-in screen.
+						storage.remove(CACHE_STORAGE_KEY);
+						setStatus("signed-out");
+					})
+					.finally(() => {
+						pendingSignOut.current = undefined;
+					});
+				return pendingSignOut.current;
 			},
 		}),
 		[clientParts, client, api, realtime, storage, queryClient, persister, setStatus, onSessionChange],
