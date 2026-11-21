@@ -1,6 +1,6 @@
 import type { ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
-import { Button } from "@yonder/ui-components";
-import { CalendarDays, FolderSearch, Images, MonitorCog, NotebookPen } from "lucide-react";
+import { Button, IconButton } from "@yonder/ui-components";
+import { CalendarDays, Check, FolderSearch, Images, MonitorCog, NotebookPen, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export interface ConnectorCardProps {
@@ -38,6 +38,11 @@ export function ConnectorCard({ definition, device, instances, onOpen }: Connect
 	const connected = instances.filter((item) => item.connectorId === definition.id);
 	const primary = connected.find((item) => item.scope === "device") ?? connected[0];
 	const status = connectorStatusKey(device, primary);
+	const statusLabel = `${t(status)} · ${t(`connectors.${key}.name`)}`;
+	const actionProps = {
+		"aria-label": statusLabel,
+		onClick: () => onOpen(definition, primary?.id, !primary && device.current && definition.id.startsWith("apple-")),
+	};
 	return (
 		<section className="overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-bg-card)]">
 			<div className="flex items-center gap-[var(--spacing-3)] p-[var(--spacing-4)]">
@@ -54,15 +59,20 @@ export function ConnectorCard({ definition, device, instances, onOpen }: Connect
 						</span>
 					</span>
 				</button>
-				<Button
-					size="sm"
-					aria-label={`${t(status)} · ${t(`connectors.${key}.name`)}`}
-					onClick={() =>
-						onOpen(definition, primary?.id, !primary && device.current && definition.id.startsWith("apple-"))
-					}
-				>
-					{t(status)}
-				</Button>
+				{status === "connectors.connected" || status === "connectors.connect" ? (
+					<IconButton
+						{...actionProps}
+						variant={primary ? "secondary" : "primary"}
+						title={statusLabel}
+						className="rounded-[var(--radius-full)]!"
+					>
+						{primary ? <Check size={20} aria-hidden /> : <Plus size={20} aria-hidden />}
+					</IconButton>
+				) : (
+					<Button {...actionProps} size="sm">
+						{t(status)}
+					</Button>
+				)}
 			</div>
 			{connected
 				.filter((item) => connected.length > 1 || item.scope === "folder")

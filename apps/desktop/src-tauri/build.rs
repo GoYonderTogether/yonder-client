@@ -75,6 +75,7 @@ fn main() {
                     .commands(&[
                         "statuses",
                         "request_permission",
+                        "open_settings",
                         "activate",
                         "reset",
                         "authorize",

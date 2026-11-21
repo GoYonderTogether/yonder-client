@@ -1,6 +1,23 @@
 #import "AppleResourceBridge.h"
 #import <EventKit/EventKit.h>
 
+#if TARGET_OS_IOS
+#import <UIKit/UIKit.h>
+
+extern "C" void yonder_ios_open_apple_resource_settings(void *context, YonderApplePermissionReply reply) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSURL *url = [NSURL URLWithString:UIApplicationOpenSettingsURLString];
+        if (url == nil) {
+            reply(context, 0);
+            return;
+        }
+        [UIApplication.sharedApplication openURL:url options:@{} completionHandler:^(BOOL opened) {
+            reply(context, opened ? 1 : 0);
+        }];
+    });
+}
+#endif
+
 extern "C" int32_t yonder_apple_calendar_status(void) {
     switch ([EKEventStore authorizationStatusForEntityType:EKEntityTypeEvent]) {
         case EKAuthorizationStatusNotDetermined: return AppleUndetermined;

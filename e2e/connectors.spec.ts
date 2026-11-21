@@ -198,7 +198,10 @@ for (const platform of ["ios", "macos"] as const) {
 			let authorized = false;
 			const actions: string[] = [];
 			Object.assign(window, {
-				appleConnectorFixture: { actions, resolvePermission: (allowed: boolean) => finishPermission?.(allowed) },
+				appleConnectorFixture: {
+					actions,
+					resolvePermission: (allowed: boolean) => finishPermission?.(allowed),
+				},
 				__TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
 				__TAURI_INTERNALS__: {
 					metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
@@ -220,6 +223,9 @@ for (const platform of ["ios", "macos"] as const) {
 								finishPermission = resolve;
 							});
 							return granted ? "granted" : "denied";
+						}
+						if (action === "open_settings") {
+							actions.push(action);
 						}
 						if (action === "authorize") {
 							actions.push(action);
@@ -255,17 +261,34 @@ for (const platform of ["ios", "macos"] as const) {
 		if (isMac) await page.getByRole("button", { name: "继续使用 Yonder" }).click();
 		await expect(page.getByText("Apple 相册", { exact: true })).toBeVisible();
 		await expect(page.getByText("Apple 备忘录", { exact: true })).toHaveCount(isMac ? 1 : 0);
-		await page.getByRole("button", { name: "连接 · Apple 日历" }).click();
+		const connect = page.getByRole("button", { name: "连接 · Apple 日历" });
+		await expect(connect.locator("svg.lucide-plus")).toBeVisible();
+		await expect(connect).toHaveText("");
+		await expect(connect).toHaveCSS("border-radius", "9999px");
+		await connect.click();
 		await expect.poll(actions).toEqual(["request_permission"]);
 		expect(created).toBe(0);
 		await permission(false);
 		const dialog = page.getByRole("dialog", { name: "Apple 日历" });
 		await expect(dialog.getByRole("alert")).toHaveText("请到系统设置允许 Yonder 访问后重试。");
 		expect(created).toBe(0);
-		await dialog.getByRole("button", { name: "连接" }).click();
-		await expect.poll(actions).toEqual(["request_permission", "request_permission"]);
+		const consentActions = ["request_permission"];
+		const settings = dialog.getByRole("button", { name: "打开系统设置" });
+		await expect(settings).toBeVisible();
+		if (!isMac) {
+			await settings.click();
+			consentActions.push("open_settings");
+			await expect.poll(actions).toEqual(consentActions);
+			expect(created).toBe(0);
+		}
+		await dialog.getByRole("button", { name: "重试连接" }).click();
+		consentActions.push("request_permission");
+		await expect.poll(actions).toEqual(consentActions);
 		await permission(true);
-		await expect(page.getByRole("button", { name: "已接入 · Apple 日历" })).toBeVisible();
+		const connected = page.getByRole("button", { name: "已接入 · Apple 日历" });
+		await expect(connected.locator("svg.lucide-check")).toBeVisible();
+		await expect(connected).toHaveText("");
+		await expect(connected).toHaveCSS("border-radius", "9999px");
 		expect(created).toBe(1);
 		await expect.poll(() => ready).toBe(true);
 		await expect(dialog).toBeHidden();
@@ -306,6 +329,6 @@ for (const platform of ["ios", "macos"] as const) {
 		await page.getByRole("button", { name: "断开连接" }).click();
 		await expect(page.getByRole("button", { name: "连接 · Apple 日历" })).toBeVisible();
 		await expect.poll(() => ready).toBe(false);
-		expect(await actions()).toEqual(["request_permission", "request_permission", "authorize", "execute", "revoke"]);
+		expect(await actions()).toEqual([...consentActions, "authorize", "execute", "revoke"]);
 	});
 }

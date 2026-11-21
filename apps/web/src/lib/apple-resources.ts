@@ -45,6 +45,9 @@ export async function appleResourceStatuses(): Promise<Record<AppleConnectorId, 
 export const requestAppleResourcePermission = (connectorId: AppleConnectorId) =>
 	invokeAppleResource<AppleResourcePermission>("request_permission", { connectorId });
 
+export const openAppleResourceSettings = (connectorId: AppleConnectorId) =>
+	invokeAppleResource<void>("open_settings", { connectorId });
+
 export const activateAppleResources = (context: AppleResourceContext) =>
 	invokeAppleResource<void>("activate", { context });
 

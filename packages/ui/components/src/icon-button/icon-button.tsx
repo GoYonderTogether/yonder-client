@@ -6,7 +6,7 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
 	"aria-label": string;
 	ref?: Ref<HTMLButtonElement>;
 	children: ReactNode;
-	variant?: "ghost" | "secondary";
+	variant?: "primary" | "ghost" | "secondary";
 	size?: "sm" | "md";
 }
 
