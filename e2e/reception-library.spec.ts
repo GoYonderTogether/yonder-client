@@ -119,6 +119,9 @@ async function isolateLibrary(page: Page, large = false) {
 				} else {
 					library.folders.push({ id: "new-folder", name: change.name, parentFolderId: change.parentFolderId ?? null });
 				}
+			} else if (change.kind === "move_folder") {
+				const folder = library.folders.find((item) => item.id === change.id);
+				if (folder) folder.parentFolderId = change.parentFolderId;
 			} else if (change.kind === "remove_folder") {
 				const parentFolderId = library.folders.find((item) => item.id === change.id)?.parentFolderId ?? null;
 				library.folders = library.folders.filter((item) => item.id !== change.id);
@@ -133,6 +136,9 @@ async function isolateLibrary(page: Page, large = false) {
 				const document = library.documents.find((item) => item.id === change.id);
 				if (document) Object.assign(document, data);
 				else library.documents.push({ id: "new-document", ...data });
+			} else if (change.kind === "move_document") {
+				const document = library.documents.find((item) => item.id === change.id);
+				if (document) document.folderId = change.folderId;
 			} else if (change.kind === "remove_document") {
 				library.documents = library.documents.filter((item) => item.id !== change.id);
 			} else {
@@ -211,6 +217,75 @@ test("desktop reception opens folders and documents beside the directory and per
 		"save_document",
 		"remove_document",
 	]);
+});
+
+test("desktop drags published documents and whole folders to another directory", async ({ page }, info) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	const changes = await isolateLibrary(page, true);
+	await page.goto("/me/reception/folder/visits");
+	const visits = page.getByRole("button", { name: /^来访指南/ });
+	const detail = page.locator("[data-reception-detail]");
+	const access = detail.getByRole("button", { name: /^场馆交通/ });
+	const hours = detail.getByRole("button", { name: /^来访时间与预约/ });
+	const partnerships = page.getByRole("button", { name: /^合作咨询/ });
+	const breadcrumbs = page.getByRole("navigation", { name: "文件夹路径" });
+	await expect(hours).toHaveAttribute("draggable", "true");
+	await visits.dragTo(access);
+	await hours.dragTo(breadcrumbs.getByText("来访指南", { exact: true }));
+	expect(changes).toEqual([]);
+
+	const source = await hours.boundingBox();
+	const destination = await partnerships.boundingBox();
+	if (!source || !destination) throw new Error("Expected both drag rows to be visible");
+	await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(destination.x + destination.width / 2, destination.y + destination.height / 2, { steps: 16 });
+	await page.mouse.move(destination.x + destination.width / 2 + 1, destination.y + destination.height / 2);
+	await expect(partnerships).toHaveAttribute("data-reception-drop-active", "");
+	await expect(partnerships).toHaveCSS("outline-width", "2px");
+	await page.screenshot({ path: info.outputPath("reception-drag-target.png"), animations: "disabled" });
+	await page.mouse.up();
+	await expect(page.getByRole("status").filter({ hasText: "已移动。" })).toBeVisible();
+	await expect(hours).toHaveCount(0);
+	await expect(partnerships).not.toHaveAttribute("data-reception-drop-active");
+	await access.dragTo(breadcrumbs.getByRole("button", { name: "资料库根目录" }));
+	await expect(page.locator("[data-reception-directory]").getByRole("button", { name: /^场馆交通/ })).toBeVisible();
+	expect(changes).toEqual([
+		{ kind: "move_document", id: "hours", folderId: "partnerships" },
+		{ kind: "move_folder", id: "access", parentFolderId: null },
+	]);
+
+	await partnerships.click();
+	await page
+		.locator("[data-page-layer]:not([inert])")
+		.locator("[data-reception-detail]")
+		.getByRole("button", { name: /^来访时间与预约/ })
+		.click();
+	await expect(page.getByRole("heading", { name: "如何预约" })).toBeVisible();
+	await page.goto("/me/reception/folder/access");
+	await expect(detail.getByRole("button", { name: /^访客出入与停车申请/ })).toBeVisible();
+	await expect(page.getByRole("button", { name: /^现场协助/ })).toBeVisible();
+});
+
+test("narrow desktop retries a rejected drag to a breadcrumb", async ({ page }) => {
+	await page.setViewportSize({ width: 820, height: 850 });
+	const changes = await isolateLibrary(page, true);
+	let rejectMove = true;
+	await page.route("**/v1/me/social/library", async (route) => {
+		if (route.request().method() !== "POST" || !rejectMove) return route.fallback();
+		rejectMove = false;
+		return route.fulfill({ status: 409, json: { error: { code: "conflict_version", message: "path occupied" } } });
+	});
+	await page.goto("/me/reception/folder/visits");
+	const source = page.getByRole("button", { name: /^来访时间与预约/ });
+	const target = page.getByRole("button", { name: "资料库根目录" });
+	await source.dragTo(target);
+	await expect(page.getByRole("alert")).toContainText("别处改过了，刷新再试。");
+	await expect(source).toBeVisible();
+	await source.dragTo(target);
+	await expect(source).toHaveCount(0);
+	await expect(page.getByRole("alert")).toHaveCount(0);
+	expect(changes).toEqual([{ kind: "move_document", id: "hours", folderId: null }]);
 });
 
 test("narrow desktop keeps hierarchy on direct links and preserves contents when deleting a folder", async ({
@@ -304,7 +379,9 @@ test.describe("phone reception library", () => {
 	test("manages nested folders and documents by touch on a phone", async ({ page }, info) => {
 		const changes = await isolateLibrary(page);
 		await page.goto("/me/reception");
-		await page.getByRole("button", { name: /^来访指南/ }).tap();
+		const visits = page.getByRole("button", { name: /^来访指南/ });
+		await expect(visits).not.toHaveAttribute("draggable", "true");
+		await visits.tap();
 		const parent = page.locator('[data-page-layer="/me/reception/folder/visits"]:not([inert])');
 		await parent.getByRole("button", { name: "新建文件夹" }).tap();
 		await page.getByRole("textbox", { name: "文件夹名称" }).fill("展厅接待");

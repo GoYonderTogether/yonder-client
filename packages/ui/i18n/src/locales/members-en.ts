@@ -152,6 +152,8 @@ export const membersMessagesEn = {
 			content: "Content",
 			folder: "Location",
 			emptyFolder: "This folder is empty",
+			moving: "Moving…",
+			moved: "Moved.",
 			folderCycle: "A folder can’t be moved into itself or one of its subfolders.",
 			missing: "This library item couldn’t be found",
 			untitledDraft: "Reception draft",

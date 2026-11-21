@@ -3,6 +3,7 @@ import { EmptyState, IconTile, ListGroup, ListRow, SearchInput } from "@yonder/u
 import { FileClock, Files, FileText, Folder, Search } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { receptionDropHighlight, useReceptionDrag } from "./reception-library-drag.tsx";
 import { receptionFolderLabel, receptionFolderPath, receptionFolderTrail } from "./reception-library-paths.ts";
 import { receptionSettingsPath } from "./settings-navigation.ts";
 
@@ -168,6 +169,7 @@ function ReceptionFolderRows({
 	onOpen: Open;
 }) {
 	const { t } = useTranslation();
+	const drag = useReceptionDrag();
 	return (
 		<LimitedRows
 			items={library.folders.filter((folder) => (folder.parentFolderId ?? null) === parentId)}
@@ -175,6 +177,14 @@ function ReceptionFolderRows({
 			renderRow={(folder) => (
 				<ListRow
 					key={folder.id}
+					className={`[&[draggable=true]]:cursor-grab ${receptionDropHighlight}`}
+					{...drag?.source({
+						kind: "folder",
+						id: folder.id,
+						parentId: folder.parentFolderId ?? null,
+						path: folder.path,
+					})}
+					{...drag?.target(folder)}
 					leading={
 						<IconTile>
 							<Folder size={18} className="text-[var(--color-accent-text)]" />
@@ -261,6 +271,7 @@ function ReceptionDocumentRows({
 	onOpen: Open;
 }) {
 	const { t } = useTranslation();
+	const drag = useReceptionDrag();
 	const date = useReceptionDate();
 	return (
 		<LimitedRows
@@ -271,6 +282,8 @@ function ReceptionDocumentRows({
 				return (
 					<ListRow
 						key={document.id}
+						className="[&[draggable=true]]:cursor-grab"
+						{...drag?.source({ kind: "document", id: document.id, parentId: document.folderId, path: document.path })}
 						leading={
 							<IconTile>
 								<FileText size={18} />

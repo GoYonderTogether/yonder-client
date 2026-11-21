@@ -145,6 +145,8 @@ export const membersMessagesZhCN = {
 			content: "正文",
 			folder: "存放位置",
 			emptyFolder: "这个文件夹还没有内容",
+			moving: "正在移动…",
+			moved: "已移动。",
 			folderCycle: "文件夹不能移到自身或子文件夹中。",
 			missing: "找不到这项资料",
 			untitledDraft: "接待草稿",

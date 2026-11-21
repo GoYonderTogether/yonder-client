@@ -14,6 +14,7 @@ import {
 	ReceptionFolderContents,
 	ReceptionRootDirectory,
 } from "./reception-library-directory.tsx";
+import { ReceptionDragProvider, receptionDropHighlight, useReceptionDrag } from "./reception-library-drag.tsx";
 import { type Editor, ReceptionLibraryEditor, ReceptionRemoveButton } from "./reception-library-editor.tsx";
 import {
 	receptionFolderLabel,
@@ -100,7 +101,9 @@ function ReceptionLibrary({
 				{library.isPending ? (
 					<p role="status">{t("app.loading")}</p>
 				) : library.data ? (
-					<ReceptionLibraryBody library={library.data} view={view} wide={wide} onOpen={onOpen} onBack={onBack} />
+					<ReceptionDragProvider library={library.data}>
+						<ReceptionLibraryBody library={library.data} view={view} wide={wide} onOpen={onOpen} onBack={onBack} />
+					</ReceptionDragProvider>
 				) : (
 					<div className="flex flex-wrap items-center gap-[var(--spacing-2)]">
 						<p role="alert" className="text-caption text-[var(--color-danger)]">
@@ -339,20 +342,30 @@ function ReceptionBreadcrumbs({
 	onOpen: (path: string) => void;
 }) {
 	const { t } = useTranslation();
-	const linkClass = "min-w-0 break-all text-start text-[var(--color-accent-text)] hover:underline";
+	const drag = useReceptionDrag();
+	const linkClass = `min-w-0 break-all text-start text-[var(--color-accent-text)] hover:underline ${receptionDropHighlight}`;
 	return (
 		<nav
 			aria-label={t("members.social.library.folderPath")}
 			className="flex flex-wrap items-baseline gap-[var(--spacing-2)] text-caption"
 		>
-			<button type="button" className={linkClass} onClick={() => onOpen(receptionSettingsPath())}>
+			<button
+				type="button"
+				className={linkClass}
+				onClick={() => onOpen(receptionSettingsPath())}
+				{...drag?.target(null)}
+			>
 				{t("members.social.library.root")}
 			</button>
 			{trail.map((folder, index) => (
 				<span key={folder.id} className="inline-flex min-w-0 items-baseline gap-[var(--spacing-2)]">
 					<span aria-hidden="true">›</span>
 					{currentFolder && index === trail.length - 1 ? (
-						<span aria-current="page" className="break-all text-[var(--color-text-tertiary)]">
+						<span
+							aria-current="page"
+							className={`break-all text-[var(--color-text-tertiary)] ${receptionDropHighlight}`}
+							{...drag?.target(folder)}
+						>
 							{receptionFolderLabel(folder, t)}
 						</span>
 					) : (
@@ -360,6 +373,7 @@ function ReceptionBreadcrumbs({
 							type="button"
 							className={linkClass}
 							onClick={() => onOpen(receptionFolderPath(trail.slice(0, index + 1)))}
+							{...drag?.target(folder)}
 						>
 							{receptionFolderLabel(folder, t)}
 						</button>
