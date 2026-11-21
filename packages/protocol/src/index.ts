@@ -148,6 +148,13 @@ export type {
 	UpdateReceptionRequest,
 } from "./member/member.ts";
 export type {
+	SocialLibrary,
+	SocialLibraryChange,
+	SocialLibraryDocument,
+	SocialLibraryDraft,
+	SocialLibraryFolder,
+} from "./member/social.ts";
+export type {
 	MemoryFileAuthor,
 	MemoryFileContent,
 	MemoryFileKind,

@@ -8,6 +8,15 @@ test("direct settings links keep their semantic parent and treat an encoded Bot 
 		"/me/bots/bot%2Fa/profile",
 	]);
 	expect(settingsPagePaths(["reception", "drafts"])).toEqual(["/me/reception", "/me/reception/drafts"]);
+	expect(settingsPagePaths(["reception", "folder", "folder/a", "document/b"])).toEqual([
+		"/me/reception",
+		"/me/reception/folder/folder%2Fa",
+		"/me/reception/folder/folder%2Fa/document%2Fb",
+	]);
+	expect(settingsPagePaths(["reception", "document", "document/b"])).toEqual([
+		"/me/reception",
+		"/me/reception/document/document%2Fb",
+	]);
 });
 
 test("the Channels picker is a query on one page, with an originating Bot parent only for its shortcut", () => {

@@ -1,22 +1,22 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SocialLibraryChange } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
-export function useSocialKnowledge() {
+export function useSocialLibrary() {
 	const api = useApi();
-	return useQuery({ queryKey: keys.socialKnowledge(), queryFn: () => api.socialKnowledge() });
+	return useQuery({ queryKey: keys.socialLibrary(), queryFn: () => api.socialLibrary(), staleTime: 0 });
 }
 
-export function useEditSocialKnowledge() {
+export function useEditSocialLibrary() {
 	const api = useApi();
 	const client = useQueryClient();
-	const queryKey = keys.socialKnowledge();
+	const queryKey = keys.socialLibrary();
 	const busy = useIsMutating({ mutationKey: queryKey }) > 0;
 	const edit = useMutation({
 		mutationKey: queryKey,
 		scope: { id: queryKey[0] },
-		mutationFn: (change: { content: string } | { id: string; approve: boolean }) =>
-			"content" in change ? api.saveSocialKnowledge(change.content) : api.socialDraft(change.id, change.approve),
+		mutationFn: (change: SocialLibraryChange) => api.editSocialLibrary(change),
 		onSuccess: async (value) => {
 			await client.cancelQueries({ queryKey });
 			client.setQueryData(queryKey, value);

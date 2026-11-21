@@ -1,15 +1,6 @@
 import { memberFailureText } from "@yonder/feature-members";
-import { Avatar, Button, ListGroup, ListOption, ListRow } from "@yonder/ui-components";
-import {
-	ownedBots,
-	useBot,
-	useContacts,
-	usePerson,
-	useReception,
-	useSetReception,
-	useSocialKnowledge,
-} from "@yonder/ui-data";
-import { useId } from "react";
+import { BotSelector, Button } from "@yonder/ui-components";
+import { ownedBots, useBot, useContacts, usePerson, useReception, useSetReception } from "@yonder/ui-data";
 import { useTranslation } from "react-i18next";
 
 function useReceptionBots() {
@@ -21,42 +12,9 @@ function useReceptionBots() {
 	return { bots, contacts };
 }
 
-/** 「对外接待」: who receives visitors, then what every Bot may tell them (docs/settings-forms.md). */
-export function ReceptionOverview({ onOpenPage }: { onOpenPage: (page: "bot" | "info" | "drafts") => void }) {
-	const { t } = useTranslation();
-	const { bots } = useReceptionBots();
-	const setting = useReception();
-	const knowledge = useSocialKnowledge();
-	const bot = bots.find((item) => item.id === setting.data?.botId);
-	const count = knowledge.data?.drafts.length;
-
-	return (
-		<div className="flex flex-col gap-[var(--spacing-4)]">
-			<ListGroup title={t("members.social.receptionTitle")} footer={t("members.social.receptionScope")}>
-				<ListRow
-					title={t("members.social.receptionTitle")}
-					trailing={bot?.displayName}
-					chevron
-					onClick={() => onOpenPage("bot")}
-				/>
-			</ListGroup>
-			<ListGroup title={t("members.social.infoTitle")} footer={t("members.social.infoScope")}>
-				<ListRow title={t("members.social.infoTitle")} chevron onClick={() => onOpenPage("info")} />
-				<ListRow
-					title={t("members.social.draftsTitle")}
-					trailing={count ? new Intl.NumberFormat().format(count) : undefined}
-					chevron
-					onClick={() => onOpenPage("drafts")}
-				/>
-			</ListGroup>
-		</div>
-	);
-}
-
-/** One of the account's Bots receives visitors; a tap saves at once and the check mark moves. */
+/** One of the account's Bots receives visitors; selecting it immediately saves the assignment. */
 export function ReceptionSetting() {
 	const { t } = useTranslation();
-	const group = useId();
 	const { bots, contacts } = useReceptionBots();
 	const setting = useReception();
 	const update = useSetReception();
@@ -86,26 +44,13 @@ export function ReceptionSetting() {
 
 	return (
 		<div className="flex flex-col gap-[var(--spacing-3)]">
-			<fieldset disabled={update.isPending} className="min-w-0">
-				<legend className="sr-only">{t("members.social.chooseBot")}</legend>
-				<ListGroup>
-					{bots.map((bot) => (
-						<ListOption
-							key={bot.id}
-							name={group}
-							value={bot.id}
-							checked={current === bot.id}
-							onSelect={() => update.mutate(bot.isDefault ? null : bot.id)}
-							leading={
-								<Avatar name={bot.displayName} src={bot.avatarUrl} kind="bot" size={40} color={bot.avatarColor} />
-							}
-							title={bot.displayName}
-							subtitle={`@${bot.handle}`}
-							trailing={bot.isDefault ? t("bots.defaultLabel") : undefined}
-						/>
-					))}
-				</ListGroup>
-			</fieldset>
+			<BotSelector
+				label={t("members.social.receptionTitle")}
+				bots={bots}
+				selectedBotId={current}
+				onSelectBot={(id) => update.mutate(bots.find((bot) => bot.id === id)?.isDefault ? null : id)}
+				disabled={update.isPending}
+			/>
 			{update.isError ? (
 				<p role="alert" className="px-[var(--spacing-1)] text-caption text-[var(--color-danger)]">
 					{memberFailureText(update.error, t)}

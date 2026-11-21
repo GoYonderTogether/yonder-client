@@ -53,6 +53,7 @@ export type { SelectFieldProps } from "./field/select-field.tsx";
 export { SelectField } from "./field/select-field.tsx";
 export type { IconButtonProps } from "./icon-button/icon-button.tsx";
 export { IconButton } from "./icon-button/icon-button.tsx";
+export { BotSelector } from "./list/bot-selector.tsx";
 export type { ConversationRowProps } from "./list/conversation-row.tsx";
 export { ConversationList, ConversationRow } from "./list/conversation-row.tsx";
 export type { ListRowProps } from "./list/list.tsx";

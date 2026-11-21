@@ -13,9 +13,9 @@ import { UpdateControls } from "../updates/controls.tsx";
 import { useConnectDevice } from "./connect-device.tsx";
 import { ConnectDeviceDownloads } from "./connect-device-downloads.tsx";
 import { DesktopCloseBehavior } from "./desktop-close-behavior.tsx";
-import { ReceptionOverview, ReceptionSetting } from "./reception-setting.tsx";
+import { ReceptionLibraryPage } from "./reception-library.tsx";
 import { botSettingsPath, channelsSettingsPath } from "./settings-navigation.ts";
-import { SocialDrafts, SocialInfo, SocialPersona } from "./social-settings.tsx";
+import { SocialPersona } from "./social-settings.tsx";
 import { useHasPassword } from "./use-has-password.ts";
 import type { PageNavigationState } from "./use-page-navigation.ts";
 
@@ -46,7 +46,8 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 	const location = useLocation();
 	const navigate = useNavigate();
 	const hasPassword = useHasPassword();
-	const [section, page, leaf, extra] = locate(path)?.detail ?? [];
+	const detail = locate(path)?.detail ?? [];
+	const [section, page, leaf, extra] = detail;
 	const connectDevice = useConnectDevice(section === "connectors" ? "connectors" : "devices", props.onOpen);
 	if (!isMeSection(section)) return <NotFoundPage />;
 	if ((section === "devices" || section === "connectors") && page === "connect" && !leaf) {
@@ -123,36 +124,7 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 			</>
 		);
 	}
-	if (leaf) return <NotFoundPage />;
-	const backToReception = () => props.onBack("/me/reception");
-	switch (page) {
-		case undefined:
-			return (
-				<SettingsPage title={t("me.sections.reception")}>
-					<ReceptionOverview onOpenPage={(next) => props.onOpen(`/me/reception/${next}`)} />
-				</SettingsPage>
-			);
-		case "bot":
-			return (
-				<SettingsPage title={t("members.social.receptionTitle")} description={t("members.social.receptionScope")}>
-					<ReceptionSetting />
-				</SettingsPage>
-			);
-		case "info":
-			return (
-				<SettingsPage title={t("members.social.infoTitle")} description={t("members.social.infoScope")}>
-					<SocialInfo onSaved={backToReception} />
-				</SettingsPage>
-			);
-		case "drafts":
-			return (
-				<SettingsPage title={t("members.social.draftsTitle")} description={t("members.social.draftsScope")}>
-					<SocialDrafts />
-				</SettingsPage>
-			);
-		default:
-			return <NotFoundPage />;
-	}
+	return <ReceptionLibraryPage route={detail.slice(1)} onOpen={props.onOpen} onBack={props.onBack} />;
 }
 
 function BotSettingsPage({

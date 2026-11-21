@@ -1,6 +1,6 @@
 import { memberFailureText } from "@yonder/feature-members";
 import { Button, Field, FormFooter, TextArea } from "@yonder/ui-components";
-import { useEditSocialKnowledge, useSaveSocialPersona, useSocialKnowledge, useSocialPersona } from "@yonder/ui-data";
+import { useSaveSocialPersona, useSocialPersona } from "@yonder/ui-data";
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -91,87 +91,6 @@ function SocialLoadFailure({ error, retry }: { error: unknown; retry: () => void
 
 interface EditNavigation {
 	onSaved?: () => void;
-}
-
-export function SocialInfo({ onSaved }: EditNavigation) {
-	const { t } = useTranslation();
-	const query = useSocialKnowledge();
-	const { edit, busy } = useEditSocialKnowledge();
-	if (query.isLoading) return <p role="status">{t("app.loading")}</p>;
-	if (!query.data) return <SocialLoadFailure error={query.error} retry={() => void query.refetch()} />;
-
-	return (
-		<SocialEditor
-			label={t("members.social.approved")}
-			value={query.data.approved}
-			onSaved={onSaved}
-			onSave={(content, onSuccess) => edit.mutate({ content }, { onSuccess })}
-			busy={busy}
-			pending={edit.isPending}
-			saved={edit.isSuccess}
-			error={memberFailureText(edit.error, t)}
-		/>
-	);
-}
-
-export function SocialDrafts() {
-	const { t, i18n } = useTranslation();
-	const query = useSocialKnowledge();
-	const { edit, busy } = useEditSocialKnowledge();
-	if (query.isLoading) return <p role="status">{t("app.loading")}</p>;
-	if (!query.data) return <SocialLoadFailure error={query.error} retry={() => void query.refetch()} />;
-	const dateFormat = new Intl.DateTimeFormat(i18n.resolvedLanguage, { dateStyle: "medium", timeStyle: "short" });
-	const change = edit.variables && "id" in edit.variables ? edit.variables : undefined;
-
-	return (
-		<div className="flex flex-col gap-[var(--spacing-4)]">
-			{query.data.drafts.length === 0 ? (
-				<p className="text-caption text-[var(--color-text-secondary)]">{t("members.social.noDrafts")}</p>
-			) : null}
-			{query.data.drafts.map((item) => {
-				const date = new Date(item.createdAt);
-				const reviewing = change?.id === item.id;
-				return (
-					<article
-						key={item.id}
-						className="flex flex-col gap-[var(--spacing-3)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] p-[var(--spacing-4)]"
-					>
-						<time dateTime={item.createdAt} className="text-caption text-[var(--color-text-secondary)]">
-							{dateFormat.format(date)}
-						</time>
-						<p className="whitespace-pre-wrap text-body [overflow-wrap:anywhere]">{item.content}</p>
-						{reviewing && edit.isError ? (
-							<p role="alert" className="text-caption text-[var(--color-danger)]">
-								{memberFailureText(edit.error, t)}
-							</p>
-						) : null}
-						<div className="flex flex-wrap justify-end gap-[var(--spacing-2)]">
-							<Button
-								disabled={busy}
-								loading={reviewing && edit.isPending && change.approve === false}
-								onClick={() => edit.mutate({ id: item.id, approve: false })}
-							>
-								{t("members.social.discard")}
-							</Button>
-							<Button
-								variant="primary"
-								disabled={busy}
-								loading={reviewing && edit.isPending && change.approve === true}
-								onClick={() => edit.mutate({ id: item.id, approve: true })}
-							>
-								{t("members.social.approve")}
-							</Button>
-						</div>
-					</article>
-				);
-			})}
-			{edit.isSuccess && change ? (
-				<p role="status" className="text-caption text-[var(--color-text-secondary)]">
-					{t(change.approve ? "members.social.published" : "members.social.discarded")}
-				</p>
-			) : null}
-		</div>
-	);
 }
 
 export function SocialPersona({
