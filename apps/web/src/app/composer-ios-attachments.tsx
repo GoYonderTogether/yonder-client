@@ -228,41 +228,6 @@ export function IosComposerAttachmentPanel({
 				if (event.key === "Escape") picker.close();
 			}}
 		>
-			<div className="composer-ios-attachment-actions">
-				<button type="button" disabled={picker.picking} onClick={() => picker.choose("allPhotos")}>
-					<Images size={17} aria-hidden="true" />
-					{t("composerAttachments.allPhotos")}
-					<ChevronRight size={14} aria-hidden="true" />
-				</button>
-				<button type="button" disabled={picker.picking} onClick={() => picker.choose("documents")}>
-					<FileText size={17} aria-hidden="true" />
-					{t("composerAttachments.files")}
-				</button>
-				{onMeeting ? (
-					<button
-						type="button"
-						aria-label={t("chatActions.recordMeeting")}
-						title={t("chatActions.recordMeeting")}
-						disabled={picker.picking}
-						onClick={() => {
-							picker.close();
-							onMeeting();
-						}}
-					>
-						<FileAudio size={17} aria-hidden="true" />
-					</button>
-				) : null}
-				<button
-					type="button"
-					className="composer-ios-attachment-add"
-					disabled={!selected.length || selected.length > picker.limit || picker.picking}
-					onClick={() => picker.choose("recentPhotos", selected)}
-				>
-					{selected.length
-						? t("composerAttachments.addPhotos", { count: selected.length })
-						: t("composerAttachments.add")}
-				</button>
-			</div>
 			{photos.length ? (
 				<div className="composer-ios-photo-rail" ref={rail}>
 					{photos.map((photo, index) => {
@@ -291,6 +256,43 @@ export function IosComposerAttachmentPanel({
 					) : null}
 				</div>
 			) : null}
+			<div className="composer-ios-attachment-actions">
+				<button type="button" disabled={picker.picking} onClick={() => picker.choose("documents")}>
+					<FileText size={17} aria-hidden="true" />
+					{t("composerAttachments.files")}
+				</button>
+				{onMeeting ? (
+					<button
+						type="button"
+						aria-label={t("chatActions.recordMeeting")}
+						title={t("chatActions.recordMeeting")}
+						disabled={picker.picking}
+						onClick={() => {
+							picker.close();
+							onMeeting();
+						}}
+					>
+						<FileAudio size={17} aria-hidden="true" />
+					</button>
+				) : null}
+				<div className="composer-ios-attachment-confirm">
+					<button type="button" disabled={picker.picking} onClick={() => picker.choose("allPhotos")}>
+						<Images size={17} aria-hidden="true" />
+						{t("composerAttachments.allPhotos")}
+						<ChevronRight size={14} aria-hidden="true" />
+					</button>
+					<button
+						type="button"
+						className="composer-ios-attachment-add"
+						disabled={!selected.length || selected.length > picker.limit || picker.picking}
+						onClick={() => picker.choose("recentPhotos", selected)}
+					>
+						{selected.length
+							? t("composerAttachments.addPhotos", { count: selected.length })
+							: t("composerAttachments.add")}
+					</button>
+				</div>
+			</div>
 		</fieldset>
 	);
 }

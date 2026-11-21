@@ -286,8 +286,15 @@
 .composer-ios-photo-state button:not(:disabled):is(:hover, :focus-visible) {
 	background: var(--color-bg-subtle);
 }
-.composer-ios-attachment-actions .composer-ios-attachment-add {
+.composer-ios-attachment-confirm {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: var(--spacing-1);
 	margin-inline-start: auto;
+	white-space: nowrap;
+}
+.composer-ios-attachment-actions .composer-ios-attachment-add {
 	min-height: var(--control-sm);
 	padding-inline: var(--spacing-4);
 	border-radius: var(--radius-full);

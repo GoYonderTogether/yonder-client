@@ -97,11 +97,20 @@ test("iPhone rail selects in tap order, preserves selection after All Photos can
 		void (args.allPhotos ? fullPicker : recentImport).promise.then(args.result.onmessage);
 	});
 	const htmlFileClick = vi.spyOn(HTMLInputElement.prototype, "click");
-	const { attach, onFiles, onSend } = renderIphone(16);
+	const { attach, onFiles, onSend } = renderIphone(16, { onMeeting: vi.fn() });
 	attach();
 
 	const newer = await screen.findByRole("button", { name: "Select photo 1" });
 	const older = screen.getByRole("button", { name: "Select photo 2" });
+	const tray = within(screen.getByRole("group", { name: "Recent photos" }));
+	expect(tray.getAllByRole("button")).toEqual([
+		newer,
+		older,
+		tray.getByRole("button", { name: "Files" }),
+		tray.getByRole("button", { name: "Recording notes" }),
+		tray.getByRole("button", { name: "All photos" }),
+		tray.getByRole("button", { name: "Add" }),
+	]);
 	expect(invoke).toHaveBeenCalledWith(command("photo_access"), { request: false });
 	expect(invoke).not.toHaveBeenCalledWith(command("photo_access"), { request: true });
 	expect(invoke.mock.calls.some(([name]) => name === command("pick"))).toBe(false);
