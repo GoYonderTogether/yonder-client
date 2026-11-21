@@ -22,7 +22,7 @@ import { useLocation, useNavigate } from "react-router";
 import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
-import { ContactsOverlay } from "../pages/contacts-list.tsx";
+import { ContactsPageList, ContactsPagePlaceholder } from "../pages/contacts-list.tsx";
 import {
 	conversationPeer,
 	conversationTitle,
@@ -66,7 +66,6 @@ export function AppFrame() {
 	const bot = useBot();
 	const meeting = useFrameMeeting(person?.id ?? null);
 	const desktop = isDesktopExperience();
-	const [contactsOpen, setContactsOpen] = useState(false);
 	const { realtime, storage } = useData();
 	const connectionStatus = useSyncExternalStore(
 		realtime.subscribe,
@@ -101,7 +100,7 @@ export function AppFrame() {
 	const [first = null] = settingsDetail;
 	const section = first && isMeSection(first) ? first : null;
 	const meEntry = useMeEntry(storage, person?.id, section);
-	const splitMe = isDesktopExperience() && layoutMode === "wide";
+	const splitMe = desktop && layoutMode === "wide";
 	useEffect(() => {
 		if (splitMe && meOpen && !first && person) {
 			navigate(meEntry, { replace: true, state: location.state });
@@ -315,7 +314,7 @@ export function AppFrame() {
 							disconnected={disconnected}
 							mainBotHome={mainBot}
 							contacts={contacts.data?.items}
-							readActive={!meOpen && !side.pages.length && !contactsOpen && !preset.drawerOpen}
+							readActive={!meOpen && !side.pages.length && !preset.drawerOpen}
 							onOpenMeeting={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
 							onOpenMember={openMember}
 							onOpenGroup={layers.openGroup}
@@ -339,7 +338,7 @@ export function AppFrame() {
 							taskId={taskSelection}
 							session={chat.itemSession}
 							disconnected={disconnected}
-							readActive={!meOpen && !side.pages.length && !contactsOpen}
+							readActive={!meOpen && !side.pages.length}
 							onPrompt={draft.loaded && !draft.text && !draft.files.length ? draft.setText : undefined}
 							onOpenConversation={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
 						/>
@@ -349,6 +348,11 @@ export function AppFrame() {
 				return {
 					list: <MemoryList view={memoryView} />,
 					content: <MemoryPage view={memoryView} />,
+				};
+			case "contacts":
+				return {
+					list: <ContactsPageList onOpen={(handle) => navigation.open(`/@${encodeURIComponent(handle)}`)} />,
+					content: contacts.data?.items.some((member) => member.kind === "person") ? <ContactsPagePlaceholder /> : null,
 				};
 		}
 	}
@@ -405,6 +409,7 @@ export function AppFrame() {
 		messages: t("nav.messages"),
 		tasks: t("nav.tasks"),
 		memory: t("nav.memory"),
+		contacts: t("chatActions.contacts"),
 	};
 	// The owner of a Bot a stranger is talking to reads that chat and decides on it; they never
 	// write in it, so the composer is not there at all (19 第 2.3 节). A dissolved group, and one the
@@ -445,8 +450,6 @@ export function AppFrame() {
 				meLabel={t("nav.me")}
 				settingsLabel={t("nav.settings")}
 				updateAction={<UpdateReadyButton />}
-				onOpenContacts={() => setContactsOpen(true)}
-				contactsLabel={t("chatActions.contacts")}
 				onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
 				meOpen={meOpen}
 				me={me}
@@ -492,7 +495,6 @@ export function AppFrame() {
 				personId={person?.id}
 				onOpen={(id) => tabs.go(id === primary?.id ? MAIN_BOT_PATH : `/messages/${encodeURIComponent(id)}`)}
 			/>
-			<ContactsOverlay open={contactsOpen} onClose={() => setContactsOpen(false)} mode={layoutMode ?? "wide"} />
 			{preset.flying ? <FlyToComposer phrase={preset.flying} onDone={preset.flown} /> : null}
 		</SidePanelProvider>
 	);

@@ -8,7 +8,7 @@ test("the macOS inset reserves a draggable 52px row above the avatar", () => {
 		<Rail
 			current="messages"
 			onSelect={vi.fn()}
-			labels={{ messages: "Messages", tasks: "Tasks", memory: "Memory" }}
+			labels={{ messages: "Messages", tasks: "Tasks", memory: "Memory", contacts: "Contacts" }}
 			ariaLabel="Tabs"
 			renderAvatar={() => <span>avatar</span>}
 			onOpenMe={vi.fn()}
@@ -30,13 +30,13 @@ test("the macOS inset reserves a draggable 52px row above the avatar", () => {
 	expect(rail.children[1]).toContainElement(screen.getByRole("button", { name: "Me" }));
 });
 
-test("the Messages red dot keeps its accessible count while on Tasks or opening Contacts", () => {
-	const open = vi.fn();
+test("the Contacts tab is selected while Messages keeps its accessible unread count", () => {
+	const select = vi.fn();
 	render(
 		<Rail
-			current="tasks"
-			onSelect={vi.fn()}
-			labels={{ messages: "Messages", tasks: "Tasks", memory: "Memory" }}
+			current="contacts"
+			onSelect={select}
+			labels={{ messages: "Messages", tasks: "Tasks", memory: "Memory", contacts: "Contacts" }}
 			ariaLabel="Tabs"
 			renderAvatar={() => null}
 			onOpenMe={vi.fn()}
@@ -44,13 +44,12 @@ test("the Messages red dot keeps its accessible count while on Tasks or opening 
 			meLabel="Me"
 			settingsLabel="Settings"
 			titlebarInset={false}
-			onOpenContacts={open}
-			contactsLabel="Contacts"
 			messagesUnread={{ count: 3, label: "3 unread messages" }}
 		/>,
 	);
-	fireEvent.click(screen.getByRole("button", { name: "Contacts" }));
-	expect(open).toHaveBeenCalledOnce();
+	const contacts = screen.getByRole("button", { name: "Contacts", current: "page" });
+	fireEvent.click(contacts);
+	expect(select).toHaveBeenCalledWith("contacts");
 	expect(screen.getByRole("button", { name: "Messages" })).toHaveAccessibleDescription("3 unread messages");
 	expect(screen.getByRole("img", { name: "3 unread messages" }).firstElementChild).toHaveClass("sr-only");
 });

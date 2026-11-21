@@ -143,6 +143,7 @@ export const en = {
 		message: "Message",
 		noResults: "No contacts found",
 		contactsEmpty: "No contacts yet",
+		contactsSelect: "Select a contact to view their profile",
 		searchContacts: "Search contacts",
 		selectContacts: "Select contacts",
 		selected: "Selected · {{count}}",

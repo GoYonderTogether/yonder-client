@@ -30,7 +30,7 @@ test("entering me opens the left layer and Escape returns through its root", () 
 			tab={{
 				current: "messages",
 				onSelect: vi.fn(),
-				labels: { messages: "Messages", tasks: "Tasks", memory: "Memory" },
+				labels: { messages: "Messages", tasks: "Tasks", memory: "Memory", contacts: "Contacts" },
 				ariaLabel: "Tabs",
 			}}
 			renderAvatar={() => <span>avatar</span>}
@@ -94,7 +94,7 @@ test("the detail instance and its focus survive a mobile-to-desktop resize", () 
 			tab={{
 				current: "messages",
 				onSelect: vi.fn(),
-				labels: { messages: "Messages", tasks: "Tasks", memory: "Memory" },
+				labels: { messages: "Messages", tasks: "Tasks", memory: "Memory", contacts: "Contacts" },
 				ariaLabel: "Tabs",
 			}}
 			renderAvatar={() => <span>avatar</span>}
@@ -151,7 +151,7 @@ test("drag shields the right pane, collapses past 82%, and can restore without r
 			tab={{
 				current: "messages",
 				onSelect: vi.fn(),
-				labels: { messages: "Messages", tasks: "Tasks", memory: "Memory" },
+				labels: { messages: "Messages", tasks: "Tasks", memory: "Memory", contacts: "Contacts" },
 				ariaLabel: "Tabs",
 			}}
 			renderAvatar={() => null}
@@ -212,7 +212,7 @@ test("a departing Me child stops consuming Escape before its animation finishes"
 		tab: {
 			current: "messages" as const,
 			onSelect: vi.fn(),
-			labels: { messages: "Messages", tasks: "Tasks", memory: "Memory" },
+			labels: { messages: "Messages", tasks: "Tasks", memory: "Memory", contacts: "Contacts" },
 			ariaLabel: "Tabs",
 		},
 		renderAvatar: () => null,

@@ -1,7 +1,8 @@
 /** The three layers and the shared tab registry (11-布局和页面层级, third edition). */
 export type Layer = "tab" | "detail" | "overlay";
 
-export const TABS = ["messages", "tasks", "memory"] as const;
+export const MOBILE_TABS = ["messages", "tasks", "memory"] as const;
+export const TABS = [...MOBILE_TABS, "contacts"] as const;
 export type TabId = (typeof TABS)[number];
 
 export interface TabSpec {
@@ -15,6 +16,7 @@ export const TAB_SPECS: Record<TabId, TabSpec> = {
 	messages: { id: "messages", path: "/messages", hasList: true, composer: true },
 	tasks: { id: "tasks", path: "/tasks", hasList: true, composer: true },
 	memory: { id: "memory", path: "/memory", hasList: true, composer: true },
+	contacts: { id: "contacts", path: "/contacts", hasList: true, composer: false },
 };
 
 /** The pinned conversation with the person's Bot. */
@@ -43,6 +45,7 @@ export const ROUTES: readonly RouteEntry[] = [
 	{ path: "/memory/timeline", layer: "detail", tab: "memory" },
 	{ path: "/memory/g/:group", layer: "detail", tab: "memory" },
 	{ path: "/memory/files/:path", layer: "detail", tab: "memory" },
+	{ path: "/contacts", layer: "tab", tab: "contacts" },
 	{ path: "/me", layer: "detail" },
 	{ path: "/me/:section", layer: "detail" },
 	{ path: "/me/:section/:page", layer: "detail" },
@@ -61,5 +64,6 @@ export function isTab(value: string): value is TabId {
 export function locate(pathname: string): { tab: TabId | null; detail: string[] } | null {
 	const [first, ...rest] = pathname.split("/").filter(Boolean);
 	if (!first || (first !== "me" && !isTab(first))) return null;
+	if (first === "contacts" && rest.length) return null;
 	return { tab: first === "me" ? null : first, detail: rest.map(decodeURIComponent) };
 }

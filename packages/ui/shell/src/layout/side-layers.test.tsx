@@ -24,7 +24,7 @@ function shell(width: number, side: SideStack | undefined, onBack = vi.fn(), des
 			tab={{
 				current: "messages",
 				onSelect: vi.fn(),
-				labels: { messages: "Messages", tasks: "Tasks", memory: "Memory" },
+				labels: { messages: "Messages", tasks: "Tasks", memory: "Memory", contacts: "Contacts" },
 				ariaLabel: "Tabs",
 			}}
 			renderAvatar={() => <span>avatar</span>}

@@ -1,14 +1,15 @@
 import { describe, expect, test } from "vitest";
-import { isTab, locate, ROUTES, TAB_SPECS, TABS, tabPath } from "./routes.ts";
+import { isTab, locate, MOBILE_TABS, ROUTES, TAB_SPECS, TABS, tabPath } from "./routes.ts";
 
 describe("the tab registry", () => {
-	test("messages, tasks and memory share the same order on phone and desktop", () => {
-		expect(TABS).toEqual(["messages", "tasks", "memory"]);
-		expect(TABS.map(tabPath)).toEqual(["/messages", "/tasks", "/memory"]);
-		for (const tab of TABS) {
+	test("desktop adds Contacts after the shared tabs", () => {
+		expect(MOBILE_TABS).toEqual(["messages", "tasks", "memory"]);
+		expect(TABS.map(tabPath)).toEqual(["/messages", "/tasks", "/memory", "/contacts"]);
+		for (const tab of MOBILE_TABS) {
 			expect(TAB_SPECS[tab].composer).toBe(true);
 			expect(TAB_SPECS[tab].hasList).toBe(true);
 		}
+		expect(TAB_SPECS.contacts).toMatchObject({ hasList: true, composer: false });
 		expect(isTab("me")).toBe(false);
 		expect(isTab("today")).toBe(false);
 	});
@@ -37,6 +38,8 @@ describe("locate", () => {
 		expect(locate("/tasks/scheduled")).toEqual({ tab: "tasks", detail: ["scheduled"] });
 		expect(locate("/memory/timeline")).toEqual({ tab: "memory", detail: ["timeline"] });
 		expect(locate("/memory/g/sources%3A会议")).toEqual({ tab: "memory", detail: ["g", "sources:会议"] });
+		expect(locate("/contacts")).toEqual({ tab: "contacts", detail: [] });
+		expect(locate("/contacts/add")).toBeNull();
 	});
 
 	test("locates me separately from the tabs", () => {
