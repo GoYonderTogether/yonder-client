@@ -174,6 +174,15 @@ execFileSync("/usr/bin/plutil", [
 	}),
 	infoPlist,
 ]);
+// WKWebView requests camera access only when the user opens Scan QR Code. Without this key iOS
+// ends the app at that moment and App Review rejects the build.
+execFileSync("/usr/bin/plutil", [
+	"-replace",
+	"NSCameraUsageDescription",
+	"-string",
+	"Scan QR codes / 扫描二维码",
+	infoPlist,
+]);
 execFileSync("/usr/bin/plutil", [
 	"-replace",
 	"NSMicrophoneUsageDescription",
