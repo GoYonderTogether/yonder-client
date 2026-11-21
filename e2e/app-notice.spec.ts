@@ -32,6 +32,7 @@ for (const mobile of [false, true]) {
 			}
 			await page.getByRole("button", { name: "添加附件" }).click();
 			await page.getByRole("button", { name: "录音笔记", exact: true }).click();
+			await page.getByRole("button", { name: "仅录音", exact: true }).click();
 			const notice = page.getByRole("status").filter({ hasText: "请在系统设置中允许麦克风访问。" });
 			await expect(notice).toHaveCount(1);
 			const bubble = notice.locator(".app-notice");

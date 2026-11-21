@@ -66,10 +66,26 @@ const newItem = {
 	steps: [],
 };
 
-async function isolateItems(page: Page, taskOnlyRecording: boolean) {
-	const api = await isolateChat(page);
-	const meeting = taskOnlyRecording ? { ...recording, summary: null } : recording;
-	const legacyItem = taskOnlyRecording ? { ...meetingItem, result: recording.transcript } : meetingItem;
+async function isolateItems(page: Page, taskOnlyRecording: boolean, withRunningMeeting = false) {
+	const meetingNotice = {
+		...message("recording-notice-03", null),
+		meeting: { id: recording.id, title: recording.title },
+		createdAt: endedAt,
+	};
+	const api = await isolateChat(
+		page,
+		withRunningMeeting ? { items: [message("message-01", bodies.question, true), meetingNotice] } : {},
+	);
+	const meeting = withRunningMeeting
+		? { ...recording, summary: null, photos: [{ clientPhotoId: "photo-1", elapsedMs: 12_000, byteLength: 42 }] }
+		: taskOnlyRecording
+			? { ...recording, summary: null }
+			: recording;
+	let legacyItem: ItemDetail = withRunningMeeting
+		? { ...meetingItem, state: "running", result: null, endedAt: null }
+		: taskOnlyRecording
+			? { ...meetingItem, result: recording.transcript }
+			: meetingItem;
 	const sessionRequests: string[] = [];
 	const newRequests: SendMessageRequest[] = [];
 	const followUps: SendMessageRequest[] = [];
@@ -121,6 +137,12 @@ async function isolateItems(page: Page, taskOnlyRecording: boolean) {
 		},
 	);
 	await page.route(`**/v1/meetings/${meetingId}`, (route) => route.fulfill({ json: meeting }));
+	const photoRequests: string[] = [];
+	if (withRunningMeeting)
+		await page.route(`**/v1/meetings/${meetingId}/live/photos/photo-1/content`, async (route) => {
+			photoRequests.push(route.request().headers().authorization ?? "");
+			await route.fulfill({ path: new URL("./fixtures/meeting-check-photo.jpg", import.meta.url).pathname });
+		});
 	await page.route(/\/v1\/conversations\/[^/]+\/messages(?:\?|$)/, async (route) => {
 		const request = route.request();
 		const [, , , id] = new URL(request.url()).pathname.split("/");
@@ -150,6 +172,17 @@ async function isolateItems(page: Page, taskOnlyRecording: boolean) {
 		sessionRequests,
 		newRequests,
 		followUps,
+		photoRequests,
+		finishMeetingTask: () => {
+			legacyItem = meetingItem;
+			const result = {
+				...message("meeting-result-07", recording.summary),
+				conversationId: meetingSession.id,
+				createdAt: "2026-11-19T01:27:10.000Z",
+			};
+			histories.get(meetingSession.id)?.push(result);
+			api.create(result);
+		},
 		publishFirstReply: () => {
 			const reply = {
 				...message("item-msg-02", firstReply),
@@ -216,6 +249,48 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await expect(page.getByRole("log").getByText(bodies.question, { exact: true })).toBeVisible();
 			await expect(page.getByText(followUp, { exact: true })).toHaveCount(0);
 			expect(api.sent).toEqual([]);
+		});
+
+		test("a main Bot recording card opens a running independent task", async ({ page }, info) => {
+			const api = await isolateItems(page, true, true);
+			await page.goto("/messages/main");
+			const entry = page.getByRole("button", { name: `查看录音笔记 · ${recording.title}` });
+			await expect(entry).toBeVisible();
+			await page.screenshot({
+				path: info.outputPath(`recording-task-entry-${layout}.png`),
+				animations: "disabled",
+				scale: "css",
+			});
+			await entry.click();
+			await expect(page).toHaveURL(new RegExp(`/tasks/${meetingId}$`));
+			const header = page
+				.locator("[data-frame-header]")
+				.filter({ has: page.getByRole("heading", { name: recording.title }) });
+			await expect(header).toContainText("进行中");
+			const input = page.getByRole("textbox", { name: /^对 界面验收/ });
+			await input.fill(followUp);
+			await page.getByRole("button", { name: "发送", exact: true }).click();
+			const log = page.getByRole("log");
+			await expect(log.getByText(followUpReply, { exact: true })).toBeVisible();
+			expect(api.sent).toEqual([]);
+			expect(api.followUps).toEqual([expect.objectContaining({ body: followUp })]);
+			await page.screenshot({
+				path: info.outputPath(`recording-task-running-${layout}.png`),
+				animations: "disabled",
+				scale: "css",
+			});
+			api.finishMeetingTask();
+			await expect(log.getByText(recording.summary ?? "", { exact: true })).toBeVisible();
+			await expect(header).toContainText("已完成");
+			expect(api.photoRequests).toEqual([]);
+			await page.getByRole("button", { name: "00:00:12 的照片" }).click();
+			await expect(page.getByRole("img", { name: "00:00:12 的照片" })).toBeVisible();
+			expect(api.photoRequests).toEqual(["Bearer isolated-chat-ui"]);
+			await page.screenshot({
+				path: info.outputPath(`recording-task-delivery-${layout}.png`),
+				animations: "disabled",
+				scale: "css",
+			});
 		});
 
 		test("adding an item opens a fresh composer and saves the first message under Tasks", async ({ page }, info) => {

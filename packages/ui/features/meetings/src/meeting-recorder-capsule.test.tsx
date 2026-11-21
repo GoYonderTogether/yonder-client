@@ -7,7 +7,7 @@ import { expect, test, vi } from "vitest";
 import { MeetingRecorderCapsule, recordingDuration } from "./meeting-recorder-capsule.tsx";
 import type { MeetingRecorderController } from "./types.ts";
 
-test("the recording capsule shows active controls only and keeps time while paused", () => {
+test("the source capsule shows only time, latest text, expand, and end", () => {
 	const recorder: MeetingRecorderController = {
 		state: {
 			supported: true,
@@ -40,24 +40,18 @@ test("the recording capsule shows active controls only and keeps time while paus
 		reload: vi.fn(),
 		readAudio: vi.fn(),
 	};
+	const expand = vi.fn();
 	const capsule = () => (
 		<I18nextProvider i18n={createI18n("en")}>
-			<MeetingRecorderCapsule recorder={recorder} />
+			<MeetingRecorderCapsule recorder={recorder} caption="Most recent line" onExpand={expand} />
 		</I18nextProvider>
 	);
 	const view = render(capsule());
-	expect(screen.getByRole("meter", { name: "Microphone level" })).toHaveValue(42);
 	expect(screen.getByRole("status", { name: "Recording duration" })).toHaveTextContent("00:00:08");
-	expect(document.querySelectorAll(".meeting-level-bars span")).toHaveLength(6);
-	fireEvent.click(screen.getByRole("button", { name: "Pause recording" }));
-	expect(recorder.pause).toHaveBeenCalledWith("active");
-	recorder.state.paused = true;
-	view.rerender(capsule());
-	expect(screen.getByRole("region", { name: "Recording paused" })).toBeVisible();
-	expect(screen.queryByRole("meter", { name: "Microphone level" })).not.toBeInTheDocument();
-	expect(screen.getByRole("status", { name: "Recording duration" })).toHaveTextContent("00:00:08");
-	fireEvent.click(screen.getByRole("button", { name: "Resume recording" }));
-	expect(recorder.resume).toHaveBeenCalledWith("active");
+	expect(screen.getByText("Most recent line")).toBeVisible();
+	expect(screen.queryByRole("button", { name: "Pause recording" })).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Expand recording" }));
+	expect(expand).toHaveBeenCalledOnce();
 	fireEvent.click(screen.getByRole("button", { name: "End recording" }));
 	expect(recorder.stop).toHaveBeenCalledWith("active");
 	recorder.state.activeId = null;

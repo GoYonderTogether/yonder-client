@@ -15,6 +15,9 @@ vi.mock("../lib/meeting-recorder.ts", async (original) => ({
 	invokeMeetingRecorder: invoke,
 	meetingRecorderSupported: () => supported.value,
 }));
+vi.mock("./use-meeting-live.ts", () => ({
+	useMeetingLive: () => ({ caption: null, offline: false, meetingId: null }),
+}));
 vi.mock("./use-meeting-upload.ts", () => ({ useMeetingUpload: () => {} }));
 afterEach(() => {
 	vi.clearAllMocks();

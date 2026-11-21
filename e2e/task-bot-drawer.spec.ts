@@ -67,8 +67,10 @@ test("a new task preserves the active meeting controls and blocks short dictatio
 	await page.goto("/messages/main");
 	await page.getByRole("button", { name: "添加附件" }).click();
 	await page.getByRole("button", { name: "录音笔记", exact: true }).click();
+	await page.getByRole("button", { name: "仅录音", exact: true }).click();
 	const stop = page.getByRole("button", { name: "结束录音", exact: true });
 	await expect(stop).toBeVisible();
+	await page.getByRole("button", { name: "收起录音", exact: true }).click();
 	await page.getByRole("button", { name: "任务", exact: true }).click();
 	await page.getByRole("button", { name: "新建", exact: true }).click();
 	await page.getByRole("menuitem", { name: "新建事项" }).click();

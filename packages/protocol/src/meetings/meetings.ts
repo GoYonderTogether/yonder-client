@@ -37,6 +37,11 @@ export interface MeetingTranscriptBatch {
 	text: string | null;
 	errorCode: string | null;
 }
+export interface MeetingPhoto {
+	clientPhotoId: string;
+	elapsedMs: number;
+	byteLength: number;
+}
 export interface MeetingRecord {
 	id: string;
 	clientRecordingId: string;
@@ -49,6 +54,7 @@ export interface MeetingRecord {
 	uploadedDurationMs: number;
 	status: MeetingStatus;
 	segments: MeetingSegment[];
+	photos?: MeetingPhoto[];
 	batches: MeetingTranscriptBatch[];
 	/** Completed batches in source order; batch coverage remains authoritative. */
 	transcript: string;
@@ -61,4 +67,32 @@ export interface MeetingRecord {
 export interface RetryMeetingRequest {
 	/** Required only for an unknown external result that may already have incurred cost. */
 	confirmUnknown?: boolean;
+}
+
+export interface StartLiveMeetingRequest {
+	transportMode?: "live" | "record";
+	clientRecordingId: string;
+	conversationId: string;
+	title: string;
+	startedAt: number;
+}
+
+export type LiveMeetingCaptureState = "recording" | "paused" | "interrupted";
+
+export interface LiveMeetingProgress {
+	meetingId: string;
+	nextSegmentIndex: number;
+	committedThroughSegmentIndex: number;
+	transcript: string;
+	recording: boolean;
+	captureState: LiveMeetingCaptureState | "ended";
+	lastClientSeenAt: number;
+	errorCode: string | null;
+}
+
+export interface FinalizeLiveMeetingRequest {
+	endedAt: number;
+	state: "ended" | "interrupted";
+	segmentCount: number;
+	photoCount?: number;
 }

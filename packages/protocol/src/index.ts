@@ -126,7 +126,11 @@ export type {
 export type { DeviceListResponse, DeviceSummary, UpdateDeviceRemarkRequest } from "./devices/devices.ts";
 export type {
 	CreateMeetingRequest,
+	FinalizeLiveMeetingRequest,
+	LiveMeetingCaptureState,
+	LiveMeetingProgress,
 	MeetingBatchState,
+	MeetingPhoto,
 	MeetingRecord,
 	MeetingSegment,
 	MeetingSegmentManifest,
@@ -134,6 +138,7 @@ export type {
 	MeetingStatus,
 	MeetingTranscriptBatch,
 	RetryMeetingRequest,
+	StartLiveMeetingRequest,
 } from "./meetings/meetings.ts";
 export type { FriendRequest } from "./member/friend-request.ts";
 export type {

@@ -24,7 +24,7 @@ internal class RecordingStore(private val root: File) {
         return File(folder, id)
     }
 
-    fun create(owner: String, title: String, rate: Int, conversationId: String? = null, separateSpeakers: Boolean = false): JSONObject {
+    fun create(owner: String, title: String, rate: Int, conversationId: String? = null, separateSpeakers: Boolean = false, transportMode: String? = null): JSONObject {
         val id = UUID.randomUUID().toString()
         check(directory(owner, id).mkdirs())
         syncDirectory(root)
@@ -33,6 +33,7 @@ internal class RecordingStore(private val root: File) {
             put("id", id); put("ownerId", owner); put("title", title.take(200))
             put("conversationId", conversationId)
             if (separateSpeakers) put("separateSpeakers", true)
+            if (transportMode != null) put("transportMode", transportMode)
             put("state", "recording"); put("startedAt", System.currentTimeMillis())
             put("endedAt", JSONObject.NULL); put("durationMs", 0); put("savedDurationMs", 0)
             put("sampleRate", rate); put("channels", 1); put("segments", JSONArray())
@@ -79,13 +80,33 @@ internal class RecordingStore(private val root: File) {
                         duration += length
                     }
                 record.put("segments", segments).put("durationMs", duration).put("savedDurationMs", duration)
-                    .put("state", "interrupted").put("endedAt", System.currentTimeMillis())
+                    .put("state", "interrupted").put("endedAt", manifest.lastModified().takeIf { it > 0 } ?: System.currentTimeMillis())
                     .put("error", if (damaged) "audio_segment_damaged" else "recording_interrupted")
                 try { save(record) } catch (_: Exception) { record.put("error", "audio_storage_failed") }
             }
             record
         }.sortedByDescending { it.getLong("startedAt") }
         return JSONArray(records)
+    }
+
+    /** The interrupted recording that can still be continued; throws when it cannot. */
+    fun resumable(owner: String, id: String): JSONObject {
+        val record = (0 until list(owner, true).length()).map { list(owner, true).getJSONObject(it) }
+            .firstOrNull { it.getString("id") == id } ?: throw IllegalArgumentException("meeting_audio_not_found")
+        val error = record.optString("error", "")
+        val unrecoverable = Regex("storage|damaged|corrupt|owner_changed|capture_start_failed").containsMatchIn(error)
+        require(record.getString("state") == "interrupted" && record.getJSONArray("segments").length() > 0 && !unrecoverable && !record.isNull("endedAt")) { "meeting_not_resumable" }
+        require(System.currentTimeMillis() < record.getLong("endedAt") + RESUME_WINDOW_MS) { "meeting_resume_expired" }
+        return record
+    }
+
+    /** Ending an interrupted recording is the user saying it is over; it can then be processed. */
+    fun conclude(owner: String, id: String) {
+        val record = (0 until list(owner, true).length()).map { list(owner, true).getJSONObject(it) }
+            .firstOrNull { it.getString("id") == id } ?: throw IllegalArgumentException("meeting_audio_not_found")
+        if (record.getString("state") != "interrupted" || record.getJSONArray("segments").length() == 0) return
+        record.put("state", "ended").put("error", JSONObject.NULL)
+        save(record)
     }
 
     fun read(owner: String, id: String, index: Int): ByteArray {
@@ -112,6 +133,8 @@ internal class RecordingStore(private val root: File) {
     }
 
     companion object {
+        const val RESUME_WINDOW_MS = 10 * 60 * 1000L
+
         private fun validWave(bytes: ByteArray, rate: Int): Boolean {
             if (bytes.size < 44 || bytes.size % 2 != 0) return false
             val data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)

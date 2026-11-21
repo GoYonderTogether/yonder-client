@@ -1,6 +1,6 @@
 use crate::{
     desktop::DesktopRecorder,
-    model::{now_ms, valid_key},
+    model::{now_ms, upload_ready, valid_key},
     persistence::Store,
     wav,
 };
@@ -192,18 +192,16 @@ impl UploadQueue {
         let Ok(state) = self.recorder.get_state(owner.clone()) else {
             return false;
         };
-        state
-            .recordings
-            .iter()
-            .any(|record| match self.load(&owner, &record.id) {
+        state.recordings.iter().any(|record| {
+            if record.transport_mode.is_some() || !upload_ready(record, now_ms()) {
+                return false;
+            }
+            match self.load(&owner, &record.id) {
                 Ok(Some(job)) => matches!(job.state.as_str(), "queued" | "uploading"),
-                Ok(None) => {
-                    record.state == "ended"
-                        && record.conversation_id.is_some()
-                        && !record.segments.is_empty()
-                }
+                Ok(None) => record.conversation_id.is_some(),
                 Err(_) => true,
-            })
+            }
+        })
     }
     pub fn jobs(&self, owner: String) -> Result<Vec<UploadJob>, String> {
         let records = self.recorder.get_state(owner.clone())?.recordings;
@@ -221,7 +219,7 @@ impl UploadQueue {
             .into_iter()
             .find(|r| r.id == id)
             .ok_or("meeting_audio_not_found")?;
-        if recording.state == "recording" || recording.segments.is_empty() {
+        if recording.transport_mode.is_some() || !upload_ready(&recording, now_ms()) {
             return Err("meeting_upload_not_ready".into());
         }
         if recording
@@ -253,12 +251,15 @@ impl UploadQueue {
             if !self.current(session) {
                 break;
             }
+            if recording.transport_mode.is_some() || !upload_ready(&recording, now_ms()) {
+                continue;
+            }
             let Some(conversation) = recording.conversation_id.clone() else {
                 continue;
             };
             let mut job = match self.load(&session.owner, &recording.id)? {
                 Some(job) => job,
-                None if recording.state == "ended" && !recording.segments.is_empty() => UploadJob {
+                None => UploadJob {
                     recording_id: recording.id.clone(),
                     conversation_id: conversation,
                     meeting_id: None,
@@ -267,7 +268,6 @@ impl UploadQueue {
                     attempts: 0,
                     retry_at: 0,
                 },
-                None => continue,
             };
             if !matches!(job.state.as_str(), "queued" | "uploading") || job.retry_at > now_ms() {
                 continue;

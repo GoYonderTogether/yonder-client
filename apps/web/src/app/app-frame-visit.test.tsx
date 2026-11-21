@@ -15,7 +15,10 @@ vi.mock("../lib/platform.ts", async (original) => ({
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("@yonder/feature-auth", () => ({ PasswordSetupForm: () => null }));
 vi.mock("@yonder/feature-me", () => ({ isMeSection: () => false, MeList: () => null, MeSectionPage: () => null }));
-vi.mock("@yonder/feature-meetings", () => ({ MeetingRecorderCapsule: () => null }));
+vi.mock("@yonder/feature-meetings", async (original) => ({
+	...(await original<object>()),
+	MeetingRecorderCapsule: () => null,
+}));
 vi.mock("../updates/controls.tsx", () => ({ UpdateControls: () => null }));
 vi.mock("../pages/messages-page.tsx", () => ({
 	MessagesList: () => <div>Chat list</div>,

@@ -59,7 +59,7 @@ for (const mobile of [false, true]) {
 						segments: [{ index: 0, durationMs: 4000, byteLength: audio.length }],
 						error: null,
 					};
-					const recordings = [interrupted];
+					const recordings: MeetingRecording[] = [];
 					const calls: string[] = [];
 					const state = () => ({
 						supported: true,
@@ -117,33 +117,29 @@ for (const mobile of [false, true]) {
 			const openRecorder = async () => {
 				await page.getByRole("button", { name: "发起聊天" }).click();
 				await page.getByRole("menuitem", { name: "录音笔记", exact: true }).click();
+				await page.getByRole("button", { name: "仅录音", exact: true }).click();
 			};
 			if (mobile) await page.getByRole("button", { name: "消息", exact: true }).click();
 			await openRecorder();
 			const stop = page.getByRole("button", { name: "结束录音", exact: true });
 			await expect(stop).toBeVisible();
 			await expect(page.getByRole("status", { name: "录制时长" })).toHaveText("00:00:12");
-			await expect(page.getByRole("dialog")).toHaveCount(0);
+			await expect(page.getByRole("dialog", { name: "录音笔记" })).toBeVisible();
 			await expect(page.getByRole("textbox", { name: "录音标题" })).toHaveCount(0);
-			await openRecorder();
-			await expect(stop).toBeVisible();
-			if (mobile)
-				await page
-					.getByRole("navigation", { name: "主导航" })
-					.getByRole("button", { name: "界面验收 BOT", exact: true })
-					.click();
+			await expect(page.getByRole("button", { name: "暂停录音", exact: true })).toHaveCount(0);
+			await page.getByRole("button", { name: "收起录音", exact: true }).click();
+			await expect(page.getByRole("button", { name: "展开录音", exact: true })).toBeVisible();
 			await expect(page.getByRole("button", { name: "语音输入", exact: true })).toBeDisabled();
 			await page.getByRole("button", { name: "任务", exact: true }).click();
 			await expect(page).toHaveURL(/\/tasks$/);
 			await expect(stop).toBeVisible();
+			await expect(page.getByRole("button", { name: "展开录音", exact: true })).toHaveCount(0);
 			const meButton = mobile
 				? page.getByRole("complementary").getByRole("button", { name: "我", exact: true })
 				: page.getByRole("button", { name: "我", exact: true });
 			await meButton.click();
 			await expect(page).toHaveURL(/\/me(?:\/|$)/);
 			await expect(stop).toBeVisible();
-			await page.getByRole("button", { name: "暂停录音", exact: true }).click();
-			await page.getByRole("button", { name: "继续录音", exact: true }).click();
 			expect(manifest).toBeUndefined();
 			expect(
 				await page.evaluate(() =>

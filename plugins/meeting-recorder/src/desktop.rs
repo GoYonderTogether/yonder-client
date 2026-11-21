@@ -10,12 +10,13 @@ use std::time::Duration;
 enum Action {
     Owner(Option<String>),
     State(String),
-    Start(String, String, Option<String>, bool),
+    Start(String, String, Option<String>, bool, Option<String>),
     Stop(String, String),
     Pause(String, String),
     Resume(String, String),
     Audio(String, String, usize),
     Finish,
+    Interrupt(String),
     Active,
 }
 enum Reply {
@@ -125,7 +126,7 @@ impl DesktopRecorder {
         self.state_request(Action::State(owner))
     }
     pub fn start(&self, owner: String, title: String) -> Result<RecorderState, String> {
-        self.start_for_conversation(owner, title, None, false)
+        self.start_for_conversation(owner, title, None, false, None)
     }
     pub fn start_for_conversation(
         &self,
@@ -133,11 +134,12 @@ impl DesktopRecorder {
         title: String,
         conversation: Option<String>,
         separate_speakers: bool,
+        transport_mode: Option<String>,
     ) -> Result<RecorderState, String> {
         if let Some(id) = &conversation {
             valid_key(id)?;
         }
-        self.state_request(Action::Start(owner, title, conversation, separate_speakers))
+        self.state_request(Action::Start(owner, title, conversation, separate_speakers, transport_mode))
     }
     pub fn stop(&self, owner: String, id: String) -> Result<RecorderState, String> {
         self.state_request(Action::Stop(owner, id))
@@ -150,6 +152,10 @@ impl DesktopRecorder {
     }
     pub fn finish(&self) {
         let _ = self.request(Action::Finish);
+    }
+    /// The app is about to restart: keep the audio and mark it continuable instead of ended.
+    pub fn interrupt(&self, reason: &str) {
+        let _ = self.request(Action::Interrupt(reason.into()));
     }
     pub fn is_recording(&self) -> bool {
         matches!(self.request(Action::Active), Ok(Reply::Active(true)))
@@ -218,7 +224,7 @@ impl Worker {
                 }
             }
             Action::State(owner) => self.authorize(&owner)?,
-            Action::Start(owner, title, conversation, separate_speakers) => {
+            Action::Start(owner, title, conversation, separate_speakers, transport_mode) => {
                 self.authorize(&owner)?;
                 if self.active.is_some() {
                     return Err("meeting_already_recording".into());
@@ -231,6 +237,7 @@ impl Worker {
                     capture.channels,
                     conversation,
                     separate_speakers,
+                    transport_mode,
                 )?;
                 if let Err(error) = capture.play() {
                     self.store.finish(&mut recording, Some(error.clone()))?;
@@ -254,6 +261,10 @@ impl Worker {
                     .map(|active| active.recording.id.as_str())
                     != Some(id.as_str())
                 {
+                    if self.active.is_none() {
+                        self.store.conclude(&owner, &id)?;
+                        return self.state().map(Reply::State);
+                    }
                     return Err("meeting_not_recording".into());
                 }
                 self.finish(None)?;
@@ -278,6 +289,28 @@ impl Worker {
                 active.paused = true;
                 active.audio_level = 0.0;
             }
+            Action::Resume(owner, id) if self.active.is_none() => {
+                self.authorize(&owner)?;
+                // Nothing is written until the microphone is really running: a failed attempt
+                // must not move the end time and quietly extend the resume window.
+                let recorded = self.store.resumable(&owner, &id)?;
+                let capture = Capture::new()?;
+                if capture.sample_rate != recorded.sample_rate || capture.channels != recorded.channels {
+                    // The device changed: appended audio would play at the wrong speed.
+                    return Err("meeting_audio_format_changed".into());
+                }
+                capture.play()?;
+                let recording = self.store.reopen(&owner, &id)?;
+                self.active = Some(Active {
+                    capture,
+                    recording,
+                    pending: Vec::new(),
+                    last_audio: crate::capture_clock::now(),
+                    audio_level: 0.0,
+                    paused: false,
+                });
+                (self.on_active)(true);
+            }
             Action::Resume(owner, id) => {
                 self.authorize(&owner)?;
                 let active = self
@@ -294,6 +327,7 @@ impl Worker {
                 return self.store.read_audio(&owner, &id, index).map(Reply::Audio);
             }
             Action::Finish => self.finish(None)?,
+            Action::Interrupt(reason) => self.finish(Some(reason))?,
             Action::Active => return Ok(Reply::Active(self.active.is_some())),
         }
         self.state().map(Reply::State)

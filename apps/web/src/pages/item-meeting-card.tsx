@@ -3,6 +3,7 @@ import { Button } from "@yonder/ui-components";
 import { useMeeting } from "@yonder/ui-data";
 import { ChevronDown, FileAudio } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ItemMeetingPhotos } from "./item-meeting-photos.tsx";
 import { MessageContent } from "./message-content.tsx";
 import { messagePreview } from "./message-preview.ts";
 
@@ -48,6 +49,7 @@ export function ItemMeetingCard({ id }: { id: string }) {
 					{messagePreview(summary)}
 				</p>
 			) : null}
+			{meeting?.photos?.length ? <ItemMeetingPhotos key={id} meetingId={id} photos={meeting.photos} /> : null}
 			{transcript || summary ? (
 				<details className="group mt-[var(--spacing-3)] border-t border-[var(--color-border-subtle)]">
 					<summary className="flex min-h-[var(--control-sm)] cursor-pointer list-none items-center justify-between gap-[var(--spacing-2)] pt-[var(--spacing-2)] text-caption font-medium [&::-webkit-details-marker]:hidden">

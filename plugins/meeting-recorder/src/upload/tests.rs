@@ -28,6 +28,8 @@ fn durable_upload_intent_retains_original_conversation_and_pauses_on_account_cha
         on_change: Arc::new(|| {}),
     };
     assert!(queue.jobs("owner".into()).unwrap().is_empty());
+    assert!(queue.enqueue("owner".into(), recording.id.clone(), "conversation_original".into()).is_err());
+    store.conclude("owner", &recording.id).unwrap();
     queue
         .enqueue(
             "owner".into(),
@@ -121,6 +123,7 @@ fn retry_after_process_restart_skips_server_confirmed_segments() {
             1,
             Some("conversation_original".into()),
             true,
+            None,
         )
         .unwrap();
     for _ in 0..2 {

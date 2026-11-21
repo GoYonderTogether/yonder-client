@@ -1,4 +1,4 @@
-import type { MeetingRecorderController, MeetingUploadJob } from "@yonder/feature-meetings";
+import { type MeetingRecorderController, type MeetingUploadJob, meetingUploadReady } from "@yonder/feature-meetings";
 import { keys, useData, useDataQueryClient } from "@yonder/ui-data";
 import { useEffect, useEffectEvent, useRef } from "react";
 import { apiBaseUrl } from "../lib/config.ts";
@@ -83,9 +83,9 @@ export function useMeetingUpload(ownerId: string | null, recorder: MeetingRecord
 				const { id, conversationId } = recording;
 				if (
 					recording.ownerId !== ownerId ||
-					recording.state !== "ended" ||
+					recording.transportMode ||
 					!conversationId ||
-					!recording.segments.length
+					!meetingUploadReady(recording, Date.now())
 				)
 					continue;
 				const key = `meeting-upload.${ownerId}.${id}`;

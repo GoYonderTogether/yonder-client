@@ -1,4 +1,4 @@
-import type { MeetingRecorderState, MeetingRecording } from "@yonder/feature-meetings";
+import { type MeetingRecorderState, type MeetingRecording, resumeDeadline } from "@yonder/feature-meetings";
 import { listBrowserMeetings, readBrowserMeeting, saveBrowserMeeting } from "./browser-meeting-store.ts";
 import { MEETING_PART_MS, MEETING_RATE, meetingWav } from "./browser-meeting-wav.ts";
 
@@ -55,7 +55,7 @@ async function state(requested: string | null): Promise<MeetingRecorderState> {
 					await saveBrowserMeeting({
 						...record,
 						state: "interrupted",
-						endedAt: record.startedAt + record.savedDurationMs,
+						endedAt: record.savedAt ?? record.startedAt + record.savedDurationMs,
 						error: "page_closed",
 					});
 				}
@@ -111,6 +111,7 @@ async function capture(record: MeetingRecording, stream: MediaStream, context: A
 			start += frames;
 		}
 		next.durationMs = next.savedDurationMs;
+		next.savedAt = Date.now();
 		if (parts.length) {
 			await saveBrowserMeeting(next, parts);
 			Object.assign(record, next);
@@ -211,7 +212,7 @@ async function capture(record: MeetingRecording, stream: MediaStream, context: A
 	requireOwner(record.ownerId);
 	openPart();
 	let resumedAt = performance.now();
-	let elapsedBeforePause = 0;
+	let elapsedBeforePause = record.savedDurationMs;
 	active = {
 		record,
 		paused: false,
@@ -251,7 +252,7 @@ async function capture(record: MeetingRecording, stream: MediaStream, context: A
 	if (track.readyState !== "live" || track.muted) ended();
 }
 
-async function start(ownerId: string, args: Record<string, unknown>) {
+async function start(ownerId: string, args: Record<string, unknown>, resumed?: MeetingRecording) {
 	if (active || starting) throw "recording_busy";
 	starting = true;
 	let context: AudioContext | undefined;
@@ -268,7 +269,7 @@ async function start(ownerId: string, args: Record<string, unknown>) {
 						throw cause?.name === "NotAllowedError" ? "permission_denied" : "audio_unavailable";
 					});
 					await new Promise<void>((release, fail) => {
-						const record: MeetingRecording = {
+						const record: MeetingRecording = resumed ?? {
 							id: crypto.randomUUID(),
 							ownerId,
 							title: String(args.title ?? "")
@@ -276,6 +277,9 @@ async function start(ownerId: string, args: Record<string, unknown>) {
 								.slice(0, 200),
 							conversationId: typeof args.conversationId === "string" ? args.conversationId : null,
 							...(args.separateSpeakers === true ? { separateSpeakers: true } : {}),
+							...(args.transportMode === "live" || args.transportMode === "record"
+								? { transportMode: args.transportMode }
+								: {}),
 							state: "recording",
 							startedAt: Date.now(),
 							endedAt: null,
@@ -307,6 +311,23 @@ async function start(ownerId: string, args: Record<string, unknown>) {
 	}
 }
 
+/** A page that was closed mid-recording can be continued by a click, while the window is open. */
+async function interruptedRecording(ownerId: string, id: string): Promise<MeetingRecording> {
+	await state(ownerId);
+	const found = (await listBrowserMeetings(ownerId)).find((record) => record.id === id);
+	const deadline = found ? resumeDeadline(found) : null;
+	if (!found || deadline === null) throw "audio_unavailable";
+	if (Date.now() >= deadline) throw "resume_expired";
+	return { ...found, state: "recording", endedAt: null, error: null, savedAt: Date.now() };
+}
+
+/** Ending an interrupted recording is the user saying it is over: it can be transcribed now. */
+async function finalizeInterrupted(ownerId: string, id: string) {
+	const found = (await listBrowserMeetings(ownerId)).find((record) => record.id === id);
+	if (found?.state !== "interrupted" || !found.segments.length) return;
+	await saveBrowserMeeting({ ...found, state: "ended", error: null });
+}
+
 export async function browserMeetingCommand(command: string, args: Record<string, unknown>) {
 	if (command === "set_owner") {
 		const next = typeof args.ownerId === "string" ? args.ownerId : null;
@@ -323,13 +344,20 @@ export async function browserMeetingCommand(command: string, args: Record<string
 			break;
 		case "stop":
 			if (active?.record.id === args.recordingId && active?.record.ownerId === requested) await active.stop();
+			else if (!active) await finalizeInterrupted(requested, String(args.recordingId));
 			break;
 		case "pause":
-		case "resume":
 			if (!active || active.record.id !== args.recordingId || active.record.ownerId !== requested)
 				throw "recording_busy";
-			if (command === "pause") await active.pause();
-			else active.resume();
+			await active.pause();
+			break;
+		case "resume":
+			if (!active) {
+				await start(requested, {}, await interruptedRecording(requested, String(args.recordingId)));
+				break;
+			}
+			if (active.record.id !== args.recordingId || active.record.ownerId !== requested) throw "recording_busy";
+			active.resume();
 			break;
 		case "read_audio": {
 			const bytes = await readBrowserMeeting(requested, String(args.recordingId), Number(args.segmentIndex));

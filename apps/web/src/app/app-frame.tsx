@@ -1,5 +1,4 @@
 import { isMeSection, MeList } from "@yonder/feature-me";
-import { MeetingRecorderCapsule } from "@yonder/feature-meetings";
 import { ClosedGroupNotice } from "@yonder/feature-members";
 import { AppIcon, Avatar } from "@yonder/ui-components";
 import {
@@ -42,6 +41,7 @@ import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemoryList, MemoryPage, preloadTabs, TaskPage, TasksList } from "./lazy-tabs.ts";
+import { eligibleMeetingTarget, openMeetingSource, useMeetingRecordingSurface } from "./meeting-recording-surface.tsx";
 import { MessageNotifications } from "./message-notifications.tsx";
 import { settingsPagePaths } from "./settings-navigation.ts";
 import { SettingsRoutePage } from "./settings-pages.tsx";
@@ -146,18 +146,12 @@ export function AppFrame() {
 	const mainBot = tab === "messages" && (selection === MAIN_CONVERSATION || selection === primary?.id);
 	const mobileBot = phone && mainBot;
 	const tabs = usePhoneTabs(navigation, phone, mobileBot);
-	const recordingConversation =
-		!taskSelection &&
-		conversation?.kind === "direct" &&
-		!conversation.visit &&
-		conversation.members.some(
-			({ memberId, kind }) =>
-				kind === "bot" &&
-				(memberId === bot?.id ||
-					contacts.data?.items.some((member) => member.id === memberId && person && member.ownerId === person.id)),
-		)
-			? conversation
-			: undefined;
+	const recordingConversation = eligibleMeetingTarget(
+		!taskSelection ? conversation : undefined,
+		(id) =>
+			id === bot?.id ||
+			Boolean(contacts.data?.items.some((member) => member.id === id && person && member.ownerId === person.id)),
+	);
 	useMeetingLink();
 	useEffect(() => preloadTabs(phone), [phone]);
 	const layers = useFrameLayers();
@@ -302,7 +296,7 @@ export function AppFrame() {
 								setChatOpen((previous) => previous + 1);
 								tabs.go(`/messages/${encodeURIComponent(id)}`);
 							}}
-							onOpenMeetings={() => meeting.start(primary)}
+							onOpenMeetings={() => recordingSurface.start(primary)}
 						/>
 					),
 					content: (
@@ -377,7 +371,7 @@ export function AppFrame() {
 			scope={`${person?.id}:${chat.scope}`}
 			mobilePicker={!desktop}
 			showMobilePlaceholder={Boolean(taskSelection)}
-			onMeeting={recordingConversation ? () => meeting.start(recordingConversation) : undefined}
+			onMeeting={recordingConversation ? () => recordingSurface.start(recordingConversation) : undefined}
 			error={draft.error || chat.directAttachments.error}
 			disabled={chat.blocked || disconnected}
 			disconnected={disconnected}
@@ -423,8 +417,12 @@ export function AppFrame() {
 	);
 	const chatVisible = !meOpen && dock === composer && Boolean(chat.target || taskSelection === "new");
 	useReconnectNotice(disconnected, chatVisible, person?.id);
-	const meetingStatus =
-		meeting.active || meeting.recorder.busy ? <MeetingRecorderCapsule recorder={meeting.recorder} /> : null;
+	const recordingSurface = useMeetingRecordingSurface(
+		person?.id ?? null,
+		chatVisible && detailOpen && !preset.drawerOpen && tab === "messages" ? conversation?.id : undefined,
+		meeting,
+		(target) => openMeetingSource(detailOpen ? conversation?.id : undefined, target.id, primary?.id, tabs.go),
+	);
 
 	return (
 		<SidePanelProvider value={layers.controls}>
@@ -471,7 +469,7 @@ export function AppFrame() {
 				}
 				detailOpen={detailOpen}
 				composer={preset.drawerOpen ? null : dock}
-				status={preset.drawerOpen ? null : meetingStatus}
+				status={preset.drawerOpen ? null : recordingSurface.status}
 				titlebarInset={isMacDesktopShell()}
 				brand={<AppIcon size={32} title="Yonder" />}
 				labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
@@ -484,10 +482,11 @@ export function AppFrame() {
 				title={bot?.displayName ?? ""}
 				conversationId={conversation?.id ?? null}
 				disconnected={disconnected}
-				status={preset.drawerOpen ? meetingStatus : null}
+				status={preset.drawerOpen ? recordingSurface.status : null}
 			>
 				{composer}
 			</TaskBotDrawer>
+			{recordingSurface.dialog}
 			<MessageNotifications
 				key={person?.id}
 				personId={person?.id}

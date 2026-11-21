@@ -26,6 +26,7 @@ function recorderState(value: unknown): MeetingRecorderState {
 }
 
 const ERROR_CODES = new Set([
+	"resume_expired",
 	"permission_denied",
 	"recording_busy",
 	"owner_mismatch",
@@ -123,11 +124,12 @@ export function useMeetingRecorder(
 		state: stateOwner === ownerId ? state : EMPTY_RECORDER,
 		ready: stateOwner === ownerId && ready,
 		busy: stateOwner === ownerId && busy,
-		start: (title, conversationId, separateSpeakers) =>
+		start: (title, conversationId, separateSpeakers, transportMode) =>
 			action("start", {
 				title,
 				...(conversationId ? { conversationId } : {}),
 				...(separateSpeakers ? { separateSpeakers } : {}),
+				...(transportMode ? { transportMode } : {}),
 			}),
 		stop: (recordingId) => action("stop", { recordingId }),
 		pause: (recordingId) => action("pause", { recordingId }),

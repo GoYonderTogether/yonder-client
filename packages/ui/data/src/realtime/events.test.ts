@@ -27,6 +27,34 @@ const me: MeResponse = {
 };
 
 describe("applyServerEvent", () => {
+	test("a recording card makes the new task visible on an already open list", () => {
+		const client = new QueryClient();
+		const list = keys.items.list(null);
+		client.setQueryData(list, {});
+		applyServerEvent(client, {
+			type: "message.created",
+			eventId: "meeting-event",
+			at: "2026-11-21T00:00:00Z",
+			message: {
+				id: "msg",
+				conversationId: "main",
+				senderId: "bot",
+				senderKind: "bot",
+				type: "text",
+				body: "",
+				attachments: [],
+				meeting: { id: "meeting", title: "Recording" },
+				replyToId: null,
+				createdAt: "2026-11-21T00:00:00Z",
+				editedAt: null,
+				streaming: false,
+				version: 1,
+			},
+		});
+		expect(client.getQueryState(list)?.isInvalidated).toBe(true);
+		client.clear();
+	});
+
 	test("a task conversation reply refreshes its item status without touching ordinary chats", () => {
 		const client = new QueryClient();
 		const list = keys.items.list(null);

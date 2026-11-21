@@ -1,4 +1,5 @@
-import { Pause, Play, Square } from "lucide-react";
+import { Square } from "lucide-react";
+import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 import type { MeetingRecorderController } from "./types.ts";
 import "./meeting-recorder.css";
@@ -10,73 +11,71 @@ export function recordingDuration(ms: number): string {
 		.join(":");
 }
 
-const DOTS = [0, 1, 2, 3, 4, 5];
-
-export function MeetingRecorderCapsule({ recorder }: { recorder: MeetingRecorderController }) {
+export function MeetingRecorderCapsule({
+	recorder,
+	caption,
+	offline,
+	live,
+	hiddenWhileExpanded,
+	onExpand,
+	capsuleRef,
+}: {
+	recorder: MeetingRecorderController;
+	caption?: string | undefined;
+	offline?: boolean;
+	live?: boolean;
+	hiddenWhileExpanded?: boolean;
+	onExpand?: (() => void) | undefined;
+	capsuleRef?: Ref<HTMLElement>;
+}) {
 	const { t } = useTranslation();
-	const { activeId, audioLevel, paused, pauseSupported, recordings } = recorder.state;
+	const { activeId, recordings } = recorder.state;
 	const active = recordings.find((item) => item.id === activeId);
-	const { pause, resume } = recorder;
-	if (!active && !recorder.busy) return null;
-	const PauseResume = paused ? Play : Pause;
-	const canPause = active && pauseSupported && pause && resume;
+	if (!active) return null;
+	const readout = (
+		<>
+			<span className="meeting-recording-dot" aria-hidden="true" />
+			<output aria-label={t("meetingRecorder.elapsed")} aria-live="off">
+				{recordingDuration(active.durationMs)}
+			</output>
+			<span className="meeting-capsule-caption">
+				{offline
+					? t("meetingRecorder.offlineLive")
+					: caption || t(live ? "meetingRecorder.liveTitle" : "meetingRecorder.recording")}
+			</span>
+		</>
+	);
 	return (
-		<div className="meeting-capsule-stack">
-			{active ? (
-				<section
-					className="meeting-capsule"
-					aria-label={t(paused ? "meetingRecorder.paused" : "meetingRecorder.recording")}
-				>
-					<div className="meeting-capsule-control-slot">
-						{canPause ? (
-							<button
-								type="button"
-								className="meeting-capsule-control"
-								aria-label={t(paused ? "meetingRecorder.resume" : "meetingRecorder.pause")}
-								disabled={recorder.busy}
-								onClick={() => void (paused ? resume(active.id) : pause(active.id))}
-							>
-								<PauseResume size={16} fill="currentColor" aria-hidden="true" />
-							</button>
-						) : null}
-					</div>
-					<div className="meeting-capsule-clock">
-						{!paused && audioLevel !== undefined ? (
-							<meter
-								className="sr-only"
-								min={0}
-								max={100}
-								value={Math.round(audioLevel * 100)}
-								aria-label={t("meetingRecorder.audioLevel")}
-							/>
-						) : null}
-						<div className="meeting-level-bars" data-paused={paused || undefined} aria-hidden="true">
-							{DOTS.map((dot) => (
-								<span
-									key={dot}
-									data-peak={!paused && dot < Math.ceil((audioLevel ?? 0) * DOTS.length) ? true : undefined}
-								/>
-							))}
-						</div>
-						<output aria-label={t("meetingRecorder.elapsed")} aria-live="off">
-							{recordingDuration(active.durationMs)}
-						</output>
-					</div>
+		<div
+			className="meeting-capsule-stack"
+			data-measure-only={hiddenWhileExpanded || undefined}
+			aria-hidden={hiddenWhileExpanded || undefined}
+			inert={hiddenWhileExpanded}
+		>
+			<section ref={capsuleRef} className="meeting-capsule" aria-label={t("meetingRecorder.recording")}>
+				{onExpand ? (
 					<button
 						type="button"
-						className="meeting-capsule-control"
-						aria-label={t("meetingRecorder.stop")}
-						disabled={recorder.busy}
-						onClick={() => void recorder.stop(active.id)}
+						className="meeting-capsule-expand"
+						onClick={onExpand}
+						aria-label={t("meetingRecorder.expand")}
+						aria-haspopup="dialog"
 					>
-						<Square size={12} fill="currentColor" aria-hidden="true" />
+						{readout}
 					</button>
-				</section>
-			) : recorder.busy ? (
-				<p className="meeting-capsule-notice" role="status">
-					{t("app.loading")}
-				</p>
-			) : null}
+				) : (
+					<div className="meeting-capsule-readout">{readout}</div>
+				)}
+				<button
+					type="button"
+					className="meeting-capsule-control"
+					aria-label={t("meetingRecorder.stop")}
+					disabled={recorder.busy}
+					onClick={() => void recorder.stop(active.id)}
+				>
+					<Square size={12} fill="currentColor" aria-hidden="true" />
+				</button>
+			</section>
 		</div>
 	);
 }

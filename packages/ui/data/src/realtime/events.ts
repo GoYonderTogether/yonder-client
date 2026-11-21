@@ -117,6 +117,9 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 		case "message.created":
 		case "message.updated": {
 			updateMessage(queryClient, event.message);
+			if (event.message.meeting && event.type === "message.created") {
+				void queryClient.invalidateQueries({ queryKey: keys.items.lists() });
+			}
 			if (event.message.outwardRequest?.owner) void queryClient.invalidateQueries({ queryKey: keys.items.all() });
 			if (event.type === "message.created" && event.message.outwardRequest)
 				void queryClient.invalidateQueries({ queryKey: keys.messages.latest(event.message.conversationId) });

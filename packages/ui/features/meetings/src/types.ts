@@ -1,12 +1,17 @@
+export type MeetingTransportMode = "live" | "record";
+
 export interface MeetingRecording {
 	id: string;
 	ownerId: string;
 	title: string;
 	conversationId?: string | null;
 	separateSpeakers?: boolean;
+	transportMode?: MeetingTransportMode;
 	state: "recording" | "ended" | "interrupted";
 	startedAt: number;
 	endedAt: number | null;
+	/** Wall-clock time of the last durable write; the web recorder cannot know when a closed page stopped. */
+	savedAt?: number;
 	durationMs: number;
 	savedDurationMs: number;
 	sampleRate: number;
@@ -29,7 +34,12 @@ export interface MeetingRecorderController {
 	state: MeetingRecorderState;
 	ready: boolean;
 	busy: boolean;
-	start(title: string, conversationId?: string, separateSpeakers?: boolean): Promise<void>;
+	start(
+		title: string,
+		conversationId?: string,
+		separateSpeakers?: boolean,
+		transportMode?: MeetingTransportMode,
+	): Promise<void>;
 	stop(recordingId: string): Promise<void>;
 	pause?(recordingId: string): Promise<void>;
 	resume?(recordingId: string): Promise<void>;

@@ -11,7 +11,7 @@ import android.os.Build
 import android.os.IBinder
 
 class MeetingRecorderService : Service() {
-    internal data class StartArguments(val ownerId: String, val title: String, val conversationId: String?, val separateSpeakers: Boolean = false)
+    internal data class StartArguments(val ownerId: String, val title: String, val conversationId: String?, val separateSpeakers: Boolean = false, val resumeId: String? = null, val transportMode: String? = null)
 
     companion object {
         internal var startResult: ((Result<Unit>) -> Unit)? = null
@@ -19,11 +19,13 @@ class MeetingRecorderService : Service() {
         private const val TITLE = "录音笔记 / Recording notes"
         private const val NOTIFICATION = 7381
         internal fun startArguments(intent: Intent?): StartArguments? {
-            if (intent?.action != "start") return null
+            if (intent?.action != "start" && intent?.action != "resume") return null
             val owner = intent.getStringExtra("ownerId") ?: return null
             return StartArguments(
                 owner, intent.getStringExtra("title") ?: "", intent.getStringExtra("conversationId"),
-                intent.getBooleanExtra("separateSpeakers", false)
+                intent.getBooleanExtra("separateSpeakers", false),
+                if (intent.action == "resume") intent.getStringExtra("recordingId") else null,
+                intent.getStringExtra("transportMode")
             )
         }
     }
@@ -65,7 +67,8 @@ class MeetingRecorderService : Service() {
         try {
             if (Build.VERSION.SDK_INT >= 30) startForeground(NOTIFICATION, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
             else startForeground(NOTIFICATION, builder.build())
-            MeetingRecorderRuntime.start(this, arguments.ownerId, arguments.title, arguments.conversationId, arguments.separateSpeakers)
+            if (arguments.resumeId != null) MeetingRecorderRuntime.resumeInterrupted(this, arguments.ownerId, arguments.resumeId)
+            else MeetingRecorderRuntime.start(this, arguments.ownerId, arguments.title, arguments.conversationId, arguments.separateSpeakers, arguments.transportMode)
             callback?.invoke(Result.success(Unit))
         } catch (error: Exception) {
             callback?.invoke(Result.failure(error))

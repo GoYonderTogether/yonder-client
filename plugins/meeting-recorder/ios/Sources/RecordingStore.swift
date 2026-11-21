@@ -13,6 +13,7 @@ struct MeetingRecording: Codable {
   var title: String
   var conversationId: String?
   var separateSpeakers: Bool?
+  var transportMode: String?
   var state: String
   var startedAt: Int64
   var endedAt: Int64?
@@ -24,7 +25,7 @@ struct MeetingRecording: Codable {
   var error: String?
 
   enum CodingKeys: String, CodingKey {
-    case id, ownerId, title, conversationId, separateSpeakers, state, startedAt, endedAt, durationMs, savedDurationMs, sampleRate, channels, segments, error
+    case id, ownerId, title, conversationId, separateSpeakers, transportMode, state, startedAt, endedAt, durationMs, savedDurationMs, sampleRate, channels, segments, error
   }
   func encode(to encoder: Encoder) throws {
     var values = encoder.container(keyedBy: CodingKeys.self)
@@ -32,6 +33,7 @@ struct MeetingRecording: Codable {
     try values.encode(title, forKey: .title); try values.encode(state, forKey: .state)
     try values.encodeIfPresent(conversationId, forKey: .conversationId)
     try values.encodeIfPresent(separateSpeakers, forKey: .separateSpeakers)
+    try values.encodeIfPresent(transportMode, forKey: .transportMode)
     try values.encode(startedAt, forKey: .startedAt); try values.encode(endedAt, forKey: .endedAt)
     try values.encode(durationMs, forKey: .durationMs); try values.encode(savedDurationMs, forKey: .savedDurationMs)
     try values.encode(sampleRate, forKey: .sampleRate); try values.encode(channels, forKey: .channels)
@@ -39,7 +41,7 @@ struct MeetingRecording: Codable {
   }
 }
 
-enum RecorderFailure: String, Error { case invalidOwner, wrongOwner, missingRecording, invalidAudio, storageFailed }
+enum RecorderFailure: String, Error { case invalidOwner, wrongOwner, missingRecording, invalidAudio, storageFailed, notResumable, resumeExpired }
 
 final class RecordingStore {
   let root: URL
@@ -62,9 +64,9 @@ final class RecordingStore {
     return base.appendingPathComponent(id, isDirectory: true)
   }
 
-  func create(owner: String, title: String, rate: Int, conversationId: String? = nil, separateSpeakers: Bool = false) throws -> MeetingRecording {
+  func create(owner: String, title: String, rate: Int, conversationId: String? = nil, separateSpeakers: Bool = false, transportMode: String? = nil) throws -> MeetingRecording {
     let record = MeetingRecording(id: UUID().uuidString.lowercased(), ownerId: owner,
-      title: String(title.prefix(200)), conversationId: conversationId, separateSpeakers: separateSpeakers ? true : nil,
+      title: String(title.prefix(200)), conversationId: conversationId, separateSpeakers: separateSpeakers ? true : nil, transportMode: transportMode,
       state: "recording", startedAt: Self.now, endedAt: nil,
       durationMs: 0, savedDurationMs: 0, sampleRate: rate, channels: 1, segments: [], error: nil)
     try FileManager.default.createDirectory(at: directory(owner, record.id), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -88,6 +90,27 @@ final class RecordingStore {
     record.segments.append(RecordingSegment(index: index, durationMs: duration, byteLength: audio.count))
     record.savedDurationMs += duration
     record.durationMs = record.savedDurationMs
+    try save(record)
+  }
+
+  static let resumeWindowMs: Int64 = 10 * 60 * 1000
+
+  /// The interrupted recording that can still be continued; throws when it cannot.
+  func resumable(owner: String, id: String) throws -> MeetingRecording {
+    guard let record = try list(owner: owner, recover: true).first(where: { $0.id == id }) else { throw RecorderFailure.missingRecording }
+    let error = record.error ?? ""
+    let unrecoverable = ["storage", "damaged", "corrupt", "owner_changed", "capture_start_failed"].contains { error.contains($0) }
+    guard record.state == "interrupted", !record.segments.isEmpty, !unrecoverable, let ended = record.endedAt else { throw RecorderFailure.notResumable }
+    guard Self.now < ended + Self.resumeWindowMs else { throw RecorderFailure.resumeExpired }
+    return record
+  }
+
+  /// Ending an interrupted recording is the user saying it is over; it can then be processed.
+  func conclude(owner: String, id: String) throws {
+    guard var record = try list(owner: owner, recover: true).first(where: { $0.id == id }) else { throw RecorderFailure.missingRecording }
+    guard record.state == "interrupted", !record.segments.isEmpty else { return }
+    record.state = "ended"
+    record.error = nil
     try save(record)
   }
 
@@ -115,7 +138,9 @@ final class RecordingStore {
         record.savedDurationMs = record.segments.reduce(0) { $0 + $1.durationMs }
         record.durationMs = record.savedDurationMs
         record.state = "interrupted"
-        record.endedAt = Self.now
+        // The window counts from the last durable write, not from when the app was reopened.
+        let written = (try? FileManager.default.attributesOfItem(atPath: manifest.path)[.modificationDate] as? Date) ?? nil
+        record.endedAt = written.map { Int64($0.timeIntervalSince1970 * 1000) } ?? Self.now
         record.error = recovered.damaged ? "audio_segment_damaged" : "recording_interrupted"
         do { try save(record) } catch { record.error = "audio_storage_failed" }
       }

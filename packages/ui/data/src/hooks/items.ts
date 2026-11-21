@@ -18,7 +18,9 @@ export function useItems(botId?: string | null) {
 		refetchOnWindowFocus: true,
 		refetchInterval: (query) =>
 			query.state.data?.pages.some((page) =>
-				page.items.some((item) => item.source === "conversation" && item.state === "running"),
+				page.items.some(
+					(item) => (item.source === "conversation" || item.source === "meeting") && item.state === "running",
+				),
 			)
 				? 3000
 				: false,

@@ -26,7 +26,7 @@ class RecordingStoreTest : Instrumentation() {
         val root = File(context.filesDir, "meeting-test-${UUID.randomUUID()}")
         try {
             val store = RecordingStore(root)
-            val record = store.create("owner-one", "Storage regression", 16000, "bot-chat", separateSpeakers = true)
+            val record = store.create("owner-one", "Storage regression", 16000, "bot-chat", separateSpeakers = true, transportMode = "live")
             val pcm = ByteArray(16000 * 2 * 4) { 7 }
             store.append(record, pcm)
             val initializing = File(root, "owner-one/${UUID.randomUUID()}")
@@ -54,6 +54,7 @@ class RecordingStoreTest : Instrumentation() {
             check(recovered.getString("state") == "interrupted")
             check(recovered.getString("conversationId") == "bot-chat")
             check(recovered.getBoolean("separateSpeakers"))
+            check(recovered.getString("transportMode") == "live")
             check(recovered.getString("error") == "audio_segment_damaged")
             check(recovered.getJSONArray("segments").length() == 2)
             check(recovered.getInt("savedDurationMs") == 8000)

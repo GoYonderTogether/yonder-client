@@ -29,30 +29,31 @@ for (const mobile of [false, true])
 			await page.goto("/messages/main");
 			await page.getByRole("button", { name: "添加附件" }).click();
 			await page.getByRole("button", { name: "录音笔记", exact: true }).click();
+			await page.getByRole("button", { name: "仅录音", exact: true }).click();
 			const meter = page.getByRole("meter", { name: "麦克风音量" });
 			await expect.poll(async () => Number(await meter.getAttribute("value")), { timeout: 15000 }).toBeGreaterThan(0);
 			await expect
 				.poll(() => page.locator(".meeting-level-bars span[data-peak]").count(), { timeout: 15000 })
 				.toBeGreaterThan(0);
 			await expect(page.locator(".meeting-level-bars span")).toHaveCount(6);
-			await expect(page.getByRole("region", { name: "正在录音", exact: true })).toBeVisible();
-			const stop = page.getByRole("button", { name: "结束录音", exact: true });
-			const pause = page.getByRole("button", { name: "暂停录音", exact: true });
-			await page.mouse.move(0, 0);
-			const color = await pause.evaluate((button) => getComputedStyle(button).backgroundColor);
-			expect(color).toBe(await stop.evaluate((button) => getComputedStyle(button).backgroundColor));
-			const capsule = page.getByRole("region", { name: "正在录音", exact: true });
-			const box = await capsule.boundingBox();
-			const composer = await page.locator(".composer-box").boundingBox();
-			if (!box || !composer) throw new Error("Recording controls and composer must be visible");
-			expect(box.width).toBe(248);
-			expect(box.height).toBe(40);
-			expect(box.x + box.width / 2).toBeCloseTo(composer.x + composer.width / 2, 0);
-			expect(composer.y - box.y - box.height).toBeCloseTo(8, 0);
-			await expect(page.getByRole("status", { name: "录制时长" })).toHaveText("00:00:01");
+			const dialog = page.getByRole("dialog", { name: "录音笔记", exact: true });
+			await expect(dialog).toBeVisible();
+			await expect(dialog.getByRole("button", { name: "暂停录音", exact: true })).toHaveCount(0);
 			await page.screenshot({ path: testInfo.outputPath("recording.png") });
-			await pause.click();
-			await expect(page.getByRole("region", { name: "录音已暂停", exact: true })).toBeVisible();
+			await dialog.getByRole("button", { name: "收起录音", exact: true }).click();
+			const capsule = page.getByRole("region", { name: "正在录音", exact: true });
+			await expect(capsule).toBeVisible();
+			await expect(meter).toHaveCount(0);
+			await expect
+				.poll(async () => {
+					const box = await capsule.boundingBox();
+					const composer = await page.locator(".composer-box").boundingBox();
+					return !box || !composer
+						? Number.POSITIVE_INFINITY
+						: Math.abs(box.x + box.width / 2 - (composer.x + composer.width / 2));
+				})
+				.toBeLessThan(3);
+			await page.screenshot({ path: testInfo.outputPath("collapsed.png") });
 			const recording = () =>
 				page.evaluate(
 					() =>
@@ -69,24 +70,17 @@ for (const mobile of [false, true])
 							};
 						}),
 				);
-			const paused = await recording();
-			expect(paused.savedDurationMs).toBeGreaterThan(0);
-			const duration = page.getByRole("status", { name: "录制时长" });
-			const before = await duration.textContent();
-			await page.waitForTimeout(1500);
-			await expect(duration).toHaveText(before ?? "");
-			expect(await recording()).toEqual(paused);
-			await expect(meter).toHaveCount(0);
-			await page.screenshot({ path: testInfo.outputPath("paused.png") });
-			await page.getByRole("button", { name: "继续录音", exact: true }).click();
+			await expect.poll(async () => (await recording()).savedDurationMs, { timeout: 15000 }).toBeGreaterThan(0);
+			const collapsed = await recording();
+			await capsule.getByRole("button", { name: "展开录音", exact: true }).click();
 			await expect.poll(async () => Number(await meter.getAttribute("value")), { timeout: 15000 }).toBeGreaterThan(0);
 			await expect
 				.poll(async () => (await recording()).savedDurationMs, { timeout: 15000 })
-				.toBeGreaterThan(paused.savedDurationMs);
-			const resumed = await recording();
-			expect(resumed.id).toBe(paused.id);
-			expect(resumed.count).toBeGreaterThan(paused.count);
-			await stop.click();
+				.toBeGreaterThan(collapsed.savedDurationMs);
+			const expanded = await recording();
+			expect(expanded.id).toBe(collapsed.id);
+			expect(expanded.count).toBeGreaterThan(collapsed.count);
+			await dialog.getByRole("button", { name: "结束录音", exact: true }).click();
 			await expect(meter).toHaveCount(0);
 			const ended = await page.evaluate(async (id) => {
 				const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -115,15 +109,15 @@ for (const mobile of [false, true])
 						nonzero: bytes.slice(44).some((value) => value !== 0),
 					})),
 				};
-			}, paused.id);
+			}, collapsed.id);
 			expect(ended.record.state, ended.record.error ?? "Normal stop saves an ended recording").toBe("ended");
-			expect(ended.record.id).toBe(paused.id);
+			expect(ended.record.id).toBe(collapsed.id);
 			expect(ended.record.savedDurationMs).toBe(
 				ended.record.segments.reduce((sum: number, part: { durationMs: number }) => sum + part.durationMs, 0),
 			);
-			expect(ended.parts.length).toBeGreaterThan(paused.count);
-			expect(ended.parts.slice(0, paused.count).some((part) => part.nonzero)).toBe(true);
-			expect(ended.parts.slice(paused.count).some((part) => part.nonzero)).toBe(true);
+			expect(ended.parts.length).toBeGreaterThan(collapsed.count);
+			expect(ended.parts.slice(0, collapsed.count).some((part) => part.nonzero)).toBe(true);
+			expect(ended.parts.slice(collapsed.count).some((part) => part.nonzero)).toBe(true);
 			for (const [index, part] of ended.parts.entries()) {
 				expect(part.header).toBe("RIFF");
 				expect(part.format).toBe("WAVE");

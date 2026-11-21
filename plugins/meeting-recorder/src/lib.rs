@@ -83,9 +83,15 @@ async fn start<R: Runtime>(
     title: String,
     conversation_id: Option<String>,
     separate_speakers: Option<bool>,
+    transport_mode: Option<String>,
 ) -> Result<RecorderState, String> {
     main_window(&window)?;
     let separate_speakers = separate_speakers.unwrap_or_default();
+    if transport_mode.as_deref().is_some_and(|mode| !matches!(mode, "live" | "record"))
+        || (transport_mode.is_some() && conversation_id.is_none())
+    {
+        return Err("meeting_invalid_transport".into());
+    }
     #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         if let Some(id) = &conversation_id {
@@ -98,7 +104,8 @@ async fn start<R: Runtime>(
                 "ownerId": owner_id,
                 "title": title,
                 "conversationId": conversation_id,
-                "separateSpeakers": separate_speakers
+                "separateSpeakers": separate_speakers,
+                "transportMode": transport_mode
             }),
         );
     }
@@ -106,7 +113,7 @@ async fn start<R: Runtime>(
     {
         let state = app
             .state::<desktop::DesktopRecorder>()
-            .start_for_conversation(owner_id, title, conversation_id, separate_speakers)?;
+            .start_for_conversation(owner_id, title, conversation_id, separate_speakers, transport_mode)?;
         lifecycle::sync_tray(&app, true);
         Ok(state)
     }
@@ -172,6 +179,27 @@ async fn resume<R: Runtime>(
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     app.state::<desktop::DesktopRecorder>()
         .resume(owner_id, recording_id)
+}
+
+/// Called by the updater just before it relaunches the app, so a recording continues afterwards.
+#[tauri::command]
+async fn interrupt_for_restart<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+) -> Result<(), String> {
+    main_window(&window)?;
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        let _ = &app;
+        return Ok(());
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        app.state::<desktop::DesktopRecorder>()
+            .interrupt("meeting_app_restarting");
+        lifecycle::sync_tray(&app, false);
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -289,6 +317,7 @@ fn build<R: Runtime>(directory: Option<std::path::PathBuf>) -> TauriPlugin<R> {
             stop,
             pause,
             resume,
+            interrupt_for_restart,
             read_audio,
             configure_upload,
             get_upload_jobs,
