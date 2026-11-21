@@ -1,7 +1,7 @@
 use super::{apple::permission, notify_open, PENDING_OPEN};
 use serde_json::{json, Value};
 use std::{
-    ffi::{c_char, CStr},
+    ffi::{c_char, c_void, CStr},
     sync::{Mutex, OnceLock},
 };
 use tauri::{AppHandle, Emitter, Runtime};
@@ -14,6 +14,25 @@ static TOKEN: Mutex<Option<Value>> = Mutex::new(None);
 
 extern "C" {
     fn yonder_ios_install_notifications();
+    fn yonder_ios_open_notification_settings(
+        context: *mut c_void,
+        callback: extern "C" fn(*mut c_void, bool),
+    );
+}
+
+pub async fn open_settings() -> bool {
+    use tauri::async_runtime::{channel, Sender};
+
+    extern "C" fn opened(context: *mut c_void, result: bool) {
+        let sender = unsafe { Box::from_raw(context.cast::<Sender<bool>>()) };
+        let _ = sender.try_send(result);
+    }
+
+    let (sender, mut response) = channel(1);
+    unsafe {
+        yonder_ios_open_notification_settings(Box::into_raw(Box::new(sender)).cast(), opened)
+    };
+    response.recv().await.unwrap_or(false)
 }
 
 pub fn install_ios_delegate() {

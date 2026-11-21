@@ -49,13 +49,11 @@ function rowPreview(conversation: Conversation, t: Translate): string | undefine
 
 export function MessagesList({
 	current,
-	hidePrimaryUnread = false,
 	contacts,
 	onOpen,
 	onOpenMeetings,
 }: {
 	current: string | null;
-	hidePrimaryUnread?: boolean;
 	contacts?: readonly Member[] | undefined;
 	onOpen: (id: string) => void;
 	onOpenMeetings?: () => void;
@@ -83,7 +81,7 @@ export function MessagesList({
 						conversation.kind === "system"
 							? t("friendRequests.notifications")
 							: conversationTitle(conversation, person?.id);
-					const unread = hidePrimaryUnread && conversation.id === primary?.id ? 0 : conversation.unreadCount;
+					const unread = conversation.unreadCount;
 					const selected =
 						current === conversation.id || (current === MAIN_CONVERSATION && conversation.id === primary?.id);
 					return (
@@ -123,7 +121,11 @@ export function MessagesList({
 										) : null}
 										{conversation.pinned ? <Pin size={13} aria-label={t("messages.pinned")} /> : null}
 										{conversation.muted ? <BellOff size={13} aria-label={t("messages.muted")} /> : null}
-										<UnreadBadge count={unread} />
+										<UnreadBadge
+											count={unread}
+											muted={conversation.muted}
+											dot={mode === "mobile" && conversation.id === primary?.id}
+										/>
 									</span>
 								) : undefined
 							}
@@ -183,7 +185,7 @@ export function ConversationPage({
 		item || conversation?.visit?.role === "visitor" ? undefined : agent?.memberId,
 	);
 	const quota = useQuota();
-	const messages = useMessages(conversationId, Boolean(item || conversation?.unreadCount));
+	const messages = useMessages(conversationId, mobileBotHome || Boolean(item || conversation?.unreadCount));
 	const actions = useRunActions();
 	const send = useSendMessage(conversationId, person?.id);
 	const items = useMemo(

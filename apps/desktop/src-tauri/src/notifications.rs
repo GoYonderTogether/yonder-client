@@ -57,6 +57,12 @@ async fn permission_status<R: Runtime>(app: AppHandle<R>) -> Result<String, Stri
     }
 }
 
+#[cfg(target_os = "ios")]
+#[tauri::command]
+async fn open_settings() -> bool {
+    ios::open_settings().await
+}
+
 #[tauri::command]
 async fn push_registration<R: Runtime>(app: AppHandle<R>) -> Result<Option<Value>, String> {
     #[cfg(target_os = "android")]
@@ -149,10 +155,18 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         take_open,
         show_desktop
     ]);
-    #[cfg(mobile)]
+    #[cfg(target_os = "android")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         request_permission,
         permission_status,
+        push_registration,
+        take_open
+    ]);
+    #[cfg(target_os = "ios")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        request_permission,
+        permission_status,
+        open_settings,
         push_registration,
         take_open
     ]);

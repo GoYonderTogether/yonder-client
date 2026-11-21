@@ -37,6 +37,7 @@ export function useMarkConversationRead(
 	canRead: () => boolean,
 ) {
 	const api = useApi();
+	const client = useQueryClient();
 	const ack = useRef<string | undefined>(undefined);
 	useEffect(() => {
 		if (!personId || !conversationId || !messageId || !canRead()) return;
@@ -47,10 +48,12 @@ export function useMarkConversationRead(
 			.markConversationRead(conversationId, messageId)
 			.then(() => {
 				if (active) ack.current = scope;
+				if (client.getQueryData<MeResponse>(keys.me())?.member.id === personId)
+					void client.invalidateQueries({ queryKey: keys.conversations.list() });
 			})
 			.catch(() => {});
 		return () => {
 			active = false;
 		};
-	}, [api, canRead, conversationId, messageId, personId]);
+	}, [api, canRead, client, conversationId, messageId, personId]);
 }

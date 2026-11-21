@@ -140,7 +140,7 @@ export function AppFrame() {
 	const primary = primaryConversation(conversations.data?.items, bot?.id);
 	const unreadCount =
 		conversations.data?.items.reduce(
-			(total, item) => total + (phone && item.id === primary?.id ? 0 : (item.unreadCount ?? 0)),
+			(total, item) => total + (phone && (item.id === primary?.id || item.muted) ? 0 : (item.unreadCount ?? 0)),
 			0,
 		) ?? 0;
 	const mainBot = tab === "messages" && (selection === MAIN_CONVERSATION || selection === primary?.id);
@@ -297,7 +297,6 @@ export function AppFrame() {
 					list: mobileBot ? null : (
 						<MessagesList
 							current={selection}
-							hidePrimaryUnread={phone}
 							contacts={contacts.data?.items}
 							onOpen={(id) => {
 								setChatOpen((previous) => previous + 1);
@@ -438,7 +437,7 @@ export function AppFrame() {
 					mobileBot: {
 						label: bot?.selectedNickname || bot?.displayName || t("nav.mainBot"),
 						active: mobileBot,
-						icon: <BotTabAvatar bot={bot} unreadCount={primary?.unreadCount} />,
+						icon: <BotTabAvatar bot={bot} unreadCount={primary?.unreadCount} muted={primary?.muted} />,
 						onSelect: () => tabs.go(MAIN_BOT_PATH),
 					},
 				}}

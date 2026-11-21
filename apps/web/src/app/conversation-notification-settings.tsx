@@ -3,7 +3,12 @@ import { useSetConversationMuted } from "@yonder/ui-data";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isTauri } from "../lib/keychain.ts";
-import { nativeNotificationPermission, requestNativeNotificationPermission } from "../lib/native-notifications.ts";
+import {
+	isNativeIosNotifications,
+	nativeNotificationPermission,
+	openIosNotificationSettings,
+	requestNativeNotificationPermission,
+} from "../lib/native-notifications.ts";
 import { isDesktopExperience } from "../lib/platform.ts";
 import { NATIVE_NOTIFICATION_PERMISSION_CHANGED } from "./native-push-registration.tsx";
 
@@ -32,11 +37,13 @@ export function ConversationNotificationSettings({ id, muted }: { id: string; mu
 function SystemNotificationPermission() {
 	const { t } = useTranslation();
 	const shell = isTauri();
+	const ios = isNativeIosNotifications();
 	const browser = !shell && isDesktopExperience() && typeof Notification !== "undefined";
 	const [permission, setPermission] = useState<NotificationPermission | null>(() =>
 		browser ? Notification.permission : null,
 	);
 	const [busy, setBusy] = useState(false);
+	const [settingsUnavailable, setSettingsUnavailable] = useState(false);
 	useEffect(() => {
 		if (!shell && !browser) return;
 		let active = true;
@@ -49,14 +56,35 @@ function SystemNotificationPermission() {
 		};
 		update();
 		window.addEventListener("focus", update);
+		document.addEventListener("visibilitychange", update);
 		return () => {
 			active = false;
 			window.removeEventListener("focus", update);
+			document.removeEventListener("visibilitychange", update);
 		};
 	}, [shell, browser]);
 	if (!permission || permission === "granted") return null;
 	if (permission === "denied")
-		return <p className="text-caption text-[var(--color-text-secondary)]">{t("messages.systemNotificationsDenied")}</p>;
+		return ios && !settingsUnavailable ? (
+			<Button
+				variant="link"
+				className="self-start"
+				loading={busy}
+				onClick={() => {
+					setBusy(true);
+					void openIosNotificationSettings()
+						.then(
+							(opened) => setSettingsUnavailable(!opened),
+							() => setSettingsUnavailable(true),
+						)
+						.finally(() => setBusy(false));
+				}}
+			>
+				{t("messages.openNotificationSettings")}
+			</Button>
+		) : (
+			<p className="text-caption text-[var(--color-text-secondary)]">{t("messages.systemNotificationsDenied")}</p>
+		);
 	return (
 		<Button
 			variant="link"
