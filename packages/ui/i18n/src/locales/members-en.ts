@@ -167,6 +167,8 @@ export const membersMessagesEn = {
 		removed: "{{actor}} removed {{names}}",
 		dissolved: "The group was dissolved",
 		joined: "{{names}} joined",
+		created: "{{actor}} created the group",
+		createdWithMembers: "{{actor}} created the group. {{names}} joined",
 		renamed: "{{actor}} renamed the group to {{title}}",
 		ownerChanged: "{{names}} is now the group owner",
 	},

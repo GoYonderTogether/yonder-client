@@ -19,10 +19,10 @@ export interface ConversationMember {
  * have left the group since.
  */
 export interface GroupSystemEvent {
-	event: "dissolved" | "removed" | "owner_changed" | "renamed" | "joined";
+	event: "dissolved" | "removed" | "owner_changed" | "renamed" | "joined" | "created";
 	/** Who did it; null when nobody can be named. */
 	actorName: string | null;
-	/** Who it was done to: the removed, the new owner, the people who joined. */
+	/** Who it was done to: the removed, the new owner, or the initial or newly added members. */
 	targetNames: string[];
 	title?: string;
 }

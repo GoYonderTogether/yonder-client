@@ -10,7 +10,7 @@ function pair(locale: Locale, zh: string, en: string): string {
 
 /** A name list the way the reader writes it; the names are a snapshot from when the event happened. */
 export function joinNames(names: readonly string[], locale: Locale): string {
-	return names.filter(Boolean).join(locale === "zh-CN" ? "、" : ", ");
+	return names.filter((name) => name.trim() !== "").join(locale === "zh-CN" ? "、" : ", ");
 }
 
 /**
@@ -28,7 +28,8 @@ export function systemSentence(event: SystemEvent, locale: Locale): string {
 		const count = event.changes.length;
 		return pair(locale, `记忆已更新 · ${count} 处`, `Memory updated · ${count} files`);
 	}
-	const names = joinNames(event.targetNames, locale) || pair(locale, "有人", "someone");
+	const targets = joinNames(event.targetNames, locale);
+	const names = targets || pair(locale, "有人", "someone");
 	const actor = event.actorName || pair(locale, "有人", "Someone");
 	switch (event.event) {
 		case "dissolved":
@@ -37,6 +38,10 @@ export function systemSentence(event: SystemEvent, locale: Locale): string {
 			return pair(locale, `${actor} 将 ${names} 移出群聊`, `${actor} removed ${names}`);
 		case "joined":
 			return pair(locale, `${names} 加入了群聊`, `${names} joined`);
+		case "created":
+			return targets
+				? pair(locale, `${actor} 创建了群聊，${targets} 加入了群聊`, `${actor} created the group. ${targets} joined`)
+				: pair(locale, `${actor} 创建了群聊`, `${actor} created the group`);
 		case "renamed": {
 			const title = event.title || pair(locale, "未命名群聊", "an untitled group");
 			return pair(locale, `${actor} 将群名改为「${title}」`, `${actor} renamed the group to ${title}`);

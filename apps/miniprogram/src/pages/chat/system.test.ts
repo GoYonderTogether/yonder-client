@@ -29,6 +29,14 @@ describe("group lifecycle sentences", () => {
 			"Bob is now the group owner",
 		);
 	});
+	it("renders group creation with or without initial members in both languages", () => {
+		const created = event({ event: "created", actorName: "Ann", targetNames: ["Bob", "Cleo Bot"] });
+		expect(systemSentence(created, "zh-CN")).toBe("Ann 创建了群聊，Bob、Cleo Bot 加入了群聊");
+		expect(systemSentence(created, "en")).toBe("Ann created the group. Bob, Cleo Bot joined");
+		const alone = event({ event: "created", actorName: "Ann" });
+		expect(systemSentence(alone, "zh-CN")).toBe("Ann 创建了群聊");
+		expect(systemSentence(alone, "en")).toBe("Ann created the group");
+	});
 	it("falls back to a neutral actor when the server named nobody", () => {
 		expect(systemSentence(event({ event: "removed", targetNames: ["Bob"] }), "zh-CN")).toBe("有人 将 Bob 移出群聊");
 		expect(systemSentence(event({ event: "removed", targetNames: ["Bob"] }), "en")).toBe("Someone removed Bob");

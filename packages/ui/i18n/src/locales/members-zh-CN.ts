@@ -160,6 +160,8 @@ export const membersMessagesZhCN = {
 		removed: "{{actor}} 移除了 {{names}}",
 		dissolved: "该群聊已被解散",
 		joined: "{{names}} 加入了群聊",
+		created: "{{actor}} 创建了群聊",
+		createdWithMembers: "{{actor}} 创建了群聊，{{names}} 加入了群聊",
 		renamed: "{{actor}} 把群名改为 {{title}}",
 		ownerChanged: "{{names}} 成为群主",
 	},
