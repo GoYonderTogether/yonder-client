@@ -1,32 +1,49 @@
-import { mkdir, readFile } from "node:fs/promises";
-import { expect, type Page, test } from "@playwright/test";
+import { mkdir } from "node:fs/promises";
+import { devices, expect, type Locator, type Page, test } from "@playwright/test";
 import { bot, conversation, isolateChat, message, person } from "./chat-fixture.ts";
+
+const { defaultBrowserType: _browser, ...phone } = devices["iPhone 13"];
+test.use({ reducedMotion: "reduce" });
 
 const previewDir = process.env.YONDER_PREVIEW_DIR ?? "test-results/social-memory";
 
-async function decodeQr(page: Page, png: Buffer) {
-	await page.addScriptTag({ path: "node_modules/jsqr/dist/jsQR.js" });
-	return page.evaluate(async (encoded) => {
-		const image = new Image();
-		image.src = `data:image/png;base64,${encoded}`;
-		await image.decode();
-		const canvas = document.createElement("canvas");
-		canvas.width = image.naturalWidth;
-		canvas.height = image.naturalHeight;
-		const context = canvas.getContext("2d");
-		if (!context) throw new Error("Canvas unavailable");
-		context.drawImage(image, 0, 0);
-		const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-		return (
-			window as typeof window & {
-				jsQR: (data: Uint8ClampedArray, width: number, height: number) => { data: string } | null;
-			}
-		).jsQR(pixels.data, pixels.width, pixels.height)?.data;
-	}, png.toString("base64"));
+async function screenshot(page: Page, name: string) {
+	await expect
+		.poll(() =>
+			page.locator("[data-page-layer]:not([inert])").evaluateAll((panels) =>
+				panels
+					.filter((panel) => getComputedStyle(panel).visibility === "visible")
+					.every((panel) => {
+						const transform = new DOMMatrixReadOnly(getComputedStyle(panel).transform);
+						return Math.abs(transform.m41) < 0.5 && Math.abs(transform.m42) < 0.5;
+					}),
+			),
+		)
+		.toBe(true);
+	await page.screenshot({ path: `${previewDir}/${name}.png`, animations: "disabled", scale: "css" });
 }
 
-async function setup(page: Page) {
-	await isolateChat(page);
+async function surfaceColors(locator: Locator) {
+	return locator.evaluate((element) => {
+		const context = document.createElement("canvas").getContext("2d");
+		if (!context) throw new Error("Cannot resolve surface colors");
+		const pixel = (node: Element) => {
+			context.clearRect(0, 0, 1, 1);
+			context.fillStyle = getComputedStyle(node).backgroundColor;
+			context.fillRect(0, 0, 1, 1);
+			return [...context.getImageData(0, 0, 1, 1).data];
+		};
+		const card = pixel(element);
+		for (let canvas = element.parentElement; canvas; canvas = canvas.parentElement) {
+			const color = pixel(canvas);
+			if (color[3] === 255) return { card, canvas: color };
+		}
+		throw new Error("No opaque page canvas");
+	});
+}
+
+async function setup(page: Page, dark = false) {
+	await isolateChat(page, { dark });
 	await page.route("**/v1/me", (route) =>
 		route.fulfill({
 			json: {
@@ -34,17 +51,7 @@ async function setup(page: Page) {
 				bot,
 				hasPassword: true,
 				signInMethods: [],
-				settings: { locale: "zh-CN", theme: "light" },
-			},
-		}),
-	);
-	await page.route("**/v1/invite", (route) =>
-		route.fulfill({
-			json: {
-				code: "isolated-invite",
-				link: "https://yonder.zethai.cn/i/isolated-invite",
-				stats: { invitedCount: 0, grantedTotal: 0 },
-				rewardRule: { newUserGets: 100, inviterGets: 50, maxInvites: null },
+				settings: { locale: "zh-CN", theme: dark ? "dark" : "light" },
 			},
 		}),
 	);
@@ -125,9 +132,7 @@ async function setup(page: Page) {
 		if (url.pathname === "/v1/memory/files/content") {
 			const path = url.searchParams.get("path") ?? "";
 			return route.fulfill({
-				json: path.includes("印象")
-					? content(path, "# 印象\n喜欢直接的结论，先看表格再看细节；晚上效率最高。")
-					: content(path, "# 近期\n在准备 12 月路演，同时推进 Yonder 内测。"),
+				json: path.includes("印象") ? content(path, impressionMarkdown) : content(path, recentMarkdown),
 			});
 		}
 		if (url.pathname === "/v1/memory/files") return route.fulfill({ json: { items: files } });
@@ -135,56 +140,107 @@ async function setup(page: Page) {
 	});
 }
 
-test("the card shares a PNG whose QR opens /@handle with the invite code, and turns over to what the Bot knows", async ({
-	page,
-}) => {
-	await mkdir(previewDir, { recursive: true });
-	await page.setViewportSize({ width: 390, height: 844 });
-	await setup(page);
-	await page.goto("/memory");
-	const card = page.getByRole("region", { name: "我的名片" });
-	await expect(card.getByText("做个人 AI 网络")).toBeVisible();
-	await expect(page.getByRole("heading", { name: "最近" })).toBeVisible();
-	await expect(page.getByRole("heading", { name: "全部" })).toBeVisible();
-	// Settings live in 「我」, not on the memory page.
-	await expect(page.getByRole("button", { name: "谁可以看到" })).toHaveCount(0);
-	await page.screenshot({ path: `${previewDir}/memory-home-mobile.png`, animations: "disabled", fullPage: true });
-	await card.getByRole("button", { name: "翻到背面" }).click({ position: { x: 24, y: 24 } });
-	await expect(card.getByText("只有你看得到")).toBeVisible();
-	await page.waitForTimeout(500);
-	await page.screenshot({ path: `${previewDir}/memory-back-mobile.png`, animations: "disabled" });
-	await card.getByRole("button", { name: "翻回正面" }).click({ position: { x: 24, y: 24 } });
-	await card.getByRole("button", { name: "分享我的名片" }).click();
-	const sheet = page.getByRole("dialog", { name: "我的名片" });
-	await expect(sheet.getByRole("img", { name: "我的名片二维码" }).first()).toBeVisible();
-	await page.waitForTimeout(400);
-	await page.screenshot({ path: `${previewDir}/memory-share-mobile.png`, animations: "disabled" });
-	const downloadPromise = page.waitForEvent("download");
-	await sheet.getByRole("button", { name: "保存图片" }).click();
-	const download = await downloadPromise;
-	expect(download.suggestedFilename()).toBe(`yonder-${person.handle}.png`);
-	const path = `${previewDir}/memory-card.png`;
-	await download.saveAs(path);
-	expect(await decodeQr(page, await readFile(path))).toMatch(new RegExp(`/@${person.handle}\\?i=isolated-invite$`));
-	await expect(sheet.getByRole("status")).toHaveText("图片已保存");
-	await sheet.getByRole("button", { name: "名片设置" }).click();
-	await expect(page).toHaveURL(/\/me\/profile$/);
-});
+const privateText = "喜欢直接的结论，先看表格再看细节；晚上效率最高。";
+const recentText = "在准备 12 月路演，同时推进 Yonder 内测。";
+const impressionMarkdown = [
+	"# 印象",
+	privateText,
+	"## 沟通习惯",
+	"- 先说结论、分歧和下一步，再补充判断依据。\n- 不需要为了每个小决定停下来确认；遇到影响上线或用户数据的变更再一起定。",
+	"## 工作方式",
+	"喜欢用真机体验来检验功能，而不是只看效果图。看预览时，会先判断一件事是否顺手，再调整间距和动效。",
+].join("\n\n");
+const recentMarkdown = [
+	"# 近期",
+	recentText,
+	"## 这周在推进",
+	"- 整理演示流程，选出能完整走通的真实任务。\n- 收集内测的第一手反馈，把上手阻力和功能建议分开记录。",
+	"## 下次回看",
+	"确认跨端操作有没有断点，尤其是手机上发起任务后，能不能在电脑上接着看进度。",
+].join("\n\n");
 
-for (const [width, height, name] of [
-	[820, 900, "narrow"],
-	[1440, 1000, "wide"],
-] as const) {
-	test(`the memory home on a ${name} window`, async ({ page }) => {
-		await mkdir(previewDir, { recursive: true });
-		await page.setViewportSize({ width, height });
-		await setup(page);
-		await page.goto("/memory");
-		await expect(page.getByRole("region", { name: "我的名片" })).toBeVisible();
-		await expect(page.getByRole("heading", { name: "全部" })).toBeVisible();
-		await page.screenshot({ path: `${previewDir}/memory-home-${name}.png`, animations: "disabled" });
+for (const layout of ["mobile", "desktop"] as const) {
+	test.describe(`AI profile tabs on ${layout}`, () => {
+		if (layout === "mobile") test.use({ ...phone, viewport: { width: 390, height: 844 } });
+		else test.use({ viewport: { width: 1440, height: 1000 } });
+		test("two fixed tabs show one readable card each", async ({ page }) => {
+			await mkdir(previewDir, { recursive: true });
+			await setup(page);
+			await page.goto("/memory");
+			const entry = page.getByRole("button", { name: "AI 对我的了解" });
+			await expect(entry).toBeVisible();
+			await expect(page.getByRole("heading", { name: "全部" })).toBeVisible();
+			await expect(page.getByRole("region", { name: "我的名片" })).toHaveCount(0);
+			await screenshot(page, `memory-private-landing-${layout}`);
+			await entry.click();
+			const tabs = page.getByRole("radiogroup", { name: "AI 对我的了解" });
+			const impression = tabs.getByRole("radio", { name: "印象" });
+			const recent = tabs.getByRole("radio", { name: "近期" });
+			await expect(impression).toBeChecked();
+			await expect(page.getByText(privateText, { exact: true })).toBeVisible();
+			const recentParagraph = page.getByText(recentText, { exact: true });
+			await expect(recentParagraph).toHaveCount(0);
+			const doc = page.getByRole("article");
+			const card = doc.locator("..");
+			await expect(doc).toHaveCount(1);
+			const paragraphs = doc.getByText(privateText, { exact: true });
+			await expect(paragraphs).toHaveCSS("font-size", "15px");
+			await expect(paragraphs).toHaveCSS("line-height", "24px");
+			await expect(doc.getByRole("list")).toHaveCSS("list-style-type", "disc");
+			const colors = { card: [245, 245, 245, 255], canvas: [255, 255, 255, 255] };
+			await expect.poll(() => surfaceColors(card)).toEqual(colors);
+			await expect(card).toHaveCSS("border-top-left-radius", "16px");
+			await expect(page.getByText("只有你看得到")).toHaveCount(0);
+			await expect(page.getByRole("button", { name: "打开", exact: true })).toHaveCount(0);
+			await expect(doc.locator("details, button")).toHaveCount(0);
+			await expect(paragraphs.evaluate((node) => node.getBoundingClientRect().width)).resolves.toBeGreaterThan(
+				layout === "mobile" ? 315 : 565,
+			);
+			await screenshot(page, `ai-profile-card-reading-${layout}-impression`);
+			await recent.click();
+			await expect(recent).toBeChecked();
+			await expect(recentParagraph).toBeVisible();
+			await expect(page.getByText(privateText, { exact: true })).toHaveCount(0);
+			await expect(page).toHaveURL(/\/memory\/about$/);
+			await expect(page.getByRole("button", { name: "分享我的名片" })).toHaveCount(0);
+			await expect(tabs.evaluate((node) => !node.closest("[data-frame-scroll]"))).resolves.toBe(true);
+			await expect(doc).toHaveCount(1);
+			await expect.poll(() => surfaceColors(card)).toEqual(colors);
+			await screenshot(page, `ai-profile-card-reading-${layout}-recent`);
+		});
 	});
 }
+
+test("private AI profile redirects signed-out visitors before using the memory API", async ({ page }) => {
+	const requests: string[] = [];
+	page.on("request", (request) => requests.push(new URL(request.url()).pathname));
+	await page.route("**/v1/**", (route) => route.fulfill({ status: 401, json: { code: "unauthorized" } }));
+	await page.goto("/memory/about");
+	await expect(page).toHaveURL(/\/sign-in\?next=%2Fmemory%2Fabout$/);
+	await expect(page.getByText(privateText, { exact: true })).toHaveCount(0);
+	expect(requests.some((path) => path.startsWith("/v1/memory/"))).toBe(false);
+});
+
+test("private AI memory uses a real dark surface pair", async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 1000 });
+	await setup(page, true);
+	await page.goto("/memory/about");
+	const doc = page.getByRole("article");
+	await expect(doc.getByText(privateText, { exact: true })).toBeVisible();
+	await expect
+		.poll(() => surfaceColors(doc.locator("..")))
+		.toEqual({ card: [35, 36, 41, 255], canvas: [22, 22, 26, 255] });
+});
+
+test("the narrow Memory home preserves the profile entry and file groups", async ({ page }) => {
+	await mkdir(previewDir, { recursive: true });
+	await page.setViewportSize({ width: 820, height: 900 });
+	await setup(page);
+	await page.goto("/memory");
+	await expect(page.getByRole("button", { name: "AI 对我的了解" })).toBeVisible();
+	await expect(page.getByRole("heading", { name: "全部" })).toBeVisible();
+	await screenshot(page, "memory-private-landing-narrow");
+});
 
 test("a group sender's avatar opens their card in the side panel", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 1000 });

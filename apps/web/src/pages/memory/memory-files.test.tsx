@@ -45,10 +45,10 @@ describe("the file list", () => {
 });
 
 describe("routes", () => {
-	test("every file has its own page; back goes to its group, the card's files back to the home", () => {
+	test("every file has its own page; back goes to its group, AI profile files back to the private overview", () => {
 		expect(memoryFileRoute("/notes/a b.md")).toBe(`/memory/files/${encodeURIComponent("/notes/a b.md")}`);
 		expect(memoryFileParent("/sources/会议/x.md")).toBe(`/memory/g/${encodeURIComponent("sources:会议")}`);
-		expect(memoryFileParent("/me/近期.md")).toBe("/memory");
+		expect(memoryFileParent("/me/近期.md")).toBe("/memory/about");
 		expect(fileGroup("/me/印象.md")).toBeNull();
 	});
 
@@ -57,7 +57,7 @@ describe("routes", () => {
 		expect(readMemoryView("timeline", null)).toEqual({ kind: "timeline" });
 		expect(readMemoryView("g", "notes")).toEqual({ kind: "group", group: "notes" });
 		expect(readMemoryView("files", "/notes/a.md")).toEqual({ kind: "file", path: "/notes/a.md" });
-		expect(readMemoryView("about", null)).toEqual({ kind: "home" });
+		expect(readMemoryView("about", null)).toEqual({ kind: "about" });
 	});
 });
 

@@ -1,5 +1,6 @@
 import { devices, expect, type Page, type TestInfo, test } from "@playwright/test";
 import type { MemoryDayPage, MemoryFileContent, MemoryFileRevision } from "@yonder/protocol";
+import { memoryFileRoute } from "../apps/web/src/pages/memory/memory-view.ts";
 import { isolateChat } from "./chat-fixture.ts";
 
 const at = "2026-11-18T09:30:00Z";
@@ -131,12 +132,9 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	const api = await memoryApi(page);
 	await page.goto("/memory");
 	await expect(page.locator(`[data-layout-mode="${phone ? "mobile" : "wide"}"]`)).toBeVisible();
-	// The card heads the page; its back holds what the Bot knows.
-	const card = page.getByRole("region", { name: "我的名片" });
-	await expect(card.getByText("@chatcheck")).toBeVisible();
-	await card.getByRole("button", { name: "翻到背面" }).click({ position: { x: 24, y: 24 } });
-	await expect(card.getByRole("button", { name: /印象.*直接说明/ })).toBeVisible();
-	await card.getByRole("button", { name: "翻回正面" }).click({ position: { x: 24, y: 24 } });
+	const privateProfile = page.getByRole("button", { name: "AI 对我的了解" });
+	await expect(privateProfile).toBeVisible();
+	await expect(page.getByRole("region", { name: "我的名片" })).toHaveCount(0);
 	// Phones see the latest entries on the home and open the whole timeline from there; a wide
 	// window shows the timeline beside the column.
 	if (phone) {
@@ -150,10 +148,18 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	await page.getByRole("button", { name: /会后决定/ }).click();
 	await expect(page.getByText("接口在周五完成。")).toBeVisible();
 
-	// The impression opens as its own file page from the back of the card.
+	// The owner profile renders the Markdown directly; its canonical editable file URL still works.
 	if (phone) await page.goto("/memory");
-	await card.getByRole("button", { name: "翻到背面" }).click({ position: { x: 24, y: 24 } });
-	await card.getByRole("button", { name: /印象/ }).click();
+	await privateProfile.click();
+	await expect(page).toHaveURL(/\/memory\/about$/);
+	await expect(page.getByRole("radio", { name: "印象" })).toBeChecked();
+	await expect(page.locator("strong").getByText("直接说明")).toBeVisible();
+	const fileUrl = memoryFileRoute(impressionPath);
+	// The test static server treats the .md URL as an asset. Serve the real app shell there.
+	await page.route(fileUrl, async (route) =>
+		route.fulfill({ response: await route.fetch({ url: new URL("/memory", route.request().url()).href }) }),
+	);
+	await page.goto(fileUrl);
 	await expect(page).toHaveURL(/\/memory\/files\/.+/);
 	const impression = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "印象" }) });
 	await expect(impression.locator("strong").getByText("直接说明")).toBeVisible();

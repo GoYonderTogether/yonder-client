@@ -6,9 +6,6 @@ import { primaryConversation } from "../conversation-presentation.tsx";
 
 import { memoryFileRoute } from "./memory-view.ts";
 
-/** The two `/me` files: the back of the card, what the Bot knows about the owner. */
-export const ABOUT_PATHS = ["/me/印象.md", "/me/近期.md"] as const;
-
 export { memoryFileRoute };
 
 export function useOpenMemoryFile() {

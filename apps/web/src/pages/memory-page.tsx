@@ -4,6 +4,7 @@ import { ListFrame, PageFrame, useShellChrome } from "@yonder/ui-shell";
 import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
+import { MemoryAbout } from "./memory/memory-about.tsx";
 import { MemoryFilePage } from "./memory/memory-file.tsx";
 import { MemoryFileList } from "./memory/memory-file-list.tsx";
 import { MemoryColumn, MemoryHome, useGroupName } from "./memory/memory-home.tsx";
@@ -24,7 +25,7 @@ export function MemoryList({ view }: { view: MemoryView }) {
 	const { mode } = useShellChrome();
 	const person = usePerson();
 	const selected =
-		view.kind === "group" ? view.group : view.kind === "home" || view.kind === "timeline" ? "timeline" : "";
+		view.kind === "group" ? view.group : view.kind === "file" ? "" : view.kind === "home" ? "timeline" : view.kind;
 	return (
 		<ListFrame title={t("nav.memory")}>
 			{mode === "wide" ? <MemoryColumn key={person?.id} selected={selected} /> : <MemoryHome key={person?.id} />}
@@ -38,6 +39,7 @@ export function MemoryPage({ view }: { view: MemoryView }) {
 	const navigate = useNavigate();
 	const person = usePerson();
 	const groupName = useGroupName();
+	if (view.kind === "about") return <MemoryAbout key={person?.id} />;
 	if (view.kind === "file")
 		return (
 			<PageFrame>

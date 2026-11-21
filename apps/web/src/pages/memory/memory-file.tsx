@@ -11,6 +11,7 @@ import { useOpenHistory } from "./memory-history.tsx";
 import { MemoryMarkdown } from "./memory-markdown.tsx";
 import { useOpenMemoryFile, useSourceNavigation } from "./memory-navigation.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
+import { isAboutMemoryFile } from "./memory-view.ts";
 import { VisibilityControl } from "./memory-visibility.tsx";
 import { relativeTime, useAuthorName } from "./memory-who.ts";
 
@@ -50,6 +51,7 @@ function FileBody({ file, onDeleted }: { file: MemoryFileContent; onDeleted: () 
 	const [deleting, setDeleting] = useState(false);
 	const title = file.title || file.path.split("/").at(-1) || file.path;
 	const deletable = !file.path.startsWith("/me/");
+	const privateProfile = isAboutMemoryFile(file.path);
 	const error = actions.setVisibility.error ?? actions.remove.error;
 	return (
 		<article className="flex flex-col gap-[var(--spacing-5)]">
@@ -64,12 +66,16 @@ function FileBody({ file, onDeleted }: { file: MemoryFileContent; onDeleted: () 
 						when: relativeTime(file.updatedAt, now, i18n.resolvedLanguage ?? i18n.language, t("memory.justNow")),
 					})}
 				</p>
-				<VisibilityControl
-					visibility={file.visibility}
-					disabled={editing}
-					busy={actions.setVisibility.isPending}
-					onChange={(visibility) => actions.setVisibility.mutate({ path: file.path, visibility })}
-				/>
+				{privateProfile ? (
+					<p className="text-caption text-[var(--color-text-tertiary)]">{t("memory.cardPrivate")}</p>
+				) : (
+					<VisibilityControl
+						visibility={file.visibility}
+						disabled={editing}
+						busy={actions.setVisibility.isPending}
+						onChange={(visibility) => actions.setVisibility.mutate({ path: file.path, visibility })}
+					/>
+				)}
 			</header>
 			{editing ? (
 				<MemoryEditor file={file} onDone={() => setEditing(false)} />
@@ -79,7 +85,7 @@ function FileBody({ file, onDeleted }: { file: MemoryFileContent; onDeleted: () 
 				<p className="text-body text-[var(--color-text-tertiary)]">{t("memory.noContent")}</p>
 			)}
 			{file.sources.length ? <FileSources file={file} /> : null}
-			{editing ? null : file.draft ? (
+			{editing ? null : file.draft && !privateProfile ? (
 				<div className="flex gap-[var(--spacing-2)]">
 					<Button
 						variant="primary"

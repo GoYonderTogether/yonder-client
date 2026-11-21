@@ -1,15 +1,24 @@
 /**
- * What the memory tab shows, read from the URL (24 第二节, 11-19 layout): the home (card, recent,
+ * What the memory tab shows, read from the URL (24 第二节, 11-19 layout): the home (private profile entry, recent,
  * all groups), the whole timeline, one group of files, or one file. Kept free of React and data so
  * the frame can read it without loading the memory page.
  */
 export type MemoryView =
 	| { kind: "home" }
 	| { kind: "timeline" }
+	| { kind: "about" }
 	| { kind: "group"; group: string; directory?: string }
 	| { kind: "file"; path: string };
 
+export const ABOUT_PATHS = ["/me/印象.md", "/me/近期.md"] as const;
+export const MEMORY_ABOUT_PATH = "/memory/about";
+
+export function isAboutMemoryFile(path: string): boolean {
+	return ABOUT_PATHS.some((candidate) => candidate === path);
+}
+
 export function readMemoryView(selection: string | null, sub: string | null): MemoryView {
+	if (selection === "about" && !sub) return { kind: "about" };
 	if (selection === "timeline") return { kind: "timeline" };
 	if (selection === "g" && sub) {
 		const [group, ...folders] = sub.split("/");
@@ -21,7 +30,7 @@ export function readMemoryView(selection: string | null, sub: string | null): Me
 
 /**
  * The group a file belongs to: notes, one group per connector folder, summaries, public. The two
- * `/me` files sit on the back of the card and belong to no group.
+ * `/me` private files sit under the AI profile and belong to no group.
  */
 export function fileGroup(path: string): string | null {
 	if (path.startsWith("/notes/")) return "notes";
@@ -41,6 +50,7 @@ export const memoryFileRoute = (path: string) => `/memory/files/${encodeURICompo
 export const memoryFolderRoute = (group: string, directory: string) => memoryGroupRoute(`${group}/${directory}`);
 
 export function memoryFileParent(path: string): string {
+	if (isAboutMemoryFile(path)) return MEMORY_ABOUT_PATH;
 	const group = fileGroup(path);
 	if (!group) return "/memory";
 	const prefix = groupPrefix(group);

@@ -1,14 +1,13 @@
 import type { MemoryEntry, MemoryFileSummary } from "@yonder/protocol";
 import { ListGroup, ListRow } from "@yonder/ui-components";
 import { useMemoryDays, useMemoryFiles } from "@yonder/ui-data";
-import { CalendarRange, FolderOpen, Globe, History, NotebookPen } from "lucide-react";
+import { CalendarRange, FolderOpen, Globe, History, LockKeyhole, NotebookPen } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { dayName, daysAgo, memoryFormat, useMinute } from "./memory-format.ts";
-import { MemoryIdCard } from "./memory-id-card.tsx";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
-import { fileGroup, memoryGroupRoute } from "./memory-view.ts";
+import { fileGroup, MEMORY_ABOUT_PATH, memoryGroupRoute } from "./memory-view.ts";
 
 const RECENT = 5;
 const ORDER = ["notes", "sources", "digests", "public"];
@@ -19,7 +18,7 @@ export interface MemoryGroupSummary {
 	drafts: number;
 }
 
-/** Groups in the order of 24 第五节, connectors by name; the card's two `/me` files are in no group. */
+/** Groups in the order of 24 第五节, connectors by name; the private profile's two `/me` files are in no group. */
 export function summarizeGroups(files: readonly MemoryFileSummary[]): MemoryGroupSummary[] {
 	const groups = new Map<string, MemoryGroupSummary>();
 	for (const file of files) {
@@ -200,12 +199,28 @@ function Tiles() {
 	);
 }
 
-/** Phone and narrow desktop: the card, the latest of the timeline, then every group as a card. */
+function AboutEntry({ selected = false }: { selected?: boolean }) {
+	const { t } = useTranslation();
+	const navigate = useNavigate();
+	return (
+		<ListGroup>
+			<ListRow
+				leading={<LockKeyhole size={18} aria-hidden="true" />}
+				title={t("memory.aboutAiTitle")}
+				selected={selected}
+				chevron
+				onClick={() => navigate(MEMORY_ABOUT_PATH)}
+			/>
+		</ListGroup>
+	);
+}
+
+/** Phone and narrow desktop: the private profile entry, the latest of the timeline, then every group as a card. */
 export function MemoryHome() {
 	const { t } = useTranslation();
 	return (
 		<div className="mx-auto flex w-full max-w-[600px] flex-col gap-[var(--spacing-8)] py-[var(--spacing-2)]">
-			<MemoryIdCard />
+			<AboutEntry />
 			<Section title={t("memory.recentTitle")}>
 				<Recent />
 			</Section>
@@ -217,7 +232,7 @@ export function MemoryHome() {
 }
 
 /**
- * Wide desktop's list column: the card, then 「全部」 as a list whose first row is the timeline,
+ * Wide desktop's list column: the private profile entry, then 「全部」 as a list whose first row is the timeline,
  * so the white page beside it always shows the selected one.
  */
 export function MemoryColumn({ selected }: { selected: string }) {
@@ -227,7 +242,7 @@ export function MemoryColumn({ selected }: { selected: string }) {
 	const { query, groups } = useGroups();
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)] px-[var(--spacing-2)] py-[var(--spacing-2)]">
-			<MemoryIdCard compact />
+			<AboutEntry selected={selected === "about"} />
 			<ListGroup title={t("memory.allTitle")}>
 				<ListRow
 					leading={<History size={18} aria-hidden="true" />}

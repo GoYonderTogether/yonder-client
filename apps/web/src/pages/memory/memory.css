@@ -138,3 +138,54 @@
 		transparent 3px calc(var(--spacing-2) - 1px)
 	);
 }
+
+/* The private profile keeps its reading typography inside the shared Card. */
+.memory-about-document {
+	color: var(--color-text-primary);
+	font-size: var(--text-body);
+	line-height: var(--text-h3--line-height);
+	overflow-wrap: anywhere;
+}
+.memory-about-document .memory-markdown > * + * {
+	margin-block-start: var(--spacing-3);
+}
+.memory-about-document .memory-markdown :is(h1, h2, h3, h4, h5, h6) {
+	font-weight: var(--font-weight-semibold);
+}
+.memory-about-document .memory-markdown h1 {
+	font-size: var(--text-h2);
+	line-height: var(--text-h2--line-height);
+}
+.memory-about-document .memory-markdown :is(h2, h3, h4, h5, h6) {
+	font-size: var(--text-h3);
+}
+.memory-about-document .memory-markdown :is(ul, ol) {
+	padding-inline-start: var(--spacing-5);
+}
+.memory-about-document .memory-markdown ul {
+	list-style: disc;
+}
+.memory-about-document .memory-markdown ol {
+	list-style: decimal;
+}
+.memory-about-document .memory-markdown :is(a, .memory-markdown-link) {
+	color: var(--color-accent-text);
+	text-decoration: underline;
+}
+.memory-about-document .memory-markdown blockquote {
+	padding-inline-start: var(--spacing-3);
+	border-inline-start: var(--spacing-hair) solid var(--color-border-default);
+	color: var(--color-text-secondary);
+}
+.memory-about-document .memory-markdown :is(pre, table) {
+	max-width: 100%;
+	overflow-x: auto;
+}
+.memory-about-document .memory-markdown table {
+	display: block;
+}
+.memory-about-document .memory-markdown :is(th, td) {
+	padding: var(--spacing-1) var(--spacing-2);
+	border: calc(var(--spacing-hair) / 2) solid var(--color-border-default);
+	text-align: start;
+}

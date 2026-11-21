@@ -80,8 +80,7 @@ export function AppRoutes() {
 												<Route path="/contacts/add" element={<ContactWindowPage />} />
 												<Route path="/today/*" element={<Navigate to="/messages" replace />} />
 												<Route path="/me/memory/*" element={<Navigate to="/memory" replace />} />
-												{/* The old 了解 and 文件 sections are the memory home now. */}
-												<Route path="/memory/about" element={<Navigate to="/memory" replace />} />
+												{/* The unscoped former files entry opens the memory home. */}
 												<Route path="/memory/files" element={<Navigate to="/memory" replace />} />
 												{/* The old chat path, from links written before the frame changed. */}
 												<Route path="/chat/*" element={<Navigate to="/messages/main" replace />} />
