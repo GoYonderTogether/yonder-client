@@ -95,15 +95,17 @@ describe("Overlay", () => {
 	});
 });
 
-test("keyboard focus wraps within the modal", () => {
+test("footer stays outside the modal's scroll body and participates in its focus loop", () => {
 	render(
-		<Overlay open onClose={() => {}} title="Create" mode="wide">
+		<Overlay open onClose={() => {}} title="Create" mode="wide" footer={<button type="button">Create</button>}>
 			<input aria-label="Name" />
-			<button type="button">Create</button>
 		</Overlay>,
 	);
 	const first = screen.getAllByRole("button", { name: "close" })[1] as HTMLElement;
 	const last = screen.getByRole("button", { name: "Create" });
+	const body = screen.getByRole("textbox", { name: "Name" }).closest("[data-overlay-body]");
+	const footer = last.closest("[data-overlay-footer]");
+	expect(body?.nextElementSibling).toBe(footer);
 	last.focus();
 	fireEvent.keyDown(last, { key: "Tab" });
 	expect(first).toHaveFocus();
