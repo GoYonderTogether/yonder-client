@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112101] - 2026-11-21
+
+### Fixed
+
+- chat：keep legacy connector requests from breaking chat
+
 ## [0.3.26112002] - 2026-11-20
 
 ### Fixed
