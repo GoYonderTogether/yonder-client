@@ -100,6 +100,10 @@ export function accountEndpoints(client: ApiClient) {
 			return client.request(`/v1/devices/${encodeURIComponent(deviceId)}`, { method: "PATCH", body });
 		},
 
+		signOutDevice(deviceId: string): Promise<{ ok: true; signedOutCurrent: boolean }> {
+			return client.request(`/v1/devices/${encodeURIComponent(deviceId)}`, { method: "DELETE" });
+		},
+
 		registerDevice(body: DeviceInfo & { installationId: string }): Promise<{ ok: true }> {
 			return client.request("/v1/devices/register", { body });
 		},

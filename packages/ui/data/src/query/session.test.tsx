@@ -13,6 +13,7 @@ test("a shell sign-in keeps both tokens while removing the previous account's ca
 	storage.set("locale", "zh-CN");
 	storage.set("installation-id", "same-installation");
 	const refreshTokenStorage = { get: () => null, set: vi.fn() };
+	const onSessionChange = vi.fn();
 	const wrapper = ({ children }: { children: ReactNode }) => (
 		<StrictMode>
 			<DataProvider
@@ -21,6 +22,7 @@ test("a shell sign-in keeps both tokens while removing the previous account's ca
 				clientKind="shell"
 				storage={storage}
 				refreshTokenStorage={refreshTokenStorage}
+				onSessionChange={onSessionChange}
 			>
 				{children}
 			</DataProvider>
@@ -47,7 +49,11 @@ test("a shell sign-in keeps both tokens while removing the previous account's ca
 	await act(() => vi.advanceTimersByTimeAsync(1000));
 	expect(storage.get("yonder.query-cache")).toBeNull();
 	result.result.current.query.setQueryData(keys.me(), { name: "new" });
-	await act(() => result.result.current.signOutLocal());
+	onSessionChange.mockClear();
+	await act(async () => {
+		await Promise.all([result.result.current.signOutLocal(), result.result.current.signOutLocal()]);
+	});
+	expect(onSessionChange).toHaveBeenCalledOnce();
 	result.unmount();
 	await act(() => vi.advanceTimersByTimeAsync(1000));
 	expect(storage.get("yonder.query-cache")).toBeNull();

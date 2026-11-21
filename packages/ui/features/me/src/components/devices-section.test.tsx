@@ -70,12 +70,46 @@ test.each(["zh-CN", "en"] as const)(
 		expect(screen.getAllByRole("listitem")).toHaveLength(2);
 		expect(screen.getAllByText("Windows PC")).toHaveLength(2);
 		expect(screen.getByText(locale === "en" ? "This device" : "这台设备")).toBeVisible();
-		expect(screen.getByText(locale === "en" ? "Windows · Online" : "Windows · 在线", { exact: false })).toBeVisible();
-		expect(screen.getByText(locale === "en" ? "Windows · Offline" : "Windows · 离线", { exact: false })).toBeVisible();
+		expect(screen.getByText(locale === "en" ? "Online" : "在线")).toBeVisible();
+		expect(screen.getByText(locale === "en" ? "Offline" : "离线")).toBeVisible();
 		expect(screen.queryByRole("switch")).toBeNull();
 		expect(screen.getAllByRole("button", { name: /edit remark|编辑.+的备注/i })).toHaveLength(2);
+		for (const row of screen.getAllByRole("listitem")) {
+			const [, signOut] = within(row).getAllByRole("button");
+			expect(signOut).toHaveAccessibleName(locale === "en" ? "Sign out Windows PC" : "下线 Windows PC");
+		}
 	},
 );
+
+test("groups devices by platform with the web card last and the current device first within its card", () => {
+	const previous = state.items;
+	const [current, other] = previous;
+	if (!current || !other) throw new Error("missing test devices");
+	state.items = [
+		{ ...other, id: "dev_web", name: "Browser", platform: "web" },
+		{ ...other, name: "Other PC" },
+		{ ...other, id: "dev_mini", name: "WeChat", platform: "miniprogram" },
+		current,
+	];
+	try {
+		render(
+			<I18nextProvider i18n={createI18n("en")}>
+				<DevicesSection />
+			</I18nextProvider>,
+		);
+		expect(screen.getAllByRole("heading").map((item) => item.textContent)).toEqual([
+			"Windows",
+			"WeChat Mini Program",
+			"Web",
+		]);
+		const lists = screen.getAllByRole("list");
+		expect(lists[0]).toHaveTextContent(/Windows PC.*Other PC/);
+		expect(lists[2]).toHaveTextContent("Browser");
+		expect(lists[2]).not.toHaveTextContent("Other PC");
+	} finally {
+		state.items = previous;
+	}
+});
 
 test("the security list links to devices and signs out only the selected session", () => {
 	const open = vi.fn();

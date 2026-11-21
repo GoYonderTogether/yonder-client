@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SessionSummary } from "@yonder/api-client";
 import type { DeviceInfo, DeviceListResponse, UpdateDeviceRemarkRequest } from "@yonder/protocol";
 import { useSessionStore } from "../auth/session-store.ts";
 import { keys } from "../query/keys.ts";
-import { useApi } from "../query/provider.tsx";
+import { useApi, useData } from "../query/provider.tsx";
 
 /** Bind restored sessions to this installation too, without requiring another sign-in. */
 export function useDeviceRegistration(device: (DeviceInfo & { installationId: string }) | null) {
@@ -46,6 +47,25 @@ export function useUpdateDeviceRemark() {
 					: undefined,
 			);
 			void queryClient.invalidateQueries({ queryKey: keys.devices() });
+		},
+	});
+}
+
+export function useSignOutDevice() {
+	const { api, signOutLocal } = useData();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (deviceId: string) => api.signOutDevice(deviceId),
+		onSuccess: ({ signedOutCurrent }, deviceId) => {
+			if (signedOutCurrent) return signOutLocal();
+			queryClient.setQueryData<DeviceListResponse>(keys.devices(), (devices) =>
+				devices ? { items: devices.items.filter((device) => device.id !== deviceId) } : undefined,
+			);
+			queryClient.setQueryData<{ items: SessionSummary[] }>(keys.sessions(), (sessions) =>
+				sessions ? { items: sessions.items.filter((session) => session.deviceId !== deviceId) } : undefined,
+			);
+			void queryClient.invalidateQueries({ queryKey: keys.devices() });
+			void queryClient.invalidateQueries({ queryKey: keys.sessions() });
 		},
 	});
 }

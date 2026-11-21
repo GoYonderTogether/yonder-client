@@ -19,6 +19,61 @@ const iphone: DeviceSummary = {
 	current: false,
 	status: "offline",
 };
+const browser: DeviceSummary = { ...iphone, id: "dev_web", name: "Chrome", platform: "web" };
+
+test("device cards keep web separate and sign-out requires confirmation for remote and current devices", async ({
+	page,
+}, info) => {
+	await page.setViewportSize({ width: 1280, height: 844 });
+	await page.emulateMedia({ reducedMotion: "reduce" });
+	await isolateChat(page);
+	let items = [browser, mac, iphone];
+	const requests: string[] = [];
+	await page.route("**/v1/devices", (route) => route.fulfill({ json: { items } }));
+	await page.route(/\/v1\/devices\/dev_(mac|iphone)$/, async (route) => {
+		expect(route.request().method()).toBe("DELETE");
+		const id = new URL(route.request().url()).pathname.split("/").at(-1) ?? "";
+		requests.push(id);
+		if (requests.length === 1) {
+			await route.fulfill({ status: 503, json: { error: { code: "unavailable", message: "Unavailable" } } });
+			return;
+		}
+		items = items.filter((device) => device.id !== id);
+		await route.fulfill({ json: { ok: true, signedOutCurrent: id === mac.id } });
+	});
+	await page.goto("/me/devices");
+	await expect(page.getByRole("heading", { level: 2 })).toHaveText(["macOS", "iOS", "网页"]);
+	await page.screenshot({ path: info.outputPath("device-groups.png"), animations: "disabled" });
+	const signOut = (name: string) => page.getByRole("button", { name: `下线 ${name}`, exact: true });
+	const dialog = page.getByRole("dialog", { name: "下线设备", exact: true });
+	const confirm = dialog.getByRole("button", { name: "下线", exact: true });
+	await expect(
+		page
+			.getByRole("listitem")
+			.filter({ has: signOut(iphone.name) })
+			.getByRole("button")
+			.nth(1),
+	).toHaveAccessibleName(`下线 ${iphone.name}`);
+	await signOut(iphone.name).click();
+	await expect(dialog.getByText(`“${iphone.name}”上的所有登录会话都会退出，再次使用时需要重新登录。`)).toBeVisible();
+	await page.screenshot({ path: info.outputPath("device-sign-out-confirm.png"), animations: "disabled" });
+	await dialog.getByRole("button", { name: "取消", exact: true }).click();
+	await expect(dialog).toHaveCount(0);
+	expect(requests).toEqual([]);
+	await signOut(iphone.name).click();
+	await confirm.click();
+	await expect(dialog.getByRole("alert")).toHaveText("设备下线失败，请重试。");
+	await confirm.click();
+	await expect(dialog).toHaveCount(0);
+	await expect(signOut(iphone.name)).toHaveCount(0);
+	await expect(signOut(browser.name)).toBeVisible();
+	await expect(page).toHaveURL(/\/me\/devices$/);
+	await signOut(mac.name).click();
+	await expect(dialog.getByText(`“${mac.name}”上的所有登录会话都会退出，你将返回登录页。`)).toBeVisible();
+	await confirm.click();
+	await expect(page).toHaveURL(/\/sign-in(?:\?|$)/);
+	expect(requests).toEqual([iphone.id, iphone.id, mac.id]);
+});
 
 for (const width of [1280, 390]) {
 	test(`device remarks can be saved, reloaded and cleared at ${width}px`, async ({ page }, info) => {
@@ -27,7 +82,9 @@ for (const width of [1280, 390]) {
 		await isolateChat(page);
 		let remark: string | null = null;
 		const submitted: UpdateDeviceRemarkRequest[] = [];
-		await page.route("**/v1/devices", (route) => route.fulfill({ json: { items: [mac, { ...iphone, remark }] } }));
+		await page.route("**/v1/devices", (route) =>
+			route.fulfill({ json: { items: [mac, { ...iphone, remark }, browser] } }),
+		);
 		await page.route("**/v1/devices/dev_iphone", async (route) => {
 			expect(route.request().method()).toBe("PATCH");
 			const body: UpdateDeviceRemarkRequest = route.request().postDataJSON();
@@ -61,7 +118,7 @@ for (const width of [1280, 390]) {
 		await expect(editor).toHaveCount(0);
 		const renamed = page.getByRole("listitem").filter({ has: edit("随身手机") });
 		await expect(renamed.getByText("随身手机", { exact: true })).toBeVisible();
-		await expect(renamed.getByText("iPhone 17 · iOS · 离线", { exact: true })).toBeVisible();
+		await expect(renamed.getByText("iPhone 17 · 离线", { exact: true })).toBeVisible();
 		await page.screenshot({ path: info.outputPath("device-remark-saved.png"), animations: "disabled" });
 
 		await page.reload();
