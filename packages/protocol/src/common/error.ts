@@ -45,6 +45,7 @@ export const ERROR_CODES = [
 	"upstream_unavailable",
 	"tools_quota_exhausted",
 	"social_library_too_long",
+	"social_folder_cycle",
 	/** A memory file over its length limit; `details` carries `length`, `limit` and `unit` (23 7.5). */
 	"memory_too_long",
 	/** A memory write that looked like a password, credential or verification code (23 第九节). */

@@ -1,5 +1,12 @@
 import type { MeSectionPageProps } from "@yonder/feature-me";
-import { ChannelsSection, FeishuExternalConversations, isMeSection, MeSectionPage } from "@yonder/feature-me";
+import {
+	ChannelSettings,
+	ChannelsSection,
+	FeishuExternalConversations,
+	isMeSection,
+	isMessageChannel,
+	MeSectionPage,
+} from "@yonder/feature-me";
 import { BotForm, BotList, BotSettingsOverview, PrivacySwitches } from "@yonder/feature-members";
 import { Button } from "@yonder/ui-components";
 import { useBot, useContacts, usePerson } from "@yonder/ui-data";
@@ -69,10 +76,25 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 	}
 	if (section === "channels") {
 		const botId = new URLSearchParams(location.search).get("bot") ?? undefined;
-		if (page === "external" && !leaf && botId) {
+		const state = location.state as PageNavigationState | null;
+		if (botId && !extra && ((page === "external" && !leaf) || (page === "feishu" && leaf === "external"))) {
 			return (
 				<SettingsPage title={t("channels.externalConversations")}>
 					<FeishuExternalConversations botId={botId} />
+				</SettingsPage>
+			);
+		}
+		if (botId && isMessageChannel(page) && !leaf) {
+			return (
+				<SettingsPage title={t(`channels.${page}`)}>
+					<ChannelSettings
+						key={`${botId}:${page}`}
+						botId={botId}
+						provider={page}
+						{...(page === "feishu" && {
+							onOpenExternal: () => props.onOpen(channelsSettingsPath(botId, "external"), state ?? undefined),
+						})}
+					/>
 				</SettingsPage>
 			);
 		}
@@ -82,10 +104,10 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 			<SettingsPage title={t("channels.title")}>
 				<ChannelsSection
 					selectedBotId={botId}
-					onSelectBot={(botId) => navigate(channelsSettingsPath(botId), { replace: true, state: location.state })}
-					onOpenExternal={(botId) =>
-						props.onOpen(channelsSettingsPath(botId, "external"), {
-							...(location.state as PageNavigationState | null),
+					onSelectBot={(botId) => navigate(channelsSettingsPath(botId), { replace: true, state })}
+					onOpenChannel={(botId, channel) =>
+						props.onOpen(channelsSettingsPath(botId, channel), {
+							...state,
 							channelParentPath: `${location.pathname}${location.search}`,
 						})
 					}

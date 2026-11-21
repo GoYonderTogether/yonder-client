@@ -3,7 +3,13 @@
  * section as a page. Sections whose features come later show honest empty states.
  */
 
-export { ChannelsSection, FeishuAttemptCard, FeishuChannel } from "./channels/feishu-channel.tsx";
+export {
+	ChannelDirectory,
+	ChannelsSection,
+	isMessageChannel,
+	type MessageChannel,
+} from "./channels/channel-directory.tsx";
+export { ChannelSettings, FeishuAttemptCard } from "./channels/feishu-channel.tsx";
 export { FeishuExternalConversations } from "./channels/feishu-external.tsx";
 export { AboutSection } from "./components/about-section.tsx";
 export { AccountSection } from "./components/account-section.tsx";

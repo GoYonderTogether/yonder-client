@@ -1,4 +1,4 @@
-import { FeishuChannel, FeishuExternalConversations } from "@yonder/feature-me";
+import { ChannelDirectory, ChannelSettings, FeishuExternalConversations, isMessageChannel } from "@yonder/feature-me";
 import { BotForm, BotSettingsOverview } from "@yonder/feature-members";
 import type { Member } from "@yonder/protocol";
 import { ListGroup, ListRow } from "@yonder/ui-components";
@@ -13,13 +13,17 @@ export const CHAT_BOT_PAGE_TITLE = {
 	profile: "bots.basicProfile",
 	persona: "members.social.personaTitle",
 	channels: "channels.title",
+	feishu: "channels.feishu",
+	wechat: "channels.wechat",
+	qq: "channels.qq",
 	external: "channels.externalConversations",
 } as const;
 
 export type ChatBotPage = keyof typeof CHAT_BOT_PAGE_TITLE;
 
 export function chatBotPageStack(page: ChatBotPage | undefined): ChatBotPage[] {
-	if (page === "external") return ["channels", "external"];
+	if (page === "external") return ["channels", "feishu", "external"];
+	if (isMessageChannel(page)) return ["channels", page];
 	return page ? [page] : [];
 }
 
@@ -44,14 +48,7 @@ export function ChatBotSettings({
 		side.push({
 			key,
 			title: t(CHAT_BOT_PAGE_TITLE[page]),
-			content: (
-				<ChatBotSettingsChild
-					bot={bot}
-					page={page}
-					back={() => side.back(key)}
-					onOpenExternal={() => open("external")}
-				/>
-			),
+			content: <ChatBotSettingsChild bot={bot} page={page} back={() => side.back(key)} onOpenPage={open} />,
 		});
 	}
 	return (
@@ -148,13 +145,13 @@ export function ChatBotSettingsChild({
 	page,
 	back,
 	onDirtyChange,
-	onOpenExternal,
+	onOpenPage,
 }: {
 	bot: Member;
 	page: ChatBotPage;
 	back: () => void;
 	onDirtyChange?: ((dirty: boolean) => void) | undefined;
-	onOpenExternal: () => void;
+	onOpenPage: (page: ChatBotPage) => void;
 }) {
 	const { t } = useTranslation();
 	return <ChatSettingsBody>{body()}</ChatSettingsBody>;
@@ -173,7 +170,12 @@ export function ChatBotSettingsChild({
 					</>
 				);
 			case "channels":
-				return <FeishuChannel botId={bot.id} onOpenExternal={onOpenExternal} />;
+				return <ChannelDirectory botId={bot.id} onOpenChannel={onOpenPage} />;
+			case "feishu":
+				return <ChannelSettings botId={bot.id} provider={page} onOpenExternal={() => onOpenPage("external")} />;
+			case "wechat":
+			case "qq":
+				return <ChannelSettings botId={bot.id} provider={page} />;
 			case "external":
 				return <FeishuExternalConversations botId={bot.id} />;
 		}

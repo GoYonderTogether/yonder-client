@@ -241,6 +241,7 @@ export function AppFrame() {
 		const parent = settingsPagePaths(live.detail, state?.channelOriginBotId).at(-2);
 		if (parent === "/me/channels")
 			return navigation.back(state?.channelParentPath ?? `${parent}${location.search}`, state ?? undefined);
+		if (parent?.startsWith("/me/channels/")) return navigation.back(`${parent}${location.search}`, state ?? undefined);
 		if (parent) return navigation.back(parent);
 		if (live.detail.length && !splitMe) return navigation.back("/me");
 		return navigation.back(tabLocation);
