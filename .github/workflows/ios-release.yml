@@ -115,8 +115,13 @@ jobs:
 
       # 根 workspace 提供 apps/web 的构建；apps/desktop 单独装它自己的 Tauri CLI。
       - name: 安装依赖
+        env:
+          TESTFLIGHT_INTERNAL: ${{ inputs.testflight_internal }}
         run: |
           npm ci
+          if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
+            npm pkg set "version=$VERSION" --workspace @yonder/web
+          fi
           npm run build
           cd apps/desktop && npm install
 
