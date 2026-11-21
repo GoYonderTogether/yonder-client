@@ -71,47 +71,26 @@ for (const native of [false, true]) {
 		await expect(header).toHaveCSS("position", "absolute");
 		await expect(page.locator("[data-mobile-dock]")).toHaveCSS("position", native ? "absolute" : "relative");
 		const avatarButton = header.getByRole("button", { name: "Bot 设置" });
-		const gear = header.getByRole("button", { name: "设置", exact: true });
+		const account = header.getByRole("button", { name: "我", exact: true });
 		const name = header.locator("[data-chat-agent-name]");
 		const caption = name.getByText(bot.displayName);
 		await expect(avatarButton).toBeVisible();
-		await expect(gear).toBeVisible();
+		await expect(account).toBeVisible();
 		await expect(caption).toHaveCSS("white-space", "nowrap");
-		const [headerBox, avatarBox, gearBox, captionBox] = await Promise.all([
+		const [headerBox, avatarBox, accountBox, captionBox] = await Promise.all([
 			header.boundingBox(),
 			avatarButton.boundingBox(),
-			gear.boundingBox(),
+			account.boundingBox(),
 			caption.boundingBox(),
 		]);
-		if (!headerBox || !avatarBox || !gearBox || !captionBox)
+		if (!headerBox || !avatarBox || !accountBox || !captionBox)
 			throw new Error("Expected a measured header and its controls");
 		expect(headerBox.height).toBeLessThan(safeTop + 104);
 		expect(avatarBox.y - headerBox.y).toBeCloseTo(native ? safeTop : 4, 0);
-		expect(gearBox.y - headerBox.y).toBeCloseTo(native ? safeTop : 4, 0);
+		expect(accountBox.y - headerBox.y).toBeCloseTo(native ? safeTop : 4, 0);
 		expect(avatarBox.width).toBeCloseTo(avatarBox.height, 0);
-		expect(gearBox.width).toBeCloseTo(gearBox.height, 0);
-		const gearStyle = await gear.evaluate((element) => {
-			const style = getComputedStyle(element);
-			const canvas = document.createElement("canvas");
-			canvas.width = canvas.height = 1;
-			const context = canvas.getContext("2d");
-			if (!context) throw new Error("Canvas unavailable");
-			context.fillStyle = style.backgroundColor;
-			context.fillRect(0, 0, 1, 1);
-			return {
-				radius: style.borderTopLeftRadius,
-				border: Number.parseFloat(style.borderTopWidth),
-				alpha: context.getImageData(0, 0, 1, 1).data[3],
-				blur: style.backdropFilter,
-			};
-		});
-		expect(gearStyle.border).toBeGreaterThan(0);
-		expect(Number.parseFloat(gearStyle.radius)).toBeGreaterThanOrEqual(
-			gearStyle.radius.endsWith("%") ? 50 : gearBox.width / 2,
-		);
-		expect(gearStyle.alpha).toBeGreaterThan(0);
-		expect(gearStyle.alpha).toBeLessThan(255);
-		expect(gearStyle.blur).toContain("blur(");
+		// The account avatar is the same control as on the other tab roots, not a glass chip.
+		expect(accountBox.width).toBeGreaterThanOrEqual(accountBox.height - 1);
 		const localBackdrop = await Promise.all(
 			[avatarButton, name].map((locator) =>
 				locator.evaluate((element) => {
@@ -177,7 +156,7 @@ for (const native of [false, true]) {
 		expect(under.bottom).toBeGreaterThan(avatarBox.y);
 		expect(under.hit).toBe(true);
 		await page.screenshot({ path: info.outputPath(`${shot}-scrolled.png`), animations: "disabled" });
-		await gear.click({ trial: true });
+		await account.click({ trial: true });
 		await avatarButton.click({ trial: true });
 		await scroll.evaluate((element) => {
 			element.scrollTop = element.scrollHeight;

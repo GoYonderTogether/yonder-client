@@ -1,6 +1,7 @@
 import { cn, UnreadBadge } from "@yonder/ui-components";
 import type { ReactNode } from "react";
 import { useId } from "react";
+import { shellHaptic } from "../navigation/feedback.ts";
 import type { TabId } from "../navigation/routes.ts";
 import { TABS } from "../navigation/routes.ts";
 import { TAB_ICONS } from "./tab-icons.tsx";
@@ -85,18 +86,22 @@ export function MobileDock({
 								>
 									<button
 										type="button"
-										onClick={onSelect}
+										data-pressable
+										onClick={() => {
+											if (!active) shellHaptic("selection");
+											onSelect();
+										}}
 										aria-label={label}
 										aria-describedby={unread ? badgeId : undefined}
 										aria-current={active ? "page" : undefined}
 										className={cn(
-											"flex size-full flex-col items-center justify-center gap-[3px]",
+											"flex size-full touch-manipulation select-none flex-col items-center justify-center gap-[3px]",
 											"text-[10px] font-medium leading-3 transition-colors duration-[var(--duration-fast)]",
 											"focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
 											active ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-tertiary)]",
 										)}
 									>
-										<span className="relative">
+										<span data-press-target className="relative">
 											{icon}
 											{unread ? (
 												<UnreadBadge

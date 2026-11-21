@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { setShellHaptics } from "../navigation/feedback.ts";
 import type { AppShellProps } from "./app-shell.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { ListFrame, PageFrame } from "./frames.tsx";
 
 afterEach(() => {
+	setShellHaptics(null);
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 });
@@ -170,4 +172,58 @@ test("phone layout omits the desktop settings shortcut", () => {
 	viewport(390);
 	render(<AppShell {...props} />);
 	expect(screen.queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+});
+
+const mainBot = (onSelect = () => {}) => ({
+	...props,
+	tab: { ...props.tab, mobileBot: { label: "Yonder", active: true, icon: null, onSelect } },
+	list: null,
+	detailOpen: true,
+	locationKey: "/messages/main",
+});
+
+test("the main Bot is a tab root: the account avatar on the left, the tab bar below, no back", () => {
+	viewport(390);
+	const open = vi.fn();
+	render(<AppShell {...mainBot()} onOpenMe={open} />);
+	expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+	expect(screen.queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Me" }));
+	expect(open).toHaveBeenCalledTimes(1);
+	expect(screen.getByRole("button", { name: "Yonder" })).toHaveAttribute("aria-current", "page");
+});
+
+test("switching tabs plays one selection haptic; tapping the open tab plays none", () => {
+	viewport(390);
+	const played = vi.fn();
+	setShellHaptics(played);
+	const select = vi.fn();
+	render(<AppShell {...mainBot()} tab={{ ...mainBot().tab, onSelect: select }} />);
+	fireEvent.click(screen.getByRole("button", { name: "Yonder" }));
+	expect(played).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Tasks" }));
+	expect(played).toHaveBeenCalledExactlyOnceWith("selection");
+	expect(select).toHaveBeenCalledWith("tasks");
+});
+
+test("the tab bar steps aside while the keyboard is up and the composer stays", () => {
+	viewport(390);
+	const visual = Object.assign(new EventTarget(), { height: window.innerHeight, offsetTop: 0 });
+	vi.stubGlobal("visualViewport", visual);
+	document.documentElement.dataset.nativeMobile = "true";
+	try {
+		render(<AppShell {...mainBot()} />);
+		expect(screen.getByRole("navigation", { name: "Tabs" })).toBeInTheDocument();
+		act(() => {
+			window.dispatchEvent(new CustomEvent("yonder-keyboard", { detail: { height: 320, duration: 250 } }));
+		});
+		expect(screen.queryByRole("navigation", { name: "Tabs" })).not.toBeInTheDocument();
+		expect(screen.getByRole("textbox", { name: "Message" })).toBeInTheDocument();
+		act(() => {
+			window.dispatchEvent(new CustomEvent("yonder-keyboard", { detail: { height: 0, duration: 250 } }));
+		});
+		expect(screen.getByRole("navigation", { name: "Tabs" })).toBeInTheDocument();
+	} finally {
+		delete document.documentElement.dataset.nativeMobile;
+	}
 });

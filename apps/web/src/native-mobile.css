@@ -78,7 +78,7 @@ html[data-native-mobile="true"] [data-floating-frame-header]::before {
 	pointer-events: auto;
 }
 
-:is([data-floating-frame-leading], [data-floating-frame-trailing]) > button {
+:is([data-floating-frame-leading], [data-floating-frame-trailing]) > button:not([data-account-avatar]) {
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius-full);
 	background-color: color-mix(in srgb, var(--color-bg-base) 50%, transparent);
@@ -167,4 +167,43 @@ html[data-native-mobile="true"] [data-native-sheet] {
 
 html[data-native-mobile="true"] [role="dialog"] [data-frame-header] {
 	padding-inline: max(var(--spacing-5), var(--safe-area-left)) max(var(--spacing-5), var(--safe-area-right));
+}
+
+/*
+ * Touch answers at finger-down, the way system controls darken before release: no grey tap flash,
+ * no double-tap zoom wait, and the tab icon dips while pressed.
+ */
+/* Zero specificity: a control that sets its own touch-action (hold to talk) keeps it. */
+:where([data-layout-mode="mobile"] :is(button, a, [role="button"], label)) {
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+
+[data-pressable] [data-press-target] {
+	transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+[data-pressable]:active [data-press-target] {
+	transform: scale(0.88);
+}
+
+[data-pressable]:active {
+	color: var(--color-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-pressable]:active [data-press-target] {
+		transform: none;
+	}
+}
+
+/* The app frame resizes in the keyboard's own animation, announced by the iOS host as it starts. */
+html[data-native-mobile="true"] [data-layout-mode="mobile"] {
+	transition: height var(--keyboard-duration, 0ms) var(--ease-keyboard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html[data-native-mobile="true"] [data-layout-mode="mobile"] {
+		transition: none;
+	}
 }

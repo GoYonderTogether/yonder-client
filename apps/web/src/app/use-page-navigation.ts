@@ -44,6 +44,22 @@ export function usePageNavigation(tabLocation: string) {
 			live.current = { pathname: target.split(/[?#]/)[0] ?? target, state };
 			navigate(target, { state });
 		},
+		/** A sibling at the same level, such as another phone tab root: it takes this entry's place. */
+		replace: (target: string) => {
+			const state = { tabLocation };
+			live.current = { pathname: target.split(/[?#]/)[0] ?? target, state };
+			navigate(target, { replace: true, state });
+		},
+		/** Whether an earlier entry of this session's history is on `pathname`, ignoring its query. */
+		visited: (pathname: string) => {
+			const stack = history.current;
+			return stack.entries.slice(0, stack.index).some((entry) => entry.path.split(/[?#]/)[0] === pathname);
+		},
+		/** The entry this one was opened from, when it was visited in this session. */
+		previous: () => {
+			const stack = history.current;
+			return stack.entries[stack.index - 1]?.path ?? null;
+		},
 		back: (parent: string, context?: Omit<PageNavigationState, "tabLocation">) => {
 			const stack = history.current;
 			const index = stack.entries.slice(0, stack.index).findLastIndex((entry) => entry.path === parent);

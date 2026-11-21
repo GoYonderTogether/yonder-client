@@ -1,5 +1,5 @@
 import { cn, IconButton } from "@yonder/ui-components";
-import { ChevronLeft, Settings, X } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import { AnimatePresence, useIsPresent } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -9,6 +9,7 @@ import { useDismiss } from "../navigation/use-dismiss.ts";
 import { OverlayBackdrop } from "../overlay/overlay-backdrop.tsx";
 import type { LayoutMode } from "../responsive/layout-mode.ts";
 import { LIST_PANE_MIN } from "../responsive/layout-mode.ts";
+import { useKeyboardDismiss } from "../responsive/use-keyboard-dismiss.ts";
 import { useLayoutMode } from "../responsive/use-layout-mode.ts";
 import { useVisualViewport } from "../responsive/use-visual-viewport.ts";
 import type { MobileDockProps } from "./mobile-dock.tsx";
@@ -108,7 +109,8 @@ export function AppShell({
 	const desktopSettingsOpen = desktop && meOpen && Boolean(me);
 	const overDock =
 		!meOpen && !sideOpen && (phone || (Boolean(composer) && (wide ? !pane.collapsed : detailOpen || !list)));
-	useVisualViewport(container, phone);
+	const keyboard = useVisualViewport(container, phone);
+	useKeyboardDismiss(container, keyboard);
 	useEffect(() => onModeChange?.(mode), [mode, onModeChange]);
 	useEffect(() => {
 		if (desktopSettingsOpen) return;
@@ -121,40 +123,38 @@ export function AppShell({
 		</IconButton>
 	);
 	const toggleMe = meOpen && me ? me.onClose : onOpenMe;
-	const avatar = (
+	/** Every phone tab root, the main Bot included, opens 「我」 from the same top-left avatar. */
+	const avatar = (withName: boolean) => (
 		<button
 			type="button"
+			data-account-avatar
 			aria-label={meLabel}
+			aria-expanded={withName ? undefined : meOpen}
 			onClick={toggleMe}
 			className="flex min-h-11 min-w-11 items-center gap-[var(--spacing-2)] rounded-[var(--radius-sm)] text-[var(--color-text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 		>
 			<span className="shrink-0">{renderAvatar(28)}</span>
-			{tab.current === "messages" ? <span className="truncate text-body font-semibold">{personName}</span> : null}
+			{withName ? <span className="truncate text-body font-semibold">{personName}</span> : null}
 		</button>
 	);
 	const listChrome = {
 		mode,
 		desktop,
-		left: phone ? avatar : null,
+		left: phone ? avatar(tab.current === "messages") : null,
 		meOpen: false,
 		scroll: { key: tab.current, positions: scrollPositions },
 	};
 	const contentChrome = {
 		mode,
 		desktop,
-		left: mainBotOpen ? (
-			<IconButton aria-label={settingsLabel} aria-expanded={meOpen} size="sm" onClick={toggleMe}>
-				<Settings size={20} strokeWidth={1.7} aria-hidden="true" />
-			</IconButton>
-		) : !wide ? (
-			backButton
-		) : null,
+		left: mainBotOpen ? avatar(false) : !wide ? backButton : null,
 		meOpen: false,
 	};
 	return (
 		<div
 			ref={container}
 			data-layout-mode={mode}
+			data-keyboard={keyboard || undefined}
 			className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden"
 			style={{ top: "var(--app-offset-top, 0px)" }}
 		>
@@ -206,7 +206,7 @@ export function AppShell({
 									label={labels.resizeList}
 								/>
 							) : null}
-							{phone && !covering && !meOpen && !sideOpen ? (
+							{phone && !covering && !meOpen && !sideOpen && !keyboard ? (
 								<MobileDock
 									composer={null}
 									onHeightChange={setDockHeight}
@@ -250,7 +250,7 @@ export function AppShell({
 								<MobileDock
 									composer={composer}
 									onHeightChange={setDockHeight}
-									showTabs={mainBotOpen}
+									showTabs={mainBotOpen && !keyboard}
 									current={tab.current}
 									onSelect={tab.onSelect}
 									labels={tab.labels}

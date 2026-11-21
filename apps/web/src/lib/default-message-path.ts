@@ -1,7 +1,6 @@
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
-import { isTauri } from "./keychain.ts";
-import { isDesktopExperience } from "./platform.ts";
 
+/** Every device opens on the main Bot; on a phone it is the first tab. */
 export function defaultMessagePath() {
-	return isTauri() && !isDesktopExperience() ? "/messages" : `/messages/${MAIN_CONVERSATION}`;
+	return `/messages/${MAIN_CONVERSATION}`;
 }

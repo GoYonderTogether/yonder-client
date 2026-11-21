@@ -21,6 +21,8 @@ export { SideLayers } from "./layout/side-layers.tsx";
 export type { SidePanelControls } from "./layout/side-panel-context.tsx";
 export { SidePanelProvider, useSidePanel } from "./layout/side-panel-context.tsx";
 export { TopBar } from "./layout/top-bar.tsx";
+export type { ShellHaptic } from "./navigation/feedback.ts";
+export { setShellHaptics, shellHaptic } from "./navigation/feedback.ts";
 export type { GesturePanelProps } from "./navigation/gesture-panel.tsx";
 export { GesturePanel } from "./navigation/gesture-panel.tsx";
 export type { Layer, RouteEntry, TabId, TabSpec } from "./navigation/routes.ts";

@@ -4235,6 +4235,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-haptics"
+version = "2.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4ab6c843ce8255031547e6332c348ad8f2fbcb703f17b52a1a0dfacc5ad0e00"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "tauri-plugin-keyring"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5937,7 +5951,7 @@ dependencies = [
 
 [[package]]
 name = "yonder-desktop"
-version = "0.3.26112001"
+version = "0.3.26112101"
 dependencies = [
  "cc",
  "objc2-app-kit",
@@ -5947,6 +5961,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-clipboard-manager",
+ "tauri-plugin-haptics",
  "tauri-plugin-keyring",
  "tauri-plugin-meeting-recorder",
  "tauri-plugin-notification",

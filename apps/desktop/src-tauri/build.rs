@@ -1,10 +1,12 @@
 fn main() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
         println!("cargo:rerun-if-changed=../apple/DeviceDownload.mm");
+        println!("cargo:rerun-if-changed=../apple/KeyboardFollow.mm");
         cc::Build::new()
             .cpp(true)
             .flag("-fobjc-arc")
             .file("../apple/DeviceDownload.mm")
+            .file("../apple/KeyboardFollow.mm")
             .compile("yonder_apple_device_download");
     }
     if matches!(

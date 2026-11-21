@@ -41,8 +41,10 @@ test("the first phone tab opens the existing primary chat and truncates only the
 	await expect(mainBot).toHaveAttribute("aria-current", "page");
 	await expect(nav.getByRole("button", { name: "消息", exact: true })).not.toHaveAttribute("aria-current", "page");
 	const header = page.locator('[data-page-layer="detail"] [data-floating-frame-header]');
-	await expect(header.getByRole("button", { name: "设置", exact: true })).toBeVisible();
-	await expect(header.getByRole("button", { name: "我", exact: true })).toHaveCount(0);
+	// A tab root: the account avatar on the left, as on every other tab, and no way "back".
+	await expect(header.getByRole("button", { name: "我", exact: true })).toBeVisible();
+	await expect(header.getByRole("button", { name: "设置", exact: true })).toHaveCount(0);
+	await expect(page.getByRole("button", { name: "返回", exact: true })).toHaveCount(0);
 	await nav.getByRole("button", { name: "任务", exact: true }).click();
 	await expect(page).toHaveURL(/\/tasks$/);
 	await expect(mainBot).toBeVisible();

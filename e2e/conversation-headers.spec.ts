@@ -93,11 +93,10 @@ for (const viewport of ["desktop", "phone"] as const) {
 					.toBeCloseTo(0, 2);
 				const header = detail.locator(botHome ? "[data-floating-frame-header]" : "[data-shell-topbar]");
 				const more = header.getByRole("button", { name: "聊天设置", exact: true });
-				const accountSettings = header.getByRole("button", { name: "设置", exact: true });
+				const accountSettings = header.getByRole("button", { name: "我", exact: true });
 				if (botHome) await expect(topbar).toHaveCount(0);
 				if (mobileBotHome) {
 					await expect(accountSettings).toBeInViewport();
-					await expect(accountSettings).toBeEmpty();
 				} else await expect(more).toBeInViewport();
 				const avatars = log.locator("[data-message-sender-avatar]");
 				const senderNames = log.locator("[data-message-sender-name]");

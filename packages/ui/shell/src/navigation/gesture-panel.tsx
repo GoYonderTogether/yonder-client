@@ -3,6 +3,7 @@ import { SPRING } from "@yonder/ui-tokens";
 import { animate, motion, useMotionValue, usePresence, useReducedMotion } from "motion/react";
 import type { PointerEvent, ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { shellHaptic } from "./feedback.ts";
 import { useDismiss } from "./use-dismiss.ts";
 
 export interface GesturePanelProps {
@@ -58,6 +59,7 @@ export function GesturePanel({
 		lastTime: number;
 		velocity: number;
 		dragging: boolean;
+		armed: boolean;
 	} | null>(null);
 	const dragged = useRef(false);
 	const dismiss = useRef(onBack);
@@ -189,6 +191,7 @@ export function GesturePanel({
 					lastTime: performance.now(),
 					velocity: 0,
 					dragging: false,
+					armed: false,
 				};
 			}}
 			onPointerMove={(event) => {
@@ -219,7 +222,13 @@ export function GesturePanel({
 				const bounds = event.currentTarget.getBoundingClientRect();
 				const width = vertical ? bounds.height : bounds.width;
 				const start = vertical ? current.startY : current.startX;
-				x.set(direction * Math.min(width, Math.max(0, direction * (current.offset + point - start))));
+				const offset = Math.min(width, Math.max(0, direction * (current.offset + point - start)));
+				x.set(direction * offset);
+				// One tick when the page would leave on release; drifting back and over again stays quiet.
+				if (!current.armed && offset > width * 0.35) {
+					current.armed = true;
+					shellHaptic("selection");
+				}
 			}}
 			onPointerUp={(event) => finish(event, false)}
 			onPointerCancel={(event) => finish(event, true)}

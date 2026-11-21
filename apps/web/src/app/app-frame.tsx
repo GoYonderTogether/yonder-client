@@ -16,7 +16,7 @@ import {
 import type { LayoutMode, TabId } from "@yonder/ui-shell";
 import { AppShell, locate, MAIN_CONVERSATION, SidePanelProvider, tabPath } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
-import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { listenForContactAdded } from "../lib/contact-window.ts";
@@ -41,6 +41,7 @@ import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
+import { MemoryList, MemoryPage, preloadTabs, TaskPage, TasksList } from "./lazy-tabs.ts";
 import { MessageNotifications } from "./message-notifications.tsx";
 import { settingsPagePaths } from "./settings-navigation.ts";
 import { SettingsRoutePage } from "./settings-pages.tsx";
@@ -52,12 +53,8 @@ import { useMeEntry } from "./use-me-entry.ts";
 import { useMeetingLink } from "./use-meeting-link.ts";
 import { useModelDirtyGuard } from "./use-model-dirty-guard.ts";
 import { type PageNavigationState, usePageNavigation } from "./use-page-navigation.ts";
+import { MAIN_BOT_PATH, usePhoneTabs } from "./use-phone-tabs.ts";
 import { useTaskPreset } from "./use-task-preset.ts";
-
-const MemoryList = lazy(() => import("../pages/memory-page.tsx").then((module) => ({ default: module.MemoryList })));
-const MemoryPage = lazy(() => import("../pages/memory-page.tsx").then((module) => ({ default: module.MemoryPage })));
-const TasksList = lazy(() => import("../pages/tasks-page.tsx").then((module) => ({ default: module.TasksList })));
-const TaskPage = lazy(() => import("../pages/tasks-page.tsx").then((module) => ({ default: module.TaskPage })));
 
 /** Assembles the active list and detail; the shell owns their responsive layout. */
 export function AppFrame() {
@@ -149,6 +146,7 @@ export function AppFrame() {
 		) ?? 0;
 	const mainBot = tab === "messages" && (selection === MAIN_CONVERSATION || selection === primary?.id);
 	const mobileBot = phone && mainBot;
+	const tabs = usePhoneTabs(navigation, phone, mobileBot);
 	const recordingConversation =
 		!taskSelection &&
 		conversation?.kind === "direct" &&
@@ -162,6 +160,7 @@ export function AppFrame() {
 			? conversation
 			: undefined;
 	useMeetingLink();
+	useEffect(() => preloadTabs(phone), [phone]);
 	const layers = useFrameLayers();
 	/** From the chat a member replaces the side panel; from inside it (group info) one stacks on it. */
 	const openMember = useEffectEvent((memberId: string, stacked = false) => {
@@ -234,6 +233,7 @@ export function AppFrame() {
 	const currentBack = () => {
 		const live = locate(navigation.current());
 		const liveMeOpen = live !== null && live.tab === null;
+		if (!liveMeOpen && tabs.backToMainBot()) return;
 		// A memory file goes back to its group; a group and the timeline go back to the memory home.
 		if (live?.tab === "memory" && live.detail[0] === "files" && live.detail[1])
 			return navigation.back(memoryFileParent(live.detail[1]));
@@ -303,7 +303,7 @@ export function AppFrame() {
 							contacts={contacts.data?.items}
 							onOpen={(id) => {
 								setChatOpen((previous) => previous + 1);
-								navigation.open(`/messages/${encodeURIComponent(id)}`);
+								tabs.go(`/messages/${encodeURIComponent(id)}`);
 							}}
 							onOpenMeetings={() => meeting.start(primary)}
 						/>
@@ -396,7 +396,7 @@ export function AppFrame() {
 			onSend={() => {
 				void chat.submit();
 				if (taskSelection || !conversation) return;
-				if (!preset.drawerOpen && (tab !== "messages" || !selection)) navigation.open(`/messages/${MAIN_CONVERSATION}`);
+				if (!preset.drawerOpen && (tab !== "messages" || !selection)) tabs.go(MAIN_BOT_PATH);
 			}}
 		/>
 	);
@@ -427,7 +427,7 @@ export function AppFrame() {
 			<AppShell
 				tab={{
 					current: tab,
-					onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : navigation.open(tabPath(id))),
+					onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : tabs.go(tabPath(id))),
 					labels,
 					ariaLabel: t("nav.tabs"),
 					messagesUnread: { count: unreadCount, label: t("messages.unread", { count: unreadCount }) },
@@ -435,7 +435,7 @@ export function AppFrame() {
 						label: bot?.selectedNickname || bot?.displayName || t("nav.mainBot"),
 						active: mobileBot,
 						icon: <BotTabAvatar bot={bot} unreadCount={primary?.unreadCount} />,
-						onSelect: () => navigation.open(`/messages/${MAIN_CONVERSATION}`),
+						onSelect: () => tabs.go(MAIN_BOT_PATH),
 					},
 				}}
 				desktop={desktop}
@@ -489,7 +489,7 @@ export function AppFrame() {
 			<MessageNotifications
 				key={person?.id}
 				personId={person?.id}
-				onOpen={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
+				onOpen={(id) => tabs.go(id === primary?.id ? MAIN_BOT_PATH : `/messages/${encodeURIComponent(id)}`)}
 			/>
 			<ContactsOverlay open={contactsOpen} onClose={() => setContactsOpen(false)} mode={layoutMode ?? "wide"} />
 			{preset.flying ? <FlyToComposer phrase={preset.flying} onDone={preset.flown} /> : null}

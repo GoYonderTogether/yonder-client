@@ -3,6 +3,7 @@ import { ArrowUp, FileAudio, FileText, Image, Keyboard, Mic, Plus, Square } from
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { haptic } from "../lib/haptics.ts";
 import { CompletionPopup } from "./completion/completion-popup.tsx";
 import { CompletionHighlight } from "./completion/highlight.tsx";
 import { useComposerCompletion } from "./completion/use-composer-completion.ts";
@@ -175,6 +176,10 @@ export function Composer({
 		onActivityChange: mobilePicker ? undefined : onVoiceActivityChange,
 	});
 	const visibleError = error || voice.error || (holdError?.scope === scope ? holdError.message : "");
+	// A send that did not go through is the one outcome worth feeling; success stays quiet.
+	useEffect(() => {
+		if (visibleError) haptic("error");
+	}, [visibleError]);
 
 	return (
 		<div data-composer-mobile={mobilePicker || undefined} className="relative flex flex-col gap-[var(--spacing-2)]">
@@ -336,6 +341,9 @@ export function Composer({
 									if (edit) setDraft(event.target.value, edit);
 									else setDraft(event.target.value);
 									completion.sync(event.currentTarget, composing.current);
+								}}
+								onFocus={() => {
+									if (mobilePicker && !readOnly) haptic("light");
 								}}
 								onBlur={completion.close}
 								onScroll={(event) => {

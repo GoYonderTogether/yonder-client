@@ -23,6 +23,9 @@ mod local_files_store;
 #[cfg(target_os = "android")]
 mod android_update;
 
+#[cfg(target_os = "ios")]
+mod keyboard_ios;
+
 /// Bring up the shell window. The window is declared in `tauri.conf.json` and loads the bundled
 /// web build (apps/web/dist); there is nothing to resolve at runtime.
 ///
@@ -41,6 +44,8 @@ pub fn run() {
         .plugin(device_info::init());
     #[cfg(target_os = "android")]
     let builder = builder.plugin(android_update::init());
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_haptics::init());
     #[cfg(desktop)]
     let builder = builder
         .on_window_event(contact_window::on_window_event)
@@ -90,6 +95,8 @@ pub fn run() {
                 .get_webview_window("main")
                 .ok_or("tauri.conf.json declares no window labelled \"main\"")?;
             window.show()?;
+            #[cfg(target_os = "ios")]
+            keyboard_ios::follow(&window);
             #[cfg(desktop)]
             desktop_tray::setup(app.handle());
             Ok(())

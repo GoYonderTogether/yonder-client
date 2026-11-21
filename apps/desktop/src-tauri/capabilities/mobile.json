@@ -9,6 +9,9 @@
 		"yonder-device-download:allow-share",
 		"yonder-device-download:allow-copy",
 		"yonder-device-info:default",
-		"yonder-notifications:default"
+		"yonder-notifications:default",
+		"haptics:allow-impact-feedback",
+		"haptics:allow-notification-feedback",
+		"haptics:allow-selection-feedback"
 	]
 }

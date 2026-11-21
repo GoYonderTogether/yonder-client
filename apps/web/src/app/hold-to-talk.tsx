@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { MEETING_RATE, meetingWav } from "../lib/browser-meeting-wav.ts";
+import { haptic } from "../lib/haptics.ts";
 
 interface Capture {
 	hold: number | string;
@@ -138,6 +139,7 @@ export function HoldToTalk({
 				if (current.current !== capture) return;
 				capture.startedAt = performance.now();
 				capture.limit = setTimeout(() => releaseMicrophone(capture), MAX_MS);
+				haptic("medium");
 				setPhase("held");
 			};
 			recorder.ondataavailable = ({ data }) => {
@@ -211,8 +213,10 @@ export function HoldToTalk({
 				}}
 				onPointerMove={(event) => {
 					const capture = current.current;
-					if (capture?.hold === event.pointerId && !capture.released)
-						setCancelOnRelease(swipedUp(capture, event.clientY));
+					if (capture?.hold !== event.pointerId || capture.released) return;
+					const cancel = swipedUp(capture, event.clientY);
+					if (cancel !== cancelOnRelease) haptic("selection");
+					setCancelOnRelease(cancel);
 				}}
 				onPointerUp={(event) => {
 					const capture = current.current;
