@@ -76,7 +76,8 @@ for (const width of [1280, 820, 390]) {
 		await page.getByRole("button", { name: "取消", exact: true }).click();
 		await page.goto("/memory");
 		await expect(page.getByRole("heading", { name: "记忆", exact: true })).toBeVisible();
-		await expect(page.getByRole("region", { name: "我的名片" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "AI 对我的了解", exact: true })).toBeVisible();
+		await expect(page.getByRole("region", { name: "我的名片" })).toHaveCount(0);
 		await page.goto("/messages");
 		await expect(page.getByRole("heading", { name: "消息", exact: true })).toBeVisible();
 	});
