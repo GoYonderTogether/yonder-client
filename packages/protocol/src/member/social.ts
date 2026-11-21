@@ -30,8 +30,10 @@ export interface SocialLibrary {
 
 export type SocialLibraryChange =
 	| { kind: "save_folder"; id?: string; name: string; parentFolderId?: string | null }
+	| { kind: "move_folder"; id: string; parentFolderId: string | null }
 	| { kind: "remove_folder"; id: string }
 	| { kind: "save_document"; id?: string; folderId: string | null; title: string; content: string }
+	| { kind: "move_document"; id: string; folderId: string | null }
 	| { kind: "remove_document"; id: string }
 	| { kind: "review_draft"; id: string; approve: true; folderId: string | null; title: string }
 	| { kind: "review_draft"; id: string; approve: false };
