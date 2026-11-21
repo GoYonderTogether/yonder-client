@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.26112106] - 2026-11-21
+
+### Fixed
+
+- mobile：switch directly away from the main Bot tab
+
+### Changed
+
+- shell：drive swipe-to-close with Motion drag instead of hand-rolled pointer tracking
+
 ## [0.3.26112103] - 2026-11-21
 
 ### Fixed
