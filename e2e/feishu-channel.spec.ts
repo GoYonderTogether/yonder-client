@@ -1,5 +1,8 @@
-import { devices, expect, test } from "@playwright/test";
+import { devices, expect, type Page, test } from "@playwright/test";
 import { bot, isolateChat, message } from "./chat-fixture.ts";
+
+const backFrom = (page: Page, path: string) =>
+	page.locator(`[data-page-layer="${path}"]`).getByRole("button", { name: "返回", exact: true });
 
 test("settings and a Bot message render the shared Feishu authorization card", async ({ page }, info) => {
 	const id = "authorization-review";
@@ -29,6 +32,8 @@ test("settings and a Bot message render the shared Feishu authorization card", a
 		}),
 	);
 	await page.goto("/me/channels");
+	await page.getByRole("button", { name: "飞书 连接", exact: true }).click();
+	await expect(page).toHaveURL(/\/me\/channels\/feishu\?bot=chat-bot$/);
 	const connect = page.getByRole("button", { name: "连接飞书" });
 	await expect(connect).toBeVisible();
 	expect(starts).toBe(0);
@@ -94,10 +99,13 @@ test("the channel owner can inspect and close an external chat without a compose
 		return route.fulfill({ json: { ok: true } });
 	});
 	await page.goto("/me/channels");
+	await expect(page.getByRole("switch")).toHaveCount(0);
+	await page.getByRole("button", { name: "飞书 飞书 QA", exact: true }).click();
+	await expect(page).toHaveURL(/\/me\/channels\/feishu\?bot=chat-bot$/);
 	await expect(page.getByRole("switch", { name: "允许群聊" })).toBeChecked();
 	await expect(page.getByRole("button", { name: /群聊.*已开放/ })).toHaveCount(0);
 	await page.getByRole("button", { name: "外部会话", exact: true }).click();
-	await expect(page).toHaveURL(/\/me\/channels\/external\?bot=chat-bot$/);
+	await expect(page).toHaveURL(/\/me\/channels\/feishu\/external\?bot=chat-bot$/);
 	await page.getByRole("button", { name: /群聊.*已开放/ }).click();
 	await expect(page.getByRole("region", { name: "只读会话" })).toContainText("群内文字");
 	await expect(page.getByRole("textbox")).toHaveCount(0);
@@ -105,62 +113,81 @@ test("the channel owner can inspect and close an external chat without a compose
 	await expect(page.getByRole("button", { name: /群聊.*已关闭/ })).toBeVisible();
 	await expect(page.getByText("群内文字")).toBeVisible();
 	await page.screenshot({ path: info.outputPath("feishu-read-only-closed.png") });
-	await page.getByRole("button", { name: "返回", exact: true }).click();
-	await expect(page).toHaveURL(/\/me\/channels$/);
+	await backFrom(page, "/me/channels/feishu/external").click();
+	await expect(page).toHaveURL(/\/me\/channels\/feishu\?bot=chat-bot$/);
 	await expect(page.getByRole("switch", { name: "允许群聊" })).toBeChecked();
+	await backFrom(page, "/me/channels/feishu").click();
+	await expect(page).toHaveURL(/\/me\/channels$/);
+	await expect(page.locator('[data-page-layer="/me/channels"]').getByRole("switch")).toHaveCount(0);
+	await page.goto("/me/channels/external?bot=chat-bot");
+	await expect(page.getByRole("button", { name: /群聊.*已关闭/ })).toBeVisible();
+	await backFrom(page, "/me/channels/external").click();
+	await expect(page).toHaveURL(/\/me\/channels\/feishu\?bot=chat-bot$/);
 });
 
-test("iLink displays a QR only after explicit test authorization starts and QQ stays unavailable", async ({
-	page,
-}, info) => {
-	await isolateChat(page, { items: [] });
-	await page.route("**/v1/channels", (route) =>
-		route.fulfill({ json: { available: true, wechatAvailable: true, items: [] } }),
-	);
-	const expiresAt = new Date(Date.now() + 60_000).toISOString();
-	const attempt = {
-		provider: "wechat",
-		id: "ilink-test",
-		botId: "chat-bot",
-		state: "awaiting",
-		connectionId: null,
-		expiresAt,
-	};
-	let started = false;
-	await page.route("**/v1/channels/attempts", (route) => {
-		expect(route.request().postDataJSON()).toEqual({ botId: "chat-bot", provider: "wechat" });
-		started = true;
-		return route.fulfill({ json: { ...attempt, link: null } });
+test.describe("phone authorization", () => {
+	const phone = devices["iPhone 15"];
+	test.use({ viewport: phone.viewport, userAgent: phone.userAgent, isMobile: true, hasTouch: true });
+	test("iLink displays a QR only after explicit test authorization starts and QQ stays unavailable", async ({
+		page,
+	}, info) => {
+		await isolateChat(page, { items: [] });
+		await page.route("**/v1/channels", (route) =>
+			route.fulfill({ json: { available: true, wechatAvailable: true, items: [] } }),
+		);
+		const expiresAt = new Date(Date.now() + 60_000).toISOString();
+		const attempt = {
+			provider: "wechat",
+			id: "ilink-test",
+			botId: "chat-bot",
+			state: "awaiting",
+			connectionId: null,
+			expiresAt,
+		};
+		let started = false;
+		await page.route("**/v1/channels/attempts", (route) => {
+			expect(route.request().postDataJSON()).toEqual({ botId: "chat-bot", provider: "wechat" });
+			started = true;
+			return route.fulfill({ json: { ...attempt, link: null } });
+		});
+		await page.route("**/v1/channels/attempts/ilink-test", (route) =>
+			route.fulfill({
+				json:
+					route.request().method() === "DELETE"
+						? { ...attempt, state: "cancelled", link: null }
+						: { ...attempt, link: { url: "weixin://dl/isolated-preview", expiresAt } },
+			}),
+		);
+		await page.goto("/me/channels");
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await page.getByRole("button", { name: "QQ 暂不可用", exact: true }).click();
+		await expect(page.getByText(/QQ 暂不可用/)).toBeVisible();
+		await expect(page.getByRole("button", { name: /连接 QQ/ })).toHaveCount(0);
+		await backFrom(page, "/me/channels/qq").click();
+		await page.getByRole("button", { name: "微信 iLink 连接", exact: true }).click();
+		await expect(page).toHaveURL(/\/me\/channels\/wechat\?bot=chat-bot$/);
+		const start = page.getByRole("button", { name: "连接微信 iLink" });
+		await expect(start).toBeVisible();
+		expect(started).toBe(false);
+		await start.click();
+		const qr = page.getByRole("img", { name: "用微信扫码授权" });
+		await expect(qr).toBeVisible();
+		await page.screenshot({ path: info.outputPath("channels-connect-mobile.png") });
+		await page.getByRole("button", { name: "取消", exact: true }).click();
+		await expect(qr).toHaveCount(0);
+		await expect(page.getByRole("button", { name: "重试", exact: true })).toBeVisible();
+		await backFrom(page, "/me/channels/wechat").click();
+		await expect(page).toHaveURL(/\/me\/channels$/);
 	});
-	await page.route("**/v1/channels/attempts/ilink-test", (route) =>
-		route.fulfill({
-			json:
-				route.request().method() === "DELETE"
-					? { ...attempt, state: "cancelled", link: null }
-					: { ...attempt, link: { url: "weixin://dl/isolated-preview", expiresAt } },
-		}),
-	);
-	await page.goto("/me/channels");
-	await expect(page.getByText(/QQ 暂不可用/)).toBeVisible();
-	await expect(page.getByRole("button", { name: /连接 QQ/ })).toHaveCount(0);
-	const start = page.getByRole("button", { name: "连接微信 iLink" });
-	await expect(start).toBeVisible();
-	expect(started).toBe(false);
-	await start.click();
-	const qr = page.getByRole("img", { name: "用微信扫码授权" });
-	await expect(qr).toBeVisible();
-	await page.screenshot({ path: info.outputPath("ilink-authorization-test.png") });
-	await page.getByRole("button", { name: "取消", exact: true }).click();
-	await expect(qr).toHaveCount(0);
 });
 
-for (const layout of ["desktop", "mobile"] as const) {
+for (const layout of ["desktop", "narrow", "mobile"] as const) {
 	test.describe(layout, () => {
 		const phone = devices["iPhone 15"];
 		test.use(
 			layout === "mobile"
 				? { viewport: phone.viewport, userAgent: phone.userAgent, isMobile: true, hasTouch: true }
-				: { viewport: { width: 1280, height: 900 } },
+				: { viewport: { width: layout === "narrow" ? 766 : 1280, height: 900 } },
 		);
 
 		test("the Bot selector scrolls to a preselection, supports keyboard selection and switches channels", async ({
@@ -203,6 +230,18 @@ for (const layout of ["desktop", "mobile"] as const) {
 								allowGroups: false,
 								missingPermissions: [],
 							},
+							{
+								id: "wechat-qinghe",
+								botId: "qinghe",
+								provider: "wechat",
+								name: "青禾个人微信",
+								enabled: false,
+								status: "offline",
+								credentialState: "valid",
+								allowExternalDm: true,
+								allowGroups: false,
+								missingPermissions: [],
+							},
 						],
 					},
 				}),
@@ -213,23 +252,38 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await expect(last).toBeChecked();
 			await expect(last).toBeInViewport({ ratio: 0.98 });
 			await expect(group.getByRole("radio", { name: "栗子", exact: true })).not.toBeInViewport({ ratio: 0.98 });
-			await expect(page.getByRole("button", { name: "连接飞书", exact: true })).toBeVisible();
+			await expect(page.getByRole("button", { name: "飞书 连接", exact: true })).toBeVisible();
+			await expect(page.getByRole("heading", { name: "已连接", exact: true })).toHaveCount(0);
 			await last.focus();
 			await page.keyboard.press("ArrowLeft");
 			await expect(page).toHaveURL(/\?bot=qinghe$/);
+			await expect(page.getByRole("heading", { name: "已连接", exact: true })).toBeVisible();
+			await expect(page.getByRole("button", { name: "微信 iLink 青禾个人微信 已暂停", exact: true })).toBeVisible();
 			await page.keyboard.press("ArrowLeft");
 			const selected = group.getByRole("radio", { name: "松果", exact: true });
 			await expect(selected).toBeChecked();
 			await expect(selected).toHaveAccessibleDescription("客户与来访");
 			await expect(page).toHaveURL(/\?bot=songguo$/);
-			await expect(page.getByText("松果接待台", { exact: true })).toBeVisible();
-			await expect(page.getByRole("button", { name: "外部会话", exact: true })).toBeVisible();
+			const feishu = page.getByRole("button", { name: "飞书 松果接待台", exact: true });
+			await expect(feishu).toBeVisible();
+			await expect(page.getByRole("heading", { name: "未连接", exact: true })).toBeVisible();
+			await expect(page.getByRole("switch")).toHaveCount(0);
 			await page.reload();
 			await expect(selected).toBeChecked();
-			await expect(page.getByText("松果接待台", { exact: true })).toBeVisible();
+			await expect(feishu).toBeVisible();
 			await selected.click();
 			await page.evaluate(async () => await document.fonts.ready);
-			await page.screenshot({ path: info.outputPath(`channels-${layout}.png`) });
+			await page.screenshot({ path: info.outputPath(`channels-list-${layout}.png`) });
+			await feishu.click();
+			await expect(page).toHaveURL(/\/me\/channels\/feishu\?bot=songguo$/);
+			await expect(page.getByRole("switch", { name: "启用此连接", exact: true })).toBeChecked();
+			await expect(page.getByRole("button", { name: "外部会话", exact: true })).toBeVisible();
+			if (layout === "mobile") await page.screenshot({ path: info.outputPath("channels-settings-mobile.png") });
+			await page.reload();
+			await backFrom(page, "/me/channels/feishu").click();
+			await expect(page).toHaveURL(/\/me\/channels\?bot=songguo$/);
+			await expect(selected).toBeChecked();
+			await expect(feishu).toBeVisible();
 		});
 	});
 }

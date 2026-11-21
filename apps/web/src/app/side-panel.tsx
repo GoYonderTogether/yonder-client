@@ -187,7 +187,7 @@ export function useSideStack({
 								page={page}
 								back={() => layers.back(page)}
 								onDirtyChange={onBotDirtyChange}
-								onOpenExternal={() => openBotPage("external")}
+								onOpenPage={openBotPage}
 							/>
 						),
 					})),

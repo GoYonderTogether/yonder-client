@@ -1,5 +1,5 @@
 import { memberFailureText } from "@yonder/feature-members";
-import type { SocialLibrary } from "@yonder/protocol";
+import type { SocialLibrary, SocialLibraryFolder } from "@yonder/protocol";
 import { Button, EmptyState } from "@yonder/ui-components";
 import { useSocialLibrary } from "@yonder/ui-data";
 import { PageFrame, useShellChrome } from "@yonder/ui-shell";
@@ -9,27 +9,36 @@ import { useTranslation } from "react-i18next";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { ReceptionDocumentDetail, ReceptionDraftDetail } from "./reception-library-details.tsx";
 import {
+	ReceptionDocumentList,
 	ReceptionDraftList,
-	ReceptionFolderDocuments,
+	ReceptionFolderContents,
 	ReceptionRootDirectory,
 } from "./reception-library-directory.tsx";
-import { type Editor, ReceptionLibraryEditor } from "./reception-library-editor.tsx";
+import { type Editor, ReceptionLibraryEditor, ReceptionRemoveButton } from "./reception-library-editor.tsx";
+import { receptionFolderPath, receptionFolderTrail } from "./reception-library-paths.ts";
 import { ReceptionSetting } from "./reception-setting.tsx";
-import { receptionSettingsPath } from "./settings-navigation.ts";
+import { receptionFolderRoute, receptionSettingsPath } from "./settings-navigation.ts";
 
 type LibraryView =
 	| { kind: "root" }
 	| { kind: "folder"; id: string }
-	| { kind: "document"; id: string; folderId: string | undefined }
+	| { kind: "all" }
+	| { kind: "document"; id: string; source: "all" | "find" | undefined }
 	| { kind: "drafts"; id: string | undefined };
 
 function readView(route: readonly string[]): LibraryView | null {
 	const [page, id, leaf] = route;
 	if (!page || ((page === "bot" || page === "info") && !id)) return { kind: "root" };
 	if (page === "drafts" && !leaf) return { kind: "drafts", id };
-	if (page === "document" && id && !leaf) return { kind: "document", id, folderId: undefined };
-	if (page === "folder" && id && route.length <= 3)
-		return leaf ? { kind: "document", id: leaf, folderId: id } : { kind: "folder", id };
+	if (page === "all" && !id) return { kind: "all" };
+	if ((page === "document" || page === "all" || page === "find") && id && !leaf)
+		return { kind: "document", id, source: page === "document" ? undefined : page };
+	if (page === "folder") {
+		const path = receptionFolderRoute(route);
+		const folderId = path.folderIds.at(-1);
+		if (path.valid && folderId)
+			return path.leaf ? { kind: "document", id: path.leaf, source: undefined } : { kind: "folder", id: folderId };
+	}
 	return null;
 }
 
@@ -59,14 +68,21 @@ function ReceptionLibrary({
 	const { mode } = useShellChrome();
 	const wide = mode === "wide";
 	const library = useSocialLibrary();
-	const folderId = view.kind === "folder" ? view.id : view.kind === "document" ? view.folderId : undefined;
+	const folderId =
+		view.kind === "folder"
+			? view.id
+			: view.kind === "document"
+				? library.data?.documents.find((item) => item.id === view.id)?.folderId
+				: undefined;
 	const folder = library.data?.folders.find((item) => item.id === folderId);
 	const showTop = wide || view.kind === "root";
 	const title = showTop
 		? t("me.sections.reception")
 		: view.kind === "drafts"
 			? t("members.social.draftsTitle")
-			: (folder?.name ?? t("members.social.infoTitle"));
+			: view.kind === "all"
+				? t("members.social.library.allDocuments")
+				: (folder?.name ?? t("members.social.infoTitle"));
 
 	return (
 		<PageFrame title={<h1 className="truncate">{title}</h1>}>
@@ -110,16 +126,24 @@ function ReceptionLibraryBody({
 	const document = view.kind === "document" ? library.documents.find((item) => item.id === view.id) : undefined;
 	const draft = view.kind === "drafts" ? library.drafts.find((item) => item.id === view.id) : undefined;
 	const documentFolder = library.folders.find((item) => item.id === document?.folderId);
-	const folderDocuments = library.documents.filter((item) => item.folderId === (folder?.id ?? documentFolder?.id));
+	const folderTrail = receptionFolderTrail(library.folders, folder?.id ?? documentFolder?.id);
+	const parentFolder = folderTrail.at(-2);
+	const backFromFolder = () => onBack(receptionFolderPath(folderTrail.slice(0, -1)));
 	const backFromDocument = () =>
 		onBack(
-			view.kind === "document" && view.folderId
-				? receptionSettingsPath("folder", view.folderId)
-				: receptionSettingsPath(),
+			view.kind === "document" && view.source
+				? receptionSettingsPath(...(view.source === "all" ? ["all"] : []))
+				: receptionFolderPath(folderTrail),
 		);
 	const backFromDraft = () => onBack(receptionSettingsPath("drafts"));
 	const directory = <ReceptionRootDirectory library={library} onOpen={onOpen} />;
 	const missing = <EmptyState icon={<File size={24} />} title={t("members.social.library.missing")} />;
+	const newFolder = (parentFolderId: string | null) => (
+		<Button size="sm" onClick={() => setEditor({ folder: null, parentFolderId })}>
+			<FolderPlus size={16} aria-hidden />
+			{t("members.social.library.newFolder")}
+		</Button>
+	);
 	const newDocument = (folderId: string | null) => (
 		<Button size="sm" onClick={() => setEditor({ document: null, folderId })}>
 			<FilePlus size={16} aria-hidden />
@@ -132,24 +156,52 @@ function ReceptionLibraryBody({
 		case "root":
 			content = directory;
 			break;
+		case "all":
+			content = (
+				<ReceptionDocumentList
+					title={wide ? t("members.social.library.allDocuments") : undefined}
+					library={library}
+					documents={library.documents}
+					kind="all"
+					onOpen={onOpen}
+				/>
+			);
+			break;
 		case "folder":
 			content = folder ? (
 				<ReceptionSplit
 					wide={wide}
-					directory={<ReceptionRootDirectory library={library} selected={folder.id} onOpen={onOpen} />}
+					directory={
+						parentFolder ? (
+							<ReceptionFolderContents library={library} folder={parentFolder} selected={folder.id} onOpen={onOpen} />
+						) : (
+							<ReceptionRootDirectory library={library} selected={folder.id} onOpen={onOpen} />
+						)
+					}
 				>
 					<div className="flex flex-col gap-[var(--spacing-3)]">
 						<div className="flex flex-wrap items-center justify-between gap-[var(--spacing-2)]">
 							{wide ? <h3 className="min-w-0 text-h3 font-semibold [overflow-wrap:anywhere]">{folder.name}</h3> : null}
 							<div className="flex flex-wrap gap-[var(--spacing-2)]">
 								{newDocument(folder.id)}
-								<Button size="sm" variant="ghost" onClick={() => setEditor({ folder })}>
+								{newFolder(folder.id)}
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={() => setEditor({ folder, parentFolderId: folder.parentFolderId ?? null })}
+								>
 									<Pencil size={16} aria-hidden />
 									{t("members.social.library.renameFolder")}
 								</Button>
+								<ReceptionRemoveButton
+									folderParent={parentFolder?.name ?? t("members.social.library.root")}
+									id={folder.id}
+									title={folder.name}
+									onRemoved={backFromFolder}
+								/>
 							</div>
 						</div>
-						<ReceptionFolderDocuments documents={folderDocuments} onOpen={onOpen} />
+						<ReceptionFolderContents library={library} folder={folder} onOpen={onOpen} />
 					</div>
 				</ReceptionSplit>
 			) : (
@@ -166,7 +218,12 @@ function ReceptionLibraryBody({
 								<h3 className="px-[var(--spacing-2)] text-caption font-medium text-[var(--color-text-tertiary)] [overflow-wrap:anywhere]">
 									{documentFolder.name}
 								</h3>
-								<ReceptionFolderDocuments documents={folderDocuments} selected={document.id} onOpen={onOpen} />
+								<ReceptionFolderContents
+									library={library}
+									folder={documentFolder}
+									selected={document.id}
+									onOpen={onOpen}
+								/>
 							</div>
 						) : (
 							<ReceptionRootDirectory library={library} selected={document.id} onOpen={onOpen} />
@@ -217,14 +274,14 @@ function ReceptionLibraryBody({
 					</div>
 					{view.kind === "root" ? (
 						<div className="flex flex-wrap gap-[var(--spacing-2)]">
-							<Button size="sm" onClick={() => setEditor({ folder: null })}>
-								<FolderPlus size={16} aria-hidden />
-								{t("members.social.library.newFolder")}
-							</Button>
+							{newFolder(null)}
 							{newDocument(null)}
 						</div>
 					) : null}
 				</header>
+			) : null}
+			{folderTrail.length ? (
+				<ReceptionBreadcrumbs trail={folderTrail} currentFolder={view.kind === "folder"} onOpen={onOpen} />
 			) : null}
 			{content}
 			{editor ? (
@@ -232,10 +289,51 @@ function ReceptionLibraryBody({
 					initial={editor}
 					folders={library.folders}
 					onClose={() => setEditor(null)}
-					onMoved={backFromDocument}
+					onMoved={view.kind === "folder" ? backFromFolder : backFromDocument}
 				/>
 			) : null}
 		</section>
+	);
+}
+
+function ReceptionBreadcrumbs({
+	trail,
+	currentFolder,
+	onOpen,
+}: {
+	trail: readonly SocialLibraryFolder[];
+	currentFolder: boolean;
+	onOpen: (path: string) => void;
+}) {
+	const { t } = useTranslation();
+	const linkClass = "min-w-0 break-all text-start text-[var(--color-accent-text)] hover:underline";
+	return (
+		<nav
+			aria-label={t("members.social.library.folderPath")}
+			className="flex flex-wrap items-baseline gap-[var(--spacing-2)] text-caption"
+		>
+			<button type="button" className={linkClass} onClick={() => onOpen(receptionSettingsPath())}>
+				{t("members.social.library.root")}
+			</button>
+			{trail.map((folder, index) => (
+				<span key={folder.id} className="inline-flex min-w-0 items-baseline gap-[var(--spacing-2)]">
+					<span aria-hidden="true">›</span>
+					{currentFolder && index === trail.length - 1 ? (
+						<span aria-current="page" className="break-all text-[var(--color-text-tertiary)]">
+							{folder.name}
+						</span>
+					) : (
+						<button
+							type="button"
+							className={linkClass}
+							onClick={() => onOpen(receptionFolderPath(trail.slice(0, index + 1)))}
+						>
+							{folder.name}
+						</button>
+					)}
+				</span>
+			))}
+		</nav>
 	);
 }
 
