@@ -2,7 +2,7 @@ import type { Schedule, ScheduleStatus } from "@yonder/protocol";
 import { Button, EmptyState, ListGroup, Segmented } from "@yonder/ui-components";
 import { ApiError, type useItemSession, useScheduleActions, useSchedules } from "@yonder/ui-data";
 import { ListFrame, PageFrame } from "@yonder/ui-shell";
-import { CalendarClock, ListChecks, Sparkles } from "lucide-react";
+import { CalendarClock, ListChecks } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoalRecords } from "./goal-records.tsx";
@@ -82,37 +82,20 @@ export function TaskPage({
 	session,
 	disconnected,
 	readActive,
-	onPrompt,
 	onOpenConversation,
 }: {
 	taskId: string | null;
 	session: ReturnType<typeof useItemSession>;
 	disconnected: boolean;
 	readActive: boolean;
-	onPrompt: ((prompt: string) => void) | undefined;
 	onOpenConversation: (id: string) => void;
 }) {
 	const { t } = useTranslation();
 	if (taskId === "new")
 		return (
 			<PageFrame title={<h1 className="truncate">{t("tasks.newItemHeading")}</h1>} titleAlign="start">
-				<div className="flex flex-1 flex-col">
-					<div className="flex flex-1 items-center justify-center">
-						<EmptyState title={t("chat.emptyTitle")} />
-					</div>
-					{onPrompt ? (
-						<div className="flex flex-col items-start gap-[var(--spacing-2)]">
-							{["meeting", "research", "travel"].map((kind) => {
-								const prompt = t(`tasks.itemPrompts.${kind}`);
-								return (
-									<Button key={kind} variant="secondary" onClick={() => onPrompt(prompt)}>
-										<Sparkles size={16} aria-hidden="true" />
-										{prompt}
-									</Button>
-								);
-							})}
-						</div>
-					) : null}
+				<div className="flex flex-1 items-center justify-center">
+					<EmptyState title={t("chat.emptyTitle")} />
 				</div>
 			</PageFrame>
 		);

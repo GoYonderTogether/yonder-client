@@ -375,11 +375,6 @@ export const zhCN: Messages = {
 		itemRecording: "会议录音",
 		itemTranscript: "转写全文",
 		itemRecordingSummary: "录音摘要",
-		itemPrompts: {
-			meeting: "帮我准备即将参加的会议",
-			research: "帮我做一份市场调研",
-			travel: "帮我准备旅行行李清单",
-		},
 		itemUpcoming: "即将执行",
 		itemStateRunning: "进行中",
 		itemStateWaitingUser: "等你",

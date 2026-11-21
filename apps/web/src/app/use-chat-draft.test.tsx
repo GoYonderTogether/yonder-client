@@ -10,6 +10,7 @@ const local = vi.hoisted(() => ({
 	transcribe: vi.fn(),
 	prepare: vi.fn(),
 	failWrite: vi.fn((_key: string) => false),
+	waitWrite: vi.fn<() => Promise<void> | undefined>(),
 }));
 vi.mock("../lib/prepare-image.ts", () => ({
 	isImageFile: (_name: string, mime: string) => mime.startsWith("image/"),
@@ -24,6 +25,8 @@ vi.mock("@yonder/ui-data", async () => ({
 	readChatCache: async (key: string) => local.values.get(key),
 	writeChatCache: async (key: string, value: unknown, generation = local.generation) => {
 		if (local.failWrite(key)) throw new Error("quota_exceeded");
+		const pending = local.waitWrite();
+		if (pending) await pending;
 		if (generation === local.generation) local.values.set(key, value);
 	},
 	updateChatCache: async (key: string, update: (value: unknown) => unknown, generation: number) => {
@@ -37,6 +40,7 @@ beforeEach(() => {
 	local.values.clear();
 	local.generation = 0;
 	local.failWrite.mockReset().mockReturnValue(false);
+	local.waitWrite.mockReset();
 	local.prepare.mockReset().mockResolvedValue(undefined);
 	local.transcribe.mockReset();
 	local.upload
@@ -195,6 +199,7 @@ test("optimized and original byte choices survive restore and keep separate stab
 	await act(() => restored.result.current.submit(send));
 	expect(local.upload.mock.calls[1]?.[0].size).toBe(4);
 	expect(local.upload.mock.calls[1]?.[1]).toBe(id);
+	expect(send.mock.calls[1]?.[0].clientNonce).not.toBe(send.mock.calls[0]?.[0].clientNonce);
 	act(() => restored.result.current.toggleOriginal(id, false));
 	await act(() => restored.result.current.submit(send));
 	expect(local.upload.mock.calls[2]?.[0].size).toBe(2);
@@ -384,6 +389,42 @@ test("a failed cache write neither blocks the send nor marks a successful upload
 	expect(send.mock.calls[0]?.[0]).toMatchObject({ body: "still sends", attachmentIds: ["att_uploaded"] });
 	expect(local.upload).toHaveBeenCalledOnce();
 	expect(result.result.current.files).toEqual([]);
+});
+
+test("a saved draft reaches the server while later cache writes stall and reuses its nonce after reload", async () => {
+	const hook = renderHook(() => useChatDraft("alice", "new-item"));
+	await waitFor(() => expect(hook.result.current.loaded).toBe(true));
+	act(() => {
+		hook.result.current.setText("check the release");
+		hook.result.current.addFiles([new File(["text"], "notes.txt", { type: "text/plain" })]);
+	});
+	const send = vi.fn().mockRejectedValueOnce(new Error("acknowledgement lost")).mockResolvedValue({});
+	let resume!: () => void;
+	local.waitWrite.mockReturnValue(
+		new Promise<void>((resolve) => {
+			resume = resolve;
+		}),
+	);
+	let submission!: Promise<unknown>;
+	act(() => {
+		submission = hook.result.current.submit(send);
+	});
+	try {
+		await waitFor(() => expect(send).toHaveBeenCalledOnce());
+		await act(() => submission);
+		expect(hook.result.current.error).toBe("chat.sendPreserved");
+	} finally {
+		resume();
+		local.waitWrite.mockReset();
+		await act(() => submission);
+	}
+	hook.unmount();
+	const restored = renderHook(() => useChatDraft("alice", "new-item"));
+	await waitFor(() => expect(restored.result.current.loaded).toBe(true));
+	await act(() => restored.result.current.submit(send));
+	expect(send).toHaveBeenCalledTimes(2);
+	expect(send.mock.calls[0]?.[0]).toMatchObject({ body: "check the release", attachmentIds: ["att_uploaded"] });
+	expect(send.mock.calls[1]?.[0]).toEqual(send.mock.calls[0]?.[0]);
 });
 
 test("an upload whose cache write fails stays ready instead of turning into a failed file", async () => {

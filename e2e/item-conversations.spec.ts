@@ -93,7 +93,6 @@ async function isolateItems(page: Page, taskOnlyRecording: boolean) {
 							clientNonce: input.clientNonce,
 							createdAt: newItem.startedAt,
 						},
-						{ ...message("item-msg-02", firstReply), conversationId: newSession.id, createdAt: newItem.endedAt },
 					]);
 					return route.fulfill({ json: { item: newItem, conversation: newSession } });
 				}
@@ -146,7 +145,21 @@ async function isolateItems(page: Page, taskOnlyRecording: boolean) {
 		await route.fulfill({ json: { message: user, clientNonce: input.clientNonce } });
 		api.create(reply);
 	});
-	return { ...api, sessionRequests, newRequests, followUps };
+	return {
+		...api,
+		sessionRequests,
+		newRequests,
+		followUps,
+		publishFirstReply: () => {
+			const reply = {
+				...message("item-msg-02", firstReply),
+				conversationId: newSession.id,
+				createdAt: newItem.endedAt,
+			};
+			histories.get(newSession.id)?.push(reply);
+			api.create(reply);
+		},
+	};
 }
 
 const { defaultBrowserType: _browser, ...phone } = devices["iPhone 13"];
@@ -221,15 +234,17 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await expect(page.getByText(bodies.question, { exact: true })).toHaveCount(0);
 			expect(api.newRequests).toEqual([]);
 			await page.screenshot({ path: info.outputPath(`new-item-${layout}.png`), animations: "disabled", scale: "css" });
-			const suggestion = "帮我准备即将参加的会议";
-			await page.getByRole("button", { name: suggestion, exact: true }).click();
-			await expect(input).toHaveValue(suggestion);
-			expect(api.newRequests).toEqual([]);
+			await expect(
+				page.getByRole("button", { name: /帮我准备即将参加的会议|帮我做一份市场调研|帮我准备旅行行李清单/ }),
+			).toHaveCount(0);
 
 			await input.fill(firstMessage);
 			await page.getByRole("button", { name: "发送", exact: true }).click();
 			await expect(page).toHaveURL(new RegExp(`/tasks/${newItemId}$`));
 			await expect(page.getByRole("log").getByText(firstMessage, { exact: true })).toBeVisible();
+			expect(api.sessionRequests).toEqual([]);
+			await expect(page.getByRole("log").getByText(firstReply, { exact: true })).toHaveCount(0);
+			api.publishFirstReply();
 			await expect(page.getByRole("log").getByText(firstReply, { exact: true })).toBeVisible();
 			expect(api.newRequests).toEqual([
 				expect.objectContaining({ body: firstMessage, type: "text", clientNonce: expect.any(String) }),

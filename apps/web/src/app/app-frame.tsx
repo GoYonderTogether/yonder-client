@@ -336,7 +336,6 @@ export function AppFrame() {
 							session={chat.itemSession}
 							disconnected={disconnected}
 							readActive={!meOpen && !side.pages.length}
-							onPrompt={draft.loaded && !draft.text && !draft.files.length ? draft.setText : undefined}
 							onOpenConversation={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
 						/>
 					),

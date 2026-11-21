@@ -373,11 +373,6 @@ export const en = {
 		itemRecording: "Meeting recording",
 		itemTranscript: "Transcript",
 		itemRecordingSummary: "Recording summary",
-		itemPrompts: {
-			meeting: "Help me prepare for a meeting",
-			research: "Help me research a market",
-			travel: "Help me make a packing list",
-		},
 		itemUpcoming: "Coming up",
 		itemStateRunning: "Running",
 		itemStateWaitingUser: "Waiting for you",

@@ -148,9 +148,12 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		let value = update(before);
 		const restored = bindingHistory.current(scope, before, value, inputType);
 		if (restored) value = { ...value, bindings: restored };
+		// Persist each edited draft with the nonce it will send, including the attachment selection.
+		if (value.revision !== before.revision)
+			value = { ...value, clientNonce: value.text || value.files.length ? crypto.randomUUID() : undefined };
 		current.current = { key: scope, value, loaded: true };
 		setState(current.current);
-		void writeChatCache(scope, value).catch(() => {
+		return writeChatCache(scope, value).catch(() => {
 			if (current.current.key === scope) setError("chat.cacheFailed");
 		});
 	}
@@ -173,7 +176,6 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		change((draft) => ({
 			...draft,
 			revision: draft.revision + 1,
-			clientNonce: undefined,
 			files: [...draft.files, ...additions],
 		}));
 		for (const file of additions) if (isImageFile(file.name, file.mimeType)) void prepare(file, key);
@@ -300,12 +302,11 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			cacheGeneration !== chatCacheGeneration() || controller.signal.aborted || (hasVoice && liveKey.current !== scope);
 		const pending = { controller, preparingVoiceKey: hasVoice ? scope : undefined };
 		inFlightSend.current = pending;
-		change((value) => ({ ...value, clientNonce: nonce }), scope);
 		setSending(true);
 		setError("");
 		try {
-			// The nonce is already persisted by `change`; this copy only hardens a reload mid-send.
-			await writeChatCache(scope, { ...draft, clientNonce: nonce }, cacheGeneration).catch(() => {});
+			// Old drafts and presets applied during load may still need their first nonce.
+			if (!draft.clientNonce) await change((value) => ({ ...value, clientNonce: nonce }), scope);
 			const attachments: Attachment[] = [];
 			const transcripts: string[] = [];
 			for (const file of draft.files) {
@@ -391,19 +392,18 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		error,
 		sending,
 		setText: (text: string, edit?: TextEditRange) =>
-			change(
+			void change(
 				(draft) => ({
 					...draft,
 					revision: draft.revision + 1,
 					text,
 					bindings: reconcileBindings(draft.text, text, draft.bindings ?? [], edit),
-					clientNonce: undefined,
 				}),
 				key,
 				edit?.inputType,
 			),
 		acceptCompletion: (text: string, marker: CompletionMarker, edit?: TextEditRange) =>
-			change((draft) => {
+			void change((draft) => {
 				const bindings = reconcileBindings(draft.text, text, draft.bindings ?? [], edit).filter(
 					(binding) => binding.end <= marker.start || binding.start >= marker.end,
 				);
@@ -418,22 +418,19 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 					text,
 					bindings: [...bindings, { ...marker, key: crypto.randomUUID() }],
 					revision: draft.revision + 1,
-					clientNonce: undefined,
 				};
 			}),
 		appendText: (text: string) =>
-			change((draft) => ({
+			void change((draft) => ({
 				...draft,
 				revision: draft.revision + 1,
 				text: [draft.text, text].filter(Boolean).join("\n"),
-				clientNonce: undefined,
 			})),
 		addFiles,
 		toggleOriginal: (id: string, sendOriginal: boolean) =>
-			change((draft) => ({
+			void change((draft) => ({
 				...draft,
 				revision: draft.revision + 1,
-				clientNonce: undefined,
 				files: draft.files.map((file) => (file.id === id ? { ...file, sendOriginal } : file)),
 			})),
 		removeFile: (id: string) => {
@@ -446,7 +443,6 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				...draft,
 				revision: draft.revision + 1,
 				files: draft.files.filter((file) => file.id !== id),
-				clientNonce: undefined,
 			}));
 		},
 		retryFile: (id: string) => {
