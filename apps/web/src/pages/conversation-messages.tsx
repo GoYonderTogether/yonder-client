@@ -1,4 +1,10 @@
-import { groupMessages, isTwoPartyAgentChat, ownedBotFor } from "@yonder/chat-model";
+import {
+	groupMessages,
+	isTwoPartyAgentChat,
+	optionCardAttachments,
+	optionCardState,
+	ownedBotFor,
+} from "@yonder/chat-model";
 import { MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
 import { FeishuAttemptCard } from "@yonder/feature-me";
 import { BotName, systemEventText } from "@yonder/feature-members";
@@ -13,6 +19,7 @@ import { FriendRequestCard } from "./friend-request-card.tsx";
 import { MemoryUpdatedLine } from "./memory-updated-line.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
+import { MessageOptions } from "./message-options.tsx";
 import { MessageSources } from "./message-sources.tsx";
 import { AskOwner, OutwardRequestCard } from "./outward-request-card.tsx";
 import { VoiceMessage } from "./voice-message.tsx";
@@ -26,6 +33,7 @@ interface MessageProps {
 	retrying: boolean;
 	onOpenMeeting?: (id: string) => void;
 	onChooseOption?: ((body: string, cardId: string) => void) | undefined;
+	optionReply?: CachedMessage | undefined;
 }
 
 /** Sender identity belongs to a consecutive run, shared by text and attachment messages. */
@@ -39,7 +47,7 @@ export function ConversationMessages({
 	onOpenRelated,
 	onOpenMember,
 	...actions
-}: Omit<MessageProps, "message" | "self"> & {
+}: Omit<MessageProps, "message" | "self" | "optionReply"> & {
 	items: CachedMessage[];
 	hasFullHistory: boolean;
 	conversation: Conversation;
@@ -54,9 +62,7 @@ export function ConversationMessages({
 	const locale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
 	const visitRole = conversation.visit?.role;
 	const showAvatars = !isTwoPartyAgentChat(conversation, person?.id);
-	const openOptions = items.findLast(
-		(item) => item.options?.length || (item.senderId === person?.id && !item.sendFailed),
-	)?.id;
+	const optionCards = optionCardState(items, person?.id);
 	const asks = new Set(items.filter((item) => item.outwardRequest && item.replyToId).map((item) => item.replyToId));
 	const hasOpen = items.some((item) => item.outwardRequest?.state === "open");
 	const delivered = new Set(items.filter((item) => item.outwardRequest?.result).map((item) => item.replyToId));
@@ -140,7 +146,8 @@ export function ConversationMessages({
 						message={message}
 						self={self}
 						{...actions}
-						onChooseOption={message.id === openOptions ? actions.onChooseOption : undefined}
+						onChooseOption={message.id === optionCards.openId ? actions.onChooseOption : undefined}
+						optionReply={optionCards.replies.get(message.id)}
 					/>
 				);
 			return (
@@ -245,9 +252,11 @@ function MessageEntry({
 	retrying,
 	onOpenMeeting,
 	onChooseOption,
+	optionReply,
 }: MessageProps) {
 	const { t } = useTranslation();
-	const attachment = message.attachments.length === 1 ? message.attachments[0] : undefined;
+	const { attachments, images } = optionCardAttachments(message);
+	const attachment = attachments.length === 1 ? attachments[0] : undefined;
 	const voice = attachment?.kind === "audio" ? message.voice : undefined;
 	return (
 		<article
@@ -257,7 +266,17 @@ function MessageEntry({
 			className={`flex min-w-0 flex-col gap-[var(--spacing-1)] ${self ? "items-end" : "items-start"}`}
 		>
 			{message.outwardDraft ? <p className="text-caption">{t("visits.relayPrivateDraft")}</p> : null}
-			{voice && attachment ? (
+			{message.options?.length ? (
+				<MessageOptions
+					question={message.body}
+					options={message.options}
+					images={images}
+					selected={optionReply && !optionReply.pending && !optionReply.sendFailed ? optionReply.body : null}
+					onChoose={
+						!disconnected && !optionReply && onChooseOption ? (body) => onChooseOption(body, message.id) : undefined
+					}
+				/>
+			) : voice && attachment ? (
 				<VoiceMessage key={attachment.id} attachment={attachment} durationMs={voice.durationMs} self={self} />
 			) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 				<MessageBubble as="div" self={self}>
@@ -270,25 +289,10 @@ function MessageEntry({
 					)}
 				</MessageBubble>
 			) : null}
-			{voice ? null : <MessageAttachments attachments={message.attachments} self={self} />}
+			{voice ? null : <MessageAttachments attachments={attachments} self={self} />}
 			{message.reaction ? <span>{message.reaction}</span> : null}
 			<MessageSources run={message.run} />
 			{message.connectorRequestId ? <ConnectorRequestCard id={message.connectorRequestId} /> : null}
-			{message.options?.length ? (
-				<div className="flex flex-wrap gap-[var(--spacing-2)]">
-					{message.options.map((option) => (
-						<Button
-							key={option}
-							size="sm"
-							variant="secondary"
-							disabled={disconnected || !onChooseOption}
-							onClick={() => onChooseOption?.(option, message.id)}
-						>
-							{option}
-						</Button>
-					))}
-				</div>
-			) : null}
 			{message.meeting && onOpenMeeting ? (
 				<Button
 					size="sm"

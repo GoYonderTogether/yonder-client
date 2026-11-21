@@ -1,5 +1,5 @@
 import { Text, View } from "@tarojs/components";
-import { type MessageBlock, ownedBotFor } from "@yonder/chat-model";
+import { type MessageBlock, optionCardAttachments, type optionCardState, ownedBotFor } from "@yonder/chat-model";
 import { MessageAttachmentsFrame, MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
 import type { Member } from "@yonder/protocol";
 import type { ReactNode } from "react";
@@ -14,6 +14,7 @@ import { senderBotId } from "./bot-entry";
 import { ChatView } from "./host";
 import { MessageBody } from "./markdown";
 import { MessageSources } from "./message-sources";
+import { MessageOptions } from "./option-card";
 import { runFailureText, systemText } from "./sentences";
 import type { useChat } from "./use-chat";
 import { VoiceMessage } from "./voice-message";
@@ -56,7 +57,7 @@ export function renderMessageBlock(
 		contacts,
 	}: { showMessageAvatars: boolean; showSenderNames: boolean; locale: Locale; contacts: readonly Member[] },
 	followAfterLayout: () => void,
-	openOptions?: string,
+	optionCards: ReturnType<typeof optionCardState<ChatMessage>>,
 ) {
 	if ("time" in block)
 		return (
@@ -133,15 +134,33 @@ export function renderMessageBlock(
 				}
 			>
 				{run.map((message) => {
-					const file = message.attachments?.length === 1 ? message.attachments[0] : undefined;
+					const { attachments, images } = optionCardAttachments(message);
+					const file = attachments.length === 1 ? attachments[0] : undefined;
 					const voice = file?.kind === "audio" ? message.voice : undefined;
+					const reply = optionCards.replies.get(message.id);
+					const canChoose = message.id === optionCards.openId && !chat.sending && !reply;
 					return (
 						<View
 							className={`mini-chat-entry ${self ? "mini-chat-entry-self" : ""}`}
 							id={`message-${message.id}`}
 							key={message.id}
 						>
-							{voice && file ? (
+							{message.options?.length ? (
+								<MessageOptions
+									question={message.body}
+									options={message.options}
+									images={images}
+									selected={reply && !reply.pending && !reply.sendFailed ? reply.body : null}
+									onChoose={
+										canChoose
+											? (option) => {
+													followAfterLayout();
+													void chat.send(option, [], [], `option:${message.id}`);
+												}
+											: undefined
+									}
+								/>
+							) : voice && file ? (
 								<VoiceMessage key={file.id} fileId={file.id} durationMs={voice.durationMs} self={self} />
 							) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 								<MessageBubble as={ChatView} self={self}>
@@ -159,22 +178,9 @@ export function renderMessageBlock(
 								<Text className="mini-muted">{outwardStatus(message.outwardRequest.state)}</Text>
 							) : null}
 							<MessageSources run={message.run} />
-							{message.options?.map((option) => (
-								<Button
-									key={option}
-									secondary
-									disabled={message.id !== openOptions || chat.sending}
-									onClick={() => {
-										followAfterLayout();
-										void chat.send(option, [], [], `option:${message.id}`);
-									}}
-								>
-									{option}
-								</Button>
-							))}
-							{!voice && message.attachments?.length ? (
+							{!voice && attachments.length ? (
 								<MessageAttachmentsFrame as={ChatView} self={self}>
-									{message.attachments.map((file) => (
+									{attachments.map((file) => (
 										<MessageAttachment key={file.id} file={file} onSizeChange={followAfterLayout} />
 									))}
 								</MessageAttachmentsFrame>

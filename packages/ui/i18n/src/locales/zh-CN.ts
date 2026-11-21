@@ -290,6 +290,7 @@ export const zhCN: Messages = {
 		reconnecting: "连接已断开，正在重连。",
 		reconnectingReply: "回复状态待确认。",
 		sending: "发送中…",
+		chooseOption: "请选择一项",
 		sendFailed: "消息没有发出",
 		runFailed: "回复失败",
 		modelNotConfigured: "模型没有配置",
