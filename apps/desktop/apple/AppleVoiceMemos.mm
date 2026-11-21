@@ -159,18 +159,20 @@ static NSString *recordingFilename(NSString *path, NSString *directory) {
         path = url.path;
     }
     NSString *file = path.lastPathComponent;
-    if (![[file.pathExtension lowercaseString] isEqualToString:@"m4a"]) return nil;
+    NSString *extension = file.pathExtension.lowercaseString;
+    if (![extension isEqualToString:@"m4a"] && ![extension isEqualToString:@"qta"]) return nil;
     if (path.isAbsolutePath) {
         return [path.stringByDeletingLastPathComponent isEqualToString:directory] ? file : nil;
     }
     return [file isEqualToString:path] ? file : nil;
 }
 
-static NSData *transcriptionWave(NSData *contents, int32_t *status) {
+static NSData *transcriptionWave(NSData *contents, NSString *extension, int32_t *status) {
     *status = AppleReadFailed;
     YonderTemporaryAttachmentDirectory temporary;
     if (!temporary.url) return nil;
-    NSURL *url = [temporary.url URLByAppendingPathComponent:@"original.m4a" isDirectory:NO];
+    NSString *name = [@"original" stringByAppendingPathExtension:extension];
+    NSURL *url = [temporary.url URLByAppendingPathComponent:name isDirectory:NO];
     if (![contents writeToURL:url options:NSDataWritingWithoutOverwriting error:nil]) return nil;
     AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:nil];
     double rate = file.processingFormat.sampleRate;
@@ -239,13 +241,15 @@ static void readRecording(sqlite3 *database, NSString *directory, NSString *iden
     int32_t status = AppleReadFailed;
     NSData *contents = YonderReadAttachment(fd, name, &status);
     close(fd);
-    if (contents && transcribe) contents = transcriptionWave(contents, &status);
+    NSString *extension = name.pathExtension.lowercaseString;
+    if (contents && transcribe) contents = transcriptionWave(contents, extension, &status);
     if (contents && ![name isEqualToString:activeRecordingFilename(database, directory, identifier)]) {
         contents = nil;
         status = AppleNotFound;
     }
+    NSString *mime = [extension isEqualToString:@"qta"] ? @"audio/quicktime" : @"audio/mp4";
     if (contents) YonderReplyAttachment(context, reply, transcribe ? @"recording.wav" : name,
-        transcribe ? @"audio/wav" : @"audio/mp4", contents);
+        transcribe ? @"audio/wav" : mime, contents);
     else reply(context, status, nullptr, 0);
 }
 
