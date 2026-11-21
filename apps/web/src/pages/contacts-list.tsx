@@ -1,16 +1,17 @@
 import { MemberRow } from "@yonder/feature-members";
-import { Button } from "@yonder/ui-components";
+import { Button, EmptyState } from "@yonder/ui-components";
 import { useContacts, useFriendRequests } from "@yonder/ui-data";
-import { type LayoutMode, Overlay } from "@yonder/ui-shell";
+import { ListFrame, PageFrame } from "@yonder/ui-shell";
+import { ContactRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
 
 import { FriendRequestCard } from "./friend-request-card.tsx";
 
-export function ContactsList({ onOpen }: { onOpen: (handle: string) => void }) {
+export function ContactsList({ onOpen, emptyLabel }: { onOpen: (handle: string) => void; emptyLabel?: string }) {
 	const { t } = useTranslation();
 	const contacts = useContacts();
 	const requests = useFriendRequests();
+	const people = contacts.data?.items.filter((member) => member.kind === "person");
 	return (
 		<div className="p-[var(--spacing-4)]">
 			{contacts.isPending ? <p role="status">{t("app.loading")}</p> : null}
@@ -33,28 +34,36 @@ export function ContactsList({ onOpen }: { onOpen: (handle: string) => void }) {
 				</section>
 			) : null}
 			<ul aria-label={t("chatActions.contacts")}>
-				{contacts.data?.items
-					.filter((member) => member.kind === "person")
-					.map((member) => (
-						<MemberRow key={member.id} member={member} onOpen={() => onOpen(member.handle)} />
-					))}
+				{people?.map((member) => (
+					<MemberRow key={member.id} member={member} onOpen={() => onOpen(member.handle)} />
+				))}
 			</ul>
+			{emptyLabel && !contacts.isError && people?.length === 0 ? (
+				<p className="px-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">{emptyLabel}</p>
+			) : null}
 		</div>
 	);
 }
 
-/** The contacts list as a dialog over the frame; opening a contact goes to their card. */
-export function ContactsOverlay({ open, onClose, mode }: { open: boolean; onClose: () => void; mode: LayoutMode }) {
+export function ContactsPageList({ onOpen }: { onOpen: (handle: string) => void }) {
 	const { t } = useTranslation();
-	const navigate = useNavigate();
 	return (
-		<Overlay open={open} onClose={onClose} title={t("chatActions.contacts")} closeLabel={t("app.close")} mode={mode}>
-			<ContactsList
-				onOpen={(handle) => {
-					onClose();
-					navigate(`/@${encodeURIComponent(handle)}`);
-				}}
-			/>
-		</Overlay>
+		<ListFrame title={t("chatActions.contacts")}>
+			<ContactsList onOpen={onOpen} emptyLabel={t("chatActions.contactsEmpty")} />
+		</ListFrame>
+	);
+}
+
+export function ContactsPagePlaceholder() {
+	const { t } = useTranslation();
+	return (
+		<PageFrame>
+			<div className="flex flex-1 items-center justify-center">
+				<EmptyState
+					icon={<ContactRound size={24} strokeWidth={1.6} aria-hidden="true" />}
+					title={t("chatActions.contactsSelect")}
+				/>
+			</div>
+		</PageFrame>
 	);
 }

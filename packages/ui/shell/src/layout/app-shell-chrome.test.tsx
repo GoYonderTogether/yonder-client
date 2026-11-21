@@ -14,7 +14,7 @@ const props: AppShellProps = {
 	tab: {
 		current: "messages",
 		onSelect() {},
-		labels: { messages: "Messages", tasks: "Tasks", memory: "Memory" },
+		labels: { messages: "Messages", tasks: "Tasks", memory: "Memory", contacts: "Contacts" },
 		ariaLabel: "Tabs",
 	},
 	renderAvatar: () => null,

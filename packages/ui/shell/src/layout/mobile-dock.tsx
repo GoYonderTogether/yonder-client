@@ -2,7 +2,7 @@ import { cn, UnreadBadge } from "@yonder/ui-components";
 import type { ReactNode } from "react";
 import { useId } from "react";
 import type { TabId } from "../navigation/routes.ts";
-import { TABS } from "../navigation/routes.ts";
+import { MOBILE_TABS } from "../navigation/routes.ts";
 import { TAB_ICONS } from "./tab-icons.tsx";
 import { useChromeSize } from "./use-chrome-size.ts";
 
@@ -63,7 +63,7 @@ export function MobileDock({
 					<ul className="flex h-[var(--tabbar-height)] items-stretch">
 						{[
 							...(botTab ? [{ id: "bot", ...botTab, displayLabel: shortTabLabel(botTab.label) }] : []),
-							...TABS.map((tab) => {
+							...MOBILE_TABS.map((tab) => {
 								const Icon = TAB_ICONS[tab];
 								return {
 									id: tab,

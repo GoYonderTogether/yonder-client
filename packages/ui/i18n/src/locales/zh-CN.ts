@@ -146,6 +146,7 @@ export const zhCN: Messages = {
 		message: "发消息",
 		noResults: "没有找到联系人",
 		contactsEmpty: "还没有联系人",
+		contactsSelect: "选择联系人查看名片",
 		searchContacts: "搜索联系人",
 		selectContacts: "选择联系人",
 		selected: "已选 {{count}} 位",

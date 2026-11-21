@@ -54,14 +54,65 @@ for (const mobile of [false, true]) {
 		await expect(page.locator("textarea")).toHaveCount(0);
 		await page.getByRole("button", { name: "Accept", exact: true }).click();
 		await expect(page.getByRole("status").filter({ hasText: "Accepted" })).toBeVisible();
+		const navigation = page.getByRole("navigation", { name: "Main navigation" });
 		if (mobile) {
 			await page.goto("/messages");
+			await expect(navigation.getByRole("button", { name: "Contacts", exact: true })).toHaveCount(0);
 			await page.getByRole("button", { name: "New chat", exact: true }).click();
 			await page.getByRole("menuitem", { name: "Contacts", exact: true }).click();
-		} else await page.getByRole("button", { name: "Contacts", exact: true }).click();
-		const dialog = page.getByRole("dialog", { name: "Contacts", exact: true });
-		await expect(dialog.getByRole("status").filter({ hasText: "Accepted" })).toBeVisible();
-		await expect(dialog.getByRole("button", { name: "Accept", exact: true })).toHaveCount(0);
+			await expect(page).toHaveURL(/\/messages$/);
+		} else {
+			await navigation.getByRole("button", { name: "Contacts", exact: true }).click();
+			await expect(page).toHaveURL(/\/contacts$/);
+		}
+		const contacts = mobile
+			? page.getByRole("dialog", { name: "Contacts", exact: true })
+			: page.getByRole("complementary");
+		await expect(contacts.getByRole("status").filter({ hasText: "Accepted" })).toBeVisible();
+		await expect(contacts.getByRole("button", { name: "Accept", exact: true })).toHaveCount(0);
 		// Contacts remain empty; historical acceptance is not inferred from the contact list.
 	});
 }
+
+test("desktop Contacts keeps its selected tab across widths and navigation", async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await isolateChat(page);
+	const contact = { ...person, id: "contact-alice", handle: "alice", displayName: "林晓" };
+	await page.route("**/v1/contacts", (route) => route.fulfill({ json: { items: [contact] } }));
+	await page.route("**/v1/members/alice", (route) =>
+		route.fulfill({
+			json: { card: { ...contact, owner: null }, relation: "contact", memberId: contact.id, conversationId: null },
+		}),
+	);
+	await page.goto("/tasks");
+
+	const rail = page.getByRole("navigation", { name: "主导航" });
+	const contacts = rail.getByRole("button", { name: "联系人", exact: true });
+	await contacts.click();
+	await expect(page).toHaveURL(/\/contacts$/);
+	const list = page.getByRole("complementary");
+	const row = list.getByRole("button", { name: /林晓/ });
+	for (const [width, mode] of [
+		[1440, "wide"],
+		[800, "medium"],
+		[500, "compact"],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", mode);
+		await expect(contacts).toHaveAttribute("aria-current", "page");
+		await expect(list.getByRole("heading", { name: "联系人", exact: true })).toBeVisible();
+		await expect(row).toBeVisible();
+		await expect(page.getByRole("dialog", { name: "联系人", exact: true })).toHaveCount(0);
+	}
+	await row.click();
+	await expect(page).toHaveURL(/\/@alice$/);
+	await expect(page.getByText("林晓", { exact: true })).toBeVisible();
+	await page.getByRole("button", { name: "返回", exact: true }).click();
+	await expect(page).toHaveURL(/\/contacts$/);
+	await expect(contacts).toHaveAttribute("aria-current", "page");
+	await page.reload();
+	await expect(row).toBeVisible();
+	await page.goBack();
+	await expect(page).toHaveURL(/\/tasks$/);
+	await expect(rail.getByRole("button", { name: "任务", exact: true })).toHaveAttribute("aria-current", "page");
+});
