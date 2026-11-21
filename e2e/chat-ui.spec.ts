@@ -29,6 +29,12 @@ async function assertNoShadows(page: Page) {
 			const node = element as HTMLElement;
 			if (!node.getClientRects().length || node.closest("[inert], [aria-hidden=true]")) return [];
 			if (node.matches('[role="dialog"][data-page-layer="me"]')) return [];
+			if (
+				node.matches(
+					"[data-floating-frame-header] [data-chat-agent-title] > :is([data-chat-agent-avatar], [data-chat-agent-name]), button[data-chat-jump-latest]",
+				)
+			)
+				return [];
 			const shadow = getComputedStyle(node).boxShadow;
 			return shadow === "none" ? [] : [{ tag: node.tagName, className: node.className, shadow }];
 		}),

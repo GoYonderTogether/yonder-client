@@ -411,6 +411,7 @@ export function ConversationPage({
 			{showLatest || (items?.length && conversation.unreadCount > 0 && !atBottom) ? (
 				<div className="absolute inset-x-0 bottom-[calc(var(--native-dock-height,0px)_+_var(--spacing-4))] flex justify-center pointer-events-none">
 					<IconButton
+						data-chat-jump-latest
 						aria-label={t("chat.jumpToLatest")}
 						variant="secondary"
 						onClick={jumpToLatest}

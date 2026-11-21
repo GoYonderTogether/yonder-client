@@ -216,7 +216,9 @@ export function AppShell({
 							) : null}
 						</aside>
 					) : null}
+					{/* The main Bot tab is a root, not the pushed detail that animates on exit. */}
 					<GesturePanel
+						key={mainBotOpen ? "main-bot-tab" : "detail"}
 						open={detailOpen || !list}
 						inline={wide || mainBotOpen}
 						active={!meOpen && !sideOpen && (wide ? !pane.collapsed : detailOpen || !list)}

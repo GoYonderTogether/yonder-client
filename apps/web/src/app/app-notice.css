@@ -21,7 +21,7 @@
 }
 
 :root:has([data-page-layer="detail"]:not([inert]) [data-floating-frame-header] [data-chat-agent-title]) {
-	--app-notice-bot-title: calc(var(--text-body--line-height) + var(--spacing-3));
+	--app-notice-bot-title: calc(var(--text-body--line-height) + var(--spacing-4));
 }
 
 :root:has([data-page-layer="detail"]:not([inert]) [data-chat-agent-title] > [role="status"]) {

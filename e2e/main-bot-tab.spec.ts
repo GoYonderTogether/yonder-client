@@ -172,3 +172,24 @@ test("the selected nickname labels the first tab on an existing conversation dee
 	await expect(firstTab).toHaveAttribute("aria-current", "page");
 	await expect(page.getByText(bodies.question, { exact: true })).toBeVisible();
 });
+
+test("leaving the main Bot tab removes its root without a detail exit animation", async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await isolateChat(page);
+	await page.goto("/messages/main");
+	const nav = page.getByRole("navigation", { name: "主导航" });
+	const mainBot = nav.getByRole("button", { name: bot.displayName, exact: true });
+	const root = page.locator('[data-page-layer="detail"]').filter({ has: page.locator("[data-chat-agent-title]") });
+
+	for (const title of ["消息", "任务", "记忆"]) {
+		await expect(root).toBeVisible();
+		const previousRoot = await root.elementHandle();
+		const tab = nav.getByRole("button", { name: title, exact: true });
+		await tab.click();
+		expect(await previousRoot.evaluate((element) => element.isConnected)).toBe(false);
+		await expect(tab).toHaveAttribute("aria-current", "page");
+		await mainBot.click();
+		await expect(mainBot).toHaveAttribute("aria-current", "page");
+		await expect(page.getByText(bodies.question, { exact: true })).toBeVisible();
+	}
+});
