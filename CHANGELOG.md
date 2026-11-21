@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112102] - 2026-11-21
+
+### Added
+
+- mobile：main Bot as a phone tab, haptics, and keyboard-following dock
+
 ## [0.3.26112101] - 2026-11-21
 
 ### Fixed
