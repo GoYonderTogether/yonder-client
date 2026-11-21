@@ -23,13 +23,14 @@ import {
 import { loadSystemDeviceName, SystemDeviceName, useDeviceInfo } from "../lib/device-info.ts";
 import type { KeychainStorage } from "../lib/keychain.ts";
 import { createKeychainStorage, isTauri } from "../lib/keychain.ts";
-import { localFilesSupported, resetLocalFiles } from "../lib/local-files.ts";
+import { appleResourcesSupported, localFilesSupported, resetLocalFiles } from "../lib/local-files.ts";
 import { LocalFilesRuntime } from "../lib/local-files-runtime.tsx";
 import { resetMeetingRecorder } from "../lib/meeting-recorder.ts";
 import { isNativeMobileNotifications } from "../lib/native-notifications.ts";
 import { UpdateProvider } from "../updates/provider.tsx";
 import { AppNoticeProvider } from "./app-notice.tsx";
 import { ConnectorContinuationNotices } from "./connector-continuation-notices.tsx";
+import { MacPermissionsGate } from "./mac-permissions.tsx";
 import { NativePushRegistration } from "./native-push-registration.tsx";
 import { AppRouter } from "./router.tsx";
 
@@ -109,9 +110,16 @@ function Localised() {
 			<AppNoticeProvider scope={signedIn ? personId : undefined}>
 				{signedIn && personId && !isContactWindow() ? <ConnectorContinuationNotices key={personId} /> : null}
 				{registration.isSuccess && isNativeMobileNotifications() ? <NativePushRegistration /> : null}
-				{localFilesSupported() ? <LocalFilesRuntime /> : null}
+				{localFilesSupported() || appleResourcesSupported() ? (
+					<LocalFilesRuntime files={localFilesSupported()} apple={appleResourcesSupported()} />
+				) : null}
 				<UpdateProvider>
-					<AppRouter />
+					<MacPermissionsGate
+						account={signedIn && device.platform === "macos" ? personId : undefined}
+						storage={storage}
+					>
+						<AppRouter />
+					</MacPermissionsGate>
 				</UpdateProvider>
 			</AppNoticeProvider>
 		</I18nextProvider>

@@ -2,14 +2,20 @@ import type { DeviceSummary } from "@yonder/protocol";
 import { Button, EmptyState, IconButton, ListGroup, ListRow } from "@yonder/ui-components";
 import { useDevices } from "@yonder/ui-data";
 import { Laptop, Pencil } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "./device-display-name.ts";
 import { DeviceRemarkEditor } from "./device-remark-editor.tsx";
 import { DeviceRow } from "./device-row.tsx";
 import { DeviceSignOutDialog } from "./device-sign-out-dialog.tsx";
 
-export function DevicesSection({ onAddDevice }: { onAddDevice?: (() => void) | undefined } = {}) {
+export function DevicesSection({
+	onAddDevice,
+	renderDeviceAction,
+}: {
+	onAddDevice?: (() => void) | undefined;
+	renderDeviceAction?: ((device: DeviceSummary) => ReactNode) | undefined;
+} = {}) {
 	const { t } = useTranslation();
 	const devices = useDevices();
 	const [action, setAction] = useState<{ kind: "edit" | "sign-out"; device: DeviceSummary } | null>(null);
@@ -51,6 +57,7 @@ export function DevicesSection({ onAddDevice }: { onAddDevice?: (() => void) | u
 								current={device.current}
 								status={device.status}
 							>
+								{renderDeviceAction?.(device)}
 								<IconButton
 									aria-haspopup="dialog"
 									aria-label={t("me.devices.editRemarkFor", { device: name })}

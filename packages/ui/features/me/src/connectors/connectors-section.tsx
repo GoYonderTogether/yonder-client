@@ -17,17 +17,21 @@ export interface ConnectorsSectionProps {
 
 export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: ConnectorsSectionProps) {
 	const { t, i18n } = useTranslation();
-	const catalog = useConnectorCatalog();
-	const connections = useConnectors();
+	const catalog = useConnectorCatalog(true);
+	const connections = useConnectors({ apple: true });
 	const devices = useDevices();
 	const groups = useMemo(
 		() =>
 			(devices.data?.items ?? []).flatMap((device) => {
 				if (device.platform === "web") return [];
-				const definitions = catalog.data?.items.filter((item) => item.platforms.includes(device.platform));
+				const definitions = catalog.data?.items.filter(
+					(item) =>
+						item.platforms.includes(device.platform) &&
+						(!device.current || !item.id.startsWith("apple-") || localFiles?.supports?.(item.id)),
+				);
 				return definitions?.length ? [{ device, definitions, target: `connector-device-${device.id}` }] : [];
 			}),
-		[devices.data, catalog.data],
+		[devices.data, catalog.data, localFiles],
 	);
 	const loading = catalog.isLoading || connections.isLoading || devices.isLoading;
 	const failed =
@@ -92,6 +96,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 		connectorId: ConnectorDefinition["id"];
 		deviceId: string;
 		instanceId?: string;
+		connect?: boolean;
 	} | null>(null);
 	const selectedGroup = groups.find(({ device }) => device.id === selected?.deviceId);
 	const device = selectedGroup?.device;
@@ -104,8 +109,13 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 		if (selected && !detailVisible) setSelected(null);
 	}, [selected, detailVisible]);
 
-	const open = (device: DeviceSummary, definition: ConnectorDefinition, instanceId?: string) => {
-		setSelected({ connectorId: definition.id, deviceId: device.id, ...(instanceId ? { instanceId } : {}) });
+	const open = (device: DeviceSummary, definition: ConnectorDefinition, instanceId?: string, connect?: boolean) => {
+		setSelected({
+			connectorId: definition.id,
+			deviceId: device.id,
+			...(instanceId ? { instanceId } : {}),
+			...(connect ? { connect } : {}),
+		});
 	};
 	function label(item: DeviceSummary) {
 		const displayName = deviceDisplayName(item);
@@ -227,7 +237,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 											definition={def}
 											device={device}
 											instances={instances}
-											onOpen={(definition, instanceId) => open(device, definition, instanceId)}
+											onOpen={(definition, instanceId, connect) => open(device, definition, instanceId, connect)}
 										/>
 									))}
 								</div>
@@ -243,6 +253,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 					definition={definition}
 					instance={instance}
 					localFiles={localFiles}
+					connect={selected.connect}
 					onOpenDevices={onOpenDevices}
 					onClose={() => setSelected(null)}
 				/>

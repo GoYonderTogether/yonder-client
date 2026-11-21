@@ -1,5 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
-import type { ConnectorDefinition, DeviceSummary } from "@yonder/protocol";
+import { expect, type Page, test, type WebSocketRoute } from "@playwright/test";
+import type { ConnectorCommand, ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 import { isolateChat } from "./chat-fixture.ts";
 
 const catalog: ConnectorDefinition[] = (["local-files", "computer-control"] as const).map((id) => ({
@@ -22,7 +22,10 @@ const home = device("home", "家用工作站桌面电脑", "windows");
 
 async function openConnectors(page: Page, items: DeviceSummary[]) {
 	await isolateChat(page);
-	await page.route("**/v1/connectors/catalog", (route) => route.fulfill({ json: { items: catalog } }));
+	await page.route(
+		(url) => url.pathname === "/v1/connectors/catalog",
+		(route) => route.fulfill({ json: { items: catalog } }),
+	);
 	await page.route("**/v1/devices", (route) => route.fulfill({ json: { items } }));
 	await page.goto("/me/connectors");
 }
@@ -98,3 +101,211 @@ test("device clicks select each group even when scroll targets coincide", async 
 	await expect(link(home)).toHaveAttribute("aria-current", "true");
 	expect(await top()).toBe(0);
 });
+
+for (const platform of ["ios", "macos"] as const) {
+	test(`${platform} connects Apple Calendar after system consent and answers a Bot tool call`, async ({
+		page,
+	}, info) => {
+		await isolateChat(page, { items: [] });
+		const isMac = platform === "macos";
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await page.setViewportSize({ width: isMac ? 1180 : 390, height: 770 });
+		const target = device("dev_apple", isMac ? "MacBook Pro" : "iPhone", platform, true);
+		const instance: ConnectorInstance = {
+			id: "con_calendar",
+			connectorId: "apple-calendar",
+			deviceId: target.id,
+			deviceName: target.name,
+			name: target.name,
+			currentDevice: true,
+			scope: "device",
+			capabilities: { fileTools: false },
+			revision: 1,
+			status: "offline",
+			createdAt: "2026-11-21T00:00:00Z",
+		};
+		await page.route("**/v1/devices", (route) => route.fulfill({ json: { items: [target] } }));
+		await page.route("**/v1/me/sessions", (route) =>
+			route.fulfill({ json: { items: [{ id: "ses_iphone", current: true }] } }),
+		);
+		await page.route(
+			(url) => url.pathname === "/v1/connectors/catalog",
+			(route) => {
+				expect(new URL(route.request().url()).searchParams.get("apple")).toBe("1");
+				const items: ConnectorDefinition[] = [
+					{
+						id: "apple-calendar",
+						name: "Apple Calendar",
+						description: "",
+						kind: "device",
+						platforms: ["ios", "macos"],
+					},
+					{ id: "apple-photos", name: "Apple Photos", description: "", kind: "device", platforms: ["ios", "macos"] },
+					{ id: "apple-notes", name: "Apple Notes", description: "", kind: "device", platforms: ["macos"] },
+				];
+				return route.fulfill({ json: { items } });
+			},
+		);
+		let created = 0;
+		let current: ConnectorInstance | undefined;
+		await page.route(
+			(url) => url.pathname === "/v1/connectors",
+			(route) => {
+				if (route.request().method() === "POST") {
+					created++;
+					expect(route.request().postDataJSON()).toMatchObject({
+						connectorId: instance.connectorId,
+						deviceId: target.id,
+					});
+					current = instance;
+					return route.fulfill({ json: current });
+				}
+				return route.fulfill({ json: { items: current ? [current] : [] } });
+			},
+		);
+		await page.route("**/v1/connectors/con_calendar", (route) => {
+			expect(route.request().method()).toBe("DELETE");
+			current = undefined;
+			return route.fulfill({ json: { ok: true } });
+		});
+		let socket: WebSocketRoute | undefined;
+		let ready = false;
+		await page.routeWebSocket("**/v1/realtime*", (connection) => {
+			socket = connection;
+			connection.onMessage((raw) => {
+				const body = JSON.parse(String(raw));
+				if (body.type !== "connector.ready") return;
+				const next = body.connections.some(
+					({ id, revision }: { id: string; revision: number }) => id === instance.id && revision === instance.revision,
+				);
+				if (next === ready) return;
+				ready = next;
+				if (current) current = { ...current, status: ready ? "online" : "offline" };
+				connection.send(
+					JSON.stringify({ type: "connectors.changed", eventId: crypto.randomUUID(), at: new Date().toISOString() }),
+				);
+			});
+		});
+		await page.addInitScript((isMac) => {
+			Object.defineProperty(navigator, "userAgent", {
+				value: isMac
+					? "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0)"
+					: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)",
+			});
+			localStorage.setItem("dev.yonder.desktop.refresh-token", "apple-connector-browser-fixture");
+			let finishPermission: ((allowed: boolean) => void) | undefined;
+			let granted = false;
+			let authorized = false;
+			const actions: string[] = [];
+			Object.assign(window, {
+				appleConnectorFixture: { actions, resolvePermission: (allowed: boolean) => finishPermission?.(allowed) },
+				__TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
+				__TAURI_INTERNALS__: {
+					metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
+					transformCallback: () => 1,
+					unregisterCallback() {},
+					invoke: async (command: string, args: { connections?: unknown[] }) => {
+						if (command.endsWith("get_password")) return "apple-connector-browser-fixture";
+						if (!command.startsWith("plugin:yonder-apple-resources|")) return null;
+						const action = command.split("|")[1];
+						if (action === "statuses")
+							return {
+								"apple-calendar": granted ? "granted" : "undetermined",
+								"apple-photos": "undetermined",
+								"apple-notes": isMac ? "undetermined" : "unsupported",
+							};
+						if (action === "request_permission") {
+							actions.push(action);
+							granted = await new Promise<boolean>((resolve) => {
+								finishPermission = resolve;
+							});
+							return granted ? "granted" : "denied";
+						}
+						if (action === "authorize") {
+							actions.push(action);
+							authorized = true;
+						}
+						if (action === "ready") return authorized ? (args.connections ?? []) : [];
+						if (action === "revoke") {
+							actions.push(action);
+							authorized = false;
+						}
+						if (action === "execute") {
+							actions.push(action);
+							return { kind: "apple_calendar_list", events: [], more: false };
+						}
+						return null;
+					},
+				},
+			});
+		}, isMac);
+		const actions = () =>
+			page.evaluate(
+				() => (window as unknown as { appleConnectorFixture: { actions: string[] } }).appleConnectorFixture.actions,
+			);
+		const permission = (allowed: boolean) =>
+			page.evaluate(
+				(value) =>
+					(
+						window as unknown as { appleConnectorFixture: { resolvePermission(allowed: boolean): void } }
+					).appleConnectorFixture.resolvePermission(value),
+				allowed,
+			);
+		await page.goto("/me/connectors");
+		if (isMac) await page.getByRole("button", { name: "继续使用 Yonder" }).click();
+		await expect(page.getByText("Apple 相册", { exact: true })).toBeVisible();
+		await expect(page.getByText("Apple 备忘录", { exact: true })).toHaveCount(isMac ? 1 : 0);
+		await page.getByRole("button", { name: "连接 · Apple 日历" }).click();
+		await expect.poll(actions).toEqual(["request_permission"]);
+		expect(created).toBe(0);
+		await permission(false);
+		const dialog = page.getByRole("dialog", { name: "Apple 日历" });
+		await expect(dialog.getByRole("alert")).toHaveText("请到系统设置允许 Yonder 访问后重试。");
+		expect(created).toBe(0);
+		await dialog.getByRole("button", { name: "连接" }).click();
+		await expect.poll(actions).toEqual(["request_permission", "request_permission"]);
+		await permission(true);
+		await expect(page.getByRole("button", { name: "已接入 · Apple 日历" })).toBeVisible();
+		expect(created).toBe(1);
+		await expect.poll(() => ready).toBe(true);
+		await expect(dialog).toBeHidden();
+		await expect(page.getByText("Apple 日历", { exact: true })).toBeInViewport();
+		await page.screenshot({
+			path: info.outputPath(`${platform}-apple-connectors-authorization.png`),
+			animations: "disabled",
+		});
+
+		const command: ConnectorCommand = {
+			connectionId: instance.id,
+			deviceId: instance.deviceId,
+			connectorId: instance.connectorId,
+			scope: instance.scope,
+			capabilities: instance.capabilities,
+			revision: instance.revision,
+			id: "cmd_calendar",
+			operation: "apple_calendar_list",
+			path: "",
+			args: { dateFrom: "2026-11-21", dateTo: "2026-11-21" },
+			expiresAt: new Date(Date.now() + 20_000).toISOString(),
+		};
+		await page.route("**/v1/connector-commands/cmd_calendar/result", (route) => route.fulfill({ json: { ok: true } }));
+		const result = page.waitForRequest("**/v1/connector-commands/cmd_calendar/result");
+		socket?.send(
+			JSON.stringify({
+				type: "connector.command",
+				command,
+				eventId: crypto.randomUUID(),
+				at: new Date().toISOString(),
+			}),
+		);
+		expect((await result).postDataJSON()).toEqual({
+			ok: true,
+			result: { kind: "apple_calendar_list", events: [], more: false },
+		});
+		await page.getByRole("button", { name: "已接入 · Apple 日历" }).click();
+		await page.getByRole("button", { name: "断开连接" }).click();
+		await expect(page.getByRole("button", { name: "连接 · Apple 日历" })).toBeVisible();
+		await expect.poll(() => ready).toBe(false);
+		expect(await actions()).toEqual(["request_permission", "request_permission", "authorize", "execute", "revoke"]);
+	});
+}

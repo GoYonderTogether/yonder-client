@@ -71,6 +71,16 @@ npx tauri android init --ci  && node prepare-android.mjs  # signing, Gradle mirr
 - macOS and installed Windows builds display system notifications from the running app. The server
   shares each conversation's unread and mute state across devices. The OS controls notification permission.
 
+### macOS 设备权限与启动
+
+- 首次登录的整窗引导提供完全磁盘访问和辅助功能两个可跳过的条目。「设置 → 设备 → 管理权限」也可管理麦克风和通知。权限向当前 Mac 的系统设置或系统弹窗发起。
+- 完全磁盘访问状态以系统设置为准。配置系统权限与启用具体连接器是独立操作。
+- 「设置 → 通用」提供登录时启动和关闭窗口后继续运行。登录项由 macOS 管理，应用首次启动时尝试注册，之后尊重用户的选择。允许后台运行时，关闭窗口会保留应用进程，主动退出会停止应用。
+
+### Mac 和 iPhone 的 Apple 数据连接器
+
+「设置 → 连接器」为目标设备发起系统授权。连接就绪后，主 Bot 收到接入事件，Agent 可通过对应工具读取和处理用户授权的数据。Mac 的辅助功能与完全磁盘访问引导独立管理系统权限。
+
 ## Signing material (CI secrets)
 
 | secret                                                                                 | used by                              |

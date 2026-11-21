@@ -3,20 +3,20 @@ import type { CreateConnectorRequest, UpdateConnectorRequest } from "@yonder/pro
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
-export function useConnectorCatalog() {
+export function useConnectorCatalog(apple = false) {
 	const api = useApi();
 	return useQuery({
-		queryKey: keys.connectors.catalog(),
-		queryFn: () => api.connectorCatalog(),
+		queryKey: apple ? [...keys.connectors.catalog(), "apple"] : keys.connectors.catalog(),
+		queryFn: () => api.connectorCatalog(apple),
 		staleTime: 5 * 60_000,
 	});
 }
 
-export function useConnectors(options: { enabled?: boolean } = {}) {
+export function useConnectors(options: { enabled?: boolean; apple?: boolean } = {}) {
 	const api = useApi();
 	return useQuery({
-		queryKey: keys.connectors.list(),
-		queryFn: () => api.connectors(),
+		queryKey: options.apple ? [...keys.connectors.list(), "apple"] : keys.connectors.list(),
+		queryFn: () => api.connectors(options.apple),
 		staleTime: 30_000,
 		enabled: options.enabled ?? true,
 	});

@@ -2,7 +2,7 @@
  * The native invoke, the socket and the connection list, as `LocalFilesRuntime` sees them. Both the
  * grant tests and the command tests import this first, so the mocks exist before the runtime loads.
  */
-import type { ServerEvent } from "@yonder/protocol";
+import type { ConnectorInstance, ServerEvent } from "@yonder/protocol";
 import { vi } from "vitest";
 
 const context = { ownerId: "mem_a", deviceId: "dev_a", sessionId: "ses_a" };
@@ -24,7 +24,8 @@ const realtime = {
 		};
 	},
 };
-type Row = { id: string; deviceId: string; revision: number };
+type Row = Pick<ConnectorInstance, "id" | "deviceId" | "revision"> &
+	Partial<Pick<ConnectorInstance, "connectorId" | "scope" | "capabilities">>;
 const listeners = new Set<() => void>();
 const submit = vi.fn(async () => ({ ok: true }));
 const fail = vi.fn(async () => ({ id: "request", state: "failed" }));
@@ -67,6 +68,9 @@ export const setup = {
 	submit,
 	fail,
 	invoke: vi.fn(),
+	readyApple: vi.fn(),
+	executeApple: vi.fn(),
+	cancelApple: vi.fn(async () => undefined),
 	event: (event: ServerEvent) => onEvent?.(event),
 };
 
@@ -82,9 +86,17 @@ vi.mock("@yonder/ui-data", async () => {
 	};
 });
 vi.mock("./local-files.ts", () => ({
+	activateAppleConnectors: async () => undefined,
+	isAppleConnector: (id: string | undefined) => id?.startsWith("apple-") === true,
 	invokeLocalFiles: setup.invoke,
 	onLocalFilesChanged: () => () => {},
+	resetAppleConnectors: async () => undefined,
 	useLocalFilesContext: () => setup.account.current,
+}));
+vi.mock("./apple-resources.ts", () => ({
+	readyAppleResourceGrants: setup.readyApple,
+	executeAppleResource: setup.executeApple,
+	cancelAppleResource: setup.cancelApple,
 }));
 vi.mock("./tray-bridge.ts", () => ({ beginTrayConnectorWork: setup.beginTrayWork }));
 

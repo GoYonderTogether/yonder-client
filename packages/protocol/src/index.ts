@@ -92,6 +92,10 @@ export type { SubtaskStatus, SubtaskSummary } from "./chat/subtask.ts";
 export type { ApiErrorBody, ErrorCode, Timestamp } from "./common/error.ts";
 export { ERROR_CODES } from "./common/error.ts";
 export type {
+	AppleCalendarEvent,
+	AppleConnectorId,
+	AppleConnectorOperation,
+	AppleConnectorResult,
 	ConnectorCapabilities,
 	ConnectorCatalogResponse,
 	ConnectorCommand,
@@ -108,9 +112,12 @@ export type {
 	ConnectorRequestDevicesResponse,
 	ConnectorRequestState,
 	ConnectorRequestView,
+	ConnectorResult,
 	ConnectorScope,
 	ConnectorStopReason,
 	CreateConnectorRequest,
+	FileConnectorId,
+	FileConnectorOperation,
 	LocalFilesResult,
 	UpdateConnectorRequest,
 } from "./connectors/connectors.ts";

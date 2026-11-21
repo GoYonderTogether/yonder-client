@@ -40,11 +40,11 @@ export function connectorEndpoints(client: ApiClient) {
 		connectorRequestDevices(id: string): Promise<ConnectorRequestDevicesResponse> {
 			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}/devices`);
 		},
-		connectorCatalog(): Promise<ConnectorCatalogResponse> {
-			return client.request("/v1/connectors/catalog");
+		connectorCatalog(apple = false): Promise<ConnectorCatalogResponse> {
+			return client.request(apple ? "/v1/connectors/catalog?apple=1" : "/v1/connectors/catalog");
 		},
-		connectors(): Promise<ConnectorListResponse> {
-			return client.request("/v1/connectors");
+		connectors(apple = false): Promise<ConnectorListResponse> {
+			return client.request(apple ? "/v1/connectors?apple=1" : "/v1/connectors");
 		},
 		createConnector(body: CreateConnectorRequest): Promise<ConnectorInstance> {
 			return client.request("/v1/connectors", { body });

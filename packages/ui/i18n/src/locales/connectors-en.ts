@@ -47,6 +47,8 @@ export const connectorMessagesEn = {
 	unavailable: "Unavailable",
 	loadFailed: "Could not load connectors",
 	connectFailed: "Could not finish connecting. Try again.",
+	reauthorize: "Authorize again",
+	systemPermissionDenied: "Allow access for Yonder in System Settings, then try again.",
 	disconnectFailed: "Could not disconnect. Try again.",
 	viewDevices: "View devices",
 	onDevice: "Continue in Yonder on {{device}} to enable this connector.",
@@ -60,5 +62,22 @@ export const connectorMessagesEn = {
 	computerControl: {
 		name: "Modify files",
 		description: "Create, edit and recoverably delete files",
+	},
+	appleCalendar: {
+		name: "Apple Calendar",
+		description: "Let your Bot find and read events on this device",
+		scope: "Your Bot can find calendar events and read their details when you ask.",
+	},
+	applePhotos: {
+		name: "Apple Photos",
+		description: "Let your Bot find photos and recognize text and content",
+		scope:
+			"Your Bot can find photos within the access you grant and read recognition results. Recognition runs on this device.",
+	},
+	appleNotes: {
+		name: "Apple Notes",
+		description: "Let your Bot find and read notes on this Mac",
+		scope: "Your Bot can list notes and read the text of unlocked notes.",
+		unavailable: "Notes could not be opened. Open Notes on this Mac and try again.",
 	},
 } as const;

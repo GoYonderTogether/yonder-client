@@ -10,6 +10,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 const world = vi.hoisted(() => ({
 	definitions: [] as ConnectorDefinition[],
+	macPermissions: false,
 	updateMe: vi.fn(),
 	updateBot: vi.fn(),
 	completeOnboarding: vi.fn(),
@@ -55,6 +56,7 @@ vi.mock("@yonder/feature-me", () => ({
 	useSetupConnectors: () => ({ device: { id: "d" }, definitions: world.definitions, instances: [], loading: false }),
 }));
 vi.mock("../../lib/local-files.ts", () => ({ useLocalFilesAdapter: () => undefined }));
+vi.mock("../../lib/mac-permissions.ts", () => ({ supportsMacPermissions: () => world.macPermissions }));
 // The page's own frame is not under test here, and the real one reads the locale preference.
 vi.mock("@yonder/feature-auth", async (original) => ({
 	...(await original<typeof import("@yonder/feature-auth")>()),
@@ -84,6 +86,7 @@ function open(path: string) {
 const location = () => screen.getAllByTestId("where").at(-1)?.textContent;
 
 beforeEach(() => {
+	world.macPermissions = false;
 	world.definitions = [{ id: "local-files", kind: "device", name: "x", description: "x", platforms: ["macos"] }];
 	world.updateMe.mockReset().mockResolvedValue(undefined);
 	world.updateBot.mockReset().mockResolvedValue(bot);
@@ -135,6 +138,17 @@ test("where nothing can be connected the flow ends after the Bot and never shows
 	open("/setup/connect");
 	await waitFor(() => expect(location()).toBe("/setup/bot"));
 	expect(screen.queryByText("connector cards")).toBeNull();
+});
+
+test("Mac onboarding leaves the installed connectors for settings", async () => {
+	world.macPermissions = true;
+	const user = userEvent.setup();
+	open("/setup/connect");
+	await waitFor(() => expect(location()).toBe("/setup/bot"));
+	await user.click(screen.getByRole("button", { name: "Skip this step" }));
+	await waitFor(() => expect(location()).toBe("/messages/owner-chat"));
+	expect(screen.queryByText("connector cards")).toBeNull();
+	expect(world.completeOnboarding).toHaveBeenCalledWith(["bot"]);
 });
 
 test("keeps setup open after a failed completion and opens the conversation after retry", async () => {

@@ -101,17 +101,25 @@ function applyExportCompliance() {
 	}
 }
 
-function applyNotifications() {
+function applyAppleFrameworks() {
 	const project = readFileSync(projectFile, "utf8");
-	if (!project.includes("UserNotifications")) {
-		writeFileSync(
-			projectFile,
-			project.replace(
+	const frameworks = ["UserNotifications", "EventKit", "Photos", "Vision"];
+	const flags = frameworks.map((framework) => `"-framework", "${framework}"`).join(", ");
+	const linked = project.includes('"UserNotifications"')
+		? project.replace(/OTHER_LDFLAGS = \((.*)\);/g, (setting, existing) => {
+				if (!existing.includes('"UserNotifications"')) return setting;
+				const missing = frameworks.filter((framework) => !existing.includes(`"${framework}"`));
+				if (!missing.length) return setting;
+				return `OTHER_LDFLAGS = (${existing}, ${missing.map((name) => `"-framework", "${name}"`).join(", ")});`;
+			})
+		: project.replace(
 				/^([\t ]*)CODE_SIGN_ENTITLEMENTS =/gm,
-				'$1OTHER_LDFLAGS = ("$(inherited)", "-framework", "UserNotifications");\n$1CODE_SIGN_ENTITLEMENTS =',
-			),
-		);
-	}
+				(_line, indent) => `${indent}OTHER_LDFLAGS = ("$(inherited)", ${flags});\n${indent}CODE_SIGN_ENTITLEMENTS =`,
+			);
+	if (linked !== project) writeFileSync(projectFile, linked);
+}
+
+function applyNotifications() {
 	const development = process.env.IOS_SIGNING_STYLE === "development";
 	// Keep the existing release profile usable until it is renewed with the Push capability.
 	const push = process.env.YONDER_IOS_PUSH ?? (development ? "1" : "0");
@@ -149,6 +157,7 @@ function applyNotifications() {
 applyIcons();
 applySigning();
 applyExportCompliance();
+applyAppleFrameworks();
 applyNotifications();
 // Tao's scene delegate keeps UIKit and WKWebView safe areas current after rotation.
 execFileSync("/usr/bin/plutil", [
@@ -178,6 +187,29 @@ execFileSync("/usr/bin/plutil", [
 	"NSMicrophoneUsageDescription",
 	"-string",
 	"Record meeting audio or turn your voice into an editable message / 录制会议音频或将语音转成可编辑消息",
+	infoPlist,
+]);
+for (const key of ["NSCalendarsUsageDescription", "NSCalendarsFullAccessUsageDescription"]) {
+	execFileSync("/usr/bin/plutil", [
+		"-replace",
+		key,
+		"-string",
+		"Allow your Agent to read calendar events when you use the Calendar connector / 允许智能体通过日历连接器读取日程",
+		infoPlist,
+	]);
+}
+execFileSync("/usr/bin/plutil", [
+	"-replace",
+	"NSPhotoLibraryUsageDescription",
+	"-string",
+	"Allow your Agent to analyze permitted photos on this device / 允许智能体在此设备上分析授权范围内的照片",
+	infoPlist,
+]);
+execFileSync("/usr/bin/plutil", [
+	"-replace",
+	"PHPhotoLibraryPreventAutomaticLimitedAccessAlert",
+	"-bool",
+	"true",
 	infoPlist,
 ]);
 // The native meeting recorder owns capture when the WebView is suspended or the device locks.

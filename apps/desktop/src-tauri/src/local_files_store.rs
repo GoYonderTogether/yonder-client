@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+#[cfg(desktop)]
 use std::sync::Mutex;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -74,6 +75,7 @@ pub struct Store {
     pub running: HashMap<String, (String, std::sync::Arc<std::sync::atomic::AtomicBool>)>,
 }
 
+#[cfg(desktop)]
 pub type LocalFilesState = Mutex<Store>;
 
 impl Store {

@@ -2,6 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Read notes when you ask your Bot to use the Apple Notes connector / 按你的要求读取 Apple 备忘录</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Allow your Agent to read calendar events when you use the Calendar connector / 允许智能体通过日历连接器读取日程</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Allow your Agent to read calendar events when you use the Calendar connector / 允许智能体通过日历连接器读取日程</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Allow your Agent to analyze permitted photos on this device / 允许智能体在此设备上分析授权范围内的照片</string>
+    <key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
+    <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>Record meetings or turn your voice into an editable message / 录制会议或将语音转成可编辑的消息</string>
 </dict>

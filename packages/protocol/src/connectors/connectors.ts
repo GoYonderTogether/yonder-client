@@ -1,7 +1,11 @@
 import type { DeviceInfo } from "../auth/auth.ts";
 
+export type FileConnectorId = "local-files" | "computer-control";
+export type AppleConnectorId = "apple-calendar" | "apple-photos" | "apple-notes";
+export type ConnectorId = FileConnectorId | AppleConnectorId;
+
 export interface ConnectorDefinition {
-	id: "local-files" | "computer-control";
+	id: ConnectorId;
 	kind: "device";
 	name: string;
 	description: string;
@@ -28,8 +32,6 @@ export interface ConnectorInstance {
 	createdAt: string;
 }
 
-export type ConnectorId = ConnectorDefinition["id"];
-
 /** `pending` → `dispatched` → `granted`; `cancelled`, `expired` and `failed` are side exits. */
 export type ConnectorRequestState = "pending" | "dispatched" | "granted" | "cancelled" | "expired" | "failed";
 
@@ -39,7 +41,7 @@ export type ConnectorRequestState = "pending" | "dispatched" | "granted" | "canc
  */
 export interface ConnectorRequestView {
 	id: string;
-	connectorIds: ConnectorId[];
+	connectorIds: FileConnectorId[];
 	/** The Bot's one-line reason, not the user's own message. */
 	reason: string;
 	state: ConnectorRequestState;
@@ -62,7 +64,7 @@ export interface ConnectorRequestView {
 /** One grant a device session is asked to store; the device reports readiness through `connector.ready`. */
 export interface ConnectorGrant {
 	connectionId: string;
-	connectorId: ConnectorId;
+	connectorId: FileConnectorId;
 	scope: "device";
 	capabilities: ConnectorCapabilities;
 	revision: number;
@@ -102,7 +104,7 @@ export interface UpdateConnectorRequest {
 	capabilities?: ConnectorCapabilities;
 }
 
-export type ConnectorOperation =
+export type FileConnectorOperation =
 	| "list"
 	| "read"
 	| "grep"
@@ -112,6 +114,14 @@ export type ConnectorOperation =
 	| "edit"
 	| "delete"
 	| "restore";
+export type AppleConnectorOperation =
+	| "apple_calendar_list"
+	| "apple_calendar_read"
+	| "apple_photos_list"
+	| "apple_photos_read"
+	| "apple_notes_list"
+	| "apple_notes_read";
+export type ConnectorOperation = FileConnectorOperation | AppleConnectorOperation;
 export interface ConnectorCommandArgs {
 	/** `search`: a file-name substring. `grep`: a regular expression (Rust `regex` syntax). */
 	query?: string;
@@ -140,6 +150,11 @@ export interface ConnectorCommandArgs {
 	includeIgnored?: boolean;
 	/** `search`/`index`: include dot files and dot directories. */
 	includeHidden?: boolean;
+	/** OS-local resource id, never a filesystem path or a script. */
+	id?: string;
+	/** YYYY-MM-DD in the device's local calendar, inclusive. */
+	dateFrom?: string;
+	dateTo?: string;
 }
 
 export interface ConnectorCommand {
@@ -208,6 +223,36 @@ export type LocalFilesResult =
 	  }
 	| { kind: "delete"; path: string; recoveryId: string };
 
+export interface AppleCalendarEvent {
+	id: string;
+	title: string;
+	startsAt: string;
+	endsAt: string;
+	allDay: boolean;
+	calendar: string;
+}
+
+export type AppleConnectorResult =
+	| { kind: "apple_calendar_list"; events: AppleCalendarEvent[]; more: boolean }
+	| {
+			kind: "apple_calendar_read";
+			event: AppleCalendarEvent & { notes?: string; location?: string; url?: string };
+	  }
+	| {
+			kind: "apple_photos_list";
+			photos: { id: string; createdAt: string | null; width: number; height: number }[];
+			more: boolean;
+	  }
+	| { kind: "apple_photos_read"; id: string; text: string; truncated?: boolean; labels?: string[] }
+	| {
+			kind: "apple_notes_list";
+			notes: { id: string; title: string; modifiedAt: string | null }[];
+			more: boolean;
+	  }
+	| { kind: "apple_notes_read"; id: string; text: string; truncated?: boolean };
+
+export type ConnectorResult = LocalFilesResult | AppleConnectorResult;
+
 export type ConnectorExecutionError =
 	| "permission_denied"
 	| "not_found"
@@ -225,5 +270,5 @@ export type ConnectorExecutionError =
 	| "multiple_matches"
 	| "operation_failed";
 export type ConnectorCommandResult =
-	| { ok: true; result: LocalFilesResult }
+	| { ok: true; result: ConnectorResult }
 	| { ok: false; error: ConnectorExecutionError; candidateLines?: number[] };
