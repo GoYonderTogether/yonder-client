@@ -101,6 +101,7 @@ fn main() {
                         "request_permission",
                         "permission_status",
                         "push_registration",
+                        "open_settings",
                         "take_open",
                         "show_desktop",
                         "registerListener",

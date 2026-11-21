@@ -117,6 +117,7 @@ export const zhCN: Messages = {
 		unread_one: "{{count}} 条未读消息",
 		unread_other: "{{count}} 条未读消息",
 		enableSystemNotifications: "允许系统通知",
+		openNotificationSettings: "打开通知设置",
 		systemNotificationsDenied: "请在设备或浏览器的设置中允许通知。",
 		muteFailed: "无法更改免打扰设置，请重试。",
 		newMessage: "新消息",

@@ -114,6 +114,7 @@ export const en = {
 		unread_one: "{{count}} unread message",
 		unread_other: "{{count}} unread messages",
 		enableSystemNotifications: "Allow system notifications",
+		openNotificationSettings: "Open notification settings",
 		systemNotificationsDenied: "Allow notifications in your device or browser settings.",
 		muteFailed: "Could not change notifications. Try again.",
 		newMessage: "New message",

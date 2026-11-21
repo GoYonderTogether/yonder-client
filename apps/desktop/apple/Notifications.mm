@@ -8,6 +8,16 @@
 extern "C" void yonder_ios_notification_open(const char *payload);
 extern "C" void yonder_ios_notification_token(const char *token, bool sandbox);
 
+extern "C" void yonder_ios_open_notification_settings(void *context, void (*callback)(void *, bool)) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSString *url = UIApplicationOpenSettingsURLString;
+        if (@available(iOS 15.4, *)) url = UIApplicationOpenNotificationSettingsURLString;
+        [UIApplication.sharedApplication openURL:[NSURL URLWithString:url]
+                                          options:@{}
+                                completionHandler:^(BOOL opened) { callback(context, opened); }];
+    });
+}
+
 @interface YonderNotificationDelegate : NSObject <UNUserNotificationCenterDelegate>
 @end
 

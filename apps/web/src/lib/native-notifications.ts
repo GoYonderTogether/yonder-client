@@ -16,12 +16,16 @@ export interface NativePushRegistration {
 const plugin = "yonder-notifications";
 const isAndroid = () => typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
 
-export function isNativeMobileNotifications(): boolean {
+export function isNativeIosNotifications(): boolean {
 	return (
 		isTauri() &&
-		(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+		(/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
 			(/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1))
 	);
+}
+
+export function isNativeMobileNotifications(): boolean {
+	return isNativeIosNotifications() || (isTauri() && isAndroid());
 }
 
 async function command<T>(name: string, args?: Record<string, unknown>): Promise<T> {
@@ -35,6 +39,10 @@ export async function requestNativeNotificationPermission(): Promise<boolean> {
 
 export async function nativeNotificationPermission(): Promise<"granted" | "denied" | "default"> {
 	return isTauri() ? command("permission_status") : "default";
+}
+
+export async function openIosNotificationSettings(): Promise<boolean> {
+	return isNativeIosNotifications() && (await command<boolean>("open_settings"));
 }
 
 export async function nativePushRegistration(): Promise<NativePushRegistration | null> {
