@@ -27,6 +27,8 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 	let startedAt = 0;
 	let offline = false;
 	let acceptedButLost = false;
+	let firstRequestRejected = false;
+	let releaseTranscript = false;
 	let finalizations = 0;
 	let finalResponse: MeetingRecord | null = null;
 	const caption = "先验证断网恢复，再检查手机端的录音体验。";
@@ -39,8 +41,8 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 		return {
 			meetingId: id,
 			nextSegmentIndex: recorded.size,
-			committedThroughSegmentIndex: recorded.size - 1,
-			transcript: recorded.size ? caption : "",
+			committedThroughSegmentIndex: releaseTranscript && recorded.size >= 2 ? recorded.size - 1 : -1,
+			transcript: releaseTranscript && recorded.size >= 2 ? caption : "",
 			errorCode: null,
 			captureState: "recording",
 			lastClientSeenAt: Date.now(),
@@ -53,7 +55,7 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 		if (offline) return route.abort("internetdisconnected");
 		if (url.pathname === "/v1/meetings/live") {
 			const input = request.postDataJSON();
-			expect(input.conversationId).toBe(conversation.id);
+			expect(input).toMatchObject({ conversationId: conversation.id, transportMode: "live" });
 			if (clientId) expect(input.clientRecordingId).toBe(clientId);
 			clientId = input.clientRecordingId;
 			startedAt = input.startedAt;
@@ -65,6 +67,10 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 			expect(audio?.toString("ascii", 0, 4)).toBe("RIFF");
 			expect(audio?.toString("ascii", 8, 12)).toBe("WAVE");
 			expect(index).toBeLessThanOrEqual(recorded.size);
+			if (index === 0 && !firstRequestRejected) {
+				firstRequestRejected = true;
+				return route.fulfill({ status: 503, json: { error: { code: "upstream_unavailable" } } });
+			}
 			recorded.add(index);
 			if (!acceptedButLost && index === 1) {
 				acceptedButLost = true;
@@ -120,9 +126,19 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 	await page.goto("/messages/main");
 	await page.getByRole("button", { name: "添加附件" }).click();
 	await page.getByRole("button", { name: "录音笔记", exact: true }).click();
-	await page.getByRole("button", { name: "录音并实时转写" }).click();
+
 	const recorder = page.getByRole("dialog", { name: "实时转写" });
 	await expect(recorder).toBeVisible();
+	await expect(recorder.getByText("等待上传第一段录音…")).toBeVisible();
+	await page.screenshot({ path: info.outputPath("00-waiting-upload.png"), animations: "disabled", scale: "css" });
+	await expect(recorder.getByText("暂时无法实时转写，录音仍在继续。")).toBeVisible({ timeout: 15000 });
+	await expect(recorder.getByText("音频已送达，等待转写…")).toBeVisible({ timeout: 15000 });
+	await page.screenshot({
+		path: info.outputPath("00-waiting-transcription.png"),
+		animations: "disabled",
+		scale: "css",
+	});
+	releaseTranscript = true;
 	await expect(recorder.getByRole("button", { name: "暂停录音" })).toHaveCount(0);
 	await expect(recorder.getByText(caption)).toBeVisible({ timeout: 20_000 });
 	await page.screenshot({ path: info.outputPath("01-live.png"), animations: "disabled", scale: "css" });

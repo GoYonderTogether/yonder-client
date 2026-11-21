@@ -9,11 +9,21 @@ export interface MeetingLiveStatus {
 	caption: { recordingId: string; conversationId: string; text: string; isFinal: boolean; segmentIndex: number } | null;
 	transcript: string;
 	asrErrorCode: string | null;
+	audioAccepted: boolean;
+	syncFailed: boolean;
 	offline: boolean;
 	meetingId: string | null;
 }
 
-const EMPTY: MeetingLiveStatus = { caption: null, transcript: "", asrErrorCode: null, offline: false, meetingId: null };
+const EMPTY: MeetingLiveStatus = {
+	caption: null,
+	transcript: "",
+	asrErrorCode: null,
+	audioAccepted: false,
+	syncFailed: false,
+	offline: false,
+	meetingId: null,
+};
 
 export function useMeetingLive(ownerId: string | null, recorder: MeetingRecorderController): MeetingLiveStatus {
 	const { api, storage } = useData();
@@ -60,6 +70,14 @@ export function useMeetingLive(ownerId: string | null, recorder: MeetingRecorder
 				const key = `meeting-live-submitted.${id}.${recording.id}`;
 				if (storage.get(key) === "1" || (retry.get(recording.id) ?? 0) > Date.now()) continue;
 				const current = () => recording.transportMode === "live" && latest.current.state.activeId === recording.id;
+				function updateStatus(update: (status: MeetingLiveStatus) => MeetingLiveStatus) {
+					if (!current()) return;
+					setSnapshot((previous) => {
+						const matching = previous?.ownerId === id && previous.recordingId === recording.id ? previous : undefined;
+						const status = update(matching?.status ?? EMPTY);
+						return matching?.status === status ? matching : { ownerId: id, recordingId: recording.id, status };
+					});
+				}
 				try {
 					assertOwner();
 					const noAudioEnded =
@@ -98,27 +116,27 @@ export function useMeetingLive(ownerId: string | null, recorder: MeetingRecorder
 							if (!current()) return;
 							const transcript = progress.transcript.trim();
 							const text = transcript.split(/\n+/).at(-1) ?? "";
-							setSnapshot({
-								ownerId: id,
-								recordingId: recording.id,
-								status: {
-									meetingId: progress.meetingId,
-									transcript,
-									asrErrorCode: progress.errorCode,
-									offline: false,
-									caption: text
-										? {
-												recordingId: recording.id,
-												conversationId,
-												text,
-												isFinal: !progress.recording,
-												segmentIndex: progress.committedThroughSegmentIndex,
-											}
-										: null,
-								},
-							});
+							updateStatus((previous) => ({
+								...previous,
+								meetingId: progress.meetingId,
+								transcript,
+								asrErrorCode: progress.errorCode,
+								audioAccepted: progress.nextSegmentIndex > 0,
+								caption: text
+									? {
+											recordingId: recording.id,
+											conversationId,
+											text,
+											isFinal: !progress.recording,
+											segmentIndex: progress.committedThroughSegmentIndex,
+										}
+									: null,
+							}));
 						},
 					});
+					updateStatus((status) =>
+						status.offline || status.syncFailed ? { ...status, offline: false, syncFailed: false } : status,
+					);
 					if (done) {
 						storage.set(key, "1");
 						ids.delete(recording.id);
@@ -130,16 +148,8 @@ export function useMeetingLive(ownerId: string | null, recorder: MeetingRecorder
 				} catch (error) {
 					if (signal.aborted || owner.current !== id) return;
 					retry.set(recording.id, Date.now() + 4000);
-					if (current() && error instanceof NetworkError) {
-						setSnapshot((previous) => ({
-							ownerId: id,
-							recordingId: recording.id,
-							status: {
-								...(previous?.ownerId === id && previous.recordingId === recording.id ? previous.status : EMPTY),
-								offline: true,
-							},
-						}));
-					}
+					const offline = error instanceof NetworkError;
+					updateStatus((status) => ({ ...status, offline, syncFailed: !offline }));
 				}
 			}
 		},

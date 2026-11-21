@@ -29,14 +29,14 @@ for (const mobile of [false, true])
 			await page.goto("/messages/main");
 			await page.getByRole("button", { name: "添加附件" }).click();
 			await page.getByRole("button", { name: "录音笔记", exact: true }).click();
-			await page.getByRole("button", { name: "仅录音", exact: true }).click();
+
 			const meter = page.getByRole("meter", { name: "麦克风音量" });
 			await expect.poll(async () => Number(await meter.getAttribute("value")), { timeout: 15000 }).toBeGreaterThan(0);
 			await expect
 				.poll(() => page.locator(".meeting-level-bars span[data-peak]").count(), { timeout: 15000 })
 				.toBeGreaterThan(0);
 			await expect(page.locator(".meeting-level-bars span")).toHaveCount(6);
-			const dialog = page.getByRole("dialog", { name: "录音笔记", exact: true });
+			const dialog = page.getByRole("dialog", { name: "实时转写", exact: true });
 			await expect(dialog).toBeVisible();
 			await expect(dialog.getByRole("button", { name: "暂停录音", exact: true })).toHaveCount(0);
 			await page.screenshot({ path: testInfo.outputPath("recording.png") });

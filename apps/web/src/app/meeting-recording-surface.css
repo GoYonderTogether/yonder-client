@@ -1,5 +1,4 @@
-.meeting-recording-dialog,
-.meeting-start-choice {
+.meeting-recording-dialog {
 	position: fixed;
 	inset: 0;
 	margin: auto;
@@ -16,8 +15,7 @@
 	height: min(var(--settings-window-height), calc(100dvh - var(--spacing-8)));
 	overflow: hidden;
 }
-.meeting-recording-dialog::backdrop,
-.meeting-start-choice::backdrop {
+.meeting-recording-dialog::backdrop {
 	background: var(--color-bg-overlay);
 }
 .meeting-recording-body:not([hidden]) {
@@ -37,8 +35,7 @@
 	grid-template-columns: 1fr minmax(0, auto) 1fr;
 	padding-top: max(var(--spacing-3), env(safe-area-inset-top));
 }
-.meeting-recording-header h2,
-.meeting-start-choice h2 {
+.meeting-recording-header h2 {
 	margin: 0;
 	font-size: var(--text-h3);
 	font-weight: var(--font-weight-semibold);
@@ -145,22 +142,6 @@
 	margin-top: var(--spacing-2);
 	border-radius: var(--radius-card);
 	object-fit: contain;
-}
-.meeting-start-choice {
-	width: min(var(--width-form), calc(100vw - var(--spacing-8)));
-	padding: var(--spacing-4);
-}
-.meeting-start-choice header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	margin-bottom: var(--spacing-2);
-}
-.meeting-start-choice > button {
-	display: flex;
-	justify-content: start;
-	width: 100%;
-	gap: var(--spacing-2);
 }
 .meeting-camera {
 	position: relative;

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import type { MeetingRecording } from "@yonder/feature-meetings";
-import type { CreateMeetingRequest } from "@yonder/protocol";
+import type { StartLiveMeetingRequest } from "@yonder/protocol";
 import { conversation, isolateChat } from "./chat-fixture.ts";
 
 const audio = readFileSync("e2e/fixtures/attachment-preview/audio.wav");
@@ -21,19 +21,31 @@ for (const mobile of [false, true]) {
 		});
 		test("starts from the chat menu and stays available across app navigation", async ({ page }) => {
 			await isolateChat(page, { items: [] });
-			let manifest: CreateMeetingRequest | undefined;
+			let manifest: StartLiveMeetingRequest | undefined;
+			let accepted = false;
 			let submitted = false;
 			await page.route("**/v1/meetings**", async (route) => {
 				const request = route.request();
 				const path = new URL(request.url()).pathname;
-				if (path === "/v1/meetings" && request.method() === "POST") manifest = request.postDataJSON();
-				if (path.endsWith("/segments/0")) expect(request.postDataBuffer()).toEqual(audio);
-				if (path.endsWith("/process")) submitted = true;
+				if (path === "/v1/meetings/live" && request.method() === "POST") manifest = request.postDataJSON();
+				if (path.endsWith("/segments/0")) {
+					expect(request.postDataBuffer()).toEqual(audio);
+					accepted = true;
+				}
+				if (path.endsWith("/finalize")) {
+					expect(request.postDataJSON()).toMatchObject({ state: "ended", segmentCount: 1 });
+					submitted = true;
+				}
 				await route.fulfill({
 					json: {
-						id: "native-meeting",
-						status: submitted ? "queued" : "uploading",
-						segments: manifest?.segments ?? [],
+						meetingId: "native-meeting",
+						nextSegmentIndex: accepted ? 1 : 0,
+						committedThroughSegmentIndex: -1,
+						transcript: "",
+						captureState: "recording",
+						lastClientSeenAt: Date.now(),
+						errorCode: null,
+						recording: !submitted,
 					},
 				});
 			});
@@ -92,6 +104,7 @@ for (const mobile of [false, true]) {
 										title: String(args.title),
 										conversationId: String(args.conversationId),
 										separateSpeakers: args.separateSpeakers === true,
+										transportMode: args.transportMode === "live" ? "live" : undefined,
 										state: "recording",
 										startedAt: Date.now(),
 										endedAt: 0,
@@ -117,14 +130,13 @@ for (const mobile of [false, true]) {
 			const openRecorder = async () => {
 				await page.getByRole("button", { name: "发起聊天" }).click();
 				await page.getByRole("menuitem", { name: "录音笔记", exact: true }).click();
-				await page.getByRole("button", { name: "仅录音", exact: true }).click();
 			};
 			if (mobile) await page.getByRole("button", { name: "消息", exact: true }).click();
 			await openRecorder();
 			const stop = page.getByRole("button", { name: "结束录音", exact: true });
 			await expect(stop).toBeVisible();
 			await expect(page.getByRole("status", { name: "录制时长" })).toHaveText("00:00:12");
-			await expect(page.getByRole("dialog", { name: "录音笔记" })).toBeVisible();
+			await expect(page.getByRole("dialog", { name: "实时转写" })).toBeVisible();
 			await expect(page.getByRole("textbox", { name: "录音标题" })).toHaveCount(0);
 			await expect(page.getByRole("button", { name: "暂停录音", exact: true })).toHaveCount(0);
 			await page.getByRole("button", { name: "收起录音", exact: true }).click();
@@ -140,7 +152,7 @@ for (const mobile of [false, true]) {
 			await meButton.click();
 			await expect(page).toHaveURL(/\/me(?:\/|$)/);
 			await expect(stop).toBeVisible();
-			expect(manifest).toBeUndefined();
+			await expect.poll(() => accepted).toBe(true);
 			expect(
 				await page.evaluate(() =>
 					(window as unknown as { __meetingRecorderCalls: string[] }).__meetingRecorderCalls.filter(
@@ -150,16 +162,13 @@ for (const mobile of [false, true]) {
 			).toEqual(["start"]);
 			await stop.click();
 			await expect(page.locator(".meeting-capsule")).toHaveCount(0);
-			if (mobile) {
-				await expect.poll(() => submitted).toBe(true);
-				expect(manifest).toMatchObject({
-					clientRecordingId: "new-recording",
-					conversationId: conversation.id,
-					title: "录音笔记",
-					separateSpeakers: true,
-					state: "ended",
-				});
-			}
+			await expect.poll(() => submitted).toBe(true);
+			expect(manifest).toMatchObject({
+				clientRecordingId: "new-recording",
+				conversationId: conversation.id,
+				title: "录音笔记",
+				transportMode: "live",
+			});
 		});
 	});
 }

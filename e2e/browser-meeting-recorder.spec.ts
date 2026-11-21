@@ -6,7 +6,7 @@ test.use({
 	launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
 });
 
-test("browser recording starts from the mode picker, resumes a saved upload and skips submitted audio after reload", async ({
+test("browser recording starts live immediately, resumes a saved upload and skips submitted audio after reload", async ({
 	page,
 }, info) => {
 	await page.addInitScript(() => {
@@ -41,7 +41,7 @@ test("browser recording starts from the mode picker, resumes a saved upload and 
 		if (path === "/v1/meetings/live" && request.method() === "POST") {
 			creates++;
 			const next = request.postDataJSON() as StartLiveMeetingRequest;
-			expect(next).toMatchObject({ conversationId: conversation.id, transportMode: "record", title: "录音笔记" });
+			expect(next).toMatchObject({ conversationId: conversation.id, transportMode: "live", title: "录音笔记" });
 			if (manifest) expect(next.clientRecordingId).toBe(manifest.clientRecordingId);
 			manifest = next;
 		}
@@ -88,7 +88,7 @@ test("browser recording starts from the mode picker, resumes a saved upload and 
 		expect(await page.evaluate(() => sessionStorage.getItem("meeting-lock-requested"))).toBeNull();
 		await expect(page.getByRole("menuitem", { name: /录音/ })).toHaveCount(1);
 		await page.getByRole("menuitem", { name: "录音笔记", exact: true }).click();
-		await page.getByRole("button", { name: "仅录音", exact: true }).click();
+
 		await expect(page.getByRole("button", { name: "结束录音", exact: true })).toBeVisible();
 		await expect(page.getByRole("textbox", { name: "录音标题" })).toHaveCount(0);
 		await expect(page.getByRole("button", { name: "开始录音", exact: true })).toHaveCount(0);
@@ -109,14 +109,15 @@ test("browser recording starts from the mode picker, resumes a saved upload and 
 				}),
 		);
 	await start();
-	await expect(page.getByRole("dialog", { name: "录音笔记" })).toBeVisible();
-	await page.screenshot({ path: info.outputPath("normal-recording.png"), animations: "disabled", scale: "css" });
+	await expect(page.getByRole("dialog", { name: "实时转写" })).toBeVisible();
+	await page.screenshot({ path: info.outputPath("default-live-recording.png"), animations: "disabled", scale: "css" });
 	await page.getByRole("button", { name: "收起录音", exact: true }).click();
 	await expect(page.getByRole("button", { name: "展开录音", exact: true })).toBeVisible();
 	await page.getByRole("button", { name: "任务", exact: true }).click();
 	await expect(page.getByRole("button", { name: "展开录音", exact: true })).toHaveCount(0);
 	await expect.poll(savedDuration, { timeout: 10_000 }).toBeGreaterThan(3000);
-	expect(creates).toBe(0);
+	await expect.poll(() => uploadedByteLengths.size).toBeGreaterThan(0);
+	expect(creates).toBe(1);
 	await page.getByRole("button", { name: "结束录音", exact: true }).click();
 	await expect(page.locator(".meeting-capsule")).toHaveCount(0);
 	await expect.poll(() => processingAttempts).toBe(1);
@@ -169,7 +170,7 @@ test.describe("mobile visibility", () => {
 		await page.getByRole("button", { name: "添加附件" }).click();
 		await expect(page.getByRole("button", { name: /录音/ })).toHaveCount(1);
 		await page.getByRole("button", { name: "录音笔记", exact: true }).click();
-		await page.getByRole("button", { name: "仅录音", exact: true }).click();
+
 		await expect(page.getByRole("button", { name: "结束录音", exact: true })).toBeVisible();
 		await page.evaluate(() => {
 			Object.defineProperty(document, "hidden", { configurable: true, value: true });

@@ -40,7 +40,7 @@ export function useFrameMeeting(ownerId: string | null) {
 		void recorder.resume(interrupted.id);
 	}, [desktop, recorder, active, interrupted]);
 
-	function start(target: Conversation | undefined, live = false) {
+	function start(target: Conversation | undefined) {
 		if (recorder.busy || active || interrupted) return;
 		const reason = shortVoiceActive
 			? "microphoneOccupied"
@@ -54,7 +54,7 @@ export function useFrameMeeting(ownerId: string | null) {
 			return;
 		}
 		if (!target) return;
-		void recorder.start(t("meetingRecorder.defaultTitle"), target.id, true, live ? "live" : "record");
+		void recorder.start(t("meetingRecorder.defaultTitle"), target.id, true, "live");
 	}
 
 	return { recorder, live, active, interrupted, setShortVoiceActive, start };

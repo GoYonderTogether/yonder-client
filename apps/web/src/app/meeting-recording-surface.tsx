@@ -16,7 +16,6 @@ import {
 } from "../lib/meeting-photos.ts";
 import { useObjectUrl } from "../lib/use-object-url.ts";
 import { MeetingCamera } from "./meeting-camera.tsx";
-import { useMeetingStartChoice } from "./meeting-start-choice.tsx";
 import { MAIN_BOT_PATH } from "./use-phone-tabs.ts";
 import "./meeting-recording-surface.css";
 
@@ -33,13 +32,15 @@ interface LiveMeetingView {
 	transcript: string;
 	offline: boolean;
 	asrErrorCode?: string | null;
+	syncFailed?: boolean;
+	audioAccepted?: boolean;
 }
 type Session = {
 	recorder: MeetingRecorderController;
 	active?: MeetingRecording | undefined;
 	interrupted?: MeetingRecording | undefined;
 	live?: LiveMeetingView | undefined;
-	start(target: Conversation, live?: boolean): void;
+	start(target: Conversation): void;
 };
 
 function useOffline() {
@@ -79,14 +80,6 @@ export function useMeetingRecordingSurface(
 	{ active, interrupted, recorder, live, start }: Session,
 	showSource: (target: Conversation) => void,
 ) {
-	const choice = useMeetingStartChoice(
-		ownerId,
-		(target: Conversation, withLive) => {
-			showSource(target);
-			start(target, withLive);
-		},
-		live !== undefined,
-	);
 	const id = active?.ownerId === ownerId ? active?.id : undefined;
 	const source = active?.conversationId;
 	const scope = id ? JSON.stringify([ownerId, id]) : undefined;
@@ -101,7 +94,12 @@ export function useMeetingRecordingSurface(
 	const caption = live?.caption;
 	const latest = isLive && caption && caption.recordingId === id && caption.conversationId === source ? caption : null;
 	const transcript = latest ? (live?.transcript ?? "") : "";
-	const asrUnavailable = isLive && Boolean(live?.asrErrorCode);
+	const asrUnavailable = isLive && Boolean(live?.asrErrorCode || live?.syncFailed);
+	function startNew(target: Conversation | undefined) {
+		if (!ownerId || !target || active || interrupted || recorder.busy) return;
+		showSource(target);
+		start(target);
+	}
 	useEffect(() => {
 		if (id === undefined) seen.current = undefined;
 		if (!foreground) {
@@ -146,7 +144,7 @@ export function useMeetingRecordingSurface(
 			interrupted.conversationId === foregroundConversationId ? (
 				<MeetingRecovery recorder={recorder} recording={interrupted} />
 			) : null;
-		return { status: recovery, dialog: choice.dialog, start: choice.open };
+		return { status: recovery, dialog: null, start: startNew };
 	}
 	const photos = photoArchive?.id === scope ? photoArchive.photos : [];
 	const status = (
@@ -173,6 +171,7 @@ export function useMeetingRecordingSurface(
 				photos={photos}
 				photoArchiveError={photoArchive?.id === scope && photoArchive.error}
 				asrUnavailable={asrUnavailable}
+				audioAccepted={Boolean(live?.audioAccepted)}
 				offline={offline}
 				onCollapse={() => {
 					setExpanded(undefined);
@@ -190,7 +189,7 @@ export function useMeetingRecordingSurface(
 		) : null;
 	return {
 		status,
-		dialog: dialog ?? choice.dialog,
+		dialog,
 		start: (target: Conversation | undefined) => {
 			if (foreground && target?.id === source) setExpanded(scope);
 		},
@@ -263,6 +262,7 @@ function MeetingRecordingDialog({
 	photos,
 	photoArchiveError,
 	asrUnavailable,
+	audioAccepted,
 	offline,
 	onCollapse,
 	onStop,
@@ -277,6 +277,7 @@ function MeetingRecordingDialog({
 	photos: MeetingPhoto[];
 	photoArchiveError?: boolean | undefined;
 	asrUnavailable: boolean;
+	audioAccepted: boolean;
 	offline: boolean;
 	onCollapse: () => void;
 	onStop: () => Promise<void>;
@@ -386,7 +387,9 @@ function MeetingRecordingDialog({
 							</span>
 						) : null}
 						{isLive && !transcript && !offline && !asrUnavailable ? (
-							<p className="meeting-transcript-empty">{t("meetingRecorder.waitingLive")}</p>
+							<p className="meeting-transcript-empty" role="status">
+								{t(audioAccepted ? "meetingRecorder.waitingLive" : "meetingRecorder.waitingAudio")}
+							</p>
 						) : null}
 						<div className="meeting-transcript-log" role="log" aria-live="off">
 							<MeetingTimeline transcript={transcript} photos={photos} />
