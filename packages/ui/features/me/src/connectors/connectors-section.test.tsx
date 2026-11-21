@@ -248,7 +248,8 @@ test("same-name devices keep independent connected state by id, including offlin
 	show(native);
 	expect(within(group("dev_a")).getByRole("button", { name: "Connected · Read files" })).toBeVisible();
 	expect(screen.getByRole("button", { name: "Connect · Modify files" })).toBeVisible();
-	expect(within(group("dev_b")).getByRole("button", { name: "Connect · Read files" })).toBeVisible();
+	// Another device cannot be connected from here: it is authorized on that device itself.
+	expect(within(group("dev_b")).queryByRole("button", { name: "Connect · Read files" })).toBeNull();
 	fireEvent.click(screen.getByRole("button", { name: "Connected · Device offline · Modify files" }));
 	fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
 	await waitFor(() => expect(state.remove).toHaveBeenCalledWith("con_b"));
@@ -361,5 +362,14 @@ test("all legacy folder instances remain manageable and disappearing device/inst
 		</I18nextProvider>,
 	);
 	expect(screen.queryByRole("dialog")).toBeNull();
+	// The device is gone but its connection is still listed, so the page shows the sources, not the empty state.
+	expect(screen.queryByText("No devices yet")).toBeNull();
+	expect(screen.getByRole("radio", { name: "By connector" })).toBeVisible();
+	state.instances = [];
+	view.rerender(
+		<I18nextProvider i18n={createI18n("en")}>
+			<ConnectorsSection localFiles={adapter()} />
+		</I18nextProvider>,
+	);
 	expect(screen.getByText("No devices yet")).toBeVisible();
 });
