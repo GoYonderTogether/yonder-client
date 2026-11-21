@@ -6,12 +6,15 @@
 export type MemoryView =
 	| { kind: "home" }
 	| { kind: "timeline" }
-	| { kind: "group"; group: string }
+	| { kind: "group"; group: string; directory?: string }
 	| { kind: "file"; path: string };
 
 export function readMemoryView(selection: string | null, sub: string | null): MemoryView {
 	if (selection === "timeline") return { kind: "timeline" };
-	if (selection === "g" && sub) return { kind: "group", group: sub };
+	if (selection === "g" && sub) {
+		const [group, ...folders] = sub.split("/");
+		if (group) return { kind: "group", group, ...(folders.length ? { directory: folders.join("/") } : {}) };
+	}
 	if (selection === "files" && sub) return { kind: "file", path: sub };
 	return { kind: "home" };
 }
@@ -35,9 +38,19 @@ export function groupPrefix(group: string): string | null {
 
 export const memoryGroupRoute = (group: string) => `/memory/g/${encodeURIComponent(group)}`;
 export const memoryFileRoute = (path: string) => `/memory/files/${encodeURIComponent(path)}`;
+export const memoryFolderRoute = (group: string, directory: string) => memoryGroupRoute(`${group}/${directory}`);
 
-/** Where back from a file goes: its group, or the home for the card's own two files. */
 export function memoryFileParent(path: string): string {
 	const group = fileGroup(path);
-	return group ? memoryGroupRoute(group) : "/memory";
+	if (!group) return "/memory";
+	const prefix = groupPrefix(group);
+	const directory = prefix && path.slice(prefix.length, path.lastIndexOf("/"));
+	return directory && group !== "digests" ? memoryFolderRoute(group, directory) : memoryGroupRoute(group);
+}
+
+/** Direct links, app Back and Escape follow the visible directory levels. */
+export function memoryDetailParent([selection, value]: readonly string[]): string {
+	if (selection === "files" && value) return memoryFileParent(value);
+	const separator = selection === "g" && value ? value.lastIndexOf("/") : -1;
+	return separator >= 0 && value ? memoryGroupRoute(value.slice(0, separator)) : "/memory";
 }

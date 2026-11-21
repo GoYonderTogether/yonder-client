@@ -100,6 +100,8 @@ export { useScheduleActions, useSchedules } from "./hooks/schedules.ts";
 export { useSkill, useSkillActions, useSkillFile, useSkills } from "./hooks/skills.ts";
 export {
 	useEditSocialLibrary,
+	useMemoryOrganization,
+	useReviewMemoryOrganization,
 	useSaveSocialPersona,
 	useSocialLibrary,
 	useSocialPersona,

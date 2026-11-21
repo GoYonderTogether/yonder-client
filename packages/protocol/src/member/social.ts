@@ -1,11 +1,13 @@
 export interface SocialLibraryFolder {
 	id: string;
+	path?: string;
 	name: string;
 	parentFolderId: string | null;
 }
 
 export interface SocialLibraryDocument {
 	id: string;
+	path?: string;
 	folderId: string | null;
 	title: string;
 	content: string;
@@ -14,6 +16,8 @@ export interface SocialLibraryDocument {
 
 export interface SocialLibraryDraft {
 	id: string;
+	path?: string;
+	folderId?: string | null;
 	content: string;
 	createdAt: string;
 }

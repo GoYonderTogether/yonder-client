@@ -64,12 +64,16 @@ export function groupFiles(files: readonly MemoryFileSummary[], t: (key: string)
 /** One group's files (a connector, notes, summaries, public); summaries keep their period sub-lists. */
 export function MemoryFileList({
 	group,
+	directory,
 	current,
 	onOpen,
+	onFolder,
 }: {
 	group: string;
+	directory?: string | undefined;
 	current: string | null;
 	onOpen: (path: string) => void;
+	onFolder: (path: string) => void;
 }) {
 	const { t, i18n } = useTranslation();
 	const now = useMinute();
@@ -78,34 +82,60 @@ export function MemoryFileList({
 	if (query.error) return <MemoryError error={query.error} retry={() => void query.refetch()} />;
 	if (query.isPending) return <MemoryLoading />;
 	const prefix = groupPrefix(group);
-	const groups = prefix
+	const directoryPrefix = prefix && `${prefix}${directory ? `${directory}/` : ""}`;
+	const groups = directoryPrefix
 		? groupFiles(
-				query.data.items.filter((file) => file.path.startsWith(prefix)),
+				query.data.items.filter((file) => file.path.startsWith(directoryPrefix)),
 				t,
 			)
 		: [];
-	if (!groups.length) return <EmptyState icon={<Folder size={24} strokeWidth={1.6} />} title={t("memory.noFiles")} />;
+	if (!directoryPrefix || !groups.length)
+		return <EmptyState icon={<Folder size={24} strokeWidth={1.6} />} title={t("memory.noFiles")} />;
 	return (
 		<div className="flex flex-col gap-[var(--spacing-5)] py-[var(--spacing-2)]">
-			{groups.map((sub) => (
-				<ListGroup key={sub.key} title={sub.key.startsWith("digests:") ? sub.title : undefined}>
-					{sub.files.map((file) => (
-						<ListRow
-							key={file.path}
-							title={file.title || file.path.split("/").at(-1)}
-							subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
-							trailing={
-								<span className="flex items-center gap-[var(--spacing-2)]">
-									{file.draft ? <span className="text-[var(--color-warning)]">{t("memory.pending")}</span> : null}
-									<VisibilityMark visibility={file.visibility} />
-								</span>
-							}
-							selected={file.path === current}
-							onClick={() => onOpen(file.path)}
-						/>
-					))}
-				</ListGroup>
-			))}
+			{groups.map((sub) => {
+				const first = (file: MemoryFileSummary) => file.path.slice(directoryPrefix.length).split("/");
+				const folders =
+					group === "digests"
+						? []
+						: [
+								...new Set(
+									sub.files.flatMap((file) => {
+										const [name, next] = first(file);
+										return name && next ? [name] : [];
+									}),
+								),
+							].toSorted((a, b) => a.localeCompare(b, locale));
+				const files = group === "digests" ? sub.files : sub.files.filter((file) => first(file).length === 1);
+				return (
+					<ListGroup key={sub.key} title={sub.key.startsWith("digests:") ? sub.title : undefined}>
+						{folders.map((folder) => (
+							<ListRow
+								key={`folder:${folder}`}
+								title={folder}
+								leading={<Folder size={18} aria-hidden />}
+								chevron
+								onClick={() => onFolder(directory ? `${directory}/${folder}` : folder)}
+							/>
+						))}
+						{files.map((file) => (
+							<ListRow
+								key={file.path}
+								title={file.title || file.path.split("/").at(-1)}
+								subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
+								trailing={
+									<span className="flex items-center gap-[var(--spacing-2)]">
+										{file.draft ? <span className="text-[var(--color-warning)]">{t("memory.pending")}</span> : null}
+										<VisibilityMark visibility={file.visibility} />
+									</span>
+								}
+								selected={file.path === current}
+								onClick={() => onOpen(file.path)}
+							/>
+						))}
+					</ListGroup>
+				);
+			})}
 		</div>
 	);
 }

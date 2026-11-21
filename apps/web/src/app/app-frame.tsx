@@ -30,7 +30,7 @@ import {
 	selectedConversation,
 } from "../pages/conversation-presentation.tsx";
 import { FlyToComposer } from "../pages/items-fly.tsx";
-import { memoryFileParent, readMemoryView } from "../pages/memory/memory-view.ts";
+import { memoryDetailParent, readMemoryView } from "../pages/memory/memory-view.ts";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { BotTabAvatar } from "../pages/unread-badge.tsx";
@@ -232,8 +232,7 @@ export function AppFrame() {
 	const currentBack = () => {
 		const live = locate(navigation.current());
 		const liveMeOpen = live !== null && live.tab === null;
-		if (live?.tab === "memory" && live.detail[0] === "files" && live.detail[1])
-			return navigation.back(memoryFileParent(live.detail[1]));
+		if (live?.tab === "memory") return navigation.back(memoryDetailParent(live.detail));
 		if (!liveMeOpen) return navigation.back(tabPath(live?.tab ?? tab));
 		const state = navigation.currentState();
 		const parent = settingsPagePaths(live.detail, state?.channelOriginBotId).at(-2);

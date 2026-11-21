@@ -34,7 +34,7 @@ export function MemoryMarkdown({ file, onOpen }: { file: MemoryFileContent; onOp
 function resolveFileLink(file: MemoryFileContent, href: string): string | undefined {
 	const origin = "https://memory.invalid";
 	try {
-		const base = file.path.split("/").map(encodeURIComponent).join("/");
+		const base = (file.linkBasePath ?? file.path).split("/").map(encodeURIComponent).join("/");
 		const target = new URL(href, `${origin}${base}`);
 		if (target.origin !== origin) return undefined;
 		const path = decodeURIComponent(target.pathname);

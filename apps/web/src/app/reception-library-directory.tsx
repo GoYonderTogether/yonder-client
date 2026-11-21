@@ -3,7 +3,7 @@ import { EmptyState, IconTile, ListGroup, ListRow, SearchInput } from "@yonder/u
 import { FileClock, Files, FileText, Folder, Search } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { receptionFolderPath, receptionFolderTrail } from "./reception-library-paths.ts";
+import { receptionFolderLabel, receptionFolderPath, receptionFolderTrail } from "./reception-library-paths.ts";
 import { receptionSettingsPath } from "./settings-navigation.ts";
 
 type Document = SocialLibrary["documents"][number];
@@ -180,7 +180,7 @@ function ReceptionFolderRows({
 							<Folder size={18} className="text-[var(--color-accent-text)]" />
 						</IconTile>
 					}
-					title={folder.name}
+					title={receptionFolderLabel(folder, t)}
 					subtitle={t("members.social.library.folderCount", {
 						count:
 							library.documents.filter((document) => document.folderId === folder.id).length +
@@ -279,7 +279,7 @@ function ReceptionDocumentRows({
 						title={document.title}
 						subtitle={
 							kind
-								? trail.map((folder) => folder.name).join(" › ") || t("members.social.library.root")
+								? trail.map((folder) => receptionFolderLabel(folder, t)).join(" › ") || t("members.social.library.root")
 								: date.format(new Date(document.updatedAt))
 						}
 						selected={selected === document.id}

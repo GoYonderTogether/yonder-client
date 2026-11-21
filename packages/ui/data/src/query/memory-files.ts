@@ -4,6 +4,7 @@ import { keys } from "./keys.ts";
 /** Invalidate details, histories and any directory listing that includes a changed path. */
 export function invalidateMemoryFiles(client: QueryClient, paths: string[], { deleted = false } = {}) {
 	return Promise.all([
+		client.invalidateQueries({ queryKey: keys.socialLibrary() }),
 		client.invalidateQueries({
 			queryKey: keys.memory.fileLists(),
 			predicate: ({ queryKey }) => {

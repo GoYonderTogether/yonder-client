@@ -93,7 +93,7 @@ export function createPersister(store: KeyValueStore): Persister & { activate():
 			try {
 				const client = JSON.parse(raw) as PersistedClient;
 				client.clientState.queries = client.clientState.queries.filter(({ queryKey, state }) => {
-					if (queryKey[0] === "member-profile") return false;
+					if (queryKey[0] === "member-profile" || queryKey[0] === "social-library") return false;
 					if (queryKey[0] !== "connector-request" || queryKey.length !== 2) return true;
 					// Legacy cards held one connectorId. Reload the current scopes before offering consent.
 					const request = state.data as Partial<ConnectorRequestView> | undefined;

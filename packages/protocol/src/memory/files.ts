@@ -60,6 +60,8 @@ export interface MemoryFileContent extends MemoryFileSummary {
 	limit: MemoryFileLimit;
 	/** Resolved absolute memory paths linked from the Markdown. */
 	links: string[];
+	/** Preserve relative links when a file has been moved to a different directory. */
+	linkBasePath?: string;
 }
 
 export interface MemoryFileRevision {
