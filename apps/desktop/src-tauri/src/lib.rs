@@ -15,10 +15,20 @@ mod local_files;
 #[cfg(desktop)]
 mod local_files_access;
 #[cfg(desktop)]
+mod local_files_grep;
+#[cfg(desktop)]
+mod local_files_limits;
+mod local_files_mutations;
+#[cfg(windows)]
+mod local_files_mutations_windows;
+#[cfg(desktop)]
 mod local_files_operations;
-
+#[cfg(desktop)]
+mod local_files_scan;
 #[cfg(desktop)]
 mod local_files_store;
+#[cfg(desktop)]
+mod local_files_text;
 
 #[cfg(target_os = "android")]
 mod android_update;

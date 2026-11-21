@@ -19,13 +19,13 @@ afterEach(() => {
 
 test("a dispatched grant is written locally and then reported ready over the existing socket", async () => {
 	setup.invoke.mockImplementation(async (command: string) =>
-		command === "local_files_ready" ? [{ id: "con_a", revision: 2 }] : undefined,
+		command === "local_files_ready" ? [{ id: "con_a", revision: 2, toolsVersion: 2 }] : undefined,
 	);
 	const { unmount } = render(<LocalFilesRuntime />);
 	await waitFor(() =>
 		expect(setup.realtime.send).toHaveBeenCalledWith({
 			type: "connector.ready",
-			connections: [{ id: "con_a", revision: 2 }],
+			connections: [{ id: "con_a", revision: 2, toolsVersion: 2 }],
 		}),
 	);
 	setup.invoke.mockClear();
@@ -54,7 +54,7 @@ test("a dispatched grant is written locally and then reported ready over the exi
 	await waitFor(() =>
 		expect(setup.realtime.send).toHaveBeenCalledWith({
 			type: "connector.ready",
-			connections: [{ id: "con_a", revision: 2 }],
+			connections: [{ id: "con_a", revision: 2, toolsVersion: 2 }],
 		}),
 	);
 	expect(setup.fail).not.toHaveBeenCalled();
@@ -63,7 +63,7 @@ test("a dispatched grant is written locally and then reported ready over the exi
 
 test("a grant for a new connection is reported ready without waiting for the connection list", async () => {
 	setup.invoke.mockImplementation(async (command: string) =>
-		command === "local_files_ready" ? [{ id: "con_new", revision: 5 }] : undefined,
+		command === "local_files_ready" ? [{ id: "con_new", revision: 5, toolsVersion: 2 }] : undefined,
 	);
 	const { unmount } = render(<LocalFilesRuntime />);
 	await waitFor(() => expect(setup.realtime.send).toHaveBeenCalled());
@@ -88,7 +88,7 @@ test("a grant for a new connection is reported ready without waiting for the con
 
 test("a failed local grant reports the real error instead of claiming readiness", async () => {
 	setup.invoke.mockImplementation(async (command: string) => {
-		if (command === "local_files_ready") return [{ id: "con_a", revision: 2 }];
+		if (command === "local_files_ready") return [{ id: "con_a", revision: 2, toolsVersion: 2 }];
 		if (command === "local_files_authorize") throw new Error("permission_denied");
 		return undefined;
 	});
@@ -137,7 +137,8 @@ test("a connection list refresh during the first write still writes the second g
 	const authorized: string[] = [];
 	type Ready = { id: string; revision: number }[];
 	setup.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
-		if (command === "local_files_ready") return args?.connections as Ready;
+		if (command === "local_files_ready")
+			return (args as { connections: Ready }).connections.map((item) => ({ ...item, toolsVersion: 2 }));
 		if (command === "local_files_authorize") {
 			const id = (args?.config as { id: string } | undefined)?.id ?? "";
 			// `connectors.changed` arrives after a dispatch; its refetch lands before the next write.
@@ -177,8 +178,8 @@ test("a connection list refresh during the first write still writes the second g
 		expect(setup.realtime.send).toHaveBeenCalledWith({
 			type: "connector.ready",
 			connections: [
-				{ id: "con_a", revision: 2 },
-				{ id: "con_b", revision: 7 },
+				{ id: "con_a", revision: 2, toolsVersion: 2 },
+				{ id: "con_b", revision: 7, toolsVersion: 2 },
 			],
 		}),
 	);
@@ -189,7 +190,9 @@ test("a connection list refresh during the first write still writes the second g
 test("both capability shapes reach the native layer exactly as the server dispatched them", async () => {
 	type Ready = { id: string; revision: number }[];
 	setup.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) =>
-		command === "local_files_ready" ? (args?.connections as Ready) : undefined,
+		command === "local_files_ready"
+			? (args as { connections: Ready }).connections.map((item) => ({ ...item, toolsVersion: 2 }))
+			: undefined,
 	);
 	const { unmount } = render(<LocalFilesRuntime />);
 	await waitFor(() => expect(setup.realtime.send).toHaveBeenCalled());

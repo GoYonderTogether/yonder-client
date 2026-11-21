@@ -102,12 +102,44 @@ export interface UpdateConnectorRequest {
 	capabilities?: ConnectorCapabilities;
 }
 
-export type ConnectorOperation = "list" | "read" | "search" | "index" | "create" | "edit" | "delete" | "restore";
+export type ConnectorOperation =
+	| "list"
+	| "read"
+	| "grep"
+	| "search"
+	| "index"
+	| "create"
+	| "edit"
+	| "delete"
+	| "restore";
 export interface ConnectorCommandArgs {
+	/** `search`: a file-name substring. `grep`: a regular expression (Rust `regex` syntax). */
 	query?: string;
+	/** `create`/`edit`: the whole new UTF-8 text of the file. */
 	content?: string;
+	/** The SHA-256 hex of the file as the device will find it; `edit` and `delete` require it. */
 	expectedHash?: string;
 	recoveryId?: string;
+	/** `read`: the first line to return, 1-based. Default 1. */
+	offset?: number;
+	/** `read`: the most lines to return (1 to 2000). `grep`: the most matches (1 to 200). */
+	limit?: number;
+	/** `edit`: exact text to replace. It must occur exactly once unless `replaceAll` is true. */
+	oldString?: string;
+	/** `edit`: the text written in place of `oldString`. */
+	newString?: string;
+	/** `edit`: replace every occurrence of `oldString` instead of requiring exactly one. */
+	replaceAll?: boolean;
+	/** `search`/`grep`: only consider files whose path matches this glob, e.g. `*.ts` or `**\/*.test.ts`. */
+	glob?: string;
+	/** `grep`: treat `query` as literal text instead of a regular expression. */
+	literal?: boolean;
+	/** `grep`: match case-sensitively. Default false. */
+	caseSensitive?: boolean;
+	/** `search`/`index`: include entries that `.gitignore` rules exclude. */
+	includeIgnored?: boolean;
+	/** `search`/`index`: include dot files and dot directories. */
+	includeHidden?: boolean;
 }
 
 export interface ConnectorCommand {
@@ -127,16 +159,53 @@ export interface ConnectorCommand {
 	expiresAt: string;
 }
 
+/** Why a bounded result stopped: it reached its result cap, or its scan budget ran out first. */
+export type ConnectorStopReason = "results" | "budget";
+
 export type LocalFilesResult =
 	| { kind: "list"; path: string; entries: { name: string; type: "file" | "directory" }[]; truncated: boolean }
-	| { kind: "read"; path: string; content: string; truncated: boolean; hash?: string }
+	| {
+			kind: "read";
+			path: string;
+			/** The returned lines joined with "\n"; at most 65536 UTF-8 bytes, cut at a line boundary. */
+			content: string;
+			/** True when lines after `endLine` remain. */
+			truncated: boolean;
+			/** The first returned line, 1-based. */
+			startLine?: number;
+			/** The last returned line, 1-based; 0 when nothing was returned. */
+			endLine?: number;
+			/** All lines in the file, not only the returned ones. */
+			totalLines?: number;
+			/** SHA-256 of the whole file, so a later edit can verify it even when only part was read. */
+			hash?: string;
+	  }
+	| {
+			kind: "grep";
+			/** The file or directory the search started from. */
+			path: string;
+			/** One entry per matching line; `path` is ready to pass to `read`, `line` is 1-based. */
+			matches: { path: string; line: number; text: string }[];
+			truncated: boolean;
+			/** Present when `truncated`: the result cap or the scan budget ended the search. */
+			stopReason?: ConnectorStopReason;
+	  }
 	| {
 			kind: "search" | "index";
 			path: string;
 			entries: { path: string; type: "file" | "directory" }[];
 			truncated: boolean;
+			/** Present when `truncated`: the result cap or the scan budget ended the scan. */
+			stopReason?: ConnectorStopReason;
 	  }
-	| { kind: "create" | "edit" | "restore"; path: string; hash: string }
+	| { kind: "create" | "restore"; path: string; hash: string }
+	| {
+			kind: "edit";
+			path: string;
+			hash: string;
+			/** How many occurrences of `oldString` were replaced; absent for a whole-file rewrite. */
+			replacements?: number;
+	  }
 	| { kind: "delete"; path: string; recoveryId: string };
 
 export type ConnectorExecutionError =
@@ -145,12 +214,16 @@ export type ConnectorExecutionError =
 	| "path_invalid"
 	| "unsupported_file"
 	| "too_large"
+	| "line_too_long"
+	| "invalid_pattern"
 	| "disconnected"
 	| "cancelled"
 	| "read_failed"
 	| "conflict"
 	| "already_exists"
+	| "no_match"
+	| "multiple_matches"
 	| "operation_failed";
 export type ConnectorCommandResult =
 	| { ok: true; result: LocalFilesResult }
-	| { ok: false; error: ConnectorExecutionError };
+	| { ok: false; error: ConnectorExecutionError; candidateLines?: number[] };

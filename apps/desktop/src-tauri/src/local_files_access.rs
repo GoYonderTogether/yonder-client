@@ -19,6 +19,16 @@ pub fn resolve(root: &Path, relative: &str) -> Result<PathBuf, &'static str> {
     if actual_root != root {
         return Err("permission_denied");
     }
+    let mut part = root.to_path_buf();
+    for component in path.components() {
+        part.push(component);
+        if std::fs::symlink_metadata(&part)
+            .map(|m| crate::local_files_text::link_like(&m))
+            .unwrap_or(false)
+        {
+            return Err("unsupported_file");
+        }
+    }
     let target = root.join(path).canonicalize().map_err(|_| "not_found")?;
     if !target.starts_with(root) {
         return Err("path_invalid");
@@ -85,13 +95,13 @@ mod tests {
             execute(&root, "read", "C:\\outside.txt"),
             Err("path_invalid")
         );
-        assert_eq!(execute(&root, "read", "large.txt"), Err("too_large"));
+        assert_eq!(execute(&root, "read", "large.txt"), Err("line_too_long"));
         assert_eq!(execute(&root, "read", "binary"), Err("unsupported_file"));
         assert_eq!(execute(&root, "read", "non-utf8"), Err("unsupported_file"));
         #[cfg(unix)]
         {
             std::os::unix::fs::symlink(base.join("outside.txt"), root.join("escape")).unwrap();
-            assert_eq!(execute(&root, "read", "escape"), Err("path_invalid"));
+            assert_eq!(execute(&root, "read", "escape"), Err("unsupported_file"));
             assert!(!execute(&root, "list", ".").unwrap()["entries"]
                 .as_array()
                 .unwrap()

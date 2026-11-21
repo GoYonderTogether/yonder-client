@@ -51,10 +51,7 @@ pub async fn local_files_activate(
 }
 
 #[tauri::command]
-pub async fn local_files_reset(
-    app: AppHandle,
-    window: WebviewWindow,
-) -> Result<(), String> {
+pub async fn local_files_reset(app: AppHandle, window: WebviewWindow) -> Result<(), String> {
     main_window(&window)?;
     off_thread(move || {
         app.state::<LocalFilesState>()
@@ -205,7 +202,7 @@ pub async fn local_files_ready(
                         c["id"] == g.connection_id && c["revision"].as_u64() == Some(g.revision)
                     })
             })
-            .map(|g| json!({"id":g.connection_id,"revision":g.revision}))
+            .map(|g| json!({"id":g.connection_id,"revision":g.revision,"toolsVersion":local_files_operations::TOOLS_VERSION}))
             .collect();
         let allowed = ready
             .iter()
@@ -273,9 +270,18 @@ pub async fn local_files_execute(
     let owner = context.clone();
     let signal = cancelled.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        local_files_operations::execute(
+        let result = local_files_operations::execute(
             &selected, &owner, &operation, &path, &args, &recovery, &signal, expires,
-        )
+        );
+        if result == Err("multiple_matches") {
+            match local_files_operations::candidate_lines(&selected, &path, &args, &signal, expires)
+            {
+                Ok(candidates) => (result, candidates),
+                Err(error) => (Err(error), Vec::new()),
+            }
+        } else {
+            (result, Vec::new())
+        }
     })
     .await
     .map_err(|_| "read_failed")?;
@@ -289,8 +295,11 @@ pub async fn local_files_execute(
         return Err("permission_denied".into());
     }
     Ok(match result {
-        Ok(value) => json!({"ok":true,"result":value}),
-        Err(error) => json!({"ok":false,"error":error}),
+        (Ok(value), _) => json!({"ok":true,"result":value}),
+        (Err(error), candidates) if error == "multiple_matches" => {
+            json!({"ok":false,"error":error,"candidateLines":candidates})
+        }
+        (Err(error), _) => json!({"ok":false,"error":error}),
     })
 }
 fn now_ms() -> u64 {

@@ -20,7 +20,7 @@ afterEach(() => {
 test("ready uses the existing socket and cancelled or foreign-device work cannot deliver local file content", async () => {
 	let finish: ((value: unknown) => void) | undefined;
 	setup.invoke.mockImplementation(async (command: string) => {
-		if (command === "local_files_ready") return [{ id: "con_a", revision: 2 }];
+		if (command === "local_files_ready") return [{ id: "con_a", revision: 2, toolsVersion: 2 }];
 		if (command === "local_files_execute")
 			return new Promise((resolve) => {
 				finish = resolve;
@@ -31,7 +31,7 @@ test("ready uses the existing socket and cancelled or foreign-device work cannot
 	await waitFor(() =>
 		expect(setup.realtime.send).toHaveBeenCalledWith({
 			type: "connector.ready",
-			connections: [{ id: "con_a", revision: 2 }],
+			connections: [{ id: "con_a", revision: 2, toolsVersion: 2 }],
 		}),
 	);
 	const command = {
@@ -79,7 +79,7 @@ test("ready uses the existing socket and cancelled or foreign-device work cannot
 test("only accepted local commands appear in the tray, using their exact Bot and conversation", async () => {
 	let finish: ((value: unknown) => void) | undefined;
 	setup.invoke.mockImplementation(async (command: string) => {
-		if (command === "local_files_ready") return [{ id: "con_a", revision: 2 }];
+		if (command === "local_files_ready") return [{ id: "con_a", revision: 2, toolsVersion: 2 }];
 		if (command === "local_files_execute")
 			return new Promise((resolve) => {
 				finish = resolve;
@@ -126,7 +126,7 @@ test("only accepted local commands appear in the tray, using their exact Bot and
 
 test("unknown local connector work clears on disconnect, cancellation and account change", async () => {
 	setup.invoke.mockImplementation(async (command: string) => {
-		if (command === "local_files_ready") return [{ id: "con_a", revision: 2 }];
+		if (command === "local_files_ready") return [{ id: "con_a", revision: 2, toolsVersion: 2 }];
 		if (command === "local_files_execute") return new Promise(() => {});
 		return undefined;
 	});
@@ -185,7 +185,7 @@ test("cold-cache commands execute immediately, share one authenticated lookup, a
 			}),
 	);
 	setup.invoke.mockImplementation(async (command: string) => {
-		if (command === "local_files_ready") return [{ id: "con_a", revision: 2 }];
+		if (command === "local_files_ready") return [{ id: "con_a", revision: 2, toolsVersion: 2 }];
 		if (command === "local_files_execute") return new Promise(() => {});
 	});
 	const { unmount } = render(<LocalFilesRuntime />);

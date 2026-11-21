@@ -15,7 +15,8 @@ export type ClientEvent =
 	| { type: "ping"; at: string }
 	| { type: "ack"; lastEventId: string }
 	| { type: "connector.ready"; connectionIds: string[] }
-	| { type: "connector.ready"; connections: { id: string; revision: number }[] };
+	/** `toolsVersion` is the device's file-tool argument version; a device that omits it is V1. */
+	| { type: "connector.ready"; connections: { id: string; revision: number; toolsVersion?: number }[] };
 
 export interface MessageNotification {
 	id: string;

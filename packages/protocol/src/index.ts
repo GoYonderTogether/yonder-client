@@ -107,6 +107,7 @@ export type {
 	ConnectorRequestState,
 	ConnectorRequestView,
 	ConnectorScope,
+	ConnectorStopReason,
 	CreateConnectorRequest,
 	LocalFilesResult,
 	UpdateConnectorRequest,

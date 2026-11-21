@@ -100,10 +100,13 @@ export function LocalFilesRuntime() {
 			try {
 				await invokeLocalFiles("local_files_activate", { context });
 				if (!active) return;
-				const ready = await invokeLocalFiles<{ id: string; revision: number }[]>("local_files_ready", {
-					context,
-					connections: knownConnections(),
-				});
+				const ready = await invokeLocalFiles<{ id: string; revision: number; toolsVersion: number }[]>(
+					"local_files_ready",
+					{
+						context,
+						connections: knownConnections(),
+					},
+				);
 				if (active) realtime.send({ type: "connector.ready", connections: ready });
 			} catch (error) {
 				if (!active) return;
