@@ -30,6 +30,8 @@ const listeners = new Set<() => void>();
 const submit = vi.fn(async () => ({ ok: true }));
 const fail = vi.fn(async () => ({ id: "request", state: "failed" }));
 const conversations = vi.fn();
+const uploadConnectorAttachment = vi.fn();
+const transcribeConnectorAudio = vi.fn();
 
 export const setup = {
 	context,
@@ -64,12 +66,22 @@ export const setup = {
 	conversations,
 	realtime,
 	/** The provider memoizes the endpoint group; this stands in for that stable object. */
-	data: { api: { submitConnectorResult: submit, failConnectorRequest: fail, conversations }, realtime },
+	data: {
+		api: {
+			submitConnectorResult: submit,
+			failConnectorRequest: fail,
+			conversations,
+			uploadConnectorAttachment,
+			transcribeConnectorAudio,
+		},
+		realtime,
+	},
 	submit,
 	fail,
 	invoke: vi.fn(),
 	readyApple: vi.fn(),
 	executeApple: vi.fn(),
+	executeAppleFile: vi.fn(),
 	cancelApple: vi.fn(async () => undefined),
 	event: (event: ServerEvent) => onEvent?.(event),
 };
@@ -96,6 +108,7 @@ vi.mock("./local-files.ts", () => ({
 vi.mock("./apple-resources.ts", () => ({
 	readyAppleResourceGrants: setup.readyApple,
 	executeAppleResource: setup.executeApple,
+	executeAppleResourceFile: setup.executeAppleFile,
 	cancelAppleResource: setup.cancelApple,
 }));
 vi.mock("./tray-bridge.ts", () => ({ beginTrayConnectorWork: setup.beginTrayWork }));

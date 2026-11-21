@@ -41,6 +41,11 @@ export const connectorMessagesZhCN = {
 	readScope: "启用后，Bot 可以读取、查找和按需索引该设备上此系统账号可访问的全部文件。",
 	disconnect: "断开连接",
 	device: "设备",
+	view: "连接器视图",
+	byDevice: "按设备",
+	byConnector: "按连接器",
+	noSources: "暂无授权来源",
+	sourceNotReady: "未就绪",
 	available: "可用",
 	unavailable: "当前不可用",
 	loadFailed: "连接器加载失败",
@@ -67,7 +72,7 @@ export const connectorMessagesZhCN = {
 	appleCalendar: {
 		iosPermissionDenied: "在系统设置将日历设为「完全访问」。如权限未更新，从后台关闭并重新打开 Yonder，再点连接。",
 		name: "Apple 日历",
-		description: "让 Bot 查找和读取这台设备上的日程",
+		description: "让 Bot 查找和读取日程",
 		scope: "连接后，Bot 可以按你的要求查找日程和读取日程详情。",
 	},
 	applePhotos: {
@@ -77,8 +82,15 @@ export const connectorMessagesZhCN = {
 	},
 	appleNotes: {
 		name: "Apple 备忘录",
-		description: "让 Bot 查找和读取这台 Mac 上的备忘录",
-		scope: "Bot 可以查看备忘录列表并读取未锁定笔记的文字。",
+		description: "让 Bot 查找和读取备忘录",
+		scope: "Bot 可以查找并读取未锁定备忘录的正文和附件。",
 		unavailable: "暂时无法打开备忘录。请在这台 Mac 上打开备忘录后重试。",
+	},
+	appleVoiceMemos: {
+		name: "Apple 语音备忘录",
+		description: "让 Bot 查找录音、读取原始录音并转写",
+		scope: "连接后，Bot 可以按你的要求查找录音、读取原始录音并转写。",
+		unavailable: "请在这台 Mac 上打开语音备忘录，等待录音同步后重试。",
+		unsupported: "这台 Mac 上的语音备忘录暂不支持读取。",
 	},
 } as const;

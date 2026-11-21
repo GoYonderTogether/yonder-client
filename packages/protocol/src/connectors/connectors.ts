@@ -1,7 +1,8 @@
 import type { DeviceInfo } from "../auth/auth.ts";
+import type { Attachment } from "../chat/chat.ts";
 
 export type FileConnectorId = "local-files" | "computer-control";
-export type AppleConnectorId = "apple-calendar" | "apple-photos" | "apple-notes";
+export type AppleConnectorId = "apple-calendar" | "apple-photos" | "apple-notes" | "apple-voice-memos";
 export type ConnectorId = FileConnectorId | AppleConnectorId;
 
 export interface ConnectorDefinition {
@@ -120,7 +121,11 @@ export type AppleConnectorOperation =
 	| "apple_photos_list"
 	| "apple_photos_read"
 	| "apple_notes_list"
-	| "apple_notes_read";
+	| "apple_notes_read"
+	| "apple_notes_attachment_read"
+	| "apple_voice_memos_list"
+	| "apple_voice_memos_read"
+	| "apple_voice_memos_transcribe";
 export type ConnectorOperation = FileConnectorOperation | AppleConnectorOperation;
 export interface ConnectorCommandArgs {
 	/** `search`: a file-name substring. `grep`: a regular expression (Rust `regex` syntax). */
@@ -152,6 +157,7 @@ export interface ConnectorCommandArgs {
 	includeHidden?: boolean;
 	/** OS-local resource id, never a filesystem path or a script. */
 	id?: string;
+	attachmentId?: string;
 	/** YYYY-MM-DD in the device's local calendar, inclusive. */
 	dateFrom?: string;
 	dateTo?: string;
@@ -223,6 +229,18 @@ export type LocalFilesResult =
 	  }
 	| { kind: "delete"; path: string; recoveryId: string };
 
+export interface AppleSourceIdentity {
+	globalId?: string;
+	contentSha256?: string;
+}
+
+export interface AppleNoteAttachment {
+	id: string;
+	name: string;
+	mimeType: string;
+	size?: number;
+}
+
 export interface AppleCalendarEvent {
 	id: string;
 	title: string;
@@ -230,6 +248,7 @@ export interface AppleCalendarEvent {
 	endsAt: string;
 	allDay: boolean;
 	calendar: string;
+	sourceIdentity?: AppleSourceIdentity;
 }
 
 export type AppleConnectorResult =
@@ -240,16 +259,36 @@ export type AppleConnectorResult =
 	  }
 	| {
 			kind: "apple_photos_list";
-			photos: { id: string; createdAt: string | null; width: number; height: number }[];
+			photos: {
+				id: string;
+				createdAt: string | null;
+				width: number;
+				height: number;
+				sourceIdentity?: AppleSourceIdentity;
+			}[];
 			more: boolean;
 	  }
 	| { kind: "apple_photos_read"; id: string; text: string; truncated?: boolean; labels?: string[] }
 	| {
 			kind: "apple_notes_list";
-			notes: { id: string; title: string; modifiedAt: string | null }[];
+			notes: { id: string; title: string; modifiedAt: string | null; sourceIdentity?: AppleSourceIdentity }[];
 			more: boolean;
 	  }
-	| { kind: "apple_notes_read"; id: string; text: string; truncated?: boolean };
+	| { kind: "apple_notes_read"; id: string; text: string; truncated?: boolean; attachments?: AppleNoteAttachment[] }
+	| { kind: "apple_notes_attachment_read"; id: string; attachmentId: string; attachment: Attachment }
+	| {
+			kind: "apple_voice_memos_list";
+			recordings: {
+				id: string;
+				title: string;
+				createdAt: string | null;
+				durationMs: number | null;
+				sourceIdentity?: AppleSourceIdentity;
+			}[];
+			more: boolean;
+	  }
+	| { kind: "apple_voice_memos_read"; id: string; attachment: Attachment }
+	| { kind: "apple_voice_memos_transcribe"; id: string; text: string };
 
 export type ConnectorResult = LocalFilesResult | AppleConnectorResult;
 

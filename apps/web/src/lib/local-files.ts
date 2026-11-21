@@ -51,7 +51,7 @@ export function appleResourcesSupported(): boolean {
 }
 
 export function isAppleConnector(id: ConnectorId): id is AppleConnectorId {
-	return id === "apple-calendar" || id === "apple-photos" || id === "apple-notes";
+	return id === "apple-calendar" || id === "apple-photos" || id === "apple-notes" || id === "apple-voice-memos";
 }
 
 export async function activateAppleConnectors(context: LocalFilesContext): Promise<void> {
@@ -90,10 +90,12 @@ export function createLocalFilesAdapter(
 		async prepare(connectorId) {
 			if (!isAppleConnector(connectorId)) return;
 			const status = await requestAppleResourcePermission(connectorId);
-			if (status !== "granted" && status !== "limited")
-				throw new Error(
-					status === "unavailable" && connectorId === "apple-notes" ? "notes_unavailable" : "permission_denied",
-				);
+			if (status === "granted" || status === "limited") return;
+			if (connectorId === "apple-voice-memos" && (status === "unavailable" || status === "unsupported"))
+				throw new Error(`voice_memos_${status}`);
+			throw new Error(
+				status === "unavailable" && connectorId === "apple-notes" ? "notes_unavailable" : "permission_denied",
+			);
 		},
 		async openPermissionSettings(connectorId) {
 			if (isAppleConnector(connectorId)) await openAppleResourceSettings(connectorId);

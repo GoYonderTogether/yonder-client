@@ -1,6 +1,6 @@
 import type { ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 import { Button, IconButton } from "@yonder/ui-components";
-import { CalendarDays, Check, FolderSearch, Images, MonitorCog, NotebookPen, Plus } from "lucide-react";
+import { AudioLines, CalendarDays, Check, FolderSearch, Images, MonitorCog, NotebookPen, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export interface ConnectorCardProps {
@@ -8,6 +8,7 @@ export interface ConnectorCardProps {
 	device: DeviceSummary;
 	/** What this device has connected under the connector, folder grants included. */
 	instances: readonly ConnectorInstance[];
+	canConfigure: boolean;
 	onOpen: (definition: ConnectorDefinition, instanceId?: string, connect?: boolean) => void;
 }
 
@@ -18,6 +19,7 @@ export const connectorPresentation = {
 	"apple-calendar": { key: "appleCalendar", Icon: CalendarDays },
 	"apple-photos": { key: "applePhotos", Icon: Images },
 	"apple-notes": { key: "appleNotes", Icon: NotebookPen },
+	"apple-voice-memos": { key: "appleVoiceMemos", Icon: AudioLines },
 } as const satisfies Record<ConnectorDefinition["id"], { key: string; Icon: typeof FolderSearch }>;
 
 /** Where a connector stands on a device, as the label of its button. */
@@ -27,22 +29,41 @@ export function connectorStatusKey(device: DeviceSummary, primary: ConnectorInst
 	return primary.status === "offline" ? "connectors.connectedNotReady" : "connectors.connected";
 }
 
+export function ConnectorAction({
+	label,
+	connected = false,
+	onClick,
+}: {
+	label: string;
+	connected?: boolean;
+	onClick: () => void;
+}) {
+	return (
+		<IconButton
+			aria-label={label}
+			title={label}
+			variant={connected ? "secondary" : "primary"}
+			className="shrink-0 rounded-[var(--radius-full)]!"
+			onClick={onClick}
+		>
+			{connected ? <Check size={20} aria-hidden /> : <Plus size={20} aria-hidden />}
+		</IconButton>
+	);
+}
+
 /**
  * One connector on one device: icon, name, one line, and a button that says where it stands. The
  * connectors page and the first-run setup draw the same card, so a connector looks the same wherever
  * it is offered. Folder grants from before the whole-device scope are listed under it to be managed.
  */
-export function ConnectorCard({ definition, device, instances, onOpen }: ConnectorCardProps) {
+export function ConnectorCard({ definition, device, instances, canConfigure, onOpen }: ConnectorCardProps) {
 	const { t } = useTranslation();
 	const { key, Icon } = connectorPresentation[definition.id];
 	const connected = instances.filter((item) => item.connectorId === definition.id);
 	const primary = connected.find((item) => item.scope === "device") ?? connected[0];
 	const status = connectorStatusKey(device, primary);
 	const statusLabel = `${t(status)} · ${t(`connectors.${key}.name`)}`;
-	const actionProps = {
-		"aria-label": statusLabel,
-		onClick: () => onOpen(definition, primary?.id, !primary && device.current && definition.id.startsWith("apple-")),
-	};
+	const open = () => onOpen(definition, primary?.id, !primary && canConfigure && definition.id.startsWith("apple-"));
 	return (
 		<section className="overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-bg-card)]">
 			<div className="flex items-center gap-[var(--spacing-3)] p-[var(--spacing-4)]">
@@ -59,20 +80,13 @@ export function ConnectorCard({ definition, device, instances, onOpen }: Connect
 						</span>
 					</span>
 				</button>
-				{status === "connectors.connected" || status === "connectors.connect" ? (
-					<IconButton
-						{...actionProps}
-						variant={primary ? "secondary" : "primary"}
-						title={statusLabel}
-						className="rounded-[var(--radius-full)]!"
-					>
-						{primary ? <Check size={20} aria-hidden /> : <Plus size={20} aria-hidden />}
-					</IconButton>
-				) : (
-					<Button {...actionProps} size="sm">
+				{status === "connectors.connected" || (!primary && canConfigure) ? (
+					<ConnectorAction label={statusLabel} connected={!!primary} onClick={open} />
+				) : primary ? (
+					<Button aria-label={statusLabel} onClick={open} size="sm">
 						{t(status)}
 					</Button>
-				)}
+				) : null}
 			</div>
 			{connected
 				.filter((item) => connected.length > 1 || item.scope === "folder")
