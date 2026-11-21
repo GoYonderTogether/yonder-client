@@ -46,14 +46,16 @@ export function MessageOptions({
 }) {
 	return (
 		<View className="message-option-card">
-			<View className="message-option-card-heading">
-				<Text className="message-option-card-icon" ariaHidden>
-					?
-				</Text>
-				<View className="message-option-card-question">
-					<MessageBody body={question?.trim() ? question : t("请选择一项", "Choose an option")} />
+			{question?.trim() ? (
+				<View className="message-option-card-heading">
+					<Text className="message-option-card-icon" ariaHidden>
+						?
+					</Text>
+					<View className="message-option-card-question">
+						<MessageBody body={question} />
+					</View>
 				</View>
-			</View>
+			) : null}
 			<View className="message-option-list">
 				{options.map((option, index) => {
 					const file = images[index];

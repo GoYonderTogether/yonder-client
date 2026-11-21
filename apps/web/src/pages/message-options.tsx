@@ -63,18 +63,20 @@ export function MessageOptions({
 	selected?: string | null | undefined;
 	onChoose?: ((body: string) => void) | undefined;
 }) {
-	const { t } = useTranslation();
 	const title = useId();
+	const hasQuestion = Boolean(question?.trim());
 	return (
-		<section className="message-option-card" aria-labelledby={title}>
-			<div className="message-option-card-heading">
-				<div className="message-option-card-icon" aria-hidden="true">
-					<MessageCircleQuestionMark size={ICON_SIZE.md} strokeWidth={ICON_STROKE.normal} />
+		<section className="message-option-card" aria-labelledby={hasQuestion ? title : undefined}>
+			{hasQuestion && question ? (
+				<div className="message-option-card-heading">
+					<div className="message-option-card-icon" aria-hidden="true">
+						<MessageCircleQuestionMark size={ICON_SIZE.md} strokeWidth={ICON_STROKE.normal} />
+					</div>
+					<div id={title} className="message-option-card-question">
+						<MessageContent body={question} />
+					</div>
 				</div>
-				<div id={title} className="message-option-card-question">
-					<MessageContent body={question?.trim() ? question : t("chat.chooseOption")} />
-				</div>
-			</div>
+			) : null}
 			<ul className="message-option-list">
 				{options.map((option, index) => {
 					const file = images[index];

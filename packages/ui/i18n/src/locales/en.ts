@@ -288,7 +288,6 @@ export const en = {
 		reconnecting: "Connection lost. Reconnecting.",
 		reconnectingReply: "Response status is unknown.",
 		sending: "Sending…",
-		chooseOption: "Choose an option",
 		sendFailed: "Message not sent",
 		runFailed: "The response failed",
 		modelNotConfigured: "No model configured",
