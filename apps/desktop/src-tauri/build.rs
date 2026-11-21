@@ -1,4 +1,18 @@
 fn main() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        println!("cargo:rerun-if-changed=../apple/MacPermissions.mm");
+        println!("cargo:rerun-if-changed=../apple/SelectedNote.mm");
+        println!("cargo:rustc-link-lib=framework=ApplicationServices");
+        println!("cargo:rustc-link-lib=framework=AVFoundation");
+        println!("cargo:rustc-link-lib=framework=CoreServices");
+        println!("cargo:rustc-link-lib=framework=ServiceManagement");
+        cc::Build::new()
+            .cpp(true)
+            .flag("-fobjc-arc")
+            .file("../apple/MacPermissions.mm")
+            .file("../apple/SelectedNote.mm")
+            .compile("yonder_macos");
+    }
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
         println!("cargo:rerun-if-changed=../apple/DeviceDownload.mm");
         cc::Build::new()
@@ -13,6 +27,12 @@ fn main() {
     ) {
         println!("cargo:rerun-if-changed=../apple/Notifications.mm");
         println!("cargo:rerun-if-changed=../apple/DeviceName.mm");
+        println!("cargo:rerun-if-changed=../apple/AppleCalendar.mm");
+        println!("cargo:rerun-if-changed=../apple/ApplePhotos.mm");
+        println!("cargo:rerun-if-changed=../apple/AppleResourceBridge.h");
+        println!("cargo:rustc-link-lib=framework=EventKit");
+        println!("cargo:rustc-link-lib=framework=Photos");
+        println!("cargo:rustc-link-lib=framework=Vision");
         println!("cargo:rustc-link-lib=framework=UserNotifications");
         if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
             println!("cargo:rustc-link-lib=framework=SystemConfiguration");
@@ -22,6 +42,8 @@ fn main() {
             .flag("-fobjc-arc")
             .file("../apple/Notifications.mm")
             .file("../apple/DeviceName.mm")
+            .file("../apple/AppleCalendar.mm")
+            .file("../apple/ApplePhotos.mm")
             .compile("yonder_apple");
     }
     tauri_build::try_build(
@@ -30,6 +52,35 @@ fn main() {
                 "android-update",
                 tauri_build::InlinedPlugin::new()
                     .commands(&["latest", "versionCode", "downloadAndInstall"])
+                    .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
+            )
+            .plugin(
+                "yonder-mac-permissions",
+                tauri_build::InlinedPlugin::new()
+                    .commands(&[
+                        "permission_status",
+                        "open_settings",
+                        "request_accessibility",
+                        "request_microphone",
+                        "login_item_status",
+                        "set_login_item",
+                    ])
+                    .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
+            )
+            .plugin(
+                "yonder-apple-resources",
+                tauri_build::InlinedPlugin::new()
+                    .commands(&[
+                        "statuses",
+                        "request_permission",
+                        "activate",
+                        "reset",
+                        "authorize",
+                        "revoke",
+                        "ready",
+                        "execute",
+                        "cancel",
+                    ])
                     .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
             )
             .plugin(

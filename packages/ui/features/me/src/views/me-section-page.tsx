@@ -30,6 +30,7 @@ export interface MeSectionPageProps {
 	onOpenPage: (page: string | null) => void;
 	onOpenDevices?: () => void;
 	onAddDevice?: (platforms?: readonly DeviceSummary["platform"][]) => void;
+	renderDeviceAction?: (device: DeviceSummary) => ReactNode;
 	localFiles?: LocalFilesAdapter | undefined;
 	onModelDirtyChange?: (dirty: boolean) => void;
 	onSignedOut: () => void;
@@ -57,6 +58,7 @@ export function MeSectionPage({
 	onOpenPage,
 	onOpenDevices,
 	onAddDevice,
+	renderDeviceAction,
 	localFiles,
 	onModelDirtyChange,
 	onSignedOut,
@@ -151,7 +153,12 @@ export function MeSectionPage({
 			case "models":
 				return <ModelsSection page={page} onOpenPage={onOpenPage} onDirtyChange={onModelDirtyChange} />;
 			case "devices":
-				return <DevicesSection onAddDevice={onAddDevice ? () => onAddDevice() : undefined} />;
+				return (
+					<DevicesSection
+						onAddDevice={onAddDevice ? () => onAddDevice() : undefined}
+						renderDeviceAction={renderDeviceAction}
+					/>
+				);
 			case "connectors":
 				return <ConnectorsSection localFiles={localFiles} onOpenDevices={onOpenDevices} onAddDevice={onAddDevice} />;
 			case "invite":

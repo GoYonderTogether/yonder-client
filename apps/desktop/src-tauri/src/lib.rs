@@ -1,8 +1,14 @@
 use tauri::Manager;
 
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+mod apple_resources;
+
 mod device_download;
 mod device_info;
 mod notifications;
+
+#[cfg(target_os = "macos")]
+mod mac_permissions;
 
 #[cfg(desktop)]
 mod contact_window;
@@ -17,8 +23,11 @@ mod local_files_access;
 #[cfg(desktop)]
 mod local_files_operations;
 
-#[cfg(desktop)]
+#[cfg(any(desktop, target_os = "ios"))]
 mod local_files_store;
+
+#[cfg(target_os = "macos")]
+mod selected_note;
 
 #[cfg(target_os = "android")]
 mod android_update;
@@ -39,6 +48,10 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_meeting_recorder::init())
         .plugin(device_info::init());
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    let builder = builder.plugin(apple_resources::init());
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(mac_permissions::init());
     #[cfg(target_os = "android")]
     let builder = builder.plugin(android_update::init());
     #[cfg(desktop)]

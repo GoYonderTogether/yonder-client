@@ -45,6 +45,8 @@ export const connectorMessagesZhCN = {
 	unavailable: "当前不可用",
 	loadFailed: "连接器加载失败",
 	connectFailed: "连接没有完成，请重试。",
+	reauthorize: "重新授权",
+	systemPermissionDenied: "请到系统设置允许 Yonder 访问后重试。",
 	disconnectFailed: "没有断开连接，请重试。",
 	viewDevices: "查看设备",
 	onDevice: "请在 {{device}} 的 Yonder 中继续启用此连接器。",
@@ -58,5 +60,21 @@ export const connectorMessagesZhCN = {
 	computerControl: {
 		name: "修改文件",
 		description: "创建、编辑和可恢复删除文件",
+	},
+	appleCalendar: {
+		name: "Apple 日历",
+		description: "让 Bot 查找和读取这台设备上的日程",
+		scope: "连接后，Bot 可以按你的要求查找日程和读取日程详情。",
+	},
+	applePhotos: {
+		name: "Apple 相册",
+		description: "让 Bot 查找照片，识别照片中的文字和内容",
+		scope: "Bot 可以在系统允许访问的照片范围内查找照片并读取识别结果。照片识别在这台设备上进行。",
+	},
+	appleNotes: {
+		name: "Apple 备忘录",
+		description: "让 Bot 查找和读取这台 Mac 上的备忘录",
+		scope: "Bot 可以查看备忘录列表并读取未锁定笔记的文字。",
+		unavailable: "暂时无法打开备忘录。请在这台 Mac 上打开备忘录后重试。",
 	},
 } as const;

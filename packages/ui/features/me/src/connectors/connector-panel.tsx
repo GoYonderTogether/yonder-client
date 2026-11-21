@@ -2,10 +2,10 @@ import type { ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yon
 import { Button } from "@yonder/ui-components";
 import { useConnectorActions } from "@yonder/ui-data";
 import { Overlay, useShellChrome } from "@yonder/ui-shell";
-import { FolderSearch, MonitorCog } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
+import { connectorPresentation } from "./connector-card.tsx";
 import type { LocalFilesAdapter } from "./local-files-adapter.ts";
 
 export interface ConnectorPanelProps {
@@ -13,6 +13,7 @@ export interface ConnectorPanelProps {
 	device: DeviceSummary;
 	instance?: ConnectorInstance | undefined;
 	localFiles?: LocalFilesAdapter | undefined;
+	connect?: boolean | undefined;
 	onOpenDevices?: (() => void) | undefined;
 	onClose: () => void;
 }
@@ -22,6 +23,7 @@ export function ConnectorPanel({
 	device,
 	instance,
 	localFiles,
+	connect,
 	onOpenDevices,
 	onClose,
 }: ConnectorPanelProps) {
@@ -42,11 +44,20 @@ export function ConnectorPanel({
 		onClose();
 	};
 	const control = definition.id === "computer-control";
+	const apple = definition.id.startsWith("apple-");
 	const legacy = instance?.scope === "folder";
-	const key = control ? "computerControl" : "localFiles";
-	const Icon = control ? MonitorCog : FolderSearch;
-	const canConfigure = device.current && localFiles?.supported && definition.platforms.includes(device.platform);
+	const { key, Icon } = connectorPresentation[definition.id];
+	const supported = localFiles?.supports?.(definition.id) ?? (!apple && localFiles?.supported);
+	const canConfigure = device.current && supported && definition.platforms.includes(device.platform);
 	const changed = !instance || legacy || instance.capabilities.fileTools !== control;
+	const repair = apple && instance?.status === "offline" && canConfigure;
+	const startOnce = useRef(false);
+	const start = useEffectEvent(() => void apply());
+	useEffect(() => {
+		if (!connect || !canConfigure || startOnce.current) return;
+		startOnce.current = true;
+		start();
+	}, [connect, canConfigure]);
 
 	async function apply() {
 		if (!device || !localFiles || !canConfigure) return;
@@ -55,6 +66,11 @@ export function ConnectorPanel({
 		let saved: ConnectorInstance | undefined;
 		const capabilities = { fileTools: control };
 		try {
+			if (apple) {
+				if (!localFiles.prepare) throw new Error("permission_denied");
+				await localFiles.prepare(definition.id);
+				if (!active.current) return;
+			}
 			saved =
 				instance && !changed
 					? instance
@@ -76,7 +92,7 @@ export function ConnectorPanel({
 			await localFiles.authorize(saved);
 			if (!active.current) throw new Error("cancelled");
 			close();
-		} catch {
+		} catch (failure) {
 			if (saved && changed) {
 				try {
 					if (instance) {
@@ -91,18 +107,30 @@ export function ConnectorPanel({
 						try {
 							await actions.remove.mutateAsync(saved.id);
 						} finally {
-							await localFiles.revoke(saved.id);
+							if (apple) await localFiles.revoke(saved.id, definition.id);
+							else await localFiles.revoke(saved.id);
 						}
 					}
 				} catch {
 					try {
-						await localFiles.revoke(saved.id);
+						if (apple) await localFiles.revoke(saved.id, definition.id);
+						else await localFiles.revoke(saved.id);
 					} catch {
 						/* Keep the incomplete operation visible; never report it as ready. */
 					}
 				}
 			}
-			if (active.current) setError(t("connectors.connectFailed"));
+			const code = failure instanceof Error ? failure.message : String(failure);
+			if (active.current)
+				setError(
+					t(
+						code === "notes_unavailable"
+							? "connectors.appleNotes.unavailable"
+							: apple && code === "permission_denied"
+								? "connectors.systemPermissionDenied"
+								: "connectors.connectFailed",
+					),
+				);
 		} finally {
 			setBusy(false);
 		}
@@ -112,10 +140,11 @@ export function ConnectorPanel({
 		setBusy(true);
 		setError(null);
 		try {
+			if (apple && instance.currentDevice) await localFiles?.revoke(instance.id, definition.id);
 			try {
 				await actions.remove.mutateAsync(instance.id);
 			} finally {
-				if (instance.currentDevice && localFiles?.supported) await localFiles.revoke(instance.id);
+				if (!apple && instance.currentDevice && localFiles?.supported) await localFiles.revoke(instance.id);
 			}
 			close();
 		} catch {
@@ -159,11 +188,21 @@ export function ConnectorPanel({
 					</p>
 				) : null}
 				<p className="text-caption text-[var(--color-text-secondary)]">
-					{t(control ? "connectors.fileToolsScope" : "connectors.readScope")}
+					{t(apple ? `connectors.${key}.scope` : control ? "connectors.fileToolsScope" : "connectors.readScope")}
 				</p>
-				{canConfigure && changed ? (
+				{canConfigure && (changed || repair) ? (
 					<Button variant="primary" loading={busy} onClick={() => void apply()}>
-						{t(legacy ? "connectors.upgrade" : instance ? "connectors.save" : "connectors.enable")}
+						{t(
+							repair
+								? "connectors.reauthorize"
+								: apple
+									? "connectors.connect"
+									: legacy
+										? "connectors.upgrade"
+										: instance
+											? "connectors.save"
+											: "connectors.enable",
+						)}
 					</Button>
 				) : null}
 				{instance ? (

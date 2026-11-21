@@ -1,5 +1,8 @@
+import { macPermissionsEn } from "./mac-permissions.ts";
+
 export const accountMessagesEn = {
 	me: {
+		macPermissions: macPermissionsEn,
 		title: "Me",
 		open: "Open your account",
 		close: "Close",

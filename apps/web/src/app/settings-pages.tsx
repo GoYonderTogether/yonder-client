@@ -20,6 +20,7 @@ import { UpdateControls } from "../updates/controls.tsx";
 import { useConnectDevice } from "./connect-device.tsx";
 import { ConnectDeviceDownloads } from "./connect-device-downloads.tsx";
 import { DesktopCloseBehavior } from "./desktop-close-behavior.tsx";
+import { renderMacPermissionManagement } from "./mac-permissions.tsx";
 import { ReceptionLibraryPage } from "./reception-library.tsx";
 import { botSettingsPath, channelsSettingsPath } from "./settings-navigation.ts";
 import { SocialPersona } from "./social-settings.tsx";
@@ -123,6 +124,7 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 					appVersion={BUILD_VERSION}
 					aboutUpdate={<UpdateControls />}
 					generalExtra={<DesktopCloseBehavior />}
+					renderDeviceAction={renderMacPermissionManagement}
 					renderChangePassword={(onDone) => (
 						<PasswordSetupForm
 							mode={hasPassword ? "change" : "set"}

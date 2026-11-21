@@ -1,5 +1,8 @@
+import { macPermissionsZhCN } from "./mac-permissions.ts";
+
 export const accountMessagesZhCN = {
 	me: {
+		macPermissions: macPermissionsZhCN,
 		title: "我",
 		open: "打开账号",
 		close: "关闭",

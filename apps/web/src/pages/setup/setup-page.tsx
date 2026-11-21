@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate, useParams } from "react-router";
 import { useLocalFilesAdapter } from "../../lib/local-files.ts";
+import { supportsMacPermissions } from "../../lib/mac-permissions.ts";
 import { isDesktopExperience } from "../../lib/platform.ts";
 import {
 	isSetupStep,
@@ -35,7 +36,7 @@ export function SetupPage() {
 	const [completion, setCompletion] = useState<"idle" | "pending" | "error">("idle");
 	const [skippedSteps, setSkippedSteps] = useState<SetupStep[]>([]);
 	const connectable = useSetupConnectors();
-	const canConnect = connectable.loading || connectable.definitions.length > 0;
+	const canConnect = !supportsMacPermissions() && (connectable.loading || connectable.definitions.length > 0);
 	if (!isSetupStep(step)) return <Navigate to={setupPath(SETUP_STEPS[0])} replace />;
 	// A device that cannot connect anything never lands on that step, even from an old address.
 	if (step === "connect" && !canConnect) return <Navigate to={setupPath("bot")} replace />;

@@ -14,6 +14,7 @@
 		"yonder-device-download:allow-open",
 		"yonder-device-download:allow-copy",
 		"yonder-device-info:default",
+		"yonder-mac-permissions:default",
 		"yonder-notifications:default",
 		"keyring:allow-get-password",
 		"keyring:allow-set-password",

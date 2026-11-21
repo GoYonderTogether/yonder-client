@@ -1,6 +1,6 @@
 import type { ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 import { Button } from "@yonder/ui-components";
-import { FolderSearch, MonitorCog } from "lucide-react";
+import { CalendarDays, FolderSearch, Images, MonitorCog, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export interface ConnectorCardProps {
@@ -8,13 +8,17 @@ export interface ConnectorCardProps {
 	device: DeviceSummary;
 	/** What this device has connected under the connector, folder grants included. */
 	instances: readonly ConnectorInstance[];
-	onOpen: (definition: ConnectorDefinition, instanceId?: string) => void;
+	onOpen: (definition: ConnectorDefinition, instanceId?: string, connect?: boolean) => void;
 }
 
 /** The connector's own copy lives under `connectors.<key>`; the id is kebab-case, the key is not. */
-export function connectorKey(definition: ConnectorDefinition): "computerControl" | "localFiles" {
-	return definition.id === "computer-control" ? "computerControl" : "localFiles";
-}
+export const connectorPresentation = {
+	"local-files": { key: "localFiles", Icon: FolderSearch },
+	"computer-control": { key: "computerControl", Icon: MonitorCog },
+	"apple-calendar": { key: "appleCalendar", Icon: CalendarDays },
+	"apple-photos": { key: "applePhotos", Icon: Images },
+	"apple-notes": { key: "appleNotes", Icon: NotebookPen },
+} as const satisfies Record<ConnectorDefinition["id"], { key: string; Icon: typeof FolderSearch }>;
 
 /** Where a connector stands on a device, as the label of its button. */
 export function connectorStatusKey(device: DeviceSummary, primary: ConnectorInstance | undefined): string {
@@ -30,8 +34,7 @@ export function connectorStatusKey(device: DeviceSummary, primary: ConnectorInst
  */
 export function ConnectorCard({ definition, device, instances, onOpen }: ConnectorCardProps) {
 	const { t } = useTranslation();
-	const key = connectorKey(definition);
-	const Icon = definition.id === "computer-control" ? MonitorCog : FolderSearch;
+	const { key, Icon } = connectorPresentation[definition.id];
 	const connected = instances.filter((item) => item.connectorId === definition.id);
 	const primary = connected.find((item) => item.scope === "device") ?? connected[0];
 	const status = connectorStatusKey(device, primary);
@@ -54,7 +57,9 @@ export function ConnectorCard({ definition, device, instances, onOpen }: Connect
 				<Button
 					size="sm"
 					aria-label={`${t(status)} · ${t(`connectors.${key}.name`)}`}
-					onClick={() => onOpen(definition, primary?.id)}
+					onClick={() =>
+						onOpen(definition, primary?.id, !primary && device.current && definition.id.startsWith("apple-"))
+					}
 				>
 					{t(status)}
 				</Button>

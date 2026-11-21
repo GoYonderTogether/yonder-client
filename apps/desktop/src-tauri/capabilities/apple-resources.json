@@ -1,0 +1,6 @@
+{
+	"identifier": "apple-resources",
+	"windows": ["main"],
+	"platforms": ["macOS", "iOS"],
+	"permissions": ["yonder-apple-resources:default"]
+}
