@@ -27,6 +27,7 @@ mod local_files_access;
 mod local_files_grep;
 #[cfg(desktop)]
 mod local_files_limits;
+#[cfg(desktop)]
 mod local_files_mutations;
 #[cfg(windows)]
 mod local_files_mutations_windows;
