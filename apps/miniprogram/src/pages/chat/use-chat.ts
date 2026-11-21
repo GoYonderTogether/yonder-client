@@ -1,6 +1,7 @@
 import Taro, { useDidShow } from "@tarojs/taro";
 import { ApiError } from "@yonder/api-client";
-import type { Attachment, Conversation, SendMessageRequest } from "@yonder/protocol";
+import { chatHistoryTimeOffset, isNewChatHistoryCutoff } from "@yonder/chat-model";
+import type { Attachment, ChatHistoryCutoff, Conversation, Message, SendMessageRequest } from "@yonder/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../lib/i18n";
 import { patchConversation } from "../../lib/member-cache";
@@ -55,18 +56,28 @@ export function useChat(id: string) {
 	const requests = useRef(new Map<string, SendMessageRequest>());
 	const latestLoad = useRef<{ scope: string; promise: Promise<boolean> } | null>(null);
 	const olderLoad = useRef<{ scope: string; cursor: string; promise: Promise<boolean> } | null>(null);
-	/** The visit ladder changes on the server (approved, paid, refused), so a refused send re-reads it. */
-	const refresh = useCallback((): Promise<void> => {
-		const ticket = epoch.current;
-		return api
-			.conversations()
-			.then((result) => {
-				if (active.current && ticket === epoch.current) setConversation(result.items.find((item) => item.id === id));
-			})
-			.catch(() => {});
-	}, [id]);
+	const historyCutoff = useRef<ChatHistoryCutoff>();
+	const applyHistoryCutoff = useCallback((cutoff: ChatHistoryCutoff | undefined): boolean => {
+		if (!cutoff || !isNewChatHistoryCutoff(cutoff, historyCutoff.current)) return false;
+		historyCutoff.current = cutoff;
+		latestLoad.current = null;
+		olderLoad.current = null;
+		cursorRef.current = null;
+		setCursor(null);
+		setHasFullHistory(false);
+		setOlderLoading(false);
+		setMessages((current) =>
+			current.filter(
+				(message) => message.pending || message.sendFailed || chatHistoryTimeOffset(message.createdAt, cutoff) > 0,
+			),
+		);
+		return true;
+	}, []);
 	useEffect(() => {
 		active.current = Boolean(id && me?.member.id);
+		historyCutoff.current = undefined;
+		latestLoad.current = null;
+		olderLoad.current = null;
 		cursorRef.current = null;
 		setCursor(null);
 		setHasFullHistory(false);
@@ -106,12 +117,22 @@ export function useChat(id: string) {
 				return olderLoad.current.promise;
 			if (!older && latestLoad.current?.scope === outboxKey) return latestLoad.current.promise;
 			const ticket = epoch.current;
+			let cutoff = historyCutoff.current;
+			const currentRequest = () => active.current && ticket === epoch.current && cutoff === historyCutoff.current;
 			setError("");
 			if (older) setOlderLoading(true);
 			const promise = (async () => {
 				try {
-					const page = await api.messages(id, pageCursor ?? undefined, { markRead: false });
-					if (!active.current || ticket !== epoch.current) return false;
+					let page = await api.messages(id, pageCursor ?? undefined, { markRead: false });
+					if (!currentRequest()) return false;
+					if (older && page.historyClearedThrough && isNewChatHistoryCutoff(page.historyClearedThrough, cutoff)) {
+						// An older cursor from before the clear cannot tell us where current history begins.
+						page = await api.messages(id, undefined, { markRead: false });
+						if (!currentRequest()) return false;
+					}
+					if (cutoff && isNewChatHistoryCutoff(cutoff, page.historyClearedThrough)) return false;
+					applyHistoryCutoff(page.historyClearedThrough);
+					cutoff = historyCutoff.current;
 					setMessages((current) => mergeMessages(current, page.items));
 					if (older || cursorRef.current === null) {
 						cursorRef.current = page.nextCursor;
@@ -120,11 +141,10 @@ export function useChat(id: string) {
 					}
 					return true;
 				} catch {
-					if (active.current && ticket === epoch.current)
-						setError(t("消息加载失败，请重试", "Could not load messages. Try again."));
+					if (currentRequest()) setError(t("消息加载失败，请重试", "Could not load messages. Try again."));
 					return false;
 				} finally {
-					if (active.current && ticket === epoch.current) {
+					if (currentRequest()) {
 						if (older) setOlderLoading(false);
 						else setLoading(false);
 					}
@@ -143,7 +163,41 @@ export function useChat(id: string) {
 			}
 			return promise;
 		},
-		[id, status, outboxKey],
+		[id, status, outboxKey, applyHistoryCutoff],
+	);
+	const acceptConversation = useCallback(
+		(next: Conversation | undefined) => {
+			const cutoff = historyCutoff.current;
+			if (next && cutoff && isNewChatHistoryCutoff(cutoff, next.historyClearedThrough)) return;
+			setConversation(next);
+			if (applyHistoryCutoff(next?.historyClearedThrough)) void load();
+		},
+		[applyHistoryCutoff, load],
+	);
+	/** A refused send can reflect a change in the visit ladder on the server. */
+	const refresh = useCallback((): Promise<void> => {
+		const ticket = epoch.current;
+		return api
+			.conversations()
+			.then((result) => {
+				if (active.current && ticket === epoch.current) acceptConversation(result.items.find((item) => item.id === id));
+			})
+			.catch(() => {});
+	}, [id, acceptConversation]);
+	const acceptMessage = useCallback(
+		(message: Message) => {
+			const cutoff = historyCutoff.current;
+			const offset = cutoff ? chatHistoryTimeOffset(message.createdAt, cutoff) : 1;
+			if (offset > 0) setMessages((current) => mergeMessages(current, [message]));
+			else {
+				if (message.clientNonce)
+					setMessages((current) =>
+						current.filter((row) => !row.id.startsWith("temp_") || row.clientNonce !== message.clientNonce),
+					);
+				if (offset === 0 && message.id !== cutoff?.messageId) void load();
+			}
+		},
+		[load],
 	);
 	useEffect(() => {
 		void revision;
@@ -159,10 +213,10 @@ export function useChat(id: string) {
 		void refresh();
 		return subscribeEvents((event) => {
 			if ((event.type === "message.created" || event.type === "message.updated") && event.message.conversationId === id)
-				setMessages((current) => mergeMessages(current, [event.message]));
+				acceptMessage(event.message);
 			if (event.type === "run.updated" && event.run.conversationId === id)
 				setMessages((current) => updateRun(current, event.run));
-			if (event.type === "conversation.updated" && event.conversation.id === id) setConversation(event.conversation);
+			if (event.type === "conversation.updated" && event.conversation.id === id) acceptConversation(event.conversation);
 			if (event.type === "conversation.state_changed" && event.conversationId === id) void refresh();
 			// A rename or a new avatar is embedded in the conversation's members, so the copy is patched.
 			if (event.type === "member.updated")
@@ -174,7 +228,7 @@ export function useChat(id: string) {
 				else void Taro.reLaunch({ url: "/pages/conversations/index" });
 			}
 		});
-	}, [id, status, load, refresh]);
+	}, [id, status, load, refresh, acceptConversation, acceptMessage]);
 	const send = async (body: string, attachments: Attachment[], skillIds: string[], retryNonce?: string) => {
 		if (sendLock.current || !id || messagesOwner.current !== outboxKey) return;
 		sendLock.current = true;
@@ -224,7 +278,7 @@ export function useChat(id: string) {
 		try {
 			const result = await api.sendMessage(id, request);
 			if (active.current && ticket === epoch.current)
-				setMessages((current) => mergeMessages(current, [{ ...result.message, clientNonce: result.clientNonce }]));
+				acceptMessage({ ...result.message, clientNonce: result.clientNonce });
 			requests.current.delete(nonce);
 			return true;
 		} catch (cause) {
@@ -285,8 +339,7 @@ export function useChat(id: string) {
 				return;
 			}
 			const result = await api.retryMessage(message.run?.userMessageId ?? message.id, newNonce());
-			if (active.current && ticket === epoch.current)
-				setMessages((current) => mergeMessages(current, [result.message]));
+			if (active.current && ticket === epoch.current) acceptMessage(result.message);
 		} catch {
 			if (active.current && ticket === epoch.current)
 				setError(t("操作失败，请重试", "Could not complete the action. Try again."));

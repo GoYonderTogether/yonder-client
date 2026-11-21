@@ -1,10 +1,12 @@
 import { FeishuChannel, FeishuExternalConversations } from "@yonder/feature-me";
 import { BotForm, BotSettingsOverview } from "@yonder/feature-members";
 import type { Member } from "@yonder/protocol";
-import { useBot, useContacts } from "@yonder/ui-data";
-import { useSidePanel } from "@yonder/ui-shell";
-import type { ReactNode } from "react";
+import { ListGroup, ListRow } from "@yonder/ui-components";
+import { ApiError, useBot, useContacts, useResetBotConversation } from "@yonder/ui-data";
+import { ConfirmDialog, useSidePanel } from "@yonder/ui-shell";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useAppNotice } from "./app-notice.tsx";
 import { SocialPersona } from "./social-settings.tsx";
 
 export const CHAT_BOT_PAGE_TITLE = {
@@ -23,11 +25,13 @@ export function chatBotPageStack(page: ChatBotPage | undefined): ChatBotPage[] {
 
 export function ChatBotSettings({
 	bot,
+	conversationId,
 	onDeleted,
 	onOpenPage,
 	preferences,
 }: {
 	bot: Member;
+	conversationId?: string | undefined;
 	onDeleted: (chatId: string | undefined) => void;
 	onOpenPage?: (page: ChatBotPage) => void;
 	preferences?: ReactNode;
@@ -60,8 +64,82 @@ export function ChatBotSettings({
 				onDeleted={onDeleted}
 			>
 				{preferences}
+				{conversationId ? <BotConversationActions key={conversationId} conversationId={conversationId} /> : null}
 			</BotSettingsOverview>
 		</ChatSettingsBody>
+	);
+}
+
+function BotConversationActions({ conversationId }: { conversationId: string }) {
+	const { t } = useTranslation();
+	const notify = useAppNotice();
+	const reset = useResetBotConversation(conversationId);
+	const [confirming, setConfirming] = useState(false);
+	const failure =
+		reset.error instanceof ApiError && reset.error.code === "conversation_busy"
+			? t("bots.resetBusy")
+			: t(reset.variables ? "bots.clearHistoryFailed" : "bots.restartFailed");
+
+	function run(clearHistory: boolean) {
+		reset.mutate(clearHistory, {
+			onSuccess: () => {
+				setConfirming(false);
+				notify({
+					key: `bot-conversation:${conversationId}:${clearHistory}`,
+					text: t(clearHistory ? "bots.historyCleared" : "bots.restarted"),
+				});
+			},
+			onError: (error) => {
+				if (clearHistory) return;
+				notify({
+					key: `bot-conversation:${conversationId}:restart-error`,
+					text: t(
+						error instanceof ApiError && error.code === "conversation_busy" ? "bots.resetBusy" : "bots.restartFailed",
+					),
+					tone: "error",
+				});
+			},
+		});
+	}
+
+	return (
+		<>
+			<ListGroup>
+				<ListRow
+					title={t("bots.restart")}
+					disabled={reset.isPending}
+					aria-busy={reset.isPending && !reset.variables}
+					onClick={() => run(false)}
+				/>
+				<ListRow
+					title={t("bots.clearHistory")}
+					tone="danger"
+					disabled={reset.isPending}
+					aria-haspopup="dialog"
+					onClick={() => {
+						reset.reset();
+						setConfirming(true);
+					}}
+				/>
+			</ListGroup>
+			{confirming ? (
+				<ConfirmDialog
+					open
+					title={t("bots.clearHistoryTitle")}
+					body={t("bots.clearHistoryBody")}
+					confirmLabel={t("bots.clearHistory")}
+					cancelLabel={t("app.cancel")}
+					closeLabel={t("app.close")}
+					backLabel={t("app.back")}
+					busy={reset.isPending}
+					error={reset.isError ? failure : null}
+					onCancel={() => {
+						if (!reset.isPending) setConfirming(false);
+					}}
+					onConfirm={() => run(true)}
+				/>
+			) : null}
+		</>
 	);
 }
 

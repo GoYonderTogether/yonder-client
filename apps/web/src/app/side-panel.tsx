@@ -163,6 +163,11 @@ export function useSideStack({
 							<ChatBotSettings
 								key={bot.id}
 								bot={bot}
+								conversationId={
+									peer?.memberId === bot.id && !conversation?.visit && !conversation?.closedReason
+										? conversation?.id
+										: undefined
+								}
 								preferences={peer?.memberId === bot.id ? preferences : undefined}
 								{...(layers.botDrawer ? { onOpenPage: openBotPage } : {})}
 								onDeleted={(chatId) => {

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { Message } from "@yonder/protocol";
+import type { Message, ServerEvent } from "@yonder/protocol";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, test, vi } from "vitest";
@@ -11,6 +11,7 @@ const mock = vi.hoisted(() => ({
 	stop: vi.fn(),
 	send: vi.fn(),
 	rejectPendingWrites: false,
+	subscribe: vi.fn(),
 	owner: "a",
 	store: new Map<string, unknown>(),
 }));
@@ -34,7 +35,7 @@ vi.mock("../../lib/runtime", () => ({
 		sendMessage: mock.send,
 	},
 	newNonce: () => "nonce",
-	subscribeEvents: () => () => {},
+	subscribeEvents: mock.subscribe,
 	useRealtimeRevision: () => 0,
 	useSession: () => ({ status: "signed-in", me: { member: { id: mock.owner } } }),
 }));
@@ -215,4 +216,60 @@ test("coalesces the same older cursor while latest refresh and older page interl
 	expect(state.cursor).toBe("latest-cursor");
 	expect(state.hasFullHistory).toBe(true);
 	await act(async () => root.unmount());
+});
+
+test("clears loaded pages on another device's reset without merging a late page or dropping pending outbox", async () => {
+	mock.owner = "a";
+	mock.store.clear();
+	const failed = { ...row, id: "temp_unsent", clientNonce: "unsent" };
+	mock.store.set("yonder.mini.outbox.a.one", [failed]);
+	mock.messages.mockReset().mockResolvedValueOnce({ items: [row], nextCursor: "old-cursor" });
+	let finishOlder: (page: unknown) => void = () => {};
+	mock.messages.mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				finishOlder = resolve;
+			}),
+	);
+	const cutoff = { messageId: row.id, createdAt: "2026-01-01T00:00:00.000001Z" };
+	// Only the authoritative response can order two database rows within the same millisecond.
+	const surviving = { ...row, id: "same-millisecond", body: "sent after clear", createdAt: "2026-01-01T00:00:00.000Z" };
+	mock.messages.mockResolvedValue({ items: [surviving], nextCursor: null, historyClearedThrough: cutoff });
+	let emit: (event: ServerEvent) => void = () => {};
+	mock.subscribe.mockImplementation((listener) => {
+		emit = listener;
+		return () => {};
+	});
+	const root = createRoot(document.createElement("div"));
+	await act(async () => root.render(createElement(Probe, { id: "one" })));
+	await act(async () => {
+		void state.load(true);
+	});
+	await act(async () => {
+		emit({
+			type: "conversation.updated",
+			eventId: "clear",
+			at: row.createdAt,
+			conversation: {
+				id: "one",
+				kind: "direct",
+				title: null,
+				members: [],
+				pinned: true,
+				unreadCount: 0,
+				lastMessageAt: null,
+				version: 2,
+				historyClearedThrough: cutoff,
+			},
+		});
+	});
+	await act(async () => {
+		finishOlder({ items: [row], nextCursor: "older-cursor" });
+		emit({ type: "message.created", eventId: "old", at: row.createdAt, message: row });
+	});
+	expect(state.messages.map((message) => message.id)).toEqual([failed.id, surviving.id]);
+	expect(state.cursor).toBeNull();
+	expect(state.hasFullHistory).toBe(true);
+	await act(async () => root.unmount());
+	mock.subscribe.mockReset();
 });

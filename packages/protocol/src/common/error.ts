@@ -24,6 +24,7 @@ export const ERROR_CODES = [
 	"visit_cap",
 	"visit_confirm",
 	"compact_busy",
+	"conversation_busy",
 	"compact_unsupported",
 	"compact_failed",
 	"code_invalid",

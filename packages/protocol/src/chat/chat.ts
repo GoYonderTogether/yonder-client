@@ -83,6 +83,18 @@ export interface ApproveVisitRequest {
 	hostPays?: boolean;
 }
 
+/** The last message hidden from the owner's chat view by a history clear. */
+export interface ChatHistoryCutoff {
+	messageId: string;
+	/** UTC timestamp with six fractional digits, retaining database ordering within a millisecond. */
+	createdAt: string;
+}
+
+export interface ResetConversationResponse {
+	ok: true;
+	historyClearedThrough?: ChatHistoryCutoff;
+}
+
 export interface Conversation {
 	id: string;
 	kind: "direct" | "group" | "system";
@@ -100,6 +112,7 @@ export interface Conversation {
 	dissolvedAt?: string | null;
 	/** Present only in a chat between a stranger and someone else's Bot. */
 	visit?: ConversationVisit | null;
+	historyClearedThrough?: ChatHistoryCutoff;
 	lastMessageAt: string | null;
 	lastMessage?: {
 		body: string | null;
@@ -187,6 +200,7 @@ export interface MessagePage {
 	items: Message[];
 	nextCursor: string | null;
 	hasMore: boolean;
+	historyClearedThrough?: ChatHistoryCutoff;
 }
 
 export interface SendMessageRequest {

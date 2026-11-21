@@ -7,6 +7,7 @@ import type {
 	MessagePage,
 	OutwardRequestAction,
 	OutwardRequestCard,
+	ResetConversationResponse,
 	SendMessageRequest,
 	SendMessageResponse,
 } from "@yonder/protocol";
@@ -64,6 +65,12 @@ export function conversationEndpoints(client: ApiClient) {
 			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/compact`, {
 				body,
 				idempotencyKey: body.clientNonce,
+			});
+		},
+
+		resetConversation(conversationId: string, clearHistory: boolean): Promise<ResetConversationResponse> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/reset`, {
+				body: { clearHistory },
 			});
 		},
 

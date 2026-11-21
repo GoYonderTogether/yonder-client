@@ -1,7 +1,8 @@
 import { type InfiniteData, QueryClient } from "@tanstack/react-query";
-import type { Message, MessagePage } from "@yonder/protocol";
+import type { Conversation, Message, MessagePage } from "@yonder/protocol";
 import { expect, test } from "vitest";
 import { keys } from "../query/keys.ts";
+import { applyServerEvent } from "./events.ts";
 import { updateMessage, updateRun } from "./message-cache.ts";
 
 test("nonce confirms one optimistic message and streaming updates replace one reply", () => {
@@ -121,4 +122,78 @@ test("an empty Bot placeholder does not hide the last visible message", () => {
 	const voice = { durationMs: 1000 };
 	updateMessage(client, { ...user, id: "m3", createdAt: "2026-01-01T00:00:02.000Z", body: null, voice });
 	expect(client.getQueryData(key)).toMatchObject({ items: [{ lastMessage: { body: null, voice } }] });
+});
+
+test("a history clear invalidates old pages and prevents delayed messages from restoring the history or its preview", async () => {
+	const client = new QueryClient();
+	const listKey = keys.conversations.list();
+	const historyKey = keys.messages.latest("c");
+	const old: Message = {
+		id: "last-before-clear",
+		conversationId: "c",
+		senderId: "p",
+		senderKind: "person",
+		type: "text",
+		body: "old",
+		attachments: [],
+		replyToId: null,
+		createdAt: "2026-11-20T00:00:01.000Z",
+		editedAt: null,
+		streaming: false,
+		version: 1,
+	};
+	const pending = { ...old, id: "temp_pending", clientNonce: "pending", body: "unsent", pending: true };
+	const previous: Conversation = {
+		id: "c",
+		kind: "direct",
+		title: null,
+		members: [],
+		pinned: false,
+		version: 1,
+		unreadCount: 1,
+		lastMessageAt: old.createdAt,
+		lastMessage: { body: old.body, senderKind: old.senderKind, createdAt: old.createdAt },
+	};
+	const original = { items: [old, pending], nextCursor: old.id, hasMore: true };
+	client.setQueryData(listKey, { items: [previous] });
+	client.setQueryData(historyKey, {
+		pages: [original, { ...original, items: [{ ...old, id: "older" }] }],
+		pageParams: [undefined, old.id],
+	});
+	let finish: (page: MessagePage) => void = () => {};
+	const request = client
+		.fetchInfiniteQuery({
+			queryKey: historyKey,
+			initialPageParam: undefined,
+			queryFn: () =>
+				new Promise<MessagePage>((resolve) => {
+					finish = resolve;
+				}),
+		})
+		.catch(() => {});
+	const historyClearedThrough = { messageId: old.id, createdAt: "2026-11-20T00:00:01.000041Z" };
+	applyServerEvent(client, {
+		type: "conversation.updated",
+		eventId: "clear",
+		at: old.createdAt,
+		conversation: {
+			...previous,
+			lastMessageAt: null,
+			lastMessage: null,
+			unreadCount: 0,
+			version: 2,
+			historyClearedThrough,
+		},
+	});
+	finish(original);
+	await request;
+	applyServerEvent(client, { type: "message.updated", eventId: "old", at: old.createdAt, message: old });
+	expect(client.getQueryData(listKey)).toMatchObject({ items: [{ lastMessage: null, unreadCount: 0 }] });
+	const current = client.getQueryData<InfiniteData<MessagePage>>(historyKey);
+	expect(current?.pages).toEqual([{ items: [pending], nextCursor: null, hasMore: false, historyClearedThrough }]);
+	const next = { ...old, id: "next", body: "next", createdAt: "2026-11-20T00:00:01.001Z" };
+	applyServerEvent(client, { type: "message.created", eventId: "next", at: next.createdAt, message: next });
+	expect(client.getQueryData(listKey)).toMatchObject({ items: [{ lastMessage: { body: "next" } }] });
+	expect(client.getQueryData<InfiniteData<MessagePage>>(historyKey)?.pages[0]?.items).toEqual([pending, next]);
+	client.clear();
 });
