@@ -11,6 +11,7 @@ import { BUILD_VERSION } from "../lib/config.ts";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
 import { useConnectDevice } from "./connect-device.tsx";
+import { ConnectDeviceDownloads } from "./connect-device-downloads.tsx";
 import { DesktopCloseBehavior } from "./desktop-close-behavior.tsx";
 import { ReceptionOverview, ReceptionSetting } from "./reception-setting.tsx";
 import { botSettingsPath, channelsSettingsPath } from "./settings-navigation.ts";
@@ -45,9 +46,16 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 	const location = useLocation();
 	const navigate = useNavigate();
 	const hasPassword = useHasPassword();
-	const connectDevice = useConnectDevice(props.onOpen);
 	const [section, page, leaf, extra] = locate(path)?.detail ?? [];
+	const connectDevice = useConnectDevice(section === "connectors" ? "connectors" : "devices", props.onOpen);
 	if (!isMeSection(section)) return <NotFoundPage />;
+	if ((section === "devices" || section === "connectors") && page === "connect" && !leaf) {
+		return (
+			<SettingsPage title={t("me.devices.add")}>
+				<ConnectDeviceDownloads />
+			</SettingsPage>
+		);
+	}
 	if (section === "bots") {
 		if (extra) return <NotFoundPage />;
 		return page ? (
