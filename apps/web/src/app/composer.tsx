@@ -383,10 +383,10 @@ export function Composer({
 									completion.sync(event.currentTarget, composing.current);
 								}}
 								onFocus={() => {
+									iosAttachments.close();
 									if (mobilePicker && !readOnly) haptic("light");
 								}}
 								onBlur={completion.close}
-								onFocus={iosAttachments.close}
 								onScroll={(event) => {
 									if (highlight.current) {
 										highlight.current.scrollTop = event.currentTarget.scrollTop;

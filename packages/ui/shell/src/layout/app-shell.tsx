@@ -295,7 +295,6 @@ export function AppShell({
 							onBack={onBack}
 							backButton={backButton}
 							label={meLabel}
-							backLabel={backLabel}
 							scrollPositions={scrollPositions}
 						/>
 					) : null}
@@ -314,7 +313,6 @@ function MeLayers({
 	onBack,
 	backButton,
 	label,
-	backLabel,
 	scrollPositions,
 }: {
 	me: MeStack;
@@ -325,7 +323,6 @@ function MeLayers({
 	onBack: () => void;
 	backButton: ReactNode;
 	label: string;
-	backLabel: string;
 	scrollPositions: React.RefObject<Record<string, number>>;
 }) {
 	const wide = mode === "wide";
