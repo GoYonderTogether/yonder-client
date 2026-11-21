@@ -45,22 +45,24 @@ export function ConfirmDialog({
 			size="small"
 			closeLabel={closeLabel}
 			mobileBackLabel={backLabel}
-		>
-			<div className="flex grow flex-col gap-[var(--spacing-5)] p-[var(--spacing-5)]">
-				<div className="text-body text-[var(--color-text-secondary)]">{body}</div>
-				{error ? (
-					<p role="alert" className="text-caption text-[var(--color-danger)]">
-						{error}
-					</p>
-				) : null}
-				<div className="mt-auto flex flex-wrap justify-end gap-[var(--spacing-3)]">
+			footer={
+				<>
 					<Button onClick={onCancel} disabled={busy}>
 						{cancelLabel}
 					</Button>
 					<Button variant="danger" onClick={onConfirm} loading={busy}>
 						{confirmLabel}
 					</Button>
-				</div>
+				</>
+			}
+		>
+			<div className="flex flex-col gap-[var(--spacing-5)] p-[var(--spacing-5)] [overflow-wrap:anywhere]">
+				<div className="text-body text-[var(--color-text-secondary)]">{body}</div>
+				{error ? (
+					<p role="alert" className="text-caption text-[var(--color-danger)]">
+						{error}
+					</p>
+				) : null}
 			</div>
 		</Overlay>
 	);

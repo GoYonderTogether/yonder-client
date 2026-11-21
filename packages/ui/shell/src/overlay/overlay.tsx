@@ -17,6 +17,7 @@ export interface OverlayProps {
 	title: string;
 	mode: LayoutMode;
 	children: ReactNode;
+	footer?: ReactNode;
 	size?: "small" | "wide";
 	closeLabel?: string;
 	mobileBackLabel?: string;
@@ -34,6 +35,7 @@ export function Overlay({
 	title,
 	mode,
 	children,
+	footer,
 	size,
 	closeLabel = "close",
 	mobileBackLabel,
@@ -45,8 +47,8 @@ export function Overlay({
 	const sheet = !centered && mobilePresentation !== "page";
 	const tallSheet = sheet && mobilePresentation === "tall-sheet";
 	const viewport = useRef<HTMLDivElement>(null);
-	useVisualViewport(viewport, open && tallSheet);
-	const nativeFrame = !centered && !tallSheet;
+	useVisualViewport(viewport, open && sheet);
+	const nativeFrame = !centered && !sheet;
 	const header = useChromeSize("--frame-header-height", open && nativeFrame);
 	useDismiss(open && centered, onClose, 20);
 	if (typeof document === "undefined") return null;
@@ -56,8 +58,8 @@ export function Overlay({
 				<div
 					ref={viewport}
 					className={cn(
-						"fixed inset-x-0 z-50 flex",
-						tallSheet ? "top-[var(--app-offset-top,0px)] h-[var(--app-height,100dvh)]" : "inset-y-0",
+						"fixed inset-x-0 z-50 flex [--dialog-max-height:85dvh]",
+						sheet ? "top-[var(--app-offset-top,0px)] h-[var(--app-height,100dvh)]" : "inset-y-0",
 					)}
 					role="presentation"
 				>
@@ -75,10 +77,10 @@ export function Overlay({
 							"z-10 bg-[var(--color-bg-surface)]",
 							centered
 								? cn(
-										"m-auto !flex-none max-h-[85dvh] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]",
+										"m-auto !flex-none max-h-[var(--dialog-max-height)] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]",
 										square
 											? cn(
-													"w-[var(--dialog-size)] min-h-[min(var(--dialog-size),85dvh)] [--dialog-size:min(var(--dialog-width),90vw,max(var(--dialog-width-min),85dvh))]",
+													"w-[var(--dialog-size)] min-h-[min(var(--dialog-size),var(--dialog-max-height))] [--dialog-size:min(var(--dialog-width),90vw,max(var(--dialog-width-min),var(--dialog-max-height)))]",
 													size === "small" && "[--dialog-width:var(--dialog-width-min)]",
 													size === "wide" && "[--dialog-width:var(--dialog-width-wide)]",
 												)
@@ -88,10 +90,10 @@ export function Overlay({
 									)
 								: sheet
 									? cn(
-											"!top-auto bottom-0 w-full rounded-t-[var(--radius-xl)]",
+											"!top-auto bottom-0 w-full rounded-t-[var(--radius-xl)] pb-[var(--dock-bottom-inset,var(--safe-area-bottom,env(safe-area-inset-bottom)))]",
 											tallSheet
-												? "h-[min(70dvh,var(--app-height,100dvh))] pb-[var(--dock-bottom-inset,env(safe-area-inset-bottom))]"
-												: "max-h-[85dvh] pb-[var(--safe-area-bottom,env(safe-area-inset-bottom))]",
+												? "h-[min(70dvh,var(--app-height,100dvh))]"
+												: "max-h-[min(var(--dialog-max-height),var(--app-height,100dvh))]",
 										)
 									: "h-full w-full",
 						)}
@@ -122,7 +124,7 @@ export function Overlay({
 							>
 								<h2
 									className={cn(
-										"text-h3 text-[var(--color-text-primary)]",
+										"min-w-0 text-h3 text-[var(--color-text-primary)] [overflow-wrap:anywhere]",
 										!centered && mobileBackLabel && "w-full px-[var(--spacing-8)] text-center",
 									)}
 								>
@@ -133,7 +135,7 @@ export function Overlay({
 									onClick={onClose}
 									aria-label={!centered && mobileBackLabel ? mobileBackLabel : closeLabel}
 									className={cn(
-										"rounded-[var(--radius-sm)] p-[var(--spacing-1)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]",
+										"shrink-0 rounded-[var(--radius-sm)] p-[var(--spacing-1)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]",
 										!centered &&
 											mobileBackLabel &&
 											"absolute left-[max(var(--spacing-4),var(--safe-area-left,0px))] inline-flex size-[var(--control-md)] items-center justify-center",
@@ -147,6 +149,7 @@ export function Overlay({
 								</button>
 							</div>
 							<div
+								data-overlay-body
 								data-frame-scroll={nativeFrame || undefined}
 								className={cn(
 									"min-h-0 flex-1",
@@ -156,6 +159,19 @@ export function Overlay({
 							>
 								{children}
 							</div>
+							{footer ? (
+								<div
+									data-overlay-footer
+									className={cn(
+										"flex shrink-0 flex-wrap justify-end gap-[var(--spacing-3)] border-t border-[var(--color-border-subtle)] px-[var(--spacing-5)] py-[var(--spacing-4)]",
+										!centered &&
+											"ps-[max(var(--spacing-5),var(--safe-area-left,0px))] pe-[max(var(--spacing-5),var(--safe-area-right,0px))]",
+										nativeFrame && "pb-[calc(var(--spacing-4)+var(--safe-area-bottom,env(safe-area-inset-bottom)))]",
+									)}
+								>
+									{footer}
+								</div>
+							) : null}
 						</div>
 					</GesturePanel>
 				</div>
