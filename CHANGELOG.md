@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112107] - 2026-11-21
+
+### Added
+
+- meetings：add recoverable live recording and private task delivery
+
 ## [0.3.26112106] - 2026-11-21
 
 ### Fixed
