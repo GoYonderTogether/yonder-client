@@ -252,6 +252,46 @@ test("narrow desktop conversations and settings keep their opposing slide gestur
 	await expect(page).toHaveURL(/\/messages$/);
 });
 
+test("a slow drag follows the finger to a stop, and letting go decides by where it is", async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.goto("/messages");
+	await page.getByRole("button", { name: "Me", exact: true }).click();
+	const settings = panel(page, "left");
+	await settled(settings);
+	// Slowly out from the trailing edge, then hold: the layer stays exactly under the finger.
+	const bounds = await settings.boundingBox();
+	if (!bounds) throw new Error("Expected the settings layer");
+	const startX = bounds.x + bounds.width - 12;
+	const y = bounds.y + 200;
+	await page.mouse.move(startX, y);
+	await page.mouse.down();
+	for (let step = 1; step <= 20; step += 1) {
+		await page.mouse.move(startX - step * 7, y);
+		await page.waitForTimeout(30);
+	}
+	const held = await translation(settings);
+	expect(held).toBeLessThan(-100);
+	await page.waitForTimeout(600);
+	expect(Math.abs((await translation(settings)) - held)).toBeLessThan(1);
+	await expect(page).toHaveURL(/\/me$/);
+	// Letting go past a quarter of the width after holding still closes, with no flick needed.
+	await page.mouse.up();
+	await expect(page).toHaveURL(/\/messages$/);
+
+	await page.getByRole("button", { name: "Me", exact: true }).click();
+	await settled(settings);
+	await page.mouse.move(startX, y);
+	await page.mouse.down();
+	for (let step = 1; step <= 6; step += 1) {
+		await page.mouse.move(startX - step * 7, y);
+		await page.waitForTimeout(30);
+	}
+	await page.waitForTimeout(300);
+	await page.mouse.up();
+	await settled(settings);
+	await expect(page).toHaveURL(/\/me$/);
+});
+
 test("desktop resizing keeps platform behavior and deep links have a safe parent", async ({ page }, testInfo) => {
 	await page.setViewportSize({ width: 1180, height: 760 });
 	await page.goto("/messages");
@@ -293,11 +333,15 @@ test("a macOS Tauri host keeps desktop navigation and clears the traffic lights 
 	await expect(page.getByRole("button", { name: /Test Bot/ })).toBeVisible();
 	await page.getByRole("button", { name: "Me", exact: true }).click();
 	await settled(panel(page, "left"));
-	const back = page.getByRole("button", { name: "Back", exact: true });
-	await expect(back.locator("xpath=ancestor::header")).toHaveAttribute("data-tauri-drag-region", "true");
-	expect((await back.boundingBox())?.x).toBeGreaterThanOrEqual(76);
+	// The root closes at the trailing edge, far from the traffic lights; only pages pushed on it
+	// carry a Back arrow at the leading edge, and that one must stay clear of them.
+	const close = page.getByRole("button", { name: "Close", exact: true });
+	await expect(close.locator("xpath=ancestor::header")).toHaveAttribute("data-tauri-drag-region", "true");
+	expect((await close.boundingBox())?.x).toBeGreaterThan(200);
+	await expect(page.getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
 	await page.getByRole("button", { name: "Account and security", exact: true }).click();
 	await settled(panel(page, "right"));
+	const back = page.getByRole("button", { name: "Back", exact: true });
 	expect((await back.boundingBox())?.x).toBeGreaterThanOrEqual(76);
 });
 

@@ -145,8 +145,10 @@ for (const viewport of ["desktop", "phone"] as const) {
 						await expect(page).toHaveURL(/\/me$/);
 						const me = page.getByRole("dialog", { name: "我", exact: true });
 						await expect(me.getByRole("button", { name: "账号与安全", exact: true })).toBeVisible();
-						const accountBack = me.getByRole("button", { name: "返回", exact: true });
+						// The phone's 「我」 comes in from the left, so it closes with a round button at the right.
+						const accountBack = me.getByRole("button", { name: "关闭", exact: true });
 						await expect(accountBack).toHaveText("");
+						await expect(me.getByRole("button", { name: "返回", exact: true })).toHaveCount(0);
 						await page.screenshot({
 							path: info.outputPath("phone-agent-account-settings.png"),
 							animations: "disabled",

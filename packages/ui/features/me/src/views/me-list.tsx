@@ -2,6 +2,7 @@ import { Avatar, cn, IconTile, ListGroup, ListRow } from "@yonder/ui-components"
 import { useMe } from "@yonder/ui-data";
 import { ListFrame, useShellChrome } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
+import { MeCard } from "../components/me-card.tsx";
 import { ME_GROUPS, sectionLabelKey } from "./sections.tsx";
 
 const SIDEBAR_ROW =
@@ -86,17 +87,7 @@ export function MeList({ current, onOpen }: MeListProps) {
 	return (
 		<ListFrame title={t("me.title")}>
 			<div className="flex flex-col gap-[var(--spacing-5)]">
-				<ListGroup>
-					<ListRow
-						leading={<Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={48} />}
-						title={<span className="text-h3 font-semibold">{person?.displayName ?? t("app.loading")}</span>}
-						subtitle={person ? `@${person.handle}` : undefined}
-						chevron
-						selected={current === "profile"}
-						onClick={() => onOpen("profile")}
-						aria-label={t("me.editProfile")}
-					/>
-				</ListGroup>
+				<MeCard person={person} selected={current === "profile"} onOpen={() => onOpen("profile")} />
 
 				{ME_GROUPS.map((group) => (
 					<ListGroup key={group.id} title={t(`me.groups.${group.id}`)}>

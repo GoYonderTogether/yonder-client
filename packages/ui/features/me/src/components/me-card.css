@@ -1,0 +1,89 @@
+/*
+ * The 「我」 card: the memory page's ID-card proportions (85.6 × 54 mm) and wash, as a single face
+ * that opens the profile editor. Colours come from the same tokens, so it follows light and dark.
+ */
+.me-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	aspect-ratio: 1.586;
+	overflow: hidden;
+	border-radius: calc(var(--radius-card) + var(--spacing-1));
+	padding: var(--spacing-5);
+	text-align: start;
+	color: var(--color-text-primary);
+	background:
+		radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--color-accent) 9%, transparent), transparent 62%),
+		var(--color-bg-surface);
+	box-shadow:
+		var(--shadow-xs),
+		0 var(--spacing-2) var(--spacing-6) color-mix(in srgb, var(--color-accent) 10%, transparent);
+	transition: transform var(--duration-fast) var(--ease-standard);
+}
+.me-card:active {
+	transform: scale(0.985);
+}
+.me-card[aria-current="true"] {
+	outline: 2px solid var(--color-accent);
+	outline-offset: -2px;
+}
+.me-card:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+.me-card-brand {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2);
+	font-size: var(--text-caption);
+	font-weight: var(--font-weight-semibold);
+	opacity: 0.72;
+}
+.me-card-who {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-4);
+	margin-top: auto;
+}
+.me-card-name {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--text-h2);
+	line-height: var(--text-h2--line-height);
+	font-weight: var(--font-weight-semibold);
+}
+.me-card-handle {
+	display: block;
+	margin-top: 2px;
+	font-size: var(--text-caption);
+	color: var(--color-text-tertiary);
+	font-variant-numeric: tabular-nums;
+}
+.me-card-bio {
+	display: -webkit-box;
+	margin-top: var(--spacing-3);
+	padding-inline-end: var(--spacing-16);
+	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	font-size: var(--text-body);
+	color: var(--color-text-secondary);
+}
+.me-card-edit {
+	position: absolute;
+	inset-inline-end: var(--spacing-4);
+	bottom: var(--spacing-3);
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	font-size: var(--text-caption);
+	color: var(--color-text-tertiary);
+}
+@media (prefers-reduced-motion: reduce) {
+	.me-card {
+		transition: none;
+	}
+}

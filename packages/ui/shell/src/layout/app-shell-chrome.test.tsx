@@ -85,10 +85,11 @@ test("the desktop content card has the same token inset on all four sides", () =
 
 test.each([
 	[1280, true, "wide", 0, true],
-	[820, true, "medium", 1, false],
-	[390, true, "compact", 1, false],
-	[390, false, "mobile", 1, false],
+	[820, true, "medium", 1, true],
+	[390, true, "compact", 1, true],
+	[390, false, "mobile", 1, true],
 ] as const)(
+	// The root of 「我」 closes with a round button; Back belongs to the pages pushed on it.
 	"settings Back controls reflect actual parent pages at %spx desktop=%s",
 	(width, desktop, mode, rootBacks, hasClose) => {
 		viewport(width);
@@ -108,7 +109,7 @@ test.each([
 		);
 		const { container, rerender } = render(shell([]));
 		expect(container.querySelector("[data-layout-mode]")).toHaveAttribute("data-layout-mode", mode);
-		expect(screen.queryAllByRole("button", { name: "Back" })).toHaveLength(hasClose ? 0 : 1);
+		expect(screen.queryAllByRole("button", { name: "Back" })).toHaveLength(0);
 		if (hasClose) {
 			fireEvent.click(screen.getByRole("button", { name: "Close" }));
 			expect(close).toHaveBeenCalledTimes(1);
@@ -160,7 +161,7 @@ test.each([1280, 820, 390])("desktop settings suspend the main rail at %spx", (w
 	} else {
 		expect(rail.parentElement).toHaveClass("invisible");
 		expect(backdrop).toBeNull();
-		fireEvent.click(screen.getByRole("button", { name: "Back" }));
+		fireEvent.click(screen.getByRole("button", { name: "Close" }));
 	}
 	expect(close).toHaveBeenCalledTimes(1);
 	rerender(<AppShell {...props} desktop onOpenMe={open} />);
@@ -226,4 +227,29 @@ test("the tab bar steps aside while the keyboard is up and the composer stays", 
 	} finally {
 		delete document.documentElement.dataset.nativeMobile;
 	}
+});
+
+test("the phone's 「我」 root closes with a round button at the trailing edge and has no back arrow", () => {
+	viewport(390);
+	const close = vi.fn();
+	render(
+		<AppShell
+			{...props}
+			meOpen
+			me={{
+				list: <ListFrame title="Settings">Settings list</ListFrame>,
+				pages: [],
+				closeLabel: "Close",
+				onClose: close,
+			}}
+		/>,
+	);
+	const button = screen.getByRole("button", { name: "Close" });
+	expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+	expect(button).toHaveClass("rounded-[var(--radius-full)]");
+	const topbar = button.closest("[data-shell-topbar]");
+	const slots = topbar?.querySelectorAll(":scope > div > div");
+	expect(slots?.[slots.length - 1]).toContainElement(button);
+	fireEvent.click(button);
+	expect(close).toHaveBeenCalledTimes(1);
 });

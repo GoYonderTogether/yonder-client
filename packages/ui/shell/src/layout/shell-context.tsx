@@ -7,6 +7,8 @@ export interface ShellChrome {
 	mode: LayoutMode;
 	desktop?: boolean;
 	left: ReactNode;
+	/** A control the shell owns at the trailing edge, such as the round close of a layer entered from the side. */
+	right?: ReactNode;
 	meOpen: boolean;
 	scroll?: { key: string; positions: RefObject<Record<string, number>> };
 }

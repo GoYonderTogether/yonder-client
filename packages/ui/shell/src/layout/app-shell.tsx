@@ -377,20 +377,26 @@ function MeLayers({
 						value={{
 							mode: settingsMode,
 							desktop,
+							// The phone's 「我」 enters from the left, so it leaves to the left: one round close at the
+							// trailing edge and nothing at the leading one. The back arrow belongs to the pages pushed on it.
 							left:
-								wide && !desktop ? null : (
-									<IconButton
-										aria-label={settingsMode === "mobile" ? backLabel : me.closeLabel}
-										size="sm"
-										onClick={me.onClose}
-									>
-										{settingsMode === "mobile" ? (
-											<ChevronLeft size={24} aria-hidden="true" />
-										) : (
-											<X size={20} aria-hidden="true" />
-										)}
+								(wide && !desktop) || settingsMode === "mobile" ? null : (
+									<IconButton aria-label={me.closeLabel} size="sm" onClick={me.onClose}>
+										<X size={20} aria-hidden="true" />
 									</IconButton>
 								),
+							right:
+								settingsMode === "mobile" ? (
+									<IconButton
+										aria-label={me.closeLabel}
+										size="sm"
+										variant="secondary"
+										className="rounded-[var(--radius-full)]"
+										onClick={me.onClose}
+									>
+										<X size={18} strokeWidth={2} aria-hidden="true" />
+									</IconButton>
+								) : undefined,
 							meOpen: true,
 							scroll: { key: "me", positions: scrollPositions },
 						}}
@@ -436,6 +442,7 @@ function MeLayers({
 	);
 	return (
 		<div
+			data-me-layers
 			inert={!present}
 			className={cn(
 				floating ? "absolute inset-0 z-20 grid place-items-center px-[max(var(--spacing-4),5vw)]" : "contents",

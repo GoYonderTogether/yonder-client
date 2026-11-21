@@ -89,9 +89,11 @@ test("narrow desktop uses the phone-style settings list and Back at both levels"
 	await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "compact");
 	await page.getByRole("button", { name: "我", exact: true }).click();
 	const back = page.getByRole("button", { name: "返回", exact: true });
+	const close = page.getByRole("button", { name: "关闭", exact: true });
 	const models = page.getByRole("button", { name: "模型", exact: true });
-	await expect(back).toBeVisible();
-	await expect(page.getByRole("button", { name: "关闭", exact: true })).toHaveCount(0);
+	// The list enters from the left and leaves to the left: a round close, never a back arrow.
+	await expect(close).toBeVisible();
+	await expect(back).toHaveCount(0);
 	await expect(models.locator("svg")).toHaveCount(2);
 	await page.screenshot({ path: testInfo.outputPath("narrow-desktop-settings-list.png"), fullPage: true });
 	await models.click();
@@ -101,7 +103,7 @@ test("narrow desktop uses the phone-style settings list and Back at both levels"
 	await expect(models).toHaveCount(0);
 	await back.click();
 	await expect(page).toHaveURL(/\/me$/);
-	await back.click();
+	await close.click();
 	await expect(page).toHaveURL(/\/messages$/);
 });
 
@@ -120,8 +122,8 @@ test.describe("phone settings", () => {
 		await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "mobile");
 		const models = page.getByRole("button", { name: "模型", exact: true });
 		await expect(models.locator("svg")).toHaveCount(2);
-		await expect(page.getByRole("button", { name: "返回", exact: true })).toHaveCount(1);
-		await expect(page.getByRole("button", { name: "关闭", exact: true })).toHaveCount(0);
+		await expect(page.getByRole("button", { name: "关闭", exact: true })).toHaveCount(1);
+		await expect(page.getByRole("button", { name: "返回", exact: true })).toHaveCount(0);
 		await page.screenshot({ path: testInfo.outputPath("mobile-settings-list.png"), fullPage: true });
 		await models.click();
 		await expect(page).toHaveURL(/\/me\/models$/);
@@ -131,7 +133,7 @@ test.describe("phone settings", () => {
 		await expect(page.getByText("glm-5.3-flash", { exact: true })).toHaveCount(0);
 		await page.getByRole("button", { name: "返回", exact: true }).click();
 		await expect(page).toHaveURL(/\/me$/);
-		await page.getByRole("button", { name: "返回", exact: true }).click();
+		await page.getByRole("button", { name: "关闭", exact: true }).click();
 		await expect(page).toHaveURL(/\/messages$/);
 	});
 });
@@ -167,7 +169,7 @@ for (const width of [1280, 820, 390]) {
 				await expect(rail).toBeHidden();
 				await expect(backdrop).toHaveCount(0);
 				expect(box).toEqual({ x: 0, y: 0, width, height: 900 });
-				await dialog.getByRole("button", { name: "返回", exact: true }).click();
+				await dialog.getByRole("button", { name: "关闭", exact: true }).click();
 			}
 			await expect(page).toHaveURL(/\/tasks$/);
 			await expect(dialog).toHaveCount(0);

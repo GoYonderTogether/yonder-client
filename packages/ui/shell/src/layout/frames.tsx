@@ -17,7 +17,7 @@ export function ListFrame({
 	action?: ReactNode;
 	children: ReactNode;
 }) {
-	const { mode, left, meOpen, scroll } = useShellChrome();
+	const { mode, left, right: shellRight, meOpen, scroll } = useShellChrome();
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const scrollKey = scroll?.key;
 	const positions = scroll?.positions;
@@ -46,7 +46,7 @@ export function ListFrame({
 						)
 					}
 					center={meOpen ? title : phone ? heading : null}
-					right={action}
+					right={shellRight ?? action}
 					titleAlign={phone && !meOpen && !title ? "start" : "center"}
 					phone={phone}
 				/>

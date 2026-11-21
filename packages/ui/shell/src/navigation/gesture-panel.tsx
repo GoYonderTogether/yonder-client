@@ -4,6 +4,7 @@ import { animate, motion, useMotionValue, usePresence, useReducedMotion } from "
 import type { PointerEvent, ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { shellHaptic } from "./feedback.ts";
+import { closeDistance, type DragSample, releaseVelocity, shouldDismiss } from "./release.ts";
 import { useDismiss } from "./use-dismiss.ts";
 
 export interface GesturePanelProps {
@@ -43,6 +44,8 @@ export function GesturePanel({
 	const reduced = useReducedMotion();
 	const [present, remove] = usePresence();
 	const shown = open && present !== false;
+	const openRef = useRef(shown);
+	openRef.current = shown;
 	const retained = useRef(children);
 	if (shown || inline) retained.current = children;
 	const [visible, setVisible] = useState(open || inline);
@@ -55,9 +58,7 @@ export function GesturePanel({
 		startX: number;
 		startY: number;
 		offset: number;
-		lastX: number;
-		lastTime: number;
-		velocity: number;
+		samples: DragSample[];
 		dragging: boolean;
 		armed: boolean;
 	} | null>(null);
@@ -127,18 +128,22 @@ export function GesturePanel({
 			event.currentTarget.releasePointerCapture(event.pointerId);
 		const bounds = event.currentTarget.getBoundingClientRect();
 		const width = vertical ? bounds.height : bounds.width;
-		const velocity = performance.now() - current.lastTime > 100 ? 0 : current.velocity;
-		const projected = direction * (x.get() + velocity * 0.18);
-		if (!cancel && direction * velocity > -200 && projected > width * 0.35) dismiss.current();
-		// A router blocker can reject the exit. Settle back unless the controlled route actually closes.
-		if (reduced) {
-			x.set(0);
-			return;
-		}
-		animation.current = animate(x, 0, {
-			type: "spring",
-			...SPRING.panel,
-			velocity,
+		// Toward closing is positive. The finger's own speed at release decides; a layer that was
+		// held still stays where it is, and one that is thrown carries its speed into the spring.
+		const speed = cancel ? 0 : direction * releaseVelocity(current.samples, performance.now());
+		const close = !cancel && shouldDismiss(direction * x.get(), speed, width);
+		if (close) dismiss.current();
+		const velocity = direction * speed;
+		// A router blocker can reject the exit, so the layer cannot assume it is leaving. When it is,
+		// the `shown` effect takes over from this very position and speed (`x.getVelocity()`); the
+		// settle below waits a frame so it never fights that exit, and runs only if the layer stayed.
+		requestAnimationFrame(() => {
+			if (!panel.current?.isConnected || openRef.current === false) return;
+			if (reduced) {
+				x.set(0);
+				return;
+			}
+			animation.current = animate(x, 0, { type: "spring", ...SPRING.panel, velocity });
 		});
 	}
 
@@ -187,9 +192,7 @@ export function GesturePanel({
 					startX: event.clientX,
 					startY: event.clientY,
 					offset: x.get(),
-					lastX: vertical ? event.clientY : event.clientX,
-					lastTime: performance.now(),
-					velocity: 0,
+					samples: [],
 					dragging: false,
 					armed: false,
 				};
@@ -216,16 +219,15 @@ export function GesturePanel({
 				event.preventDefault();
 				const now = performance.now();
 				const point = vertical ? event.clientY : event.clientX;
-				current.velocity = ((point - current.lastX) / Math.max(1, now - current.lastTime)) * 1000;
-				current.lastX = point;
-				current.lastTime = now;
+				current.samples.push({ time: now, point });
+				while (current.samples.length > 2 && now - (current.samples[0]?.time ?? now) > 150) current.samples.shift();
 				const bounds = event.currentTarget.getBoundingClientRect();
 				const width = vertical ? bounds.height : bounds.width;
 				const start = vertical ? current.startY : current.startX;
 				const offset = Math.min(width, Math.max(0, direction * (current.offset + point - start)));
 				x.set(direction * offset);
 				// One tick when the page would leave on release; drifting back and over again stays quiet.
-				if (!current.armed && offset > width * 0.35) {
+				if (!current.armed && offset > closeDistance(width)) {
 					current.armed = true;
 					shellHaptic("selection");
 				}
