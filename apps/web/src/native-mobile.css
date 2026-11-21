@@ -86,19 +86,27 @@ html[data-native-mobile="true"] [data-floating-frame-header]::before {
 	backdrop-filter: blur(var(--floating-frame-blur));
 }
 
-[data-floating-frame-header]
-	[data-chat-agent-title]
-	> :is([data-chat-agent-avatar], [data-chat-agent-name], [role="status"]) {
-	position: relative;
+[data-floating-frame-header] [data-chat-agent-avatar],
+[data-floating-frame-header] [data-chat-agent-name] {
+	border-radius: var(--radius-full);
+	box-shadow: var(--shadow-app-icon);
 }
 
-[data-floating-frame-header] [data-chat-agent-title] > button {
+[data-floating-frame-header] [data-chat-agent-avatar] {
 	padding-inline: 0;
 }
 
-[data-floating-frame-header]
-	[data-chat-agent-title]
-	> :is([data-chat-agent-avatar], [data-chat-agent-name], [role="status"])::before {
+[data-floating-frame-header] [data-chat-agent-name] {
+	padding-block: calc(var(--spacing-1) / 2);
+	padding-inline: var(--spacing-2);
+	background: var(--color-bg-raised);
+}
+
+[data-floating-frame-header] [data-chat-agent-title] > [role="status"] {
+	position: relative;
+}
+
+[data-floating-frame-header] [data-chat-agent-title] > [role="status"]::before {
 	position: absolute;
 	inset: calc(-1 * var(--spacing-1));
 	z-index: -1;
@@ -109,10 +117,6 @@ html[data-native-mobile="true"] [data-floating-frame-header]::before {
 	backdrop-filter: blur(var(--floating-frame-blur));
 	pointer-events: none;
 	content: "";
-}
-
-[data-floating-frame-header] [data-chat-agent-avatar]::before {
-	border-radius: calc(var(--radius-control) + var(--spacing-1));
 }
 
 [data-floating-frame-header] + [data-frame-scroll] {

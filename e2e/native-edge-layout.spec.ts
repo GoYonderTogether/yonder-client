@@ -61,6 +61,7 @@ for (const native of [false, true]) {
 			),
 		);
 		await isolateChat(page, {
+			dark: native,
 			items,
 		});
 		await page.goto("/messages/main");
@@ -68,6 +69,7 @@ for (const native of [false, true]) {
 		const header = frame.locator("[data-floating-frame-header]");
 		const scroll = frame.locator("[data-frame-scroll]");
 		await expect(frame.locator("[data-shell-topbar]")).toHaveCount(0);
+		await expect(page.locator("html")).toHaveAttribute("data-theme", native ? "dark" : "light");
 		await expect(header).toHaveCSS("position", "absolute");
 		await expect(page.locator("[data-mobile-dock]")).toHaveCSS("position", native ? "absolute" : "relative");
 		const avatarButton = header.getByRole("button", { name: "Bot 设置" });
@@ -77,6 +79,7 @@ for (const native of [false, true]) {
 		await expect(avatarButton).toBeVisible();
 		await expect(account).toBeVisible();
 		await expect(caption).toHaveCSS("white-space", "nowrap");
+		await expect(name).toHaveCSS("padding-block", "2px");
 		const [headerBox, avatarBox, accountBox, captionBox] = await Promise.all([
 			header.boundingBox(),
 			avatarButton.boundingBox(),
@@ -91,20 +94,13 @@ for (const native of [false, true]) {
 		expect(avatarBox.width).toBeCloseTo(avatarBox.height, 0);
 		// The account avatar is the same control as on the other tab roots, not a glass chip.
 		expect(accountBox.width).toBeGreaterThanOrEqual(accountBox.height - 1);
-		const localBackdrop = await Promise.all(
-			[avatarButton, name].map((locator) =>
-				locator.evaluate((element) => {
-					const style = getComputedStyle(element, "::before");
-					return { blur: style.backdropFilter, width: Number.parseFloat(style.width), hit: style.pointerEvents };
-				}),
-			),
-		);
-		for (const glass of localBackdrop) {
-			expect(glass.blur).toContain("blur(");
-			expect(glass.width).toBeGreaterThan(0);
-			expect(glass.width).toBeLessThan(headerBox.width / 2);
-			expect(glass.hit).toBe("none");
+		for (const control of [avatarButton, name]) {
+			await expect(control).toHaveCSS("border-radius", "9999px");
+			await expect(control).toHaveCSS("backdrop-filter", "none");
+			await expect(control).toHaveCSS("box-shadow", /rgba?\(/);
+			expect(await control.evaluate((element) => getComputedStyle(element, "::before").backdropFilter)).toBe("none");
 		}
+		await expect(avatarButton.locator("[data-avatar-fallback]")).toHaveCSS("border-radius", "9999px");
 		await expect
 			.poll(() => scroll.evaluate((element) => Number.parseFloat(getComputedStyle(element).paddingTop)))
 			.toBeCloseTo(headerBox.height, 0);
@@ -140,6 +136,7 @@ for (const native of [false, true]) {
 		await page.screenshot({ path: info.outputPath(`${shot}-start.png`), animations: "disabled" });
 		await scroll.evaluate(
 			(element, offset) => {
+				element.dispatchEvent(new WheelEvent("wheel"));
 				element.scrollTop = offset;
 			},
 			firstBox.y - avatarBox.y + 8,
@@ -155,12 +152,16 @@ for (const native of [false, true]) {
 		expect(under.top).toBeLessThan(headerBox.y + blur.height);
 		expect(under.bottom).toBeGreaterThan(avatarBox.y);
 		expect(under.hit).toBe(true);
+		const jump = page.getByRole("button", { name: "跳至最新", exact: true });
+		await expect(jump).toBeVisible();
+		await expect(jump).toHaveCSS("border-radius", "9999px");
+		await expect(jump).toHaveCSS("background-color", await name.evaluate((el) => getComputedStyle(el).backgroundColor));
+		await expect(jump).toHaveCSS("box-shadow", await name.evaluate((el) => getComputedStyle(el).boxShadow));
 		await page.screenshot({ path: info.outputPath(`${shot}-scrolled.png`), animations: "disabled" });
 		await account.click({ trial: true });
 		await avatarButton.click({ trial: true });
-		await scroll.evaluate((element) => {
-			element.scrollTop = element.scrollHeight;
-		});
+		await jump.click();
+		await expect(jump).toHaveCount(0);
 		const last = scroll.getByText(items.at(-1)?.body ?? "", { exact: true });
 		const lastBox = await last.boundingBox();
 		const dockBox = await page.locator("[data-mobile-dock]").boundingBox();

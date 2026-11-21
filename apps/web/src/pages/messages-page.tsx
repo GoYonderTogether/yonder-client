@@ -242,7 +242,14 @@ export function ConversationPage({
 	const openPeer = peer && onOpenMember ? () => onOpenMember(peer.memberId) : undefined;
 	const openSettings = conversation.kind === "group" ? onOpenGroup : openPeer;
 	const agentAvatar = agent && !item && (
-		<Avatar name={title} src={agent.avatarUrl} color={agent.avatarColor} kind="bot" size={48} />
+		<Avatar
+			name={title}
+			src={agent.avatarUrl}
+			color={agent.avatarColor}
+			kind="bot"
+			size={48}
+			className={floatingHeader ? "rounded-[var(--radius-full)]!" : ""}
+		/>
 	);
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
@@ -402,12 +409,12 @@ export function ConversationPage({
 				) : null}
 			</PageFrame>
 			{showLatest || (items?.length && conversation.unreadCount > 0 && !atBottom) ? (
-				<div className="absolute inset-x-0 bottom-[var(--spacing-4)] flex justify-center pointer-events-none">
+				<div className="absolute inset-x-0 bottom-[calc(var(--native-dock-height,0px)_+_var(--spacing-4))] flex justify-center pointer-events-none">
 					<IconButton
 						aria-label={t("chat.jumpToLatest")}
 						variant="secondary"
 						onClick={jumpToLatest}
-						className="pointer-events-auto rounded-[var(--radius-full)] bg-[var(--color-bg-surface)]!"
+						className="pointer-events-auto rounded-[var(--radius-full)]! bg-[var(--color-bg-raised)]! [box-shadow:var(--shadow-app-icon)]"
 					>
 						<ArrowDown size={16} aria-hidden="true" />
 					</IconButton>
