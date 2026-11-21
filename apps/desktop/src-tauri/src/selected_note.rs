@@ -33,13 +33,13 @@ pub(crate) fn status_for_grant() -> &'static str {
 }
 
 pub(crate) fn execute(read: bool, args: &Value) -> Result<Value, String> {
-    let (limit, offset, id) = if read {
+    let offset = args.get("offset").and_then(Value::as_u64).unwrap_or(0);
+    let (limit, id) = if read {
         let id = args["id"].as_str().ok_or("path_invalid")?;
-        (0, 0, id)
+        (0, id)
     } else {
         let limit = args.get("limit").and_then(Value::as_u64).unwrap_or(20);
-        let offset = args.get("offset").and_then(Value::as_u64).unwrap_or(0);
-        (limit as i32, offset as i32, "")
+        (limit as i32, "")
     };
     let id = CString::new(id).map_err(|_| "path_invalid")?;
     extern "C" fn copy_result(context: *mut c_void, status: i32, data: *const u8, len: usize) {
@@ -61,7 +61,7 @@ pub(crate) fn execute(read: bool, args: &Value) -> Result<Value, String> {
         yonder_notes_execute(
             !read,
             limit,
-            offset,
+            offset as i32,
             id.as_ptr(),
             (&mut result as *mut Result<Value, String>).cast(),
             copy_result,

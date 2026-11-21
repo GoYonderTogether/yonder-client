@@ -98,10 +98,15 @@ fn valid_args(source: Source, operation: Operation, args: &Value) -> bool {
             })
         };
         return valid_id("id")
-            && if source == Source::AppleNotes && operation == Operation::Attachment {
-                args.len() == 2 && valid_id("attachmentId")
-            } else {
-                args.len() == 1
+            && match (source, operation) {
+                (Source::AppleNotes, Operation::Attachment) => {
+                    args.len() == 2 && valid_id("attachmentId")
+                }
+                (Source::AppleNotes, Operation::Read) if args.len() == 2 => args
+                    .get("offset")
+                    .and_then(Value::as_u64)
+                    .is_some_and(|offset| offset <= 5000),
+                _ => args.len() == 1,
             };
     }
     if source == Source::AppleCalendar
@@ -382,5 +387,15 @@ mod tests {
                 .unwrap()
                 .binary()
         );
+        assert!(valid_args(
+            Source::AppleNotes,
+            Operation::Read,
+            &json!({"id":"note", "offset":20})
+        ));
+        assert!(!valid_args(
+            Source::AppleNotes,
+            Operation::Read,
+            &json!({"id":"note", "offset":5001})
+        ));
     }
 }
