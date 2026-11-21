@@ -2,10 +2,10 @@
 #import <Foundation/Foundation.h>
 
 enum YonderApplePermission : int32_t {
-    AppleUndetermined, AppleGranted, AppleLimited, AppleDenied, AppleRestricted, AppleUnsupported,
+    AppleUndetermined, AppleGranted, AppleLimited, AppleDenied, AppleRestricted, AppleUnsupported, AppleSourceUnavailable,
 };
 enum YonderAppleResult : int32_t {
-    AppleOK, ApplePermissionDenied, AppleReadFailed, AppleNotFound, AppleInvalidInput, AppleUnavailable,
+    AppleOK, ApplePermissionDenied, AppleReadFailed, AppleNotFound, AppleInvalidInput, AppleUnavailable, AppleTooLarge,
 };
 typedef void (*YonderAppleReply)(void *, int32_t, const void *, size_t);
 typedef void (*YonderApplePermissionReply)(void *, int32_t);

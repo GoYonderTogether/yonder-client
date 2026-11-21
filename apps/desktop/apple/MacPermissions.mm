@@ -171,6 +171,8 @@ extern "C" bool yonder_apple_open_resource_settings(int resource) {
                 chinese ? @"自动化" : @"Automation", chinese
                     ? @"展开 Yonder，打开备忘录，再回到连接器重试。"
                     : @"Expand Yonder and turn on Notes, then return and retry connecting.", false);
+        case 3:
+            return yonder_mac_open_permissions(0);
         default:
             return false;
     }
