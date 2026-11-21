@@ -1,15 +1,22 @@
 import { IconButton } from "@yonder/ui-components";
-import { CalendarClock, Plus } from "lucide-react";
+import { CalendarClock, ListChecks, Plus, Target } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+/**
+ * The plus offers the same three creations on 「事项」 and 「目标」: switching the segment changes the
+ * list below it, never what the button does.
+ */
+const ACTIONS = ["addItem", "addGoal", "newSchedule"] as const;
+const ICONS = { addItem: ListChecks, addGoal: Target, newSchedule: CalendarClock } as const;
+
 export function TaskActions({
-	scheduled,
 	onAdd,
+	onAddGoal,
 	onCreateSchedule,
 }: {
-	scheduled: boolean;
 	onAdd: () => void;
+	onAddGoal: () => void;
 	onCreateSchedule: () => void;
 }) {
 	const { t } = useTranslation();
@@ -19,8 +26,8 @@ export function TaskActions({
 	const trigger = useRef<HTMLButtonElement>(null);
 	const buttons = useRef<(HTMLButtonElement | null)[]>([]);
 	const id = useId();
-	const actions = scheduled ? (["addGoal", "newSchedule"] as const) : (["addItem"] as const);
-	const label = t(scheduled ? "tasks.addGoal" : "tasks.addItem");
+	const actions = ACTIONS;
+	const label = t("tasks.create");
 	useEffect(() => {
 		if (!open) return;
 		const dismiss = (event: Event) => {
@@ -42,16 +49,15 @@ export function TaskActions({
 				ref={trigger}
 				size="md"
 				aria-label={label}
-				aria-haspopup={scheduled ? "menu" : undefined}
-				aria-expanded={scheduled ? open : undefined}
+				aria-haspopup="menu"
+				aria-expanded={open}
 				aria-controls={open ? id : undefined}
 				onClick={() => {
 					setActive(0);
-					if (scheduled) setOpen(!open);
-					else onAdd();
+					setOpen(!open);
 				}}
 				onKeyDown={(event) => {
-					if (scheduled && event.key === "ArrowDown") {
+					if (event.key === "ArrowDown") {
 						event.preventDefault();
 						setActive(0);
 						setOpen(true);
@@ -82,7 +88,7 @@ export function TaskActions({
 					}}
 				>
 					{actions.map((action, index) => {
-						const Icon = action === "newSchedule" ? CalendarClock : Plus;
+						const Icon = ICONS[action];
 						return (
 							<button
 								key={action}
@@ -97,6 +103,7 @@ export function TaskActions({
 									setOpen(false);
 									trigger.current?.focus();
 									if (action === "newSchedule") onCreateSchedule();
+									else if (action === "addGoal") onAddGoal();
 									else onAdd();
 								}}
 								className="flex w-full items-center gap-[var(--spacing-3)] rounded-[var(--radius-control-sm)] px-[var(--spacing-4)] py-[var(--spacing-3)] text-left text-body text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] focus-visible:bg-[var(--color-bg-hover)]"

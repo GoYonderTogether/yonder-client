@@ -193,3 +193,12 @@ test.each(
 		}
 	},
 );
+
+test("the scrim leaves the instant the overlay is asked to close, before the panel has finished leaving", async () => {
+	render(<DismissibleOverlay mode="mobile" />);
+	fireEvent.click(screen.getByRole("button", { name: "Open" }));
+	expect(document.querySelector("[data-overlay-backdrop]")).toBeInTheDocument();
+	fireEvent.keyDown(window, { key: "Escape" });
+	expect(document.querySelector("[data-overlay-backdrop]")).not.toBeInTheDocument();
+	await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeInTheDocument());
+});

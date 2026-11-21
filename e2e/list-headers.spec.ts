@@ -49,7 +49,14 @@ for (const width of [1280, 820, 390]) {
 			.locator("[data-frame-header]")
 			.filter({ has: page.getByRole("heading", { name: "任务", exact: true }) });
 		await expect(header.getByRole("heading", { name: "任务", exact: true })).toBeVisible();
-		await expect(header.getByRole("button", { name: "新建事项" })).toBeVisible();
+		const plus = header.getByRole("button", { name: "新建", exact: true });
+		await expect(plus).toBeVisible();
+		// The plus offers the same three creations on 「事项」 and 「目标」.
+		const entries = ["新建事项", "新建目标", "新建定时任务"];
+		await plus.click();
+		for (const name of entries) await expect(page.getByRole("menuitem", { name })).toBeVisible();
+		await page.keyboard.press("Escape");
+		await expect(page.getByRole("menu")).toHaveCount(0);
 		const group = header.getByRole("radiogroup", { name: "任务" });
 		await expect(group).toBeVisible();
 		const titleBox = await header.getByRole("heading", { name: "任务", exact: true }).boundingBox();
@@ -61,8 +68,8 @@ for (const width of [1280, 820, 390]) {
 		await group.getByRole("radio", { name: "目标", exact: true }).click();
 		await expect(page).toHaveURL(/\/tasks\/scheduled$/);
 		await expect(group.getByRole("radio", { name: "目标", exact: true })).toBeChecked();
-		await header.getByRole("button", { name: "新建目标" }).click();
-		await expect(page.getByRole("menuitem", { name: "新建目标" })).toBeVisible();
+		await plus.click();
+		for (const name of entries) await expect(page.getByRole("menuitem", { name })).toBeVisible();
 		await page.getByRole("menuitem", { name: "新建定时任务" }).click();
 		await expect(page.getByRole("menu")).toHaveCount(0);
 		await expect(page.getByRole("button", { name: "取消", exact: true })).toBeVisible();
@@ -114,12 +121,12 @@ test.describe("phone header", () => {
 		const header = page
 			.locator("[data-frame-header]")
 			.filter({ has: page.getByRole("heading", { name: "任务", exact: true }) });
-		await expect(header.getByRole("button", { name: "新建事项" })).toBeVisible();
+		await expect(header.getByRole("button", { name: "新建", exact: true })).toBeVisible();
 		await expect(header.getByRole("radiogroup", { name: "任务" })).toBeVisible();
 		await header.getByRole("radio", { name: "目标", exact: true }).click();
 		await expect(page).toHaveURL(/\/tasks\/scheduled$/);
 		await expect(header.getByRole("radio", { name: "目标", exact: true })).toBeChecked();
-		await header.getByRole("button", { name: "新建目标" }).click();
+		await header.getByRole("button", { name: "新建", exact: true }).click();
 		await expect(page.getByRole("menuitem", { name: "新建定时任务" })).toBeVisible();
 	});
 });

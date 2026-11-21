@@ -15,20 +15,22 @@ import { TaskActions } from "./task-actions.tsx";
 
 /**
  * 「事项 | 目标」 (16-3 第九节): the items tab is every finished or running piece of work, the goals
- * tab is what the Bot keeps watching. Creation lives in the title row; the goals menu preserves
- * both a goal and a scheduled-task action.
+ * tab is what the Bot keeps watching. Creation lives in the title row; its menu offers an item, a
+ * goal and a scheduled task on both tabs.
  */
 export function TasksList({
 	scheduled,
 	onChange,
 	onOpenItem,
 	onAdd,
+	onAddGoal,
 	onSchedule,
 }: {
 	scheduled: boolean;
 	onChange: (scheduled: boolean) => void;
 	onOpenItem: (id: string) => void;
 	onAdd: () => void;
+	onAddGoal: () => void;
 	onSchedule?: (() => void) | undefined;
 }) {
 	const { t } = useTranslation();
@@ -38,10 +40,14 @@ export function TasksList({
 			title={t("nav.tasks")}
 			action={
 				<TaskActions
-					key={String(scheduled)}
-					scheduled={scheduled}
 					onAdd={onAdd}
-					onCreateSchedule={onSchedule ?? (() => setCreating(true))}
+					onAddGoal={onAddGoal}
+					onCreateSchedule={() => {
+						if (onSchedule) return onSchedule();
+						// The inline form lives in 「目标」, so a schedule started from 「事项」 takes the person there.
+						if (!scheduled) onChange(true);
+						setCreating(true);
+					}}
 				/>
 			}
 			center={

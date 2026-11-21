@@ -14,7 +14,7 @@ test("the scheduled-task action opens the main Bot chat without leaving Goals", 
 	const drawer = page.getByRole("dialog", { name: bot.displayName });
 	const input = drawer.getByRole("textbox", { name: /^对 界面验收/ });
 	await page.getByRole("radio", { name: "目标", exact: true }).click();
-	await page.getByRole("button", { name: "新建目标" }).click();
+	await page.getByRole("button", { name: "新建", exact: true }).click();
 	await page.getByRole("menuitem", { name: "新建定时任务" }).click();
 	await expect(page).toHaveURL(/\/tasks\/scheduled$/);
 	await expect(input).toHaveValue("请帮我创建一个定时任务，");
@@ -50,7 +50,8 @@ test("the new item starts with its own draft and leaves the existing main Bot dr
 	const original = "留在主 Bot 里的未发送草稿";
 	await page.getByRole("textbox", { name: /^对 界面验收/ }).fill(original);
 	await page.getByRole("button", { name: "任务", exact: true }).click();
-	await page.getByRole("button", { name: "新建事项" }).click();
+	await page.getByRole("button", { name: "新建", exact: true }).click();
+	await page.getByRole("menuitem", { name: "新建事项" }).click();
 	await expect(page).toHaveURL(/\/tasks\/new$/);
 	await expect(page.getByRole("textbox", { name: /^对 界面验收/ })).toHaveValue("");
 	await page.getByRole("textbox", { name: /^对 界面验收/ }).fill("事项里的未发送草稿");
@@ -69,7 +70,8 @@ test("a new task preserves the active meeting controls and blocks short dictatio
 	const stop = page.getByRole("button", { name: "结束录音", exact: true });
 	await expect(stop).toBeVisible();
 	await page.getByRole("button", { name: "任务", exact: true }).click();
-	await page.getByRole("button", { name: "新建事项" }).click();
+	await page.getByRole("button", { name: "新建", exact: true }).click();
+	await page.getByRole("menuitem", { name: "新建事项" }).click();
 	await expect(page).toHaveURL(/\/tasks\/new$/);
 	await expect(page.getByRole("textbox", { name: /^对 界面验收/ })).toHaveValue("");
 	await expect(page.getByRole("button", { name: "语音输入" })).toBeDisabled();
@@ -80,4 +82,23 @@ test("a new task preserves the active meeting controls and blocks short dictatio
 	await expect(stop).toBeVisible();
 	await stop.click();
 	await expect(stop).toHaveCount(0);
+});
+
+test.describe("with motion on", () => {
+	test.use({ reducedMotion: "no-preference" });
+
+	test("closing the drawer takes the scrim away at once while the panel is still leaving", async ({ page }) => {
+		await isolateChat(page);
+		await page.goto("/tasks");
+		const drawer = page.getByRole("dialog", { name: bot.displayName });
+		await page.getByRole("button", { name: "新建", exact: true }).click();
+		await page.getByRole("menuitem", { name: "新建定时任务" }).click();
+		await expect(drawer).toBeVisible();
+		const scrim = page.locator("[data-overlay-backdrop]");
+		await expect(scrim).toHaveCount(1);
+		await drawer.getByRole("button", { name: "关闭" }).click();
+		// The scrim is removed on the click; the panel keeps sliding down for its exit animation.
+		await expect(scrim).toHaveCount(0, { timeout: 100 });
+		await expect(drawer).toBeHidden();
+	});
 });

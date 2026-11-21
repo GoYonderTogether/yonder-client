@@ -329,7 +329,8 @@ export function AppFrame() {
 							scheduled={selection === "scheduled"}
 							onChange={(value) => navigation.open(value ? "/tasks/scheduled" : "/tasks")}
 							onOpenItem={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
-							onAdd={selection === "scheduled" ? preset.addGoal : () => navigation.open("/tasks/new")}
+							onAdd={() => navigation.open("/tasks/new")}
+							onAddGoal={preset.addGoal}
 							onSchedule={preset.addSchedule}
 						/>
 					),

@@ -210,7 +210,8 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await page.goto("/messages/main");
 			await page.getByRole("textbox", { name: /^对 界面验收/ }).fill(priorDraft);
 			await page.getByRole("button", { name: "任务", exact: true }).click();
-			await page.getByRole("button", { name: "新建事项" }).click();
+			await page.getByRole("button", { name: "新建", exact: true }).click();
+			await page.getByRole("menuitem", { name: "新建事项" }).click();
 			await expect(page).toHaveURL(/\/tasks\/new$/);
 			await expect(page.getByRole("heading", { name: "新事项", exact: true })).toBeVisible();
 			const input = page.getByRole("textbox", { name: /^对 界面验收/ });

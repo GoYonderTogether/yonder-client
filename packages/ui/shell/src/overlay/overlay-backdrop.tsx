@@ -1,4 +1,11 @@
+import { useIsPresent } from "motion/react";
+
+/**
+ * The scrim goes the moment its layer is asked to leave. The panel still plays its exit animation,
+ * but a dimmed page that outlives the choice that closed it reads as lag.
+ */
 export function OverlayBackdrop({ onClose, closeLabel }: { onClose: () => void; closeLabel?: string }) {
+	if (!useIsPresent()) return null;
 	return (
 		<button
 			type="button"
