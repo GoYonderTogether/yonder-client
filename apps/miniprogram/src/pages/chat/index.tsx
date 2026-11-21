@@ -1,6 +1,6 @@
 import { Checkbox, Image, Button as NativeButton, ScrollView, Text, Textarea, View } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
-import { conversationBotOwner, groupMessages, isTwoPartyAgentChat } from "@yonder/chat-model";
+import { conversationBotOwner, groupMessages, isTwoPartyAgentChat, optionCardState } from "@yonder/chat-model";
 import { ComposerFrame, ComposerLayout, UploadTile } from "@yonder/chat-presentation";
 import type { SkillSummary } from "@yonder/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -117,10 +117,7 @@ export default function Chat() {
 		t("聊天", "Chat");
 	const blocks = useMemo(() => groupMessages(chat.messages, chat.hasFullHistory), [chat.messages, chat.hasFullHistory]);
 	const presentation = { showMessageAvatars, showSenderNames: isGroup, locale, contacts: useCachedBots() };
-	const openOptions = chat.messages
-		.slice()
-		.reverse()
-		.find((message) => message.options?.length || (message.senderId === chat.me?.member.id && !message.sendFailed))?.id;
+	const optionCards = optionCardState(chat.messages, chat.me?.member.id);
 	const hasActiveRun = chat.messages.some(
 		(message) =>
 			message.senderKind === "bot" &&
@@ -329,7 +326,7 @@ export default function Chat() {
 							</Button>
 						</View>
 					) : null}
-					{blocks.map((block) => renderMessageBlock(block, chat, presentation, followAfterLayout, openOptions))}
+					{blocks.map((block) => renderMessageBlock(block, chat, presentation, followAfterLayout, optionCards))}
 					{!chat.loading && !chat.error && chat.messages.length === 0 ? (
 						<View className="mini-chat-empty">
 							{agentPeer ? null : (

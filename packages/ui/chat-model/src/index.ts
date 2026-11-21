@@ -4,6 +4,7 @@ export { BOT_ROLE_LIMIT, botRoleProblem, conversationBotOwner, ownedBotFor } fro
 export { chatHistoryTimeOffset, isNewChatHistoryCutoff } from "./chat-history-clear.ts";
 export { conversationPeer } from "./conversation-peer.ts";
 export { addableContacts, filterContacts, GROUP_MEMBER_LIMIT, recentContacts } from "./group-invites.ts";
+export { optionCardAttachments, optionCardState } from "./option-cards.ts";
 export { runSources } from "./run-sources.ts";
 
 import type { Message } from "@yonder/protocol";

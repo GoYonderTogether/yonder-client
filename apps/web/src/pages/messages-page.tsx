@@ -388,9 +388,11 @@ export function ConversationPage({
 									})
 								}
 								onRetry={(id) => actions.retry.mutate(id)}
-								onChooseOption={(body, id) => {
-									if (!send.isPending) send.mutate({ type: "text", body, clientNonce: `option:${id}` });
-								}}
+								onChooseOption={
+									send.isPending
+										? undefined
+										: (body, id) => send.mutate({ type: "text", body, clientNonce: `option:${id}` })
+								}
 							/>
 						) : null}
 						<div ref={bottom} className="h-px shrink-0" />

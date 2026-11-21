@@ -1,5 +1,6 @@
 import "./styles.css";
 import "./message.css";
+import "./option-card.css";
 
 export { type ChatTextHost, StreamingText } from "./streaming-text.tsx";
 
