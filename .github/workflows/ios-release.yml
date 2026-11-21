@@ -9,6 +9,7 @@
 #   IOS_DISTRIBUTION_CERT_P12_BASE64  Apple Distribution 证书 + 私钥（p12，导出密码见下）
 #   IOS_DISTRIBUTION_CERT_PASSWORD    p12 的导出密码
 #   IOS_PROVISIONING_PROFILE_BASE64   App Store 分发 profile（profiles 资源，IOS_APP_STORE）
+#   IOS_TESTFLIGHT_PUSH_PROFILE_BASE64  内部测试专用 App Store profile（带 production APNs）
 #   IOS_TEAM_ID                       团队 ID（D4UZU32UN9）
 #   ASC_API_KEY_ID / ASC_API_ISSUER_ID / ASC_API_PRIVATE_KEY_BASE64
 #                                     App Store Connect API Key，用于上传 TestFlight
@@ -16,6 +17,9 @@
 # 导出用 xcodebuild -exportArchive 而不是 tauri 的导出步骤：后者生成的 ExportOptions 不带
 # provisioningProfiles 映射，实测报 `exportArchive requires a provisioning profile`。
 # 上传用 `xcrun altool --upload-app`：同一份 API Key 既导出又上传，不需要 App 专用密码。
+# 内测派发先用 `git ls-remote origin refs/heads/main` 确定 SHA，再用
+# `gh run list --workflow ci.yml --branch main --event push --commit <SHA>` 核对同提交 CI 成功。
+# 对该 SHA 使用 `--ref main -f expected_commit=<SHA> -f testflight_internal=true` 手工派发。
 name: iOS release
 
 on:
@@ -30,6 +34,11 @@ on:
         required: false
         default: ""
         type: string
+      testflight_internal:
+        description: 仅上传内部 TestFlight，要求生产 APNs 签名
+        required: false
+        default: false
+        type: boolean
   release:
     types: [published]
 
@@ -60,6 +69,7 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+          TESTFLIGHT_INTERNAL: ${{ inputs.testflight_internal }}
         run: |
           set -eu
           if [ -n "${RELEASE_TAG:-}" ]; then
@@ -73,6 +83,12 @@ jobs:
             exit 1
           }
           head_sha="$(git rev-parse HEAD)"
+          if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
+            if [ "$GITHUB_REF" != refs/heads/main ] || [ -z "$EXPECTED_COMMIT" ]; then
+              echo "::error::internal TestFlight requires main and the verified commit SHA"
+              exit 1
+            fi
+          fi
           if [ -n "$EXPECTED_COMMIT" ]; then
             [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::expected_commit must be a 40-char SHA"; exit 1; }
             [ "$head_sha" = "$EXPECTED_COMMIT" ] || {
@@ -109,22 +125,42 @@ jobs:
           CERT_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERT_P12_BASE64 }}
           CERT_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
           PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          INTERNAL_PUSH_PROFILE_BASE64: ${{ secrets.IOS_TESTFLIGHT_PUSH_PROFILE_BASE64 }}
           TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          TESTFLIGHT_INTERNAL: ${{ inputs.testflight_internal }}
         run: |
           set -eu
           [ -n "${CERT_BASE64:-}" ] || { echo "::error::missing secret IOS_DISTRIBUTION_CERT_P12_BASE64"; exit 1; }
           [ -n "${CERT_PASSWORD:-}" ] || { echo "::error::missing secret IOS_DISTRIBUTION_CERT_PASSWORD"; exit 1; }
-          [ -n "${PROFILE_BASE64:-}" ] || { echo "::error::missing secret IOS_PROVISIONING_PROFILE_BASE64"; exit 1; }
           [ -n "${TEAM_ID:-}" ] || { echo "::error::missing secret IOS_TEAM_ID"; exit 1; }
           dir="$RUNNER_TEMP/yonder-signing"
           mkdir -p "$dir" "$HOME/Library/MobileDevice/Provisioning Profiles"
+          profile_name="Yonder App Store"
+          push=0
+          if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
+            [ -n "${INTERNAL_PUSH_PROFILE_BASE64:-}" ] || { echo "::error::missing secret IOS_TESTFLIGHT_PUSH_PROFILE_BASE64"; exit 1; }
+            printf '%s' "$INTERNAL_PUSH_PROFILE_BASE64" | base64 --decode > "$dir/yonder.mobileprovision"
+            push=1
+          else
+            [ -n "${PROFILE_BASE64:-}" ] || { echo "::error::missing secret IOS_PROVISIONING_PROFILE_BASE64"; exit 1; }
+            printf '%s' "$PROFILE_BASE64" | base64 --decode > "$dir/yonder.mobileprovision"
+          fi
           keychain="$dir/yonder.keychain-db"
           keychain_password="$(openssl rand -hex 16)"
           security create-keychain -p "$keychain_password" "$keychain"
           security set-keychain-settings -lut 3600 "$keychain"
           security unlock-keychain -p "$keychain_password" "$keychain"
+          if [ "$push" = 1 ]; then
+            security cms -D -k "$keychain" -i "$dir/yonder.mobileprovision" > "$dir/profile.plist"
+            application_id="$(plutil -extract Entitlements.application-identifier raw "$dir/profile.plist")"
+            aps="$(plutil -extract Entitlements.aps-environment raw "$dir/profile.plist" 2>/dev/null || true)"
+            if [ "$application_id" != "$TEAM_ID.net.yonderbot.app" ] || [ "$aps" != production ]; then
+              echo "::error::the internal TestFlight profile must authorize production APNs for net.yonderbot.app"
+              exit 1
+            fi
+            profile_name="$(plutil -extract Name raw "$dir/profile.plist")"
+          fi
           printf '%s' "$CERT_BASE64" | base64 --decode > "$dir/dist.p12"
-          printf '%s' "$PROFILE_BASE64" | base64 --decode > "$dir/yonder.mobileprovision"
           # 分区列表不设的话 codesign 报 errSecInternalComponent（本地实测过）。
           security import "$dir/dist.p12" -k "$keychain" -P "$CERT_PASSWORD" \
             -T /usr/bin/codesign -T /usr/bin/security
@@ -132,12 +168,13 @@ jobs:
           security list-keychains -d user -s "$keychain" login.keychain-db
           cp "$dir/yonder.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$(uuidgen).mobileprovision"
           echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
+          echo "IOS_PROFILE_NAME=$profile_name" >> "$GITHUB_ENV"
+          echo "YONDER_IOS_PUSH=$push" >> "$GITHUB_ENV"
           security find-identity -v -p codesigning "$keychain"
 
       - name: 初始化 iOS 工程并重放图标与签名设置
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-          IOS_PROFILE_NAME: Yonder App Store
         run: |
           set -eu
           cd apps/desktop
@@ -147,6 +184,7 @@ jobs:
       - name: 归档
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          TESTFLIGHT_INTERNAL: ${{ inputs.testflight_internal }}
         run: |
           set -eu
           cd apps/desktop
@@ -154,8 +192,12 @@ jobs:
           # CFBundleVersion 0.3.26111301.26111301（21 字符），TestFlight 以 90059 拒绝
           # （CFBundleVersion 上限 18 字符）。这里直接用 bundle.iOS.bundleVersion 把
           # CFBundleVersion 钉成 YYMMDDNN，与安卓 versionCode 同量纲。
-          npx --no-install tauri ios build --target aarch64 --archive-only \
-            --config "{\"bundle\":{\"iOS\":{\"bundleVersion\":\"$BUILD_NUMBER\"}}}"
+          if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
+            config="{\"version\":\"$VERSION\",\"bundle\":{\"iOS\":{\"bundleVersion\":\"$BUILD_NUMBER\"}}}"
+          else
+            config="{\"bundle\":{\"iOS\":{\"bundleVersion\":\"$BUILD_NUMBER\"}}}"
+          fi
+          npx --no-install tauri ios build --target aarch64 --archive-only --config "$config"
           archive="$(find "$PWD/src-tauri/gen/apple/build" -maxdepth 1 -name '*.xcarchive' | head -1)"
           [ -n "$archive" ] || { echo "::error::no xcarchive was produced"; exit 1; }
           app="$(find "$archive/Products/Applications" -maxdepth 1 -name '*.app' | head -1)"
@@ -173,6 +215,8 @@ jobs:
 
       # tauri 生成的 ExportOptions 不带 provisioningProfiles，导出会失败；这里写一份完整的。
       - name: 导出 IPA
+        env:
+          TESTFLIGHT_INTERNAL: ${{ inputs.testflight_internal }}
         run: |
           set -eu
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
@@ -187,16 +231,40 @@ jobs:
             <key>destination</key><string>export</string>
             <key>uploadSymbols</key><true/>
             <key>provisioningProfiles</key>
-            <dict><key>net.yonderbot.app</key><string>Yonder App Store</string></dict>
+            <dict/>
           </dict>
           </plist>
           PLIST
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:net.yonderbot.app string $IOS_PROFILE_NAME" \
+            "$RUNNER_TEMP/ExportOptions.plist"
+          if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
+            plutil -insert testFlightInternalTestingOnly -bool true "$RUNNER_TEMP/ExportOptions.plist"
+            plutil -insert manageAppVersionAndBuildNumber -bool false "$RUNNER_TEMP/ExportOptions.plist"
+          fi
           mkdir -p dist-ios
           xcodebuild -exportArchive -archivePath "$ARCHIVE" \
             -exportPath "$PWD/dist-ios" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
           ipa="$(find dist-ios -name '*.ipa' | head -1)"
           [ -n "$ipa" ] || { echo "::error::no IPA was exported"; exit 1; }
           mv "$ipa" dist-ios/yonder-ios.ipa
+          if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
+            check="$RUNNER_TEMP/yonder-ios-verify"
+            unzip -q dist-ios/yonder-ios.ipa -d "$check"
+            app="$(find "$check/Payload" -maxdepth 1 -name '*.app' | head -1)"
+            codesign -d --entitlements - --xml "$app" > "$check/entitlements.plist"
+            for pair in "CFBundleIdentifier=net.yonderbot.app" "CFBundleShortVersionString=$VERSION" \
+              "CFBundleVersion=$BUILD_NUMBER" "YonderPushEnvironment=production"; do
+              key="${pair%%=*}"
+              [ "$(plutil -extract "$key" raw "$app/Info.plist")" = "${pair#*=}" ] || {
+                echo "::error::exported IPA has the wrong $key"
+                exit 1
+              }
+            done
+            [ "$(plutil -extract aps-environment raw "$check/entitlements.plist")" = production ] || {
+              echo "::error::exported IPA is missing its production APNs entitlement"
+              exit 1
+            }
+          fi
           ls -l dist-ios/yonder-ios.ipa
 
       - name: 上传 TestFlight
@@ -219,6 +287,7 @@ jobs:
             --api-key "$KEY_ID" --api-issuer "$ISSUER_ID"
 
       - name: 上传 GitHub Release 资产
+        if: ${{ !inputs.testflight_internal }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$TAG" dist-ios/yonder-ios.ipa --clobber
@@ -226,6 +295,6 @@ jobs:
       - name: 清理签名材料
         if: ${{ always() }}
         run: |
-          rm -rf "$RUNNER_TEMP/yonder-signing" "$RUNNER_TEMP/asc" "$RUNNER_TEMP/ExportOptions.plist" "$HOME/.appstoreconnect"
+          rm -rf "$RUNNER_TEMP/yonder-signing" "$RUNNER_TEMP/yonder-ios-verify" "$RUNNER_TEMP/asc" "$RUNNER_TEMP/ExportOptions.plist" "$HOME/.appstoreconnect"
           rm -rf "$HOME/Library/MobileDevice/Provisioning Profiles"
           rm -f apps/desktop/src-tauri/gen/apple/.icon-opaque.png
