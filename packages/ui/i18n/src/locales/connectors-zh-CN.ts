@@ -65,6 +65,7 @@ export const connectorMessagesZhCN = {
 		description: "创建、编辑和可恢复删除文件",
 	},
 	appleCalendar: {
+		iosPermissionDenied: "在系统设置将日历设为「完全访问」。如权限未更新，从后台关闭并重新打开 Yonder，再点连接。",
 		name: "Apple 日历",
 		description: "让 Bot 查找和读取这台设备上的日程",
 		scope: "连接后，Bot 可以按你的要求查找日程和读取日程详情。",

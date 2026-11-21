@@ -270,7 +270,11 @@ for (const platform of ["ios", "macos"] as const) {
 		expect(created).toBe(0);
 		await permission(false);
 		const dialog = page.getByRole("dialog", { name: "Apple 日历" });
-		await expect(dialog.getByRole("alert")).toHaveText("请到系统设置允许 Yonder 访问后重试。");
+		await expect(dialog.getByRole("alert")).toHaveText(
+			isMac
+				? "请到系统设置允许 Yonder 访问后重试。"
+				: "在系统设置将日历设为「完全访问」。如权限未更新，从后台关闭并重新打开 Yonder，再点连接。",
+		);
 		expect(created).toBe(0);
 		const consentActions = ["request_permission"];
 		const settings = dialog.getByRole("button", { name: "打开系统设置" });

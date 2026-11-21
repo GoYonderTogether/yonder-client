@@ -67,6 +67,8 @@ export const connectorMessagesEn = {
 		description: "Create, edit and recoverably delete files",
 	},
 	appleCalendar: {
+		iosPermissionDenied:
+			"Set Calendar to Full Access in Settings. If access hasn’t updated, quit and reopen Yonder, then connect again.",
 		name: "Apple Calendar",
 		description: "Let your Bot find and read events on this device",
 		scope: "Your Bot can find calendar events and read their details when you ask.",

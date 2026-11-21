@@ -53,6 +53,10 @@ export function ConnectorPanel({
 	const repair = apple && instance?.status === "offline" && canConfigure;
 	const permissionError =
 		error === "connectors.systemPermissionDenied" || error === "connectors.openSystemSettingsFailed";
+	const errorMessage =
+		error === "connectors.systemPermissionDenied" && device.platform === "ios" && definition.id === "apple-calendar"
+			? "connectors.appleCalendar.iosPermissionDenied"
+			: error;
 	const startOnce = useRef(false);
 	const start = useEffectEvent(() => void apply());
 	useEffect(() => {
@@ -191,9 +195,9 @@ export function ConnectorPanel({
 						{t("connectors.onDevice", { device: deviceDisplayName(device) })}
 					</p>
 				) : null}
-				{error ? (
+				{errorMessage ? (
 					<p role="alert" className="text-caption text-[var(--color-danger)]">
-						{t(error)}
+						{t(errorMessage)}
 					</p>
 				) : null}
 				{canConfigure && apple && localFiles?.openPermissionSettings && permissionError ? (
