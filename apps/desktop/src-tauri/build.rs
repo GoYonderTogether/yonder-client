@@ -21,12 +21,16 @@ fn main() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
         println!("cargo:rerun-if-changed=../apple/DeviceDownload.mm");
         println!("cargo:rerun-if-changed=../apple/KeyboardFollow.mm");
+        println!("cargo:rerun-if-changed=../apple/ChatAttachmentPicker.mm");
+        println!("cargo:rustc-link-lib=framework=PhotosUI");
+        println!("cargo:rustc-link-lib=framework=UniformTypeIdentifiers");
         cc::Build::new()
             .cpp(true)
             .flag("-fobjc-arc")
             .file("../apple/DeviceDownload.mm")
             .file("../apple/KeyboardFollow.mm")
-            .compile("yonder_apple_device_download");
+            .file("../apple/ChatAttachmentPicker.mm")
+            .compile("yonder_iphone_ui");
     }
     if matches!(
         std::env::var("CARGO_CFG_TARGET_OS").as_deref(),
@@ -101,6 +105,20 @@ fn main() {
             .plugin(
                 "yonder-device-download",
                 tauri_build::InlinedPlugin::new().commands(&["open", "share", "copy"]),
+            )
+            .plugin(
+                "yonder-ios-chat-attachments",
+                tauri_build::InlinedPlugin::new()
+                    .commands(&[
+                        "photo_access",
+                        "photo_page",
+                        "photo_thumbnail",
+                        "manage_photo_access",
+                        "pick",
+                        "take",
+                        "release",
+                    ])
+                    .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
             )
             .plugin(
                 "yonder-notifications",

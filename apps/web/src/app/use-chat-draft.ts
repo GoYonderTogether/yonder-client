@@ -77,6 +77,7 @@ interface Draft {
 }
 const empty = (): Draft => ({ text: "", files: [], revision: 0 });
 const MAX_BYTES = 20 * 1024 * 1024;
+export const CHAT_ATTACHMENT_LIMIT = 10;
 
 export function useChatDraft(owner: string | undefined, conversation: string | undefined) {
 	const api = useApi();
@@ -161,7 +162,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 	function addFiles(files: File[], voiceTranscript?: string | null) {
 		if (!current.current.loaded || current.current.key !== key) return;
 		const accepted = files.filter((file) => file.size <= MAX_BYTES);
-		const available = Math.max(0, 10 - current.current.value.files.length);
+		const available = Math.max(0, CHAT_ATTACHMENT_LIMIT - current.current.value.files.length);
 		if (accepted.length !== files.length) setError("chat.fileTooLarge");
 		else if (accepted.length > available) setError("chat.tooManyFiles");
 		else setError("");

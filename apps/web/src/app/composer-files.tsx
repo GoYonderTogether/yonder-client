@@ -16,6 +16,7 @@ import { type DraftFile, selectedDraftFile } from "./use-chat-draft.ts";
 function DraftFileTile({
 	file,
 	disabled,
+	iphonePhotos,
 	onRemove,
 	onRetry,
 	onOriginalChange,
@@ -23,6 +24,7 @@ function DraftFileTile({
 }: {
 	file: DraftFile;
 	disabled: boolean;
+	iphonePhotos: boolean;
 	onRemove: () => void;
 	onRetry: () => void;
 	onOriginalChange: (original: boolean) => void;
@@ -33,6 +35,7 @@ function DraftFileTile({
 	const selected = selectedDraftFile(file);
 	const thumbnail = file.optimized ?? selected;
 	const image = isImageFile(file.name, file.mimeType);
+	const iphonePhoto = iphonePhotos && image;
 	const [display, setDisplay] = useState<Blob>();
 	const [text, setText] = useState("");
 	const kind = previewKind(file);
@@ -88,6 +91,7 @@ function DraftFileTile({
 			<button
 				type="button"
 				className="composer-file-preview"
+				data-iphone-photo={iphonePhoto || undefined}
 				aria-label={t("composerAttachments.preview", { name: file.name })}
 				onClick={onPreview}
 			>
@@ -111,29 +115,31 @@ function DraftFileTile({
 						<Play size={20} fill="currentColor" />
 					</span>
 				) : null}
-				<span className="composer-file-name" title={file.name}>
-					<FileTypeIcon file={file} size={14} />
-					<span>{file.name}</span>
-				</span>
+				{iphonePhoto ? null : (
+					<span className="composer-file-name" title={file.name}>
+						<FileTypeIcon file={file} size={14} />
+						<span>{file.name}</span>
+					</span>
+				)}
 			</button>
 			{image ? (
-				<label className="composer-file-original">
+				<label className="composer-file-original" data-iphone-photo={iphonePhoto || undefined}>
 					<input
 						type="checkbox"
 						checked={Boolean(file.sendOriginal)}
 						disabled={disabled}
 						onChange={(event) => onOriginalChange(event.target.checked)}
 					/>
-					{t("composerAttachments.original")}
-					<span>{Math.ceil(selected.blob.size / 1024)} KB</span>
+					{t(iphonePhoto ? "composerAttachments.sendOriginal" : "composerAttachments.original")}
+					{iphonePhoto ? null : <span>{Math.ceil(selected.blob.size / 1024)} KB</span>}
 				</label>
 			) : null}
 			{file.status === "preparing" || file.status === "uploading" ? (
-				<span role="status" className="composer-file-state">
+				<span role="status" className={iphonePhoto && file.status === "preparing" ? "sr-only" : "composer-file-state"}>
 					<LoaderCircle size={14} className="animate-spin" aria-hidden="true" />
 					{t(file.status === "preparing" ? "composerAttachments.preparing" : "chat.uploading")}
 				</span>
-			) : file.optimized && !file.sendOriginal ? (
+			) : !iphonePhoto && file.optimized && !file.sendOriginal ? (
 				<span className="composer-file-state text-[var(--color-text-tertiary)]">
 					{t("composerAttachments.optimized")}
 				</span>
@@ -170,12 +176,14 @@ function DraftFileTile({
 export function ComposerFiles({
 	files,
 	disabled,
+	iphonePhotos,
 	onRemove,
 	onRetry,
 	onOriginalChange,
 }: {
 	files: DraftFile[];
 	disabled: boolean;
+	iphonePhotos: boolean;
 	onRemove: (id: string) => void;
 	onRetry: (id: string) => void;
 	onOriginalChange: (id: string, original: boolean) => void;
@@ -190,6 +198,7 @@ export function ComposerFiles({
 						key={file.id}
 						file={file}
 						disabled={disabled}
+						iphonePhotos={iphonePhotos}
 						onRemove={() => onRemove(file.id)}
 						onRetry={() => onRetry(file.id)}
 						onOriginalChange={(original) => onOriginalChange(file.id, original)}

@@ -184,6 +184,13 @@
 	outline: 2px solid var(--color-accent);
 	outline-offset: -2px;
 }
+.composer-file-preview[data-iphone-photo] .composer-file-image {
+	object-fit: contain;
+}
+.composer-file-original[data-iphone-photo] {
+	min-height: var(--control-sm);
+	padding-block: var(--spacing-1);
+}
 .composer-file-document-image {
 	object-position: top;
 	mask-image: linear-gradient(to bottom, black 35%, transparent 95%);
@@ -247,4 +254,111 @@
 	.composer-box {
 		transition: none;
 	}
+}
+
+.composer-ios-attachment-panel {
+	min-width: 0;
+	margin: 0;
+	border-top: 1px solid var(--color-border);
+}
+[data-mobile-dock]:has(.composer-ios-attachment-panel) > nav {
+	display: none;
+}
+.composer-ios-attachment-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--spacing-1);
+	padding-block: var(--spacing-1);
+}
+.composer-ios-attachment-actions button,
+.composer-ios-photo-state button {
+	display: inline-flex;
+	min-height: var(--control-md);
+	align-items: center;
+	gap: var(--spacing-1);
+	padding-inline: var(--spacing-2);
+	border-radius: var(--radius-control-sm);
+	color: var(--color-text-primary);
+	font-size: var(--text-caption);
+}
+.composer-ios-attachment-actions button:not(:disabled):is(:hover, :focus-visible),
+.composer-ios-photo-state button:not(:disabled):is(:hover, :focus-visible) {
+	background: var(--color-bg-subtle);
+}
+.composer-ios-attachment-actions .composer-ios-attachment-add {
+	margin-inline-start: auto;
+	min-height: var(--control-sm);
+	padding-inline: var(--spacing-4);
+	border-radius: var(--radius-full);
+	background: var(--color-accent);
+	color: var(--color-on-accent);
+	font-weight: var(--font-weight-semibold);
+}
+.composer-ios-attachment-actions .composer-ios-attachment-add:disabled {
+	background: var(--color-bg-subtle);
+	color: var(--color-text-tertiary);
+}
+.composer-ios-attachment-actions .composer-ios-attachment-add:not(:disabled):is(:hover, :focus-visible) {
+	background: var(--color-accent-hover);
+}
+.composer-ios-photo-rail {
+	display: flex;
+	min-width: 0;
+	gap: var(--spacing-2);
+	overflow-x: auto;
+	overscroll-behavior-x: contain;
+	scrollbar-width: none;
+	padding-block: var(--spacing-1);
+}
+.composer-ios-recent-photo {
+	position: relative;
+	display: grid;
+	flex: none;
+	width: calc(2 * var(--spacing-16));
+	aspect-ratio: 1;
+	place-items: center;
+	overflow: hidden;
+	border-radius: var(--radius-control);
+	background: var(--color-bg-subtle);
+	color: var(--color-text-tertiary);
+}
+.composer-ios-recent-photo:focus-visible {
+	outline: var(--spacing-hair) solid var(--color-accent);
+	outline-offset: calc(-1 * var(--spacing-hair));
+}
+.composer-ios-recent-photo img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.composer-ios-photo-badge {
+	position: absolute;
+	inset: var(--spacing-1) var(--spacing-1) auto auto;
+	display: grid;
+	width: var(--spacing-5);
+	aspect-ratio: 1;
+	place-items: center;
+	border: var(--spacing-hair) solid var(--color-bg-raised);
+	border-radius: var(--radius-full);
+	background: color-mix(in srgb, var(--color-bg-base) 52%, transparent);
+	font-size: var(--text-micro);
+	font-weight: var(--font-weight-semibold);
+}
+.composer-ios-recent-photo[aria-pressed="true"] .composer-ios-photo-badge {
+	border-color: var(--color-accent);
+	background: var(--color-accent);
+	color: var(--color-on-accent);
+}
+.composer-ios-photo-state {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--spacing-2);
+	padding-block: var(--spacing-1);
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+}
+.composer-ios-photo-state button {
+	color: var(--color-accent-text);
 }

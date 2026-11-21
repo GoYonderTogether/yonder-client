@@ -12,6 +12,7 @@
 		"yonder-notifications:default",
 		"haptics:allow-impact-feedback",
 		"haptics:allow-notification-feedback",
-		"haptics:allow-selection-feedback"
+		"haptics:allow-selection-feedback",
+		"yonder-ios-chat-attachments:default"
 	]
 }
