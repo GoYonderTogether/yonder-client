@@ -87,20 +87,27 @@ static NSString *bounded(NSString *entry, NSUInteger maximum) {
     return [entry substringToIndex:maximum];
 }
 
-static NSString *noteContentFingerprint(NSAppleEventDescriptor *note, NSUInteger &budget) {
+static NSString *noteContentFingerprint(NSAppleEventDescriptor *note, NSString *title, NSUInteger &budget) {
     if (!budget) return nil;
     OSStatus status = noErr;
     NSAppleEventDescriptor *attachments = request(kAECountElements, note, &status, AttachmentClass);
     // A partial fingerprint cannot identify a note whose body refers to embedded assets.
     if (!attachments || attachments.int32Value != 0) return nil;
     NSString *body = property(note, 'body', &status).stringValue;
-    NSUInteger size = [body lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
-    if (size == 0 || size > budget) return nil;
-    NSData *data = [body dataUsingEncoding:NSUTF8StringEncoding];
-    if (data.length != size) return nil;
-    budget -= size;
+    NSUInteger bodySize = [body lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+    NSData *titleBytes = [title dataUsingEncoding:NSUTF8StringEncoding];
+    if (bodySize == 0 || bodySize > budget || titleBytes.length > budget - bodySize) return nil;
+    NSData *bodyBytes = [body dataUsingEncoding:NSUTF8StringEncoding];
+    if (bodyBytes.length != bodySize || !titleBytes) return nil;
+    budget -= titleBytes.length + bodySize;
+    uint32_t titleSize = CFSwapInt32HostToBig((uint32_t)titleBytes.length);
+    CC_SHA256_CTX digest;
+    CC_SHA256_Init(&digest);
+    CC_SHA256_Update(&digest, &titleSize, sizeof(titleSize));
+    CC_SHA256_Update(&digest, titleBytes.bytes, (CC_LONG)titleBytes.length);
+    CC_SHA256_Update(&digest, bodyBytes.bytes, (CC_LONG)bodyBytes.length);
     uint8_t hash[CC_SHA256_DIGEST_LENGTH];
-    CC_SHA256(data.bytes, (CC_LONG)data.length, hash);
+    CC_SHA256_Final(hash, &digest);
     return YonderHashHex(hash);
 }
 
@@ -130,7 +137,7 @@ static NSDictionary *listNotes(int limit, int offset, OSStatus *status) {
         NSMutableDictionary *item = [@{@"id": noteID, @"title": bounded(title, 300), @"modifiedAt": timestamp} mutableCopy];
         if (fingerprintReads > 0 && fingerprintBudget > 0) {
             --fingerprintReads;
-            NSString *fingerprint = noteContentFingerprint(record, fingerprintBudget);
+            NSString *fingerprint = noteContentFingerprint(record, title, fingerprintBudget);
             if (fingerprint) item[@"sourceIdentity"] = @{@"contentSha256": fingerprint};
         }
         [rows addObject:item];
@@ -155,31 +162,38 @@ static NSString *attachmentName(NSAppleEventDescriptor *attachment, OSStatus *st
     return name.length == 0 ? @"attachment" : bounded(name, 250);
 }
 
-static NSArray *listAttachments(NSAppleEventDescriptor *note, OSStatus *status) {
+static NSArray *listAttachments(NSAppleEventDescriptor *note, int offset, bool *more, OSStatus *status) {
     NSAppleEventDescriptor *total = request(kAECountElements, note, status, AttachmentClass);
     if (!total) return nil;
-    int limit = MIN(total.int32Value, 20);
-    NSMutableArray *rows = [NSMutableArray arrayWithCapacity:limit];
-    for (int index = 1; index <= limit; ++index) {
+    int end = MIN(total.int32Value, offset + 20);
+    *more = total.int32Value > end;
+    NSMutableArray *rows = [NSMutableArray arrayWithCapacity:MAX(0, end - offset)];
+    NSMutableSet *seen = [NSMutableSet set];
+    for (int index = offset + 1; index <= end; ++index) {
         NSAppleEventDescriptor *attachment = object(AttachmentClass, formAbsolutePosition,
             [NSAppleEventDescriptor descriptorWithInt32:index], note);
         NSString *identifier = property(attachment, 'ID  ', status).stringValue;
-        if (identifier.length == 0) continue;
+        if (identifier.length == 0 || [seen containsObject:identifier]) continue;
+        [seen addObject:identifier];
         NSString *name = attachmentName(attachment, status);
         [rows addObject:@{@"id": identifier, @"name": name, @"mimeType": YonderAttachmentMIME(name)}];
     }
     return rows;
 }
 
-static NSDictionary *readNote(NSString *noteID, OSStatus *status) {
+static NSDictionary *readNote(NSString *noteID, int offset, OSStatus *status) {
     NSAppleEventDescriptor *record = unlockedNote(noteID, status);
     if (!record) return nil;
     NSString *text = property(record, 'text', status).stringValue;
     if (!text) return nil;
     NSMutableDictionary *result = [@{@"kind": @"apple_notes_read", @"id": noteID,
         @"text": bounded(text, 10000), @"truncated": @(text.length > 10000)} mutableCopy];
-    NSArray *attachments = listAttachments(record, status);
-    if (attachments) result[@"attachments"] = attachments;
+    bool moreAttachments = false;
+    NSArray *attachments = listAttachments(record, offset, &moreAttachments, status);
+    if (attachments) {
+        result[@"attachments"] = attachments;
+        result[@"moreAttachments"] = @(moreAttachments);
+    }
     return result;
 }
 
@@ -192,7 +206,7 @@ extern "C" void yonder_notes_execute(bool list, int limit, int offset, const cha
         }
         OSStatus status = noErr;
         NSDictionary *result = list ? listNotes(limit, offset, &status) :
-            readNote([NSString stringWithUTF8String:note], &status);
+            readNote([NSString stringWithUTF8String:note], offset, &status);
         if (!result) {
             int error = (status == errAEEventNotPermitted || status == errAEEventWouldRequireUserConsent) ? 1 :
                         status == errAENoSuchObject ? 2 : 3;
