@@ -1,4 +1,4 @@
-import { BrandedQrCode, Button, ListGroup, ListRow, ListSwitch, ListValue, SelectField } from "@yonder/ui-components";
+import { BotSelector, BrandedQrCode, Button, ListGroup, ListRow, ListSwitch, ListValue } from "@yonder/ui-components";
 import {
 	ownedBots,
 	useBot,
@@ -234,11 +234,11 @@ export function ChannelsSection({
 	if (!selected) return <p className="text-caption text-[var(--color-text-secondary)]">{t("bots.empty")}</p>;
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)]">
-			<SelectField
+			<BotSelector
 				label={t("channels.selectBot")}
-				value={selected.id}
-				options={bots.map((bot) => ({ value: bot.id, label: bot.displayName }))}
-				onChange={onSelectBot ?? select}
+				bots={bots}
+				selectedBotId={selected.id}
+				onSelectBot={onSelectBot ?? select}
 			/>
 			<FeishuChannel key={selected.id} botId={selected.id} onOpenExternal={() => onOpenExternal(selected.id)} />
 		</div>

@@ -104,12 +104,11 @@ for (const phone of [false, true]) {
 			await expect(page).toHaveURL(new RegExp(`${detailPath}$`));
 			await page.getByRole("button", { name: "渠道", exact: true }).click();
 			await expect(page).toHaveURL(new RegExp(`/me/channels\\?bot=${settingsBot.id}$`));
-			await page.getByRole("button", { name: "选择 Bot: 更名助手", exact: true }).click();
-			await page.getByRole("option", { name: defaultBot.displayName, exact: true }).click();
+			await expect(page.getByRole("radio", { name: "更名助手", exact: true })).toBeChecked();
+			const defaultOption = page.getByRole("radio", { name: defaultBot.displayName, exact: true });
+			await defaultOption.click();
 			await expect(page).toHaveURL(new RegExp(`/me/channels\\?bot=${defaultBot.id}$`));
-			await expect(
-				page.getByRole("button", { name: `选择 Bot: ${defaultBot.displayName}`, exact: true }),
-			).toBeVisible();
+			await expect(defaultOption).toBeChecked();
 			await back.click();
 			await expect(page).toHaveURL(new RegExp(`${detailPath}$`));
 			await back.click();

@@ -11,6 +11,8 @@ import type {
 	MemberProfileResponse,
 	PrivacySettings,
 	ReceptionSetting,
+	SocialLibrary,
+	SocialLibraryChange,
 	StartVisitRequest,
 	StartVisitResponse,
 	TransferGroupOwnerRequest,
@@ -143,6 +145,12 @@ export function memberEndpoints(client: ApiClient) {
 
 		socialKnowledge(): Promise<{ approved: string; drafts: { id: string; content: string; createdAt: string }[] }> {
 			return client.request("/v1/me/social");
+		},
+		socialLibrary(): Promise<SocialLibrary> {
+			return client.request("/v1/me/social/library");
+		},
+		editSocialLibrary(change: SocialLibraryChange): Promise<SocialLibrary> {
+			return client.request("/v1/me/social/library", { body: change });
 		},
 		saveSocialKnowledge(
 			content: string,

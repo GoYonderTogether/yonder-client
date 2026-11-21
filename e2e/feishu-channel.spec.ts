@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { isolateChat, message } from "./chat-fixture.ts";
+import { devices, expect, test } from "@playwright/test";
+import { bot, isolateChat, message } from "./chat-fixture.ts";
 
 test("settings and a Bot message render the shared Feishu authorization card", async ({ page }, info) => {
 	const id = "authorization-review";
@@ -153,3 +153,83 @@ test("iLink displays a QR only after explicit test authorization starts and QQ s
 	await page.getByRole("button", { name: "取消", exact: true }).click();
 	await expect(qr).toHaveCount(0);
 });
+
+for (const layout of ["desktop", "mobile"] as const) {
+	test.describe(layout, () => {
+		const phone = devices["iPhone 15"];
+		test.use(
+			layout === "mobile"
+				? { viewport: phone.viewport, userAgent: phone.userAgent, isMobile: true, hasTouch: true }
+				: { viewport: { width: 1280, height: 900 } },
+		);
+
+		test("the Bot selector scrolls to a preselection, supports keyboard selection and switches channels", async ({
+			page,
+		}, info) => {
+			await isolateChat(page, { items: [] });
+			await page.emulateMedia({ reducedMotion: "reduce" });
+			const bots = (
+				[
+					[bot.id, "栗子", "日程与提醒", "1"],
+					["songguo", "松果", "客户与来访", "2"],
+					["qinghe", "青禾", "研究与整理", "3"],
+					["xiaoman", "小满", "内容与写作", "4"],
+				] as const
+			).map(([id, displayName, botRoleLabel, avatarColor]) => ({
+				...bot,
+				id,
+				displayName,
+				botRoleLabel,
+				avatarColor,
+				handle: id,
+				isDefault: id === bot.id,
+			}));
+			await page.route("**/v1/contacts", (route) => route.fulfill({ json: { items: bots } }));
+			await page.route("**/v1/channels", (route) =>
+				route.fulfill({
+					json: {
+						available: true,
+						wechatAvailable: true,
+						items: [
+							{
+								id: "feishu-songguo",
+								botId: "songguo",
+								provider: "feishu",
+								name: "松果接待台",
+								enabled: true,
+								status: "connected",
+								credentialState: "valid",
+								allowExternalDm: true,
+								allowGroups: false,
+								missingPermissions: [],
+							},
+						],
+					},
+				}),
+			);
+			await page.goto("/me/channels?bot=xiaoman");
+			const group = page.getByRole("group", { name: "选择 Bot" });
+			const last = group.getByRole("radio", { name: "小满", exact: true });
+			await expect(last).toBeChecked();
+			await expect(last).toBeInViewport({ ratio: 0.98 });
+			await expect(group.getByRole("radio", { name: "栗子", exact: true })).not.toBeInViewport({ ratio: 0.98 });
+			await expect(page.getByRole("button", { name: "连接飞书", exact: true })).toBeVisible();
+			await last.focus();
+			await page.keyboard.press("ArrowLeft");
+			await expect(page).toHaveURL(/\?bot=qinghe$/);
+			await page.keyboard.press("ArrowLeft");
+			const selected = group.getByRole("radio", { name: "松果", exact: true });
+			await expect(selected).toBeChecked();
+			await expect(selected).toHaveAccessibleDescription("客户与来访");
+			await expect(page).toHaveURL(/\?bot=songguo$/);
+			await expect(page.getByText("松果接待台", { exact: true })).toBeVisible();
+			await expect(page.getByRole("button", { name: "外部会话", exact: true })).toBeVisible();
+			await page.reload();
+			await expect(selected).toBeChecked();
+			await expect(page.getByText("松果接待台", { exact: true })).toBeVisible();
+			await selected.click();
+			await page.evaluate(async () => await document.fonts.ready);
+			await page.screenshot({ path: info.outputPath(`channels-${layout}.png`) });
+		});
+	});
+}

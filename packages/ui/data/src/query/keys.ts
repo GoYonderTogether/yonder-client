@@ -74,7 +74,7 @@ export const keys = {
 	publicMemberProfile: (handle: string) => ["member-profile", "public", handle] as const,
 	privacy: () => ["privacy"] as const,
 	reception: () => ["reception"] as const,
-	socialKnowledge: () => ["social-knowledge"] as const,
+	socialLibrary: () => ["social-library"] as const,
 	socialPersona: (botId: string) => ["social-persona", botId] as const,
 	items: {
 		all: () => ["items"] as const,
@@ -113,7 +113,7 @@ export const ALL_ROOT_KEYS: readonly string[] = [
 	"member-profile",
 	"privacy",
 	"reception",
-	"social-knowledge",
+	"social-library",
 	"social-persona",
 	"items",
 ];

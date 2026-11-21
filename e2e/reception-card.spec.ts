@@ -42,21 +42,23 @@ test("the owner can choose a reception Bot", async ({ page }, info) => {
 	const main = { ...bot, ownerId: person.id, isDefault: true };
 	const second = { ...main, id: "second-bot", displayName: "第二个 Bot", isDefault: false };
 	await page.route("**/v1/contacts", (route) => route.fulfill({ json: { items: [main, second] } }));
+	await page.route("**/v1/me/social/library", (route) =>
+		route.fulfill({ json: { folders: [], documents: [], drafts: [] } }),
+	);
 	let selected = main.id;
 	await page.route("**/v1/me/reception", (route) => {
 		if (route.request().method() === "PUT") selected = route.request().postDataJSON().botId ?? main.id;
 		return route.fulfill({ json: { botId: selected, custom: selected !== main.id } });
 	});
 	await page.goto("/me/reception");
-	await page.getByRole("button", { name: /^接待 Bot/ }).click();
-	await expect(page).toHaveURL(/\/me\/reception\/bot$/);
-	const secondOption = page.getByRole("radio", { name: second.displayName, exact: true });
+	const selector = page.getByRole("group", { name: "接待 Bot", exact: true });
+	const secondOption = selector.getByRole("radio", { name: second.displayName, exact: true });
 	await expect(secondOption).toBeVisible({ timeout: 20000 });
 	await secondOption.click();
 	await expect.poll(() => selected).toBe("second-bot");
 	await expect(secondOption).toBeChecked();
 	await expect(page.getByText("已保存", { exact: true })).toBeVisible();
 	await page.screenshot({ path: info.outputPath("reception-setting.png") });
-	await page.getByRole("button", { name: "返回", exact: true }).click();
-	await expect(page.getByRole("button", { name: /^接待 Bot/ })).toContainText(second.displayName);
+	await page.reload();
+	await expect(secondOption).toBeChecked();
 });
