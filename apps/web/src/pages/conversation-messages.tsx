@@ -236,7 +236,7 @@ function SystemLine({ message }: { message: CachedMessage }) {
 			data-message-id={message.id}
 			data-message-system
 			role="note"
-			className="mx-auto max-w-full px-[var(--spacing-4)] text-center text-caption text-[var(--color-text-tertiary)]"
+			className="mx-auto max-w-full px-[var(--spacing-4)] text-center text-caption wrap-anywhere text-[var(--color-text-tertiary)]"
 		>
 			{text}
 		</p>

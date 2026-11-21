@@ -7,6 +7,8 @@ import { closedGroupNotice, systemEventText, type Translate } from "./system-eve
 const translate = (locale: "en" | "zh-CN") => createI18n(locale).getFixedT(locale, "translation") as Translate;
 
 const events: SystemEvent[] = [
+	{ event: "created", actorName: "Ana", targetNames: ["Bo", "Cy Bot"] },
+	{ event: "created", actorName: "Ana", targetNames: [] },
 	{ event: "removed", actorName: "Ana", targetNames: ["Bo", "Cy"] },
 	{ event: "dissolved", actorName: null, targetNames: [] },
 	{ event: "joined", actorName: "Bo", targetNames: ["Dee"] },
@@ -18,6 +20,8 @@ describe("systemEventText", () => {
 	test("every event has an English sentence", () => {
 		const t = translate("en");
 		expect(events.map((event) => systemEventText(event, t))).toEqual([
+			"Ana created the group. Bo, Cy Bot joined",
+			"Ana created the group",
 			"Ana removed Bo, Cy",
 			"The group was dissolved",
 			"Dee joined",
@@ -29,6 +33,8 @@ describe("systemEventText", () => {
 	test("every event has a Chinese sentence, and the one the user named is exact", () => {
 		const t = translate("zh-CN");
 		expect(events.map((event) => systemEventText(event, t))).toEqual([
+			"Ana 创建了群聊，Bo、Cy Bot 加入了群聊",
+			"Ana 创建了群聊",
 			"Ana 移除了 Bo、Cy",
 			"该群聊已被解散",
 			"Dee 加入了群聊",

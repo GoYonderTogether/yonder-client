@@ -38,6 +38,10 @@ export function systemEventText(event: SystemEvent, t: Translate): string {
 			return t("members.events.dissolved");
 		case "joined":
 			return t("members.events.joined", { names: joined });
+		case "created":
+			return people.length > 0
+				? t("members.events.createdWithMembers", { actor, names: joined })
+				: t("members.events.created", { actor });
 		case "renamed":
 			return t("members.events.renamed", { actor, title: event.title ?? "" });
 		case "owner_changed":

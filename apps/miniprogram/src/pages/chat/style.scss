@@ -149,6 +149,7 @@
 	color: var(--color-text-tertiary);
 	font-size: var(--text-caption);
 	line-height: var(--text-caption--line-height);
+	overflow-wrap: anywhere;
 }
 
 /* Where the composer used to be in a closed group: one line with the real reason. */
