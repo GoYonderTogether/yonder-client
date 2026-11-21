@@ -77,50 +77,101 @@ async function mockNative(page: Page, userAgent: string, failure: "open" | "shar
 	return () => page.evaluate(() => (window as unknown as { deviceDownloadCalls: unknown[] }).deviceDownloadCalls);
 }
 
-test("desktop web opens all downloads in the same tab and Back returns to device management", async ({
+test("desktop web opens the settings download subpage and Back returns to device management", async ({
 	page,
 }, info) => {
 	await isolate(page, "web");
 	await page.goto("/me/devices");
 	await page.getByRole("button", { name: connectLabel }).click();
-	await expect(page).toHaveURL(new RegExp(`${downloadPath.replace("?", "\\?")}$`));
+	await expect(page).toHaveURL(/\/me\/devices\/connect$/);
+	await expect(page.getByRole("heading", { name: connectLabel })).toBeVisible();
 	await expect(page.getByText(deviceGuide)).toBeVisible();
 	await expect(page.getByRole("heading", { level: 2 })).toHaveText(["macOS", "Windows", "Android", "iOS", "网页版"]);
 	await expect(page.getByText("支持连接器")).toHaveCount(0);
-	await page.screenshot({ path: info.outputPath("web-all-downloads.png") });
 	expect(page.context().pages()).toHaveLength(1);
+	const installer = page.getByRole("link", { name: "下载 macOS 版" });
+	await page.route("**/desktop/**/*.dmg", (route) =>
+		route.fulfill({ headers: { "content-disposition": "attachment; filename=yonder.dmg" }, body: "fixture" }),
+	);
+	const [download] = await Promise.all([page.waitForEvent("download"), installer.click()]);
+	expect(download.suggestedFilename()).toBe("yonder.dmg");
+	await expect(page).toHaveURL(/\/me\/devices\/connect$/);
+	await page.screenshot({ path: info.outputPath("web-all-downloads.png") });
 	await page.goBack();
 	await expect(page).toHaveURL(/\/me\/devices$/);
 	await expect(page.getByRole("button", { name: connectLabel })).toBeVisible();
 });
 
+test("Web asks before opening TestFlight and keeps the settings subpage in the original tab", async ({
+	page,
+}, info) => {
+	await isolate(page, "web");
+	const iosUrl = "https://testflight.apple.com/join/8C5Y9KHQ";
+	const context = page.context();
+	await context.route(iosUrl, (route) => route.fulfill({ body: "TestFlight" }));
+	await page.goto("/me/devices/connect");
+	const ios = page.getByRole("button", { name: "下载 iOS 版" });
+	const confirm = page.getByRole("dialog", { name: "在浏览器中打开" });
+	await ios.click();
+	await expect(confirm.getByText("将在浏览器中打开下载链接。")).toBeVisible();
+	await page.screenshot({ path: info.outputPath("web-browser-confirmation.png") });
+	await confirm.getByRole("button", { name: "取消" }).click();
+	await expect(confirm).toHaveCount(0);
+	expect(context.pages()).toHaveLength(1);
+
+	await ios.click();
+	const [popup] = await Promise.all([
+		context.waitForEvent("page"),
+		confirm.getByRole("button", { name: "继续打开" }).click(),
+	]);
+	await expect(popup).toHaveURL(iosUrl);
+	await expect(page).toHaveURL(/\/me\/devices\/connect$/);
+	await expect(confirm).toHaveCount(0);
+	await popup.close();
+	await page.getByRole("link", { name: "用网页版" }).click();
+	await expect(page).toHaveURL(/\/messages$/);
+	expect(context.pages()).toHaveLength(1);
+});
+
 test.describe("mobile web", () => {
 	test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: iPhone });
 
-	test("connector opens in browser history with supported platforms first", async ({ page }, info) => {
+	test("connector subpage keeps supported platforms first after reload and returns to connectors", async ({
+		page,
+	}, info) => {
 		await isolate(page, "web");
 		await page.goto("/me/connectors");
 		await page.getByRole("button", { name: new RegExp(connectLabel) }).click();
-		await expect(page).toHaveURL(new RegExp(`${connectorPath.replace("?", "\\?")}$`));
+		await expect(page).toHaveURL(/\/me\/connectors\/connect\?platform=windows$/);
+		await page.reload();
 		await expect(page.getByText(deviceGuide)).toBeVisible();
 		await expect(page.getByRole("heading", { level: 2 })).toHaveText(["Windows", "macOS", "Android", "iOS", "网页版"]);
 		await expect(page.getByRole("region", { name: "Windows" }).getByText("支持连接器")).toBeVisible();
 		await expect(page.getByText("支持连接器")).toHaveCount(1);
 		await page.screenshot({ path: info.outputPath("web-connector-downloads.png") });
-		await page.goBack();
+		await page.getByRole("button", { name: "返回", exact: true }).click();
 		await expect(page).toHaveURL(/\/me\/connectors$/);
 		await expect(page.getByRole("button", { name: new RegExp(connectLabel) })).toBeVisible();
 	});
 });
 
-test("simulated macOS opens the public URL through the native default-browser bridge", async ({ page }) => {
+test("simulated macOS opens the public URL through the native bridge after confirmation only", async ({ page }) => {
 	await isolate(page, "macos");
 	const calls = await mockNative(page, macOS);
 	await page.goto("/me/connectors");
-	await page.getByRole("button", { name: new RegExp(connectLabel) }).click();
+	const connect = page.getByRole("button", { name: new RegExp(connectLabel) });
+	await connect.click();
+	const dialog = page.getByRole("dialog", { name: "在浏览器中打开" });
+	await expect(dialog).toBeVisible();
+	expect(await calls()).toEqual([]);
+	await dialog.getByRole("button", { name: "取消" }).click();
+	await expect(dialog).toHaveCount(0);
+	expect(await calls()).toEqual([]);
+	await connect.click();
+	await dialog.getByRole("button", { name: "继续打开" }).click();
 	await expect.poll(calls).toEqual([{ action: "open", url: publicOrigin + connectorPath }]);
 	await expect(page).toHaveURL(/\/me\/connectors$/);
-	await expect(page.getByRole("dialog", { name: connectLabel })).toHaveCount(0);
+	await expect(dialog).toHaveCount(0);
 });
 
 test("simulated Windows can copy the download link when the system browser fails", async ({ page }, info) => {
@@ -128,14 +179,14 @@ test("simulated Windows can copy the download link when the system browser fails
 	const calls = await mockNative(page, windows, "open");
 	await page.goto("/me/devices");
 	await page.getByRole("button", { name: connectLabel }).click();
-	const dialog = page.getByRole("dialog", { name: connectLabel });
+	const dialog = page.getByRole("dialog", { name: "在浏览器中打开" });
+	await dialog.getByRole("button", { name: "继续打开" }).click();
 	await expect(dialog.getByRole("alert")).toHaveText("无法打开下载页。");
 	await page.screenshot({ path: info.outputPath("windows-browser-fallback.png") });
 	await dialog.getByRole("button", { name: "复制下载链接" }).click();
 	await expect(dialog.getByRole("status")).toHaveText("已复制");
-	await dialog.getByRole("button", { name: "关闭" }).click();
+	await dialog.getByRole("button", { name: "继续打开" }).click();
 	await expect(dialog).toHaveCount(0);
-	await page.getByRole("button", { name: connectLabel }).click();
 	await expect
 		.poll(calls)
 		.toEqual(["open", "copy", "open"].map((action) => ({ action, url: publicOrigin + downloadPath })));
@@ -182,6 +233,15 @@ for (const { label, platform, userAgent, path, download, failure } of [
 			await dialog.getByRole("button", { name: "复制链接" }).click();
 			await expect(dialog.getByRole("status")).toHaveText("已复制");
 			await dialog.getByRole("button", { name: "在浏览器中打开" }).click();
+			const confirm = page.getByRole("dialog", { name: "在浏览器中打开" });
+			await expect(confirm.getByText("将在浏览器中打开下载链接。")).toBeVisible();
+			expect(await calls()).toHaveLength(failure ? 3 : 2);
+			if (label === "ios") await page.screenshot({ path: info.outputPath("ios-download-browser-confirmation.png") });
+			await confirm.getByRole("button", { name: "取消" }).click();
+			await expect(dialog).toBeVisible();
+			await dialog.getByRole("button", { name: "在浏览器中打开" }).click();
+			await confirm.getByRole("button", { name: "继续打开" }).click();
+			await expect(confirm).toHaveCount(0);
 			await expect(dialog).toHaveCount(0);
 			await expect.poll(calls).toEqual(
 				[...(failure ? ["share"] : []), "share", "copy", "open"].map((action) => ({

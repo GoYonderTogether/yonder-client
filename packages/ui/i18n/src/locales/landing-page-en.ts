@@ -4,6 +4,8 @@ export const connectDeviceDownloadEn = {
 	shareDownloadFailed: "Could not share the download link.",
 	copyDownloadLink: "Copy download link",
 	openDownloadInBrowser: "Open in browser",
+	openDownloadBody: "The download link will open in your browser.",
+	openDownloadConfirm: "Continue to browser",
 	openDownloadFailed: "Could not open the download page.",
 	supportsConnector: "Supports connectors",
 };

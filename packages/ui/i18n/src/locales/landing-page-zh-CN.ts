@@ -6,6 +6,8 @@ export const connectDeviceDownloadZhCN = {
 	shareDownloadFailed: "无法分享下载链接。",
 	copyDownloadLink: "复制下载链接",
 	openDownloadInBrowser: "在浏览器中打开",
+	openDownloadBody: "将在浏览器中打开下载链接。",
+	openDownloadConfirm: "继续打开",
 	openDownloadFailed: "无法打开下载页。",
 	supportsConnector: "支持连接器",
 };
