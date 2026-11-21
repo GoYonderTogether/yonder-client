@@ -6,6 +6,7 @@ import {
 	type AppleResourcePermission,
 	activateAppleResources,
 	appleResourceStatuses,
+	openAppleResourceSettings,
 	requestAppleResourcePermission,
 	resetAppleResources,
 	revokeAppleResourceGrant,
@@ -93,6 +94,9 @@ export function createLocalFilesAdapter(
 				throw new Error(
 					status === "unavailable" && connectorId === "apple-notes" ? "notes_unavailable" : "permission_denied",
 				);
+		},
+		async openPermissionSettings(connectorId) {
+			if (isAppleConnector(connectorId)) await openAppleResourceSettings(connectorId);
 		},
 		async authorize(config) {
 			if (isAppleConnector(config.connectorId)) {

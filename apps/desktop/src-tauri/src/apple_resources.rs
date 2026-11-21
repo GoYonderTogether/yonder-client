@@ -103,6 +103,10 @@ extern "C" {
     fn yonder_apple_photos_status() -> i32;
     fn yonder_apple_calendar_request(context: *mut c_void, reply: PermissionReply);
     fn yonder_apple_photos_request(context: *mut c_void, reply: PermissionReply);
+    #[cfg(target_os = "ios")]
+    fn yonder_ios_open_apple_resource_settings(context: *mut c_void, reply: PermissionReply);
+    #[cfg(target_os = "macos")]
+    fn yonder_apple_open_resource_settings(resource: i32) -> bool;
 }
 
 fn permission_name(status: i32) -> &'static str {
@@ -186,6 +190,33 @@ async fn request_permission(connector_id: Source) -> Result<&'static str, String
     Ok(permission_name(
         receiver.recv().await.ok_or("operation_failed")?,
     ))
+}
+
+#[tauri::command]
+async fn open_settings(connector_id: Source) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let opened = blocking(move || {
+        let resource = match connector_id {
+            Source::AppleCalendar => 0,
+            Source::ApplePhotos => 1,
+            Source::AppleNotes => 2,
+        };
+        Ok(unsafe { yonder_apple_open_resource_settings(resource) })
+    })
+    .await?;
+    #[cfg(target_os = "ios")]
+    let opened = {
+        if connector_id == Source::AppleNotes {
+            return Err("unsupported".into());
+        }
+        let (sender, mut receiver) = async_runtime::channel(1);
+        let context = Box::into_raw(Box::new(sender)).cast();
+        unsafe { yonder_ios_open_apple_resource_settings(context, permission_reply) };
+        receiver.recv().await == Some(1)
+    };
+    opened
+        .then_some(())
+        .ok_or_else(|| "open_settings_failed".into())
 }
 
 #[tauri::command]
@@ -354,6 +385,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![
             statuses,
             request_permission,
+            open_settings,
             activate,
             reset,
             authorize,

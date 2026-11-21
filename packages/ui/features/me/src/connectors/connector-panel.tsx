@@ -51,6 +51,8 @@ export function ConnectorPanel({
 	const canConfigure = device.current && supported && definition.platforms.includes(device.platform);
 	const changed = !instance || legacy || instance.capabilities.fileTools !== control;
 	const repair = apple && instance?.status === "offline" && canConfigure;
+	const permissionError =
+		error === "connectors.systemPermissionDenied" || error === "connectors.openSystemSettingsFailed";
 	const startOnce = useRef(false);
 	const start = useEffectEvent(() => void apply());
 	useEffect(() => {
@@ -123,18 +125,25 @@ export function ConnectorPanel({
 			const code = failure instanceof Error ? failure.message : String(failure);
 			if (active.current)
 				setError(
-					t(
-						code === "notes_unavailable"
-							? "connectors.appleNotes.unavailable"
-							: apple && code === "permission_denied"
-								? "connectors.systemPermissionDenied"
-								: "connectors.connectFailed",
-					),
+					code === "notes_unavailable"
+						? "connectors.appleNotes.unavailable"
+						: apple && code === "permission_denied"
+							? "connectors.systemPermissionDenied"
+							: "connectors.connectFailed",
 				);
 		} finally {
 			setBusy(false);
 		}
 	}
+
+	async function openPermissionSettings() {
+		try {
+			await localFiles?.openPermissionSettings?.(definition.id);
+		} catch {
+			if (active.current) setError("connectors.openSystemSettingsFailed");
+		}
+	}
+
 	async function disconnect() {
 		if (!instance) return;
 		setBusy(true);
@@ -148,7 +157,7 @@ export function ConnectorPanel({
 			}
 			close();
 		} catch {
-			if (active.current) setError(t("connectors.disconnectFailed"));
+			if (active.current) setError("connectors.disconnectFailed");
 		} finally {
 			setBusy(false);
 		}
@@ -184,8 +193,13 @@ export function ConnectorPanel({
 				) : null}
 				{error ? (
 					<p role="alert" className="text-caption text-[var(--color-danger)]">
-						{error}
+						{t(error)}
 					</p>
+				) : null}
+				{canConfigure && apple && localFiles?.openPermissionSettings && permissionError ? (
+					<Button variant="ghost" disabled={busy} onClick={() => void openPermissionSettings()}>
+						{t("connectors.openSystemSettings")}
+					</Button>
 				) : null}
 				<p className="text-caption text-[var(--color-text-secondary)]">
 					{t(apple ? `connectors.${key}.scope` : control ? "connectors.fileToolsScope" : "connectors.readScope")}
@@ -193,15 +207,17 @@ export function ConnectorPanel({
 				{canConfigure && (changed || repair) ? (
 					<Button variant="primary" loading={busy} onClick={() => void apply()}>
 						{t(
-							repair
-								? "connectors.reauthorize"
-								: apple
-									? "connectors.connect"
-									: legacy
-										? "connectors.upgrade"
-										: instance
-											? "connectors.save"
-											: "connectors.enable",
+							permissionError
+								? "connectors.retryConnect"
+								: repair
+									? "connectors.reauthorize"
+									: apple
+										? "connectors.connect"
+										: legacy
+											? "connectors.upgrade"
+											: instance
+												? "connectors.save"
+												: "connectors.enable",
 						)}
 					</Button>
 				) : null}
