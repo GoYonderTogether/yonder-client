@@ -4,7 +4,9 @@ import type {
 	MemoryFileContent,
 	MemoryFileList,
 	MemoryFileRevisionList,
+	MemoryOrganizationResponse,
 	RevertMemoryFileRequest,
+	ReviewMemoryOrganizationRequest,
 	UpdateMemoryFileProtectionRequest,
 	UpdateMemoryFileRequest,
 	UpdateMemoryFileVisibilityRequest,
@@ -13,6 +15,7 @@ import type {
 import type { ApiClient } from "./client.ts";
 
 const filesPath = "/v1/memory/files";
+const organizationPath = "/v1/me/social/organization";
 
 export function memoryEndpoints(client: ApiClient) {
 	return {
@@ -35,6 +38,12 @@ export function memoryEndpoints(client: ApiClient) {
 		},
 		memoryFiles(prefix?: string): Promise<MemoryFileList> {
 			return client.request(prefix ? `${filesPath}?prefix=${encodeURIComponent(prefix)}` : filesPath);
+		},
+		memoryOrganization(): Promise<MemoryOrganizationResponse> {
+			return client.request(organizationPath);
+		},
+		reviewMemoryOrganization(body: ReviewMemoryOrganizationRequest): Promise<MemoryOrganizationResponse> {
+			return client.request(organizationPath, { method: "POST", body });
 		},
 		memoryFile(path: string): Promise<MemoryFileContent> {
 			return client.request(`${filesPath}/content?path=${encodeURIComponent(path)}`);

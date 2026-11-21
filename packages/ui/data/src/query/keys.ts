@@ -21,6 +21,7 @@ export const keys = {
 		files: (prefix: string) => ["memory", "file-list", prefix] as const,
 		file: (path: string) => ["memory", "file", path] as const,
 		revisions: (path: string) => ["memory", "file", path, "revisions"] as const,
+		organization: () => ["memory", "organization"] as const,
 	},
 	quota: () => ["quota"] as const,
 	quotaConfig: () => ["quota", "config"] as const,
@@ -74,7 +75,7 @@ export const keys = {
 	publicMemberProfile: (handle: string) => ["member-profile", "public", handle] as const,
 	privacy: () => ["privacy"] as const,
 	reception: () => ["reception"] as const,
-	socialLibrary: () => ["social-library"] as const,
+	socialLibrary: () => ["memory", "social-library"] as const,
 	socialPersona: (botId: string) => ["social-persona", botId] as const,
 	items: {
 		all: () => ["items"] as const,
@@ -113,7 +114,6 @@ export const ALL_ROOT_KEYS: readonly string[] = [
 	"member-profile",
 	"privacy",
 	"reception",
-	"social-library",
 	"social-persona",
 	"items",
 ];

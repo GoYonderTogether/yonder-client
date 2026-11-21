@@ -1,12 +1,15 @@
 import type { SocialLibrary } from "@yonder/protocol";
 import { Button, TextField } from "@yonder/ui-components";
-import { useEditSocialLibrary } from "@yonder/ui-data";
-import { Pencil } from "lucide-react";
+import { useEditSocialLibrary, useMemoryFileActions } from "@yonder/ui-data";
+import { EyeOff, Pencil } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
+import { memoryFileRoute } from "../pages/memory/memory-view.ts";
 import { MessageContent } from "../pages/message-content.tsx";
 import { receptionDraftTitle, useReceptionDate } from "./reception-library-directory.tsx";
 import { ReceptionFolderField, ReceptionMutationError, ReceptionRemoveButton } from "./reception-library-editor.tsx";
+import { receptionWritablePath } from "./reception-library-paths.ts";
 
 export function ReceptionDocumentDetail({
 	document,
@@ -19,6 +22,8 @@ export function ReceptionDocumentDetail({
 }) {
 	const { t } = useTranslation();
 	const date = useReceptionDate();
+	const { setVisibility } = useMemoryFileActions();
+	const path = document.path;
 	return (
 		<article className="flex min-w-0 flex-col gap-[var(--spacing-5)]">
 			<header className="flex flex-col gap-[var(--spacing-2)]">
@@ -34,13 +39,44 @@ export function ReceptionDocumentDetail({
 			</header>
 			<MessageContent body={document.content} />
 			<div className="flex flex-wrap items-center gap-[var(--spacing-2)]">
-				<Button size="sm" onClick={onEdit}>
-					<Pencil size={16} aria-hidden />
-					{t("members.social.library.editDocument")}
-				</Button>
-				<ReceptionRemoveButton id={document.id} title={document.title} onRemoved={onRemoved} />
+				{receptionWritablePath(path) ? (
+					<>
+						<Button size="sm" onClick={onEdit}>
+							<Pencil size={16} aria-hidden />
+							{t("members.social.library.editDocument")}
+						</Button>
+						<ReceptionRemoveButton id={document.id} title={document.title} onRemoved={onRemoved} />
+					</>
+				) : null}
+				{path ? (
+					<>
+						<Button
+							size="sm"
+							variant="ghost"
+							loading={setVisibility.isPending}
+							onClick={() => setVisibility.mutate({ path, visibility: "private" }, { onSuccess: onRemoved })}
+						>
+							<EyeOff size={16} aria-hidden />
+							{t("members.social.library.unpublish")}
+						</Button>
+						<MemoryFileLink path={path} />
+					</>
+				) : null}
 			</div>
+			<ReceptionMutationError error={setVisibility.error} />
 		</article>
+	);
+}
+
+function MemoryFileLink({ path }: { path: string }) {
+	const { t } = useTranslation();
+	return (
+		<Link
+			to={memoryFileRoute(path)}
+			className="inline-flex min-h-[var(--control-sm)] items-center rounded-[var(--radius-control-sm)] px-[var(--spacing-2)] text-caption font-medium text-[var(--color-accent-text)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+		>
+			{t("members.social.library.openMemory")}
+		</Link>
 	);
 }
 
@@ -57,7 +93,7 @@ export function ReceptionDraftDetail({
 	const date = useReceptionDate();
 	const originalTitle = receptionDraftTitle(draft, t("members.social.library.untitledDraft"));
 	const [title, setTitle] = useState(originalTitle);
-	const [folderId, setFolderId] = useState<string | null>(null);
+	const [folderId, setFolderId] = useState<string | null>(draft.folderId ?? null);
 	const { edit, busy } = useEditSocialLibrary();
 	const canApprove = !busy && Boolean(title.trim());
 
@@ -103,6 +139,7 @@ export function ReceptionDraftDetail({
 						{t("members.social.approve")}
 					</Button>
 					<ReceptionRemoveButton draft id={draft.id} title={originalTitle} onRemoved={onReviewed} />
+					{draft.path ? <MemoryFileLink path={draft.path} /> : null}
 				</div>
 			</form>
 		</article>

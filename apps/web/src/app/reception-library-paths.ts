@@ -1,6 +1,25 @@
 import type { SocialLibraryFolder } from "@yonder/protocol";
 import { receptionSettingsPath } from "./settings-navigation.ts";
 
+export function receptionFolderLabel(folder: SocialLibraryFolder, t: (key: string) => string): string {
+	switch (folder.path) {
+		case "/notes":
+			return t("memory.notesFolder");
+		case "/sources":
+			return t("memory.sourcesFolder");
+		case "/digests":
+			return t("memory.digestsFolder");
+		case "/me":
+			return t("memory.aboutMe");
+		default:
+			return folder.name;
+	}
+}
+
+export function receptionWritablePath(path: string | undefined): boolean {
+	return !path || path === "/notes" || path.startsWith("/notes/") || path.startsWith("/public/");
+}
+
 export function receptionFolderTrail(folders: readonly SocialLibraryFolder[], id: string | null | undefined) {
 	const trail: SocialLibraryFolder[] = [];
 	const visited = new Set<string>();

@@ -1,9 +1,9 @@
 import { memberFailureText } from "@yonder/feature-members";
 import type { SocialLibrary, SocialLibraryFolder } from "@yonder/protocol";
 import { Button, EmptyState } from "@yonder/ui-components";
-import { useSocialLibrary } from "@yonder/ui-data";
+import { useMemoryOrganization, useSocialLibrary } from "@yonder/ui-data";
 import { PageFrame, useShellChrome } from "@yonder/ui-shell";
-import { File, FilePlus, FolderPlus, Pencil } from "lucide-react";
+import { File, FilePlus, FolderPlus, Pencil, Sparkles } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
@@ -15,7 +15,13 @@ import {
 	ReceptionRootDirectory,
 } from "./reception-library-directory.tsx";
 import { type Editor, ReceptionLibraryEditor, ReceptionRemoveButton } from "./reception-library-editor.tsx";
-import { receptionFolderPath, receptionFolderTrail } from "./reception-library-paths.ts";
+import {
+	receptionFolderLabel,
+	receptionFolderPath,
+	receptionFolderTrail,
+	receptionWritablePath,
+} from "./reception-library-paths.ts";
+import { ReceptionOrganization } from "./reception-organization.tsx";
 import { ReceptionSetting } from "./reception-setting.tsx";
 import { receptionFolderRoute, receptionSettingsPath } from "./settings-navigation.ts";
 
@@ -51,6 +57,7 @@ export function ReceptionLibraryPage({
 	onOpen: (path: string) => void;
 	onBack: (path: string) => void;
 }) {
+	if (route.length === 1 && route[0] === "organization") return <ReceptionOrganization onOpen={onOpen} />;
 	const view = readView(route);
 	return view ? <ReceptionLibrary view={view} onOpen={onOpen} onBack={onBack} /> : <NotFoundPage />;
 }
@@ -82,7 +89,9 @@ function ReceptionLibrary({
 			? t("members.social.draftsTitle")
 			: view.kind === "all"
 				? t("members.social.library.allDocuments")
-				: (folder?.name ?? t("members.social.infoTitle"));
+				: folder
+					? receptionFolderLabel(folder, t)
+					: t("members.social.infoTitle");
 
 	return (
 		<PageFrame title={<h1 className="truncate">{title}</h1>}>
@@ -181,25 +190,37 @@ function ReceptionLibraryBody({
 				>
 					<div className="flex flex-col gap-[var(--spacing-3)]">
 						<div className="flex flex-wrap items-center justify-between gap-[var(--spacing-2)]">
-							{wide ? <h3 className="min-w-0 text-h3 font-semibold [overflow-wrap:anywhere]">{folder.name}</h3> : null}
-							<div className="flex flex-wrap gap-[var(--spacing-2)]">
-								{newDocument(folder.id)}
-								{newFolder(folder.id)}
-								<Button
-									size="sm"
-									variant="ghost"
-									onClick={() => setEditor({ folder, parentFolderId: folder.parentFolderId ?? null })}
-								>
-									<Pencil size={16} aria-hidden />
-									{t("members.social.library.renameFolder")}
-								</Button>
-								<ReceptionRemoveButton
-									folderParent={parentFolder?.name ?? t("members.social.library.root")}
-									id={folder.id}
-									title={folder.name}
-									onRemoved={backFromFolder}
-								/>
-							</div>
+							{wide ? (
+								<h3 className="min-w-0 text-h3 font-semibold [overflow-wrap:anywhere]">
+									{receptionFolderLabel(folder, t)}
+								</h3>
+							) : null}
+							{receptionWritablePath(folder.path) ? (
+								<div className="flex flex-wrap gap-[var(--spacing-2)]">
+									{newDocument(folder.id)}
+									{newFolder(folder.id)}
+									{folder.path !== "/notes" ? (
+										<>
+											<Button
+												size="sm"
+												variant="ghost"
+												onClick={() => setEditor({ folder, parentFolderId: folder.parentFolderId ?? null })}
+											>
+												<Pencil size={16} aria-hidden />
+												{t("members.social.library.renameFolder")}
+											</Button>
+											<ReceptionRemoveButton
+												folderParent={
+													parentFolder ? receptionFolderLabel(parentFolder, t) : t("members.social.library.root")
+												}
+												id={folder.id}
+												title={folder.name}
+												onRemoved={backFromFolder}
+											/>
+										</>
+									) : null}
+								</div>
+							) : null}
 						</div>
 						<ReceptionFolderContents library={library} folder={folder} onOpen={onOpen} />
 					</div>
@@ -216,7 +237,7 @@ function ReceptionLibraryBody({
 						documentFolder ? (
 							<div className="flex flex-col gap-[var(--spacing-2)]">
 								<h3 className="px-[var(--spacing-2)] text-caption font-medium text-[var(--color-text-tertiary)] [overflow-wrap:anywhere]">
-									{documentFolder.name}
+									{receptionFolderLabel(documentFolder, t)}
 								</h3>
 								<ReceptionFolderContents
 									library={library}
@@ -274,6 +295,7 @@ function ReceptionLibraryBody({
 					</div>
 					{view.kind === "root" ? (
 						<div className="flex flex-wrap gap-[var(--spacing-2)]">
+							<ReceptionOrganizationEntry onOpen={() => onOpen(receptionSettingsPath("organization"))} />
 							{newFolder(null)}
 							{newDocument(null)}
 						</div>
@@ -293,6 +315,17 @@ function ReceptionLibraryBody({
 				/>
 			) : null}
 		</section>
+	);
+}
+
+function ReceptionOrganizationEntry({ onOpen }: { onOpen: () => void }) {
+	const { t } = useTranslation();
+	const { data } = useMemoryOrganization();
+	return (
+		<Button size="sm" variant={data?.plan ? "primary" : "secondary"} onClick={onOpen}>
+			<Sparkles size={16} aria-hidden />
+			{t(data?.plan ? "members.social.organization.review" : "members.social.organization.title")}
+		</Button>
 	);
 }
 
@@ -320,7 +353,7 @@ function ReceptionBreadcrumbs({
 					<span aria-hidden="true">›</span>
 					{currentFolder && index === trail.length - 1 ? (
 						<span aria-current="page" className="break-all text-[var(--color-text-tertiary)]">
-							{folder.name}
+							{receptionFolderLabel(folder, t)}
 						</span>
 					) : (
 						<button
@@ -328,7 +361,7 @@ function ReceptionBreadcrumbs({
 							className={linkClass}
 							onClick={() => onOpen(receptionFolderPath(trail.slice(0, index + 1)))}
 						>
-							{folder.name}
+							{receptionFolderLabel(folder, t)}
 						</button>
 					)}
 				</span>

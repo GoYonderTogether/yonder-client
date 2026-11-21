@@ -8,7 +8,7 @@ import { MemoryFilePage } from "./memory/memory-file.tsx";
 import { MemoryFileList } from "./memory/memory-file-list.tsx";
 import { MemoryColumn, MemoryHome, useGroupName } from "./memory/memory-home.tsx";
 import { MemoryTimeline } from "./memory/memory-timeline.tsx";
-import { type MemoryView, memoryFileParent, memoryFileRoute } from "./memory/memory-view.ts";
+import { type MemoryView, memoryFileParent, memoryFileRoute, memoryFolderRoute } from "./memory/memory-view.ts";
 import "./memory/memory.css";
 import "./memory/memory-entry.css";
 import "./memory/memory-drawer.css";
@@ -50,12 +50,14 @@ export function MemoryPage({ view }: { view: MemoryView }) {
 		);
 	if (view.kind === "group")
 		return (
-			<PageFrame title={groupName(view.group)}>
+			<PageFrame title={view.directory?.split("/").at(-1) || groupName(view.group)}>
 				<MemoryFileList
-					key={`${person?.id}:${view.group}`}
+					key={`${person?.id}:${view.group}/${view.directory ?? ""}`}
 					group={view.group}
+					directory={view.directory}
 					current={null}
 					onOpen={(path) => navigate(memoryFileRoute(path))}
+					onFolder={(path) => navigate(memoryFolderRoute(view.group, path))}
 				/>
 			</PageFrame>
 		);

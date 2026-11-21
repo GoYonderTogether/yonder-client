@@ -164,6 +164,7 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 			// The timeline is one paged query, and the event may name a new day.
 			if (event.dates?.length) void queryClient.invalidateQueries({ queryKey: keys.memory.days() });
 			if (event.paths?.length) void invalidateMemoryFiles(queryClient, event.paths);
+			void queryClient.invalidateQueries({ queryKey: keys.memory.organization() });
 			break;
 		}
 	}

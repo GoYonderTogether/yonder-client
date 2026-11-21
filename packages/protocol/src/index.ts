@@ -170,6 +170,12 @@ export type {
 	UpdateMemoryFileVisibilityRequest,
 } from "./memory/files.ts";
 export type {
+	MemoryOrganizationMove,
+	MemoryOrganizationPlan,
+	MemoryOrganizationResponse,
+	ReviewMemoryOrganizationRequest,
+} from "./memory/organization.ts";
+export type {
 	MemoryActivity,
 	MemoryBlock,
 	MemoryDay,
