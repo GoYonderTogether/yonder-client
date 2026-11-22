@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { recordingNoteDate, recordingNoteDuration } from "./meeting-message-summary.ts";
+import { recordingNoteDate, recordingNoteDuration, recordingNoteTimeRange } from "./meeting-message-summary.ts";
 
 test("recording dates compare local calendar days, including New Year and earlier dates", () => {
 	const now = new Date(2027, 0, 1, 0, 5);
@@ -22,4 +22,15 @@ test("duration truncates lower units and distinguishes zero from absent or inval
 	expect(recordingNoteDuration(undefined)).toBeNull();
 	expect(recordingNoteDuration(-100)).toBeNull();
 	expect(recordingNoteDuration(Infinity)).toBeNull();
+});
+
+test("recording clock times stay compact and preserve which day a range ended", () => {
+	const start = +new Date(2026, 11, 31, 23, 59, 5);
+	expect(recordingNoteTimeRange(start, start + 20_000, "en")).toBe("23:59");
+	expect(recordingNoteTimeRange(start - 120_000, start, "zh-CN")).toBe("23:57–23:59");
+	expect(recordingNoteTimeRange(start, +new Date(2027, 0, 1, 0, 4), "zh-CN")).toBe("23:59 – 2027年1月1日 00:04");
+	expect(recordingNoteTimeRange(start, undefined, "en")).toBeNull();
+	expect(recordingNoteTimeRange(0, start, "en")).toBeNull();
+	expect(recordingNoteTimeRange(start, NaN, "en")).toBeNull();
+	expect(recordingNoteTimeRange(start, start - 1, "en")).toBeNull();
 });

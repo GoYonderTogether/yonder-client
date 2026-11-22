@@ -81,10 +81,8 @@ async function isolateItems(page: Page, taskOnlyRecording: boolean, withRunningM
 			: { id: recording.id, title: recording.title },
 		createdAt: endedAt,
 	};
-	const api = await isolateChat(
-		page,
-		withRunningMeeting ? { items: [message("message-01", bodies.question, true), meetingNotice] } : {},
-	);
+	const primaryHistory = [message("message-01", bodies.question, true), meetingNotice];
+	const api = await isolateChat(page, withRunningMeeting ? { items: primaryHistory } : {});
 	const evidence = "后半部分：动效由小何负责。";
 	const older = "前半部分：先交付登录页。";
 	const lateBatches: MeetingRecord["batches"] = [
@@ -226,6 +224,15 @@ async function isolateItems(page: Page, taskOnlyRecording: boolean, withRunningM
 		evidence,
 		older,
 		detailRequests: () => detailRequests,
+		updateRecordingTitle: (title: string) => {
+			legacyItem = { ...legacyItem, title };
+			meeting = { ...meeting, topic: title };
+			const updated = { ...meetingNotice, version: 2, meeting: { ...meetingNotice.meeting, title } };
+			// The server persists this message before publishing the realtime event.
+			const index = primaryHistory.findIndex((entry) => entry.id === updated.id);
+			primaryHistory[index] = updated;
+			api.update(updated);
+		},
 		backfill: () => {
 			meeting = {
 				...meeting,
@@ -291,7 +298,9 @@ for (const layout of ["desktop", "mobile"] as const) {
 			const input = page.getByRole("textbox", { name: /^对 界面验收/ });
 			await expect(input).toBeEditable();
 			const card = page.locator("[data-item-recording]");
-			await expect(card).toContainText("00:00:20");
+			await expect(card.getByText(recording.title, { exact: true })).toBeVisible();
+			await expect(card.getByText("09:24", { exact: true })).toBeVisible();
+			await expect(card.getByText(/^.+ · 20秒$/)).toBeVisible();
 			await expect(card.getByText(recording.transcript, { exact: true })).toHaveCount(0);
 			await page.screenshot({ path: info.outputPath(`recording-${layout}.png`), animations: "disabled", scale: "css" });
 			await card.getByRole("button", { name: `查看录音笔记 · ${recording.title}` }).click();
@@ -321,6 +330,24 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await expect(page.getByRole("log").getByText(bodies.question, { exact: true })).toBeVisible();
 			await expect(page.getByText(followUp, { exact: true })).toHaveCount(0);
 			expect(api.sent).toEqual([]);
+		});
+
+		test("a new model title refreshes the open recording top card and the same entry in history", async ({ page }) => {
+			const api = await isolateItems(page, true, true, true);
+			await page.goto("/messages/main");
+			await page.getByRole("button", { name: `查看录音笔记 · ${recording.title}` }).click();
+			const card = page.locator("[data-item-recording]");
+			await expect(card.getByText(recording.title, { exact: true })).toBeVisible();
+			await expect.poll(api.connected).toBeTruthy();
+			const title = "新版登录页评审";
+			api.updateRecordingTitle(title);
+			await expect(card.getByText(title, { exact: true })).toBeVisible();
+			await expect(card.getByText("登录页先交付", { exact: true })).toBeVisible();
+			await page.goBack();
+			const entry = page.getByRole("button", { name: `查看录音笔记 · ${title}` });
+			await expect(entry.getByText(title, { exact: true })).toBeVisible();
+			await page.reload();
+			await expect(entry.getByText(title, { exact: true })).toBeVisible();
 		});
 
 		test("a main Bot recording card opens a running independent task", async ({ page }, info) => {
@@ -376,14 +403,15 @@ for (const layout of ["desktop", "mobile"] as const) {
 			});
 			await page.goto("/messages/main");
 			const entry = page.getByRole("button", { name: `查看录音笔记 · ${recording.title}` });
-			await expect(entry).toHaveText(/^.+ · 20秒$/);
+			await expect(entry.getByText(recording.title, { exact: true })).toBeVisible();
+			await expect(entry).toHaveAccessibleDescription(/^.+ · 20秒$/);
 			expect(api.detailRequests()).toBe(0);
 			await entry.click();
 			const card = page.locator("[data-item-recording]");
 			await expect(card).toContainText("登录页先交付");
-			await expect(card).toContainText("09:24:00 – 09:24:20");
-			await expect(card).toContainText("00:00:20");
-			await expect(card).toContainText("2 张照片");
+			await expect(card.getByText(recording.title, { exact: true })).toBeVisible();
+			await expect(card.getByText("09:24", { exact: true })).toBeVisible();
+			await expect(card.getByText(/^.+ · 20秒$/)).toBeVisible();
 			await expect(card.locator("[data-recording-photos] button")).toHaveCount(2);
 			await expect(card.locator("[data-recording-photos] button").first()).toHaveAccessibleName("00:00:04 的照片");
 			await expect(card.locator("[data-recording-photos] img")).toHaveCount(2);
@@ -423,6 +451,7 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await page.getByRole("textbox", { name: "重命名事项" }).fill("  登录页  交付确认  ");
 			await page.getByRole("button", { name: "保存", exact: true }).click();
 			await expect(page.getByRole("heading", { name: "登录页 交付确认" })).toBeVisible();
+			await expect(card.getByText("登录页 交付确认", { exact: true })).toBeVisible();
 			await expect(card.getByRole("button", { name: "查看录音笔记 · 登录页 交付确认" })).toBeVisible();
 			expect(api.renames).toEqual(["登录页 交付确认"]);
 		});

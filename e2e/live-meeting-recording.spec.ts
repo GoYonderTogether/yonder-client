@@ -18,6 +18,18 @@ test.use({
 });
 
 test("live recording keeps audio and a photo through reconnect and ends with one task", async ({ page }, info) => {
+	await page.addInitScript(() => {
+		let locationRequests = 0;
+		const blocked = () => {
+			locationRequests++;
+			throw new Error("Unexpected coordinate collection");
+		};
+		Object.defineProperties(navigator.geolocation, {
+			getCurrentPosition: { value: blocked },
+			watchPosition: { value: blocked },
+		});
+		Object.defineProperty(window, "locationRequests", { get: () => locationRequests });
+	});
 	const notices: Message[] = [];
 	const api = await isolateChat(page, { items: notices });
 	const id = "mtg-live-check";
@@ -93,6 +105,7 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 		}
 		if (url.pathname.endsWith("/finalize")) {
 			const input = request.postDataJSON();
+			for (const field of ["locality", "latitude", "longitude", "coordinates"]) expect(input).not.toHaveProperty(field);
 			expect(input).toMatchObject({ segmentCount: recorded.size, photoCount: acceptedPhotoIds.size, state: "ended" });
 			finalizations++;
 			finalResponse = {
@@ -194,6 +207,7 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 	await recorder.getByRole("button", { name: "结束录音" }).click();
 	await expect(page.getByRole("button", { name: "查看录音笔记 · 录音笔记" })).toHaveCount(1, { timeout: 20_000 });
 	expect(finalizations).toBe(1);
+	expect(await page.evaluate(() => (window as unknown as { locationRequests: number }).locationRequests)).toBe(0);
 	expect(acceptedPhotoIds.size).toBe(1);
 	expect(api.sent).toEqual([]);
 });

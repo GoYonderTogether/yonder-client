@@ -1,6 +1,10 @@
+function recordingDate(timestamp: number | undefined) {
+	return timestamp != null && timestamp > 0 && timestamp <= 8.64e15 ? new Date(timestamp) : null;
+}
+
 export function recordingNoteDate(startedAt: number | undefined, locale: string | undefined, now = new Date()) {
-	if (startedAt == null || !Number.isFinite(startedAt) || startedAt <= 0 || startedAt > 8.64e15) return null;
-	const start = new Date(startedAt);
+	const start = recordingDate(startedAt);
+	if (!start) return null;
 	const yesterday = new Date(now);
 	yesterday.setDate(yesterday.getDate() - 1);
 	const today = start.toDateString() === now.toDateString();
@@ -25,4 +29,30 @@ export function recordingNoteDuration(durationMs: number | undefined) {
 	return minutes % 60
 		? ({ unit: "HoursMinutes", hours, minutes: minutes % 60 } as const)
 		: ({ unit: "Hours", hours } as const);
+}
+
+// A range is optional: do not infer its end from duration or render ambiguous DST ranges.
+export function recordingNoteTimeRange(
+	startedAt: number | undefined,
+	endedAt: number | undefined,
+	locale: string | undefined,
+) {
+	const start = recordingDate(startedAt);
+	const end = recordingDate(endedAt);
+	if (!start || !end || end < start || start.getTimezoneOffset() !== end.getTimezoneOffset()) return null;
+	const clock = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+	const from = clock.format(start);
+	if (start.toDateString() === end.toDateString()) {
+		const to = clock.format(end);
+		return from === to ? from : `${from}–${to}`;
+	}
+	const endLabel = new Intl.DateTimeFormat(locale, {
+		month: "short",
+		day: "numeric",
+		...(start.getFullYear() !== end.getFullYear() ? { year: "numeric" } : {}),
+		hour: "2-digit",
+		minute: "2-digit",
+		hourCycle: "h23",
+	}).format(end);
+	return `${from} – ${endLabel}`;
 }

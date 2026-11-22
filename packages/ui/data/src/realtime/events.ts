@@ -131,8 +131,13 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 		case "message.created":
 		case "message.updated": {
 			updateMessage(queryClient, event.message);
-			if (event.message.meeting && event.type === "message.created") {
+			if (event.message.meeting) {
 				void queryClient.invalidateQueries({ queryKey: keys.items.lists() });
+				if (event.type === "message.updated") {
+					const { id } = event.message.meeting;
+					void queryClient.invalidateQueries({ queryKey: keys.items.detail(id) });
+					void queryClient.invalidateQueries({ queryKey: keys.meetings.detail(id) });
+				}
 			}
 			if (event.message.outwardRequest?.owner) void queryClient.invalidateQueries({ queryKey: keys.items.all() });
 			if (event.type === "message.created" && event.message.outwardRequest)

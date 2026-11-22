@@ -101,4 +101,6 @@ export interface FinalizeLiveMeetingRequest {
 	state: "ended" | "interrupted";
 	segmentCount: number;
 	photoCount?: number;
+	/** Optional coarse place name from an authorized local source; never coordinates or an address. */
+	locality?: string;
 }

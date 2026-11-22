@@ -19,6 +19,7 @@ export function MeetingMessageCard({
 }) {
 	const { t, i18n } = useTranslation();
 	const detailsId = useId();
+	const title = task ? meeting.title : meeting.title.trim() || t("meetingRecorder.defaultTitle");
 	const date = task ? null : recordingNoteDate(meeting.startedAt, i18n.resolvedLanguage);
 	const duration = task ? null : recordingNoteDuration(meeting.durationMs);
 	const details = [date, duration ? t(`meetingRecorder.card${duration.unit}`, duration) : null]
@@ -29,7 +30,7 @@ export function MeetingMessageCard({
 			type="button"
 			data-meeting-task-card
 			aria-describedby={details ? detailsId : undefined}
-			aria-label={t(task ? "chat.openTaskSession" : "meetingRecorder.openResult", { title: meeting.title })}
+			aria-label={t(task ? "chat.openTaskSession" : "meetingRecorder.openResult", { title })}
 			onClick={() => onOpen(meeting.id)}
 			className="flex min-h-[var(--control-lg)] w-full max-w-[calc(var(--control-lg)*7)] items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-raised)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-start text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]"
 		>
@@ -38,15 +39,18 @@ export function MeetingMessageCard({
 			) : (
 				<RecordingNoteIcon aria-hidden="true" className="shrink-0" />
 			)}
-			<span id={details ? detailsId : undefined} className="min-w-0 flex-1 text-body font-medium tabular-nums">
+			<span className="min-w-0 flex-1 text-body font-medium">
+				<span className="block truncate">{title}</span>
 				{task ? (
-					<>
-						<span className="block truncate">{meeting.title}</span>
-						<MeetingMetadata {...meeting} />
-					</>
-				) : (
-					details
-				)}
+					<MeetingMetadata {...meeting} />
+				) : details ? (
+					<span
+						id={detailsId}
+						className="block truncate text-caption font-normal tabular-nums text-[var(--color-text-secondary)]"
+					>
+						{details}
+					</span>
+				) : null}
 			</span>
 			<ChevronRight aria-hidden="true" size={18} className="shrink-0 text-[var(--color-text-secondary)]" />
 		</button>

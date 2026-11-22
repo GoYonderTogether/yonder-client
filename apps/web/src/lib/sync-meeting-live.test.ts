@@ -205,3 +205,16 @@ test("a missing local index does not skip audio or seal a partial meeting", asyn
 	expect(f.readAudio).not.toHaveBeenCalled();
 	expect(f.api.finalizeLiveMeeting).not.toHaveBeenCalled();
 });
+
+test.each([
+	[" Sa\u0303o Paulo ", "São Paulo"],
+	["31.23, 121.47", undefined],
+	[undefined, undefined],
+])("finalize forwards only an authorized and well-formed optional locality (%s)", async (locality, expected) => {
+	const f = setup({ state: "ended", endedAt: Date.now() });
+	expect(await syncMeetingLive({ ...f, ...(locality ? { locality } : {}) })).toBe(true);
+	expect(f.api.startLiveMeeting.mock.calls[0]?.[0]).not.toHaveProperty("locality");
+	const payload = f.api.finalizeLiveMeeting.mock.calls[0]?.[1];
+	if (expected) expect(payload).toHaveProperty("locality", expected);
+	else expect(payload).not.toHaveProperty("locality");
+});

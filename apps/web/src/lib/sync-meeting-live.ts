@@ -2,6 +2,8 @@ import type { createEndpoints } from "@yonder/api-client";
 import { MEETING_RESUME_WINDOW_MS, type MeetingRecording, meetingUploadReady } from "@yonder/feature-meetings";
 import type { LiveMeetingCaptureState, LiveMeetingProgress } from "@yonder/protocol";
 
+import { normalizeRecordingLocality } from "./recording-locality.ts";
+
 type LiveApi = Pick<
 	ReturnType<typeof createEndpoints>,
 	"startLiveMeeting" | "liveMeeting" | "checkpointLiveMeeting" | "uploadLiveMeetingSegment" | "finalizeLiveMeeting"
@@ -33,6 +35,7 @@ export async function syncMeetingLive({
 	captureState,
 	notifyInterruption,
 	localPhotoCount = 0,
+	locality,
 	readAudio,
 	drainPhotos,
 	signal,
@@ -45,6 +48,7 @@ export async function syncMeetingLive({
 	captureState?: LiveMeetingCaptureState | undefined;
 	notifyInterruption?: boolean;
 	localPhotoCount?: number;
+	locality?: string;
 	readAudio: (recordingId: string, index: number) => Promise<Uint8Array>;
 	drainPhotos: (meetingId: string) => Promise<number>;
 	signal: AbortSignal;
@@ -107,7 +111,12 @@ export async function syncMeetingLive({
 	const photoCount = await drainPhotos(verifiedId);
 	if (!segments.length && !photoCount) return false;
 	assertCurrent();
-	await api.finalizeLiveMeeting(verifiedId, { endedAt, state, segmentCount: segments.length, photoCount }, signal);
+	const label = normalizeRecordingLocality(locality);
+	await api.finalizeLiveMeeting(
+		verifiedId,
+		{ endedAt, state, segmentCount: segments.length, photoCount, ...(label ? { locality: label } : {}) },
+		signal,
+	);
 	assertCurrent();
 	return true;
 }
