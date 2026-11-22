@@ -3,6 +3,7 @@
  * ask "did anything change" — the server says so (08-前端缓存和同步 第一节).
  */
 
+import type { AgentCard } from "../cards/agent-card.ts";
 import type { Conversation, Message, Run } from "../chat/chat.ts";
 import type { Schedule } from "../chat/schedule.ts";
 import type { SubtaskSummary } from "../chat/subtask.ts";
@@ -35,6 +36,8 @@ export type ServerEvent =
 	| { type: "connector.command.cancelled"; eventId: string; at: string; commandId: string }
 	/** A connector request changed state; every endpoint patches the card from this payload. */
 	| { type: "connector_request.updated"; eventId: string; at: string; request: ConnectorRequestView }
+	/** An owner-only Agent card changed state; the card every endpoint is showing updates in place. */
+	| { type: "agent-card.updated"; eventId: string; at: string; card: AgentCard }
 	/** Sent only to the target device's sessions: store these grants locally, then report `connector.ready`. */
 	| {
 			type: "connector.grant.request";

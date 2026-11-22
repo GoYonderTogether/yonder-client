@@ -23,8 +23,22 @@ export function mergeMessage<T extends Message>(old: T, incoming: T): T {
 	};
 }
 
+/** An opaque, safe card reference. Authorization still happens in the card API. */
+export function isAgentCardId(id: unknown): id is string {
+	return typeof id === "string" && /^[a-z\d_-]{1,128}$/iu.test(id);
+}
+
+type MessageCapabilities = { agentCards?: boolean };
+
+const hasAgentCard = (message: Message, support: MessageCapabilities) =>
+	support.agentCards && message.senderKind === "bot" && isAgentCardId(message.cardId);
+
 /** A finished Bot reply can become readable after a message sent later in the chat. */
-export function newestReadableMessage(items: readonly Message[], personId: string): string | undefined {
+export function newestReadableMessage(
+	items: readonly Message[],
+	personId: string,
+	support: MessageCapabilities = {},
+): string | undefined {
 	let newest: Message | undefined;
 	for (const message of items) {
 		if (
@@ -36,7 +50,8 @@ export function newestReadableMessage(items: readonly Message[], personId: strin
 				!message.body?.trim() &&
 				!message.attachments.length &&
 				!message.outwardRequest &&
-				!message.friendRequestId)
+				!message.friendRequestId &&
+				!hasAgentCard(message, support))
 		)
 			continue;
 		const at = message.readableAt ?? message.createdAt;
@@ -49,11 +64,15 @@ export function newestReadableMessage(items: readonly Message[], personId: strin
 export type MessageBlock<T> = { time: Date; messageId: string; atStart: boolean } | { run: T[] };
 
 /** A time label breaks a sender run, and a system message stands on its own. */
-export function groupMessages<T extends Message>(items: readonly T[], hasFullHistory = false) {
+export function groupMessages<T extends Message>(
+	items: readonly T[],
+	hasFullHistory = false,
+	support: MessageCapabilities = {},
+) {
 	const blocks: MessageBlock<T>[] = [];
 	let previous: Date | undefined;
 	for (const item of items) {
-		if (isEmptyBotReply(item)) continue;
+		if (isEmptyBotReply(item) && !hasAgentCard(item, support)) continue;
 		const at = new Date(item.createdAt);
 		const milliseconds = at.getTime();
 		if (Number.isFinite(milliseconds)) {

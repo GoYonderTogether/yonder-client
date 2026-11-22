@@ -29,6 +29,7 @@ export {
 	useUpdateMe,
 	useUploadAvatar,
 } from "./hooks/account.ts";
+export { useAgentCard, useAgentCardActions } from "./hooks/agent-cards.ts";
 export {
 	ownedBots,
 	useDeleteBot,

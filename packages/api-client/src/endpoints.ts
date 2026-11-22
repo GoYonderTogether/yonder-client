@@ -4,6 +4,7 @@
  * grows, this file is what a generator would produce.
  */
 import { accountEndpoints } from "./account.ts";
+import { agentCardEndpoints } from "./agent-cards.ts";
 import { authEndpoints } from "./auth.ts";
 import { channelEndpoints } from "./channels.ts";
 import type { ApiClient } from "./client.ts";
@@ -36,6 +37,7 @@ export function createEndpoints(client: ApiClient) {
 		...authEndpoints(client),
 		...quotaEndpoints(client),
 		...accountEndpoints(client),
+		...agentCardEndpoints(client),
 	};
 }
 

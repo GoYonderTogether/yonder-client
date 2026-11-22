@@ -159,6 +159,8 @@ export interface AttachmentTextPreview {
 export interface Message {
 	friendRequestId?: string;
 	connectorRequestId?: string;
+	/** An owner-only Agent card, loaded separately. */
+	cardId?: string;
 	reaction?: string;
 	outwardRequest?: import("./outward.ts").OutwardRequestCard;
 	channelAttemptId?: string;
