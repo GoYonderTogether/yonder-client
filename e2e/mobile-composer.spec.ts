@@ -114,7 +114,7 @@ async function wav(request: Request) {
 	return { bytes, name: file.name };
 }
 
-async function pressToTalk(page: Page, button: Locator, hint = "松手发送") {
+async function pressToTalk(page: Page, button: Locator, hint = "松手发语音") {
 	await expect(button).toBeEnabled();
 	const box = await button.boundingBox();
 	if (!box) throw new Error("Press-to-talk button is outside the screen");
@@ -186,7 +186,7 @@ test("a slow microphone shows the pressed effect immediately and late capture ca
 	const press = await pressToTalk(page, hold, "正在启动录音…");
 	await expect(body).toHaveAttribute("data-pending-microphone", "3");
 	await page.evaluate(() => window.dispatchEvent(new Event("test:microphone-ready")));
-	await expect(overlay.locator(".composer-recording-label")).toHaveText("松手发送");
+	await expect(overlay.locator(".composer-recording-label")).toHaveText("松手发语音");
 	await page.waitForTimeout(700); // Leave enough real audio to pass the minimum-duration guard on release.
 	expect(wire.sent).toEqual([]);
 	await press.release();
@@ -262,6 +262,7 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 	const recording = await pressToTalk(page, hold);
 	await expect(hold).toHaveText("按住说话");
 	await expect(overlay.locator(".composer-recording-transcript")).toHaveText(words);
+	await expect(overlay.locator(".composer-recording-target-right")).toHaveText("滑到这里 转文字");
 	await expect(page.locator(".composer-box")).toHaveCSS("opacity", "0.28");
 	await expect(label.locator("*")).toHaveCount(0);
 	await expect(overlay).toHaveCSS("position", "fixed");
@@ -313,9 +314,9 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 	expect(normal.wideBlur).toBeGreaterThan(0);
 	expect(normal.centerBlur).toBeGreaterThan(normal.wideBlur);
 	await recording.move(0, -18);
-	await expect(label).toHaveText("松手发送");
+	await expect(label).toHaveText("松手发语音");
 	await recording.move(24, 0);
-	await expect(label).toHaveText("松手发送");
+	await expect(label).toHaveText("松手发语音");
 	await page.screenshot({ path: info.outputPath("mobile-recording-arc-blue.png"), scale: "css" });
 	await recording.move(-65, -75);
 	await expect(label).toHaveText("松手取消");
@@ -327,7 +328,7 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 	expect(await label.boundingBox()).toEqual(labelBounds);
 	await page.screenshot({ path: info.outputPath("mobile-recording-arc-red.png"), scale: "css" });
 	await recording.move(0, -12);
-	await expect(label).toHaveText("松手发送");
+	await expect(label).toHaveText("松手发语音");
 	expect(await glow()).toEqual(normal);
 	await recording.release("touchCancel");
 	await expect(overlay).toHaveCount(0);
@@ -384,7 +385,7 @@ test("empty mobile composer holds one line; a held recording sends one playable 
 	await recording.move(0, -56);
 	await expect(label).toHaveText("松手取消");
 	await recording.move(0, -12);
-	await expect(label).toHaveText("松手发送");
+	await expect(label).toHaveText("松手发语音");
 	await recording.release();
 	await expect(overlay).toHaveCount(0);
 	await expect
@@ -547,7 +548,7 @@ test("a right swipe edits the transcript and leaves sending up to the user", asy
 	await expect(page.locator(".composer-recording-label")).toHaveText("松手编辑");
 	await expect(page.locator(".composer-recording-target-right")).toHaveText("编辑");
 	await press.move(0, 0);
-	await expect(page.locator(".composer-recording-label")).toHaveText("松手发送");
+	await expect(page.locator(".composer-recording-label")).toHaveText("松手发语音");
 	await press.move(75, 0);
 	await expect(page.locator(".composer-recording-label")).toHaveText("松手编辑");
 	await page.screenshot({ path: info.outputPath("voice-to-text.png"), scale: "css" });
@@ -569,6 +570,11 @@ test("a tap still focuses the empty editor, while a hold dictates without sendin
 	await input.blur();
 	const held = await pressToTalk(page, input, "松手编辑");
 	await page.waitForTimeout(500);
+	await held.move(-65, -45);
+	await expect(page.locator(".composer-recording-label")).toHaveText("松手取消");
+	await expect(page.locator(".composer-recording-target-right")).toHaveText("编辑");
+	await held.move(0, 0);
+	await expect(page.locator(".composer-recording-label")).toHaveText("松手编辑");
 	await page.screenshot({ path: info.outputPath("voice-hold-editor.png"), scale: "css" });
 	await held.release();
 	await expect(input).toHaveValue(words);

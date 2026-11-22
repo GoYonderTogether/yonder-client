@@ -312,6 +312,10 @@
 	pointer-events: none;
 }
 
+.composer-editor:has(.composer-text-hold-hint) .composer-text[data-empty]:not(:focus) {
+	touch-action: none;
+}
+
 .composer-editor:has(.composer-text:not([data-empty]), .composer-text:focus) .composer-text-hold-hint {
 	display: none;
 }
@@ -452,12 +456,12 @@
 
 .composer-recording-target-left::before {
 	border-radius: 69% 47% 42% 61% / 53% 58% 42% 66%;
-	transform: rotate(13deg);
+	transform: rotate(-13deg);
 }
 
 .composer-recording-target-right::before {
 	border-radius: 47% 69% 61% 42% / 58% 53% 66% 42%;
-	transform: rotate(-13deg);
+	transform: rotate(13deg);
 }
 
 .composer-recording[data-to-text] .composer-recording-target-right::before {

@@ -208,7 +208,7 @@ export function HoldToTalk({
 									{t("app.cancel")}
 								</span>
 								<span className="composer-recording-target composer-recording-target-right">
-									{t(direction === "text" ? "chat.voiceEdit" : "chat.voiceToText")}
+									{t(direction === "text" || press.current?.text ? "chat.voiceEdit" : "chat.voiceSlideToText")}
 									<ArrowRight aria-hidden="true" size="1em" />
 								</span>
 							</div>
