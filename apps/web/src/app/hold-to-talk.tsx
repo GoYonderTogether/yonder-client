@@ -224,6 +224,9 @@ export function HoldToTalk({
 				)}
 			{locked || saved ? (
 				<fieldset className="composer-voice-actions" aria-label={t(saved ? "chat.voiceRecovered" : "chat.voiceLocked")}>
+					<span className="composer-voice-duration" data-live={locked || undefined}>
+						{timeLabel(voice.duration)}
+					</span>
 					<RecordingAction onAction={voice.cancel}>{t("app.cancel")}</RecordingAction>
 					{voice.sendingRetry ? null : saved && !voice.atLimit ? (
 						<RecordingAction disabled={disabled} onAction={() => void voice.start(true)}>
@@ -240,7 +243,6 @@ export function HoldToTalk({
 					>
 						{t(voice.sendingRetry ? "app.retry" : "chat.voiceSend")}
 					</RecordingAction>
-					<span className="composer-voice-duration">{timeLabel(voice.duration)}</span>
 				</fieldset>
 			) : null}
 			{visible && !saved && (

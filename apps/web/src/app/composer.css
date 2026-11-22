@@ -403,18 +403,20 @@
 	display: flex;
 	grid-area: voice-actions;
 	align-items: center;
-	justify-content: flex-start;
-	gap: var(--spacing-1);
+	justify-content: flex-end;
+	gap: var(--spacing-2);
 	min-width: 0;
 }
 
 .composer-voice-actions button {
 	min-height: var(--composer-button-size);
-	padding-inline: var(--spacing-2);
+	padding-inline: var(--spacing-4);
 	border-radius: var(--radius-full);
 	overflow-wrap: anywhere;
+	background: var(--color-bg-surface);
 	color: var(--color-text-primary);
-	font-size: var(--text-caption);
+	font-size: var(--text-body);
+	font-weight: var(--font-weight-medium);
 }
 
 .composer-voice-actions button:last-of-type {
@@ -423,16 +425,40 @@
 }
 
 .composer-voice-actions button:disabled {
-	background: transparent;
+	background: var(--color-bg-surface);
 	color: var(--color-text-tertiary);
 }
 
 .composer-voice-duration {
-	margin-inline-start: auto;
-	padding-inline-end: var(--spacing-1);
-	color: var(--color-text-secondary);
-	font-size: var(--text-caption);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-2);
+	margin-inline-end: auto;
+	padding-inline-start: var(--spacing-2);
+	color: var(--color-text-primary);
+	font-size: var(--text-body);
 	font-variant-numeric: tabular-nums;
+}
+
+.composer-voice-duration[data-live]::before {
+	width: var(--spacing-2);
+	height: var(--spacing-2);
+	border-radius: var(--radius-full);
+	background: var(--color-danger);
+	content: "";
+	animation: composer-voice-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes composer-voice-dot {
+	50% {
+		opacity: 0.25;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.composer-voice-duration[data-live]::before {
+		animation: none;
+	}
 }
 
 .composer-recording-target {
@@ -447,7 +473,9 @@
 	z-index: -1;
 	inset: 0;
 	border-radius: var(--radius-full);
-	background: color-mix(in srgb, var(--color-mask-solid) 70%, var(--color-accent));
+	background: color-mix(in srgb, var(--color-mask-solid) 58%, transparent);
+	-webkit-backdrop-filter: blur(var(--spacing-3));
+	backdrop-filter: blur(var(--spacing-3));
 	content: "";
 }
 
@@ -474,11 +502,11 @@
 }
 
 .composer-recording-target-left {
-	transform: rotate(-8deg);
+	transform: rotate(-6deg);
 }
 
 .composer-recording-target-right {
-	transform: rotate(8deg);
+	transform: rotate(6deg);
 }
 
 .composer-recording-target-phrase > :first-child {
@@ -490,9 +518,9 @@
 }
 
 .composer-recording[data-to-text] .composer-recording-target-right::before {
-	background: color-mix(in srgb, var(--color-mask-solid) 38%, var(--color-accent));
+	background: var(--color-accent);
 }
 
 .composer-recording[data-cancel] .composer-recording-target-left::before {
-	background: color-mix(in srgb, var(--color-mask-solid) 42%, var(--color-danger));
+	background: var(--color-danger);
 }
