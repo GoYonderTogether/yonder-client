@@ -100,6 +100,16 @@ test("a held pointer reverses immediately after reaching either edge", () => {
 		expect(card.style.transform).toContain("6px");
 		fireEvent.pointerUp(task, { ...point, clientX: 214 });
 		expect(task).toHaveAttribute("aria-expanded", "false");
+
+		fireEvent.keyDown(task, { key: "ArrowLeft" });
+		paintedCard.mockReturnValue(new DOMRect(-120, 0, 200, 60));
+		fireEvent.pointerDown(task, point);
+		fireEvent.pointerMove(task, { ...point, clientX: 260 });
+		const action = strip.querySelector("button");
+		if (!action) throw new Error("Expected a revealed action");
+		fireEvent.pointerUp(action, { ...point, clientX: 260 });
+		fireEvent.lostPointerCapture(task, point);
+		expect(task).toHaveAttribute("aria-expanded", "false");
 		expect(select).not.toHaveBeenCalled();
 	} finally {
 		vi.useRealTimers();

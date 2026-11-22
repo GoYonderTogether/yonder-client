@@ -106,7 +106,7 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 		setDrag(null);
 		suppressClick.current = cancelled || start.mode !== "pending";
 		if (cancelled) {
-			// WebKit can cancel the pointer when a completed hold moves the row away from the touch.
+			// WebKit can report lost capture after a completed hold moves the row away from the touch.
 			if (start.mode !== "hold") setExpanded(start.wasExpanded);
 			return;
 		}
@@ -141,6 +141,8 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 				className,
 			)}
 			style={{ "--row-actions-natural-width": `calc(${actions.length} * var(--control-lg))` } as CSSProperties}
+			onPointerUp={(event) => finish(event, event.defaultPrevented)}
+			onPointerCancel={(event) => finish(event, true)}
 		>
 			<div
 				ref={control}
@@ -204,14 +206,6 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 						start.offset = clampOffset(start.offset + start.lastX - event.clientX, start.width);
 						start.lastX = event.clientX;
 						setDrag(start.offset);
-					},
-					onPointerUp(event) {
-						children.props.onPointerUp?.(event);
-						finish(event, event.defaultPrevented);
-					},
-					onPointerCancel(event) {
-						children.props.onPointerCancel?.(event);
-						finish(event, true);
 					},
 					onLostPointerCapture(event) {
 						children.props.onLostPointerCapture?.(event);
