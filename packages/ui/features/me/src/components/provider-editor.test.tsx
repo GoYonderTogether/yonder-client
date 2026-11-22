@@ -236,3 +236,41 @@ test("changing protocol at the same local URL requires a separately approved end
 		protocol: "anthropic",
 	});
 });
+
+test("Add Provider reports current asynchronous failures, not validation or successful API responses", async () => {
+	const onAddFailure = vi.fn();
+	const onDone = vi.fn();
+	const rejected = new Error("test rejection");
+	render(
+		<I18nextProvider i18n={createI18n("en")}>
+			<ProviderEditor
+				preset={{ id: "custom", name: "Provider", baseUrl: "https://example.org", models: "m1", keyUrl: null }}
+				onAddFailure={onAddFailure}
+				onDone={onDone}
+			/>
+		</I18nextProvider>,
+	);
+	const save = screen.getByRole("button", { name: "Save" });
+	fireEvent.click(save);
+	expect(onAddFailure).not.toHaveBeenCalled();
+
+	fireEvent.change(screen.getByLabelText("API key"), { target: { value: "fixture" } });
+	const discover = screen.getByRole("button", { name: "Get models" });
+	actions.discoverModels.mockResolvedValueOnce({ models: [] });
+	fireEvent.click(discover);
+	await screen.findByRole("alert");
+	expect(onAddFailure).not.toHaveBeenCalled();
+
+	actions.discoverModels.mockRejectedValueOnce(rejected);
+	fireEvent.click(discover);
+	await waitFor(() => expect(onAddFailure).toHaveBeenCalledExactlyOnceWith("discover", rejected, expect.any(Number)));
+
+	actions.save.mockRejectedValueOnce(rejected);
+	fireEvent.click(save);
+	await waitFor(() => expect(onAddFailure).toHaveBeenCalledWith("save", rejected, expect.any(Number)));
+	expect(onAddFailure).toHaveBeenCalledTimes(2);
+	actions.save.mockResolvedValueOnce({});
+	fireEvent.click(save);
+	await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+	expect(onAddFailure).toHaveBeenCalledTimes(2);
+});

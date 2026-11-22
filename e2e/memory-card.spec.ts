@@ -141,10 +141,13 @@ async function setup(page: Page, dark = false) {
 }
 
 const privateText = "喜欢直接的结论，先看表格再看细节；晚上效率最高。";
+const impressionDetail =
+	"做原型时通常先自己走完整个流程，从真实体验里找最卡的一步。遇到分歧时会拿出两种方案，比较各自的成本和收益，再决定下一步。";
 const recentText = "在准备 12 月路演，同时推进 Yonder 内测。";
 const impressionMarkdown = [
 	"# 印象",
 	privateText,
+	`**${impressionDetail}** [内测反馈](/notes/内测反馈.md)`,
 	"## 沟通习惯",
 	"- 先说结论、分歧和下一步，再补充判断依据。\n- 不需要为了每个小决定停下来确认；遇到影响上线或用户数据的变更再一起定。",
 	"## 工作方式",
@@ -166,9 +169,25 @@ for (const layout of ["mobile", "desktop"] as const) {
 		test("two fixed tabs show one readable card each", async ({ page }) => {
 			await mkdir(previewDir, { recursive: true });
 			await setup(page);
+			const fileRequests: string[] = [];
+			page.on("request", (request) => {
+				const url = new URL(request.url());
+				if (url.pathname === "/v1/memory/files/content") fileRequests.push(url.searchParams.get("path") ?? "");
+			});
 			await page.goto("/memory");
-			const entry = page.getByRole("button", { name: "AI 对我的了解" });
+			const entry = page.getByRole("button", { name: "AI 对我的了解", exact: true });
+			const snippet = entry.locator(".line-clamp-3");
 			await expect(entry).toBeVisible();
+			await expect(snippet).toContainText(`${privateText} ${impressionDetail} 内测反馈`);
+			await expect(snippet).not.toContainText("印象");
+			await expect(snippet.locator("a, img, strong")).toHaveCount(0);
+			await expect(snippet).toHaveCSS("-webkit-line-clamp", "3");
+			expect(
+				await snippet.evaluate(
+					(node) => node.clientHeight === Number.parseFloat(getComputedStyle(node).lineHeight) * 3,
+				),
+			).toBe(true);
+			expect(fileRequests).toEqual(["/me/印象.md"]);
 			await expect(page.getByRole("heading", { name: "全部" })).toBeVisible();
 			await expect(page.getByRole("region", { name: "我的名片" })).toHaveCount(0);
 			await screenshot(page, `memory-private-landing-${layout}`);
@@ -208,6 +227,32 @@ for (const layout of ["mobile", "desktop"] as const) {
 			await expect.poll(() => surfaceColors(card)).toEqual(colors);
 			await screenshot(page, `ai-profile-card-reading-${layout}-recent`);
 		});
+	});
+}
+
+for (const status of [200, 403]) {
+	test(`the profile entry keeps only its title while loading and after a ${status} fallback`, async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await setup(page);
+		const pending = Promise.withResolvers<void>();
+		const pattern = "**/v1/memory/files/content?*";
+		await page.route(pattern, async (route) => {
+			await pending.promise;
+			await route.fulfill({
+				status,
+				json: status === 200 ? { content: "# 印象" } : { code: "forbidden", content: privateText },
+			});
+		});
+		const request = page.waitForRequest(pattern);
+		await page.goto("/memory");
+		await request;
+		const entry = page.getByRole("button", { name: "AI 对我的了解", exact: true });
+		await expect(entry).toHaveText("AI 对我的了解");
+		const response = page.waitForResponse(pattern);
+		pending.resolve();
+		expect((await response).status()).toBe(status);
+		await expect(entry).toHaveText("AI 对我的了解");
+		await expect(entry).not.toHaveAttribute("aria-describedby");
 	});
 }
 

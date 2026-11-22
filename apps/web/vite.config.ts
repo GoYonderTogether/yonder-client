@@ -11,6 +11,9 @@ export default defineConfig({
 	plugins: [react(), tailwindcss()],
 	define: {
 		__YONDER_VERSION__: JSON.stringify(manifest.version),
+		__YONDER_PILOT_API_LOCAL__: JSON.stringify(
+			/^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::[0-9]+)?$/.test(apiTarget),
+		),
 	},
 	server: {
 		port: 5173,

@@ -14,23 +14,13 @@ import {
 	type NativeProviderBinding,
 	NEW_ENDPOINT,
 	normaliseUrl,
+	type ProviderAddFailure,
+	type ProviderPreset,
 	providerDeviceLabel,
 	type RegisteredLocalProviderEndpoint,
 	type RegisterLocalProviderEndpoint,
 } from "./provider-location.ts";
 import { ProviderModelPicker } from "./provider-model-picker.tsx";
-
-export interface ProviderPreset {
-	id: string;
-	name: string;
-	baseUrl: string;
-	models: string;
-	keyUrl: string | null;
-	protocol?: Provider["protocol"];
-	target?: NativeProviderBinding | undefined;
-	note?: string | null;
-	website?: string | null;
-}
 
 export function ProviderEditor({
 	provider,
@@ -38,6 +28,7 @@ export function ProviderEditor({
 	onChangePreset,
 	onDirtyChange,
 	onDone,
+	onAddFailure,
 	devices = [],
 	registerEndpoint,
 }: {
@@ -46,6 +37,7 @@ export function ProviderEditor({
 	onChangePreset?: () => void;
 	onDirtyChange?: ((dirty: boolean) => void) | undefined;
 	onDone: () => void;
+	onAddFailure?: ProviderAddFailure | undefined;
 	devices?: readonly DeviceSummary[] | undefined;
 	registerEndpoint?: RegisterLocalProviderEndpoint | undefined;
 }) {
@@ -211,6 +203,7 @@ export function ProviderEditor({
 			);
 			return;
 		}
+		const startedAt = onAddFailure ? performance.now() : 0;
 		writing.current = true;
 		setFetching(true);
 		setError(null);
@@ -231,8 +224,11 @@ export function ProviderEditor({
 			setAvailable(result.models);
 			setMetadata(result.metadata ?? {});
 			if (!result.models.length) setError(t("models.fetchFailed"));
-		} catch {
-			if (version === discoveryVersion.current) setError(t("models.fetchFailed"));
+		} catch (cause) {
+			if (version === discoveryVersion.current) {
+				setError(t("models.fetchFailed"));
+				onAddFailure?.("discover", cause, startedAt);
+			}
 		} finally {
 			writing.current = false;
 			if (version === discoveryVersion.current) setFetching(false);
@@ -261,6 +257,8 @@ export function ProviderEditor({
 			setError(t("models.invalid"));
 			return;
 		}
+		const startedAt = onAddFailure ? performance.now() : 0;
+		let saved = false;
 		writing.current = true;
 		setSaving(true);
 		setError(null);
@@ -282,10 +280,12 @@ export function ProviderEditor({
 					? { origin: "device", ...target, protocol: deviceProtocol }
 					: { baseUrl: normaliseUrl(baseUrl), protocol, ...(needsKey ? { apiKey } : {}) }),
 			});
+			saved = true;
 			setApiKey("");
 			onDone();
-		} catch {
+		} catch (cause) {
 			setError(t("models.saveFailed"));
+			if (!saved && version === discoveryVersion.current) onAddFailure?.("save", cause, startedAt);
 		} finally {
 			writing.current = false;
 			setSaving(false);

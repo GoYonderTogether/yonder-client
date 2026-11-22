@@ -13,6 +13,20 @@ export interface NativeProviderBinding {
 	endpointId: string;
 }
 
+export interface ProviderPreset {
+	id: string;
+	name: string;
+	baseUrl: string;
+	models: string;
+	keyUrl: string | null;
+	protocol?: Provider["protocol"];
+	target?: NativeProviderBinding | undefined;
+	note?: string | null;
+	website?: string | null;
+}
+
+export type ProviderAddFailure = (phase: "save" | "discover", error: unknown, startedAt: number) => void;
+
 export function localProviderBinding(provider?: Provider): NativeProviderBinding | undefined {
 	return provider?.origin === "device" && provider.deviceId && provider.endpointId
 		? { deviceId: provider.deviceId, endpointId: provider.endpointId }

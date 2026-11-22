@@ -4,10 +4,12 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DefaultModelSection } from "./default-model-section.tsx";
-import { ProviderEditor, type ProviderPreset } from "./provider-editor.tsx";
+import { ProviderEditor } from "./provider-editor.tsx";
 import {
 	isLegacyDeviceProvider,
 	localProviderBinding,
+	type ProviderAddFailure,
+	type ProviderPreset,
 	providerDeviceLabel,
 	type RegisterLocalProviderEndpoint,
 } from "./provider-location.ts";
@@ -30,11 +32,13 @@ export function ModelsSection({
 	onOpenPage,
 	onDirtyChange,
 	registerEndpoint,
+	onAddFailure,
 }: {
 	page: string | null;
 	onOpenPage: (page: string | null) => void;
 	onDirtyChange?: ((dirty: boolean) => void) | undefined;
 	registerEndpoint?: RegisterLocalProviderEndpoint | undefined;
+	onAddFailure?: ProviderAddFailure | undefined;
 }) {
 	const { t, i18n } = useTranslation();
 	const devices = useDevices();
@@ -52,6 +56,7 @@ export function ModelsSection({
 					{...location}
 					key={preset.id}
 					preset={preset}
+					onAddFailure={onAddFailure}
 					onDirtyChange={onDirtyChange}
 					onChangePreset={() => setPreset(null)}
 					onDone={() => {

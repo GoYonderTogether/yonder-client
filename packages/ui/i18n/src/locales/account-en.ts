@@ -244,6 +244,9 @@ export const accountMessagesEn = {
 			closeToQuit: "Quit Yonder",
 			closeBehaviorRecording: "Closing the window while recording or uploading a recording keeps Yonder running.",
 			closeBehaviorError: "Could not access this setting.",
+			internalErrorTitle: "Share pilot error counts",
+			internalErrorDescription:
+				"Send only grouped errors from Add Provider and page loading to the internal test server. No account info or content. Turn off any time.",
 			title: "General",
 		},
 		about: {

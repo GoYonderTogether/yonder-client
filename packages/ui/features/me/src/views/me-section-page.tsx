@@ -10,7 +10,7 @@ import { DevicesSection } from "../components/devices-section.tsx";
 import { GeneralSection } from "../components/empty-sections.tsx";
 import { InviteSection } from "../components/invite-section.tsx";
 import { ProfileEditor } from "../components/profile-editor.tsx";
-import type { RegisterLocalProviderEndpoint } from "../components/provider-location.ts";
+import type { ProviderAddFailure, RegisterLocalProviderEndpoint } from "../components/provider-location.ts";
 import { parseQuotaPage, QuotaSection, quotaPageTitle } from "../components/quota-section.tsx";
 import { ConnectorsSection } from "../connectors/connectors-section.tsx";
 import type { LocalFilesAdapter } from "../connectors/local-files-adapter.ts";
@@ -35,6 +35,7 @@ export interface MeSectionPageProps {
 	localFiles?: LocalFilesAdapter | undefined;
 	onModelDirtyChange?: (dirty: boolean) => void;
 	registerProviderEndpoint?: RegisterLocalProviderEndpoint | undefined;
+	onProviderAddFailure?: ProviderAddFailure | undefined;
 	onSignedOut: () => void;
 	onOpenLegal: (document: "terms" | "privacy") => void;
 	appVersion: string;
@@ -66,6 +67,7 @@ export function MeSectionPage({
 	localFiles,
 	onModelDirtyChange,
 	registerProviderEndpoint,
+	onProviderAddFailure,
 	onSignedOut,
 	onOpenLegal,
 	appVersion,
@@ -165,6 +167,7 @@ export function MeSectionPage({
 						onOpenPage={onOpenPage}
 						onDirtyChange={onModelDirtyChange}
 						registerEndpoint={registerProviderEndpoint}
+						onAddFailure={onProviderAddFailure}
 					/>
 				);
 			case "devices":

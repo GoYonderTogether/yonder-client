@@ -16,12 +16,14 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { BUILD_VERSION } from "../lib/config.ts";
 import { useDeviceModelEndpointRegistration } from "../lib/device-model-native.ts";
+import { internalErrorPilot, reportProviderAddFailure } from "../lib/internal-errors.ts";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
 import { CheckoutEntry } from "./checkout.tsx";
 import { useConnectDevice } from "./connect-device.tsx";
 import { ConnectDeviceDownloads } from "./connect-device-downloads.tsx";
 import { DesktopCloseBehavior } from "./desktop-close-behavior.tsx";
+import { InternalErrorConsent } from "./internal-error-consent.tsx";
 import { renderMacPermissionManagement } from "./mac-permissions.tsx";
 import { ReceptionLibraryPage } from "./reception-library.tsx";
 import { botSettingsPath, channelsSettingsPath } from "./settings-navigation.ts";
@@ -127,11 +129,17 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 					{...legacy}
 					appVersion={BUILD_VERSION}
 					aboutUpdate={<UpdateControls />}
-					generalExtra={<DesktopCloseBehavior />}
+					generalExtra={
+						<>
+							<DesktopCloseBehavior />
+							<InternalErrorConsent />
+						</>
+					}
 					wechatLink={<WechatWebEntry mode="link" />}
 					checkoutEntry={<CheckoutEntry />}
 					renderDeviceAction={renderMacPermissionManagement}
 					registerProviderEndpoint={registerProviderEndpoint}
+					onProviderAddFailure={internalErrorPilot() ? reportProviderAddFailure : undefined}
 					renderChangePassword={(onDone) => (
 						<PasswordSetupForm
 							mode={hasPassword ? "change" : "set"}

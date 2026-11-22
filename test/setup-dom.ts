@@ -11,3 +11,4 @@ afterEach(() => {
 // `apps/web/src/lib/config.ts` reads this identifier; Vite replaces it at build time, so in a test
 // it has to exist as a global before any module reads it.
 (globalThis as unknown as { __YONDER_VERSION__: string }).__YONDER_VERSION__ = "0.0.0-test";
+(globalThis as unknown as { __YONDER_PILOT_API_LOCAL__: boolean }).__YONDER_PILOT_API_LOCAL__ = true;

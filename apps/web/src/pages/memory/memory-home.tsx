@@ -1,13 +1,14 @@
 import type { MemoryEntry, MemoryFileSummary } from "@yonder/protocol";
 import { ListGroup, ListRow } from "@yonder/ui-components";
-import { useMemoryDays, useMemoryFiles } from "@yonder/ui-data";
+import { useMemoryDays, useMemoryFile, useMemoryFiles } from "@yonder/ui-data";
 import { CalendarRange, FolderOpen, Globe, History, LockKeyhole, NotebookPen } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
+import { documentPreview } from "../message-preview.ts";
 import { dayName, daysAgo, memoryFormat, useMinute } from "./memory-format.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
-import { fileGroup, MEMORY_ABOUT_PATH, memoryGroupRoute } from "./memory-view.ts";
+import { ABOUT_PATHS, fileGroup, MEMORY_ABOUT_PATH, memoryGroupRoute } from "./memory-view.ts";
 
 const RECENT = 5;
 const ORDER = ["notes", "sources", "digests", "public"];
@@ -202,11 +203,24 @@ function Tiles() {
 function AboutEntry({ selected = false }: { selected?: boolean }) {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
+	const descriptionId = useId();
+	const impression = useMemoryFile(ABOUT_PATHS[0]);
+	const content = impression.isSuccess ? impression.data.content : undefined;
+	const preview = typeof content === "string" ? documentPreview(content) : "";
 	return (
 		<ListGroup>
 			<ListRow
 				leading={<LockKeyhole size={18} aria-hidden="true" />}
 				title={t("memory.aboutAiTitle")}
+				aria-label={t("memory.aboutAiTitle")}
+				aria-describedby={preview ? descriptionId : undefined}
+				subtitle={
+					preview ? (
+						<span id={descriptionId} className="line-clamp-3 whitespace-normal wrap-anywhere">
+							{preview}
+						</span>
+					) : undefined
+				}
 				selected={selected}
 				chevron
 				onClick={() => navigate(MEMORY_ABOUT_PATH)}

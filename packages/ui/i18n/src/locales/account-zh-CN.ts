@@ -242,6 +242,9 @@ export const accountMessagesZhCN = {
 			closeToQuit: "退出 Yonder",
 			closeBehaviorRecording: "正在录音或上传录音时，关闭窗口会保留后台运行。",
 			closeBehaviorError: "无法读取或保存此设置。",
+			internalErrorTitle: "共享内测错误计数",
+			internalErrorDescription:
+				"仅将添加模型供应商和页面加载的汇总错误发送到内部测试服务，不含账号信息或内容，可随时关闭。",
 			title: "通用",
 		},
 		about: {
