@@ -5,6 +5,7 @@ export const memoryMessagesEn = {
 	timeline: "Timeline",
 	impression: "Impression",
 	recent: "Recent",
+	profile: "Profile",
 	private: "Private",
 	public: "Public",
 	secret: "Secret",

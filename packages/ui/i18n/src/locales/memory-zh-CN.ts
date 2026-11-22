@@ -7,6 +7,7 @@ export const memoryMessagesZhCN: { [K in keyof typeof memoryMessagesEn]: string 
 	timeline: "时间线",
 	impression: "印象",
 	recent: "近期",
+	profile: "画像",
 	private: "私人",
 	public: "公开",
 	secret: "机密",

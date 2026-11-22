@@ -8,7 +8,7 @@ import { useOpenMemoryFile } from "./memory-navigation.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
 import { ABOUT_PATHS } from "./memory-view.ts";
 
-const FACETS = ["memory.impression", "memory.recent"] as const;
+const FACETS = ["memory.impression", "memory.recent", "memory.profile"] as const;
 
 function ProfileFile({ path }: { path: (typeof ABOUT_PATHS)[number] }) {
 	const { t } = useTranslation();
@@ -43,7 +43,7 @@ export function MemoryAbout() {
 						aria-label={t("memory.aboutAiTitle")}
 						options={ABOUT_PATHS.map((value, index) => ({ value, label: t(FACETS[index] ?? FACETS[0]) }))}
 						value={path}
-						onChange={(value) => setPath(value === ABOUT_PATHS[1] ? ABOUT_PATHS[1] : ABOUT_PATHS[0])}
+						onChange={(value) => setPath(ABOUT_PATHS.find((candidate) => candidate === value) ?? ABOUT_PATHS[0])}
 					/>
 				</div>
 			}

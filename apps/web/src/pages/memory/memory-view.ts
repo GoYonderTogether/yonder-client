@@ -10,7 +10,7 @@ export type MemoryView =
 	| { kind: "group"; group: string; directory?: string }
 	| { kind: "file"; path: string };
 
-export const ABOUT_PATHS = ["/me/印象.md", "/me/近期.md"] as const;
+export const ABOUT_PATHS = ["/me/印象.md", "/me/近期.md", "/me/画像.md"] as const;
 export const MEMORY_ABOUT_PATH = "/memory/about";
 
 export function isAboutMemoryFile(path: string): boolean {
