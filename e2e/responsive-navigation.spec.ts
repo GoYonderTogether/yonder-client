@@ -416,6 +416,8 @@ test("settings keep the active form across desktop resize and guard outside clic
 		.and(page.locator('[aria-modal="true"]'));
 	await backdrop.click({ position: { x: 5, y: 100 } });
 	await discard.getByRole("button", { name: "Cancel", exact: true }).click();
+	await expect(discard).toHaveCount(0);
+	await expect(backdrop).toHaveCount(1);
 	await expect(page).toHaveURL(/\/me\/models\/add$/);
 	await expect(settings).toBeVisible();
 	await expect(name).toHaveValue("Unsent provider");
