@@ -1,5 +1,6 @@
 # 标志资产
 
-`src/yonder-mark.js` 保存选定标志的正形与反白几何。浅色底使用 `assets/svg/yonder-mark-black.svg`，深色底使用 `assets/svg/yonder-mark-white.svg`；`assets/svg/yonder-mark.svg` 为 `currentColor` 母版。名称尚未确定，不使用字标。
+- 界面 Logo 直接叠在所在界面的背景上。白底和其他浅色底用 [黑色标志](assets/svg/yonder-mark-black.svg)，深色底用 [反白标志](assets/svg/yonder-mark-white.svg)。两个 SVG 的标志外都透明，几何源文件为 `src/yonder-mark.js`。
+- 应用图标使用 [白色圆角底板版](assets/png/yonder-app-icon-1024.png)。黑色 Y 放在白色圆角底板内，底板外全透明。[系统裁切素材](assets/png/yonder-tile-ink-1024.png)由 iOS 打包流程读取，使用铺满的白底交给系统成形。
 
-运行 `node brand/scripts/build.mjs` 可重建 `assets/` 和 `apps/web/public/` 的图标；需要已安装的 Playwright 和 Chrome（或 Playwright 浏览器）。`assets/preview.html` 可直接打开预览。16px 使用原始正形，通道可能压缩。
+运行 `node brand/scripts/build.mjs` 可重建 `assets/` 和 `apps/web/public/` 的图标，需要 Playwright 和 Chrome（或 Playwright 浏览器）。[一起预览两种资产](assets/preview.html)。

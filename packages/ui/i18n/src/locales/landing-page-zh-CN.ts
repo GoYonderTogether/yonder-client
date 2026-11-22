@@ -203,6 +203,7 @@ export const landingPageZhCN: LandingPageMessages = {
 		terms: "用户协议",
 		privacy: "隐私政策",
 		company: "未至之境（武汉）科技有限公司",
+		icp: "{{number}}",
 		scenes: "页面中的人物、对话和数字均为场景演示。",
 	},
 };

@@ -1,6 +1,7 @@
 import { accountMessagesZhCN } from "./account-zh-CN.ts";
 import { botMessagesZhCN } from "./bots-zh-CN.ts";
 import { channelsZhCN } from "./channels.ts";
+import { commerceZhCN } from "./commerce.ts";
 import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
 import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
 import type { Messages } from "./en.ts";
@@ -25,6 +26,7 @@ import { voiceInputZhCN } from "./voice-input.ts";
 export const zhCN: Messages = {
 	bots: botMessagesZhCN,
 	channels: channelsZhCN,
+	commerce: commerceZhCN,
 	composerAttachments: composerAttachmentsZhCN,
 	connectors: connectorMessagesZhCN,
 	inviteExperience: inviteExperienceZhCN,

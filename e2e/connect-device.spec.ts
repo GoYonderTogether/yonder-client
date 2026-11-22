@@ -6,7 +6,7 @@ const connectLabel = "连接其他设备";
 const deviceGuide = "在要连接的设备上安装 Yonder，并登录同一账号。";
 const downloadPath = "/download?connect-device=1";
 const connectorPath = `${downloadPath}&platform=windows`;
-const publicOrigin = "https://yonder.zethai.cn";
+const publicOrigin = "https://yonderbot.net";
 const iPhone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)";
 const android = "Mozilla/5.0 (Linux; Android 15; Pixel 9)";
 const macOS = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)";

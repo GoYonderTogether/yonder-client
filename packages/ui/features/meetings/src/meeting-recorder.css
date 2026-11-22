@@ -2,6 +2,7 @@
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
 	justify-items: center;
+	gap: var(--spacing-2);
 	pointer-events: none;
 }
 .meeting-capsule-stack[data-measure-only] {
@@ -72,4 +73,12 @@
 }
 .meeting-capsule-control:disabled {
 	opacity: var(--opacity-disabled);
+}
+.meeting-capsule-notice {
+	max-width: 100%;
+	padding: var(--spacing-2) var(--spacing-3);
+	border-radius: var(--radius-control);
+	background: var(--color-bg-raised);
+	box-shadow: var(--shadow-sm);
+	font-size: var(--text-caption);
 }

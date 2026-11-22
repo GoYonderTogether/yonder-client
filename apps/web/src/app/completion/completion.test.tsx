@@ -120,7 +120,7 @@ test("paging and active descendants keep focus; edge arrows and Shift+Tab retain
 	expect(input).toHaveFocus();
 });
 
-test("IME final change before compositionEnd restores the correct filter without selecting", () => {
+test("IME confirmation restores the correct filter for the next Enter to select", () => {
 	const { input, type, accepted, sent } = setup();
 	type("/");
 	fireEvent.compositionStart(input);
@@ -131,9 +131,13 @@ test("IME final change before compositionEnd restores the correct filter without
 	expect(tab.defaultPrevented).toBe(false);
 	fireEvent.compositionEnd(input);
 	expect(screen.getAllByRole("option")).toHaveLength(1);
-	fireEvent.keyDown(input, { key: "Enter" });
+	fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+	fireEvent.keyUp(input, { key: "Enter" });
 	expect(input).toHaveValue("/pdf-3");
 	expect(accepted).not.toHaveBeenCalled();
+	fireEvent.keyDown(input, { key: "Enter" });
+	expect(input).toHaveValue("/pdf-3 ");
+	expect(accepted).toHaveBeenCalledWith(expect.objectContaining({ id: "s3" }));
 	expect(sent).not.toHaveBeenCalled();
 });
 

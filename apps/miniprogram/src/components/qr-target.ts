@@ -1,3 +1,5 @@
+const officialOrigins = ["https://yonderbot.net", "https://yonder.zethai.cn"];
+
 /** Parse Yonder QR data without a browser URL API or opening arbitrary URLs. */
 export function qrTarget(value: string, baseUrl: string): string | null {
 	const text = value.trim();
@@ -5,12 +7,15 @@ export function qrTarget(value: string, baseUrl: string): string | null {
 	if (/^\+?\d{6,15}$/.test(text)) return text;
 	if (validHandle(text)) return `@${text.replace(/^@/, "").toLowerCase()}`;
 	if (text.includes("#")) return null;
-	const origin = /^https?:\/\/[^/?#]+/i.exec(baseUrl)?.[0];
+	const origin = /^https?:\/\/[^/?#]+/i.exec(baseUrl)?.[0]?.toLowerCase();
 	if (!origin) return null;
 	let path = text;
 	if (/^https?:\/\//i.test(text)) {
 		const incoming = /^https?:\/\/[^/?#]+/i.exec(text)?.[0];
-		if (!incoming || incoming.toLowerCase() !== origin.toLowerCase()) return null;
+		if (!incoming) return null;
+		const incomingOrigin = incoming.toLowerCase();
+		if (incomingOrigin !== origin && !(officialOrigins.includes(origin) && officialOrigins.includes(incomingOrigin)))
+			return null;
 		path = text.slice(incoming.length);
 	}
 	if (!path.startsWith("/") || path.startsWith("//")) return null;

@@ -24,9 +24,9 @@
 			}
 		],
 		"security": {
-			"csp": "default-src 'self'; script-src 'self' blob:; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://yonder.zethai.cn; media-src 'self' blob: https://yonder.zethai.cn; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://yonder.zethai.cn wss://yonder.zethai.cn; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-			"devCsp": "default-src 'self'; script-src 'self' blob: 'unsafe-inline' 'unsafe-eval' http://localhost:* http://127.0.0.1:*; script-src-attr 'none'; style-src 'self' 'unsafe-inline' http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob: http://localhost:* http://127.0.0.1:* https://yonder.zethai.cn; media-src 'self' blob: http://localhost:* http://127.0.0.1:* https://yonder.zethai.cn; font-src 'self' data: http://localhost:* http://127.0.0.1:*; connect-src 'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://yonder.zethai.cn wss://yonder.zethai.cn; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'",
-			"capabilities": ["desktop", "contacts", "mobile", "android-update", "apple-resources"]
+			"csp": "default-src 'self'; script-src 'self' blob:; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://yonder.zethai.cn https://yonderbot.net; media-src 'self' blob: https://yonder.zethai.cn https://yonderbot.net; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://yonder.zethai.cn wss://yonder.zethai.cn https://yonderbot.net wss://yonderbot.net; worker-src 'self' blob:; frame-src https://open.weixin.qq.com https://yonderbot.net/v1/auth/wechat/web/callback https://yonder.zethai.cn/v1/auth/wechat/web/callback; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+			"devCsp": "default-src 'self'; script-src 'self' blob: 'unsafe-inline' 'unsafe-eval' http://localhost:* http://127.0.0.1:*; script-src-attr 'none'; style-src 'self' 'unsafe-inline' http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob: http://localhost:* http://127.0.0.1:* https://yonder.zethai.cn https://yonderbot.net; media-src 'self' blob: http://localhost:* http://127.0.0.1:* https://yonder.zethai.cn https://yonderbot.net; font-src 'self' data: http://localhost:* http://127.0.0.1:*; connect-src 'self' ipc: http://ipc.localhost http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://yonder.zethai.cn wss://yonder.zethai.cn https://yonderbot.net wss://yonderbot.net; worker-src 'self' blob:; frame-src https://open.weixin.qq.com https://yonderbot.net/v1/auth/wechat/web/callback https://yonder.zethai.cn/v1/auth/wechat/web/callback; object-src 'none'; base-uri 'none'; form-action 'self'",
+			"capabilities": ["desktop", "contacts", "mobile", "android-update", "apple-resources", "commerce-browser"]
 		}
 	},
 	"plugins": {
@@ -40,6 +40,7 @@
 		"targets": ["dmg", "nsis", "deb", "appimage"],
 		"icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
 		"resources": [],
+		"windows": { "nsis": { "installerIcon": "icons/icon.ico", "uninstallerIcon": "icons/icon.ico" } },
 		"macOS": { "infoPlist": "Info.plist", "entitlements": "Entitlements.plist" }
 	}
 }

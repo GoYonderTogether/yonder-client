@@ -1,4 +1,4 @@
-import { AppIcon, ListGroup, ListRow } from "@yonder/ui-components";
+import { ListGroup, ListRow, Logo } from "@yonder/ui-components";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -19,7 +19,7 @@ export function AboutSection({ appVersion, serverVersion, onOpenLegal, update }:
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)]">
 			<div className="flex flex-col items-center gap-[var(--spacing-2)] py-[var(--spacing-4)]">
-				<AppIcon size={64} />
+				<Logo size={64} />
 				<span className="text-h3 font-semibold text-[var(--color-text-primary)]">Yonder</span>
 			</div>
 			<ListGroup>

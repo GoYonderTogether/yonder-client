@@ -1,6 +1,7 @@
 import { accountMessagesEn } from "./account-en.ts";
 import { botMessagesEn } from "./bots-en.ts";
 import { channelsEn } from "./channels.ts";
+import { commerceEn } from "./commerce.ts";
 import { composerAttachmentsEn } from "./composer-attachments-en.ts";
 import { connectorMessagesEn } from "./connectors-en.ts";
 import { friendQrEn, friendRequestsEn } from "./friend-qr-en.ts";
@@ -23,6 +24,7 @@ import { voiceInputEn } from "./voice-input.ts";
 export const en = {
 	bots: botMessagesEn,
 	channels: channelsEn,
+	commerce: commerceEn,
 	composerAttachments: composerAttachmentsEn,
 	connectors: connectorMessagesEn,
 	inviteExperience: inviteExperienceEn,
@@ -57,7 +59,6 @@ export const en = {
 		confirm: "Confirm",
 	},
 	legal: { version: "Version {{version}}", effectiveDate: "Effective {{date}}" },
-
 	landing: {
 		...connectDeviceDownloadEn,
 		allDownloads: "All downloads",
@@ -86,7 +87,6 @@ export const en = {
 			feishu: "Feishu",
 		},
 	},
-
 	nav: {
 		settings: "Settings",
 		chat: "Chat",

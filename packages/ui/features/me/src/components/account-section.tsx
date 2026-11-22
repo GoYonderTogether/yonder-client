@@ -1,7 +1,7 @@
 import { Button, ListGroup, ListRow } from "@yonder/ui-components";
 import { useDevices, useMe, useRevokeSession, useSessions, useSignOut } from "@yonder/ui-data";
 import { ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DeleteAccountFlow } from "./delete-account-flow.tsx";
 import { deviceDisplayName } from "./device-display-name.ts";
@@ -17,13 +17,20 @@ export interface AccountSectionProps {
 	/** After an explicit sign-out the next sign-in starts fresh, not on this page. */
 	onSignedOut: () => void;
 	onOpenDevices?: () => void;
+	wechatLink?: ReactNode;
 }
 
 /**
  * 账号与安全: the phone number, the password, the devices that are signed in, signing out, and
  * deleting the account. Every action here is real; none of them is a placeholder.
  */
-export function AccountSection({ onChangePassword, onChangePhone, onSignedOut, onOpenDevices }: AccountSectionProps) {
+export function AccountSection({
+	onChangePassword,
+	onChangePhone,
+	onSignedOut,
+	onOpenDevices,
+	wechatLink,
+}: AccountSectionProps) {
 	const { t } = useTranslation();
 	const me = useMe();
 	const sessions = useSessions();
@@ -39,7 +46,7 @@ export function AccountSection({ onChangePassword, onChangePhone, onSignedOut, o
 		<div className="flex flex-col gap-[var(--spacing-6)]">
 			<HandleEditor />
 
-			<LoginMethods onChangePhone={onChangePhone} />
+			<LoginMethods onChangePhone={onChangePhone} wechatLink={wechatLink} />
 
 			<ListGroup>
 				<ListRow

@@ -3,7 +3,7 @@ import type { DeviceInfo } from "@yonder/protocol";
 import { Button, cn, Field, IconButton, PasswordField, PhoneField } from "@yonder/ui-components";
 import { clearInvite, readInvite, useApi, useData, useResolvedInvite } from "@yonder/ui-data";
 import { X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FailureMessage, Translate } from "../hooks/describe-failure.ts";
 import { describeFailure } from "../hooks/describe-failure.ts";
@@ -20,13 +20,20 @@ export interface SignInFormProps {
 	device: DeviceInfo;
 	initialMode?: AuthMode;
 	onOpenLegal: (document: "terms" | "privacy", trigger: HTMLAnchorElement) => void;
+	renderAlternative?: (options: { requireTerms: () => boolean; disabled: boolean }) => ReactNode;
 }
 
 /**
  * The sign-in screen: one page, two ways in. There is no separate registration form — a new number
  * creates the account as it signs in (11 第七节).
  */
-export function SignInForm({ onSignedIn, device, onOpenLegal, initialMode = "code" }: SignInFormProps) {
+export function SignInForm({
+	onSignedIn,
+	device,
+	onOpenLegal,
+	initialMode = "code",
+	renderAlternative,
+}: SignInFormProps) {
 	const { t } = useTranslation();
 	const api = useApi();
 	const { storage } = useData();
@@ -84,7 +91,10 @@ export function SignInForm({ onSignedIn, device, onOpenLegal, initialMode = "cod
 	}, [api, phoneValid, t, target]);
 
 	const requireTerms = useCallback(() => {
-		if (acceptedTerms) return true;
+		if (acceptedTerms) {
+			setFailure(null);
+			return true;
+		}
 		setFailure({ text: t("auth.termsRequired") });
 		termsRef.current?.focus();
 		return false;
@@ -278,6 +288,7 @@ export function SignInForm({ onSignedIn, device, onOpenLegal, initialMode = "cod
 				>
 					{mode === "code" ? t("auth.usePassword") : t("auth.useCode")}
 				</Button>
+				{renderAlternative?.({ requireTerms, disabled: sending || submitting })}
 			</AuthStack>
 		</form>
 	);

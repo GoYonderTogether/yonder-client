@@ -104,6 +104,7 @@ test("desktop Enter sends, while Shift, composition and mobile Enter do not", ()
 	);
 	const view = render(renderComposer(true));
 	const input = screen.getByRole("textbox");
+	input.focus();
 	fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
 	fireEvent.keyDown(input, { key: "Enter", isComposing: true });
 	fireEvent.keyDown(input, { key: "Enter", repeat: true });
@@ -138,39 +139,38 @@ test("desktop Enter sends, while Shift, composition and mobile Enter do not", ()
 	expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
 });
 
-test("IME keyCode 229 and the first 500ms after composition cannot send", () => {
-	const send = vi.fn();
-	const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
-	render(
-		<I18nextProvider i18n={createI18n("en")}>
-			<Composer
-				recipientName={null}
-				draft="中文"
-				onDraftChange={vi.fn()}
-				onSend={send}
-				streaming={false}
-				disabled={false}
-				disconnected={false}
-				sendOnEnter
-			/>
-		</I18nextProvider>,
-	);
-	const input = screen.getByRole("textbox");
-	fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
-	fireEvent.compositionStart(input);
-	fireEvent.keyDown(input, { key: "Enter" });
-	expect(send).not.toHaveBeenCalled();
-	fireEvent.compositionEnd(input);
-	clock.mockReturnValue(1499);
-	const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
-	fireEvent(input, enter);
-	expect(enter.defaultPrevented).toBe(true);
-	expect(send).not.toHaveBeenCalled();
-	clock.mockReturnValue(1500);
-	fireEvent.keyDown(input, { key: "Enter" });
-	expect(send).toHaveBeenCalledOnce();
-	clock.mockRestore();
-});
+test.each([false, true])(
+	"IME confirmation is followed by a single Enter to send (legacy WebKit=%s)",
+	(legacyWebKit) => {
+		const send = vi.fn();
+		render(
+			<I18nextProvider i18n={createI18n("en")}>
+				<Composer
+					recipientName={null}
+					draft="中文"
+					onDraftChange={vi.fn()}
+					onSend={send}
+					streaming={false}
+					disabled={false}
+					disconnected={false}
+					sendOnEnter
+				/>
+			</I18nextProvider>,
+		);
+		const input = screen.getByRole("textbox");
+		input.focus();
+		fireEvent.compositionStart(input);
+		if (legacyWebKit) fireEvent.compositionEnd(input);
+		expect(
+			fireEvent.keyDown(input, { key: "Enter", isComposing: !legacyWebKit, keyCode: legacyWebKit ? 229 : 13 }),
+		).toBe(true);
+		if (!legacyWebKit) fireEvent.compositionEnd(input);
+		fireEvent.keyUp(input, { key: "Enter" });
+		expect(send).not.toHaveBeenCalled();
+		fireEvent.keyDown(input, { key: "Enter" });
+		expect(send).toHaveBeenCalledOnce();
+	},
+);
 
 test.each([
 	{ draft: " \n ", disabled: false, disconnected: false, streaming: false, blocked: true, label: "Send" },

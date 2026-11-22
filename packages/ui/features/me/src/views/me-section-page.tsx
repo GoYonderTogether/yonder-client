@@ -39,6 +39,8 @@ export interface MeSectionPageProps {
 	serverVersion: string | null;
 	aboutUpdate?: ReactNode;
 	generalExtra?: ReactNode;
+	wechatLink?: ReactNode;
+	checkoutEntry?: ReactNode;
 	/** The change-password screen is provided by the app, which owns the auth feature. */
 	renderChangePassword: (onDone: () => void) => ReactNode;
 	/**
@@ -67,6 +69,8 @@ export function MeSectionPage({
 	serverVersion,
 	aboutUpdate,
 	generalExtra,
+	wechatLink,
+	checkoutEntry,
 	renderChangePassword,
 	privacy,
 }: MeSectionPageProps) {
@@ -103,7 +107,7 @@ export function MeSectionPage({
 		const title = sub ? quotaPageTitle(sub, t, i18n.resolvedLanguage ?? i18n.language) : t("me.sections.quota");
 		return (
 			<PageFrame title={<h1 className="truncate">{title}</h1>}>
-				<QuotaSection page={page} onOpenPage={(next) => onOpenPage(next)} />
+				<QuotaSection page={page} onOpenPage={(next) => onOpenPage(next)} checkoutEntry={checkoutEntry} />
 			</PageFrame>
 		);
 	}
@@ -147,6 +151,7 @@ export function MeSectionPage({
 						onChangePassword={() => onOpenPage("password")}
 						onChangePhone={() => onOpenPage("phone")}
 						onSignedOut={onSignedOut}
+						wechatLink={wechatLink}
 						{...(onOpenDevices ? { onOpenDevices } : {})}
 					/>
 				);

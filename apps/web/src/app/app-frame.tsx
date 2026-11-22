@@ -1,6 +1,6 @@
 import { isMeSection, MeList } from "@yonder/feature-me";
 import { ClosedGroupNotice } from "@yonder/feature-members";
-import { AppIcon, Avatar } from "@yonder/ui-components";
+import { Avatar, Logo } from "@yonder/ui-components";
 import {
 	keys,
 	useBot,
@@ -356,7 +356,7 @@ export function AppFrame() {
 				: undefined;
 	const composer = (
 		<Composer
-			microphoneOccupied={Boolean(meeting.active || meeting.recorder.busy)}
+			microphoneOccupied={Boolean(meeting.active || meeting.interrupted || meeting.recorder.busy)}
 			onVoiceActivityChange={meeting.setShortVoiceActive}
 			recipientName={talkingTo ?? bot?.displayName ?? null}
 			draft={draft.text}
@@ -471,7 +471,7 @@ export function AppFrame() {
 				composer={preset.drawerOpen ? null : dock}
 				status={preset.drawerOpen ? null : recordingSurface.status}
 				titlebarInset={isMacDesktopShell()}
-				brand={<AppIcon size={32} title="Yonder" />}
+				brand={<Logo size={32} title="Yonder" />}
 				labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
 				locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
 				onModeChange={setLayoutMode}

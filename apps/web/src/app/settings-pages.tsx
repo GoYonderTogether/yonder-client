@@ -17,6 +17,7 @@ import { useLocation, useNavigate } from "react-router";
 import { BUILD_VERSION } from "../lib/config.ts";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
+import { CheckoutEntry } from "./checkout.tsx";
 import { useConnectDevice } from "./connect-device.tsx";
 import { ConnectDeviceDownloads } from "./connect-device-downloads.tsx";
 import { DesktopCloseBehavior } from "./desktop-close-behavior.tsx";
@@ -26,6 +27,7 @@ import { botSettingsPath, channelsSettingsPath } from "./settings-navigation.ts"
 import { SocialPersona } from "./social-settings.tsx";
 import { useHasPassword } from "./use-has-password.ts";
 import type { PageNavigationState } from "./use-page-navigation.ts";
+import { WechatWebEntry } from "./wechat-web.tsx";
 
 type SettingsRouteProps = {
 	path: string;
@@ -124,6 +126,8 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 					appVersion={BUILD_VERSION}
 					aboutUpdate={<UpdateControls />}
 					generalExtra={<DesktopCloseBehavior />}
+					wechatLink={<WechatWebEntry mode="link" />}
+					checkoutEntry={<CheckoutEntry />}
 					renderDeviceAction={renderMacPermissionManagement}
 					renderChangePassword={(onDone) => (
 						<PasswordSetupForm
