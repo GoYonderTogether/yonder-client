@@ -4,6 +4,7 @@ use tauri::{async_runtime::channel, plugin::TauriPlugin, Runtime, WebviewWindow}
 
 extern "C" {
     fn yonder_mac_open_permissions(permission: i32) -> bool;
+    fn yonder_mac_full_disk_status() -> i32;
     fn yonder_mac_accessibility_granted() -> bool;
     fn yonder_mac_request_accessibility();
     fn yonder_mac_microphone_status() -> i32;
@@ -26,7 +27,9 @@ enum Permission {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct PermissionStatus {
+    full_disk: &'static str,
     accessibility: &'static str,
     microphone: &'static str,
 }
@@ -54,6 +57,11 @@ async fn permission_status<R: Runtime>(
 ) -> Result<PermissionStatus, &'static str> {
     on_main(window, || unsafe {
         PermissionStatus {
+            full_disk: match yonder_mac_full_disk_status() {
+                0 => "off",
+                1 => "granted",
+                _ => "manual",
+            },
             accessibility: if yonder_mac_accessibility_granted() {
                 "granted"
             } else {

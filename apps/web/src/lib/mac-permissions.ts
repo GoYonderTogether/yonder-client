@@ -15,7 +15,9 @@ async function command<T>(name: string, args?: Record<string, unknown>): Promise
 }
 
 export const macPermissionStatus = () =>
-	command<Pick<Record<MacPermission, MacPermissionStatus>, "accessibility" | "microphone">>("permission_status");
+	command<Pick<Record<MacPermission, MacPermissionStatus>, "fullDisk" | "accessibility" | "microphone">>(
+		"permission_status",
+	);
 export const openMacPermissionSettings = (permission: MacPermission) => command<void>("open_settings", { permission });
 export const requestMacAccessibility = () => command<void>("request_accessibility");
 export const requestMacMicrophone = () => command<void>("request_microphone");
