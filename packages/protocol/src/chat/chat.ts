@@ -182,7 +182,7 @@ export interface Message {
 	system?: SystemEvent;
 	body: string | null;
 	attachments: Attachment[];
-	voice?: { durationMs: number };
+	voice?: { durationMs: number; transcription?: "pending" | "completed" | "failed" };
 	replyToId: string | null;
 	createdAt: string;
 	/** When a streamed reply became eligible for unread counts. */
@@ -210,10 +210,10 @@ export interface MessagePage {
 }
 
 export interface SendMessageRequest {
-	type: "text";
+	type: "text" | "voice";
 	body: string;
 	attachmentIds?: string[];
-	voice?: { durationMs: number };
+	voice?: { durationMs: number; transcribe?: true };
 	clientNonce: string;
 	skillIds?: string[];
 	mentionedMemberIds?: string[];
