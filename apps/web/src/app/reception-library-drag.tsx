@@ -1,6 +1,5 @@
 import type { SocialLibrary, SocialLibraryChange, SocialLibraryFolder } from "@yonder/protocol";
 import { useEditSocialLibrary } from "@yonder/ui-data";
-import { useShellChrome } from "@yonder/ui-shell";
 import { createContext, type DragEvent, type ReactNode, useContext, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ReceptionMutationError } from "./reception-library-editor.tsx";
@@ -30,7 +29,6 @@ export const receptionDropHighlight =
 
 export function ReceptionDragProvider({ library, children }: { library: SocialLibrary; children: ReactNode }) {
 	const { t } = useTranslation();
-	const { mode } = useShellChrome();
 	const { edit, busy } = useEditSocialLibrary();
 	const dragged = useRef<DragItem | null>(null);
 	const highlighted = useRef<HTMLElement | null>(null);
@@ -103,7 +101,7 @@ export function ReceptionDragProvider({ library, children }: { library: SocialLi
 		};
 	}
 
-	if (mode === "mobile" || !window.matchMedia?.("(any-pointer: fine)").matches) return children;
+	if (!window.matchMedia?.("(any-pointer: fine)").matches) return children;
 	return (
 		<ReceptionDrag.Provider value={{ source, target }}>
 			<ReceptionMutationError error={edit.error} />

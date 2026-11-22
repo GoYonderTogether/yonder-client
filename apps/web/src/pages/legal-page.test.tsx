@@ -29,18 +29,33 @@ test.each([
 	expect(emphasis.length).toBeGreaterThan(0);
 	expect(container.textContent).not.toContain("**");
 	expect(container.textContent).not.toMatch(/RightCode|rightapi\.ai/i);
-	expect(container.textContent).toContain(
-		locale === "zh-CN"
-			? "我们会将必要的对话内容发送给所选模型对应的服务。"
-			: "we send necessary conversation content to the service for the selected model.",
-	);
-	if (kind === "privacy") {
-		expect(container.textContent).toContain(
-			locale === "zh-CN"
-				? "密钥会加密存储，只用于你发起的调用。"
-				: "the key is stored encrypted and used only for calls you initiate.",
-		);
-	}
+	const pinned: Record<typeof kind, Record<typeof locale, string[]>> = {
+		terms: {
+			"zh-CN": [
+				"我们会将必要的内容发送给模型服务商",
+				"我们不会使用可以识别你的内容训练面向公众的基础模型。",
+				"不得删除、篡改、伪造或隐匿",
+			],
+			en: [
+				"we send necessary content to model providers",
+				"We will not use your identifiable content to train foundation models offered to the public.",
+				"You must not delete, alter, forge or conceal",
+			],
+		},
+		privacy: {
+			"zh-CN": [
+				"AI 与模型服务商",
+				"我们不会使用可以识别你的对话、记忆、附件、录音和文件内容，训练面向公众的基础模型",
+				"密钥会加密存储",
+			],
+			en: [
+				"AI and model providers",
+				"We will not use your identifiable conversations, memory, attachments, recordings or file content to train foundation models offered to the public",
+				"The key is stored encrypted.",
+			],
+		},
+	};
+	for (const text of pinned[kind][locale]) expect(container.textContent).toContain(text);
 	expect([...container.querySelectorAll("strong")].map((element) => element.textContent)).toEqual(emphasis);
 });
 

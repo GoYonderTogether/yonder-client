@@ -110,6 +110,11 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 						<span>
 							© {new Date().getFullYear()} {t("app.name")}
 						</span>
+						{window.location.hostname === "yonderbot.net" ? (
+							<a className="underline" href="https://beian.miit.gov.cn/">
+								{t("landingPage.footer.icp", { number: "鄂ICP备2026027205号-2" })}
+							</a>
+						) : null}
 						<span>{t("landingPage.footer.scenes")}</span>
 					</div>
 				</div>

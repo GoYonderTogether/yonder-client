@@ -3,7 +3,7 @@
  * Re-apply local-only settings to the generated Android project.
  *
  * `tauri android init` regenerates `src-tauri/gen/android` from scratch and that tree is
- * gitignored, so anything we add to it by hand is lost. This script re-applies two things
+ * gitignored, so anything we add to it by hand is lost. This script re-applies local settings
  * idempotently after `tauri android init` and before `tauri android build`:
  *
  *   1. Release signing — writes `keystore.properties` (holds the store path and passwords)
@@ -13,9 +13,8 @@
  *      the default `google()`/`mavenCentral()` fail with a TLS handshake error. The mirrors
  *      are prepended and fall back to the originals, so machines that can reach Google are
  *      unaffected. Skip with `--no-mirrors`.
- *   3. Keyboard resize — without `adjustResize` the soft keyboard overlays the WebView and the
- *      page cannot shrink to the visible area. `windowSoftInputMode` and the matching
- *      `windowSoftInputMode` line are re-applied here because the manifest is regenerated.
+ *   3. Keyboard resize — restores `adjustResize` in the manifest and the native IME insets bridge.
+ *   4. Launcher branding — restores the checked-in icons and wires the round launcher entry.
  *
  *   node apps/desktop/prepare-android.mjs [--keystore <path>] [--alias <name>] [--no-mirrors]
  *
@@ -23,7 +22,7 @@
  * `~/.yonder-signing/android/yonder-release.jks`. Passwords come from
  * `YONDER_ANDROID_KEYSTORE_PASSWORD`, else from `keystore.password` beside the keystore.
  */
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -281,23 +280,38 @@ function applyImeInsets() {
 if (mirrors) applyMirrors();
 applySigning();
 applyKeyboardResize();
-// getUserMedia prompts through Wry's existing WebChromeClient permission flow.
+
+const launcherResources = join(root, "src-tauri/icons/android");
+const resources = join(android, "app/src/main/res");
+cpSync(launcherResources, resources, { recursive: true });
+copyFileSync(
+	join(launcherResources, "mipmap-anydpi-v26/ic_launcher.xml"),
+	join(resources, "mipmap-anydpi-v26/ic_launcher_round.xml"),
+);
+
 if (existsSync(manifest)) {
-	let source = readFileSync(manifest, "utf8");
+	const original = readFileSync(manifest, "utf8");
+	let source = original.replace(/<application\b[^>]*>/, (application) => {
+		if (/\sandroid:roundIcon\s*=/.test(application)) return application;
+		return application.replace(
+			/(\s+)android:icon="@mipmap\/ic_launcher"/,
+			'$&$1android:roundIcon="@mipmap/ic_launcher_round"',
+		);
+	});
+	// getUserMedia prompts through Wry's existing WebChromeClient permission flow.
 	if (!source.includes("android.permission.CAMERA")) {
 		source = source.replace(
 			/<application\b/,
 			'<uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application',
 		);
-		writeFileSync(manifest, source);
 	}
 	if (!source.includes("android.permission.RECORD_AUDIO")) {
 		source = source.replace(
 			/<application\b/,
 			'<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <application',
 		);
-		writeFileSync(manifest, source);
 	}
+	if (source !== original) writeFileSync(manifest, source);
 }
 prepareAndroidUpdate(android, join(root, "android"));
 prepareAndroidNotifications(android, join(root, "android"));

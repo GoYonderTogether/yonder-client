@@ -208,9 +208,61 @@ final class MeetingRecorderPlugin: Plugin {
     }
   }
 
+  /// Continues an interrupted recording into the same record. Nothing is written until the engine runs.
+  private func resumeInterrupted(_ args: StopArgs) throws -> JsonObject {
+    _ = try requireOwner(args.ownerId)
+    guard active == nil else { throw RecorderFailure.invalidAudio }
+    var record = try storage().resumable(owner: args.ownerId, id: args.recordingId)
+    let session = AVAudioSession.sharedInstance()
+    try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
+    try session.setActive(true)
+    var started = false
+    defer { if !started { try? session.setActive(false, options: .notifyOthersOnDeactivation) } }
+    let engine = AVAudioEngine()
+    let node = engine.inputNode
+    let format = node.outputFormat(forBus: 0)
+    // A different input rate would make the appended audio play at the wrong speed.
+    guard Int(format.sampleRate) == record.sampleRate, format.channelCount > 0 else { throw RecorderFailure.invalidAudio }
+    record.state = "recording"
+    record.endedAt = nil
+    record.error = nil
+    self.active = record
+    self.audioLevel = 0
+    self.engine = engine
+    node.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak recorder = self] buffer, _ in
+      guard let samples = buffer.floatChannelData else { recorder?.interrupt("unsupported_audio_format"); return }
+      let frames = Int(buffer.frameLength)
+      var pcm = Data(capacity: frames * 2)
+      var peak: Float = 0
+      for frame in 0..<frames {
+        var value: Float = 0
+        for channel in 0..<Int(buffer.format.channelCount) { value += samples[channel][frame] }
+        value = max(-1, min(1, value / Float(buffer.format.channelCount)))
+        peak = max(peak, abs(value))
+        var little = Int16(value * 32767).littleEndian
+        withUnsafeBytes(of: &little) { pcm.append(contentsOf: $0) }
+      }
+      let level = peak
+      recorder?.queue.async { recorder?.received(pcm, level: level, id: record.id) }
+    }
+    do {
+      try engine.start()
+      try storage().save(record)
+    } catch {
+      node.removeTap(onBus: 0)
+      engine.stop()
+      self.engine = nil
+      self.active = nil
+      throw error
+    }
+    started = true
+    return try state(args.ownerId)
+  }
+
   @objc func resume(_ invoke: Invoke) throws {
     let args = try invoke.parseArgs(StopArgs.self)
     respond(invoke) {
+      if self.active == nil { return try self.resumeInterrupted(args) }
       _ = try self.requireOwner(args.ownerId)
       guard let record = self.active, record.id == args.recordingId, self.paused, let engine = self.engine else { throw RecorderFailure.missingRecording }
       try engine.start()
@@ -223,6 +275,10 @@ final class MeetingRecorderPlugin: Plugin {
     let args = try invoke.parseArgs(StopArgs.self)
     respond(invoke) {
       _ = try self.requireOwner(args.ownerId)
+      if self.active == nil {
+        try self.storage().conclude(owner: args.ownerId, id: args.recordingId)
+        return try self.state(args.ownerId)
+      }
       if let active = self.active, active.id != args.recordingId { throw RecorderFailure.missingRecording }
       try self.finish(state: "ended", reason: nil)
       return try self.state(args.ownerId)

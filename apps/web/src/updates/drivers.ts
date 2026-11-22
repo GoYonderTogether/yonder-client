@@ -33,6 +33,9 @@ async function checkDesktop(): Promise<UpdateCandidate | null> {
 			});
 		},
 		async install() {
+			// A recording in progress is saved and marked continuable, so the restarted app can carry on.
+			const { invokeMeetingRecorder } = await import("../lib/meeting-recorder.ts");
+			await invokeMeetingRecorder("interrupt_for_restart", {}).catch(() => undefined);
 			if (!installed) {
 				await update.install();
 				installed = true;

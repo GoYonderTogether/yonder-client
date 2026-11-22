@@ -52,6 +52,24 @@ struct RecordingStoreCheck {
     let unbound = try RecordingStore(root: root).list(owner: "owner-one", recover: false).first { $0.id == next.id }
     assert(unbound != nil && unbound?.conversationId == nil && metadata["conversationId"] == nil)
     assert(unbound?.separateSpeakers == nil && metadata["separateSpeakers"] == nil)
+    // Resume window: a clean interruption continues for ten minutes, damaged storage never does.
+    var cut = try store.create(owner: "owner-one", title: "Cut", rate: 16000)
+    try store.append(Data(count: 16000 * 2 * 4), to: &cut)
+    cut.state = "interrupted"; cut.endedAt = RecordingStore.now - 60_000; cut.error = "audio_interrupted"
+    try store.save(cut)
+    let open = try store.resumable(owner: "owner-one", id: cut.id)
+    assert(open.id == cut.id)
+    cut.endedAt = RecordingStore.now - RecordingStore.resumeWindowMs - 1
+    try store.save(cut)
+    do { _ = try store.resumable(owner: "owner-one", id: cut.id); assertionFailure("expired window accepted") } catch RecorderFailure.resumeExpired { }
+    cut.endedAt = RecordingStore.now; cut.error = "audio_storage_failed"
+    try store.save(cut)
+    do { _ = try store.resumable(owner: "owner-one", id: cut.id); assertionFailure("storage failure accepted") } catch RecorderFailure.notResumable { }
+    cut.error = "audio_interrupted"
+    try store.save(cut)
+    try store.conclude(owner: "owner-one", id: cut.id)
+    let concluded = try store.list(owner: "owner-one", recover: false).first { $0.id == cut.id }
+    assert(concluded?.state == "ended" && concluded?.error == nil)
     print("PASS: durable WAV, unfinished initialization isolation, manifest failure, truncated tail recovery, owner isolation, new ID, null schema and optional conversation binding")
   }
 }

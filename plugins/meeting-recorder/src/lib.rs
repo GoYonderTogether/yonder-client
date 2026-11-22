@@ -174,6 +174,27 @@ async fn resume<R: Runtime>(
         .resume(owner_id, recording_id)
 }
 
+/// Called by the updater just before it relaunches the app, so a recording continues afterwards.
+#[tauri::command]
+async fn interrupt_for_restart<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+) -> Result<(), String> {
+    main_window(&window)?;
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        let _ = &app;
+        return Ok(());
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        app.state::<desktop::DesktopRecorder>()
+            .interrupt("meeting_app_restarting");
+        lifecycle::sync_tray(&app, false);
+        Ok(())
+    }
+}
+
 #[tauri::command]
 async fn read_audio<R: Runtime>(
     app: AppHandle<R>,
@@ -289,6 +310,7 @@ fn build<R: Runtime>(directory: Option<std::path::PathBuf>) -> TauriPlugin<R> {
             stop,
             pause,
             resume,
+            interrupt_for_restart,
             read_audio,
             configure_upload,
             get_upload_jobs,

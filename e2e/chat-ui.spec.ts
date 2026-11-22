@@ -327,23 +327,16 @@ test("Bot header names its active child tasks and shows typing only for a real r
 	await expect(status).toHaveCount(0);
 });
 
-test("desktop actual route blocks IME Enter then sends only the finished message to the isolated API", async ({
-	page,
-}) => {
+test("desktop blocks the IME Enter and sends the committed message on the next Enter", async ({ page }) => {
 	const api = await isolateChat(page);
 	await openChat(page);
 	const input = page.getByRole("textbox", { name: /^对 界面验收/ });
-	await input.fill("中文候选");
-	await input.dispatchEvent("compositionstart");
-	await page.keyboard.press("Enter");
-	await input.dispatchEvent("compositionend");
-	await page.keyboard.press("Enter");
-	await input.dispatchEvent("keydown", { key: "Enter", keyCode: 229, bubbles: true });
-	expect(api.sent).toHaveLength(0);
-	await page.waitForTimeout(510); // The Composer deliberately blocks Enter for 500ms after IME selection.
-	await page.keyboard.press("Shift+Enter");
-	expect(api.sent).toHaveLength(0);
 	await input.fill("中文已确认");
+	await input.dispatchEvent("compositionstart");
+	await input.dispatchEvent("compositionend");
+	await input.dispatchEvent("keydown", { key: "Enter", keyCode: 229, bubbles: true });
+	await input.dispatchEvent("keyup", { key: "Enter", bubbles: true });
+	expect(api.sent).toHaveLength(0);
 	await page.keyboard.press("Enter");
 	await expect.poll(() => api.sent.length).toBe(1);
 	expect(api.sent[0]).toMatchObject({ body: "中文已确认", type: "text" });

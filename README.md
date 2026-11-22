@@ -10,7 +10,7 @@ Yonder 名称、标志、官方托管服务及官方签名安装包不由本许�
 
 ## 使用官方服务
 
-打开 [yonder.zethai.cn](https://yonder.zethai.cn)，或从[下载页](https://yonder.zethai.cn/download)获取安装包。**不需要填写服务器地址**：官方网页使用同源 API，桌面和移动 Release 默认连接 `https://yonder.zethai.cn`。
+官方网页使用同源 API，**不需要填写服务器地址**。本源码构建的桌面和移动客户端默认连接 [yonderbot.net](https://yonderbot.net)；已发布的旧客户端仍连接 [yonder.zethai.cn](https://yonder.zethai.cn)。安装包仍可从[下载页](https://yonder.zethai.cn/download)获取。
 
 iPhone 使用 [TestFlight 公测](https://testflight.apple.com/join/8C5Y9KHQ)。
 

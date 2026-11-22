@@ -1,17 +1,18 @@
 import { ListGroup, ListRow } from "@yonder/ui-components";
 import { useMe } from "@yonder/ui-data";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 export interface LoginMethodsProps {
 	/** Opens the change-phone page. */
 	onChangePhone: () => void;
+	wechatLink?: ReactNode;
 }
 
 /**
- * Every way this account can sign in, one row per bound method. The WeChat row only reports that
- * the mini program is linked; the open id stays on the server.
+ * Every way this account can sign in, one row per bound method. WeChat identifiers stay on the server.
  */
-export function LoginMethods({ onChangePhone }: LoginMethodsProps) {
+export function LoginMethods({ onChangePhone, wechatLink }: LoginMethodsProps) {
 	const { t } = useTranslation();
 	const me = useMe();
 	const methods = me.data?.signInMethods ?? [];
@@ -37,6 +38,7 @@ export function LoginMethods({ onChangePhone }: LoginMethodsProps) {
 					/>
 				),
 			)}
+			{me.data ? wechatLink : null}
 		</ListGroup>
 	);
 }

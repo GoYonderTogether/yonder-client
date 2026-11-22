@@ -25,6 +25,8 @@ export type {
 	WechatMiniSignInRequest,
 	WechatMiniSignInResponse,
 } from "./auth/auth.ts";
+export type { WechatWebAttempt, WechatWebStatus } from "./auth/wechat-web.ts";
+export type { BillingOrder, BillingProduct, BillingProvider, CheckoutOrder } from "./billing/billing.ts";
 export type {
 	ChannelAttempt,
 	ChannelConnection,

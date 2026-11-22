@@ -224,6 +224,7 @@ export const landingPageEn = {
 		terms: "Terms of service",
 		privacy: "Privacy policy",
 		company: "Yonder (Wuhan) Technology Co., Ltd.",
+		icp: "ICP filing: {{number}}",
 		scenes: "People, conversations and figures on this page are illustrative scenes.",
 	},
 };

@@ -7,6 +7,7 @@ import { accountEndpoints } from "./account.ts";
 import { authEndpoints } from "./auth.ts";
 import { channelEndpoints } from "./channels.ts";
 import type { ApiClient } from "./client.ts";
+import { commerceEndpoints } from "./commerce.ts";
 import { connectorEndpoints } from "./connectors.ts";
 import { conversationEndpoints } from "./conversations.ts";
 import { itemEndpoints } from "./items.ts";
@@ -36,6 +37,7 @@ export function createEndpoints(client: ApiClient) {
 		...authEndpoints(client),
 		...quotaEndpoints(client),
 		...accountEndpoints(client),
+		...commerceEndpoints(client),
 	};
 }
 

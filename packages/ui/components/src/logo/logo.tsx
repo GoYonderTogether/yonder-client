@@ -45,13 +45,12 @@ export function Logo({ size, title, fit = "canvas" }: LogoProps) {
 /**
  * The app icon as the system draws it in the Dock, on the home screen and in the taskbar: a white
  * rounded square (radius 22.45%, Apple's grid) with the black mark at 85% of the tile. It stays white
- * in dark mode, like every other app icon. Used where the product shows its own icon (关于, the web
- * rail); a bare mark beside a word uses `<Logo fit="text">` instead.
+ * in dark mode, like every other app icon. Use `<Logo>` for the brand mark on an existing surface.
  */
 export function AppIcon({ size, title }: { size: number; title?: string }) {
 	return (
 		<span
-			className="yonder-logo-light inline-flex shrink-0 items-center justify-center rounded-[22.45%] bg-[var(--color-app-icon-bg)] text-[var(--color-app-icon-fg)] shadow-[var(--shadow-app-icon)]"
+			className="yonder-logo-light inline-flex shrink-0 items-center justify-center rounded-[22.45%] bg-[var(--color-app-icon-bg)] text-[var(--color-app-icon-fg)]"
 			style={{ width: size, height: size }}
 		>
 			<Logo size={Math.round(size * 0.85)} {...(title ? { title } : {})} />

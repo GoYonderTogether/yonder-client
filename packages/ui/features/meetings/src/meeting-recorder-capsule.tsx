@@ -1,5 +1,6 @@
 import { Pause, Play, Square } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { resumeDeadline, useResumableMeeting } from "./meeting-resume.ts";
 import type { MeetingRecorderController } from "./types.ts";
 import "./meeting-recorder.css";
 
@@ -16,13 +17,55 @@ export function MeetingRecorderCapsule({ recorder }: { recorder: MeetingRecorder
 	const { t } = useTranslation();
 	const { activeId, audioLevel, paused, pauseSupported, recordings } = recorder.state;
 	const active = recordings.find((item) => item.id === activeId);
+	const interrupted = useResumableMeeting(active ? [] : recordings);
 	const { pause, resume } = recorder;
-	if (!active && !recorder.busy) return null;
+	if (!active && !interrupted && !recorder.busy) return null;
+	if (!active && interrupted) {
+		const minutes = Math.max(1, Math.ceil(((resumeDeadline(interrupted) ?? 0) - Date.now()) / 60_000));
+		return (
+			<div className="meeting-capsule-stack">
+				<section className="meeting-capsule" aria-label={t("meetingRecorder.interruptedCapsule")}>
+					<button
+						type="button"
+						className="meeting-capsule-control"
+						aria-label={t("meetingRecorder.continue")}
+						disabled={recorder.busy || !resume}
+						onClick={() => void resume?.(interrupted.id)}
+					>
+						<Play size={16} fill="currentColor" aria-hidden="true" />
+					</button>
+					<div className="meeting-capsule-clock">
+						<div className="meeting-level-bars" data-paused aria-hidden="true">
+							{DOTS.map((dot) => (
+								<span key={dot} />
+							))}
+						</div>
+						<output aria-label={t("meetingRecorder.elapsed")} aria-live="off">
+							{recordingDuration(interrupted.savedDurationMs)}
+						</output>
+					</div>
+					<button
+						type="button"
+						className="meeting-capsule-control"
+						aria-label={t("meetingRecorder.finish")}
+						disabled={recorder.busy}
+						onClick={() => void recorder.stop(interrupted.id)}
+					>
+						<Square size={12} fill="currentColor" aria-hidden="true" />
+					</button>
+				</section>
+				<p className="meeting-capsule-notice" role="status">
+					{t("meetingRecorder.interruptedHint", { minutes })}
+				</p>
+			</div>
+		);
+	}
+	const activeRecording = active;
 	const PauseResume = paused ? Play : Pause;
 	const canPause = active && pauseSupported && pause && resume;
 	return (
 		<div className="meeting-capsule-stack">
-			{active ? (
+			{activeRecording ? (
 				<section
 					className="meeting-capsule"
 					aria-label={t(paused ? "meetingRecorder.paused" : "meetingRecorder.recording")}
@@ -34,7 +77,7 @@ export function MeetingRecorderCapsule({ recorder }: { recorder: MeetingRecorder
 								className="meeting-capsule-control"
 								aria-label={t(paused ? "meetingRecorder.resume" : "meetingRecorder.pause")}
 								disabled={recorder.busy}
-								onClick={() => void (paused ? resume(active.id) : pause(active.id))}
+								onClick={() => void (paused ? resume(activeRecording.id) : pause(activeRecording.id))}
 							>
 								<PauseResume size={16} fill="currentColor" aria-hidden="true" />
 							</button>
@@ -59,7 +102,7 @@ export function MeetingRecorderCapsule({ recorder }: { recorder: MeetingRecorder
 							))}
 						</div>
 						<output aria-label={t("meetingRecorder.elapsed")} aria-live="off">
-							{recordingDuration(active.durationMs)}
+							{recordingDuration(activeRecording.durationMs)}
 						</output>
 					</div>
 					<button
@@ -67,7 +110,7 @@ export function MeetingRecorderCapsule({ recorder }: { recorder: MeetingRecorder
 						className="meeting-capsule-control"
 						aria-label={t("meetingRecorder.stop")}
 						disabled={recorder.busy}
-						onClick={() => void recorder.stop(active.id)}
+						onClick={() => void recorder.stop(activeRecording.id)}
 					>
 						<Square size={12} fill="currentColor" aria-hidden="true" />
 					</button>

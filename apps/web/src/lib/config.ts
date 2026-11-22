@@ -5,7 +5,8 @@
 export const BUILD_VERSION: string = __YONDER_VERSION__;
 
 /** The production API origin, used by a shell build that was not given one at build time. */
-export const PRODUCTION_API_ORIGIN = "https://yonder.zethai.cn";
+export const PRODUCTION_API_ORIGIN = "https://yonderbot.net";
+export const LEGACY_API_ORIGIN = "https://yonder.zethai.cn";
 
 /**
  * Where the API lives.
