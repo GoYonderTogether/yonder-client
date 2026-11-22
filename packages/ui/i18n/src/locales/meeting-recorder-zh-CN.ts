@@ -52,6 +52,7 @@ export const meetingRecorderZhCN: typeof meetingRecorderEn = {
 	archivePhotoCount_one: "{{count}} 张照片",
 	archivePhotoCount_other: "{{count}} 张照片",
 	archiveNotes: "整理稿",
+	archiveDiagram: "整理稿图表",
 	archiveOriginal: "原文",
 	archivePrevious: "上一张照片",
 	archiveNext: "下一张照片",
