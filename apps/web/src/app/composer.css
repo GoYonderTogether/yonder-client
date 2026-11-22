@@ -459,29 +459,30 @@
 	.composer-recording-target::before {
 		--cap: calc(var(--spacing-12) / 2);
 		--bow: calc(var(--spacing-1) * 0.75);
-		--bottom: calc(100% - var(--spacing-1));
-		--bowed-bottom: calc(var(--bottom) + var(--bow));
-		inset-block-end: calc(-1 * var(--spacing-1));
+		--top: var(--spacing-1);
+		--bowed-top: calc(var(--top) - var(--bow));
+		--bowed-bottom: calc(100% - var(--bow));
+		inset-block-start: calc(-1 * var(--spacing-1));
 		border-radius: 0;
 		clip-path: shape(
-			from var(--cap) 0,
-			curve to calc(100% - var(--cap)) 0 with 35% var(--bow) /
-			65% var(--bow),
-			arc to calc(100% - var(--cap)) var(--bottom) of var(--cap) cw,
-			curve to var(--cap) var(--bottom) with 65% var(--bowed-bottom) /
+			from var(--cap) var(--top),
+			curve to calc(100% - var(--cap)) var(--top) with 35% var(--bowed-top) /
+			65% var(--bowed-top),
+			arc to calc(100% - var(--cap)) 100% of var(--cap) cw,
+			curve to var(--cap) 100% with 65% var(--bowed-bottom) /
 			35% var(--bowed-bottom),
-			arc to var(--cap) 0 of var(--cap) cw,
+			arc to var(--cap) var(--top) of var(--cap) cw,
 			close
 		);
 	}
 }
 
 .composer-recording-target-left::before {
-	transform: rotate(8deg);
+	transform: rotate(-8deg);
 }
 
 .composer-recording-target-right::before {
-	transform: rotate(-8deg);
+	transform: rotate(8deg);
 }
 
 .composer-recording[data-to-text] .composer-recording-target-right::before {
