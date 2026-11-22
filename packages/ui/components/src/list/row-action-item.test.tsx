@@ -38,12 +38,14 @@ test("reveals the same icon actions on hold and left swipe without opening the r
 		fireEvent.pointerDown(task, point);
 		fireEvent.pointerMove(task, { ...point, clientX: 130 });
 		fireEvent.pointerUp(task, { ...point, clientX: 130 });
-		fireEvent.click(task, { detail: 1 });
+		const remove = screen.getByRole("button", { name: "Delete" });
+		fireEvent.click(remove, { detail: 1 });
 		expect(task).toHaveAttribute("aria-expanded", "true");
 		expect(onOpen).not.toHaveBeenCalled();
 		expect(onDelete).not.toHaveBeenCalled();
 
-		fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+		fireEvent.pointerDown(remove, point);
+		fireEvent.click(remove, { detail: 1 });
 		expect(onDelete).toHaveBeenCalledOnce();
 		expect(task).toHaveAttribute("aria-expanded", "false");
 		fireEvent.pointerDown(task, point);
@@ -52,7 +54,6 @@ test("reveals the same icon actions on hold and left swipe without opening the r
 		expect(onOpen).toHaveBeenCalledOnce();
 
 		fireEvent.keyDown(task, { key: "F10", shiftKey: true });
-		const remove = screen.getByRole("button", { name: "Delete" });
 		fireEvent.keyDown(remove, { key: "Escape" });
 		expect(task).toHaveFocus();
 		expect(task).toHaveAttribute("aria-expanded", "false");

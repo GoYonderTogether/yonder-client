@@ -1,6 +1,7 @@
 import {
 	type ButtonHTMLAttributes,
 	cloneElement,
+	type MouseEvent,
 	type PointerEvent,
 	type ReactElement,
 	type ReactNode,
@@ -91,6 +92,15 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 		control.current?.querySelector("button")?.focus({ preventScroll: true });
 	}
 
+	// The release click can land on an action revealed under the original press.
+	function consumeGestureClick(event: MouseEvent<HTMLButtonElement>) {
+		if (event.detail === 0 || !suppressClick.current) return false;
+		suppressClick.current = false;
+		event.preventDefault();
+		event.stopPropagation();
+		return true;
+	}
+
 	const offset = drag === null ? (expanded ? `calc(${actions.length} * var(--control-lg))` : "0px") : `${drag}px`;
 	return (
 		<li
@@ -126,6 +136,7 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 						hold.current = window.setTimeout(() => {
 							if (gesture.current?.mode !== "pending") return;
 							gesture.current.mode = "hold";
+							suppressClick.current = true;
 							setExpanded(true);
 						}, HOLD_MS);
 					},
@@ -162,16 +173,14 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 						event.preventDefault();
 						const start = gesture.current;
 						if (start && start.mode !== "pending" && start.mode !== "hold") return;
-						if (start) start.mode = "hold";
+						if (start) {
+							start.mode = "hold";
+							suppressClick.current = true;
+						}
 						setExpanded(true);
 					},
 					onClick(event) {
-						if (event.detail !== 0 && suppressClick.current) {
-							suppressClick.current = false;
-							event.preventDefault();
-							event.stopPropagation();
-							return;
-						}
+						if (consumeGestureClick(event)) return;
 						if (expanded || !children.props.onClick) {
 							event.preventDefault();
 							setExpanded(!expanded);
@@ -213,7 +222,11 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 						aria-label={action.label}
 						title={action.label}
 						disabled={action.disabled}
-						onClick={() => {
+						onPointerDown={() => {
+							suppressClick.current = false;
+						}}
+						onClick={(event) => {
+							if (consumeGestureClick(event)) return;
 							focusRow();
 							setExpanded(false);
 							action.onSelect();
