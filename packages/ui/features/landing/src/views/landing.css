@@ -244,8 +244,22 @@ body:has(.lp) {
 		display: none;
 	}
 
+	.lp-nav-signed-in > nav {
+		display: none;
+	}
+
+	.lp-nav-signed-in button,
+	.lp-nav-signed-in .lp-action-small {
+		padding-inline: var(--spacing-2);
+	}
+
 	.lp-nav-inner {
 		gap: 12px;
+	}
+
+	.lp-nav-inner.lp-nav-signed-in {
+		padding-inline: var(--spacing-2);
+		gap: var(--spacing-2);
 	}
 
 	.lp-actions {

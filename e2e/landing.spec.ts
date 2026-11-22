@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
+import { isolateChat } from "./chat-fixture.ts";
+
 const { version } = JSON.parse(readFileSync(new URL("../apps/web/package.json", import.meta.url), "utf8")) as {
 	version: string;
 };
@@ -183,4 +185,98 @@ test("a shell keeps the splash while session refresh hangs", async ({ page }) =>
 	} finally {
 		release();
 	}
+});
+
+test("a restored web session can visit and reload the landing page, then open its app", async ({
+	page,
+	context,
+	baseURL,
+}) => {
+	await isolateChat(page);
+	if (!baseURL) throw new Error("Missing browser fixture origin");
+	await context.addCookies([{ name: "test-landing-session", value: "returning", url: baseURL, httpOnly: true }]);
+	let refreshes = 0;
+	await page.route("**/v1/auth/refresh", async (route) => {
+		const cookie = await route.request().headerValue("cookie");
+		expect(cookie).toContain("test-landing-session=returning");
+		refreshes++;
+		await route.fallback();
+	});
+	await page.goto("/#chores");
+	const appLinks = page.getByRole("link", { name: "打开应用", exact: true });
+	await expect(appLinks).toHaveCount(4);
+	await expect(page).toHaveURL(/\/#chores$/);
+	await expect(page.getByRole("link", { name: "登录", exact: true })).toHaveCount(0);
+	await expect(page.locator(".lp-nav").getByRole("link", { name: "下载", exact: true })).toHaveAttribute(
+		"href",
+		"/download",
+	);
+
+	await page.reload();
+	await expect(appLinks).toHaveCount(4);
+	expect(refreshes).toBeGreaterThanOrEqual(2);
+	await page.locator(".lp-nav").getByRole("link", { name: "打开应用", exact: true }).click();
+	await expect(page).toHaveURL(/\/messages\/main$/);
+	await page.goBack();
+	await expect(appLinks).toHaveCount(4);
+	await expect(page).toHaveURL(/\/#chores$/);
+	await page.goto("/messages/main?from=test#item");
+	await expect(page).toHaveURL(/\/messages\/main\?from=test#item$/);
+});
+
+test("a late web refresh updates the landing actions without redirecting", async ({ page }) => {
+	await isolateChat(page);
+	let release = () => {};
+	const pending = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	await page.route("**/v1/auth/refresh", async (route) => {
+		await pending;
+		await route.fallback();
+	});
+	try {
+		await page.goto("/", { waitUntil: "domcontentloaded" });
+		await expect(page.getByRole("link", { name: "用网页版", exact: true })).toBeVisible({ timeout: 10000 });
+		await expect(page.getByRole("link", { name: "打开应用", exact: true })).toHaveCount(0);
+		release();
+		await expect(page.getByRole("link", { name: "打开应用", exact: true })).toHaveCount(4);
+		await expect(page).toHaveURL(/\/$/);
+	} finally {
+		release();
+	}
+});
+
+test("the guest auth action and protected deep-link redirect remain intact", async ({ page }) => {
+	await page.route("**/v1/auth/refresh", (route) =>
+		route.fulfill({ status: 401, json: { error: { code: "unauthorized" } } }),
+	);
+	await page.goto("/");
+	await expect(page.getByRole("link", { name: "Open app", exact: true })).toHaveCount(0);
+	await page.locator(".lp-nav").getByRole("link", { name: "Log in", exact: true }).click();
+	await expect(page).toHaveURL(/\/sign-in$/);
+	await page.goto("/messages/main?from=test#item");
+	await expect(page).toHaveURL(/\/sign-in\?next=/);
+	expect(new URL(page.url()).searchParams.get("next")).toBe("/messages/main?from=test#item");
+});
+
+test("the signed-in header keeps both app and download visible at narrow mobile widths", async ({ page }) => {
+	await page.setViewportSize({ width: 320, height: 700 });
+	await isolateChat(page);
+	await page.goto("/");
+	const header = page.locator(".lp-nav");
+	await expect(header.getByRole("link", { name: "打开应用", exact: true })).toBeInViewport({ ratio: 1 });
+	await expect(header.getByRole("link", { name: "下载", exact: true })).toBeInViewport({ ratio: 1 });
+	await header.getByRole("button", { name: "English" }).click();
+	await expect(header.getByRole("link", { name: "Open app", exact: true })).toBeInViewport({ ratio: 1 });
+	await expect(header.getByRole("link", { name: "Download", exact: true })).toBeInViewport({ ratio: 1 });
+});
+
+test("a restored native shell still starts directly in the app", async ({ page }) => {
+	await page.addInitScript(() => {
+		Object.assign(window, { __TAURI_INTERNALS__: { invoke: async () => "test-token" } });
+	});
+	await isolateChat(page);
+	await page.goto("/");
+	await expect(page).toHaveURL(/\/messages\/main$/);
+	await expect(page.locator(".lp")).toHaveCount(0);
 });

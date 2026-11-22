@@ -15,7 +15,7 @@ const { listenForContactAdded, invalidateQueries, queryClient, capturedShell } =
 		capturedShell: { back: undefined as AppShellProps["onBack"] | undefined },
 	};
 });
-vi.mock("../lib/local-files.ts", () => ({ useLocalFilesAdapter: () => null }));
+vi.mock("../lib/local-files.ts", () => ({ useLocalFilesAdapter: () => null, useLocalFilesContext: () => null }));
 vi.mock("../lib/contact-window.ts", () => ({ listenForContactAdded }));
 vi.mock("../lib/platform.ts", async (original) => ({
 	...(await original<object>()),

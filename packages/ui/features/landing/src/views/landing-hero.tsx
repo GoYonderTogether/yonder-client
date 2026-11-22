@@ -3,6 +3,7 @@ import { ArrowUp, CalendarDays, Check, Clock, LoaderCircle, MapPin, Paperclip, T
 import { type CSSProperties, type RefObject, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { DownloadControls } from "./landing-download.tsx";
+import type { PublicViewProps } from "./public-layout.tsx";
 import { useScrollProgress } from "./use-landing-motion.ts";
 
 /** Chores drifting round the chat at three depths; each is pulled into the composer as you scroll. */
@@ -44,7 +45,7 @@ function useTagTargets(stage: RefObject<HTMLDivElement | null>) {
 }
 
 /** The opening: the promise, the actions, then the chat pinned while it finishes one chore. */
-export function HeroSection({ version, iosUrl }: { version: string; iosUrl?: string | undefined }) {
+export function HeroSection({ version, iosUrl, appPath }: PublicViewProps & { appPath: string | null }) {
 	const { t } = useTranslation();
 	const track = useRef<HTMLElement>(null);
 	const stage = useRef<HTMLDivElement>(null);
@@ -56,7 +57,7 @@ export function HeroSection({ version, iosUrl }: { version: string; iosUrl?: str
 			<section className="lp-container lp-hero" aria-labelledby="lp-hero-title">
 				<h1 id="lp-hero-title">{t("landingPage.hero.title")}</h1>
 				<p className="lp-hero-lead">{t("landingPage.hero.lead")}</p>
-				<DownloadControls version={version} iosUrl={iosUrl} />
+				<DownloadControls version={version} iosUrl={iosUrl} appPath={appPath} />
 			</section>
 
 			<section ref={track} className="lp-demo lp-scrub" aria-label={t("landingPage.hero.demo")}>

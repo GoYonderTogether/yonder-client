@@ -5,6 +5,10 @@ mod apple_resources;
 
 mod device_download;
 mod device_info;
+#[cfg(desktop)]
+mod device_model;
+#[cfg(desktop)]
+mod device_model_http;
 
 #[cfg(target_os = "ios")]
 mod ios_chat_attachments;
@@ -97,9 +101,16 @@ pub fn run() {
             local_files::local_files_cancel,
             local_files::local_files_revoke,
             local_files::local_files_ready,
-            local_files::local_files_execute
+            local_files::local_files_execute,
+            device_model::device_model_activate,
+            device_model::device_model_reset,
+            device_model::device_model_register,
+            device_model::device_model_ready,
+            device_model::device_model_execute,
+            device_model::device_model_cancel
         ])
         .manage(local_files_store::LocalFilesState::default())
+        .manage(device_model::DeviceModelState::default())
 
         .plugin(tauri_plugin_keyring::init())
         .plugin(tauri_plugin_notification::init())

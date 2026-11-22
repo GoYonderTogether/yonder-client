@@ -15,7 +15,7 @@ const PLATFORMS = [
  * The close: the real mark drawn stroke by stroke, filled, then the platforms and the actions.
  * Each path's own length is measured at runtime so the draw follows the logo's true geometry.
  */
-export function ClosingSection() {
+export function ClosingSection({ appPath }: { appPath: string | null }) {
 	const { t } = useTranslation();
 	const mark = useRef<HTMLDivElement>(null);
 
@@ -45,11 +45,14 @@ export function ClosingSection() {
 					))}
 				</ul>
 				<div className="lp-actions">
-					<a className="lp-action lp-action-primary" href="/download">
+					<a className={`lp-action ${appPath ? "lp-action-secondary" : "lp-action-primary"}`} href="/download">
 						{t("landingPage.closing.get")}
 					</a>
-					<a className="lp-action lp-action-secondary" href="/sign-in">
-						{t("landingPage.closing.signIn")}
+					<a
+						className={`lp-action ${appPath ? "lp-action-primary" : "lp-action-secondary"}`}
+						href={appPath ?? "/sign-in"}
+					>
+						{t(appPath ? "landingPage.openApp" : "landingPage.closing.signIn")}
 					</a>
 				</div>
 			</div>

@@ -1,9 +1,10 @@
 import { Button, ListGroup, ListRow, SearchInput } from "@yonder/ui-components";
-import { useProviderActions, useProviders } from "@yonder/ui-data";
+import { useDevices, useProviderActions, useProviderDeviceEndpoints, useProviders } from "@yonder/ui-data";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ProviderEditor, type ProviderPreset } from "./provider-editor.tsx";
+import { providerDeviceLabel, type RegisterLocalProviderEndpoint } from "./provider-location.ts";
 import { ProviderRow } from "./provider-row.tsx";
 
 const PRESETS: ProviderPreset[] = [
@@ -22,12 +23,17 @@ export function ModelsSection({
 	page,
 	onOpenPage,
 	onDirtyChange,
+	registerEndpoint,
 }: {
 	page: string | null;
 	onOpenPage: (page: string | null) => void;
 	onDirtyChange?: ((dirty: boolean) => void) | undefined;
+	registerEndpoint?: RegisterLocalProviderEndpoint | undefined;
 }) {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const devices = useDevices();
+	const endpoints = useProviderDeviceEndpoints(!!page);
+	const location = { devices: devices.data?.items, endpoints: endpoints.data?.items, registerEndpoint };
 	const providers = useProviders();
 	const actions = useProviderActions();
 	const [preset, setPreset] = useState<ProviderPreset | null>(null);
@@ -39,6 +45,7 @@ export function ModelsSection({
 		if (preset)
 			return (
 				<ProviderEditor
+					{...location}
 					key={preset.id}
 					preset={preset}
 					onDirtyChange={onDirtyChange}
@@ -68,6 +75,7 @@ export function ModelsSection({
 		const provider = userProviders.find((item) => item.id === page.slice(5));
 		return provider ? (
 			<ProviderEditor
+				{...location}
 				key={provider.id}
 				provider={provider}
 				onDirtyChange={onDirtyChange}
@@ -84,6 +92,7 @@ export function ModelsSection({
 		const provider = userProviders.find((item) => item.id === page.slice(10));
 		return provider ? (
 			<ProviderEditor
+				{...location}
 				key={`duplicate-${provider.id}`}
 				preset={{
 					id: "copy",
@@ -91,6 +100,7 @@ export function ModelsSection({
 					baseUrl: provider.baseUrl,
 					models: provider.models.join(", "),
 					protocol: provider.protocol,
+					target: provider.target,
 					note: provider.note ?? null,
 					website: provider.website ?? null,
 					keyUrl: null,
@@ -170,6 +180,13 @@ export function ModelsSection({
 						<ProviderRow
 							key={provider.id}
 							provider={provider}
+							deviceLabel={(() => {
+								if (!provider.target) return undefined;
+								const device = devices.data?.items.find(({ id }) => id === provider.target?.deviceId);
+								return device
+									? providerDeviceLabel(device, t, i18n.resolvedLanguage ?? i18n.language)
+									: t("models.deviceUnavailable");
+							})()}
 							notice={notice?.id === provider.id ? notice.ok : null}
 							onEdit={() => onOpenPage(`edit-${provider.id}`)}
 							onDefault={() => actions.setDefault.mutate(provider.id)}

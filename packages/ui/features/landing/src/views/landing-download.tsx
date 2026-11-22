@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { createDownloadCatalog } from "../downloads.ts";
 import type { DownloadPlatform } from "../environment.ts";
 import { detectEnvironment, readPlatformChoice, writePlatformChoice } from "../environment.ts";
+import type { PublicViewProps } from "./public-layout.tsx";
 
 const PLATFORMS: DownloadPlatform[] = ["macos", "windows", "android", "ios", "web"];
 
@@ -49,7 +50,7 @@ async function copyLink(): Promise<boolean> {
  * The hero's actions: the installer for this device, the web version, and a manual platform pick.
  * In an in-app browser (WeChat, QQ…) no installer link is ever rendered; it offers to copy the link.
  */
-export function DownloadControls({ version, iosUrl }: { version: string; iosUrl?: string | undefined }) {
+export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps & { appPath: string | null }) {
 	const { t } = useTranslation();
 	const { storage } = useData();
 	const [environment] = useState(() => detectEnvironment(navigator.userAgent, navigator.maxTouchPoints));
@@ -70,21 +71,21 @@ export function DownloadControls({ version, iosUrl }: { version: string; iosUrl?
 				{inApp ? (
 					<button
 						type="button"
-						className="lp-action lp-action-primary"
+						className={`lp-action ${appPath ? "lp-action-secondary" : "lp-action-primary"}`}
 						onClick={() => void copyLink().then((ok) => setCopyStatus(ok ? "copied" : "failed"))}
 					>
 						{t("landing.copyLink")}
 					</button>
 				) : download ? (
-					<a className="lp-action lp-action-primary" href={download}>
+					<a className={`lp-action ${appPath ? "lp-action-secondary" : "lp-action-primary"}`} href={download}>
 						{t("landing.downloadFor", { platform: t(`landing.platforms.${platform}`) })}
 					</a>
 				) : null}
 				<a
-					className={`lp-action ${download || inApp ? "lp-action-secondary" : "lp-action-primary"}`}
-					href={catalog.web.url ?? "/messages"}
+					className={`lp-action ${!appPath && (download || inApp) ? "lp-action-secondary" : "lp-action-primary"}`}
+					href={appPath ?? catalog.web.url ?? "/messages"}
 				>
-					{t("landing.useWeb")}
+					{t(appPath ? "landingPage.openApp" : "landing.useWeb")}
 				</a>
 			</div>
 			{download && note ? <p className="lp-download-note">{note}</p> : null}

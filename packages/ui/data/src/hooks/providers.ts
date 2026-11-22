@@ -8,11 +8,23 @@ export function useProviders() {
 	return useQuery({ queryKey: keys.providers(), queryFn: () => api.providers(), staleTime: 60_000 });
 }
 
+export function useProviderDeviceEndpoints(enabled: boolean) {
+	const api = useApi();
+	return useQuery({
+		queryKey: keys.providerDeviceEndpoints(),
+		queryFn: ({ signal }) => api.providerDeviceEndpoints(signal),
+		enabled,
+		gcTime: 0,
+		retry: false,
+	});
+}
+
 export function useProviderActions() {
 	const api = useApi();
 	const client = useQueryClient();
 	const refresh = () => client.invalidateQueries({ queryKey: keys.providers() });
 	return {
+		readDeviceEndpoints: () => api.providerDeviceEndpoints(),
 		// Discovery can also carry a just-entered key: keep it out of the mutation cache.
 		discoverModels: (body: DiscoverModelsRequest) => api.discoverModels(body),
 		// Do not put a key into the mutation cache or its persisted state.
