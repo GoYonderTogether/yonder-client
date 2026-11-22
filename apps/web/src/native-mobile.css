@@ -46,7 +46,8 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 
 :is(html[data-native-mobile="true"] [data-floating-frame-header], [data-floating-frame-header])::before {
 	inset: 0 0 auto;
-	height: calc(100% + var(--spacing-2));
+	/* Fade history at the screen edge, without veiling the avatar or name. */
+	height: var(--floating-frame-top);
 	background: color-mix(in srgb, var(--color-bg-base) 65%, transparent);
 	-webkit-backdrop-filter: blur(var(--floating-frame-blur));
 	backdrop-filter: blur(var(--floating-frame-blur));
@@ -55,7 +56,6 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 }
 
 html[data-native-mobile="true"] [data-floating-frame-header]::before {
-	height: calc(max(var(--spacing-4), var(--floating-frame-safe-top)) + var(--spacing-2));
 	background: var(--color-bg-base);
 	-webkit-mask-image: linear-gradient(var(--color-mask-solid) 50%, transparent);
 	mask-image: linear-gradient(var(--color-mask-solid) 50%, transparent);
@@ -159,8 +159,32 @@ html[data-native-mobile="true"] [data-me-layers] [data-frame-scroll] {
 	scroll-padding-top: 0;
 }
 
+/* Frost only the system inset on ordinary pages. The app bar and content never share a fade. */
+html[data-native-mobile="true"]
+	:is(
+		[data-frame-header]:not(:where([data-conversation-header], [data-floating-frame-header])),
+		[data-native-legal-header]
+	) {
+	background: linear-gradient(
+		to bottom,
+		transparent var(--safe-area-top),
+		var(--page-chrome-bg, var(--color-bg-base)) var(--safe-area-top)
+	);
+}
+
+html[data-native-mobile="true"]
+	:is(
+		[data-frame-header]:not(:where([data-conversation-header], [data-floating-frame-header])),
+		[data-native-legal-header]
+	)::before {
+	inset: 0 0 auto;
+	height: var(--safe-area-top);
+	background: color-mix(in srgb, var(--page-chrome-bg, var(--color-bg-base)) 75%, transparent);
+	-webkit-mask-image: none;
+	mask-image: none;
+}
+
 html[data-native-mobile="true"] [data-native-legal-header] {
-	background: transparent;
 	padding-inline: var(--safe-area-left) var(--safe-area-right);
 }
 
@@ -188,8 +212,16 @@ html[data-native-mobile="true"] [data-native-sheet] {
 	--native-dock-height: 0px;
 }
 
+html[data-native-mobile="true"] [data-frame-header]:has(+ [data-overlay-body]) {
+	--page-chrome-bg: var(--color-bg-surface);
+}
+
 html[data-native-mobile="true"] [role="dialog"] [data-frame-header] {
 	padding-inline: max(var(--spacing-5), var(--safe-area-left)) max(var(--spacing-5), var(--safe-area-right));
+}
+
+html[data-native-mobile="true"] [data-surface="chrome"] > [data-shell-frame] > [data-frame-header] {
+	--page-chrome-bg: var(--color-bg-chrome);
 }
 
 /*

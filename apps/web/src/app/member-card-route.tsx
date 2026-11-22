@@ -2,9 +2,14 @@ import { lazy, type ReactNode, Suspense } from "react";
 import { memberHandle } from "../pages/member-card-path.ts";
 import { Splash } from "../pages/splash.tsx";
 
-const MemberCardPage = lazy(() =>
-	import("../pages/member-page.tsx").then((module) => ({ default: module.MemberCardPage })),
-);
+import { warmableImport } from "./warmable-import.ts";
+
+const memberCardPage = warmableImport(() => import("../pages/member-page.tsx"));
+const MemberCardPage = lazy(() => memberCardPage().then((module) => ({ default: module.MemberCardPage })));
+
+export function preloadMemberCard(pathname: string) {
+	if (memberHandle(pathname)) void memberCardPage().catch(() => undefined);
+}
 
 /**
  * `/@对外号` is outside every route the router can express (see `member-card-path.ts`), so it is

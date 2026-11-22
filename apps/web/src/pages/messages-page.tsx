@@ -224,7 +224,7 @@ export function ConversationPage({
 	const openSection = (target: string) => navigate(target, { state: { tabLocation: location.pathname } });
 	if (!conversationId || !conversation)
 		return (
-			<PageFrame title={null} hideHeader={embedded} floatingHeader={floatingHeader}>
+			<PageFrame title={null} hideHeader={embedded} floatingHeader={floatingHeader} conversationHeader>
 				{null}
 			</PageFrame>
 		);
@@ -256,6 +256,7 @@ export function ConversationPage({
 			<PageFrame
 				hideHeader={embedded}
 				floatingHeader={floatingHeader}
+				conversationHeader
 				title={item ? item.title : agent ? null : title}
 				titleAlign={agent && !item ? "center" : "start"}
 				afterTopBar={

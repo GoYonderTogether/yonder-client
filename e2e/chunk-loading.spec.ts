@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { devices, expect, type Page, test } from "@playwright/test";
 import { isolateChat } from "./chat-fixture.ts";
 
 async function isolateNetwork(page: Page) {
@@ -72,4 +72,58 @@ test("features load on navigation while the chat draft survives", async ({ page 
 	await nav.getByRole("button", { name: "消息", exact: true }).click();
 	await expect(draft).toHaveValue("保留这条未发送草稿");
 	expect(chat.sent).toEqual([]);
+});
+
+test("a direct memory entry starts the visible route before the app frame finishes loading", async ({ page }) => {
+	await isolateNetwork(page);
+	await isolateChat(page, { items: [] });
+	const requested = observeChunks(page);
+	let releaseFrame = () => {};
+	const waitingForFrame = new Promise<void>((resolve) => {
+		releaseFrame = resolve;
+	});
+	await page.route("**/assets/app-frame-*.js", async (route) => {
+		await waitingForFrame;
+		await route.continue();
+	});
+
+	await page.goto("/memory", { waitUntil: "domcontentloaded" });
+	try {
+		await expect.poll(() => loaded(requested, "app-frame")).toBe(true);
+		await expect.poll(() => loaded(requested, "memory-page")).toBe(true);
+		for (const chunk of ["tasks-page", "settings-pages", "models-section", "skills-section"])
+			expect(loaded(requested, chunk)).toBe(false);
+	} finally {
+		releaseFrame();
+	}
+	await expect(page.getByRole("heading", { name: "记忆", exact: true }).first()).toBeVisible();
+});
+
+test("mobile chat does not warm unrelated tabs during boot", async ({ browser, baseURL }) => {
+	const { viewport, userAgent } = devices["iPhone 13"];
+	const page = await browser.newPage({
+		viewport,
+		userAgent,
+		isMobile: true,
+		hasTouch: true,
+		baseURL,
+	});
+	try {
+		await isolateNetwork(page);
+		await isolateChat(page, { items: [] });
+		const requested = observeChunks(page);
+		// Expose the original app's idle prefetch deterministically, without sleeping.
+		await page.addInitScript(() => {
+			window.requestIdleCallback = (callback) =>
+				window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 30 }), 0);
+		});
+		await page.goto("/messages/main");
+		await expect(page.getByRole("textbox", { name: "对 界面验收 BOT 说点什么" })).toBeVisible();
+		for (const chunk of ["tasks-page", "memory-page", "settings-pages"]) expect(loaded(requested, chunk)).toBe(false);
+		await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "任务" }).click();
+		await expect.poll(() => loaded(requested, "tasks-page")).toBe(true);
+		expect(loaded(requested, "memory-page")).toBe(false);
+	} finally {
+		await page.close();
+	}
 });

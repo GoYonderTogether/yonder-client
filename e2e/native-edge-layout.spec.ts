@@ -116,7 +116,8 @@ for (const native of [false, true]) {
 		});
 		expect(blur.blur).toBe("blur(24px)");
 		expect(blur.mask).toContain("linear-gradient");
-		expect(blur.height).toBeCloseTo((native ? Math.max(16, safeTop) : headerBox.height) + 8, 0);
+		expect(blur.height).toBeGreaterThan(0);
+		expect(headerBox.y + blur.height).toBeCloseTo(avatarBox.y, 0);
 		expect(blur.width).toBeCloseTo(headerBox.width, 0);
 		expect(blur.pointerEvents).toBe("none");
 		const first = scroll.locator(".message-bubble").first();
@@ -166,7 +167,15 @@ for (const native of [false, true]) {
 		const lastBox = await last.boundingBox();
 		const dockBox = await page.locator("[data-mobile-dock]").boundingBox();
 		expect(lastBox && dockBox && lastBox.y + lastBox.height <= dockBox.y).toBe(true);
-		if (!native) return;
+		if (!native) {
+			await page.setViewportSize({ width: 320, height: 568 });
+			await expect(account).toBeInViewport();
+			await expect(avatarButton).toBeInViewport();
+			await expect(name).toBeInViewport();
+			await expect(name).toHaveCSS("border-radius", "9999px");
+			await page.screenshot({ path: info.outputPath("mobile-web-narrow.png"), animations: "disabled" });
+			return;
+		}
 		await page.setViewportSize({ width: 844, height: 390 });
 		const landscapeComposer = page.locator("[data-native-composer]");
 		await expect(landscapeComposer).toBeVisible();

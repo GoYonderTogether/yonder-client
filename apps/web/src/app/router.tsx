@@ -6,25 +6,51 @@
 import { useSessionStore } from "@yonder/ui-data";
 import { lazy, Suspense } from "react";
 import type { Location } from "react-router";
-import { createBrowserRouter, Navigate, Route, RouterProvider, Routes, useLocation } from "react-router";
+import { createBrowserRouter, matchPath, Navigate, Route, RouterProvider, Routes, useLocation } from "react-router";
 import { Splash } from "../pages/splash.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
-import { MemberCardRoute } from "./member-card-route.tsx";
+import { preloadFrameView } from "./lazy-tabs.ts";
+import { MemberCardRoute, preloadMemberCard } from "./member-card-route.tsx";
 import { TrayMainActions } from "./tray/main-actions.tsx";
+import { warmableImport } from "./warmable-import.ts";
 
 const ContactWindowPage = lazy(() =>
 	import("../pages/chat-actions/contact-window-page.tsx").then((module) => ({ default: module.ContactWindowPage })),
 );
-const DownloadPage = lazy(() =>
-	import("../pages/download-page.tsx").then((module) => ({ default: module.DownloadPage })),
-);
-const InvitePage = lazy(() => import("../pages/invite-page.tsx").then((module) => ({ default: module.InvitePage })));
-const LandingPage = lazy(() => import("../pages/landing-page.tsx").then((module) => ({ default: module.LandingPage })));
-const LegalPage = lazy(() => import("../pages/legal-page.tsx").then((module) => ({ default: module.LegalPage })));
-const PricingPage = lazy(() => import("../pages/pricing-page.tsx").then((module) => ({ default: module.PricingPage })));
+const loadDownload = warmableImport(() => import("../pages/download-page.tsx"));
+const loadInvite = warmableImport(() => import("../pages/invite-page.tsx"));
+const loadLanding = warmableImport(() => import("../pages/landing-page.tsx"));
+const loadLegal = warmableImport(() => import("../pages/legal-page.tsx"));
+const loadPricing = warmableImport(() => import("../pages/pricing-page.tsx"));
+const loadSignIn = warmableImport(() => import("../pages/sign-in-page.tsx"));
+const DownloadPage = lazy(() => loadDownload().then((module) => ({ default: module.DownloadPage })));
+const InvitePage = lazy(() => loadInvite().then((module) => ({ default: module.InvitePage })));
+const LandingPage = lazy(() => loadLanding().then((module) => ({ default: module.LandingPage })));
+const LegalPage = lazy(() => loadLegal().then((module) => ({ default: module.LegalPage })));
+const PricingPage = lazy(() => loadPricing().then((module) => ({ default: module.PricingPage })));
+const SignInPage = lazy(() => loadSignIn().then((module) => ({ default: module.SignInPage })));
+const publicRoutes = [
+	{ path: "/", load: loadLanding, element: <LandingPage /> },
+	{ path: "/download", load: loadDownload, element: <DownloadPage /> },
+	{ path: "/sign-in", load: loadSignIn, element: <SignInPage /> },
+	{ path: "/terms", load: loadLegal, element: <LegalPage kind="terms" /> },
+	{ path: "/privacy", load: loadLegal, element: <LegalPage kind="privacy" /> },
+	{ path: "/pricing", load: loadPricing, element: <PricingPage /> },
+	{ path: "/i/:code", load: loadInvite, element: <InvitePage /> },
+];
+
+export function preloadPublicEntry(pathname: string) {
+	const route = publicRoutes.find(({ path }) => matchPath(path, pathname));
+	if (route) void route.load().catch(() => undefined);
+	else preloadMemberCard(pathname);
+}
+
 const SetupPage = lazy(() => import("../pages/setup/setup-page.tsx").then((module) => ({ default: module.SetupPage })));
-const SignInPage = lazy(() => import("../pages/sign-in-page.tsx").then((module) => ({ default: module.SignInPage })));
-const AppFrame = lazy(() => import("./app-frame.tsx").then((module) => ({ default: module.AppFrame })));
+const AppFrame = lazy(() => {
+	// The session guard has admitted this URL. Load its visible pane alongside the frame.
+	preloadFrameView(router.state.location.pathname);
+	return import("./app-frame.tsx").then((module) => ({ default: module.AppFrame }));
+});
 
 const ComponentsPage = import.meta.env.DEV ? lazy(() => import("../dev/components-page.tsx")) : null;
 const DeveloperPanel = import.meta.env.DEV ? lazy(() => import("../dev/panel/index.tsx")) : null;
@@ -57,13 +83,9 @@ export function AppRoutes() {
 										}
 									/>
 								)}
-								<Route path="/" element={<LandingPage />} />
-								<Route path="/download" element={<DownloadPage />} />
-								<Route path="/sign-in" element={<SignInPage />} />
-								<Route path="/terms" element={<LegalPage kind="terms" />} />
-								<Route path="/privacy" element={<LegalPage kind="privacy" />} />
-								<Route path="/pricing" element={<PricingPage />} />
-								<Route path="/i/:code" element={<InvitePage />} />
+								{publicRoutes.map(({ path, element }) => (
+									<Route key={path} path={path} element={element} />
+								))}
 								<Route
 									path="/setup/:step"
 									element={

@@ -67,6 +67,32 @@ for (const viewport of ["desktop", "phone"] as const) {
 					}
 				: { viewport: { width: 1440, height: 900 } },
 		);
+		test("secondary Bot uses the conversation identity and ordinary chat settings", async ({ page }, info) => {
+			const secondaryBot = { ...bot, memberId: "secondary-bot" };
+			const secondary = {
+				...chats.agent,
+				id: "secondary-chat",
+				isPrimary: false,
+				members: [self, secondaryBot],
+			};
+			await isolateChat(page, {
+				items: [
+					from(secondary, self, 1, "明天评审前，帮我把会议纪要里的待办归整一下。"),
+					from(secondary, secondaryBot, 2, reply.body),
+				],
+			});
+			await page.route("**/v1/conversations", (route) => route.fulfill({ json: { items: [conversation, secondary] } }));
+			await page.goto(`/messages/${secondary.id}`);
+			const detail = page.locator('[data-page-layer="detail"]');
+			const header = detail.locator("[data-frame-header]");
+			await expect(header.locator("[data-chat-agent-avatar] [data-avatar-fallback]")).toBeVisible();
+			await expect(header.locator("[data-chat-agent-name] [data-bot-display-name]")).toHaveText(bot.displayName);
+			await expect(header.getByRole("button", { name: "聊天设置", exact: true })).toBeInViewport();
+			await expect(header).not.toHaveAttribute("data-floating-frame-header");
+			await expect(detail.getByRole("log")).toBeVisible();
+			await page.screenshot({ path: info.outputPath(`${viewport}-secondary-bot.png`), animations: "disabled" });
+		});
+
 		for (const mode of ["person", "group", "agent"] as const) {
 			test(`${mode} heading and message identities`, async ({ page }, info) => {
 				const chat = chats[mode];
@@ -199,7 +225,7 @@ for (const viewport of ["desktop", "phone"] as const) {
 	});
 }
 
-test("desktop main Bot opens on the latest messages under its floating heading", async ({ page }) => {
+test("desktop main Bot opens on the latest messages under its floating heading", async ({ page }, info) => {
 	const history = Array.from({ length: 32 }, (_, index) =>
 		message(
 			`message-${String(index).padStart(2, "0")}`,
@@ -213,6 +239,21 @@ test("desktop main Bot opens on the latest messages under its floating heading",
 	const header = detail.locator("[data-floating-frame-header]");
 	await expect(header.getByRole("button", { name: "聊天设置", exact: true })).toBeVisible();
 	await expect(detail.getByText(history.at(-1)?.body ?? "", { exact: true })).toBeInViewport();
+	const avatar = header.locator("[data-chat-agent-avatar]");
+	const name = header.locator("[data-chat-agent-name]");
+	for (const control of [avatar, name]) {
+		await expect(control).toHaveCSS("border-radius", "9999px");
+		await expect(control).toHaveCSS("box-shadow", /rgba?\(/);
+	}
+	const [headerBox, avatarBox] = await Promise.all([header.boundingBox(), avatar.boundingBox()]);
+	if (!headerBox || !avatarBox) throw new Error("Expected a visible floating Bot avatar");
+	const fade = await header.evaluate((element) => {
+		const style = getComputedStyle(element, "::before");
+		return { height: Number.parseFloat(style.height), maskImage: style.maskImage };
+	});
+	expect(fade.height).toBeGreaterThan(0);
+	expect(headerBox.y + fade.height).toBeCloseTo(avatarBox.y, 0);
+	expect(fade.maskImage).toContain("linear-gradient");
 	await expect
 		.poll(() =>
 			header.evaluate((element) => {
@@ -230,6 +271,7 @@ test("desktop main Bot opens on the latest messages under its floating heading",
 			}),
 		)
 		.toBe(true);
+	await page.screenshot({ path: info.outputPath("desktop-primary-scrolled.png"), animations: "disabled" });
 });
 
 test("The empty Agent conversation retains its label and one avatar", async ({ page }) => {

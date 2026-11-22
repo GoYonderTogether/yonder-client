@@ -83,6 +83,7 @@ export function PageFrame({
 	scroll = true,
 	hideHeader = false,
 	floatingHeader = false,
+	conversationHeader = false,
 }: {
 	title?: ReactNode;
 	titleAlign?: "start" | "center";
@@ -93,6 +94,7 @@ export function PageFrame({
 	scroll?: boolean;
 	hideHeader?: boolean;
 	floatingHeader?: boolean;
+	conversationHeader?: boolean;
 }) {
 	const { mode, left } = useShellChrome();
 	const phone = mode === "mobile";
@@ -104,6 +106,7 @@ export function PageFrame({
 					ref={header}
 					data-frame-header
 					data-floating-frame-header={floatingHeader || undefined}
+					data-conversation-header={conversationHeader || undefined}
 					className="shrink-0"
 				>
 					{floatingHeader ? (

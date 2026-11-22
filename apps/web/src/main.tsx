@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/app.tsx";
+import { preloadPublicEntry } from "./app/router.tsx";
 import { TrayPanel } from "./app/tray/panel.tsx";
 import "./index.css";
 import "./native-mobile.css";
@@ -15,4 +16,6 @@ setShellHaptics(haptic);
 const root = document.getElementById("root");
 if (!root) throw new Error("index.html has no #root element");
 
-createRoot(root).render(<StrictMode>{isTrayPanel() ? <TrayPanel /> : <App />}</StrictMode>);
+const tray = isTrayPanel();
+if (!tray) preloadPublicEntry(location.pathname);
+createRoot(root).render(<StrictMode>{tray ? <TrayPanel /> : <App />}</StrictMode>);

@@ -40,11 +40,10 @@ import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
-import { MemoryList, MemoryPage, preloadTabs, TaskPage, TasksList } from "./lazy-tabs.ts";
+import { MemoryList, MemoryPage, SettingsRoutePage, TaskPage, TasksList } from "./lazy-tabs.ts";
 import { eligibleMeetingTarget, openMeetingSource, useMeetingRecordingSurface } from "./meeting-recording-surface.tsx";
 import { MessageNotifications } from "./message-notifications.tsx";
 import { settingsPagePaths } from "./settings-navigation.ts";
-import { SettingsRoutePage } from "./settings-pages.tsx";
 import { useFrameLayers, useSideStack } from "./side-panel.tsx";
 import { TaskBotDrawer } from "./task-bot-drawer.tsx";
 import { useFrameChat } from "./use-frame-chat.ts";
@@ -153,7 +152,6 @@ export function AppFrame() {
 			Boolean(contacts.data?.items.some((member) => member.id === id && person && member.ownerId === person.id)),
 	);
 	useMeetingLink();
-	useEffect(() => preloadTabs(phone), [phone]);
 	const layers = useFrameLayers();
 	/** From the chat a member replaces the side panel; from inside it (group info) one stacks on it. */
 	const openMember = useEffectEvent((memberId: string, stacked = false) => {

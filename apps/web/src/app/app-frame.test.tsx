@@ -183,7 +183,7 @@ test("Me layers preserve the selected chat, composer, parent instance and origin
 	fireEvent.change(composer, { target: { value: "unsent draft" } });
 	await act(() => fireEvent.click(screen.getByRole("button", { name: "Open me" })));
 	await act(() => fireEvent.click(screen.getByRole("button", { name: "Open account" })));
-	const account = screen.getByRole("textbox", { name: "Account state" });
+	const account = await screen.findByRole("textbox", { name: "Account state" });
 	fireEvent.change(account, { target: { value: "parent state" } });
 	await act(() => fireEvent.click(screen.getByRole("button", { name: "Open password" })));
 	expect(screen.getByText("Password page")).toBeInTheDocument();
@@ -210,7 +210,7 @@ test("a refused dirty-form exit leaves the route and page in place", async () =>
 		initialEntries: ["/me/account/password"],
 	});
 	render(<RouterProvider router={router} />);
-	const page = screen.getByText("Password page");
+	const page = await screen.findByText("Password page");
 	fireEvent.click(screen.getByRole("button", { name: "Mark dirty" }));
 	await act(() => fireEvent.click(screen.getByRole("button", { name: "Back" })));
 	expect(confirm).toHaveBeenCalledWith("models.discard");
