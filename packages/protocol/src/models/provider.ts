@@ -1,3 +1,5 @@
+import type { DeviceProviderTarget } from "./device-provider.ts";
+
 export interface Provider {
 	id: string;
 	scope: "platform" | "user";
@@ -15,6 +17,10 @@ export interface Provider {
 	/** Set only when origin is device. */
 	deviceId?: string | null;
 	deviceName?: string | null;
+	/** The device endpoint this provider is reached through, when the server resolves one. */
+	target?: DeviceProviderTarget;
+	/** Whether the bound device endpoint is reachable right now. */
+	deviceStatus?: "online" | "offline";
 }
 
 /** Public platform catalog: upstream connection details never leave the server. */
@@ -35,7 +41,8 @@ export interface SaveProviderRequest {
 	name: string;
 	note?: string | null;
 	website?: string | null;
-	baseUrl: string;
+	baseUrl?: string;
+	target?: DeviceProviderTarget;
 	protocol: Provider["protocol"];
 	models: string[];
 	apiKey?: string;
@@ -52,7 +59,8 @@ export interface ProviderModelMetadata {
 }
 
 export interface DiscoverModelsRequest {
-	baseUrl: string;
+	baseUrl?: string;
+	target?: DeviceProviderTarget;
 	protocol: Provider["protocol"];
 	providerId?: string;
 	apiKey?: string;

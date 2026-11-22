@@ -1,21 +1,13 @@
 import { Logo } from "@yonder/ui-components";
-import { Globe, Laptop, Monitor, Smartphone } from "lucide-react";
 import { type CSSProperties, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-
-const PLATFORMS = [
-	{ key: "macos", Icon: Laptop },
-	{ key: "windows", Icon: Monitor },
-	{ key: "android", Icon: Smartphone },
-	{ key: "ios", Icon: Smartphone },
-	{ key: "web", Icon: Globe },
-] as const;
+import { LANDING_PLATFORM_ICONS } from "./landing-platform-icons.ts";
 
 /**
  * The close: the real mark drawn stroke by stroke, filled, then the platforms and the actions.
  * Each path's own length is measured at runtime so the draw follows the logo's true geometry.
  */
-export function ClosingSection() {
+export function ClosingSection({ appPath }: { appPath: string | null }) {
 	const { t } = useTranslation();
 	const mark = useRef<HTMLDivElement>(null);
 
@@ -37,7 +29,7 @@ export function ClosingSection() {
 				<h2 id="lp-get-title">{t("landingPage.closing.title")}</h2>
 				<p className="lp-closing-lead">{t("landingPage.closing.lead")}</p>
 				<ul className="lp-platform-row" aria-label={t("landingPage.closing.platforms")}>
-					{PLATFORMS.map(({ key, Icon }, index) => (
+					{Object.entries(LANDING_PLATFORM_ICONS).map(([key, Icon], index) => (
 						<li key={key} style={{ "--i": index } as CSSProperties}>
 							<Icon size={18} aria-hidden="true" />
 							{t(`landing.platforms.${key}`)}
@@ -45,11 +37,14 @@ export function ClosingSection() {
 					))}
 				</ul>
 				<div className="lp-actions">
-					<a className="lp-action lp-action-primary" href="/download">
+					<a className={`lp-action ${appPath ? "lp-action-secondary" : "lp-action-primary"}`} href="/download">
 						{t("landingPage.closing.get")}
 					</a>
-					<a className="lp-action lp-action-secondary" href="/sign-in">
-						{t("landingPage.closing.signIn")}
+					<a
+						className={`lp-action ${appPath ? "lp-action-primary" : "lp-action-secondary"}`}
+						href={appPath ?? "/sign-in"}
+					>
+						{t(appPath ? "landingPage.openApp" : "landingPage.closing.signIn")}
 					</a>
 				</div>
 			</div>

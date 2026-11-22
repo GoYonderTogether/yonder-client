@@ -21,6 +21,7 @@ import {
 	serveContactWindowSession,
 } from "../lib/contact-window.ts";
 import { loadSystemDeviceName, SystemDeviceName, useDeviceInfo } from "../lib/device-info.ts";
+import { DeviceModelRuntime } from "../lib/device-model-runtime.tsx";
 import type { KeychainStorage } from "../lib/keychain.ts";
 import { createKeychainStorage, isTauri } from "../lib/keychain.ts";
 import { appleResourcesSupported, localFilesSupported, resetLocalFiles } from "../lib/local-files.ts";
@@ -111,6 +112,7 @@ function Localised() {
 			<AppNoticeProvider scope={signedIn ? personId : undefined}>
 				{signedIn && personId && !isContactWindow() ? <ConnectorContinuationNotices key={personId} /> : null}
 				{registration.isSuccess && isNativeMobileNotifications() ? <NativePushRegistration /> : null}
+				{localFilesSupported() ? <DeviceModelRuntime /> : null}
 				{localFilesSupported() || appleResourcesSupported() ? (
 					<LocalFilesRuntime files={localFilesSupported()} apple={appleResourcesSupported()} />
 				) : null}

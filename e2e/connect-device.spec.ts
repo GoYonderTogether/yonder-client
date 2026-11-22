@@ -63,7 +63,7 @@ async function mockNative(page: Page, userAgent: string, failure: "open" | "shar
 					transformCallback: () => 1,
 					unregisterCallback() {},
 					invoke: async (command: string, args: { url: string }) => {
-						if (command.endsWith("get_password")) return "isolated-device-download";
+						if (command === "get_desktop_refresh_token") return "isolated-device-download";
 						if (!command.startsWith("plugin:yonder-device-download|")) return null;
 						const action = command.split("|")[1] ?? "";
 						calls.push({ action, url: args.url });

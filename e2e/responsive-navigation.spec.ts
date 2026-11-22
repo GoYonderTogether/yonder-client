@@ -322,7 +322,7 @@ test("a macOS Tauri host keeps desktop navigation and clears the traffic lights 
 			value: {
 				// The Mac permission step is already done, so the app opens on its normal navigation.
 				invoke: async (command: string) =>
-					command.endsWith("get_password")
+					command === "get_desktop_refresh_token"
 						? "public-ui-test"
 						: command.endsWith("yonder-mac-permissions|permission_status")
 							? { accessibility: "granted", microphone: "granted" }

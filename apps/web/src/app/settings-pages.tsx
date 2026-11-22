@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { BUILD_VERSION } from "../lib/config.ts";
+import { useDeviceModelEndpointRegistration } from "../lib/device-model-native.ts";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
 import { CheckoutEntry } from "./checkout.tsx";
@@ -56,6 +57,7 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 	const location = useLocation();
 	const navigate = useNavigate();
 	const hasPassword = useHasPassword();
+	const registerProviderEndpoint = useDeviceModelEndpointRegistration();
 	const detail = locate(path)?.detail ?? [];
 	const [section, page, leaf, extra] = detail;
 	const connectDevice = useConnectDevice(section === "connectors" ? "connectors" : "devices", props.onOpen);
@@ -129,6 +131,7 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 					wechatLink={<WechatWebEntry mode="link" />}
 					checkoutEntry={<CheckoutEntry />}
 					renderDeviceAction={renderMacPermissionManagement}
+					registerProviderEndpoint={registerProviderEndpoint}
 					renderChangePassword={(onDone) => (
 						<PasswordSetupForm
 							mode={hasPassword ? "change" : "set"}

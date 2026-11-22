@@ -4404,19 +4404,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-keyring"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a52455d6472f3c0f9cac1b1f017cfce85e177db32ccd5f4b50e2e31deeaf25e"
-dependencies = [
- "keyring",
- "serde",
- "tauri",
- "tauri-plugin",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "tauri-plugin-meeting-recorder"
 version = "0.1.0"
 dependencies = [
@@ -6122,6 +6109,7 @@ dependencies = [
  "cap-primitives",
  "cc",
  "ignore",
+ "keyring",
  "libc",
  "objc2-app-kit",
  "regex",
@@ -6134,12 +6122,12 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-haptics",
- "tauri-plugin-keyring",
  "tauri-plugin-meeting-recorder",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "tokio",
 ]
 
 [[package]]

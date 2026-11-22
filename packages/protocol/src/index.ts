@@ -224,6 +224,15 @@ export type {
 	ReviewMemoryOrganizationRequest,
 } from "./memory/organization.ts";
 export type {
+	DeviceModelEndpoint,
+	DeviceModelEndpointView,
+	DeviceModelError,
+	DeviceModelInput,
+	DeviceModelRequest,
+	DeviceModelStreamBatch,
+	DeviceProviderTarget,
+} from "./models/device-provider.ts";
+export type {
 	DiscoverModelsRequest,
 	PlatformModel,
 	Provider,

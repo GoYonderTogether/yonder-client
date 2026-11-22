@@ -10,6 +10,7 @@ import { DevicesSection } from "../components/devices-section.tsx";
 import { GeneralSection } from "../components/empty-sections.tsx";
 import { InviteSection } from "../components/invite-section.tsx";
 import { ProfileEditor } from "../components/profile-editor.tsx";
+import type { RegisterLocalProviderEndpoint } from "../components/provider-location.ts";
 import { parseQuotaPage, QuotaSection, quotaPageTitle } from "../components/quota-section.tsx";
 import { ConnectorsSection } from "../connectors/connectors-section.tsx";
 import type { LocalFilesAdapter } from "../connectors/local-files-adapter.ts";
@@ -33,6 +34,7 @@ export interface MeSectionPageProps {
 	renderDeviceAction?: (device: DeviceSummary) => ReactNode;
 	localFiles?: LocalFilesAdapter | undefined;
 	onModelDirtyChange?: (dirty: boolean) => void;
+	registerProviderEndpoint?: RegisterLocalProviderEndpoint | undefined;
 	onSignedOut: () => void;
 	onOpenLegal: (document: "terms" | "privacy") => void;
 	appVersion: string;
@@ -63,6 +65,7 @@ export function MeSectionPage({
 	renderDeviceAction,
 	localFiles,
 	onModelDirtyChange,
+	registerProviderEndpoint,
 	onSignedOut,
 	onOpenLegal,
 	appVersion,
@@ -156,7 +159,14 @@ export function MeSectionPage({
 					/>
 				);
 			case "models":
-				return <ModelsSection page={page} onOpenPage={onOpenPage} onDirtyChange={onModelDirtyChange} />;
+				return (
+					<ModelsSection
+						page={page}
+						onOpenPage={onOpenPage}
+						onDirtyChange={onModelDirtyChange}
+						registerEndpoint={registerProviderEndpoint}
+					/>
+				);
 			case "devices":
 				return (
 					<DevicesSection

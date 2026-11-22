@@ -64,7 +64,7 @@ async function prepareMacPermissions(page: Page, alreadyGranted = false) {
 						case "plugin:event|unlisten":
 							focusListeners.delete(Number(args.eventId));
 							break;
-						case "plugin:keyring|get_password":
+						case "get_desktop_refresh_token":
 							return "isolated-mac-permissions";
 						case "plugin:yonder-mac-permissions|permission_status":
 							await statusReady;

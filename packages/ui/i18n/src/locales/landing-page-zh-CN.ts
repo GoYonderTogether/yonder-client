@@ -14,6 +14,8 @@ export const connectDeviceDownloadZhCN = {
 
 /** 落地页文案。页面中的人物、对话和数字是场景演示，页脚有一行说明。 */
 export const landingPageZhCN: LandingPageMessages = {
+	openApp: "打开应用",
+	downloadOptions: "下载选项",
 	nav: {
 		label: "页面导航",
 		chores: "小事",

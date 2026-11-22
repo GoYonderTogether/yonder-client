@@ -1,11 +1,11 @@
 /**
  * The shells' refresh-token storage.
  *
- * Desktop: the OS credential store, through the Tauri keyring plugin. The webview never writes the
- * token anywhere a script could read after a reload; the plugin's commands are the only path, and
+ * Desktop: the OS credential store, through refresh-token-only native commands. The webview never writes the
+ * token anywhere a script could read after a reload; the native commands are the only path, and
  * the token is read once at start-up.
  *
- * iOS and Android: the keyring plugin has no mobile implementation, so the token is kept in the
+ * iOS and Android: the token is kept in the
  * webview's own storage, which lives inside the app's sandbox. A native Keychain / Keystore plugin
  * would replace this.
  *
@@ -24,11 +24,10 @@ export interface KeychainStorage {
 
 export async function createKeychainStorage(): Promise<KeychainStorage> {
 	if (isMobileShell()) return sandboxStorage();
-	const keyring = await import("tauri-plugin-keyring-api");
+	const { invoke } = await import("@tauri-apps/api/core");
 	let token: string | null = null;
 
-	const ready = keyring
-		.getPassword(SERVICE, ACCOUNT)
+	const ready = invoke<string | null>("get_desktop_refresh_token")
 		.then((value) => {
 			token = value;
 		})
@@ -44,8 +43,7 @@ export async function createKeychainStorage(): Promise<KeychainStorage> {
 			token = value;
 			// The write is fire-and-forget from the caller's point of view; a failure means the user
 			// signs in again next launch, which is the safe direction to fail in.
-			if (value === null) void keyring.deletePassword(SERVICE, ACCOUNT).catch(() => undefined);
-			else void keyring.setPassword(SERVICE, ACCOUNT, value).catch(() => undefined);
+			void invoke("set_desktop_refresh_token", { value }).catch(() => undefined);
 		},
 	};
 }
@@ -55,7 +53,7 @@ export function isTauri(): boolean {
 	return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-/** True inside the iOS or Android shell, where the keyring plugin is not compiled in. */
+/** True inside the iOS or Android shell, where desktop credentials are not available. */
 function isMobileShell(): boolean {
 	return typeof navigator !== "undefined" && /iPhone|iPad|Android/i.test(navigator.userAgent);
 }

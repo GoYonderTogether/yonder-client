@@ -65,22 +65,15 @@ fn put_offscreen(window: tauri::Window) {
 }
 
 #[tauri::command]
-fn get_password(window: tauri::WebviewWindow, state: tauri::State<'_, Credentials>) -> Result<Option<String>, String> {
+fn get_desktop_refresh_token(window: tauri::WebviewWindow, state: tauri::State<'_, Credentials>) -> Result<Option<String>, String> {
     if window.label() != "main" { return Err("auxiliary window accessed keychain".into()); }
     Ok(state.0.lock().unwrap().clone())
 }
 
 #[tauri::command]
-fn set_password(password: String, window: tauri::WebviewWindow, state: tauri::State<'_, Credentials>) -> Result<(), String> {
+fn set_desktop_refresh_token(value: Option<String>, window: tauri::WebviewWindow, state: tauri::State<'_, Credentials>) -> Result<(), String> {
     if window.label() != "main" { return Err("auxiliary window accessed keychain".into()); }
-    *state.0.lock().unwrap() = Some(password);
-    Ok(())
-}
-
-#[tauri::command]
-fn delete_password(window: tauri::WebviewWindow, state: tauri::State<'_, Credentials>) -> Result<(), String> {
-    if window.label() != "main" { return Err("auxiliary window accessed keychain".into()); }
-    *state.0.lock().unwrap() = None;
+    *state.0.lock().unwrap() = value;
     Ok(())
 }
 
@@ -115,8 +108,7 @@ fn main() {
     let builder = builder.enable_macos_default_menu(false);
     let app = builder
         .on_window_event(contact_window::on_window_event)
-        .plugin(tauri::plugin::Builder::<tauri::Wry, ()>::new("keyring")
-            .invoke_handler(tauri::generate_handler![get_password, set_password, delete_password])
+        .plugin(tauri::plugin::Builder::<tauri::Wry, ()>::new("native-test-fixture")
             .on_window_ready(|window| {
                 #[cfg(target_os = "macos")]
                 if std::env::var("NATIVE_TEST_ALLOW_DISPLAY").as_deref() != Ok("1") { put_offscreen(window); }
@@ -126,7 +118,7 @@ fn main() {
             .js_init_script(init).build())
         .manage(Results(Mutex::new(send)))
         .manage(Credentials(Mutex::new(seed["refreshToken"].as_str().map(str::to_owned))))
-        .invoke_handler(tauri::generate_handler![test_result,
+        .invoke_handler(tauri::generate_handler![test_result, get_desktop_refresh_token, set_desktop_refresh_token,
             contact_window::open_add_contacts, contact_window::request_main_session,
             contact_window::provide_contacts_session, contact_window::contact_added,
             contact_window::close_add_contacts])

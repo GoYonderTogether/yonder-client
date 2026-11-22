@@ -27,9 +27,15 @@ export const dehydrateOptions: DehydrateOptions = {
 	// owner-only state that the server must re-authorize on every load.
 	shouldDehydrateQuery: (query) =>
 		!(query.queryKey[0] === "items" && query.queryKey[1] === "active-subtasks") &&
-		!["contact-search", "channel-messages", "channel-conversations", "memory", "member-profile", "agent-card"].includes(
-			String(query.queryKey[0]),
-		) &&
+		![
+			"contact-search",
+			"channel-messages",
+			"channel-conversations",
+			"memory",
+			"member-profile",
+			"agent-card",
+			"provider-device-endpoints",
+		].includes(String(query.queryKey[0])) &&
 		defaultShouldDehydrateQuery(query),
 	shouldDehydrateMutation: (mutation) =>
 		!["memory", "agent-card"].includes(String(mutation.options.mutationKey?.[0])) &&

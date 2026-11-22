@@ -6,6 +6,7 @@ import { Listbox, type ListboxOption } from "./listbox.tsx";
 export interface SelectFieldProps {
 	id?: string;
 	label: string;
+	requiredMark?: boolean | undefined;
 	value: string;
 	options: readonly ListboxOption[];
 	onChange: (value: string) => void;
@@ -18,6 +19,7 @@ export interface SelectFieldProps {
 export function SelectField({
 	id,
 	label,
+	requiredMark,
 	value,
 	options,
 	onChange,
@@ -29,7 +31,7 @@ export function SelectField({
 	const generated = useId();
 	const fieldId = id ?? generated;
 	return (
-		<Field label={label} hint={hint} error={error} htmlFor={fieldId}>
+		<Field label={label} hint={hint} error={error} htmlFor={fieldId} requiredMark={requiredMark}>
 			<InputFrame fieldSize={fieldSize} invalid={Boolean(error)} disabled={disabled}>
 				<Listbox
 					id={fieldId}

@@ -2,8 +2,8 @@
 
 This harness includes the current desktop contact-window implementation and loads a real bundled
 client in Tauri/Wry/WKWebView. It uses the separate identifier
-dev.yonder.native-contacts-test and an in-memory keyring fixture. It never initializes the OS
-keyring plugin. Use only a local test API, isolated database and newly registered test accounts.
+dev.yonder.native-contacts-test and an in-memory session credential fixture. It never touches the OS
+credential store. Use only a local test API, isolated database and newly registered test accounts.
 
 Build the client into a separate output directory with VITE_API_BASE pointing at the local API.
 Then build this harness with CARGO_BUILD_JOBS=2, an independent CARGO_TARGET_DIR,

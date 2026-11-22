@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 
 export function ProviderRow({
 	provider,
+	deviceLabel,
 	notice,
 	onEdit,
 	onDefault,
@@ -15,6 +16,7 @@ export function ProviderRow({
 	onDelete,
 }: {
 	provider: Provider;
+	deviceLabel?: string | undefined;
 	notice: boolean | null;
 	onEdit: () => void;
 	onDefault: () => void;
@@ -26,7 +28,7 @@ export function ProviderRow({
 	const { mode, desktop } = useShellChrome();
 	const [actionsOpen, setActionsOpen] = useState(false);
 	if (provider.scope !== "user") return null;
-	const active = provider.isDefault && provider.enabled && provider.keyConfigured;
+	const active = provider.isDefault && provider.enabled && (provider.target || provider.keyConfigured);
 	const closeActions = () => setActionsOpen(false);
 	function runAction(action: () => void) {
 		closeActions();
@@ -49,22 +51,16 @@ export function ProviderRow({
 					) : null}
 				</p>
 				<p className="truncate text-caption text-[var(--color-text-secondary)]">
-					{provider.note || provider.website || provider.baseUrl}
+					{deviceLabel ?? (provider.note || provider.website || provider.baseUrl)}
 				</p>
-				{provider.origin === "device" ? (
-					<p className="text-caption text-[var(--color-text-secondary)]">
-						{t("models.originDevice")}
-						{provider.deviceName ? ` · ${provider.deviceName}` : ""}
-					</p>
-				) : null}
 				{provider.models.length > 0 ? (
 					<p className="break-words text-caption text-[var(--color-text-secondary)]">
 						{t("models.availableModels", { models: provider.models.join(", ") })}
 					</p>
 				) : null}
-				{!provider.keyConfigured || !provider.enabled ? (
+				{(!provider.target && !provider.keyConfigured) || !provider.enabled ? (
 					<p className="text-caption text-[var(--color-text-tertiary)]">
-						{t(!provider.keyConfigured ? "models.notConfigured" : "models.disabled")}
+						{t(!provider.target && !provider.keyConfigured ? "models.notConfigured" : "models.disabled")}
 					</p>
 				) : null}
 				{notice !== null ? (

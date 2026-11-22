@@ -14,7 +14,7 @@ import "./landing.css";
 
 const SECTIONS = ["chores", "control", "bots", "card", "events"] as const;
 
-export function LandingView({ version, iosUrl }: PublicViewProps) {
+export function LandingView({ version, iosUrl, appPath }: PublicViewProps & { appPath: string | null }) {
 	const { t } = useTranslation();
 	const { locale, setLocale } = useLocalePreference();
 	const root = useRef<HTMLDivElement>(null);
@@ -29,7 +29,7 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 				<span className="lp-dots-lit" />
 			</div>
 			<header className="lp-nav">
-				<div className="lp-container lp-nav-inner">
+				<div className={appPath ? "lp-container lp-nav-inner lp-nav-signed-in" : "lp-container lp-nav-inner"}>
 					<a className="lp-wordmark" href="/" aria-label={t("landing.backHome")}>
 						<Logo size={24} fit="text" />
 						<span>{t("app.name")}</span>
@@ -47,10 +47,16 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 						<button type="button" lang={other} onClick={() => setLocale(other)}>
 							{other === "en" ? t("common.locale.en") : t("common.locale.zhCN")}
 						</button>
-						<a className="lp-nav-signin" href="/sign-in">
-							{t("landingPage.nav.signIn")}
+						<a
+							className={appPath ? "lp-action lp-action-primary lp-action-small" : "lp-nav-signin"}
+							href={appPath ?? "/sign-in"}
+						>
+							{t(appPath ? "landingPage.openApp" : "landingPage.nav.signIn")}
 						</a>
-						<a className="lp-action lp-action-primary lp-action-small" href="/download">
+						<a
+							className={`lp-action lp-action-small ${appPath ? "lp-action-secondary" : "lp-action-primary"}`}
+							href="/download"
+						>
 							{t("landingPage.nav.download")}
 						</a>
 					</div>
@@ -58,7 +64,7 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 			</header>
 
 			<main>
-				<HeroSection version={version} iosUrl={iosUrl} />
+				<HeroSection version={version} iosUrl={iosUrl} appPath={appPath} />
 				<StorySection />
 
 				<ChoresSection />
@@ -67,7 +73,7 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 				<CardSection />
 				<EventsSection />
 
-				<ClosingSection />
+				<ClosingSection appPath={appPath} />
 			</main>
 
 			<footer className="lp-footer">
@@ -86,11 +92,13 @@ export function LandingView({ version, iosUrl }: PublicViewProps) {
 								<li>
 									<a href="/download">{t("landingPage.footer.download")}</a>
 								</li>
+								{!appPath && (
+									<li>
+										<a href="/messages">{t("landingPage.footer.web")}</a>
+									</li>
+								)}
 								<li>
-									<a href="/messages">{t("landingPage.footer.web")}</a>
-								</li>
-								<li>
-									<a href="/sign-in">{t("landingPage.footer.signIn")}</a>
+									<a href={appPath ?? "/sign-in"}>{t(appPath ? "landingPage.openApp" : "landingPage.footer.signIn")}</a>
 								</li>
 							</ul>
 						</nav>

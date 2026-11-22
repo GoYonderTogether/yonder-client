@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
+import { isolateChat } from "./chat-fixture.ts";
+
 const { version } = JSON.parse(readFileSync(new URL("../apps/web/package.json", import.meta.url), "utf8")) as {
 	version: string;
 };
@@ -203,4 +205,191 @@ test("a shell keeps the splash while session refresh hangs", async ({ page }) =>
 	} finally {
 		release();
 	}
+});
+
+test("a restored web session can visit and reload the landing page, then open its app", async ({
+	page,
+	context,
+	baseURL,
+}) => {
+	await isolateChat(page);
+	if (!baseURL) throw new Error("Missing browser fixture origin");
+	await context.addCookies([{ name: "test-landing-session", value: "returning", url: baseURL, httpOnly: true }]);
+	let refreshes = 0;
+	await page.route("**/v1/auth/refresh", async (route) => {
+		const cookie = await route.request().headerValue("cookie");
+		expect(cookie).toContain("test-landing-session=returning");
+		refreshes++;
+		await route.fallback();
+	});
+	await page.goto("/#chores");
+	const appLinks = page.getByRole("link", { name: "打开应用", exact: true });
+	await expect(appLinks).toHaveCount(4);
+	await expect(page).toHaveURL(/\/#chores$/);
+	await expect(page.getByRole("link", { name: "登录", exact: true })).toHaveCount(0);
+	await expect(page.locator(".lp-nav").getByRole("link", { name: "下载", exact: true })).toHaveAttribute(
+		"href",
+		"/download",
+	);
+
+	await page.reload();
+	await expect(appLinks).toHaveCount(4);
+	expect(refreshes).toBeGreaterThanOrEqual(2);
+	await page.locator(".lp-nav").getByRole("link", { name: "打开应用", exact: true }).click();
+	await expect(page).toHaveURL(/\/messages\/main$/);
+	await page.goBack();
+	await expect(appLinks).toHaveCount(4);
+	await expect(page).toHaveURL(/\/#chores$/);
+	await page.goto("/messages/main?from=test#item");
+	await expect(page).toHaveURL(/\/messages\/main\?from=test#item$/);
+});
+
+for (const [device, userAgent, platform, installer, icon] of [
+	["macOS", mac, "macOS", `${downloadRoot}_aarch64.dmg`, "laptop"],
+	["iOS", iphone, "iOS", "https://testflight.apple.com/join/8C5Y9KHQ", "smartphone"],
+] as const) {
+	test(`the signed-in ${device} hero keeps only the installer and app actions`, async ({ browser }) => {
+		const context = await browser.newContext({ userAgent });
+		const page = await context.newPage();
+		try {
+			await isolateChat(page);
+			await page.goto("/");
+			const actions = page.locator(".lp-hero .lp-download");
+			const installerLink = actions.getByRole("link", { name: `下载 ${platform} 版`, exact: true });
+			await expect(installerLink).toHaveAttribute("href", installer);
+			await expect(installerLink.locator(`svg.lucide-${icon}`)).toHaveAttribute("aria-hidden", "true");
+			await expect(actions.getByRole("link", { name: "打开应用", exact: true })).toHaveAttribute(
+				"href",
+				"/messages/main",
+			);
+			await expect(actions.getByRole("link")).toHaveCount(2);
+			await expect(actions.locator(".lp-download-note, .lp-download-links, details")).toHaveCount(0);
+			await page.locator(".lp-nav").getByRole("link", { name: "下载", exact: true }).click();
+			await expect(page).toHaveURL(/\/download$/);
+			await expect(page.getByRole("region", { name: "macOS" })).toBeVisible();
+		} finally {
+			await context.close();
+		}
+	});
+}
+
+test("the macOS split download supports keyboard selection of the existing Windows installer", async ({ browser }) => {
+	const context = await browser.newContext({ userAgent: mac });
+	const page = await context.newPage();
+	try {
+		await isolateChat(page);
+		const windows = `${downloadRoot}_x64-setup.exe`;
+		await page.route(windows, (route) => route.fulfill({ status: 204 }));
+		await page.goto("/");
+		const options = page.getByRole("button", { name: "下载选项", exact: true });
+		const menu = page.getByRole("menu", { name: "下载选项", exact: true });
+		await options.focus();
+		await options.press("ArrowDown");
+		await expect(menu.getByRole("menuitem")).toHaveText([
+			"macOS · Apple silicon",
+			"Windows · 64 位 Windows 10 及以上",
+			"Android",
+			"iOS",
+		]);
+		await expect(menu.getByRole("menuitem", { name: /macOS/ })).toBeFocused();
+		await expect(menu.locator("svg[aria-hidden='true']")).toHaveCount(4);
+		await expect(menu.getByRole("menuitem", { name: /Windows/ }).locator("svg.lucide-monitor")).toBeVisible();
+		await page.keyboard.press("Escape");
+		await expect(menu).toHaveCount(0);
+		await expect(options).toBeFocused();
+		await options.press("Enter");
+		await page.keyboard.press("ArrowDown");
+		await expect(menu.getByRole("menuitem", { name: /Windows/ })).toBeFocused();
+		const request = page.waitForRequest(windows);
+		await page.keyboard.press("Enter");
+		await request;
+	} finally {
+		await context.close();
+	}
+});
+
+test("the mobile split opens by touch and selects the Android package without replacing the iOS recommendation", async ({
+	browser,
+}) => {
+	const context = await browser.newContext({
+		userAgent: iphone,
+		hasTouch: true,
+		viewport: { width: 390, height: 844 },
+	});
+	const page = await context.newPage();
+	try {
+		await isolateChat(page);
+		await page.route(androidApk, (route) => route.fulfill({ status: 204 }));
+		await page.goto("/");
+		const options = page.getByRole("button", { name: "下载选项", exact: true });
+		await options.tap();
+		const menu = page.getByRole("menu", { name: "下载选项", exact: true });
+		await expect(menu).toBeInViewport({ ratio: 1 });
+		const request = page.waitForRequest(androidApk);
+		await menu.getByRole("menuitem", { name: "Android", exact: true }).tap();
+		await request;
+		await expect(page.getByRole("link", { name: "下载 iOS 版", exact: true })).toHaveAttribute(
+			"href",
+			"https://testflight.apple.com/join/8C5Y9KHQ",
+		);
+	} finally {
+		await context.close();
+	}
+});
+
+test("a late web refresh updates the landing actions without redirecting", async ({ page }) => {
+	await isolateChat(page);
+	let release = () => {};
+	const pending = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	await page.route("**/v1/auth/refresh", async (route) => {
+		await pending;
+		await route.fallback();
+	});
+	try {
+		await page.goto("/", { waitUntil: "domcontentloaded" });
+		await expect(page.getByRole("link", { name: "用网页版", exact: true })).toBeVisible({ timeout: 10000 });
+		await expect(page.getByRole("link", { name: "打开应用", exact: true })).toHaveCount(0);
+		release();
+		await expect(page.getByRole("link", { name: "打开应用", exact: true })).toHaveCount(4);
+		await expect(page).toHaveURL(/\/$/);
+	} finally {
+		release();
+	}
+});
+
+test("the guest auth action and protected deep-link redirect remain intact", async ({ page }) => {
+	await page.route("**/v1/auth/refresh", (route) =>
+		route.fulfill({ status: 401, json: { error: { code: "unauthorized" } } }),
+	);
+	await page.goto("/");
+	await expect(page.getByRole("link", { name: "Open app", exact: true })).toHaveCount(0);
+	await page.locator(".lp-nav").getByRole("link", { name: "Log in", exact: true }).click();
+	await expect(page).toHaveURL(/\/sign-in$/);
+	await page.goto("/messages/main?from=test#item");
+	await expect(page).toHaveURL(/\/sign-in\?next=/);
+	expect(new URL(page.url()).searchParams.get("next")).toBe("/messages/main?from=test#item");
+});
+
+test("the signed-in header keeps both app and download visible at narrow mobile widths", async ({ page }) => {
+	await page.setViewportSize({ width: 320, height: 700 });
+	await isolateChat(page);
+	await page.goto("/");
+	const header = page.locator(".lp-nav");
+	await expect(header.getByRole("link", { name: "打开应用", exact: true })).toBeInViewport({ ratio: 1 });
+	await expect(header.getByRole("link", { name: "下载", exact: true })).toBeInViewport({ ratio: 1 });
+	await header.getByRole("button", { name: "English" }).click();
+	await expect(header.getByRole("link", { name: "Open app", exact: true })).toBeInViewport({ ratio: 1 });
+	await expect(header.getByRole("link", { name: "Download", exact: true })).toBeInViewport({ ratio: 1 });
+});
+
+test("a restored native shell still starts directly in the app", async ({ page }) => {
+	await page.addInitScript(() => {
+		Object.assign(window, { __TAURI_INTERNALS__: { invoke: async () => "test-token" } });
+	});
+	await isolateChat(page);
+	await page.goto("/");
+	await expect(page).toHaveURL(/\/messages\/main$/);
+	await expect(page.locator(".lp")).toHaveCount(0);
 });
