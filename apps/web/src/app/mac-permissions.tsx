@@ -111,7 +111,7 @@ function MacPermissionManagement() {
 function PermissionCards({ intro = false }: { intro?: boolean }) {
 	const { t } = useTranslation();
 	const descriptionId = useId();
-	const [statuses, setStatuses] = useState<Record<MacPermission, MacPermissionStatus>>(unknown);
+	const [statuses, setStatuses] = useState<Record<MacPermission, MacPermissionStatus> | null>(null);
 	const [busy, setBusy] = useState<MacPermission | null>(null);
 	const [error, setError] = useState(false);
 	const [askedAccessibility, setAskedAccessibility] = useState(false);
@@ -134,10 +134,20 @@ function PermissionCards({ intro = false }: { intro?: boolean }) {
 			if (document.hasFocus() && document.visibilityState === "visible") void refresh();
 		};
 		const stop = subscribeForeground(update);
+		let active = true;
+		const nativeFocus = import("@tauri-apps/api/window")
+			.then(({ getCurrentWindow }) =>
+				getCurrentWindow().listen("tauri://focus", () => {
+					if (active) void refresh();
+				}),
+			)
+			.catch(() => undefined);
 		void refresh();
 		return () => {
+			active = false;
 			revision.current++;
 			stop();
+			void nativeFocus.then((unlisten) => unlisten?.()).catch(() => undefined);
 		};
 	}, [refresh]);
 
@@ -146,12 +156,12 @@ function PermissionCards({ intro = false }: { intro?: boolean }) {
 		setBusy(permission);
 		setError(false);
 		try {
-			if (permission === "accessibility" && statuses.accessibility !== "granted" && !askedAccessibility) {
+			if (permission === "accessibility" && statuses?.accessibility !== "granted" && !askedAccessibility) {
 				await requestMacAccessibility();
 				setAskedAccessibility(true);
-			} else if (permission === "microphone" && statuses.microphone === "default") {
+			} else if (permission === "microphone" && statuses?.microphone === "default") {
 				await requestMacMicrophone();
-			} else if (permission === "notifications" && statuses.notifications === "default") {
+			} else if (permission === "notifications" && statuses?.notifications === "default") {
 				await requestNativeNotificationPermission();
 				window.dispatchEvent(new Event(NATIVE_NOTIFICATION_PERMISSION_CHANGED));
 			} else {
@@ -168,7 +178,8 @@ function PermissionCards({ intro = false }: { intro?: boolean }) {
 	return (
 		<div className="flex flex-col gap-[var(--spacing-3)]">
 			{(intro ? initial : management).map((permission) => {
-				const status = statuses[permission];
+				const status = (statuses ?? unknown)[permission];
+				const introGranted = intro && status === "granted";
 				const systemAction =
 					permission === "fullDisk" ||
 					(permission === "accessibility" ? askedAccessibility || status === "granted" : status !== "default");
@@ -184,11 +195,12 @@ function PermissionCards({ intro = false }: { intro?: boolean }) {
 								</p>
 							)}
 						</div>
-						{intro && status === "granted" ? (
+						{introGranted && (
 							<span className="text-caption text-[var(--color-text-secondary)]">
-								{t("me.macPermissions.status.granted")}
+								{t("me.macPermissions.introGranted")}
 							</span>
-						) : (
+						)}
+						{!introGranted && (!intro || statuses !== null) && (
 							<Button
 								variant="secondary"
 								size="sm"

@@ -2,6 +2,9 @@
 #import <ApplicationServices/ApplicationServices.h>
 #import <AVFoundation/AVFoundation.h>
 #import <ServiceManagement/ServiceManagement.h>
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
 
 @interface YonderPermissionAppTile : NSView <NSDraggingSource>
 @property(nonatomic, strong) NSURL *bundleURL;
@@ -180,6 +183,25 @@ extern "C" bool yonder_apple_open_resource_settings(int resource) {
 
 extern "C" bool yonder_mac_accessibility_granted() {
     return AXIsProcessTrusted();
+}
+
+extern "C" int yonder_mac_full_disk_status() {
+    // macOS has no public Full Disk Access status API. Open protected
+    // directories with the current app's permissions without listing or reading them.
+    bool opened = false;
+    for (NSString *folder in @[@"Library/Mail", @"Library/Messages", @"Library/Safari"]) {
+        NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:folder];
+        int fd = open(path.fileSystemRepresentation, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+        if (fd >= 0) {
+            close(fd);
+            opened = true;
+        } else if (errno == EPERM || errno == EACCES) {
+            return 0;
+        } else if (errno != ENOENT) {
+            return -1;
+        }
+    }
+    return opened ? 1 : -1;
 }
 
 extern "C" void yonder_mac_request_accessibility() {

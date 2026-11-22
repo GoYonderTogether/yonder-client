@@ -1,5 +1,6 @@
 export const macPermissionsEn = {
 	introTitle: "Set up this Mac",
+	introGranted: "Authorized",
 	continue: "Continue to Yonder",
 	manage: "Manage permissions",
 	openSettings: "Open System Settings",
@@ -28,6 +29,7 @@ export const macPermissionsEn = {
 
 export const macPermissionsZhCN: typeof macPermissionsEn = {
 	introTitle: "设置这台电脑",
+	introGranted: "已授权",
 	continue: "继续使用 Yonder",
 	manage: "管理权限",
 	openSettings: "打开系统设置",
