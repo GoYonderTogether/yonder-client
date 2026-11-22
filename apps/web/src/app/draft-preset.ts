@@ -3,7 +3,7 @@
  * Bot's chat draft and never sends. Two rules, both here so a page cannot bend them:
  *
  *   1. Fill the draft only. Nothing is submitted.
- *   2. A draft that already has text is left exactly as it is.
+ *   2. A draft with text or attachments is left exactly as it is.
  *
  * The chat's draft is usually already open in memory when the plus button is pressed, so a phrase
  * is handed to the composer that owns it rather than written behind its back: the composer applies
@@ -20,9 +20,9 @@ export interface PresetDraft {
 	bindings?: unknown[] | undefined;
 }
 
-/** A draft is only filled when it says nothing yet. Whitespace is nothing. */
-export function mayFillDraft(text: string | undefined): boolean {
-	return (text ?? "").trim() === "";
+/** A draft is only filled when it has neither text nor attachments. */
+export function mayFillDraft(text: string | undefined, attachments = 0): boolean {
+	return !attachments && (text ?? "").trim() === "";
 }
 
 /**
@@ -75,7 +75,7 @@ export function requestPreset(owner: string, conversation: string, phrase: strin
 	pending.set(key, phrase);
 	// Best effort for a reload between the two: the composer is still the authority.
 	void updateChatCache<PresetDraft>(key, (current) =>
-		mayFillDraft(current?.text) ? withPreset(current, phrase) : (current as PresetDraft),
+		mayFillDraft(current?.text, current?.files.length) ? withPreset(current, phrase) : (current as PresetDraft),
 	).catch(() => {});
 }
 
@@ -87,5 +87,5 @@ export function takePreset(key: string, current: PresetDraft | undefined): strin
 	const phrase = pending.get(key);
 	if (phrase === undefined) return undefined;
 	pending.delete(key);
-	return mayFillDraft(current?.text) ? phrase : undefined;
+	return mayFillDraft(current?.text, current?.files.length) ? phrase : undefined;
 }

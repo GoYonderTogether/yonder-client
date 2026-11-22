@@ -87,6 +87,7 @@ export function MobileDock({
 										type="button"
 										onClick={onSelect}
 										aria-label={label}
+										data-bot-tab={id === "bot" || undefined}
 										aria-describedby={unread ? badgeId : undefined}
 										aria-current={active ? "page" : undefined}
 										className={cn(

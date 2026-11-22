@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoalRecords } from "./goal-records.tsx";
 import { ItemDetailPage } from "./items-detail.tsx";
+import type { PresetSource } from "./items-fly.tsx";
 import { ItemsList } from "./items-list.tsx";
 import { ScheduleForm } from "./schedule-form.tsx";
 import { describePlan, formatInstant, type Translate } from "./schedule-format.ts";
@@ -23,12 +24,14 @@ export function TasksList({
 	onOpenItem,
 	onAdd,
 	onSchedule,
+	showManualSchedule,
 }: {
 	scheduled: boolean;
 	onChange: (scheduled: boolean) => void;
 	onOpenItem: (id: string) => void;
-	onAdd: () => void;
-	onSchedule?: (() => void) | undefined;
+	onAdd: (source?: PresetSource) => void;
+	onSchedule: (source: PresetSource) => void;
+	showManualSchedule: boolean;
 }) {
 	const { t } = useTranslation();
 	const [creating, setCreating] = useState(false);
@@ -40,7 +43,8 @@ export function TasksList({
 					key={String(scheduled)}
 					scheduled={scheduled}
 					onAdd={onAdd}
-					onCreateSchedule={onSchedule ?? (() => setCreating(true))}
+					onCreateSchedule={onSchedule}
+					onCreateScheduleManually={showManualSchedule ? () => setCreating(true) : undefined}
 				/>
 			}
 			center={

@@ -1,19 +1,19 @@
 import { Overlay, ShellProvider } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { PresetFlight } from "../pages/items-fly.tsx";
 import { ConversationPage } from "../pages/messages-page.tsx";
+import type { useTaskPreset } from "./use-task-preset.ts";
 
-export function TaskBotDrawer({
-	open,
-	onClose,
+export function BotPresetOverlay({
+	preset,
 	title,
 	conversationId,
 	disconnected,
 	status,
 	children,
 }: {
-	open: boolean;
-	onClose: () => void;
+	preset: Pick<ReturnType<typeof useTaskPreset>, "drawerOpen" | "closeDrawer" | "expandDrawer" | "flying" | "flown">;
 	title: string;
 	conversationId: string | null;
 	disconnected: boolean;
@@ -22,21 +22,34 @@ export function TaskBotDrawer({
 }) {
 	const { t } = useTranslation();
 	return (
-		<Overlay
-			open={open}
-			onClose={onClose}
-			title={title || t("nav.messages")}
-			closeLabel={t("app.close")}
-			mode="mobile"
-			mobilePresentation="tall-sheet"
-		>
-			<ShellProvider value={{ mode: "mobile", left: null, meOpen: false }}>
-				<ConversationPage conversationId={conversationId} disconnected={disconnected} embedded readActive={open} />
-			</ShellProvider>
-			<div className="shrink-0 px-[var(--spacing-3)] pb-[var(--spacing-2)] pt-[var(--spacing-1)]">
-				<div className="pb-[var(--spacing-2)] empty:hidden">{status}</div>
-				{children}
-			</div>
-		</Overlay>
+		<>
+			<Overlay
+				open={preset.drawerOpen}
+				onClose={preset.closeDrawer}
+				title={title || t("nav.messages")}
+				closeLabel={t("app.close")}
+				mode="mobile"
+				mobilePresentation="tall-sheet"
+				onExpand={preset.expandDrawer}
+				expandLabel={t("tasks.expandBotConversation")}
+			>
+				<ShellProvider value={{ mode: "mobile", left: null, meOpen: false }}>
+					<ConversationPage
+						conversationId={conversationId}
+						disconnected={disconnected}
+						mainBotHome
+						readActive={preset.drawerOpen}
+					/>
+				</ShellProvider>
+				<div
+					data-preset-composer
+					className="shrink-0 px-[var(--spacing-3)] pb-[var(--spacing-2)] pt-[var(--spacing-1)]"
+				>
+					<div className="pb-[var(--spacing-2)] empty:hidden">{status}</div>
+					{children}
+				</div>
+			</Overlay>
+			{preset.flying ? <PresetFlight {...preset.flying} onDone={preset.flown} /> : null}
+		</>
 	);
 }

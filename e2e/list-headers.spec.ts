@@ -63,7 +63,7 @@ for (const width of [1280, 820, 390]) {
 		await expect(group.getByRole("radio", { name: "目标", exact: true })).toBeChecked();
 		await header.getByRole("button", { name: "新建目标" }).click();
 		await expect(page.getByRole("menuitem", { name: "新建目标" })).toBeVisible();
-		await page.getByRole("menuitem", { name: "新建定时任务" }).click();
+		await page.getByRole("menuitem", { name: "手动创建定时任务", exact: true }).click();
 		await expect(page.getByRole("menu")).toHaveCount(0);
 		await expect(page.getByRole("button", { name: "取消", exact: true })).toBeVisible();
 		await page.getByRole("button", { name: "取消", exact: true }).click();

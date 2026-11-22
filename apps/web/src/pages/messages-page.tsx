@@ -194,7 +194,6 @@ export function MessagesList({
 export function ConversationPage({
 	conversationId,
 	disconnected,
-	embedded = false,
 	mainBotHome = false,
 	readActive = true,
 	contacts,
@@ -205,7 +204,6 @@ export function ConversationPage({
 }: {
 	conversationId: string | null;
 	disconnected: boolean;
-	embedded?: boolean;
 	mainBotHome?: boolean;
 	readActive?: boolean;
 	contacts?: readonly Member[] | undefined;
@@ -276,7 +274,7 @@ export function ConversationPage({
 	const openSection = (target: string) => navigate(target, { state: { tabLocation: location.pathname } });
 	if (!conversationId || !conversation)
 		return (
-			<PageFrame title={null} hideHeader={embedded} floatingHeader={floatingHeader}>
+			<PageFrame title={null} floatingHeader={floatingHeader}>
 				{null}
 			</PageFrame>
 		);
@@ -299,7 +297,6 @@ export function ConversationPage({
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
 			<PageFrame
-				hideHeader={embedded}
 				floatingHeader={floatingHeader}
 				title={item ? item.title : agent ? null : title}
 				titleAlign={agent && !item ? "center" : "start"}
@@ -395,11 +392,7 @@ export function ConversationPage({
 				{!item?.intro && !messages.isLoading && !messages.isError && items?.length === 0 ? (
 					<div className="flex flex-1 items-center justify-center">
 						<EmptyState
-							icon={
-								item || (agent && !embedded) ? null : (
-									<ConversationAvatar conversation={conversation} personId={person?.id} />
-								)
-							}
+							icon={item || agent ? null : <ConversationAvatar conversation={conversation} personId={person?.id} />}
 							title={t("chat.emptyTitle")}
 						/>
 					</div>

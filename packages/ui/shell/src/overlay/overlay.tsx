@@ -22,6 +22,8 @@ export interface OverlayProps {
 	closeLabel?: string;
 	mobileBackLabel?: string;
 	mobilePresentation?: "page" | "sheet" | "tall-sheet";
+	onExpand?: () => void;
+	expandLabel?: string;
 }
 
 /**
@@ -40,12 +42,15 @@ export function Overlay({
 	closeLabel = "close",
 	mobileBackLabel,
 	mobilePresentation = "page",
+	onExpand,
+	expandLabel,
 }: OverlayProps) {
 	const { desktop } = useShellChrome();
 	const centered = mode === "wide" || (mode !== "mobile" && mobilePresentation !== "page");
 	const square = desktop && centered;
 	const sheet = !centered && mobilePresentation !== "page";
 	const tallSheet = sheet && mobilePresentation === "tall-sheet";
+	const expandable = tallSheet && Boolean(onExpand);
 	const viewport = useRef<HTMLDivElement>(null);
 	useVisualViewport(viewport, open && sheet);
 	const nativeFrame = !centered && !sheet;
@@ -60,14 +65,20 @@ export function Overlay({
 					className={cn(
 						"fixed inset-x-0 z-50 flex [--dialog-max-height:85dvh]",
 						sheet ? "top-[var(--app-offset-top,0px)] h-[var(--app-height,100dvh)]" : "inset-y-0",
+						expandable && "overflow-hidden",
 					)}
 					role="presentation"
 				>
-					<OverlayBackdrop onClose={onClose} closeLabel={closeLabel} />
+					{expandable ? (
+						<div aria-hidden className="absolute inset-0 bg-[var(--color-bg-overlay)]" />
+					) : (
+						<OverlayBackdrop onClose={onClose} closeLabel={closeLabel} />
+					)}
 					<GesturePanel
 						open
 						inline={centered}
 						onBack={onClose}
+						onExpand={expandable ? onExpand : undefined}
 						layerKey={`action:${title}`}
 						label={title}
 						modal
@@ -92,13 +103,43 @@ export function Overlay({
 									? cn(
 											"!top-auto bottom-0 w-full rounded-t-[var(--radius-xl)] pb-[var(--dock-bottom-inset,var(--safe-area-bottom,env(safe-area-inset-bottom)))]",
 											tallSheet
-												? "h-[min(70dvh,var(--app-height,100dvh))]"
+												? expandable
+													? "h-[min(calc(77dvh+var(--sheet-expansion,0px)),var(--app-height,100dvh))] !overflow-visible"
+													: "h-[min(70dvh,var(--app-height,100dvh))]"
 												: "max-h-[min(var(--dialog-max-height),var(--app-height,100dvh))]",
 										)
 									: "h-full w-full",
 						)}
 					>
-						{sheet ? (
+						{expandable ? (
+							<>
+								<button
+									type="button"
+									data-overlay-backdrop
+									tabIndex={-1}
+									aria-label={closeLabel}
+									onClick={onClose}
+									className="absolute inset-x-0 bottom-full h-[var(--app-height,100dvh)] touch-none"
+								/>
+								<button
+									type="button"
+									data-sheet-handle
+									aria-label={expandLabel}
+									onKeyDown={(event) => {
+										if (event.key === "ArrowUp") {
+											event.preventDefault();
+											event.currentTarget.click();
+										} else if (event.key === "ArrowDown") {
+											event.preventDefault();
+											onClose();
+										}
+									}}
+									className="flex shrink-0 touch-none justify-center py-[var(--spacing-3)]"
+								>
+									<span className="h-[var(--spacing-1)] w-[var(--spacing-8)] rounded-full bg-[var(--color-border-subtle)]" />
+								</button>
+							</>
+						) : sheet ? (
 							<div
 								data-sheet-handle
 								aria-hidden
@@ -112,42 +153,44 @@ export function Overlay({
 							data-shell-frame={nativeFrame || undefined}
 							className="relative flex min-h-0 flex-1 flex-col"
 						>
-							<div
-								ref={header}
-								data-frame-header={nativeFrame || undefined}
-								className="relative flex shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] px-[var(--spacing-5)] py-[var(--spacing-4)]"
-								style={
-									centered || sheet
-										? undefined
-										: { paddingTop: "calc(var(--safe-area-top, env(safe-area-inset-top)) + var(--spacing-4))" }
-								}
-							>
-								<h2
-									className={cn(
-										"min-w-0 text-h3 text-[var(--color-text-primary)] [overflow-wrap:anywhere]",
-										!centered && mobileBackLabel && "w-full px-[var(--spacing-8)] text-center",
-									)}
+							{!expandable ? (
+								<div
+									ref={header}
+									data-frame-header={nativeFrame || undefined}
+									className="relative flex shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] px-[var(--spacing-5)] py-[var(--spacing-4)]"
+									style={
+										centered || sheet
+											? undefined
+											: { paddingTop: "calc(var(--safe-area-top, env(safe-area-inset-top)) + var(--spacing-4))" }
+									}
 								>
-									{title}
-								</h2>
-								<button
-									type="button"
-									onClick={onClose}
-									aria-label={!centered && mobileBackLabel ? mobileBackLabel : closeLabel}
-									className={cn(
-										"shrink-0 rounded-[var(--radius-sm)] p-[var(--spacing-1)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]",
-										!centered &&
-											mobileBackLabel &&
-											"absolute left-[max(var(--spacing-4),var(--safe-area-left,0px))] inline-flex size-[var(--control-md)] items-center justify-center",
-									)}
-								>
-									{!centered && mobileBackLabel ? (
-										<ChevronLeft size={24} aria-hidden="true" />
-									) : (
-										<X size={18} aria-hidden="true" />
-									)}
-								</button>
-							</div>
+									<h2
+										className={cn(
+											"min-w-0 text-h3 text-[var(--color-text-primary)] [overflow-wrap:anywhere]",
+											!centered && mobileBackLabel && "w-full px-[var(--spacing-8)] text-center",
+										)}
+									>
+										{title}
+									</h2>
+									<button
+										type="button"
+										onClick={onClose}
+										aria-label={!centered && mobileBackLabel ? mobileBackLabel : closeLabel}
+										className={cn(
+											"shrink-0 rounded-[var(--radius-sm)] p-[var(--spacing-1)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]",
+											!centered &&
+												mobileBackLabel &&
+												"absolute left-[max(var(--spacing-4),var(--safe-area-left,0px))] inline-flex size-[var(--control-md)] items-center justify-center",
+										)}
+									>
+										{!centered && mobileBackLabel ? (
+											<ChevronLeft size={24} aria-hidden="true" />
+										) : (
+											<X size={18} aria-hidden="true" />
+										)}
+									</button>
+								</div>
+							) : null}
 							<div
 								data-overlay-body
 								data-frame-scroll={nativeFrame || undefined}

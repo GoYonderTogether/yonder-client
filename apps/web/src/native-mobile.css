@@ -44,6 +44,10 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 	pointer-events: none;
 }
 
+[data-native-sheet] [data-floating-frame-header] {
+	--floating-frame-safe-top: 0px;
+}
+
 :is(html[data-native-mobile="true"] [data-floating-frame-header], [data-floating-frame-header])::before {
 	inset: 0 0 auto;
 	height: calc(100% + var(--spacing-2));

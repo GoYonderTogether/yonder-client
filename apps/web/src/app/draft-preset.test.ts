@@ -18,6 +18,7 @@ test("an empty or whitespace draft may be filled; anything typed by the user may
 	expect(mayFillDraft("")).toBe(true);
 	expect(mayFillDraft("   \n ")).toBe(true);
 	expect(mayFillDraft("帮我做")).toBe(false);
+	expect(mayFillDraft("", 1)).toBe(false);
 });
 
 test("a preset keeps the draft's files and bumps the revision, as a keystroke does", () => {

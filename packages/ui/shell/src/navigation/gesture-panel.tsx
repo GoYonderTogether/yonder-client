@@ -1,6 +1,6 @@
 import { cn } from "@yonder/ui-components";
 import { SPRING } from "@yonder/ui-tokens";
-import { animate, motion, useMotionValue, usePresence, useReducedMotion } from "motion/react";
+import { animate, motion, useMotionValue, usePresence, useReducedMotion, useTransform } from "motion/react";
 import type { PointerEvent, ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useDismiss } from "./use-dismiss.ts";
@@ -13,6 +13,7 @@ export interface GesturePanelProps {
 	side?: "left" | "right" | "bottom";
 	layerKey: string;
 	onBack: () => void;
+	onExpand?: (() => void) | undefined;
 	children: ReactNode;
 	className?: string;
 	label?: string;
@@ -30,6 +31,7 @@ export function GesturePanel({
 	side = "right",
 	layerKey,
 	onBack,
+	onExpand,
 	children,
 	className,
 	label,
@@ -39,6 +41,9 @@ export function GesturePanel({
 }: GesturePanelProps) {
 	const panel = useRef<HTMLElement>(null);
 	const x = useMotionValue(0);
+	const sheetOffset = useTransform(x, (value) => Math.max(0, value));
+	const sheetExpansion = useTransform(x, (value) => `${Math.max(0, -value)}px`);
+	const handedOff = useRef(false);
 	const reduced = useReducedMotion();
 	const [present, remove] = usePresence();
 	const shown = open && present !== false;
@@ -58,6 +63,7 @@ export function GesturePanel({
 		lastTime: number;
 		velocity: number;
 		dragging: boolean;
+		fromBackdrop: boolean;
 	} | null>(null);
 	const dragged = useRef(false);
 	const dismiss = useRef(onBack);
@@ -81,7 +87,7 @@ export function GesturePanel({
 			if (!initialized.current) x.jump(reduced || !initial ? 0 : direction * width);
 		}
 		initialized.current = true;
-		if (reduced) {
+		if (reduced || (!shown && handedOff.current)) {
 			x.set(shown ? 0 : direction * width);
 			if (!shown) {
 				setVisible(false);
@@ -104,7 +110,7 @@ export function GesturePanel({
 
 	// Complete immediate exits after Motion has committed its presence bookkeeping.
 	useEffect(() => {
-		if ((inline || reduced) && !shown) remove?.();
+		if ((inline || reduced || handedOff.current) && !shown) remove?.();
 	}, [inline, reduced, shown, remove]);
 
 	useEffect(() => {
@@ -115,6 +121,23 @@ export function GesturePanel({
 			if (previous?.isConnected) previous.focus({ preventScroll: true });
 		};
 	}, [shown, active, role]);
+
+	function expansionRoom(element: HTMLElement, height: number) {
+		return Math.max(0, (element.parentElement?.clientHeight ?? height) - height - Math.min(0, x.get()));
+	}
+
+	function expand(velocity = 0) {
+		const element = panel.current;
+		if (!element || !onExpand) return;
+		const complete = () => {
+			handedOff.current = true;
+			onExpand();
+		};
+		const room = expansionRoom(element, element.getBoundingClientRect().height);
+		animation.current?.stop();
+		if (reduced || !room) complete();
+		else animation.current = animate(x, -room, { type: "spring", ...SPRING.panel, velocity, onComplete: complete });
+	}
 
 	function finish(event: PointerEvent<HTMLElement>, cancel: boolean) {
 		const current = gesture.current;
@@ -127,7 +150,13 @@ export function GesturePanel({
 		const width = vertical ? bounds.height : bounds.width;
 		const velocity = performance.now() - current.lastTime > 100 ? 0 : current.velocity;
 		const projected = direction * (x.get() + velocity * 0.18);
-		if (!cancel && direction * velocity > -200 && projected > width * 0.35) dismiss.current();
+		const room = onExpand ? expansionRoom(event.currentTarget, bounds.height) : 0;
+		if (!cancel && onExpand && !current.fromBackdrop && velocity < 200 && projected < -Math.min(64, room / 2)) {
+			expand(velocity);
+			return;
+		}
+		const closeThreshold = onExpand ? Math.min(52, width * 0.35) : width * 0.35;
+		if (!cancel && direction * velocity > -200 && projected > closeThreshold) dismiss.current();
 		// A router blocker can reject the exit. Settle back unless the controlled route actually closes.
 		if (reduced) {
 			x.set(0);
@@ -152,7 +181,8 @@ export function GesturePanel({
 			inert={(!shown && !inline) || !active}
 			tabIndex={-1}
 			style={{
-				...(vertical ? { y: x } : { x }),
+				...(vertical ? { y: onExpand ? sheetOffset : x } : { x }),
+				...(onExpand ? { "--sheet-expansion": sheetExpansion } : {}),
 				visibility: visible || inline ? "visible" : "hidden",
 				touchAction: inline || vertical ? "auto" : "pan-y",
 			}}
@@ -167,8 +197,10 @@ export function GesturePanel({
 				dragged.current = false;
 				const target = event.target as HTMLElement;
 				if (target.closest("[data-page-layer]") !== event.currentTarget) return;
-				if (vertical && !target.closest("[data-sheet-handle]")) return;
+				const fromBackdrop = Boolean(onExpand && target.closest("[data-overlay-backdrop]"));
+				if (vertical && !fromBackdrop && !target.closest("[data-sheet-handle]")) return;
 				if (
+					!(vertical && onExpand) &&
 					target.closest("input, textarea, select, button, a, [contenteditable=true], [role=slider], [role=separator]")
 				)
 					return;
@@ -179,7 +211,7 @@ export function GesturePanel({
 					: direction > 0
 						? event.clientX - rect.left
 						: rect.right - event.clientX;
-				if (edge > 32) return;
+				if (edge > 32 && !(vertical && onExpand)) return;
 				gesture.current = {
 					id: event.pointerId,
 					startX: event.clientX,
@@ -189,6 +221,7 @@ export function GesturePanel({
 					lastTime: performance.now(),
 					velocity: 0,
 					dragging: false,
+					fromBackdrop,
 				};
 			}}
 			onPointerMove={(event) => {
@@ -219,7 +252,8 @@ export function GesturePanel({
 				const bounds = event.currentTarget.getBoundingClientRect();
 				const width = vertical ? bounds.height : bounds.width;
 				const start = vertical ? current.startY : current.startX;
-				x.set(direction * Math.min(width, Math.max(0, direction * (current.offset + point - start))));
+				const room = onExpand && !current.fromBackdrop ? expansionRoom(event.currentTarget, bounds.height) : 0;
+				x.set(direction * Math.min(width, Math.max(-room, direction * (current.offset + point - start))));
 			}}
 			onPointerUp={(event) => finish(event, false)}
 			onPointerCancel={(event) => finish(event, true)}
@@ -233,6 +267,8 @@ export function GesturePanel({
 					event.preventDefault();
 					event.stopPropagation();
 					dragged.current = false;
+				} else if (onExpand && (event.target as HTMLElement).closest("[data-sheet-handle]")) {
+					expand();
 				}
 			}}
 			onKeyDown={(event) => {
@@ -241,7 +277,7 @@ export function GesturePanel({
 					"button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex='0']",
 				);
 				const available = [...(controls ?? [])].filter(
-					(element) => !element.closest("[inert], [hidden], [aria-hidden=true]"),
+					(element) => element.tabIndex >= 0 && !element.closest("[inert], [hidden], [aria-hidden=true]"),
 				);
 				const first = available[0];
 				const last = available.at(-1);

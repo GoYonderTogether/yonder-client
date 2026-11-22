@@ -29,7 +29,6 @@ import {
 	primaryConversation,
 	selectedConversation,
 } from "../pages/conversation-presentation.tsx";
-import { FlyToComposer } from "../pages/items-fly.tsx";
 import { memoryDetailParent, readMemoryView } from "../pages/memory/memory-view.ts";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
@@ -45,7 +44,7 @@ import { MessageNotifications } from "./message-notifications.tsx";
 import { settingsPagePaths } from "./settings-navigation.ts";
 import { SettingsRoutePage } from "./settings-pages.tsx";
 import { useFrameLayers, useSideStack } from "./side-panel.tsx";
-import { TaskBotDrawer } from "./task-bot-drawer.tsx";
+import { BotPresetOverlay } from "./task-bot-drawer.tsx";
 import { useFrameChat } from "./use-frame-chat.ts";
 import { useFrameMeeting } from "./use-frame-meeting.ts";
 import { useMeEntry } from "./use-me-entry.ts";
@@ -214,12 +213,11 @@ export function AppFrame() {
 	}, [location.pathname]);
 	const preset = useTaskPreset({
 		person,
-		bot,
+		primary,
 		conversation: taskSelection ? undefined : conversation,
-		conversations: conversations.data?.items,
 		draft,
 		open: navigation.open,
-		mobile: phone,
+		mobile: phone && !taskSelection,
 		path: location.pathname,
 	});
 	const memoryView = readMemoryView(tab === "memory" ? selection : null, subSelection);
@@ -329,6 +327,7 @@ export function AppFrame() {
 							onOpenItem={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
 							onAdd={selection === "scheduled" ? preset.addGoal : () => navigation.open("/tasks/new")}
 							onSchedule={preset.addSchedule}
+							showManualSchedule={!phone}
 						/>
 					),
 					content: (
@@ -478,22 +477,20 @@ export function AppFrame() {
 				locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
 				onModeChange={setLayoutMode}
 			/>
-			<TaskBotDrawer
-				open={preset.drawerOpen}
-				onClose={preset.closeDrawer}
+			<BotPresetOverlay
+				preset={preset}
 				title={bot?.displayName ?? ""}
 				conversationId={conversation?.id ?? null}
 				disconnected={disconnected}
-				status={preset.drawerOpen ? meetingStatus : null}
+				status={meetingStatus}
 			>
 				{composer}
-			</TaskBotDrawer>
+			</BotPresetOverlay>
 			<MessageNotifications
 				key={person?.id}
 				personId={person?.id}
 				onOpen={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
 			/>
-			{preset.flying ? <FlyToComposer phrase={preset.flying} onDone={preset.flown} /> : null}
 		</SidePanelProvider>
 	);
 }
