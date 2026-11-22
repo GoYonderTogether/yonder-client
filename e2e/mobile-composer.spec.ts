@@ -114,6 +114,28 @@ async function wav(request: Request) {
 	return { bytes, name: file.name };
 }
 
+async function mockVoicePreview(page: Page) {
+	await page.routeWebSocket(
+		(url) => url.pathname === "/v1/audio/transcriptions/realtime",
+		(socket) => {
+			socket.onMessage((message) => {
+				if (typeof message !== "string") return;
+				const start = JSON.parse(message);
+				if (start.type !== "start") return;
+				socket.send(JSON.stringify({ type: "ready", sessionId: start.sessionId }));
+				socket.send(
+					JSON.stringify({
+						type: "transcript",
+						sessionId: start.sessionId,
+						sentenceId: 1,
+						text: words,
+					}),
+				);
+			});
+		},
+	);
+}
+
 async function pressToTalk(page: Page, button: Locator, hint = "松手发语音") {
 	await expect(button).toBeEnabled();
 	const box = await button.boundingBox();
@@ -166,7 +188,7 @@ test("a slow microphone shows the pressed effect immediately and late capture ca
 		await expect(body).toHaveAttribute("data-pending-microphone", attempt);
 		await expect(overlay).toBeVisible();
 		if (attempt === "1") {
-			await page.screenshot({ path: info.outputPath("mobile-recording-starting.png"), scale: "css" });
+			await page.screenshot({ path: info.outputPath("06-voice-starting.png"), scale: "css" });
 			await press.release();
 		} else {
 			await page.evaluate(() => {
@@ -202,25 +224,7 @@ test("a slow microphone shows the pressed effect immediately and late capture ca
 });
 
 test("recording feedback shows a shallow arc and changes the glow on an upward swipe", async ({ page }, info) => {
-	await page.routeWebSocket(
-		(url) => url.pathname === "/v1/audio/transcriptions/realtime",
-		(socket) => {
-			socket.onMessage((message) => {
-				if (typeof message !== "string") return;
-				const start = JSON.parse(message);
-				if (start.type !== "start") return;
-				socket.send(JSON.stringify({ type: "ready", sessionId: start.sessionId }));
-				socket.send(
-					JSON.stringify({
-						type: "transcript",
-						sessionId: start.sessionId,
-						sentenceId: 1,
-						text: words,
-					}),
-				);
-			});
-		},
-	);
+	await mockVoicePreview(page);
 	await page.addInitScript(() => {
 		// Capture a browser-generated tone so this visual test does not wait for the host audio device.
 		navigator.mediaDevices.getUserMedia = async () => {
@@ -295,7 +299,19 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 		});
 	const normal = await glow();
 	expect(normal.color).toBe(normal.accent);
-	expect(normal.shade).toContain("0.16");
+	expect(normal.shade).toContain("0.33");
+	await expect(label).toHaveCSS("color", "rgb(255, 255, 255)");
+	const leftTarget = overlay.locator(".composer-recording-target-left");
+	const rightTarget = overlay.locator(".composer-recording-target-right");
+	await expect(leftTarget).toHaveCSS("color", "rgb(255, 255, 255)");
+	await expect(rightTarget).toHaveCSS("color", "rgb(255, 255, 255)");
+	const phrase = overlay.locator(".composer-recording-target-phrase > span");
+	const localSlopes = await phrase.evaluateAll((elements) =>
+		elements.map((element) => new DOMMatrix(getComputedStyle(element).transform).b),
+	);
+	expect(localSlopes).toHaveLength(2);
+	expect(localSlopes[0]).toBeLessThan(0);
+	expect(localSlopes[1]).toBeGreaterThan(0);
 	// Chromium serializes a circle with a single radius and omits the shape keyword.
 	const radial = /radial-gradient\((?:circle )?(\d+(?:\.\d+)?)px at 50% calc\(100% \+ (\d+(?:\.\d+)?)px\),/g;
 	const [rim, tint] = normal.gradient.matchAll(radial);
@@ -317,16 +333,22 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 	await expect(label).toHaveText("松手发语音");
 	await recording.move(24, 0);
 	await expect(label).toHaveText("松手发语音");
-	await page.screenshot({ path: info.outputPath("mobile-recording-arc-blue.png"), scale: "css" });
+	await page.screenshot({ path: info.outputPath("08-voice-live-transcript.png"), scale: "css" });
 	await recording.move(-65, -75);
 	await expect(label).toHaveText("松手取消");
+	await expect(leftTarget).toHaveCSS("color", "rgb(255, 255, 255)");
 	const cancel = await glow();
 	expect(cancel.color).toBe(cancel.danger);
 	expect(cancel).toMatchObject({ shade: normal.shade, wideMask: normal.wideMask, centerMask: normal.centerMask });
 	expect(cancel.gradient.split(", radial-gradient")[0]).toBe(normal.gradient.split(", radial-gradient")[0]);
 	expect(cancel.gradient).not.toBe(normal.gradient);
 	expect(await label.boundingBox()).toEqual(labelBounds);
-	await page.screenshot({ path: info.outputPath("mobile-recording-arc-red.png"), scale: "css" });
+	await page.screenshot({ path: info.outputPath("09-voice-cancel.png"), scale: "css" });
+	await recording.move(75, -80);
+	await expect(label).toHaveText("松手编辑");
+	await expect(rightTarget).toHaveText("编辑");
+	await expect(rightTarget).toHaveCSS("color", "rgb(255, 255, 255)");
+	await page.screenshot({ path: info.outputPath("10-voice-edit.png"), scale: "css" });
 	await recording.move(0, -12);
 	await expect(label).toHaveText("松手发语音");
 	expect(await glow()).toEqual(normal);
@@ -352,7 +374,7 @@ test("empty mobile composer holds one line; a held recording sends one playable 
 	const emptyHeight = (await composer.boundingBox())?.height ?? 0;
 	expect(emptyHeight).toBeGreaterThan(32);
 	expect(emptyHeight).toBeLessThan(58);
-	await page.screenshot({ path: info.outputPath("mobile-empty-text.png"), scale: "css" });
+	await page.screenshot({ path: info.outputPath("01-text-empty.png"), scale: "css" });
 
 	const text = "手机文字输入";
 	await input.fill(text);
@@ -375,9 +397,11 @@ test("empty mobile composer holds one line; a held recording sends one playable 
 	await expect(input).not.toBeVisible();
 	await expect(send).toHaveCount(0);
 	expect((await composer.boundingBox())?.height).toBeCloseTo(emptyHeight, 0);
-	await page.screenshot({ path: info.outputPath("mobile-voice.png"), scale: "css" });
+	await page.screenshot({ path: info.outputPath("05-voice-idle.png"), scale: "css" });
 
 	const recording = await pressToTalk(page, hold);
+	await expect(overlay.locator(".composer-recording-wave")).toBeVisible();
+	await page.screenshot({ path: info.outputPath("07-voice-waveform.png"), scale: "css" });
 	await page.waitForTimeout(2200); // Leave time to observe play, pause and resume in the recorded fixture audio.
 	expect(wire.sent).toHaveLength(1);
 	expect(wire.uploaded.size).toBe(0);
@@ -518,11 +542,11 @@ test("reaching 60 seconds locks one recording, restores it in the same chat, and
 	await press.release();
 	await expect(locked).toBeVisible();
 	expect(wire.sent).toHaveLength(0);
-	await page.screenshot({ path: info.outputPath("voice-locked.png"), scale: "css" });
+	await page.screenshot({ path: info.outputPath("11-voice-locked.png"), scale: "css" });
 	await page.reload();
 	const recovered = page.getByRole("group", { name: "已恢复录音" });
 	await expect(recovered.getByRole("button", { name: "继续录音" })).toBeVisible();
-	await page.screenshot({ path: info.outputPath("voice-recovered.png"), scale: "css" });
+	await page.screenshot({ path: info.outputPath("12-voice-recovered.png"), scale: "css" });
 	expect(wire.sent).toHaveLength(0);
 	await recovered.getByRole("button", { name: "结束并发送" }).tap();
 	await expect
@@ -534,6 +558,7 @@ test("reaching 60 seconds locks one recording, restores it in the same chat, and
 	expect(Math.ceil((upload?.bytes.readUInt32LE(40) ?? 0) / 32)).toBe(duration);
 	expect(wire.recognized).toHaveLength(0);
 	await expect(page.getByText("正在转成文字…", { exact: true })).toBeVisible();
+	await page.screenshot({ path: info.outputPath("13-voice-transcribing.png"), scale: "css" });
 });
 
 test("a right swipe edits the transcript and leaves sending up to the user", async ({ page }, info) => {
@@ -554,6 +579,7 @@ test("a right swipe edits the transcript and leaves sending up to the user", asy
 	await page.screenshot({ path: info.outputPath("voice-to-text.png"), scale: "css" });
 	await press.release();
 	await expect(composer.getByRole("textbox")).toHaveValue(`原有草稿\n${words}`);
+	await page.screenshot({ path: info.outputPath("14-voice-edited-draft.png"), scale: "css" });
 	expect(wire.recognized).toHaveLength(1);
 	expect(wire.uploaded.size).toBe(0);
 	expect(wire.sent).toHaveLength(0);
@@ -561,23 +587,28 @@ test("a right swipe edits the transcript and leaves sending up to the user", asy
 
 test("a tap still focuses the empty editor, while a hold dictates without sending", async ({ page }, info) => {
 	const wire = await speechWire(page);
+	await mockVoicePreview(page);
 	await page.goto("/messages/main");
 	const composer = page.locator(".composer-box");
 	const input = composer.getByRole("textbox");
 	await expect(composer.getByText("按住转文字")).toBeVisible();
 	await input.tap();
 	await expect(input).toBeFocused();
+	await page.screenshot({ path: info.outputPath("02-text-focus.png"), caret: "initial", scale: "css" });
 	await input.blur();
 	const held = await pressToTalk(page, input, "松手编辑");
 	await page.waitForTimeout(500);
 	await held.move(-65, -45);
 	await expect(page.locator(".composer-recording-label")).toHaveText("松手取消");
 	await expect(page.locator(".composer-recording-target-right")).toHaveText("编辑");
+	await page.screenshot({ path: info.outputPath("03a-text-cancel.png"), scale: "css" });
 	await held.move(0, 0);
 	await expect(page.locator(".composer-recording-label")).toHaveText("松手编辑");
-	await page.screenshot({ path: info.outputPath("voice-hold-editor.png"), scale: "css" });
+	await expect(page.locator(".composer-recording-transcript")).toHaveText(words);
+	await page.screenshot({ path: info.outputPath("03-text-recording.png"), scale: "css" });
 	await held.release();
 	await expect(input).toHaveValue(words);
+	await page.screenshot({ path: info.outputPath("04-text-draft.png"), scale: "css" });
 	expect(wire.recognized).toHaveLength(1);
 	expect(wire.sent).toHaveLength(0);
 });
