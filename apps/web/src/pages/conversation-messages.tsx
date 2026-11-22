@@ -298,6 +298,9 @@ function MessageEntry({
 			{message.connectorRequestId ? <ConnectorRequestCard id={message.connectorRequestId} /> : null}
 			{message.cardId ? <AgentCardMessage id={message.cardId} disconnected={disconnected} /> : null}
 			{meeting && onOpenMeeting ? <MeetingMessageCard meeting={meeting} onOpen={onOpenMeeting} /> : null}
+			{message.taskSession && onOpenMeeting ? (
+				<MeetingMessageCard meeting={message.taskSession} task onOpen={onOpenMeeting} />
+			) : null}
 			{message.pending ? (
 				<span className="text-caption text-[var(--color-text-secondary)]">{t("chat.sending")}</span>
 			) : null}
