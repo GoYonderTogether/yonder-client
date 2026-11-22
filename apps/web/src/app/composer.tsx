@@ -3,6 +3,7 @@ import { ArrowUp, Keyboard, Mic, Plus, Square } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { prepareIosChatMicrophone } from "../lib/ios-chat-microphone.ts";
 import { CompletionPopup } from "./completion/completion-popup.tsx";
 import { CompletionHighlight } from "./completion/highlight.tsx";
 import { useComposerCompletion } from "./completion/use-composer-completion.ts";
@@ -72,6 +73,7 @@ export function Composer({
 	const menu = menuScope === scope;
 	if (menuScope !== undefined && !menu) setMenuScope(undefined);
 	const [voiceScope, setVoiceScope] = useState<string | null>(null);
+	const microphonePreparation = useRef<Promise<void> | undefined>(undefined);
 	const [voiceSendingScope, setVoiceSendingScope] = useState<string | null>(null);
 	const [holdError, setHoldError] = useState<{ scope: string; message: string }>();
 	useEffect(() => {
@@ -137,6 +139,11 @@ export function Composer({
 			input.current?.focus({ preventScroll: true });
 		} else {
 			input.current?.blur();
+			const preparation = microphonePreparation.current ?? prepareIosChatMicrophone();
+			microphonePreparation.current = preparation;
+			void preparation?.then(() => {
+				if (microphonePreparation.current === preparation) microphonePreparation.current = undefined;
+			});
 			setVoiceScope(scope);
 		}
 	}
@@ -447,6 +454,7 @@ export function Composer({
 							<HoldToTalk
 								key={scope}
 								disabled={voiceUnavailable || menu || iosAttachments.busy || sending || streaming}
+								pendingMicrophonePermission={() => microphonePreparation.current}
 								onSend={sendVoice}
 								onError={(message) => setHoldError({ scope, message })}
 								onActivityChange={onVoiceActivityChange}

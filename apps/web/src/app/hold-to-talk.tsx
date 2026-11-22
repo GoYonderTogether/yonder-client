@@ -41,17 +41,19 @@ function swipedUp(capture: Capture, y: number) {
 
 export function HoldToTalk({
 	disabled,
+	pendingMicrophonePermission,
 	onSend,
 	onError,
 	onActivityChange,
 }: {
 	disabled: boolean;
+	pendingMicrophonePermission: () => Promise<void> | undefined;
 	onSend: (file: File) => Promise<unknown>;
 	onError: (error: string) => void;
 	onActivityChange?: ((active: boolean) => void) | undefined;
 }) {
 	const { t } = useTranslation();
-	const [phase, setPhase] = useState<"idle" | "requesting" | "held" | "finishing">("idle");
+	const [phase, setPhase] = useState<"idle" | "starting" | "recording" | "finishing">("idle");
 	const [cancelOnRelease, setCancelOnRelease] = useState(false);
 	const current = useRef<Capture | null>(null);
 	const callbacks = useRef({ onSend, onError, onActivityChange });
@@ -115,10 +117,13 @@ export function HoldToTalk({
 		const capture: Capture = { hold, startY, path: window.location.pathname, chunks: [] };
 		current.current = capture;
 		setCancelOnRelease(false);
-		setPhase("requesting");
+		setPhase("starting");
 		onError("");
 		onActivityChange?.(true);
 		try {
+			const permission = pendingMicrophonePermission();
+			if (permission) await permission;
+			if (current.current !== capture) return;
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 			capture.stream = stream;
 			if (current.current !== capture) {
@@ -138,7 +143,7 @@ export function HoldToTalk({
 				if (current.current !== capture) return;
 				capture.startedAt = performance.now();
 				capture.limit = setTimeout(() => releaseMicrophone(capture), MAX_MS);
-				setPhase("held");
+				setPhase("recording");
 			};
 			recorder.ondataavailable = ({ data }) => {
 				if (current.current === capture && data.size) capture.chunks.push(data);
@@ -180,16 +185,16 @@ export function HoldToTalk({
 		if (capture.stopped) void sendRecording(capture);
 	}
 
-	const busyLabel =
-		phase === "requesting" ? "chat.requestingMicrophone" : phase === "finishing" ? "chat.sending" : undefined;
-	const recording = phase === "held";
-	const hint = t(cancelOnRelease ? "chat.releaseToCancel" : "chat.releaseToSend");
+	const starting = phase === "starting";
+	const finishing = phase === "finishing";
+	const held = starting || phase === "recording";
+	const hint = t(cancelOnRelease ? "chat.releaseToCancel" : starting ? "chat.startingRecording" : "chat.releaseToSend");
 	return (
 		<>
 			<span role="status" className="sr-only">
-				{recording ? hint : busyLabel ? t(busyLabel) : ""}
+				{held ? hint : finishing ? t("chat.sending") : ""}
 			</span>
-			{recording &&
+			{held &&
 				createPortal(
 					<div className="composer-recording" data-cancel={cancelOnRelease || undefined} aria-hidden="true">
 						<span className="composer-recording-label">{hint}</span>
@@ -199,9 +204,9 @@ export function HoldToTalk({
 			<button
 				type="button"
 				aria-label={t("chat.holdToTalk")}
-				aria-busy={busyLabel ? true : undefined}
+				aria-busy={starting || finishing || undefined}
 				className="composer-hold-to-talk"
-				data-held={recording || undefined}
+				data-held={held || undefined}
 				disabled={disabled}
 				onContextMenu={(event) => event.preventDefault()}
 				onPointerDown={(event) => {
@@ -245,7 +250,7 @@ export function HoldToTalk({
 					else void begin("assistive");
 				}}
 			>
-				<span className="truncate">{t(busyLabel ?? "chat.holdToTalk")}</span>
+				<span className="truncate">{t(finishing ? "chat.sending" : "chat.holdToTalk")}</span>
 			</button>
 		</>
 	);

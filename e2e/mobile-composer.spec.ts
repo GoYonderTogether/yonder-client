@@ -114,7 +114,7 @@ async function wav(request: Request) {
 	return { bytes, name: file.name };
 }
 
-async function pressToTalk(page: Page, button: Locator) {
+async function pressToTalk(page: Page, button: Locator, hint = "松手发送，上滑取消") {
 	await expect(button).toBeEnabled();
 	const box = await button.boundingBox();
 	if (!box) throw new Error("Press-to-talk button is outside the screen");
@@ -122,7 +122,7 @@ async function pressToTalk(page: Page, button: Locator) {
 	const x = box.x + box.width / 2;
 	const y = box.y + box.height / 2;
 	await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
-	await expect(page.locator(".composer-recording-label")).toHaveText("松手发送，上滑取消", { timeout: 15_000 });
+	await expect(page.locator(".composer-recording-label")).toHaveText(hint, { timeout: 15_000 });
 	return {
 		move: (dx: number, dy: number) =>
 			session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x + dx, y: y + dy }] }),
@@ -132,6 +132,74 @@ async function pressToTalk(page: Page, button: Locator) {
 		},
 	};
 }
+
+test("a slow microphone shows the pressed effect immediately and late capture cannot send", async ({ page }, info) => {
+	await page.addInitScript(() => {
+		const getMicrophone = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+		let attempts = 0;
+		navigator.mediaDevices.getUserMedia = async (constraints) => {
+			const attempt = String(++attempts);
+			document.body.dataset.pendingMicrophone = attempt;
+			await new Promise<void>((resolve) =>
+				window.addEventListener("test:microphone-ready", () => resolve(), { once: true }),
+			);
+			const stream = await getMicrophone(constraints);
+			const track = stream.getAudioTracks()[0];
+			if (!track) throw new Error("Expected a microphone track");
+			const stop = track.stop.bind(track);
+			track.stop = () => {
+				stop();
+				document.body.dataset.stoppedMicrophone = attempt;
+			};
+			return stream;
+		};
+	});
+	const wire = await speechWire(page);
+	await page.goto("/messages/main");
+	await page.getByRole("button", { name: "语音输入", exact: true }).tap();
+	const hold = page.getByRole("button", { name: "按住说话", exact: true });
+	const overlay = page.locator(".composer-recording");
+	const body = page.locator("body");
+	for (const attempt of ["1", "2"]) {
+		const press = await pressToTalk(page, hold, "正在启动录音…");
+		await expect(hold).toHaveText("按住说话");
+		await expect(body).toHaveAttribute("data-pending-microphone", attempt);
+		await expect(overlay).toBeVisible();
+		if (attempt === "1") {
+			await page.screenshot({ path: info.outputPath("mobile-recording-starting.png"), scale: "css" });
+			await press.release();
+		} else {
+			await page.evaluate(() => {
+				Object.defineProperty(document, "hidden", { configurable: true, value: true });
+				document.dispatchEvent(new Event("visibilitychange"));
+				Reflect.deleteProperty(document, "hidden");
+			});
+			await press.release();
+		}
+		await expect(overlay).toHaveCount(0);
+		await page.evaluate(() => window.dispatchEvent(new Event("test:microphone-ready")));
+		await expect(body).toHaveAttribute("data-stopped-microphone", attempt);
+	}
+	expect(wire.sent).toEqual([]);
+	expect(wire.uploaded.size).toBe(0);
+	expect(wire.recognized).toEqual([]);
+	const press = await pressToTalk(page, hold, "正在启动录音…");
+	await expect(body).toHaveAttribute("data-pending-microphone", "3");
+	await page.evaluate(() => window.dispatchEvent(new Event("test:microphone-ready")));
+	await expect(overlay.locator(".composer-recording-label")).toHaveText("松手发送，上滑取消");
+	await page.waitForTimeout(700); // Leave enough real audio to pass the minimum-duration guard on release.
+	expect(wire.sent).toEqual([]);
+	await press.release();
+	await expect
+		.poll(() => wire.sent)
+		.toMatchObject([
+			{
+				path: `/v1/conversations/${conversation.id}/messages`,
+				body: { body: words, voice: { durationMs: expect.any(Number) } },
+			},
+		]);
+	await expect(page.getByRole("button", { name: /^播放语音/ })).toBeVisible();
+});
 
 test("recording feedback shows a shallow arc and changes the glow on an upward swipe", async ({ page }, info) => {
 	await page.addInitScript(() => {

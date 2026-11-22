@@ -178,7 +178,7 @@ execFileSync("/usr/bin/plutil", [
 	"-replace",
 	"NSMicrophoneUsageDescription",
 	"-string",
-	"Record meeting audio or turn your voice into an editable message / 录制会议音频或将语音转成可编辑消息",
+	"Record voice messages and meeting audio / 录制语音消息和会议音频",
 	infoPlist,
 ]);
 for (const key of ["NSCalendarsUsageDescription", "NSCalendarsFullAccessUsageDescription"]) {
