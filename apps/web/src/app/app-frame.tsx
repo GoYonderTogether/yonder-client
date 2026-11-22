@@ -67,7 +67,7 @@ export function AppFrame() {
 	const bot = useBot();
 	const meeting = useFrameMeeting(person?.id ?? null);
 	const desktop = isDesktopExperience();
-	const { realtime, storage } = useData();
+	const { realtime, storage, api } = useData();
 	const connectionStatus = useSyncExternalStore(
 		realtime.subscribe,
 		() => realtime.status,
@@ -394,7 +394,8 @@ export function AppFrame() {
 			onAcceptCompletion={draft.acceptCompletion}
 			onCompact={compact.run}
 			commandStatus={<CompactStatus command={compact} />}
-			onSendVoice={chat.submit}
+			onSendVoice={chat.submitVoice}
+			speech={{ transcription: api, knownNonce: chat.knownVoiceNonce }}
 			onSend={() => {
 				void chat.submit();
 				if (taskSelection || !conversation) return;

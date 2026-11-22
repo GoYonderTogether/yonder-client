@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
@@ -42,7 +42,7 @@ test.each([false, true])("own Bot attachment menu opens before a picker (mobile=
 	picker.mockRestore();
 });
 
-test("mobile swaps the empty composer between typing and holding to talk", () => {
+test("mobile swaps the empty composer between typing and holding to talk", async () => {
 	const send = vi.fn();
 	const props = {
 		recipientName: "Bot",
@@ -66,7 +66,7 @@ test("mobile swaps the empty composer between typing and holding to talk", () =>
 	expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Voice input" }));
 	expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-	expect(screen.getByRole("button", { name: "Hold to talk" })).toBeEnabled();
+	await waitFor(() => expect(screen.getByRole("button", { name: "Hold to talk" })).toBeEnabled());
 	fireEvent.click(screen.getByRole("button", { name: "Text input" }));
 	expect(screen.getByRole("textbox")).toHaveFocus();
 	view.rerender(composer("A message"));
@@ -76,7 +76,7 @@ test("mobile swaps the empty composer between typing and holding to talk", () =>
 	expect(toggle.compareDocumentPosition(screen.getByRole("textbox"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 	expect(sendButton.compareDocumentPosition(attach)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 	fireEvent.click(toggle);
-	expect(screen.getByRole("button", { name: "Hold to talk" })).toBeEnabled();
+	await waitFor(() => expect(screen.getByRole("button", { name: "Hold to talk" })).toBeEnabled());
 	expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Text input" }));
 	expect(screen.getByRole("textbox")).toHaveValue("A message");

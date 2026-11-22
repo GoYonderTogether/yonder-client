@@ -144,8 +144,8 @@ export function renderMessageBlock(
 				{run.map((message) => {
 					const { attachments: legacyAttachments, images } = optionCardAttachments(message);
 					const attachments = message.questionCard ? attachmentsOutsideQuestionCard(message) : legacyAttachments;
-					const file = attachments.length === 1 ? attachments[0] : undefined;
-					const voice = file?.kind === "audio" ? message.voice : undefined;
+					const file = attachments[0];
+					const voice = file && attachments.every(({ kind }) => kind === "audio") ? message.voice : undefined;
 					const reply = optionCards.replies.get(message.id);
 					const canChoose = message.id === optionCards.openId && !chat.sending && !reply;
 					return (
@@ -180,7 +180,12 @@ export function renderMessageBlock(
 									}
 								/>
 							) : voice && file ? (
-								<VoiceMessage key={file.id} fileId={file.id} durationMs={voice.durationMs} self={self} />
+								<VoiceMessage
+									key={file.id}
+									fileIds={attachments.map(({ id }) => id)}
+									durationMs={voice.durationMs}
+									self={self}
+								/>
 							) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 								<MessageBubble as={ChatView} self={self}>
 									{message.questionReply?.question ? (
@@ -206,6 +211,9 @@ export function renderMessageBlock(
 										<MessageAttachment key={file.id} file={file} onSizeChange={followAfterLayout} />
 									))}
 								</MessageAttachmentsFrame>
+							) : null}
+							{voice?.transcription === "pending" ? (
+								<Text className="mini-muted">{t("正在转录…", "Transcribing…")}</Text>
 							) : null}
 							{message.pending ? <Text className="mini-muted">{t("发送中…", "Sending…")}</Text> : null}
 							{message.sendFailed ? (

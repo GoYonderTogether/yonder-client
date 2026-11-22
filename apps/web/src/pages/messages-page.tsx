@@ -424,7 +424,7 @@ export function ConversationPage({
 								{...(onOpenMeeting ? { onOpenMeeting } : {})}
 								onResend={(message) =>
 									send.mutate({
-										type: "text",
+										type: message.sendType ?? "text",
 										body: message.body ?? "",
 										clientNonce: message.clientNonce ?? "",
 										attachmentIds: message.attachments.map((attachment) => attachment.id),

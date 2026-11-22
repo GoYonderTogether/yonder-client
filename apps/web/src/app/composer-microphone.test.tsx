@@ -62,8 +62,15 @@ test("entering mobile voice mode prepares permission, and release during permiss
 	);
 	const mediaDevices = Object.getOwnPropertyDescriptor(navigator, "mediaDevices");
 	Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia } });
-	vi.stubGlobal("MediaRecorder", class {});
-	vi.stubGlobal("OfflineAudioContext", class {});
+	vi.stubGlobal(
+		"AudioContext",
+		class {
+			resume = vi.fn().mockResolvedValue(undefined);
+			close = vi.fn().mockResolvedValue(undefined);
+			audioWorklet = { addModule: vi.fn().mockResolvedValue(undefined) };
+		},
+	);
+	vi.stubGlobal("AudioWorkletNode", class {});
 	try {
 		render(
 			<I18nextProvider i18n={createI18n("en")}>
@@ -86,6 +93,7 @@ test("entering mobile voice mode prepares permission, and release during permiss
 		expect(prepareIosChatMicrophone).toHaveBeenCalledTimes(1);
 		expect(getUserMedia).not.toHaveBeenCalled();
 		const hold = screen.getByRole("button", { name: "Hold to talk" });
+		await act(async () => {});
 		fireEvent.keyDown(hold, { key: " " });
 		expect(hold).toHaveAttribute("data-held", "true");
 		fireEvent.keyUp(hold, { key: " " });

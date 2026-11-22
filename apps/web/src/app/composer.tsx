@@ -33,6 +33,7 @@ export function Composer({
 	onDraftChange: setDraft,
 	onSend,
 	onSendVoice,
+	speech,
 	streaming,
 	sending = false,
 	onCancelSend,
@@ -74,7 +75,6 @@ export function Composer({
 	if (menuScope !== undefined && !menu) setMenuScope(undefined);
 	const [voiceScope, setVoiceScope] = useState<string | null>(null);
 	const microphonePreparation = useRef<Promise<void> | undefined>(undefined);
-	const [voiceSendingScope, setVoiceSendingScope] = useState<string | null>(null);
 	const [holdError, setHoldError] = useState<{ scope: string; message: string }>();
 	useEffect(() => {
 		const root = addMenu.current;
@@ -126,10 +126,9 @@ export function Composer({
 	});
 	const placeholder = recipientName ? t("chat.composerTo", { name: recipientName }) : t("chat.composerPlaceholder");
 	const hasContent = Boolean(draft.trim() || files.length);
-	const voiceSending = voiceSendingScope === scope;
 	const holdMode = mobilePicker && voiceScope === scope;
 	const compactMobile = mobilePicker && (!draft || holdMode);
-	const showSend = !mobilePicker || streaming || sending || (hasContent && !holdMode && !voiceSending);
+	const showSend = !mobilePicker || streaming || sending || (hasContent && !holdMode);
 	const voiceUnavailable = disabled || readOnly || disconnected || microphoneOccupied || !onSendVoice;
 	const canSend = !disabled && !disconnected && !streaming && hasContent;
 	function toggleVoiceMode() {
@@ -151,14 +150,9 @@ export function Composer({
 		if (files.length) setVoiceScope(null);
 		onFiles?.(files);
 	}
-	async function sendVoice(file: File) {
-		setVoiceSendingScope(scope);
-		try {
-			await onSendVoice?.(file);
-		} finally {
-			setVoiceSendingScope((pending) => (pending === scope ? null : pending));
-			if (hasContent) setVoiceScope((active) => (active === scope ? null : active));
-		}
+	function fillVoiceDraft(text: string) {
+		setDraft([latestDraft.current, text].filter(Boolean).join("\n"));
+		setVoiceScope(null);
 	}
 	useLayoutEffect(() => {
 		const editor = input.current;
@@ -322,7 +316,7 @@ export function Composer({
 			>
 				<ComposerFrame as="div" dragging={dragging}>
 					<CompletionPopup completion={completion} />
-					{files.length && !voiceSending ? (
+					{files.length ? (
 						<ComposerFiles
 							files={files}
 							disabled={disabled}
@@ -450,12 +444,18 @@ export function Composer({
 								className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-button-size)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
 							/>
 						</div>
-						{holdMode ? (
+						{mobilePicker && onSendVoice ? (
 							<HoldToTalk
 								key={scope}
+								scope={scope}
+								visible={holdMode}
+								{...speech}
+								textEditor={input}
 								disabled={voiceUnavailable || menu || iosAttachments.busy || sending || streaming}
 								pendingMicrophonePermission={() => microphonePreparation.current}
-								onSend={sendVoice}
+								onSend={onSendVoice}
+								onText={fillVoiceDraft}
+								onRestore={() => setVoiceScope(scope)}
 								onError={(message) => setHoldError({ scope, message })}
 								onActivityChange={onVoiceActivityChange}
 							/>

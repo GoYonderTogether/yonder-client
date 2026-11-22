@@ -81,7 +81,7 @@ async function speechWire(page: Page) {
 					conversationId: path.split("/").at(-2),
 					attachments: items,
 					clientNonce: body.clientNonce,
-					voice: body.voice,
+					voice: body.voice?.transcribe ? { durationMs: body.voice.durationMs, transcription: "pending" } : body.voice,
 				},
 				clientNonce: body.clientNonce,
 			},
@@ -114,7 +114,7 @@ async function wav(request: Request) {
 	return { bytes, name: file.name };
 }
 
-async function pressToTalk(page: Page, button: Locator, hint = "松手发送，上滑取消") {
+async function pressToTalk(page: Page, button: Locator, hint = "松手发送") {
 	await expect(button).toBeEnabled();
 	const box = await button.boundingBox();
 	if (!box) throw new Error("Press-to-talk button is outside the screen");
@@ -186,7 +186,7 @@ test("a slow microphone shows the pressed effect immediately and late capture ca
 	const press = await pressToTalk(page, hold, "正在启动录音…");
 	await expect(body).toHaveAttribute("data-pending-microphone", "3");
 	await page.evaluate(() => window.dispatchEvent(new Event("test:microphone-ready")));
-	await expect(overlay.locator(".composer-recording-label")).toHaveText("松手发送，上滑取消");
+	await expect(overlay.locator(".composer-recording-label")).toHaveText("松手发送");
 	await page.waitForTimeout(700); // Leave enough real audio to pass the minimum-duration guard on release.
 	expect(wire.sent).toEqual([]);
 	await press.release();
@@ -195,13 +195,32 @@ test("a slow microphone shows the pressed effect immediately and late capture ca
 		.toMatchObject([
 			{
 				path: `/v1/conversations/${conversation.id}/messages`,
-				body: { body: words, voice: { durationMs: expect.any(Number) } },
+				body: { body: "", voice: { durationMs: expect.any(Number), transcribe: true } },
 			},
 		]);
 	await expect(page.getByRole("button", { name: /^播放语音/ })).toBeVisible();
 });
 
 test("recording feedback shows a shallow arc and changes the glow on an upward swipe", async ({ page }, info) => {
+	await page.routeWebSocket(
+		(url) => url.pathname === "/v1/audio/transcriptions/realtime",
+		(socket) => {
+			socket.onMessage((message) => {
+				if (typeof message !== "string") return;
+				const start = JSON.parse(message);
+				if (start.type !== "start") return;
+				socket.send(JSON.stringify({ type: "ready", sessionId: start.sessionId }));
+				socket.send(
+					JSON.stringify({
+						type: "transcript",
+						sessionId: start.sessionId,
+						sentenceId: 1,
+						text: words,
+					}),
+				);
+			});
+		},
+	);
 	await page.addInitScript(() => {
 		// Capture a browser-generated tone so this visual test does not wait for the host audio device.
 		navigator.mediaDevices.getUserMedia = async () => {
@@ -242,6 +261,7 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 	await expect(overlay).toHaveCount(0);
 	const recording = await pressToTalk(page, hold);
 	await expect(hold).toHaveText("按住说话");
+	await expect(overlay.locator(".composer-recording-transcript")).toHaveText(words);
 	await expect(page.locator(".composer-box")).toHaveCSS("opacity", "0.28");
 	await expect(label.locator("*")).toHaveCount(0);
 	await expect(overlay).toHaveCSS("position", "fixed");
@@ -252,8 +272,8 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 	const labelBounds = await label.boundingBox();
 	if (!labelBounds) throw new Error("Recording label is missing");
 	const labelBottom = viewport.height - labelBounds.y - labelBounds.height;
-	expect(labelBottom).toBeGreaterThanOrEqual(90);
-	expect(labelBottom).toBeLessThanOrEqual(115);
+	expect(labelBounds.y).toBeGreaterThan(viewport.height * 0.3);
+	expect(labelBottom).toBeGreaterThan(viewport.height * 0.4);
 	const glow = () =>
 		overlay.evaluate((element) => {
 			const style = getComputedStyle(element);
@@ -285,7 +305,7 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 	const offset = Number(wide[2]);
 	expect(radius).toBeCloseTo(normal.baseRadius * 2, 1);
 	expect(offset).toBeGreaterThan(normal.baseRadius);
-	expect(radius - offset).toBeGreaterThan(labelBottom);
+	expect(radius - offset).toBeGreaterThan(100);
 	expect(rim.slice(1)).toEqual(wide.slice(1));
 	expect(tint.slice(1)).toEqual(wide.slice(1));
 	expect(Number(center[1])).toBeCloseTo(radius * 0.9, 1);
@@ -293,11 +313,11 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 	expect(normal.wideBlur).toBeGreaterThan(0);
 	expect(normal.centerBlur).toBeGreaterThan(normal.wideBlur);
 	await recording.move(0, -18);
-	await expect(label).toHaveText("松手发送，上滑取消");
-	await recording.move(165, 0);
-	await expect(label).toHaveText("松手发送，上滑取消");
+	await expect(label).toHaveText("松手发送");
+	await recording.move(24, 0);
+	await expect(label).toHaveText("松手发送");
 	await page.screenshot({ path: info.outputPath("mobile-recording-arc-blue.png"), scale: "css" });
-	await recording.move(0, -56);
+	await recording.move(-65, -75);
 	await expect(label).toHaveText("松手取消");
 	const cancel = await glow();
 	expect(cancel.color).toBe(cancel.danger);
@@ -307,7 +327,7 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 	expect(await label.boundingBox()).toEqual(labelBounds);
 	await page.screenshot({ path: info.outputPath("mobile-recording-arc-red.png"), scale: "css" });
 	await recording.move(0, -12);
-	await expect(label).toHaveText("松手发送，上滑取消");
+	await expect(label).toHaveText("松手发送");
 	expect(await glow()).toEqual(normal);
 	await recording.release("touchCancel");
 	await expect(overlay).toHaveCount(0);
@@ -336,7 +356,7 @@ test("empty mobile composer holds one line; a held recording sends one playable 
 	const text = "手机文字输入";
 	await input.fill(text);
 	await expect(send).toBeEnabled();
-	await expect(mic).toHaveCount(0);
+	await expect(mic).toBeEnabled();
 	expect((await composer.boundingBox())?.height).toBeCloseTo(emptyHeight, 0);
 	await send.tap();
 	await expect.poll(() => wire.sent).toMatchObject([{ body: { body: text } }]);
@@ -364,7 +384,7 @@ test("empty mobile composer holds one line; a held recording sends one playable 
 	await recording.move(0, -56);
 	await expect(label).toHaveText("松手取消");
 	await recording.move(0, -12);
-	await expect(label).toHaveText("松手发送，上滑取消");
+	await expect(label).toHaveText("松手发送");
 	await recording.release();
 	await expect(overlay).toHaveCount(0);
 	await expect
@@ -373,14 +393,17 @@ test("empty mobile composer holds one line; a held recording sends one playable 
 			{ body: { body: text } },
 			{
 				path: `/v1/conversations/${conversation.id}/messages`,
-				body: { type: "text", body: words, attachmentIds: ["voice-1"], voice: { durationMs: expect.any(Number) } },
+				body: {
+					type: "voice",
+					body: "",
+					attachmentIds: ["voice-1"],
+					voice: { durationMs: expect.any(Number), transcribe: true },
+				},
 			},
 		]);
-	expect(wire.recognized).toHaveLength(1);
+	expect(wire.recognized).toHaveLength(0);
 	const audio = wire.uploaded.get("voice-1");
-	const [transcriptionAudio] = wire.recognized;
-	if (!audio || !transcriptionAudio) throw new Error("No uploaded audio");
-	expect(audio.bytes.equals(transcriptionAudio)).toBe(true);
+	if (!audio) throw new Error("No uploaded audio");
 	const durationMs = wire.sent[1]?.body.voice?.durationMs;
 	expect(durationMs).toBeGreaterThan(150);
 	const voice = page.getByRole("button", { name: /^播放语音/ });
@@ -448,7 +471,7 @@ test("cancelled or departed presses stay local; a friend gets audio without a tr
 		.toMatchObject([
 			{
 				path: `/v1/conversations/${friend.id}/messages`,
-				body: { type: "text", body: "", attachmentIds: ["voice-1"], voice: { durationMs: expect.any(Number) } },
+				body: { type: "voice", body: "", attachmentIds: ["voice-1"], voice: { durationMs: expect.any(Number) } },
 			},
 		]);
 	expect(wire.uploaded.size).toBe(1);
@@ -460,4 +483,95 @@ test("cancelled or departed presses stay local; a friend gets audio without a tr
 		expect(page.getByRole("button", { name: /^暂停语音/ })).toBeVisible({ timeout: 15_000 }),
 		voice.tap(),
 	]);
+});
+
+test("reaching 60 seconds locks one recording, restores it in the same chat, and only sends on tap", async ({
+	page,
+}, info) => {
+	await page.addInitScript(() => {
+		const Worklet = AudioWorkletNode;
+		window.AudioWorkletNode = class extends Worklet {
+			constructor(...args: ConstructorParameters<typeof AudioWorkletNode>) {
+				super(...args);
+				window.addEventListener(
+					"test:voice-minute",
+					() => {
+						const pcm = new Int16Array(1600).fill(600);
+						for (let index = 0; index < 600; index++)
+							this.port.onmessage?.(new MessageEvent("message", { data: pcm.buffer }));
+					},
+					{ once: true },
+				);
+			}
+		};
+	});
+	const wire = await speechWire(page);
+	await page.goto("/messages/main");
+	await page.getByRole("button", { name: "语音输入", exact: true }).tap();
+	const hold = page.getByRole("button", { name: "按住说话", exact: true });
+	const press = await pressToTalk(page, hold);
+	await page.evaluate(() => window.dispatchEvent(new Event("test:voice-minute")));
+	const locked = page.getByRole("group", { name: "已锁定录音" });
+	await expect(locked).toBeVisible();
+	await expect(locked.getByText("1:00")).toBeVisible();
+	await press.release();
+	await expect(locked).toBeVisible();
+	expect(wire.sent).toHaveLength(0);
+	await page.screenshot({ path: info.outputPath("voice-locked.png"), scale: "css" });
+	await page.reload();
+	const recovered = page.getByRole("group", { name: "已恢复录音" });
+	await expect(recovered.getByRole("button", { name: "继续录音" })).toBeVisible();
+	await page.screenshot({ path: info.outputPath("voice-recovered.png"), scale: "css" });
+	expect(wire.sent).toHaveLength(0);
+	await recovered.getByRole("button", { name: "结束并发送" }).tap();
+	await expect
+		.poll(() => wire.sent)
+		.toMatchObject([{ body: { body: "", voice: { transcribe: true, durationMs: expect.any(Number) } } }]);
+	const duration = wire.sent[0]?.body.voice?.durationMs ?? 0;
+	expect(duration).toBeGreaterThanOrEqual(60_000);
+	const upload = wire.uploaded.values().next().value;
+	expect(Math.ceil((upload?.bytes.readUInt32LE(40) ?? 0) / 32)).toBe(duration);
+	expect(wire.recognized).toHaveLength(0);
+	await expect(page.getByText("正在转成文字…", { exact: true })).toBeVisible();
+});
+
+test("a right swipe edits the transcript and leaves sending up to the user", async ({ page }, info) => {
+	const wire = await speechWire(page);
+	await page.goto("/messages/main");
+	const composer = page.locator(".composer-box");
+	await composer.getByRole("textbox").fill("原有草稿");
+	await composer.getByRole("button", { name: "语音输入", exact: true }).tap();
+	const press = await pressToTalk(page, composer.getByRole("button", { name: "按住说话", exact: true }));
+	await page.waitForTimeout(500);
+	await press.move(75, -80);
+	await expect(page.locator(".composer-recording-label")).toHaveText("松手编辑");
+	await expect(page.locator(".composer-recording-target-right")).toHaveText("编辑");
+	await press.move(0, 0);
+	await expect(page.locator(".composer-recording-label")).toHaveText("松手发送");
+	await press.move(75, 0);
+	await expect(page.locator(".composer-recording-label")).toHaveText("松手编辑");
+	await page.screenshot({ path: info.outputPath("voice-to-text.png"), scale: "css" });
+	await press.release();
+	await expect(composer.getByRole("textbox")).toHaveValue(`原有草稿\n${words}`);
+	expect(wire.recognized).toHaveLength(1);
+	expect(wire.uploaded.size).toBe(0);
+	expect(wire.sent).toHaveLength(0);
+});
+
+test("a tap still focuses the empty editor, while a hold dictates without sending", async ({ page }, info) => {
+	const wire = await speechWire(page);
+	await page.goto("/messages/main");
+	const composer = page.locator(".composer-box");
+	const input = composer.getByRole("textbox");
+	await expect(composer.getByText("按住转文字")).toBeVisible();
+	await input.tap();
+	await expect(input).toBeFocused();
+	await input.blur();
+	const held = await pressToTalk(page, input, "松手编辑");
+	await page.waitForTimeout(500);
+	await page.screenshot({ path: info.outputPath("voice-hold-editor.png"), scale: "css" });
+	await held.release();
+	await expect(input).toHaveValue(words);
+	expect(wire.recognized).toHaveLength(1);
+	expect(wire.sent).toHaveLength(0);
 });

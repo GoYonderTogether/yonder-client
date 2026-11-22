@@ -1,4 +1,6 @@
+import type { Endpoints } from "@yonder/api-client";
 import type { ReactNode } from "react";
+import type { ChatVoice } from "../lib/chat-voice.ts";
 import type { CompletionBinding, CompletionMarker, TextEditRange } from "./completion/bindings.ts";
 import type { CompletionItem } from "./completion/tokens.ts";
 import type { DraftFile } from "./use-chat-draft.ts";
@@ -11,7 +13,11 @@ export interface ComposerProps {
 	draft: string;
 	onDraftChange: (value: string, edit?: TextEditRange) => void;
 	onSend: () => void;
-	onSendVoice?: (file: File) => Promise<unknown>;
+	onSendVoice?: (recording: ChatVoice, signal: AbortSignal) => Promise<unknown>;
+	speech?: {
+		transcription?: Pick<Endpoints, "openVoiceSocket" | "transcribeAudio"> | undefined;
+		knownNonce?: ((nonce: string) => boolean) | undefined;
+	};
 	streaming: boolean;
 	/** A send (upload included) is in flight; the button becomes a working cancel. */
 	sending?: boolean;

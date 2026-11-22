@@ -301,3 +301,173 @@
 	background: var(--color-bg-hover);
 	color: var(--color-text-primary);
 }
+
+.composer-text-hold-hint {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+	pointer-events: none;
+}
+
+.composer-editor:has(.composer-text:not([data-empty]), .composer-text:focus) .composer-text-hold-hint {
+	display: none;
+}
+
+.composer-recording-hint {
+	position: absolute;
+	z-index: 1;
+	inset-inline: var(--spacing-4);
+	top: 45%;
+	transform: translateY(-50%);
+	display: grid;
+	justify-items: center;
+	gap: var(--spacing-3);
+}
+
+.composer-recording-hint .composer-recording-label {
+	position: static;
+	width: 100%;
+}
+
+.composer-recording-gestures {
+	position: absolute;
+	z-index: 1;
+	inset-inline: var(--spacing-3);
+	bottom: calc(var(--spacing-16) + var(--spacing-10) + var(--safe-area-bottom, env(safe-area-inset-bottom, 0px)));
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--spacing-12);
+	color: var(--color-text-primary);
+	font-size: var(--text-caption);
+}
+
+.composer-recording-gestures span {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--spacing-1);
+}
+
+.composer-recording-locked {
+	background: transparent;
+}
+
+.composer-recording-locked::before,
+.composer-recording-locked::after {
+	content: none;
+}
+
+.composer-recording-transcript,
+.composer-recording-wave {
+	display: flex;
+	align-items: flex-end;
+	width: fit-content;
+	max-width: min(100%, calc(var(--spacing-16) * 6));
+	max-height: calc(var(--spacing-8) * 3);
+	overflow: hidden;
+	padding: var(--spacing-2) var(--spacing-3);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-card);
+	background: var(--color-bg-raised);
+	color: var(--color-text-primary);
+	font-size: var(--text-body);
+	line-height: var(--text-body--line-height);
+	overflow-wrap: anywhere;
+}
+
+.composer-recording-wave {
+	align-items: center;
+	justify-content: center;
+	min-width: calc(var(--spacing-8) * 3);
+	min-height: var(--spacing-12);
+	color: var(--color-accent);
+	border-radius: var(--radius-full);
+}
+
+.composer-layout:has(.composer-voice-actions) {
+	grid-template-areas: "voice-actions";
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.composer-layout:has(.composer-voice-actions)
+	> :is(.composer-mobile-toggle, .composer-add, .composer-send, .composer-editor),
+.composer-hold-to-talk[data-locked] {
+	visibility: hidden;
+	position: absolute;
+}
+
+.composer-voice-actions {
+	display: flex;
+	grid-area: voice-actions;
+	align-items: center;
+	justify-content: flex-start;
+	gap: var(--spacing-1);
+	min-width: 0;
+}
+
+.composer-voice-actions button {
+	min-height: var(--composer-button-size);
+	padding-inline: var(--spacing-2);
+	border-radius: var(--radius-full);
+	overflow-wrap: anywhere;
+	color: var(--color-text-primary);
+	font-size: var(--text-caption);
+}
+
+.composer-voice-actions button:last-of-type {
+	background: var(--color-accent);
+	color: var(--color-on-accent);
+}
+
+.composer-voice-actions button:disabled {
+	background: transparent;
+	color: var(--color-text-tertiary);
+}
+
+.composer-voice-duration {
+	margin-inline-start: auto;
+	padding-inline-end: var(--spacing-1);
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+	font-variant-numeric: tabular-nums;
+}
+
+.composer-recording-target {
+	position: relative;
+	isolation: isolate;
+	min-height: var(--spacing-12);
+	padding: var(--spacing-2) var(--spacing-3);
+}
+
+.composer-recording-target::before {
+	position: absolute;
+	z-index: -1;
+	inset: 0;
+	background: color-mix(in srgb, var(--color-bg-raised) 90%, var(--color-accent));
+	content: "";
+}
+
+.composer-recording-target-left::before {
+	border-radius: 69% 47% 42% 61% / 53% 58% 42% 66%;
+	transform: rotate(13deg);
+}
+
+.composer-recording-target-right::before {
+	border-radius: 47% 69% 61% 42% / 58% 53% 66% 42%;
+	transform: rotate(-13deg);
+}
+
+.composer-recording[data-to-text] .composer-recording-target-right::before {
+	background: color-mix(in srgb, var(--color-bg-raised) 73%, var(--color-accent));
+}
+
+.composer-recording[data-cancel] :is(.composer-recording-label, .composer-recording-target-left) {
+	color: var(--color-danger);
+}
+
+.composer-recording[data-cancel] .composer-recording-target-left::before {
+	background: color-mix(in srgb, var(--color-bg-raised) 84%, var(--color-danger));
+}

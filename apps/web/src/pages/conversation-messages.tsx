@@ -261,8 +261,8 @@ function MessageEntry({
 }: MessageProps) {
 	const { t } = useTranslation();
 	const { attachments, images } = optionCardAttachments(message);
-	const attachment = attachments.length === 1 ? attachments[0] : undefined;
-	const voice = attachment?.kind === "audio" ? message.voice : undefined;
+	const attachment = attachments[0];
+	const voice = attachment && attachments.every(({ kind }) => kind === "audio") ? message.voice : undefined;
 	const question = message.questionCard;
 	const ordinaryAttachments = question ? attachmentsOutsideQuestionCard(message) : attachments;
 	return (
@@ -293,7 +293,13 @@ function MessageEntry({
 					}
 				/>
 			) : voice && attachment ? (
-				<VoiceMessage key={attachment.id} attachment={attachment} durationMs={voice.durationMs} self={self} />
+				<VoiceMessage
+					key={attachment.id}
+					attachment={attachment}
+					additional={attachments.slice(1)}
+					durationMs={voice.durationMs}
+					self={self}
+				/>
 			) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 				<MessageBubble as="div" self={self}>
 					{message.questionReply?.question ? (
@@ -313,6 +319,11 @@ function MessageEntry({
 						</span>
 					)}
 				</MessageBubble>
+			) : null}
+			{voice?.transcription === "pending" ? (
+				<span role="status" className="text-caption text-[var(--color-text-secondary)]">
+					{t("chat.transcribing")}
+				</span>
 			) : null}
 			{voice ? null : <MessageAttachments attachments={ordinaryAttachments} self={self} />}
 			{message.reaction ? <span>{message.reaction}</span> : null}

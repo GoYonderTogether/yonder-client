@@ -10,15 +10,17 @@ let stopPreviousVoice: (() => void) | undefined;
 
 export function VoiceMessage({
 	attachment,
+	additional = [],
 	durationMs,
 	self,
 }: {
 	attachment: Attachment;
+	additional?: Attachment[];
 	durationMs: number;
 	self: boolean;
 }) {
 	const { t } = useTranslation();
-	const { load } = useAttachmentBlob(attachment);
+	const { load, loadPart } = useAttachmentBlob(attachment);
 	const [state, setState] = useState<PlaybackState>("idle");
 	const playback = useRef<Playback | null>(null);
 	useEffect(() => () => playback.current?.finish(), []);
@@ -55,30 +57,41 @@ export function VoiceMessage({
 		playback.current = { context, finish };
 		stopPreviousVoice = stop;
 		setState("loading");
-		try {
-			// Unlock audio in this click. The private file may take longer than the activation lasts.
-			const [, blob] = await Promise.all([context.resume(), load()]);
+		const ids = additional.map(({ id }) => id);
+		async function playPart(part: Promise<Blob | undefined>, index: number) {
+			const blob = await part;
 			if (playback.current?.context !== context) return;
-			if (!blob) {
-				finish("error");
-				return;
-			}
-			const buffer = await context.decodeAudioData(await blob.arrayBuffer());
+			if (!blob) throw new Error("voice_part_missing");
+			const decoder = ids.length ? new OfflineAudioContext(1, 1, 16_000) : context;
+			const buffer = await decoder.decodeAudioData(await blob.arrayBuffer());
 			if (playback.current?.context !== context) return;
 			const source = context.createBufferSource();
 			source.buffer = buffer;
 			source.connect(context.destination);
-			source.onended = stop;
+			const next = ids[index];
+			source.onended = next
+				? () => {
+						if (playback.current?.context === context)
+							void playPart(loadPart(next), index + 1).catch(() => finish("error"));
+					}
+				: stop;
 			const update = () => setState(context.state === "running" ? "playing" : "paused");
 			context.onstatechange = update;
 			source.start();
 			update();
+		}
+		try {
+			// Unlock audio in this click. The private file may take longer than the activation lasts.
+			const [, blob] = await Promise.all([context.resume(), load()]);
+			await playPart(Promise.resolve(blob), 0);
 		} catch {
 			finish("error");
 		}
 	}
 
-	const duration = `${Math.ceil(durationMs / 1000)}″`;
+	const seconds = Math.ceil(durationMs / 1000);
+	const duration =
+		seconds >= 60 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : `${seconds}″`;
 	const playing = state === "playing";
 	const loading = state === "loading";
 	const failed = state === "error";
