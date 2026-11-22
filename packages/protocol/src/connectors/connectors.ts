@@ -128,16 +128,22 @@ export type AppleConnectorOperation =
 	| "apple_voice_memos_transcribe";
 export type ConnectorOperation = FileConnectorOperation | AppleConnectorOperation;
 export interface ConnectorCommandArgs {
-	/** `search`: a file-name substring. `grep`: a regular expression (Rust `regex` syntax). */
+	/** `search`: a file-name substring. `grep`: a regular expression (Rust `regex` syntax). Apple calendar: an event search term. */
 	query?: string;
 	/** `create`/`edit`: the whole new UTF-8 text of the file. */
 	content?: string;
 	/** The SHA-256 hex of the file as the device will find it; `edit` and `delete` require it. */
 	expectedHash?: string;
 	recoveryId?: string;
-	/** `read`: the first line to return, 1-based. Default 1. */
+	/** OS-local resource id, never a filesystem path or a script. */
+	id?: string;
+	attachmentId?: string;
+	/** YYYY-MM-DD in the device's local calendar, inclusive. */
+	dateFrom?: string;
+	dateTo?: string;
+	/** File `read`: the first line to return, 1-based. Apple paging: zero-based. */
 	offset?: number;
-	/** `read`: the most lines to return (1 to 2000). `grep`: the most matches (1 to 200). */
+	/** The page size for file read (1 to 2000), grep (1 to 200), or an Apple list operation. */
 	limit?: number;
 	/** `edit`: exact text to replace. It must occur exactly once unless `replaceAll` is true. */
 	oldString?: string;
@@ -155,12 +161,6 @@ export interface ConnectorCommandArgs {
 	includeIgnored?: boolean;
 	/** `search`/`index`: include dot files and dot directories. */
 	includeHidden?: boolean;
-	/** OS-local resource id, never a filesystem path or a script. */
-	id?: string;
-	attachmentId?: string;
-	/** YYYY-MM-DD in the device's local calendar, inclusive. */
-	dateFrom?: string;
-	dateTo?: string;
 }
 
 export interface ConnectorCommand {
@@ -194,7 +194,7 @@ export type LocalFilesResult =
 			truncated: boolean;
 			/** The first returned line, 1-based. */
 			startLine?: number;
-			/** The last returned line, 1-based; 0 when nothing was returned. */
+			/** The last returned line, 1-based; startLine - 1 when nothing was returned. */
 			endLine?: number;
 			/** All lines in the file, not only the returned ones. */
 			totalLines?: number;
