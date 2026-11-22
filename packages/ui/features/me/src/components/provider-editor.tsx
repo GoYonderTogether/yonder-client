@@ -1,6 +1,6 @@
 import type { Provider, ProviderModelMetadata } from "@yonder/protocol";
 import { Button, Field, PasswordField, SelectField, TextField } from "@yonder/ui-components";
-import { useProviderActions } from "@yonder/ui-data";
+import { useDevices, useProviderActions } from "@yonder/ui-data";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,6 +32,7 @@ export function ProviderEditor({
 }) {
 	const { t } = useTranslation();
 	const actions = useProviderActions();
+	const devices = useDevices();
 	const [name, setName] = useState(provider?.name ?? preset?.name ?? "");
 	const [note, setNote] = useState(provider?.note ?? preset?.note ?? "");
 	const [website, setWebsite] = useState(provider?.website ?? preset?.website ?? "");
@@ -40,8 +41,17 @@ export function ProviderEditor({
 	const [models, setModels] = useState(provider?.models.join(", ") ?? preset?.models ?? "");
 	const [apiKey, setApiKey] = useState("");
 	const [replacing, setReplacing] = useState(!provider?.keyConfigured);
+	// The device gateway is the advanced half of the form, folded away until asked for.
+	const [deviceGatewayOpen, setDeviceGatewayOpen] = useState(provider?.origin === "device");
+	const [origin, setOrigin] = useState<"cloud" | "device">(provider?.origin ?? "cloud");
+	const [deviceId, setDeviceId] = useState<string>(provider?.deviceId ?? "");
+	const relayDevices = devices.data?.items.filter((device) => device.platform !== "web") ?? [];
 	const destinationChanged = Boolean(
-		provider && (normaliseUrl(baseUrl) !== normaliseUrl(provider.baseUrl) || protocol !== provider.protocol),
+		provider &&
+			(normaliseUrl(baseUrl) !== normaliseUrl(provider.baseUrl) ||
+				protocol !== provider.protocol ||
+				origin !== provider.origin ||
+				deviceId !== (provider.deviceId ?? "")),
 	);
 	const needsKey = replacing || destinationChanged;
 	const [saving, setSaving] = useState(false);
@@ -50,10 +60,13 @@ export function ProviderEditor({
 	const [metadata, setMetadata] = useState<Record<string, ProviderModelMetadata>>({});
 	const [fetching, setFetching] = useState(false);
 	const discoveryVersion = useRef(0);
-	const original = useRef(JSON.stringify({ name, note, website, baseUrl, protocol, models, replacing }));
+	const original = useRef(
+		JSON.stringify({ name, note, website, baseUrl, protocol, models, replacing, origin, deviceId }),
+	);
 	const dirty =
 		Boolean(apiKey) ||
-		JSON.stringify({ name, note, website, baseUrl, protocol, models, replacing }) !== original.current;
+		JSON.stringify({ name, note, website, baseUrl, protocol, models, replacing, origin, deviceId }) !==
+			original.current;
 	const selected = models
 		.split(",")
 		.map((id) => id.trim())
@@ -72,7 +85,7 @@ export function ProviderEditor({
 		setFetching(false);
 	}
 	async function discover() {
-		if (!isHttpsAddress(baseUrl)) {
+		if (!isUsableAddress(baseUrl, origin)) {
 			setError(t("models.invalidUrl"));
 			return;
 		}
@@ -97,8 +110,12 @@ export function ProviderEditor({
 	}
 	async function save(event: React.FormEvent) {
 		event.preventDefault();
-		if (!isHttpsAddress(baseUrl) || (website.trim() && !isHttpsAddress(website))) {
+		if (!isUsableAddress(baseUrl, origin) || (website.trim() && !isHttpsAddress(website))) {
 			setError(t("models.invalidUrl"));
+			return;
+		}
+		if (origin === "device" && !deviceId) {
+			setError(t("models.deviceRequired"));
 			return;
 		}
 		const modelIds = models
@@ -124,6 +141,9 @@ export function ProviderEditor({
 				models: modelIds,
 				...(Object.keys(selectedMetadata).length ? { metadata: selectedMetadata } : {}),
 				...(needsKey ? { apiKey } : {}),
+				// The server re-checks both: cloud must be public https, device must name an owned device.
+				...(origin !== (provider?.origin ?? "cloud") || origin === "device" || provider ? { origin } : {}),
+				...(origin === "device" ? { deviceId } : {}),
 			});
 			setApiKey("");
 			onDone();
@@ -229,6 +249,47 @@ export function ProviderEditor({
 					</Button>
 				</div>
 			)}
+			{/* The device gateway: advanced, folded away. Expanding it changes the form —
+			    the address may then be localhost, and a device must be picked. */}
+			{deviceGatewayOpen ? (
+				<div className="flex flex-col gap-[var(--spacing-3)] border-t border-[var(--color-border-subtle)] pt-[var(--spacing-4)]">
+					<SelectField
+						label={t("models.origin")}
+						value={origin}
+						onChange={(value) => {
+							setOrigin(value as "cloud" | "device");
+							resetDiscovery();
+						}}
+						options={[
+							{ value: "cloud", label: t("models.originCloud") },
+							{ value: "device", label: t("models.originDevice") },
+						]}
+					/>
+					{origin === "device" ? (
+						devices.isLoading ? (
+							<p role="status" className="text-caption text-[var(--color-text-secondary)]">
+								{t("app.loading")}
+							</p>
+						) : relayDevices.length ? (
+							<SelectField
+								label={t("models.relayDevice")}
+								value={deviceId}
+								onChange={setDeviceId}
+								options={relayDevices.map((device) => ({
+									value: device.id,
+									label: `${device.name}${device.status === "online" ? "" : ` · ${t("models.deviceOffline")}`}`,
+								}))}
+							/>
+						) : (
+							<p className="text-caption text-[var(--color-text-secondary)]">{t("models.noRelayDevice")}</p>
+						)
+					) : null}
+				</div>
+			) : (
+				<Button type="button" variant="link" size="sm" onClick={() => setDeviceGatewayOpen(true)}>
+					{t("models.deviceGateway")}
+				</Button>
+			)}
 			<Button
 				type="button"
 				onClick={() => void discover()}
@@ -266,6 +327,19 @@ function isHttpsAddress(value: string): boolean {
 	} catch {
 		return false;
 	}
+}
+
+/** Cloud providers must be public https; a device gateway may be localhost or plain http. */
+function isUsableAddress(value: string, origin: "cloud" | "device"): boolean {
+	if (origin === "device") {
+		try {
+			const url = new URL(value.trim());
+			return Boolean(url.hostname) && !url.username && !url.password && !url.search && !url.hash;
+		} catch {
+			return false;
+		}
+	}
+	return isHttpsAddress(value);
 }
 
 function normaliseUrl(value: string): string {

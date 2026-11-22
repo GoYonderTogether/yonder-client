@@ -1,5 +1,5 @@
 import { ChannelDirectory, ChannelSettings, FeishuExternalConversations, isMessageChannel } from "@yonder/feature-me";
-import { BotForm, BotSettingsOverview } from "@yonder/feature-members";
+import { BotForm, BotModelPage, BotSettingsOverview } from "@yonder/feature-members";
 import type { Member } from "@yonder/protocol";
 import { ListGroup, ListRow } from "@yonder/ui-components";
 import { ApiError, useBot, useContacts, useResetBotConversation } from "@yonder/ui-data";
@@ -12,6 +12,7 @@ import { SocialPersona } from "./social-settings.tsx";
 export const CHAT_BOT_PAGE_TITLE = {
 	profile: "bots.basicProfile",
 	persona: "members.social.personaTitle",
+	model: "models.botModelTitle",
 	channels: "channels.title",
 	feishu: "channels.feishu",
 	wechat: "channels.wechat",
@@ -57,6 +58,7 @@ export function ChatBotSettings({
 				bot={bot}
 				onEdit={() => open("profile")}
 				onPersona={() => open("persona")}
+				onModel={() => open("model")}
 				onChannels={() => open("channels")}
 				onDeleted={onDeleted}
 			>
@@ -167,6 +169,15 @@ export function ChatBotSettingsChild({
 							{t("members.social.personaScope", { name: bot.displayName })}
 						</p>
 						<SocialPersona botId={bot.id} onSaved={back} onDirtyChange={onDirtyChange} />
+					</>
+				);
+			case "model":
+				return (
+					<>
+						<p className="text-body text-[var(--color-text-secondary)]">
+							{t("models.botModelHint", { name: bot.displayName })}
+						</p>
+						<BotModelPage bot={bot} />
 					</>
 				);
 			case "channels":

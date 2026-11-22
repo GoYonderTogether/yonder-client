@@ -243,6 +243,8 @@ export interface UpdateBotRequest {
 	nicknames?: string[];
 	selectedNickname?: string | null;
 	botRoleLabel?: string | null;
+	/** An own provider id or a platform model id to answer with, or null to follow the account default. */
+	modelChoice?: string | null;
 }
 
 export interface CreateBotResponse {

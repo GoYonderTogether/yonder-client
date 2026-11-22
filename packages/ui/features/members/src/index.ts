@@ -16,6 +16,7 @@ export {
 export { BotSettingsOverview, botConversation, plansInConversation } from "./bots/bot-detail.tsx";
 export { BotForm } from "./bots/bot-form.tsx";
 export { BotList } from "./bots/bot-list.tsx";
+export { BotModelPage } from "./bots/bot-model.tsx";
 export { BotName } from "./bots/bot-name.tsx";
 export type { ClosedGroupNoticeProps } from "./group/closed-group-notice.tsx";
 export { ClosedGroupNotice } from "./group/closed-group-notice.tsx";

@@ -27,6 +27,7 @@ import { appleResourcesSupported, localFilesSupported, resetLocalFiles } from ".
 import { LocalFilesRuntime } from "../lib/local-files-runtime.tsx";
 import { resetMeetingRecorder } from "../lib/meeting-recorder.ts";
 import { isNativeMobileNotifications } from "../lib/native-notifications.ts";
+import { ProviderRelayRuntime, providerRelaySupported } from "../lib/provider-relay-runtime.tsx";
 import { UpdateProvider } from "../updates/provider.tsx";
 import { AppNoticeProvider } from "./app-notice.tsx";
 import { ConnectorContinuationNotices } from "./connector-continuation-notices.tsx";
@@ -113,6 +114,7 @@ function Localised() {
 				{localFilesSupported() || appleResourcesSupported() ? (
 					<LocalFilesRuntime files={localFilesSupported()} apple={appleResourcesSupported()} />
 				) : null}
+				{providerRelaySupported() ? <ProviderRelayRuntime /> : null}
 				<UpdateProvider>
 					<MacPermissionsGate
 						account={signedIn && device.platform === "macos" ? personId : undefined}

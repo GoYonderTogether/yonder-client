@@ -51,6 +51,12 @@ export function ProviderRow({
 				<p className="truncate text-caption text-[var(--color-text-secondary)]">
 					{provider.note || provider.website || provider.baseUrl}
 				</p>
+				{provider.origin === "device" ? (
+					<p className="text-caption text-[var(--color-text-secondary)]">
+						{t("models.originDevice")}
+						{provider.deviceName ? ` · ${provider.deviceName}` : ""}
+					</p>
+				) : null}
 				{provider.models.length > 0 ? (
 					<p className="break-words text-caption text-[var(--color-text-secondary)]">
 						{t("models.availableModels", { models: provider.models.join(", ") })}

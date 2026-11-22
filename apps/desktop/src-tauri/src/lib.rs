@@ -26,6 +26,9 @@ mod local_files_access;
 #[cfg(desktop)]
 mod local_files_operations;
 
+#[cfg(desktop)]
+mod provider_relay;
+
 #[cfg(any(desktop, target_os = "ios"))]
 mod local_files_store;
 
@@ -81,9 +84,13 @@ pub fn run() {
             local_files::local_files_cancel,
             local_files::local_files_revoke,
             local_files::local_files_ready,
-            local_files::local_files_execute
+            local_files::local_files_execute,
+            provider_relay::provider_relay_bind,
+            provider_relay::provider_relay_cancel,
+            provider_relay::provider_relay_execute
         ])
         .manage(local_files_store::LocalFilesState::default())
+        .plugin(provider_relay::init())
 
         .plugin(tauri_plugin_keyring::init())
         .plugin(tauri_plugin_notification::init())
