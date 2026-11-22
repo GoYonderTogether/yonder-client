@@ -159,6 +159,8 @@ export interface AttachmentTextPreview {
 export interface Message {
 	friendRequestId?: string;
 	connectorRequestId?: string;
+	/** An owner-only Agent card, loaded separately. */
+	cardId?: string;
 	reaction?: string;
 	outwardRequest?: import("./outward.ts").OutwardRequestCard;
 	channelAttemptId?: string;
@@ -196,6 +198,8 @@ export interface Message {
 		durationMs?: number;
 		photoCount?: number;
 	};
+	/** Server-owned entry to an existing private item conversation. */
+	taskSession?: { id: string; title: string };
 	/** Present on a `task_notice`: which subtask it is about. */
 	taskNotice?: { id: string; title: string; status: string };
 	/** Present when a scheduled run could not happen: the plan and the real reason, shown as an error. */

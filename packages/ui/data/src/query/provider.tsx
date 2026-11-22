@@ -87,6 +87,7 @@ export function DataProvider({
 			onSessionLost: () => {
 				void onSessionChange?.();
 				queryClient.removeQueries({ queryKey: keys.memory.all() });
+				queryClient.removeQueries({ queryKey: keys.agentCards.all() });
 				setStatus("signed-out");
 			},
 		});

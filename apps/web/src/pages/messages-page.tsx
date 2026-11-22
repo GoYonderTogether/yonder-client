@@ -215,7 +215,7 @@ export function ConversationPage({
 			person &&
 			items?.length &&
 			(item || conversation?.unreadCount)
-			? newestReadableMessage(items, person.id)
+			? newestReadableMessage(items, person.id, { agentCards: true })
 			: undefined,
 		canRead,
 	);

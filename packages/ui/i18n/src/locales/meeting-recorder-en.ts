@@ -57,6 +57,7 @@ export const meetingRecorderEn = {
 	archivePhotoCount_one: "{{count}} photo",
 	archivePhotoCount_other: "{{count}} photos",
 	archiveNotes: "Organized notes",
+	archiveDiagram: "Recording notes diagram",
 	archiveOriginal: "Original",
 	archivePrevious: "Previous photo",
 	archiveNext: "Next photo",

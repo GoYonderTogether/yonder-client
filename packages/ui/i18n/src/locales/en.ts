@@ -288,6 +288,7 @@ export const en = {
 		streaming: "Responding…",
 		reconnecting: "Connection lost. Reconnecting.",
 		reconnectingReply: "Response status is unknown.",
+		openTaskSession: "Open task · {{title}}",
 		sending: "Sending…",
 		sendFailed: "Message not sent",
 		runFailed: "The response failed",

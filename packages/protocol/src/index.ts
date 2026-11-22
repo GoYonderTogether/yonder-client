@@ -1,3 +1,16 @@
+export type {
+	AgentCard,
+	AgentCardActionRequest,
+	AgentCardActionResponse,
+	AgentCardDismissRequest,
+	AgentCardKind,
+	AgentCardState,
+	CardAction,
+	CardBody,
+	CardPreview,
+	CardSource,
+	CardTarget,
+} from "./cards/agent-card.ts";
 /**
  * `@yonder/protocol` — the shared vocabulary. Format definitions only: no logic, no runtime
  * dependencies, no import from any other workspace package.

@@ -1,7 +1,7 @@
 import { isHttpLink } from "@yonder/chat-model";
 import { messageMarkdownOptions, parseMessage, StreamingText } from "@yonder/chat-presentation";
 import Markdown, { type MarkdownToJSX, RuleType } from "markdown-to-jsx";
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { MessageCodeBlock } from "./message-code-block.tsx";
 import "./message-content.css";
 
@@ -10,10 +10,12 @@ export function MessageContent({
 	body,
 	streaming = false,
 	sourceAction,
+	renderCodeBlock,
 }: {
 	body: string;
 	streaming?: boolean;
 	sourceAction?: (source: string) => (() => void) | undefined;
+	renderCodeBlock?: (language: string | undefined, text: string) => ReactNode;
 }) {
 	const options: MarkdownToJSX.Options = {
 		...messageMarkdownOptions,
@@ -70,7 +72,11 @@ export function MessageContent({
 		};
 	}
 	options.renderRule = (next, node, renderChildren, state) => {
-		const source = node.type === RuleType.link && node.target?.match(/^#(batch-\d+)$/)?.[1];
+		if (node.type === RuleType.codeBlock && renderCodeBlock) {
+			const block = renderCodeBlock(node.lang, node.text);
+			if (block != null) return <Fragment key={state.key}>{block}</Fragment>;
+		}
+		const source = node.type === RuleType.link && node.target?.match(/^#(batch-\d+|photo-[\w-]{1,128})$/u)?.[1];
 		if (source && sourceAction && node.type === RuleType.link) {
 			const action = sourceAction(source);
 			const label = renderChildren(node.children, state);

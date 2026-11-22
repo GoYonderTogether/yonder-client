@@ -57,6 +57,10 @@ export const keys = {
 		catalog: () => ["connectors", "catalog"] as const,
 		list: () => ["connectors", "list"] as const,
 	},
+	agentCards: {
+		all: () => ["agent-card"] as const,
+		detail: (id: string) => ["agent-card", id] as const,
+	},
 	connectorRequest: (id: string) => ["connector-request", id] as const,
 	/** Devices a pending request may be allowed on; fetched only when the user must choose. */
 	connectorRequestDevices: (id: string) => ["connector-request", id, "devices"] as const,
@@ -108,6 +112,7 @@ export const ALL_ROOT_KEYS: readonly string[] = [
 	"skills",
 	"connectors",
 	"connector-request",
+	"agent-card",
 	"meetings",
 	"memory",
 	"schedules",

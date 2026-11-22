@@ -5,6 +5,7 @@
  */
 import type { QueryClient } from "@tanstack/react-query";
 import type { ItemSessionResponse, Member, QuotaConfigResponse, ServerEvent } from "@yonder/protocol";
+import { writeAgentCard } from "../query/agent-cards.ts";
 import { keys } from "../query/keys.ts";
 import { invalidateMemoryFiles } from "../query/memory-files.ts";
 import { writeFriendRequest } from "./friend-request-cache.ts";
@@ -34,6 +35,9 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 	// The card is a mirror of server state; a socket that was down may have missed the update that
 	// settled it, and the card would otherwise keep showing `pending`.
 	void queryClient.invalidateQueries({ queryKey: ["connector-request"] });
+	// A card is a mirror of server state; a socket that was down may have missed the update that
+	// settled it, and the card would otherwise keep showing `open`.
+	void queryClient.invalidateQueries({ queryKey: keys.agentCards.all() });
 	void queryClient.invalidateQueries({ queryKey: keys.quota() });
 	void queryClient.invalidateQueries({ queryKey: ["usage"] });
 	void queryClient.invalidateQueries({ queryKey: keys.schedules.all() });
@@ -43,6 +47,10 @@ export function reconcileRealtime(queryClient: QueryClient): void {
 
 export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, handlers: EventHandlers = {}): void {
 	switch (event.type) {
+		case "agent-card.updated": {
+			writeAgentCard(queryClient, event.card);
+			break;
+		}
 		case "friend_request.updated": {
 			writeFriendRequest(queryClient, event.request);
 			break;

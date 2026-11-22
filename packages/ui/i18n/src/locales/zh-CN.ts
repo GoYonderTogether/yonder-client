@@ -292,6 +292,7 @@ export const zhCN: Messages = {
 		streaming: "回复中…",
 		reconnecting: "连接已断开，正在重连。",
 		reconnectingReply: "回复状态待确认。",
+		openTaskSession: "打开任务 · {{title}}",
 		sending: "发送中…",
 		sendFailed: "消息没有发出",
 		runFailed: "回复失败",

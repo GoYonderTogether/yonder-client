@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useId, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { MeetingArchiveImage } from "./item-meeting-photos.tsx";
+import { renderMeetingArchiveSvg } from "./meeting-archive-svg.tsx";
 import { MessageContent } from "./message-content.tsx";
 import "./item-meeting-reader.css";
 
@@ -123,9 +124,10 @@ export function MeetingReader({
 					<MessageContent
 						body={summary}
 						sourceAction={(id) =>
-							entries.some((entry) => entry.kind === "batch" && entryId(entry) === id)
-								? () => onOpen("original", id)
-								: undefined
+							entries.some((entry) => entryId(entry) === id) ? () => onOpen("original", id) : undefined
+						}
+						renderCodeBlock={(lang, text) =>
+							lang === "svg" ? renderMeetingArchiveSvg(text, t("meetingRecorder.archiveDiagram")) : null
 						}
 					/>
 				) : (

@@ -16,10 +16,9 @@ function recorderState(value: unknown): MeetingRecorderState {
 				activeId: candidate.activeId ?? null,
 				paused: Boolean(candidate.activeId && candidate.paused),
 				pauseSupported: Boolean(candidate.pauseSupported),
-				audioLevel:
-					candidate.activeId && Number.isFinite(candidate.audioLevel)
-						? Math.max(0, Math.min(1, candidate.audioLevel ?? 0))
-						: 0,
+				...(candidate.activeId && typeof candidate.audioLevel === "number" && Number.isFinite(candidate.audioLevel)
+					? { audioLevel: Math.max(0, Math.min(1, candidate.audioLevel)) }
+					: {}),
 				recordings: candidate.recordings,
 			}
 		: EMPTY_RECORDER;

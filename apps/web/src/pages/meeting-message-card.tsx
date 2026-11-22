@@ -1,25 +1,29 @@
 import { recordingDuration } from "@yonder/feature-meetings";
 import type { Message } from "@yonder/protocol";
-import { ChevronRight, FileAudio } from "lucide-react";
+import { ChevronRight, FileAudio, ListTodo } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export function MeetingMessageCard({
 	meeting,
+	task = false,
 	onOpen,
 }: {
 	meeting: NonNullable<Message["meeting"]>;
+	/** A task session entry uses the same row with its own icon and label. */
+	task?: boolean;
 	onOpen: (id: string) => void;
 }) {
 	const { t } = useTranslation();
+	const Icon = task ? ListTodo : FileAudio;
 	return (
 		<button
 			type="button"
 			data-meeting-task-card
-			aria-label={t("meetingRecorder.openResult", { title: meeting.title })}
+			aria-label={t(task ? "chat.openTaskSession" : "meetingRecorder.openResult", { title: meeting.title })}
 			onClick={() => onOpen(meeting.id)}
 			className="flex min-h-[var(--control-lg)] w-full max-w-[calc(var(--control-lg)*7)] items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-raised)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-start text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]"
 		>
-			<FileAudio aria-hidden="true" size={20} className="shrink-0 text-[var(--color-accent-text)]" />
+			<Icon aria-hidden="true" size={20} className="shrink-0 text-[var(--color-accent-text)]" />
 			<span className="min-w-0 flex-1">
 				<span className="block truncate text-body font-medium">{meeting.title}</span>
 				<MeetingMetadata {...meeting} />

@@ -23,15 +23,17 @@ export const CACHE_VERSION = "4";
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const dehydrateOptions: DehydrateOptions = {
-	// Memory can contain secret files, and member cards have revocable visibility.
+	// Memory can contain secret files, member cards have revocable visibility, and Agent cards are
+	// owner-only state that the server must re-authorize on every load.
 	shouldDehydrateQuery: (query) =>
 		!(query.queryKey[0] === "items" && query.queryKey[1] === "active-subtasks") &&
-		!["contact-search", "channel-messages", "channel-conversations", "memory", "member-profile"].includes(
+		!["contact-search", "channel-messages", "channel-conversations", "memory", "member-profile", "agent-card"].includes(
 			String(query.queryKey[0]),
 		) &&
 		defaultShouldDehydrateQuery(query),
 	shouldDehydrateMutation: (mutation) =>
-		mutation.options.mutationKey?.[0] !== "memory" && defaultShouldDehydrateMutation(mutation),
+		!["memory", "agent-card"].includes(String(mutation.options.mutationKey?.[0])) &&
+		defaultShouldDehydrateMutation(mutation),
 };
 
 /** What the persister needs: a string store. `Storage` from `../storage` satisfies it. */
@@ -93,12 +95,15 @@ export function createPersister(store: KeyValueStore): Persister & { activate():
 			try {
 				const client = JSON.parse(raw) as PersistedClient;
 				client.clientState.queries = client.clientState.queries.filter(({ queryKey, state }) => {
-					if (queryKey[0] === "member-profile" || queryKey[0] === "social-library") return false;
+					if (["member-profile", "social-library", "agent-card"].includes(String(queryKey[0]))) return false;
 					if (queryKey[0] !== "connector-request" || queryKey.length !== 2) return true;
 					// Legacy cards held one connectorId. Reload the current scopes before offering consent.
 					const request = state.data as Partial<ConnectorRequestView> | undefined;
 					return Array.isArray(request?.connectorIds);
 				});
+				client.clientState.mutations = client.clientState.mutations.filter(
+					({ mutationKey }) => mutationKey?.[0] !== "agent-card",
+				);
 				return client;
 			} catch {
 				// A corrupt blob is dropped, not repaired: a broken cache must not block a start.
