@@ -473,7 +473,11 @@
 	z-index: -1;
 	inset: 0;
 	border-radius: var(--radius-full);
-	background: color-mix(in srgb, var(--color-mask-solid) 58%, transparent);
+	background: color-mix(
+		in srgb,
+		color-mix(in srgb, var(--color-on-media) 16%, var(--color-mask-solid)) 62%,
+		transparent
+	);
 	-webkit-backdrop-filter: blur(var(--spacing-3));
 	backdrop-filter: blur(var(--spacing-3));
 	content: "";
