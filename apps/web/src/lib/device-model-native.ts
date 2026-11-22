@@ -4,6 +4,7 @@ export interface DeviceModelEndpoint {
 	endpointId: string;
 	revision: number;
 	label: string;
+	protocol?: "anthropic";
 }
 
 const changed = new Set<() => void>();
@@ -19,7 +20,7 @@ export async function invokeDeviceModel<T>(name: string, args: Record<string, un
 }
 
 type EndpointRegistration =
-	| { deviceId: string; baseUrl: string; label?: string; apiKey?: string }
+	| { deviceId: string; baseUrl: string; protocol?: "openai" | "anthropic"; label?: string; apiKey?: string }
 	| { deviceId: string; endpointId: string; apiKey: string };
 
 export function useDeviceModelEndpointRegistration() {
@@ -40,6 +41,7 @@ export function useDeviceModelEndpointRegistration() {
 						id: crypto.randomUUID(),
 						baseUrl: input.baseUrl,
 						label: input.label || "Local models",
+						...(input.protocol === "anthropic" ? { protocol: input.protocol } : {}),
 						...(input.apiKey ? { apiKey: input.apiKey } : {}),
 					});
 		for (const listener of changed) listener();

@@ -18,9 +18,9 @@ export function ProviderRow({
 	provider: Provider;
 	deviceLabel?: string | undefined;
 	notice: boolean | null;
-	onEdit: () => void;
+	onEdit?: (() => void) | undefined;
 	onDefault: () => void;
-	onDuplicate: () => void;
+	onDuplicate?: (() => void) | undefined;
 	onTest: () => void;
 	onDelete: () => void;
 }) {
@@ -28,7 +28,8 @@ export function ProviderRow({
 	const { mode, desktop } = useShellChrome();
 	const [actionsOpen, setActionsOpen] = useState(false);
 	if (provider.scope !== "user") return null;
-	const active = provider.isDefault && provider.enabled && (provider.target || provider.keyConfigured);
+	const configured = provider.keyConfigured || (provider.origin === "device" && !!provider.endpointId);
+	const active = provider.isDefault && provider.enabled && configured;
 	const closeActions = () => setActionsOpen(false);
 	function runAction(action: () => void) {
 		closeActions();
@@ -58,9 +59,9 @@ export function ProviderRow({
 						{t("models.availableModels", { models: provider.models.join(", ") })}
 					</p>
 				) : null}
-				{(!provider.target && !provider.keyConfigured) || !provider.enabled ? (
+				{!configured || !provider.enabled ? (
 					<p className="text-caption text-[var(--color-text-tertiary)]">
-						{t(!provider.target && !provider.keyConfigured ? "models.notConfigured" : "models.disabled")}
+						{t(!configured ? "models.notConfigured" : "models.disabled")}
 					</p>
 				) : null}
 				{notice !== null ? (
@@ -78,9 +79,11 @@ export function ProviderRow({
 						<Check size={16} aria-hidden="true" />
 					</IconButton>
 				) : null}
-				<IconButton size="sm" aria-label={t("models.editAction")} title={t("models.editAction")} onClick={onEdit}>
-					<Pencil size={16} aria-hidden="true" />
-				</IconButton>
+				{onEdit ? (
+					<IconButton size="sm" aria-label={t("models.editAction")} title={t("models.editAction")} onClick={onEdit}>
+						<Pencil size={16} aria-hidden="true" />
+					</IconButton>
+				) : null}
 				<IconButton
 					size="sm"
 					aria-label={t("models.moreActions")}
@@ -102,9 +105,11 @@ export function ProviderRow({
 				closeLabel={t("app.close")}
 			>
 				<div className="grid gap-[var(--spacing-2)] p-[var(--spacing-4)]">
-					<Button variant="ghost" onClick={() => runAction(onDuplicate)}>
-						{t("models.duplicate")}
-					</Button>
+					{onDuplicate ? (
+						<Button variant="ghost" onClick={() => runAction(onDuplicate)}>
+							{t("models.duplicate")}
+						</Button>
+					) : null}
 					<Button variant="ghost" onClick={() => runAction(onTest)}>
 						{t("models.test")}
 					</Button>

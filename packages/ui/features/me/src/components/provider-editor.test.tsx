@@ -8,7 +8,7 @@ import { expect, test, vi } from "vitest";
 
 const actions = vi.hoisted(() => ({
 	save: vi.fn().mockResolvedValue({}),
-	readDeviceEndpoints: vi.fn().mockResolvedValue({ items: [] }),
+	readDevices: vi.fn().mockResolvedValue({ items: [] }),
 	discoverModels: vi.fn().mockResolvedValue({ models: ["m1", "m2"] }),
 }));
 vi.mock("@yonder/ui-data", () => ({
@@ -21,6 +21,7 @@ import { ProviderEditor } from "./provider-editor.tsx";
 const provider: Provider = {
 	id: "p1",
 	scope: "user",
+	origin: "cloud",
 	name: "Provider",
 	baseUrl: "https://example.org",
 	protocol: "openai",
@@ -28,7 +29,6 @@ const provider: Provider = {
 	keyConfigured: true,
 	enabled: true,
 	isDefault: false,
-	origin: "cloud",
 };
 
 test("editing never displays a stored key and discovery reuses it only by provider id", async () => {
@@ -85,18 +85,28 @@ const myDevice: DeviceSummary = {
 	lastSeenAt: "2026-11-22T10:30:00.000Z",
 };
 const remote: DeviceSummary = { ...myDevice, id: "desktop-b", name: "Other desktop", current: false };
-const nativeEndpoint = { deviceId: myDevice.id, endpointId: "device-opaque-one", revision: 1, label: "Local model" };
-const remoteEndpoint = { deviceId: remote.id, endpointId: "device-opaque-two", revision: 1, label: "Office Local" };
+const nativeEndpoint = { endpointId: "device-opaque-one", revision: 1, label: "Local model" };
+const remoteEndpoint = {
+	endpointId: "device-opaque-two",
+	revision: 1,
+	label: "Office Local",
+	protocol: "openai",
+} as const;
+const advertised = (endpoint = nativeEndpoint) => ({
+	...myDevice,
+	modelEndpoints: [{ protocol: "openai" as const, ...endpoint }],
+});
 function startLocal({ native = false }: { native?: boolean } = {}) {
 	actions.save.mockClear();
 	actions.discoverModels.mockClear();
-	actions.readDeviceEndpoints.mockReset().mockResolvedValue({ items: [remoteEndpoint, nativeEndpoint] });
+	actions.readDevices
+		.mockReset()
+		.mockResolvedValue({ items: [advertised(), { ...remote, modelEndpoints: [remoteEndpoint] }] });
 	const invoke = vi.fn().mockResolvedValue(nativeEndpoint);
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
 			<ProviderEditor
-				devices={[myDevice, remote]}
-				endpoints={[remoteEndpoint]}
+				devices={[myDevice, { ...remote, modelEndpoints: [remoteEndpoint] }]}
 				registerEndpoint={native ? invoke : undefined}
 				onDone={() => {}}
 			/>
@@ -124,13 +134,16 @@ test("cloud cannot send localhost, and native registers a single exact address b
 	await waitFor(() =>
 		expect(actions.discoverModels).toHaveBeenCalledWith({
 			protocol: "openai",
-			target: { kind: "device", deviceId: myDevice.id, endpointId: nativeEndpoint.endpointId },
+			origin: "device",
+			deviceId: myDevice.id,
+			endpointId: nativeEndpoint.endpointId,
 		}),
 	);
 	expect(invoke).toHaveBeenCalledExactlyOnceWith({
 		deviceId: myDevice.id,
 		baseUrl: "http://localhost:11434/v1",
 		label: "Local model",
+		protocol: "openai",
 	});
 	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Local" } });
 	fireEvent.change(screen.getByRole("textbox", { name: "Models (comma-separated)" }), { target: { value: "m1" } });
@@ -142,7 +155,9 @@ test("cloud cannot send localhost, and native registers a single exact address b
 			website: null,
 			models: ["m1"],
 			protocol: "openai",
-			target: { kind: "device", deviceId: myDevice.id, endpointId: nativeEndpoint.endpointId },
+			origin: "device",
+			deviceId: myDevice.id,
+			endpointId: nativeEndpoint.endpointId,
 		}),
 	);
 	expect(invoke).toHaveBeenCalledTimes(1);
@@ -159,11 +174,13 @@ test("Web shows only advertised exact endpoints and never accepts an address or 
 	await waitFor(() =>
 		expect(actions.discoverModels).toHaveBeenCalledWith({
 			protocol: "openai",
-			target: { kind: "device", deviceId: remote.id, endpointId: remoteEndpoint.endpointId },
+			origin: "device",
+			deviceId: remote.id,
+			endpointId: remoteEndpoint.endpointId,
 		}),
 	);
 	expect(invoke).not.toHaveBeenCalled();
-	expect(actions.readDeviceEndpoints).not.toHaveBeenCalled();
+	expect(actions.readDevices).not.toHaveBeenCalled();
 });
 
 test("a local key is discarded when switching to a different address or to Cloud", () => {
@@ -182,4 +199,40 @@ test("a local key is discarded when switching to a different address or to Cloud
 	expect(screen.getByLabelText("API key")).toHaveValue("");
 	expect(invoke).not.toHaveBeenCalled();
 	expect(actions.discoverModels).not.toHaveBeenCalled();
+});
+
+test("changing protocol at the same local URL requires a separately approved endpoint", async () => {
+	const invoke = startLocal({ native: true });
+	const anthropic = { ...nativeEndpoint, endpointId: "anthropic-opaque", protocol: "anthropic" } as const;
+	invoke.mockResolvedValueOnce(nativeEndpoint).mockResolvedValueOnce(anthropic);
+	actions.readDevices.mockResolvedValue({
+		items: [{ ...myDevice, modelEndpoints: [advertised().modelEndpoints[0], anthropic] }],
+	});
+	chooseDevice(/My Mac.*Online/);
+	fireEvent.change(screen.getByRole("textbox", { name: "Request URL" }), {
+		target: { value: "http://127.0.0.1:8788/v1" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Get models" }));
+	await waitFor(() => expect(actions.discoverModels).toHaveBeenCalledTimes(1));
+
+	fireEvent.change(screen.getByLabelText("API key"), { target: { value: "synthetic-old-protocol-key" } });
+	fireEvent.click(screen.getByRole("button", { name: /^Protocol:/ }));
+	fireEvent.click(screen.getByRole("option", { name: "Anthropic Messages" }));
+	expect(screen.getByLabelText("API key")).toHaveValue("");
+	fireEvent.click(screen.getByRole("button", { name: "Get models" }));
+	await waitFor(() =>
+		expect(actions.discoverModels).toHaveBeenLastCalledWith({
+			protocol: "anthropic",
+			origin: "device",
+			deviceId: myDevice.id,
+			endpointId: anthropic.endpointId,
+		}),
+	);
+	expect(invoke).toHaveBeenCalledTimes(2);
+	expect(invoke).toHaveBeenLastCalledWith({
+		deviceId: myDevice.id,
+		baseUrl: "http://127.0.0.1:8788/v1",
+		label: "Local model",
+		protocol: "anthropic",
+	});
 });

@@ -19,6 +19,13 @@ type RelayEvent =
 	| { kind: "chunk"; part: string }
 	| { kind: "end"; error: string | null };
 
+type LegacyRelayRequest = Extract<ServerEvent, { type: "provider.relay.request"; url: string }>;
+
+// Device-local mode is executed through its profile and Keychain, never the raw URL relay.
+export function isLegacyRelayRequest(event: ServerEvent): event is LegacyRelayRequest {
+	return event.type === "provider.relay.request" && !("mode" in event);
+}
+
 export function providerRelaySupported(): boolean {
 	return isTauri() && !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 }
@@ -43,7 +50,9 @@ export function ProviderRelayRuntime(): null {
 	const bound = useMemo(
 		() =>
 			(providers.data?.items ?? [])
-				.filter((provider) => provider.origin === "device" && provider.deviceId === context?.deviceId)
+				.filter(
+					(provider) => provider.origin === "device" && provider.deviceId === context?.deviceId && !provider.endpointId,
+				)
 				.map((provider) => provider.baseUrl)
 				.sort(),
 		[providers.data, context?.deviceId],
@@ -64,7 +73,7 @@ export function ProviderRelayRuntime(): null {
 	}, [boundKey]);
 
 	useEffect(() => {
-		const run = async (event: Extract<ServerEvent, { type: "provider.relay.request" }>) => {
+		const run = async (event: LegacyRelayRequest) => {
 			const { relayId } = event;
 			active.current.add(relayId);
 			const send = (message: ClientEvent) => {
@@ -93,8 +102,8 @@ export function ProviderRelayRuntime(): null {
 			}
 		};
 		const stop = realtime.subscribeEvents((event: ServerEvent) => {
-			if (event.type === "provider.relay.request") void run(event);
-			else if (event.type === "provider.relay.cancel") {
+			if (isLegacyRelayRequest(event)) void run(event);
+			else if (event.type === "provider.relay.cancel" && event.mode === undefined) {
 				active.current.delete(event.relayId);
 				void import("@tauri-apps/api/core").then(({ invoke }) =>
 					invoke("provider_relay_cancel", { relayId: event.relayId }).catch(() => {}),

@@ -1,11 +1,16 @@
 import { Button, ListGroup, ListRow, SearchInput } from "@yonder/ui-components";
-import { useDevices, useProviderActions, useProviderDeviceEndpoints, useProviders } from "@yonder/ui-data";
+import { useDevices, useProviderActions, useProviders } from "@yonder/ui-data";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DefaultModelSection } from "./default-model-section.tsx";
 import { ProviderEditor, type ProviderPreset } from "./provider-editor.tsx";
-import { providerDeviceLabel, type RegisterLocalProviderEndpoint } from "./provider-location.ts";
+import {
+	isLegacyDeviceProvider,
+	localProviderBinding,
+	providerDeviceLabel,
+	type RegisterLocalProviderEndpoint,
+} from "./provider-location.ts";
 import { ProviderRow } from "./provider-row.tsx";
 
 const PRESETS: ProviderPreset[] = [
@@ -33,8 +38,7 @@ export function ModelsSection({
 }) {
 	const { t, i18n } = useTranslation();
 	const devices = useDevices();
-	const endpoints = useProviderDeviceEndpoints(!!page);
-	const location = { devices: devices.data?.items, endpoints: endpoints.data?.items, registerEndpoint };
+	const location = { devices: devices.data?.items, registerEndpoint };
 	const providers = useProviders();
 	const actions = useProviderActions();
 	const [preset, setPreset] = useState<ProviderPreset | null>(null);
@@ -73,7 +77,7 @@ export function ModelsSection({
 	}
 	if (page?.startsWith("edit-")) {
 		const provider = userProviders.find((item) => item.id === page.slice(5));
-		return provider ? (
+		return provider && !isLegacyDeviceProvider(provider) ? (
 			<ProviderEditor
 				{...location}
 				key={provider.id}
@@ -90,7 +94,7 @@ export function ModelsSection({
 	}
 	if (page?.startsWith("duplicate-")) {
 		const provider = userProviders.find((item) => item.id === page.slice(10));
-		return provider ? (
+		return provider && !isLegacyDeviceProvider(provider) ? (
 			<ProviderEditor
 				{...location}
 				key={`duplicate-${provider.id}`}
@@ -100,7 +104,7 @@ export function ModelsSection({
 					baseUrl: provider.baseUrl,
 					models: provider.models.join(", "),
 					protocol: provider.protocol,
-					target: provider.target,
+					target: localProviderBinding(provider),
 					note: provider.note ?? null,
 					website: provider.website ?? null,
 					keyUrl: null,
@@ -117,9 +121,13 @@ export function ModelsSection({
 	}
 	const query = search.trim().toLowerCase();
 	const filtered = userProviders.filter((provider) =>
-		[provider.name, provider.note, provider.website, provider.baseUrl, ...provider.models].some((value) =>
-			value?.toLowerCase().includes(query),
-		),
+		[
+			provider.name,
+			provider.note,
+			provider.website,
+			provider.origin !== "device" && provider.baseUrl,
+			...provider.models,
+		].some((value) => typeof value === "string" && value.toLowerCase().includes(query)),
 	);
 	const total = userProviders.length;
 	return (
@@ -163,16 +171,16 @@ export function ModelsSection({
 							key={provider.id}
 							provider={provider}
 							deviceLabel={(() => {
-								if (!provider.target) return undefined;
-								const device = devices.data?.items.find(({ id }) => id === provider.target?.deviceId);
+								if (provider.origin !== "device") return undefined;
+								const device = devices.data?.items.find(({ id }) => id === provider.deviceId);
 								return device
 									? providerDeviceLabel(device, t, i18n.resolvedLanguage ?? i18n.language)
-									: t("models.deviceUnavailable");
+									: (provider.deviceName ?? t("models.deviceUnavailable"));
 							})()}
 							notice={notice?.id === provider.id ? notice.ok : null}
-							onEdit={() => onOpenPage(`edit-${provider.id}`)}
+							onEdit={isLegacyDeviceProvider(provider) ? undefined : () => onOpenPage(`edit-${provider.id}`)}
 							onDefault={() => actions.setDefault.mutate(provider.id)}
-							onDuplicate={() => onOpenPage(`duplicate-${provider.id}`)}
+							onDuplicate={isLegacyDeviceProvider(provider) ? undefined : () => onOpenPage(`duplicate-${provider.id}`)}
 							onTest={() => {
 								setNotice(null);
 								actions.test.mutate(provider.id, {

@@ -1,4 +1,5 @@
 import type { DeviceInfo } from "../auth/auth.ts";
+import type { DeviceModelEndpoint } from "../models/device-provider.ts";
 
 export interface DeviceSummary {
 	id: string;
@@ -9,6 +10,7 @@ export interface DeviceSummary {
 	status: "online" | "offline";
 	lastSeenAt: string;
 	current: boolean;
+	modelEndpoints?: DeviceModelEndpoint[];
 }
 
 export interface DeviceListResponse {

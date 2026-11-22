@@ -1,12 +1,34 @@
-import type { DeviceSummary } from "@yonder/protocol";
+import type { DeviceModelEndpoint, DeviceSummary, Provider } from "@yonder/protocol";
 import type { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "./device-display-name.ts";
 
 export type RegisterLocalProviderEndpoint = (
 	input:
-		| { deviceId: string; baseUrl: string; label?: string; apiKey?: string }
+		| { deviceId: string; baseUrl: string; protocol?: Provider["protocol"]; label?: string; apiKey?: string }
 		| { deviceId: string; endpointId: string; apiKey: string },
-) => Promise<{ endpointId: string; revision: number; label: string }>;
+) => Promise<Omit<DeviceModelEndpoint, "protocol"> & { protocol?: "anthropic" }>;
+
+export interface NativeProviderBinding {
+	deviceId: string;
+	endpointId: string;
+}
+
+export function localProviderBinding(provider?: Provider): NativeProviderBinding | undefined {
+	return provider?.origin === "device" && provider.deviceId && provider.endpointId
+		? { deviceId: provider.deviceId, endpointId: provider.endpointId }
+		: undefined;
+}
+
+export function isLegacyDeviceProvider(provider: Provider) {
+	return provider.origin === "device" && !localProviderBinding(provider);
+}
+
+export interface RegisteredLocalProviderEndpoint {
+	baseUrl: string;
+	protocol: Provider["protocol"];
+	target: NativeProviderBinding;
+	revision: number;
+}
 
 export const CLOUD_PROVIDER = "cloud";
 export const NEW_ENDPOINT = "new-local-endpoint";
@@ -49,4 +71,25 @@ export function providerDeviceLabel(device: DeviceSummary, t: ReturnType<typeof 
 				? t("models.deviceLastSeen", { at })
 				: t("models.deviceOffline");
 	return `${deviceDisplayName(device)} · ${status}`;
+}
+
+export function isHttpsAddress(value: string): boolean {
+	try {
+		const url = new URL(value.trim());
+		return (
+			url.protocol === "https:" &&
+			!isLoopbackProviderAddress(value) &&
+			Boolean(url.hostname) &&
+			!url.username &&
+			!url.password &&
+			!url.search &&
+			!url.hash
+		);
+	} catch {
+		return false;
+	}
+}
+
+export function normaliseUrl(value: string): string {
+	return value.trim().replace(/\/+$/, "");
 }

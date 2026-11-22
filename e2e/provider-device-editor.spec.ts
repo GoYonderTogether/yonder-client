@@ -1,12 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
-import type {
-	DeviceModelEndpointView,
-	DeviceSummary,
-	DiscoverModelsRequest,
-	Provider,
-	SaveProviderRequest,
-} from "@yonder/protocol";
+import type { DeviceSummary, DiscoverModelsRequest, Provider, SaveProviderRequest } from "@yonder/protocol";
 import { isolateChat } from "./chat-fixture.ts";
 
 const dir = process.env.YONDER_PREVIEW_DIR;
@@ -16,7 +10,7 @@ async function capture(page: Page, filename: string) {
 	await page.screenshot({ path: `${dir}/${filename}.png`, animations: "disabled", scale: "css" });
 }
 const device: DeviceSummary = {
-	id: "production-shaped-desktop-fixture",
+	id: "dev_00000000000000000000000001",
 	name: "工作 Mac",
 	platform: "macos",
 	appVersion: "0.3.0",
@@ -26,21 +20,28 @@ const device: DeviceSummary = {
 };
 const offline: DeviceSummary = {
 	...device,
-	id: "desktop-offline-fixture",
+	id: "dev_00000000000000000000000002",
 	name: "另一台 Windows",
 	platform: "windows",
 	status: "offline",
 };
-const phone: DeviceSummary = { ...device, id: "phone-fixture", name: "不支持的手机", platform: "ios" };
-const endpoint: DeviceModelEndpointView = {
-	deviceId: device.id,
-	endpointId: "published-endpoint-only",
+const phone: DeviceSummary = { ...device, id: "dev_00000000000000000000000003", name: "不支持的手机", platform: "ios" };
+const endpoint = {
+	endpointId: "00000000-0000-4000-8000-000000000001",
 	revision: 1,
 	label: "本地模型 A",
+	protocol: "openai",
+} as const;
+const approvedAnthropic = {
+	...endpoint,
+	protocol: "anthropic" as const,
+	endpointId: "00000000-0000-4000-8000-000000000002",
+	label: "本地 Anthropic",
 };
 const savedCloud: Provider = {
-	id: "old-cloud-provider",
+	id: "prv_00000000000000000000000001",
 	scope: "user",
+	origin: "cloud",
 	name: "既有云端供应商",
 	baseUrl: "https://models.example.test",
 	enabled: true,
@@ -49,20 +50,25 @@ const savedCloud: Provider = {
 	protocol: "openai",
 	models: ["legacy"],
 };
-const expectedTarget = { kind: "device", deviceId: device.id, endpointId: endpoint.endpointId } as const;
+const expectedTarget = { origin: "device", deviceId: device.id, endpointId: endpoint.endpointId } as const;
 async function setup(page: Page, { configured = false }: { configured?: boolean } = {}) {
 	await isolateChat(page);
 	await page.emulateMedia({ reducedMotion: "reduce" });
 	const received: { discovery: DiscoverModelsRequest[]; saves: SaveProviderRequest[] } = { discovery: [], saves: [] };
 	let items: Provider[] = configured ? [savedCloud] : [];
-	await page.route("**/v1/devices", (route) => route.fulfill({ json: { items: [device, offline, phone] } }));
-	await page.route("**/v1/providers/device-endpoints", (route) =>
+	await page.route("**/v1/devices", (route) =>
 		route.fulfill({
 			json: {
 				items: [
-					endpoint,
-					{ ...endpoint, deviceId: offline.id, endpointId: "already-registered-offline", label: "备用地址" },
-					{ ...endpoint, deviceId: phone.id, endpointId: "ineligible", label: "不应显示" },
+					{ ...device, modelEndpoints: [endpoint, approvedAnthropic] },
+					{
+						...offline,
+						modelEndpoints: [{ ...endpoint, endpointId: "00000000-0000-4000-8000-000000000003", label: "备用地址" }],
+					},
+					{
+						...phone,
+						modelEndpoints: [{ ...endpoint, endpointId: "00000000-0000-4000-8000-000000000004", label: "不应显示" }],
+					},
 				],
 			},
 		}),
@@ -79,12 +85,13 @@ async function setup(page: Page, { configured = false }: { configured?: boolean 
 		received.saves.push(payload);
 		const next: Provider = {
 			...payload,
-			id: "new-fixture-provider",
+			id: "prv_00000000000000000000000002",
 			scope: "user",
 			baseUrl: payload.baseUrl ?? "",
+			origin: payload.origin ?? "cloud",
 			enabled: true,
 			isDefault: true,
-			keyConfigured: !payload.target,
+			keyConfigured: payload.origin !== "device",
 		};
 		items = [next, ...items];
 		return route.fulfill({ json: next });
@@ -128,7 +135,7 @@ test("one editor selects Cloud or an approved Desktop, and Web sends only the ex
 	await name(page).fill("本机模型 Vol.1");
 	await discover(page).click();
 	await page.getByRole("checkbox", { name: "fixture-model" }).check();
-	expect(requests.discovery).toEqual([{ protocol: "openai", target: expectedTarget }]);
+	expect(requests.discovery).toEqual([{ protocol: "openai", ...expectedTarget }]);
 	await capture(page, "provider-web-device-bound");
 	await page.getByRole("button", { name: "保存", exact: true }).click();
 	expect(requests.saves).toEqual([
@@ -139,12 +146,30 @@ test("one editor selects Cloud or an approved Desktop, and Web sends only the ex
 			models: ["fixture-model"],
 			metadata: { "fixture-model": { contextLength: 4096 } },
 			protocol: "openai",
-			target: expectedTarget,
+			...expectedTarget,
 		},
 	]);
 	await expect(page.getByText("工作 Mac · 在线", { exact: true })).toBeVisible();
 	await expect(page.getByText("密钥未配置", { exact: true })).toHaveCount(0);
 	await capture(page, "provider-web-list-device");
+	await page.setViewportSize({ width: 1280, height: 900 });
+	await start(page);
+	await location(page).click();
+	await page.getByRole("option", { name: /工作 Mac.*在线/ }).click();
+	await page.getByRole("button", { name: /^请求地址:/ }).click();
+	await page.getByRole("option", { name: approvedAnthropic.label }).click();
+	const protocol = page.getByRole("button", { name: /^协议:/ });
+	await expect(protocol).toBeDisabled();
+	await expect(protocol).toHaveText("Anthropic Messages");
+	await expect(page.getByLabel("API Key")).toHaveCount(0);
+	await capture(page, "provider-web-anthropic-bound");
+	await discover(page).click();
+	await expect(page.getByRole("checkbox", { name: "fixture-model" })).toBeVisible();
+	expect(requests.discovery.at(-1)).toEqual({
+		protocol: "anthropic",
+		...expectedTarget,
+		endpointId: approvedAnthropic.endpointId,
+	});
 });
 test("existing cloud key is not revealed and its model request remains the old shape", async ({ page }) => {
 	const requests = await setup(page, { configured: true });
@@ -159,7 +184,14 @@ test("existing cloud key is not revealed and its model request remains the old s
 
 test("desktop shell uses the same editor and keeps localhost in the current-device IPC", async ({ page }) => {
 	const requests = await setup(page);
-	await page.setViewportSize({ width: 1280, height: 950 });
+	const patches: SaveProviderRequest[] = [];
+	await page.route("**/v1/providers/prv_00000000000000000000000002", async (route) => {
+		expect(route.request().method()).toBe("PATCH");
+		const payload = route.request().postDataJSON() as SaveProviderRequest;
+		patches.push(payload);
+		await route.fulfill({ json: { ...payload, scope: "user", id: "prv_00000000000000000000000002" } });
+	});
+	await page.setViewportSize({ width: 1280, height: 1080 });
 	const registrations: unknown[] = [];
 	await page.exposeFunction("recordProviderRegistration", (record: unknown) => registrations.push(record));
 	await page.addInitScript(() => {
@@ -172,7 +204,7 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 				transformCallback: () => 1,
 				unregisterCallback() {},
 				invoke: async (command: string, args: unknown) => {
-					if (command === "get_desktop_refresh_token" || command.endsWith("get_password")) return "browser-fixture";
+					if (command === "get_desktop_refresh_token") return "browser-fixture";
 					if (command === "device_model_register" || command === "device_model_set_key") {
 						await (
 							window as Window & {
@@ -182,10 +214,11 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 						return {
 							endpointId:
 								command === "device_model_register"
-									? "native-approved-id"
+									? "00000000-0000-4000-8000-000000000005"
 									: (args as { endpointId: string }).endpointId,
 							revision: 1,
 							label: "本地模型",
+							protocol: "anthropic",
 						};
 					}
 					return null;
@@ -193,7 +226,6 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 			},
 		});
 	});
-	await page.route("**/v1/devices", (route) => route.fulfill({ json: { items: [{ ...device, current: true }] } }));
 	await page.route("**/v1/me/sessions", (route) =>
 		route.fulfill({
 			json: {
@@ -213,15 +245,16 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 		}),
 	);
 	let checks = 0;
-	await page.route("**/v1/providers/device-endpoints", (route) => {
+	await page.route("**/v1/devices", (route) => {
 		checks++;
-		return route.fulfill({
-			json: {
-				items: registrations.length
-					? [endpoint, { ...endpoint, endpointId: "native-approved-id", label: "新地址" }]
-					: [endpoint],
-			},
-		});
+		const modelEndpoints = registrations.length
+			? [
+					endpoint,
+					approvedAnthropic,
+					{ ...approvedAnthropic, endpointId: "00000000-0000-4000-8000-000000000005", label: "新地址" },
+				]
+			: [endpoint, approvedAnthropic];
+		return route.fulfill({ json: { items: [{ ...device, current: true, modelEndpoints }] } });
 	});
 	await page.goto("/me/models/add");
 	await page.getByRole("button", { name: "继续使用 Yonder" }).click();
@@ -234,38 +267,48 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await expect(url(page)).toBeEditable();
 	await name(page).fill("桌面本地模型");
 	await url(page).fill("http://127.0.0.1:8788/v1");
+	const protocol = page.getByRole("button", { name: /^协议:/ });
+	await protocol.click();
+	await page.getByRole("option", { name: "Anthropic Messages" }).click();
+	await expect(protocol).toHaveText("Anthropic Messages");
 	const keyField = page.getByLabel("API Key");
 	await expect(keyField).toHaveAttribute("type", "password");
 	await expect(page.locator('label[for="provider-key"]')).toHaveText("API Key");
 	await keyField.scrollIntoViewIfNeeded();
-	await capture(page, "provider-desktop-optional-local-key");
+	await capture(page, "provider-desktop-anthropic-loopback");
 	await keyField.fill("synthetic-local-key");
 	await discover(page).click();
 	await page.getByRole("checkbox", { name: "fixture-model" }).check();
 	expect(checks).toBeGreaterThan(1);
-	const target = { kind: "device", deviceId: device.id, endpointId: "native-approved-id" };
-	expect(requests.discovery).toEqual([{ protocol: "openai", target }]);
+	const target = { origin: "device", deviceId: device.id, endpointId: "00000000-0000-4000-8000-000000000005" } as const;
+	expect(requests.discovery).toEqual([{ protocol: "anthropic", ...target }]);
 	expect(registrations).toEqual([
 		{
 			command: "device_model_register",
 			args: expect.objectContaining({
 				context: { ownerId: "chat-person", deviceId: device.id, sessionId: "local-browser-session" },
 				baseUrl: "http://127.0.0.1:8788/v1",
+				protocol: "anthropic",
 				apiKey: "synthetic-local-key",
 			}),
 		},
 	]);
 	await expect(keyField).toHaveValue("");
 	await page.getByRole("button", { name: "保存", exact: true }).click();
-	await expect.poll(() => requests.saves.at(-1)?.target).toEqual(target);
+	await expect.poll(() => requests.saves.at(-1)).toMatchObject({ ...target, protocol: "anthropic" });
 	expect(requests.saves.at(-1)).not.toHaveProperty("baseUrl");
 	expect(requests.saves.at(-1)).not.toHaveProperty("apiKey");
 	await expect(page.getByRole("button", { name: "编辑供应商", exact: true })).toBeVisible();
 	await page.getByRole("button", { name: "编辑供应商", exact: true }).click();
-	await page.getByRole("button", { name: /^请求地址:/ }).click();
-	await page.getByRole("option", { name: "本地模型 A" }).click();
+	await expect(location(page)).toBeDisabled();
+	const savedEndpoint = page.getByRole("button", { name: /^请求地址:/ });
+	await expect(savedEndpoint).toBeDisabled();
+	await expect(savedEndpoint).toHaveText("新地址");
+	await expect(protocol).toBeDisabled();
+	await expect(protocol).toHaveText("Anthropic Messages");
 	await expect(url(page)).toHaveCount(0);
 	await expect(keyField).toHaveValue("");
+	await capture(page, "provider-canonical-desktop-bound-edit");
 	await discover(page).click();
 	await expect(page.getByRole("checkbox", { name: "fixture-model" })).toBeVisible();
 	expect(registrations).toHaveLength(1);
@@ -278,14 +321,64 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 		command: "device_model_set_key",
 		args: {
 			context: { ownerId: "chat-person", deviceId: device.id, sessionId: "local-browser-session" },
-			endpointId: expectedTarget.endpointId,
+			endpointId: target.endpointId,
 			apiKey: "synthetic-replacement-key",
 		},
 	});
-	expect(requests.discovery).toEqual([
-		{ protocol: "openai", target },
-		{ protocol: "openai", target: expectedTarget },
-		{ protocol: "openai", target: expectedTarget },
-	]);
+	expect(requests.discovery).toEqual(Array.from({ length: 3 }, () => ({ protocol: "anthropic", ...target })));
 	expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain("synthetic-");
+	await page.getByRole("button", { name: "保存", exact: true }).click();
+	await expect
+		.poll(() => patches)
+		.toEqual([
+			{
+				...target,
+				protocol: "anthropic",
+				name: "桌面本地模型",
+				note: null,
+				website: null,
+				models: ["fixture-model"],
+				metadata: { "fixture-model": { contextLength: 4096 } },
+			},
+		]);
+	expect(registrations).toHaveLength(2);
+});
+
+test("existing relay providers retain device identity and can be tested, but never open a cloud key form", async ({
+	page,
+}) => {
+	await setup(page);
+	await page.route("**/v1/providers", (route) =>
+		route.fulfill({
+			json: {
+				items: [
+					{
+						...savedCloud,
+						id: "prv_00000000000000000000000003",
+						name: "既有设备供应商",
+						origin: "device",
+						deviceId: device.id,
+						deviceName: device.name,
+						baseUrl: "http://127.0.0.1:9012/v1",
+					},
+				],
+				platformModels: [],
+			},
+		}),
+	);
+	await page.route("**/v1/providers/prv_00000000000000000000000003/test", (route) =>
+		route.fulfill({ json: { ok: true } }),
+	);
+	await page.goto("/me/models");
+	const custom = page.getByRole("heading", { name: "自定义供应商", exact: true }).locator("..");
+	await expect(custom.getByText("既有设备供应商", { exact: true })).toBeVisible();
+	await expect(custom.getByText("工作 Mac · 在线", { exact: true })).toBeVisible();
+	await expect(custom.getByRole("button", { name: "编辑供应商" })).toHaveCount(0);
+	await expect(page.getByText("http://127.0.0.1:9012/v1", { exact: true })).toHaveCount(0);
+	await custom.getByRole("button", { name: "更多操作", exact: true }).click();
+	await expect(page.getByRole("button", { name: "复制", exact: true })).toHaveCount(0);
+	await expect(page.getByRole("button", { name: "删除供应商", exact: true })).toBeEnabled();
+	await page.getByRole("button", { name: "检测连通", exact: true }).click();
+	await expect(custom.getByText("连接成功", { exact: true })).toBeVisible();
+	await capture(page, "provider-legacy-relay-list");
 });

@@ -1,10 +1,4 @@
-import type {
-	DeviceModelEndpointView,
-	DeviceProviderTarget,
-	DeviceSummary,
-	Provider,
-	ProviderModelMetadata,
-} from "@yonder/protocol";
+import type { DeviceSummary, Provider, ProviderModelMetadata } from "@yonder/protocol";
 import { Button, Field, PasswordField, SelectField, TextField } from "@yonder/ui-components";
 import { useProviderActions } from "@yonder/ui-data";
 import { ExternalLink } from "lucide-react";
@@ -12,10 +6,15 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	CLOUD_PROVIDER,
+	isHttpsAddress,
 	isLocalProviderAddress,
 	isLoopbackProviderAddress,
+	localProviderBinding,
+	type NativeProviderBinding,
 	NEW_ENDPOINT,
+	normaliseUrl,
 	providerDeviceLabel,
+	type RegisteredLocalProviderEndpoint,
 	type RegisterLocalProviderEndpoint,
 } from "./provider-location.ts";
 import { ProviderModelPicker } from "./provider-model-picker.tsx";
@@ -27,7 +26,7 @@ export interface ProviderPreset {
 	models: string;
 	keyUrl: string | null;
 	protocol?: Provider["protocol"];
-	target?: DeviceProviderTarget | undefined;
+	target?: NativeProviderBinding | undefined;
 	note?: string | null;
 	website?: string | null;
 }
@@ -39,7 +38,6 @@ export function ProviderEditor({
 	onDirtyChange,
 	onDone,
 	devices = [],
-	endpoints = [],
 	registerEndpoint,
 }: {
 	provider?: Provider;
@@ -48,35 +46,39 @@ export function ProviderEditor({
 	onDirtyChange?: ((dirty: boolean) => void) | undefined;
 	onDone: () => void;
 	devices?: readonly DeviceSummary[] | undefined;
-	endpoints?: readonly DeviceModelEndpointView[] | undefined;
 	registerEndpoint?: RegisterLocalProviderEndpoint | undefined;
 }) {
 	const { t, i18n } = useTranslation();
 	const actions = useProviderActions();
-	const initialTarget = provider?.target ?? preset?.target;
+	const currentTarget = localProviderBinding(provider);
+	const initialTarget = currentTarget ?? preset?.target;
 	const [deviceId, setDeviceId] = useState(initialTarget?.deviceId ?? CLOUD_PROVIDER);
 	const [endpointId, setEndpointId] = useState(initialTarget?.endpointId ?? "");
 	const [localUrl, setLocalUrl] = useState("");
 	const [localKey, setLocalKey] = useState("");
-	const registered = useRef<{ baseUrl: string; target: DeviceProviderTarget; revision: number } | null>(null);
-	const device = devices.find(({ id }) => id === deviceId);
+	const [protocol, setProtocol] = useState<Provider["protocol"]>(provider?.protocol ?? preset?.protocol ?? "openai");
+	const registered = useRef<RegisteredLocalProviderEndpoint | null>(null);
 	const onDevice = deviceId !== CLOUD_PROVIDER;
+	const device = onDevice ? devices.find(({ id }) => id === deviceId) : undefined;
 	const supportsDesktop = (candidate: DeviceSummary) => ["macos", "windows", "linux"].includes(candidate.platform);
 	const canRegister = !!(registerEndpoint && device?.current && supportsDesktop(device));
-	const known = endpoints.filter((endpoint) => endpoint.deviceId === deviceId);
+	const fixedDeviceProtocol = currentTarget ? provider?.protocol : undefined;
+	const known = device?.modelEndpoints ?? [];
 	const endpoint = known.find((candidate) => candidate.endpointId === endpointId);
-	const addEndpoint = onDevice && canRegister && (endpointId === NEW_ENDPOINT || (!endpointId && known.length === 0));
+	const addEndpoint =
+		!currentTarget && canRegister && (endpointId === NEW_ENDPOINT || (!endpointId && known.length === 0));
 	const canSetLocalKey = canRegister && (addEndpoint || !!endpoint);
-	const targetReady = Boolean(onDevice && device && (endpoint || (addEndpoint && isLocalProviderAddress(localUrl))));
+	const deviceProtocol = fixedDeviceProtocol ?? endpoint?.protocol ?? protocol;
+	const targetReady = Boolean(
+		(endpoint && endpoint.protocol === deviceProtocol) || (addEndpoint && isLocalProviderAddress(localUrl)),
+	);
 	const locationOptions = [
 		{ value: CLOUD_PROVIDER, label: t("models.cloud") },
 		...devices
 			.filter(
 				(candidate) =>
 					supportsDesktop(candidate) &&
-					(candidate.id === deviceId ||
-						endpoints.some((endpoint) => endpoint.deviceId === candidate.id) ||
-						(registerEndpoint && candidate.current)),
+					(candidate.id === deviceId || candidate.modelEndpoints?.length || (registerEndpoint && candidate.current)),
 			)
 			.map((candidate) => ({
 				value: candidate.id,
@@ -88,14 +90,13 @@ export function ProviderEditor({
 	const [note, setNote] = useState(provider?.note ?? preset?.note ?? "");
 	const [website, setWebsite] = useState(provider?.website ?? preset?.website ?? "");
 	const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? preset?.baseUrl ?? "");
-	const [protocol, setProtocol] = useState<Provider["protocol"]>(provider?.protocol ?? preset?.protocol ?? "openai");
 	const [models, setModels] = useState(provider?.models.join(", ") ?? preset?.models ?? "");
 	const [apiKey, setApiKey] = useState("");
 	const [replacing, setReplacing] = useState(!provider?.keyConfigured);
 	const destinationChanged = Boolean(
 		provider && (normaliseUrl(baseUrl) !== normaliseUrl(provider.baseUrl) || protocol !== provider.protocol),
 	);
-	const needsKey = !onDevice && (replacing || destinationChanged || Boolean(provider?.target));
+	const needsKey = !onDevice && (replacing || destinationChanged || Boolean(currentTarget));
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [available, setAvailable] = useState<string[]>([]);
@@ -133,27 +134,34 @@ export function ProviderEditor({
 		setMetadata({});
 		setFetching(false);
 	}
-	async function resolveTarget(version: number): Promise<DeviceProviderTarget> {
+	async function resolveTarget(version: number): Promise<NativeProviderBinding> {
 		const key = canSetLocalKey ? localKey.trim() : "";
-		if (endpoint && !key) return { kind: "device", deviceId, endpointId: endpoint.endpointId };
+		if (endpoint && !key) return { deviceId, endpointId: endpoint.endpointId };
 		if (!registerEndpoint || !canRegister || (!endpoint && (!addEndpoint || !isLocalProviderAddress(localUrl))))
 			throw new Error("Unapproved local endpoint");
 		const address = normaliseUrl(localUrl);
 		const previous = registered.current;
 		let target =
-			!endpoint && previous?.baseUrl === address && previous.target.deviceId === deviceId ? previous.target : undefined;
+			!endpoint &&
+			previous?.baseUrl === address &&
+			previous.protocol === deviceProtocol &&
+			previous.target.deviceId === deviceId
+				? previous.target
+				: undefined;
 		let revision = target ? previous?.revision : undefined;
 		if (!target || key) {
+			const local = { deviceId, baseUrl: address, protocol: deviceProtocol, label: t("models.localEndpoint") };
 			const result = await registerEndpoint(
 				endpoint
 					? { deviceId, endpointId: endpoint.endpointId, apiKey: key }
-					: { deviceId, baseUrl: address, label: t("models.localEndpoint"), ...(key ? { apiKey: key } : {}) },
+					: { ...local, ...(key ? { apiKey: key } : {}) },
 			);
-			if (endpoint && result.endpointId !== endpoint.endpointId) throw new Error("Unexpected endpoint");
-			target = { kind: "device", deviceId, endpointId: result.endpointId };
+			if ((endpoint && result.endpointId !== endpoint.endpointId) || (result.protocol ?? "openai") !== deviceProtocol)
+				throw new Error("Unexpected endpoint");
+			target = { deviceId, endpointId: result.endpointId };
 			revision = result.revision;
 			if (version === discoveryVersion.current) {
-				if (!endpoint) registered.current = { baseUrl: address, target, revision };
+				if (!endpoint) registered.current = { baseUrl: address, protocol: deviceProtocol, target, revision };
 				if (key) setLocalKey("");
 			}
 		}
@@ -162,18 +170,19 @@ export function ProviderEditor({
 		for (const delay of [0, 150, 350, 750]) {
 			if (delay) await new Promise<void>((resolve) => setTimeout(resolve, delay));
 			if (version !== discoveryVersion.current) throw new Error("Selection changed");
-			const { items } = await actions.readDeviceEndpoints();
+			const { items } = await actions.readDevices();
 			if (
-				items.some(
-					(item) =>
-						item.deviceId === target?.deviceId && item.endpointId === target.endpointId && item.revision === revision,
-				)
+				items
+					.find((item) => item.id === deviceId)
+					?.modelEndpoints?.some(
+						(item) =>
+							item.endpointId === target?.endpointId && item.revision === revision && item.protocol === deviceProtocol,
+					)
 			)
 				return target;
 		}
 		throw new Error("Device endpoint not ready");
 	}
-
 	function chooseLocation(next: string) {
 		setDeviceId(next);
 		setLocalKey("");
@@ -209,7 +218,7 @@ export function ProviderEditor({
 			if (version !== discoveryVersion.current) return;
 			const result = await actions.discoverModels(
 				target
-					? { target, protocol: "openai" }
+					? { origin: "device", ...target, protocol: deviceProtocol }
 					: {
 							baseUrl: baseUrl.trim(),
 							protocol,
@@ -268,7 +277,7 @@ export function ProviderEditor({
 				models: modelIds,
 				...(Object.keys(selectedMetadata).length ? { metadata: selectedMetadata } : {}),
 				...(target
-					? { target, protocol: "openai" as const }
+					? { origin: "device", ...target, protocol: deviceProtocol }
 					: { baseUrl: normaliseUrl(baseUrl), protocol, ...(needsKey ? { apiKey } : {}) }),
 			});
 			setApiKey("");
@@ -312,7 +321,7 @@ export function ProviderEditor({
 					value={deviceId}
 					options={locationOptions}
 					onChange={chooseLocation}
-					disabled={saving}
+					disabled={saving || !!provider}
 					requiredMark={!onDevice && isLoopbackProviderAddress(baseUrl)}
 				/>
 			) : null}
@@ -329,7 +338,7 @@ export function ProviderEditor({
 						<SelectField
 							label={t("models.baseUrl")}
 							requiredMark
-							disabled={saving}
+							disabled={saving || !!currentTarget}
 							value={endpointId || ""}
 							onChange={(value) => {
 								setEndpointId(value);
@@ -340,7 +349,7 @@ export function ProviderEditor({
 							options={[
 								{ value: "", label: t("models.chooseEndpoint") },
 								...known.map((entry) => ({ value: entry.endpointId, label: entry.label })),
-								...(canRegister ? [{ value: NEW_ENDPOINT, label: t("models.newEndpoint") }] : []),
+								...(canRegister && !currentTarget ? [{ value: NEW_ENDPOINT, label: t("models.newEndpoint") }] : []),
 								...(endpointId && endpointId !== NEW_ENDPOINT && !endpoint
 									? [{ value: endpointId, label: t("models.deviceUnavailable") }]
 									: []),
@@ -365,34 +374,36 @@ export function ProviderEditor({
 					) : null}
 				</>
 			) : (
-				<>
-					<TextField
-						label={t("models.baseUrl")}
-						type="url"
-						value={baseUrl}
-						onChange={(event) => {
-							setBaseUrl(event.target.value);
-							resetDiscovery();
-						}}
-						required
-						requiredMark
-						disabled={saving}
-					/>
-					<SelectField
-						label={t("models.protocol")}
-						value={protocol}
-						disabled={saving}
-						onChange={(value) => {
-							setProtocol(value as Provider["protocol"]);
-							resetDiscovery();
-						}}
-						options={[
-							{ value: "openai", label: t("models.openaiProtocol") },
-							{ value: "anthropic", label: t("models.anthropicProtocol") },
-						]}
-					/>
-				</>
+				<TextField
+					label={t("models.baseUrl")}
+					type="url"
+					value={baseUrl}
+					onChange={(event) => {
+						setBaseUrl(event.target.value);
+						resetDiscovery();
+					}}
+					required
+					requiredMark
+					disabled={saving}
+				/>
 			)}
+			{!onDevice || addEndpoint || endpoint ? (
+				<SelectField
+					label={t("models.protocol")}
+					value={onDevice ? deviceProtocol : protocol}
+					disabled={saving || (onDevice && (!!endpoint || !!fixedDeviceProtocol))}
+					onChange={(value) => {
+						setProtocol(value as Provider["protocol"]);
+						setLocalKey("");
+						setError(null);
+						resetDiscovery();
+					}}
+					options={[
+						{ value: "openai", label: t("models.openaiProtocol") },
+						{ value: "anthropic", label: t("models.anthropicProtocol") },
+					]}
+				/>
+			) : null}
 			<TextField
 				label={t("models.modelIds")}
 				value={models}
@@ -472,25 +483,4 @@ export function ProviderEditor({
 			</Button>
 		</form>
 	);
-}
-
-function isHttpsAddress(value: string): boolean {
-	try {
-		const url = new URL(value.trim());
-		return (
-			url.protocol === "https:" &&
-			!isLoopbackProviderAddress(value) &&
-			Boolean(url.hostname) &&
-			!url.username &&
-			!url.password &&
-			!url.search &&
-			!url.hash
-		);
-	} catch {
-		return false;
-	}
-}
-
-function normaliseUrl(value: string): string {
-	return value.trim().replace(/\/+$/, "");
 }

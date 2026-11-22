@@ -53,7 +53,6 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 		},
 	}),
 	useDevices: () => ({ data: { items: [] } }),
-	useProviderDeviceEndpoints: () => ({ data: { items: [] } }),
 	useProviderActions: () => ({
 		setDefault: { mutate: setDefault, isPending: false, isError: false, isSuccess: false },
 		remove: {},

@@ -17,10 +17,11 @@ export interface Provider {
 	/** Set only when origin is device. */
 	deviceId?: string | null;
 	deviceName?: string | null;
-	/** The device endpoint this provider is reached through, when the server resolves one. */
-	target?: DeviceProviderTarget;
-	/** Whether the bound device endpoint is reachable right now. */
+	/** Local-key mode: a device-owned profile, never a server URL or key. */
+	endpointId?: string;
 	deviceStatus?: "online" | "offline";
+	/** Read compatibility for clients from the initial device-local release. */
+	target?: DeviceProviderTarget;
 }
 
 /** Public platform catalog: upstream connection details never leave the server. */
@@ -42,7 +43,6 @@ export interface SaveProviderRequest {
 	note?: string | null;
 	website?: string | null;
 	baseUrl?: string;
-	target?: DeviceProviderTarget;
 	protocol: Provider["protocol"];
 	models: string[];
 	apiKey?: string;
@@ -51,6 +51,15 @@ export interface SaveProviderRequest {
 	origin?: "cloud" | "device";
 	/** The device that relays the calls; required when origin is device. */
 	deviceId?: string;
+	endpointId?: string;
+}
+
+/** Device-gateway candidates: the devices a provider may bind to. */
+export interface RelayDevice {
+	id: string;
+	name: string;
+	platform: string;
+	online: boolean;
 }
 
 export interface ProviderModelMetadata {
@@ -60,7 +69,9 @@ export interface ProviderModelMetadata {
 
 export interface DiscoverModelsRequest {
 	baseUrl?: string;
-	target?: DeviceProviderTarget;
+	origin?: "device";
+	deviceId?: string;
+	endpointId?: string;
 	protocol: Provider["protocol"];
 	providerId?: string;
 	apiKey?: string;

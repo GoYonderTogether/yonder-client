@@ -11,7 +11,7 @@ import { removeDirectConversationWith, removeMember, writeMember } from "../real
 
 export function useReception() {
 	const api = useApi();
-	return useQuery({ queryKey: keys.reception(), queryFn: () => api.reception() });
+	return useQuery({ queryKey: keys.reception(), queryFn: () => api.reception(), refetchOnMount: "always" });
 }
 
 export function useSetReception() {

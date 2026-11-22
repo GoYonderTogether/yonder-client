@@ -1,5 +1,4 @@
 import type {
-	DeviceModelEndpointView,
 	DiscoverModelsRequest,
 	Provider,
 	ProviderList,
@@ -13,10 +12,6 @@ export function providerEndpoints(client: ApiClient) {
 	return {
 		providers(): Promise<ProviderList> {
 			return client.request("/v1/providers");
-		},
-
-		providerDeviceEndpoints(signal?: AbortSignal): Promise<{ items: DeviceModelEndpointView[] }> {
-			return client.request("/v1/providers/device-endpoints", signal ? { signal } : undefined);
 		},
 
 		discoverModels(

@@ -224,12 +224,13 @@ export type {
 	ReviewMemoryOrganizationRequest,
 } from "./memory/organization.ts";
 export type {
+	DeviceAnthropicModelInput,
+	DeviceLocalRelayInput,
+	DeviceLocalRelayRequest,
 	DeviceModelEndpoint,
-	DeviceModelEndpointView,
 	DeviceModelError,
 	DeviceModelInput,
-	DeviceModelRequest,
-	DeviceModelStreamBatch,
+	DeviceModelProtocol,
 	DeviceProviderTarget,
 } from "./models/device-provider.ts";
 export type {

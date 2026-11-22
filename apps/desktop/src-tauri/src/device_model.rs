@@ -37,11 +37,15 @@ struct Profile {
     base_url: String,
     #[serde(default)]
     uses_api_key: bool,
+    #[serde(default)]
+    protocol: http::Protocol,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Ready {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    protocol: Option<http::Protocol>,
     endpoint_id: String,
     revision: u32,
     label: String,
@@ -52,8 +56,16 @@ impl Profile {
         self.owner_id == context.owner_id && self.device_id == context.device_id
     }
 
+    fn matches_request(&self, context: &Context, request: &Request) -> bool {
+        self.owned(context) && self.endpoint_id == request.endpoint_id
+            && self.revision == request.revision && self.protocol == request.protocol
+    }
+
     fn ready(self) -> Ready {
-        Ready { endpoint_id: self.endpoint_id, revision: self.revision, label: self.label }
+        Ready {
+            protocol: (self.protocol == http::Protocol::Anthropic).then_some(self.protocol),
+            endpoint_id: self.endpoint_id, revision: self.revision, label: self.label,
+        }
     }
 }
 
@@ -93,13 +105,17 @@ fn scope(active: &Active, context: &Context) -> Result<(), Error> {
     Ok(())
 }
 
-fn path(app: &AppHandle) -> Result<PathBuf, Error> {
-    app.path().app_local_data_dir().map(|base| base.join("device-model-endpoints-v1.json"))
-        .map_err(|_| "endpoint_unavailable")
+fn path(app: &AppHandle, protocol: http::Protocol) -> Result<PathBuf, Error> {
+    // An older desktop binary must not mistake an Anthropic profile for OpenAI.
+    let file = match protocol {
+        http::Protocol::Openai => "device-model-endpoints-v1.json",
+        http::Protocol::Anthropic => "device-model-anthropic-endpoints-v1.json",
+    };
+    app.path().app_local_data_dir().map(|base| base.join(file)).map_err(|_| "endpoint_unavailable")
 }
 
-fn profiles(app: &AppHandle) -> Result<Vec<Profile>, Error> {
-    let path = path(app)?;
+fn read_profiles(app: &AppHandle, protocol: http::Protocol) -> Result<Vec<Profile>, Error> {
+    let path = path(app, protocol)?;
     match fs::metadata(&path) {
         Ok(meta) if meta.len() > 256 * 1024 => return Err("endpoint_unavailable"),
         Err(error) if error.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
@@ -107,15 +123,24 @@ fn profiles(app: &AppHandle) -> Result<Vec<Profile>, Error> {
         _ => {}
     }
     let bytes = fs::read(path).map_err(|_| "endpoint_unavailable")?;
-    serde_json::from_slice(&bytes).map_err(|_| "endpoint_unavailable")
+    let profiles: Vec<Profile> = serde_json::from_slice(&bytes).map_err(|_| "endpoint_unavailable")?;
+    if profiles.iter().any(|profile| profile.protocol != protocol) { return Err("endpoint_unavailable"); }
+    Ok(profiles)
 }
 
-fn save_profiles(app: &AppHandle, profiles: &[Profile]) -> Result<(), Error> {
-    let path = path(app)?;
+fn profiles(app: &AppHandle) -> Result<Vec<Profile>, Error> {
+    let mut entries = read_profiles(app, http::Protocol::Openai)?;
+    entries.extend(read_profiles(app, http::Protocol::Anthropic)?);
+    Ok(entries)
+}
+
+fn save_profiles(app: &AppHandle, profiles: &[Profile], protocol: http::Protocol) -> Result<(), Error> {
+    let path = path(app, protocol)?;
     let parent = path.parent().ok_or("endpoint_unavailable")?;
     fs::create_dir_all(parent).map_err(|_| "endpoint_unavailable")?;
     let tmp = path.with_extension("tmp");
-    let bytes = serde_json::to_vec(profiles).map_err(|_| "endpoint_unavailable")?;
+    let scoped = profiles.iter().filter(|profile| profile.protocol == protocol).collect::<Vec<_>>();
+    let bytes = serde_json::to_vec(&scoped).map_err(|_| "endpoint_unavailable")?;
     fs::write(&tmp, bytes).map_err(|_| "endpoint_unavailable")?;
     fs::rename(tmp, path).map_err(|_| "endpoint_unavailable")
 }
@@ -125,7 +150,8 @@ fn save_profile_key(app: &AppHandle, profiles: &mut [Profile], index: usize, key
     credentials::store_model_key(&profile.owner_id, &profile.device_id, &profile.endpoint_id, key)?;
     if profile.uses_api_key { return Ok(()); }
     profile.uses_api_key = true;
-    if let Err(error) = save_profiles(app, profiles) {
+    let protocol = profile.protocol;
+    if let Err(error) = save_profiles(app, profiles, protocol) {
         let profile = &profiles[index];
         credentials::remove_model_key(&profile.owner_id, &profile.device_id, &profile.endpoint_id);
         return Err(error);
@@ -173,12 +199,13 @@ pub fn device_model_ready(
 #[tauri::command]
 pub fn device_model_register(
     window: WebviewWindow, app: AppHandle, state: State<'_, DeviceModelState>, context: Context,
-    id: String, base_url: String, label: String, api_key: Option<String>,
+    id: String, base_url: String, label: String, api_key: Option<String>, protocol: Option<http::Protocol>,
 ) -> Result<Ready, Error> {
     main_window(&window)?;
     let active = state.0.lock().map_err(|_| "endpoint_unavailable")?;
     scope(&active, &context)?;
     let base_url = http::local_base(&base_url)?.to_string();
+    let protocol = protocol.unwrap_or_default();
     let label = label.trim();
     if !endpoint_id(&id) || label.is_empty() || label.chars().count() > 60
         || label.contains("://") || label.chars().any(char::is_control)
@@ -186,7 +213,7 @@ pub fn device_model_register(
         return Err("endpoint_unavailable");
     }
     let mut profiles = profiles(&app)?;
-    if let Some(index) = profiles.iter().position(|p| p.owned(&context) && p.base_url == base_url) {
+    if let Some(index) = profiles.iter().position(|p| p.owned(&context) && p.base_url == base_url && p.protocol == protocol) {
         if let Some(key) = api_key.as_deref() {
             save_profile_key(&app, &mut profiles, index, key)?;
         }
@@ -201,12 +228,12 @@ pub fn device_model_register(
     let index = profiles.len();
     profiles.push(Profile {
         owner_id: context.owner_id, device_id: context.device_id,
-        endpoint_id: id, revision: 1, label: label.to_owned(), base_url, uses_api_key: false,
+        endpoint_id: id, revision: 1, label: label.to_owned(), base_url, uses_api_key: false, protocol,
     });
     if let Some(key) = api_key.as_deref() {
         save_profile_key(&app, &mut profiles, index, key)?;
     } else {
-        save_profiles(&app, &profiles)?;
+        save_profiles(&app, &profiles, protocol)?;
     }
     Ok(profiles.swap_remove(index).ready())
 }
@@ -238,6 +265,8 @@ pub struct Request {
     revision: u32,
     expires_at_ms: u64,
     operation: Operation,
+    #[serde(default)]
+    protocol: http::Protocol,
     body: Option<Value>,
 }
 
@@ -273,9 +302,8 @@ pub async fn device_model_execute(
         if active.pending.len() >= MAX_PENDING || active.pending.contains_key(&request.request_id) {
             return Err("endpoint_unavailable");
         }
-        let profile = profiles(&app)?.into_iter().find(|p|
-            p.owned(&context) && p.endpoint_id == request.endpoint_id && p.revision == request.revision
-        ).ok_or("endpoint_unavailable")?;
+        let profile = profiles(&app)?.into_iter().find(|p| p.matches_request(&context, &request))
+            .ok_or("endpoint_unavailable")?;
         let base = http::local_base(&profile.base_url)?;
         let key = if profile.uses_api_key {
             Some(credentials::read_model_key(&profile.owner_id, &profile.device_id, &profile.endpoint_id)?
@@ -293,11 +321,11 @@ pub async fn device_model_execute(
         let mut work = pin!(async {
             match request.operation {
                 Operation::Discover if request.body.is_none() => {
-                    let models = http::discover(base, deadline.min(Duration::from_secs(30)), key.as_deref()).await?;
+                    let models = http::discover(base, deadline.min(Duration::from_secs(30)), request.protocol, key.as_deref()).await?;
                     Ok(ResultData { models: Some(models) })
                 }
                 Operation::Chat => {
-                    http::chat(base, deadline.min(Duration::from_secs(120)), key.as_deref(), request.body.ok_or("upstream_rejected")?,
+                    http::chat(base, deadline.min(Duration::from_secs(120)), request.protocol, key.as_deref(), request.body.ok_or("upstream_rejected")?,
                         |data| channel.send(NativeFrame::Data { data }).map_err(|_| "cancelled")
                     ).await?;
                     channel.send(NativeFrame::Done).map_err(|_| "cancelled")?;
@@ -342,5 +370,21 @@ mod tests {
         for invalid in ["../../data", "abcdefab-0123-4456-7abc-012345abcdef", "abcdefab-0123-5456-8abc-012345abcdef"] {
             assert!(!endpoint_id(invalid));
         }
+    }
+
+    #[test]
+    fn old_profiles_and_requests_are_openai_and_protocol_cannot_override_the_profile() {
+        let profile: Profile = serde_json::from_value(serde_json::json!({
+            "ownerId":"owner-a","deviceId":"device-a","endpointId":"abcdefab-0123-4456-8abc-012345abcdef",
+            "revision":1,"label":"test","baseUrl":"http://127.0.0.1:8788/v1/"
+        })).unwrap();
+        let context = Context { owner_id: "owner-a".into(), device_id: "device-a".into(), session_id: "test".into() };
+        let mut request: Request = serde_json::from_value(serde_json::json!({
+            "requestId":"test","endpointId":&profile.endpoint_id,"revision":1,"expiresAtMs":10,"operation":"discover"
+        })).unwrap();
+        assert!(profile.matches_request(&context, &request));
+        request.protocol = http::Protocol::Anthropic;
+        assert!(!profile.matches_request(&context, &request));
+        assert!(serde_json::to_value(profile.ready()).unwrap().get("protocol").is_none());
     }
 }

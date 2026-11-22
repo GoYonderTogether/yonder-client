@@ -1,5 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
+import { CACHE_STORAGE_KEY } from "@yonder/ui-data";
 import { bot, conversation, isolateChat, person } from "./chat-fixture.ts";
 
 test("a person's card opens their chosen reception Bot", async ({ page }) => {
@@ -54,11 +55,41 @@ test("the owner can choose a reception Bot", async ({ page }, info) => {
 	const selector = page.getByRole("group", { name: "接待 Bot", exact: true });
 	const secondOption = selector.getByRole("radio", { name: second.displayName, exact: true });
 	await expect(secondOption).toBeVisible({ timeout: 20000 });
+	// Preserve the cache that can still be on disk when reload beats its delayed write.
+	const browserCacheKey = `yonder.${CACHE_STORAGE_KEY}`;
+	const cached = await page.waitForFunction(
+		({ key, botId }) => {
+			const raw = localStorage.getItem(key);
+			if (!raw) return null;
+			const queries = JSON.parse(raw).clientState.queries;
+			return queries.some(
+				(query: { queryKey: string[]; state: { data?: { botId?: string } } }) =>
+					query.queryKey[0] === "reception" && query.state.data?.botId === botId,
+			)
+				? raw
+				: null;
+		},
+		{ key: browserCacheKey, botId: main.id },
+		{ timeout: 8000 },
+	);
+	const stale = await cached.jsonValue();
 	await secondOption.click();
 	await expect.poll(() => selected).toBe("second-bot");
 	await expect(secondOption).toBeChecked();
 	await expect(page.getByText("已保存", { exact: true })).toBeVisible();
 	await page.screenshot({ path: info.outputPath("reception-setting.png") });
-	await page.reload();
+	if (typeof stale !== "string") throw new Error("Missing persisted reception fixture");
+	await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
+		key: browserCacheKey,
+		value: stale,
+	});
+	const [reloaded] = await Promise.all([
+		page.waitForResponse(
+			(response) => new URL(response.url()).pathname === "/v1/me/reception" && response.request().method() === "GET",
+			{ timeout: 8000 },
+		),
+		page.reload(),
+	]);
+	expect(await reloaded.json()).toEqual({ botId: second.id, custom: true });
 	await expect(secondOption).toBeChecked();
 });
