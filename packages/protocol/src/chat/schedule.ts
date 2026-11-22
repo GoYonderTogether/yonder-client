@@ -28,6 +28,8 @@ export interface ScheduleRun {
 export interface Schedule {
 	id: string;
 	conversationId: string;
+	/** The goal this plan belongs to, or `null` for a plan of its own. */
+	goalId: string | null;
 	title: string;
 	instruction: string;
 	action: ScheduleAction;

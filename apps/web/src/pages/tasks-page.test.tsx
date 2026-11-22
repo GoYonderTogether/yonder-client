@@ -1,16 +1,12 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { ApiError } from "@yonder/api-client";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { Schedule } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
 import { TasksList } from "./tasks-page.tsx";
 
-/**
- * A refused pause, resume or delete used to be silent: the hooks only had `onSuccess`. The page now
- * says the server's own reason, the way the create form already did.
- */
+/** The goals tab's list and the inline schedule form; a plan's own actions are in its side panel. */
 const state = vi.hoisted(() => ({
 	schedules: [] as Schedule[],
 	loading: false,
@@ -51,9 +47,14 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	}),
 	useItems: () => ({ data: { pages: [] }, isLoading: false, isError: false }),
 	useContacts: () => ({ data: { items: [] } }),
-	useGoals: () => ({ data: { items: [] } }),
+	useGoals: () => ({ data: { items: [] }, isLoading: false, isError: false }),
 	useChangeGoal: () => ({ mutate: vi.fn(), isPending: false }),
 	useGoalSettings: () => ({ transfer: { isPending: false } }),
+}));
+
+vi.mock("@yonder/ui-shell", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@yonder/ui-shell")>()),
+	useSidePanel: () => ({ open: vi.fn(), push: vi.fn(), back: vi.fn(), close: vi.fn() }),
 }));
 
 const plan: Schedule = {
@@ -75,6 +76,7 @@ const plan: Schedule = {
 	recentRuns: [],
 	createdAt: "2026-11-01T00:00:00.000Z",
 	version: 1,
+	goalId: null,
 };
 
 function show() {
@@ -85,39 +87,13 @@ function show() {
 	);
 }
 
-test("a refused pause says the server's real reason", async () => {
-	state.schedules = [plan];
-	state.failure = new ApiError({ code: "rate_limited", status: 429, message: "rate_limited" });
-	try {
-		show();
-		fireEvent.click(screen.getByRole("button", { name: "Pause" }));
-		await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Too many attempts. Try again later."));
-		expect(state.pause).toHaveBeenCalledWith("sch_1");
-	} finally {
-		state.failure = null;
-	}
-});
-
-test("a refused delete says so too, rather than reporting nothing", async () => {
-	state.schedules = [plan];
-	state.failure = new ApiError({ code: "not_found", status: 404, message: "not_found" });
-	try {
-		show();
-		fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-		await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Not found."));
-		expect(state.remove).toHaveBeenCalledWith("sch_1");
-	} finally {
-		state.failure = null;
-	}
-});
-
-test("the goals tab lists a recurring plan as tracking and keeps a one-off out of it", () => {
+test("the goals tab lists a recurring plan under Schedules and keeps a one-off out of it", () => {
 	state.schedules = [plan, { ...plan, id: "sch_2", title: "一次性提醒", kind: "once" }];
 	state.failure = null;
 	show();
 	expect(screen.getByText("每日摘要")).toBeVisible();
 	expect(screen.queryByText("一次性提醒")).toBeNull();
-	expect(screen.getByText("Tracking")).toBeVisible();
+	expect(screen.getByRole("heading", { name: "Schedules" })).toBeVisible();
 });
 
 for (const pending of ["loading", "loadError"] as const) {

@@ -1,4 +1,4 @@
-import type { Schedule, ScheduleKind } from "@yonder/protocol";
+import type { Schedule, ScheduleKind, ScheduleRunResult } from "@yonder/protocol";
 
 /**
  * How a plan reads on screen. A recurring plan is a wall-clock time in a named zone, so the text is
@@ -108,6 +108,17 @@ export function describePlan(plan: Pick<Schedule, "kind" | "at" | "weekdays" | "
 		.map((day) => t(`tasks.weekday${day}`))
 		.join("、");
 	return `${t("tasks.kindWeekly")} ${days} ${time}`;
+}
+
+/** The word for one firing's outcome, as the goals tab and the side panels show it. */
+export function resultWord(result: ScheduleRunResult, t: Translate): string {
+	return result === "reported"
+		? t("tasks.resultReported")
+		: result === "skipped"
+			? t("tasks.resultSkipped")
+			: result === "failed"
+				? t("tasks.resultFailed")
+				: t("tasks.resultMissed");
 }
 
 /** An absolute instant in the plan's own zone, so "next run" never shows a different hour. */

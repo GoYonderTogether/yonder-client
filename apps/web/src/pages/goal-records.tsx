@@ -1,151 +1,158 @@
-import type { Goal, GoalAction } from "@yonder/protocol";
-import { Button, EmptyState, ListGroup, TextField } from "@yonder/ui-components";
-import { useChangeGoal, useGoalSettings, useGoals } from "@yonder/ui-data";
+import type { Goal, Schedule } from "@yonder/protocol";
+import { Button, EmptyState, ListGroup, ListRow } from "@yonder/ui-components";
+import { ApiError, useGoals, useSchedules } from "@yonder/ui-data";
+import { useSidePanel } from "@yonder/ui-shell";
 import { Target } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BotHandoff } from "./bot-handoff.tsx";
+import { GoalPanel } from "./goal-panel.tsx";
+import { useMinute } from "./memory/memory-format.ts";
+import { relativeTime } from "./memory/memory-who.ts";
+import { describePlan, formatInstant, resultWord } from "./schedule-format.ts";
+import { SchedulePanel } from "./schedule-panel.tsx";
 
-function actions(goal: Goal): GoalAction[] {
-	if (goal.state === "proposed") return ["confirm", "stop"];
-	if (goal.state === "paused") return ["resume", "stop"];
-	if (goal.state !== "active") return [];
-	return goal.system ? ["stop"] : ["pause", "complete", "stop"];
-}
+/** A goal the Bot keeps working on, with its recurring check when it has one. */
+const LIVE = new Set<Goal["state"]>(["proposed", "active", "paused"]);
 
-export function GoalRecords() {
+/**
+ * 「目标」 (11-循环设计-v3 第 5.1 节): what the Bot keeps working on for the owner. Goals still in play,
+ * then recurring plans that belong to no goal, then finished goals folded away. A row says where the
+ * thing stands in one line; everything else opens in the side panel.
+ */
+export function GoalsTab({ creating }: { creating: boolean }) {
 	const { t } = useTranslation();
-	const goals = useGoals();
-	const change = useChangeGoal();
-	const settings = useGoalSettings();
-	const [editing, setEditing] = useState<string | null>(null);
-	return (
-		<ListGroup title={t("tasks.goalsGoals")}>
-			{goals.data?.items.map((goal) => {
-				const available = actions(goal);
-				return (
-					<li
-						key={goal.id}
-						className="flex flex-col gap-[var(--spacing-2)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] last:border-0"
-					>
-						<div className="flex items-start justify-between gap-[var(--spacing-2)]">
-							<span className="text-body text-[var(--color-text-primary)]">{goal.title}</span>
-							<span className="shrink-0 text-caption text-[var(--color-text-secondary)]">
-								{t(`tasks.goalState.${goal.state}`)}
-							</span>
-						</div>
-						<span className="text-caption text-[var(--color-text-secondary)]">{goal.outcome}</span>
-						{goal.progress ? (
-							<span className="text-caption">{t("tasks.goalProgress", { text: goal.progress })}</span>
-						) : null}
-						{goal.nextStep ? (
-							<span className="text-caption">{t("tasks.goalNextStep", { text: goal.nextStep })}</span>
-						) : null}
-						{goal.transfers?.map((transfer) => (
-							<span key={transfer.at} className="text-caption text-[var(--color-text-secondary)]">
-								{t("tasks.handoffHistory", transfer)} · {new Date(transfer.at).toLocaleString()}
-							</span>
-						))}
-						{!goal.system && (goal.state === "paused" || goal.state === "active") ? (
-							<BotHandoff
-								key={goal.botId}
-								goal
-								botId={goal.botId}
-								busy={settings.transfer.isPending}
-								error={settings.transfer.variables?.id === goal.id ? settings.transfer.error : null}
-								onTransfer={(botId) => settings.transfer.mutate({ id: goal.id, botId })}
-							/>
-						) : null}
-						{goal.milestones ? (
-							<span className="text-caption text-[var(--color-text-secondary)]">
-								{t("tasks.goalMilestones", {
-									count: Number(goal.milestones.wrote) + Number(goal.milestones.connected || goal.milestones.planned),
-								})}
-							</span>
-						) : null}
-						{editing === goal.id && goal.state === "active" ? (
-							<form
-								className="flex flex-col gap-[var(--spacing-2)]"
-								onSubmit={(event) => {
-									event.preventDefault();
-									const fields = new FormData(event.currentTarget);
-									const progress = String(fields.get("progress") ?? "").trim();
-									const nextStep = String(fields.get("nextStep") ?? "").trim();
-									if (!progress && !nextStep) return;
-									change.mutate(
-										{
-											id: goal.id,
-											action: "progress",
-											...(progress ? { progress } : {}),
-											...(nextStep ? { nextStep } : {}),
-										},
-										{ onSuccess: () => setEditing(null) },
-									);
-								}}
-							>
-								<TextField
-									label={t("tasks.goalProgressField")}
-									name="progress"
-									maxLength={1000}
-									defaultValue={goal.progress ?? ""}
-								/>
-								<TextField
-									label={t("tasks.goalNextStepField")}
-									name="nextStep"
-									maxLength={500}
-									defaultValue={goal.nextStep ?? ""}
-								/>
-								<div className="flex gap-[var(--spacing-2)]">
-									<Button type="submit" size="sm" disabled={change.isPending}>
-										{t("app.save")}
-									</Button>
-									<Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)}>
-										{t("app.cancel")}
-									</Button>
-								</div>
-							</form>
-						) : available.length ? (
-							<div className="flex flex-wrap gap-[var(--spacing-2)]">
-								{goal.state === "active" && !goal.system ? (
-									<Button variant="secondary" size="sm" disabled={change.isPending} onClick={() => setEditing(goal.id)}>
-										{t("tasks.goalAction.progress")}
-									</Button>
-								) : null}
-								{available.map((action) => (
-									<Button
-										key={action}
-										variant={action === "confirm" ? "primary" : "secondary"}
-										size="sm"
-										disabled={change.isPending}
-										onClick={() => change.mutate({ id: goal.id, action })}
-									>
-										{t(`tasks.goalAction.${action}`)}
-									</Button>
-								))}
-							</div>
-						) : null}
-					</li>
-				);
-			})}
-			{goals.isLoading ? (
+	const goalsQuery = useGoals();
+	const schedulesQuery = useSchedules();
+	const side = useSidePanel();
+	const [doneOpen, setDoneOpen] = useState(false);
+	if (goalsQuery.isLoading && !goalsQuery.data)
+		return (
+			<ListGroup>
 				<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">{t("app.loading")}</li>
-			) : null}
-			{goals.data?.items.length === 0 && !goals.isLoading && !goals.isError ? (
-				<EmptyState as="li" icon={<Target size={24} strokeWidth={1.6} />} title={t("tasks.goalsEmptyGoals")} />
-			) : null}
-			{goals.isError ? (
-				<li className="p-[var(--spacing-4)] text-caption">
-					<span role="alert">{t("app.loadFailed")}</span>{" "}
-					<Button variant="link" size="sm" onClick={() => void goals.refetch()}>
+			</ListGroup>
+		);
+	const failed = (goalsQuery.isError && !goalsQuery.data) || (schedulesQuery.isError && !schedulesQuery.data);
+	const failure = goalsQuery.error ?? schedulesQuery.error;
+	const goals = (goalsQuery.data?.items ?? []).filter((goal) => !goal.system);
+	const schedules = schedulesQuery.data?.items ?? [];
+	const live = goals
+		.filter((goal) => LIVE.has(goal.state))
+		.sort((left, right) => Number(right.state === "proposed") - Number(left.state === "proposed"));
+	const done = goals.filter((goal) => !LIVE.has(goal.state));
+	const plans = schedules.filter((plan) => plan.kind !== "once" && !plan.goalId);
+	const openGoal = (goal: Goal) =>
+		side.open({ key: `goal:${goal.id}`, title: goal.title, content: <GoalPanel goalId={goal.id} /> });
+	const openPlan = (plan: Schedule) =>
+		side.open({ key: `schedule:${plan.id}`, title: plan.title, content: <SchedulePanel scheduleId={plan.id} /> });
+	return (
+		<div className="flex flex-col gap-[var(--spacing-4)] py-[var(--spacing-3)]">
+			{failed ? (
+				<p
+					role="alert"
+					className="flex items-center gap-[var(--spacing-2)] px-[var(--spacing-2)] text-caption text-[var(--color-danger)]"
+				>
+					{failure instanceof ApiError ? t(failure.messageKey) : t("app.loadFailed")}
+					<Button
+						variant="link"
+						size="sm"
+						onClick={() => void Promise.all([goalsQuery.refetch(), schedulesQuery.refetch()])}
+					>
 						{t("app.retry")}
 					</Button>
-				</li>
+				</p>
 			) : null}
-			{change.isError ? (
-				<li role="alert" className="p-[var(--spacing-4)] text-caption text-[var(--color-danger)]">
-					{t("tasks.actionFailed")}
-				</li>
+			{live.length ? (
+				<ListGroup title={t("tasks.groupActive")}>
+					{live.map((goal) => (
+						<GoalRow key={goal.id} goal={goal} schedules={schedules} trailing onOpen={() => openGoal(goal)} />
+					))}
+				</ListGroup>
 			) : null}
-		</ListGroup>
+			{plans.length ? (
+				<ListGroup title={t("tasks.groupSchedules")}>
+					{plans.map((plan) => (
+						<PlanRow key={plan.id} plan={plan} onOpen={() => openPlan(plan)} />
+					))}
+				</ListGroup>
+			) : null}
+			{done.length ? (
+				<ListGroup>
+					<ListRow
+						title={t("tasks.groupDone", { count: done.length })}
+						aria-expanded={doneOpen}
+						onClick={() => setDoneOpen((open) => !open)}
+					/>
+					{doneOpen
+						? done.map((goal) => (
+								<GoalRow key={goal.id} goal={goal} schedules={schedules} onOpen={() => openGoal(goal)} />
+							))
+						: null}
+				</ListGroup>
+			) : null}
+			{!live.length && !plans.length && !creating && !failed ? (
+				<ListGroup>
+					<EmptyState as="li" icon={<Target size={24} strokeWidth={1.6} />} title={t("tasks.goalsEmptyGoals")} />
+				</ListGroup>
+			) : null}
+		</div>
+	);
+}
+
+function GoalRow({
+	goal,
+	schedules,
+	trailing = false,
+	onOpen,
+}: {
+	goal: Goal;
+	schedules: readonly Schedule[];
+	trailing?: boolean;
+	onOpen: () => void;
+}) {
+	const { t, i18n } = useTranslation();
+	const locale = i18n.resolvedLanguage ?? i18n.language;
+	const now = useMinute();
+	const ago = (iso: string) => relativeTime(iso, now, locale, t("memory.justNow"));
+	const check = schedules.find((plan) => plan.goalId === goal.id && plan.kind !== "once");
+	let subtitle: string;
+	if (check) {
+		const parts = [
+			check.nextRunAt ? t("tasks.nextCheck", { at: formatInstant(check.timezone, check.nextRunAt, locale) }) : null,
+			check.lastRunAt && check.lastResult
+				? t("tasks.lastCheck", { result: resultWord(check.lastResult, t), when: ago(check.lastRunAt) })
+				: null,
+		].filter(Boolean);
+		subtitle = parts.length ? parts.join(" · ") : goal.outcome;
+	} else if (goal.progress) {
+		subtitle = `${goal.progress.split("\n")[0]?.trim() ?? ""} · ${ago(goal.changedAt)}`;
+	} else {
+		subtitle = goal.outcome;
+	}
+	const state = trailing && (goal.state === "proposed" || goal.state === "paused") ? goal.state : null;
+	return (
+		<ListRow
+			title={goal.title}
+			subtitle={subtitle}
+			trailing={state ? t(`tasks.goalState.${state}`) : undefined}
+			chevron
+			onClick={onOpen}
+		/>
+	);
+}
+
+function PlanRow({ plan, onOpen }: { plan: Schedule; onOpen: () => void }) {
+	const { t, i18n } = useTranslation();
+	const locale = i18n.resolvedLanguage ?? i18n.language;
+	const next = plan.nextRunAt
+		? ` · ${t("tasks.nextRun", { at: formatInstant(plan.timezone, plan.nextRunAt, locale) })}`
+		: "";
+	return (
+		<ListRow
+			title={plan.title}
+			subtitle={`${describePlan(plan, t)}${next}`}
+			trailing={plan.status === "paused" ? t("tasks.goalState.paused") : undefined}
+			chevron
+			onClick={onOpen}
+		/>
 	);
 }
