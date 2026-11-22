@@ -270,6 +270,9 @@ async function mockShell(page: Page, userAgent: string) {
 	await page.addInitScript((userAgent) => {
 		const opens: string[] = [];
 		Object.defineProperty(navigator, "userAgent", { value: userAgent });
+		if (/iPhone|iPad|Android/i.test(userAgent)) {
+			localStorage.setItem("dev.yonder.desktop.refresh-token", "isolated-commerce-shell");
+		}
 		Object.assign(window, {
 			commerceBrowserOpens: opens,
 			__TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
