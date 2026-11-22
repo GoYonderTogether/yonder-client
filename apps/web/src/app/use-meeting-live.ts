@@ -1,5 +1,5 @@
 import { NetworkError } from "@yonder/api-client";
-import type { MeetingRecorderController } from "@yonder/feature-meetings";
+import type { MeetingRecorderController, MeetingRecording } from "@yonder/feature-meetings";
 import { keys, useData, useDataQueryClient } from "@yonder/ui-data";
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { drainMeetingPhotos, listMeetingPhotos } from "../lib/meeting-photos.ts";
@@ -54,25 +54,61 @@ export function useMeetingLive(ownerId: string | null, recorder: MeetingRecorder
 	}, [ownerId, recorder.state.recordings]);
 	const [snapshot, setSnapshot] = useState<{ ownerId: string; recordingId: string; status: MeetingLiveStatus }>();
 	const run = useEffectEvent(
-		async (id: string, signal: AbortSignal, ids: Map<string, string>, retry: Map<string, number>) => {
+		(
+			id: string,
+			signal: AbortSignal,
+			ids: Map<string, string>,
+			retry: Map<string, number>,
+			inFlight: Set<string>,
+			backlogCursor: { after: string | null },
+		) => {
 			const { ready, state } = latest.current;
-			if (!ready || !state.supported) return;
-			const records = [...state.recordings].sort(
-				(a, b) => Number(b.id === state.activeId) - Number(a.id === state.activeId),
+			if (owner.current !== id || signal.aborted || !ready || !state.supported) return;
+			const now = Date.now();
+			const submittedKey = (recordingId: string) => `meeting-live-submitted.${id}.${recordingId}`;
+			const waiting = state.recordings.filter(
+				(recording) =>
+					recording.ownerId === id &&
+					recording.conversationId &&
+					recording.transportMode &&
+					!inFlight.has(recording.id) &&
+					(retry.get(recording.id) ?? 0) <= now &&
+					storage.get(submittedKey(recording.id)) !== "1",
 			);
 			function assertOwner() {
 				if (owner.current !== id) throw new Error("owner_mismatch");
 				signal.throwIfAborted();
 			}
-			for (const recording of records) {
+			function launch(recording: MeetingRecording) {
+				inFlight.add(recording.id);
+				void syncRecording(recording).finally(() => inFlight.delete(recording.id));
+			}
+			// Keep one slot for current audio and one for older work. An already-running old
+			// recording counts as backlog when capture changes; don't restart it or upload twice.
+			const active = waiting.find((recording) => recording.id === state.activeId);
+			if (active && inFlight.size < 2) launch(active);
+			if (inFlight.size < 2 && !Array.from(inFlight).some((recordingId) => recordingId !== state.activeId)) {
+				const backlog = waiting.filter((recording) => recording.id !== state.activeId);
+				const previous = backlog.findIndex((recording) => recording.id === backlogCursor.after);
+				const next = backlog[previous + 1] ?? backlog[0];
+				if (next) {
+					backlogCursor.after = next.id;
+					launch(next);
+				}
+			}
+
+			async function syncRecording(recording: MeetingRecording) {
 				const { conversationId } = recording;
-				if (recording.ownerId !== id || !conversationId || !recording.transportMode) continue;
-				const key = `meeting-live-submitted.${id}.${recording.id}`;
-				if (storage.get(key) === "1" || (retry.get(recording.id) ?? 0) > Date.now()) continue;
-				const current = () => recording.transportMode === "live" && latest.current.state.activeId === recording.id;
+				if (!conversationId) return;
+				const current = () =>
+					owner.current === id &&
+					!signal.aborted &&
+					recording.transportMode === "live" &&
+					latest.current.state.activeId === recording.id;
 				function updateStatus(update: (status: MeetingLiveStatus) => MeetingLiveStatus) {
 					if (!current()) return;
 					setSnapshot((previous) => {
+						if (!current()) return previous;
 						const matching = previous?.ownerId === id && previous.recordingId === recording.id ? previous : undefined;
 						const status = update(matching?.status ?? EMPTY);
 						return matching?.status === status ? matching : { ownerId: id, recordingId: recording.id, status };
@@ -85,7 +121,7 @@ export function useMeetingLive(ownerId: string | null, recorder: MeetingRecorder
 					const localPhotoCount = noAudioEnded ? (await listMeetingPhotos(id, recording.id)).length : 0;
 					if (!shouldSyncMeeting(recording, Date.now(), localPhotoCount)) {
 						if (noAudioEnded) retry.set(recording.id, Date.now() + 4000);
-						continue;
+						return;
 					}
 					const done = await syncMeetingLive({
 						api,
@@ -138,7 +174,7 @@ export function useMeetingLive(ownerId: string | null, recorder: MeetingRecorder
 						status.offline || status.syncFailed ? { ...status, offline: false, syncFailed: false } : status,
 					);
 					if (done) {
-						storage.set(key, "1");
+						storage.set(submittedKey(recording.id), "1");
 						ids.delete(recording.id);
 						retry.delete(recording.id);
 						interruptions.current.delete(recording.id);
@@ -161,24 +197,20 @@ export function useMeetingLive(ownerId: string | null, recorder: MeetingRecorder
 		const controller = new AbortController();
 		const ids = new Map<string, string>();
 		const retry = new Map<string, number>();
+		const inFlight = new Set<string>();
+		const backlogCursor = { after: null as string | null };
 		let timer: ReturnType<typeof setTimeout>;
-		let running = false;
-		async function tick() {
-			if (controller.signal.aborted || running) return;
-			running = true;
+		function tick() {
+			if (controller.signal.aborted) return;
 			clearTimeout(timer);
-			try {
-				await run(ownerId as string, controller.signal, ids, retry);
-			} finally {
-				running = false;
-				if (!controller.signal.aborted) timer = setTimeout(() => void tick(), 1000);
-			}
+			run(ownerId as string, controller.signal, ids, retry, inFlight, backlogCursor);
+			timer = setTimeout(tick, 1000);
 		}
 		const reconnect = () => {
 			retry.clear();
-			void tick();
+			tick();
 		};
-		void tick();
+		tick();
 		window.addEventListener("online", reconnect);
 		return () => {
 			controller.abort();
