@@ -1,0 +1,33 @@
+export const questionCardsEn = {
+	back: "Back",
+	next: "Next",
+	submit: "Submit",
+	reply: "Reply",
+	skip: "Skip",
+	skipped: "Skipped",
+	cancelled: "Closed",
+	custom: "Other",
+	timeRemaining: "Time remaining",
+	lateAvailable: "You can still reply",
+	lateAnswer: "Late reply",
+	viewAnswers: "View all answers",
+	collapseAnswers: "Collapse",
+	submitFailed: "Could not send your response. Try again.",
+};
+
+export const questionCardsZhCN = {
+	back: "上一步",
+	next: "下一步",
+	submit: "提交",
+	reply: "回复",
+	skip: "跳过",
+	skipped: "已跳过",
+	cancelled: "已关闭",
+	custom: "自填",
+	timeRemaining: "剩余时间",
+	lateAvailable: "仍可回复",
+	lateAnswer: "补答",
+	viewAnswers: "查看全部回答",
+	collapseAnswers: "收起",
+	submitFailed: "答复发送失败，请重试。",
+};

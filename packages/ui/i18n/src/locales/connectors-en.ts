@@ -2,7 +2,20 @@ export const connectorMessagesEn = {
 	title: "Connectors",
 	requestCardTitle: "Bot requests connector access",
 	requestAllow: "Allow",
-	requestRetry: "Try again",
+	requestDeny: "Don't allow",
+	requestSwitchDevice: "Switch device",
+	requestTitle: {
+		read: "Allow reading files on {{device}}?",
+		write: "Allow modifying files on {{device}}?",
+		both: "Allow reading and modifying files on {{device}}?",
+	},
+	requestScope: {
+		read: "Access covers all files this system account can access until you revoke it.",
+		write: "The Bot can create, edit and recoverably delete files this system account can access until you revoke it.",
+		both: "The Bot can read, find, index on demand, create, edit and recoverably delete files this system account can access until you revoke it.",
+	},
+	requestDetail: "{{reason}} — {{scope}}",
+	requestRetry: "Allow again",
 	requestFailed: "The action did not complete. Try again.",
 	requestState: {
 		pending: "Waiting for you",

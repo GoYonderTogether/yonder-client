@@ -1,0 +1,185 @@
+.interaction-card {
+	box-sizing: border-box;
+	display: flex;
+	width: 100%;
+	max-width: var(--width-form);
+	min-width: 0;
+	flex-direction: column;
+	gap: var(--spacing-3);
+	padding: var(--spacing-4);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-card);
+	background: var(--color-bg-card);
+	color: var(--color-text-primary);
+}
+
+.interaction-card-header {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--spacing-3);
+}
+
+.interaction-card-glyph {
+	display: flex;
+	flex: 0 0 var(--control-sm);
+	height: var(--control-sm);
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--radius-control-sm);
+	background: var(--color-accent-subtle);
+	color: var(--color-accent-text);
+}
+
+.interaction-card-heading {
+	flex: 1;
+	min-width: 0;
+}
+
+.interaction-card-title-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--spacing-1) var(--spacing-2);
+}
+
+.interaction-card-title {
+	min-width: 0;
+	margin: 0;
+	color: var(--color-text-primary);
+	font-size: var(--text-h3);
+	font-weight: var(--font-weight-semibold);
+	line-height: var(--text-h3--line-height);
+	overflow-wrap: anywhere;
+}
+
+.interaction-card-marker,
+.interaction-card-detail,
+.interaction-card-status {
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+	font-weight: var(--font-weight-normal);
+	line-height: var(--text-caption--line-height);
+	overflow-wrap: anywhere;
+}
+
+.interaction-card-marker {
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.interaction-card-detail {
+	margin-block-start: var(--spacing-1);
+}
+
+.interaction-card-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: var(--spacing-2);
+}
+
+.interaction-card-choices,
+.interaction-card-result,
+.interaction-card-figure {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: var(--spacing-2);
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.interaction-card-choice {
+	box-sizing: border-box;
+	display: flex;
+	width: 100%;
+	min-height: var(--control-md);
+	align-items: flex-start;
+	gap: var(--spacing-2);
+	margin: 0;
+	padding: var(--spacing-2) var(--spacing-3);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-control-sm);
+	background: var(--color-bg-card);
+	color: var(--color-text-primary);
+	font-size: var(--text-body);
+	line-height: var(--text-body--line-height);
+	text-align: start;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.interaction-card-choice::after {
+	border: 0;
+}
+
+.interaction-card-choice-selected {
+	border-color: var(--color-accent);
+	background: var(--color-accent-subtle);
+}
+
+.interaction-card-device-list {
+	max-height: min(45vh, calc(var(--control-lg) * 4 + var(--spacing-2) * 3));
+	min-width: 0;
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+}
+
+.interaction-card-device-list .interaction-card-choice {
+	flex: none;
+	align-items: center;
+}
+
+.interaction-card-device-name {
+	min-width: 0;
+	flex: 1;
+	overflow-wrap: anywhere;
+	white-space: normal;
+}
+
+.interaction-card-field {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	min-height: var(--control-md);
+	padding: var(--spacing-2) var(--spacing-3);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-control-sm);
+	background: var(--color-bg-card);
+	color: var(--color-text-primary);
+	font-size: var(--text-body);
+	line-height: var(--text-body--line-height);
+}
+
+.interaction-card-answer {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--spacing-2);
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+.interaction-card-answer-icon {
+	flex: none;
+	color: var(--color-accent-text);
+}
+
+.interaction-card-breakdown {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-2);
+	margin: 0;
+	padding: var(--spacing-2) 0 0;
+	border-top: 1px solid var(--color-border-subtle);
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+@media (pointer: coarse) {
+	.interaction-card-choice,
+	.interaction-card-field {
+		min-height: var(--control-lg);
+	}
+}

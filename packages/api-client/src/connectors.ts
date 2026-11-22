@@ -19,8 +19,8 @@ export function connectorEndpoints(client: ApiClient) {
 			return client.request(`/v1/connector-requests/${encodeURIComponent(id)}`);
 		},
 		/**
-		 * Any signed-in session may allow it; without a device the server picks one or answers 409.
-		 * `connectorIds` is what the user saw on the card: the server refuses a card that changed.
+		 * Any signed-in session may allow it by sending the device and connector IDs that the user confirmed.
+		 * The server refuses a missing device or a changed connector set.
 		 */
 		confirmConnectorRequest(
 			id: string,

@@ -2,7 +2,20 @@ export const connectorMessagesZhCN = {
 	title: "连接器",
 	requestCardTitle: "Bot 请求连接器授权",
 	requestAllow: "允许",
-	requestRetry: "重试",
+	requestDeny: "不允许",
+	requestSwitchDevice: "切换设备",
+	requestTitle: {
+		read: "允许读取 {{device}} 上的文件？",
+		write: "允许修改 {{device}} 上的文件？",
+		both: "允许读取和修改 {{device}} 上的文件？",
+	},
+	requestScope: {
+		read: "权限覆盖该系统账号可访问的全部文件，直至你撤回。",
+		write: "可创建、编辑和可恢复删除该系统账号可访问的文件，直至你撤回。",
+		both: "可读取、查找、按需索引、创建、编辑和可恢复删除该系统账号可访问的文件，直至你撤回。",
+	},
+	requestDetail: "{{reason}}，{{scope}}",
+	requestRetry: "重新允许",
 	requestFailed: "操作没有完成，请重试。",
 	requestState: {
 		pending: "等待你的确认",

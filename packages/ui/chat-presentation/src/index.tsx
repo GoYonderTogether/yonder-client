@@ -1,7 +1,9 @@
 import "./styles.css";
 import "./message.css";
 import "./option-card.css";
+import "./interaction-card.css";
 
+export { InteractionCard, InteractionCardActions, useQuestionCountdown } from "./interaction-card.tsx";
 export { type ChatTextHost, StreamingText } from "./streaming-text.tsx";
 
 import { type MarkdownToJSX, parser } from "markdown-to-jsx";

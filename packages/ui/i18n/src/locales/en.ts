@@ -12,6 +12,7 @@ import { memoryMessagesEn } from "./memory-en.ts";
 import { messagesEn } from "./messages.ts";
 import { modelMessagesEn } from "./models-en.ts";
 import { pricingMessagesEn } from "./pricing-en.ts";
+import { questionCardsEn } from "./question-cards.ts";
 import { setupMessagesEn } from "./setup-en.ts";
 import { skillMessagesEn } from "./skills-en.ts";
 import { trayEn } from "./tray-en.ts";
@@ -26,6 +27,7 @@ export const en = {
 	channels: channelsEn,
 	composerAttachments: composerAttachmentsEn,
 	connectors: connectorMessagesEn,
+	questionCards: questionCardsEn,
 	inviteExperience: inviteExperienceEn,
 	friendQr: friendQrEn,
 	landingPage: landingPageEn,

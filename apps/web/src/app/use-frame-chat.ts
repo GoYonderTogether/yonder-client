@@ -34,7 +34,7 @@ export function useFrameChat({
 	const compact = useCompactConversation(target?.id);
 	const streaming = history.data?.pages
 		.flatMap((page) => page.items)
-		.findLast((message) => message.senderKind === "bot" && message.streaming);
+		.findLast((message) => message.senderKind === "bot" && message.streaming && !message.questionCard);
 	const hasBot = creating || (target?.members.some((member) => member.kind === "bot") ?? false);
 
 	async function submit(voice?: File) {

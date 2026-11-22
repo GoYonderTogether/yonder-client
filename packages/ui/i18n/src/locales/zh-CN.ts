@@ -13,6 +13,7 @@ import { memoryMessagesZhCN } from "./memory-zh-CN.ts";
 import { messagesZhCN } from "./messages.ts";
 import { modelMessagesZhCN } from "./models-zh-CN.ts";
 import { pricingMessagesZhCN } from "./pricing-zh-CN.ts";
+import { questionCardsZhCN } from "./question-cards.ts";
 import { setupMessagesZhCN } from "./setup-zh-CN.ts";
 import { skillMessagesZhCN } from "./skills-zh-CN.ts";
 import { trayZhCN } from "./tray-zh-CN.ts";
@@ -28,6 +29,7 @@ export const zhCN: Messages = {
 	channels: channelsZhCN,
 	composerAttachments: composerAttachmentsZhCN,
 	connectors: connectorMessagesZhCN,
+	questionCards: questionCardsZhCN,
 	inviteExperience: inviteExperienceZhCN,
 	friendQr: friendQrZhCN,
 	landingPage: landingPageZhCN,

@@ -1,5 +1,11 @@
 import { Text, View } from "@tarojs/components";
-import { type MessageBlock, optionCardAttachments, type optionCardState, ownedBotFor } from "@yonder/chat-model";
+import {
+	attachmentsOutsideQuestionCard,
+	type MessageBlock,
+	optionCardAttachments,
+	type optionCardState,
+	ownedBotFor,
+} from "@yonder/chat-model";
 import { MessageAttachmentsFrame, MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
 import type { Member } from "@yonder/protocol";
 import type { ReactNode } from "react";
@@ -11,10 +17,12 @@ import { client } from "../../lib/runtime";
 import { MessageAttachment } from "./attachment";
 import { ChatAvatar } from "./avatar";
 import { senderBotId } from "./bot-entry";
+import { ConnectorRequestCard } from "./connector-request-card";
 import { ChatView } from "./host";
 import { MessageBody } from "./markdown";
 import { MessageSources } from "./message-sources";
 import { MessageOptions } from "./option-card";
+import { QuestionMessageCard } from "./question-card";
 import { runFailureText, systemText } from "./sentences";
 import type { useChat } from "./use-chat";
 import { VoiceMessage } from "./voice-message";
@@ -134,7 +142,8 @@ export function renderMessageBlock(
 				}
 			>
 				{run.map((message) => {
-					const { attachments, images } = optionCardAttachments(message);
+					const { attachments: legacyAttachments, images } = optionCardAttachments(message);
+					const attachments = message.questionCard ? attachmentsOutsideQuestionCard(message) : legacyAttachments;
 					const file = attachments.length === 1 ? attachments[0] : undefined;
 					const voice = file?.kind === "audio" ? message.voice : undefined;
 					const reply = optionCards.replies.get(message.id);
@@ -145,7 +154,17 @@ export function renderMessageBlock(
 							id={`message-${message.id}`}
 							key={message.id}
 						>
-							{message.options?.length ? (
+							{message.connectorRequestId ? (
+								<ConnectorRequestCard key={message.connectorRequestId} id={message.connectorRequestId} />
+							) : message.questionCard && chat.me ? (
+								<QuestionMessageCard
+									key={`${chat.me.member.id}:${message.id}`}
+									message={message}
+									card={message.questionCard}
+									ownerId={chat.me.member.id}
+									onMessages={chat.applyQuestionMessages}
+								/>
+							) : message.options?.length ? (
 								<MessageOptions
 									question={message.body}
 									options={message.options}
@@ -164,6 +183,9 @@ export function renderMessageBlock(
 								<VoiceMessage key={file.id} fileId={file.id} durationMs={voice.durationMs} self={self} />
 							) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 								<MessageBubble as={ChatView} self={self}>
+									{message.questionReply?.question ? (
+										<Text className="mini-question-quote">{message.questionReply.question.replace(/\n/g, " · ")}</Text>
+									) : null}
 									{message.body ? (
 										<MessageBody body={message.body} streaming={message.streaming} />
 									) : (

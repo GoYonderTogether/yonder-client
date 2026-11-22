@@ -131,6 +131,54 @@
 	padding: 0 var(--spacing-4) var(--spacing-4);
 }
 
+.interaction-card .mini-button {
+	width: auto;
+	min-width: var(--control-md);
+	margin: 0;
+	font-size: var(--text-caption);
+}
+
+.mini-connector-lock {
+	display: block;
+	width: var(--icon-sm);
+	height: var(--icon-sm);
+	mask: url("../memory/icons/lock-keyhole.svg") center / contain no-repeat;
+	background: currentColor;
+}
+
+.mini-question-choice-control {
+	flex: none;
+	margin-block-start: var(--spacing-hair);
+}
+
+.mini-question-choice-body {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+	gap: var(--spacing-2);
+}
+
+.mini-question-choice-body .message-option-image {
+	height: calc(var(--control-lg) * 2);
+}
+
+.mini-question-textarea {
+	height: var(--spacing-16);
+}
+
+.mini-question-quote {
+	display: block;
+	overflow: hidden;
+	margin-block-end: var(--spacing-2);
+	padding-inline-start: var(--spacing-2);
+	border-inline-start: 2px solid var(--color-border-subtle);
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .mini-chat-run {
 	min-width: 0;
 	margin-block: var(--spacing-4);

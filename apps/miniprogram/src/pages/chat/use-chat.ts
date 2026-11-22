@@ -199,6 +199,11 @@ export function useChat(id: string) {
 		},
 		[load],
 	);
+	const applyQuestionMessages = (card: Message, reply?: Message) => {
+		if (!active.current || messagesOwner.current !== outboxKey || card.conversationId !== id) return;
+		acceptMessage(card);
+		if (reply && reply.conversationId === id) acceptMessage(reply);
+	};
 	useEffect(() => {
 		void revision;
 		void load();
@@ -386,6 +391,7 @@ export function useChat(id: string) {
 		olderLoading: messagesOwner.current === outboxKey && olderLoading,
 		sending: messagesOwner.current === outboxKey && sending,
 		load,
+		applyQuestionMessages,
 		send,
 		action,
 		visitAction,

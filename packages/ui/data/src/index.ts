@@ -86,6 +86,7 @@ export {
 } from "./hooks/memory.ts";
 export { usePrivacy, useUpdatePrivacy } from "./hooks/privacy.ts";
 export { useProviderActions, useProviders } from "./hooks/providers.ts";
+export { useQuestionCardAction } from "./hooks/question-cards.ts";
 export {
 	useInvite,
 	useQuota,

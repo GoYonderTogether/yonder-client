@@ -166,6 +166,8 @@ export interface Message {
 	channelAttemptId?: string;
 	outwardDraft?: boolean;
 	options?: string[];
+	questionCard?: import("./questions.ts").QuestionCard;
+	questionReply?: { question: string };
 	/** Image attachment IDs aligned with options, with null for text-only rows. */
 	optionImageIds?: (string | null)[];
 	id: string;
