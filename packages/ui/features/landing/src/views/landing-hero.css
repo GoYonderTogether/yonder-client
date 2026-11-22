@@ -96,6 +96,42 @@
 	justify-content: center;
 }
 
+.lp-download-split {
+	display: flex;
+}
+
+.lp-download-split .lp-download-main {
+	flex: 1;
+	border-start-end-radius: 0;
+	border-end-end-radius: 0;
+}
+
+.lp-download-split .lp-download-toggle {
+	min-width: var(--lp-control-s);
+	padding-inline: var(--spacing-2);
+	border-inline-start: 1px solid var(--lp-line-strong);
+	border-start-start-radius: 0;
+	border-end-start-radius: 0;
+}
+
+@media (max-width: 40rem) {
+	.lp-download-split {
+		position: relative;
+	}
+
+	.lp-download-split .lp-download-menu {
+		position: static;
+	}
+
+	.lp-download-menu > [role="menu"] {
+		inset-inline: 50% auto;
+		transform: translateX(-50%);
+		min-inline-size: 0;
+		inline-size: max-content;
+		max-inline-size: calc(100vw - 2 * var(--lp-gutter));
+	}
+}
+
 /* The demo track: tall when motion runs, so the pinned chat can play against the scroll. */
 .lp-demo {
 	position: relative;

@@ -19,7 +19,12 @@ export function LandingPage() {
 	}, [booting, status]);
 
 	if ((booting || status === "unknown") && (isTauri() || !waited)) return <Splash />;
-	if (status === "signed-in") return <Navigate to={defaultMessagePath()} replace />;
-	if (isTauri()) return <Navigate to="/sign-in" replace />;
-	return <LandingView version={BUILD_VERSION} iosUrl={import.meta.env.VITE_IOS_DOWNLOAD_URL ?? ""} />;
+	if (isTauri()) return <Navigate to={status === "signed-in" ? defaultMessagePath() : "/sign-in"} replace />;
+	return (
+		<LandingView
+			version={BUILD_VERSION}
+			iosUrl={import.meta.env.VITE_IOS_DOWNLOAD_URL ?? ""}
+			appPath={status === "signed-in" ? defaultMessagePath() : null}
+		/>
+	);
 }

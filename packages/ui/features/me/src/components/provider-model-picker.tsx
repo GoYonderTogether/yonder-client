@@ -5,21 +5,16 @@ import { useTranslation } from "react-i18next";
 export function ProviderModelPicker({
 	available,
 	selected,
-	hasMetadata,
 	onChange,
 }: {
 	available: string[];
 	selected: string[];
-	hasMetadata: boolean;
 	onChange: (ids: string[]) => void;
 }) {
 	const { t } = useTranslation();
 	const [selectedOnly, setSelectedOnly] = useState(false);
 	return (
 		<div className="flex flex-col gap-[var(--spacing-2)]">
-			{hasMetadata ? (
-				<p className="text-caption text-[var(--color-text-secondary)]">{t("models.metadataSource")}</p>
-			) : null}
 			<div className="flex flex-wrap gap-[var(--spacing-4)]">
 				<Checkbox
 					checked={available.every((id) => selected.includes(id))}

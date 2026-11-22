@@ -6,6 +6,7 @@ export type FieldSize = "sm" | "md" | "lg";
 
 export interface FieldProps {
 	label: string;
+	requiredMark?: boolean | undefined;
 	hint?: ReactNode;
 	error?: ReactNode;
 	htmlFor: string;
@@ -13,12 +14,17 @@ export interface FieldProps {
 	action?: ReactNode;
 }
 
-export function Field({ label, hint, error, htmlFor, children, action }: FieldProps) {
+export function Field({ label, hint, error, htmlFor, children, action, requiredMark }: FieldProps) {
 	return (
 		<div className="flex flex-col gap-[var(--spacing-2)]">
 			<div className="flex items-center justify-between gap-[var(--spacing-3)]">
 				<label htmlFor={htmlFor} className="text-caption font-medium text-[var(--color-text-secondary)]">
 					{label}
+					{requiredMark ? (
+						<span aria-hidden="true" className="ms-[var(--spacing-1)] text-[var(--color-danger)]">
+							*
+						</span>
+					) : null}
 				</label>
 				{action}
 			</div>
@@ -116,6 +122,7 @@ export function TextInput({
 
 export interface TextFieldProps extends TextInputProps {
 	label: string;
+	requiredMark?: boolean | undefined;
 	hint?: ReactNode;
 	error?: ReactNode;
 	action?: ReactNode;
@@ -123,6 +130,7 @@ export interface TextFieldProps extends TextInputProps {
 
 export function TextField({
 	label,
+	requiredMark,
 	hint,
 	error,
 	action,
@@ -134,7 +142,7 @@ export function TextField({
 	const generated = useId();
 	const inputId = id ?? generated;
 	return (
-		<Field label={label} hint={hint} error={error} action={action} htmlFor={inputId}>
+		<Field label={label} hint={hint} error={error} action={action} htmlFor={inputId} requiredMark={requiredMark}>
 			<TextInput
 				id={inputId}
 				invalid={invalid || Boolean(error)}

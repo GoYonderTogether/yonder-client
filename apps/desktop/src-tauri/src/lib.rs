@@ -5,6 +5,13 @@ mod apple_resources;
 
 mod device_download;
 mod device_info;
+#[cfg(desktop)]
+mod device_model;
+#[cfg(desktop)]
+mod device_model_http;
+
+#[cfg(desktop)]
+mod desktop_credentials;
 
 #[cfg(target_os = "ios")]
 mod ios_chat_attachments;
@@ -57,9 +64,8 @@ mod keyboard_ios;
 /// "does not include required runtime symbols". It is a no-op on desktop, where `src/main.rs`
 /// calls `run()` directly.
 ///
-/// On desktop the keyring plugin is the one capability the shell adds beyond a window: the refresh
-/// token is kept in the OS credential store rather than in the webview's storage. The plugin does not
-/// exist on mobile; see apps/web/src/lib/keychain.ts for what the mobile shells do instead.
+/// On desktop the refresh token is kept in the OS credential store; see
+/// apps/web/src/lib/keychain.ts for what the mobile shells do instead.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -97,11 +103,19 @@ pub fn run() {
             local_files::local_files_cancel,
             local_files::local_files_revoke,
             local_files::local_files_ready,
-            local_files::local_files_execute
+            local_files::local_files_execute,
+            device_model::device_model_activate,
+            device_model::device_model_reset,
+            desktop_credentials::get_desktop_refresh_token,
+            desktop_credentials::set_desktop_refresh_token,
+            device_model::device_model_register,
+            device_model::device_model_set_key,
+            device_model::device_model_ready,
+            device_model::device_model_execute,
+            device_model::device_model_cancel
         ])
         .manage(local_files_store::LocalFilesState::default())
-
-        .plugin(tauri_plugin_keyring::init())
+        .manage(device_model::DeviceModelState::default())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init());
     let app = builder

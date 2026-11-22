@@ -12,6 +12,8 @@ export const connectDeviceDownloadEn = {
 
 /** Landing page copy. People, conversations and figures on the page are illustrative scenes; the footer says so. */
 export const landingPageEn = {
+	openApp: "Open app",
+	downloadOptions: "Download options",
 	nav: {
 		label: "Page sections",
 		chores: "Chores",

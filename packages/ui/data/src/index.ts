@@ -84,7 +84,7 @@ export {
 	useMemoryFiles,
 } from "./hooks/memory.ts";
 export { usePrivacy, useUpdatePrivacy } from "./hooks/privacy.ts";
-export { useProviderActions, useProviders } from "./hooks/providers.ts";
+export { useProviderActions, useProviderDeviceEndpoints, useProviders } from "./hooks/providers.ts";
 export {
 	useInvite,
 	useQuota,

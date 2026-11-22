@@ -7,10 +7,7 @@
 	"app": {
 		"windows": [],
 		"security": {
-			"capabilities": [
-				{ "identifier": "test", "windows": ["main", "add-contacts"], "permissions": ["core:default"] },
-				{ "identifier": "test-keychain", "windows": ["main"], "permissions": ["keyring:default"] }
-			]
+			"capabilities": [{ "identifier": "test", "windows": ["main", "add-contacts"], "permissions": ["core:default"] }]
 		}
 	}
 }

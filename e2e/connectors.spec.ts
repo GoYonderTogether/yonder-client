@@ -232,7 +232,7 @@ for (const platform of ["ios", "macos"] as const) {
 					transformCallback: () => 1,
 					unregisterCallback() {},
 					invoke: async (command: string, args: { connections?: unknown[] }) => {
-						if (command.endsWith("get_password")) return "apple-connector-browser-fixture";
+						if (command === "get_desktop_refresh_token") return "apple-connector-browser-fixture";
 						if (!command.startsWith("plugin:yonder-apple-resources|")) return null;
 						const action = command.split("|")[1];
 						if (action === "statuses")
