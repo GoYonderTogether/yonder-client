@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { useId } from "react";
 import { cn } from "../cn.ts";
-import { HIDE_WITH_ROW_ACTIONS, type RowAction, RowActionItem } from "./row-action-item.tsx";
+import { type RowAction, RowActionItem } from "./row-action-item.tsx";
 
 /**
  * Settings sections (docs/settings-forms.md): a semibold title, a solid hairline under it, rows
@@ -133,14 +133,7 @@ export function ListRow({
 					) : null}
 				</span>
 				{trailing ? (
-					<span
-						className={cn(
-							"max-w-[55%] shrink-0 truncate text-body text-[var(--color-text-tertiary)]",
-							HIDE_WITH_ROW_ACTIONS,
-						)}
-					>
-						{trailing}
-					</span>
+					<span className="max-w-[55%] shrink-0 truncate text-body text-[var(--color-text-tertiary)]">{trailing}</span>
 				) : null}
 				{chevron ? <Chevron /> : null}
 			</button>
@@ -329,7 +322,7 @@ function Chevron() {
 			viewBox="0 0 16 16"
 			fill="none"
 			aria-hidden="true"
-			className={cn("shrink-0 text-[var(--color-text-tertiary)]", HIDE_WITH_ROW_ACTIONS)}
+			className="shrink-0 text-[var(--color-text-tertiary)]"
 		>
 			<path d="m6 3 5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
 		</svg>

@@ -1,5 +1,6 @@
 import {
 	type ButtonHTMLAttributes,
+	type CSSProperties,
 	cloneElement,
 	type MouseEvent,
 	type PointerEvent,
@@ -31,8 +32,23 @@ const HOLD_MS = 450;
 const MOVE_SLOP = 8;
 const SWIPE_THRESHOLD = 32;
 const TRANSITION =
-	"motion-safe:transition-[width,transform] motion-safe:duration-[var(--duration-fast)] motion-safe:ease-[var(--ease-standard)]";
-export const HIDE_WITH_ROW_ACTIONS = "group-data-[actions-revealed]/action-row:hidden";
+	"motion-safe:transition-transform motion-safe:duration-[var(--duration-fast)] motion-safe:ease-[var(--ease-standard)]";
+
+interface RowGesture {
+	id: number;
+	x: number;
+	y: number;
+	lastX: number;
+	origin: number;
+	offset: number;
+	width: number;
+	wasExpanded: boolean;
+	mode: "pending" | "vertical" | "horizontal" | "hold";
+}
+
+function clampOffset(offset: number, width: number) {
+	return Math.max(0, Math.min(width, offset));
+}
 
 export function RowActionItem({ actions, className, children }: RowActionItemProps) {
 	if (!actions?.length) return <li className={className}>{children}</li>;
@@ -52,13 +68,7 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 	const [drag, setDrag] = useState<number | null>(null);
 	const hold = useRef<number>(undefined);
 	const suppressClick = useRef(false);
-	const gesture = useRef<{
-		id: number;
-		x: number;
-		y: number;
-		width: number;
-		mode: "pending" | "vertical" | "horizontal" | "hold";
-	} | null>(null);
+	const gesture = useRef<RowGesture | null>(null);
 
 	useEffect(() => () => window.clearTimeout(hold.current), []);
 
@@ -75,6 +85,19 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 		};
 	}, [expanded]);
 
+	function renderedOffset(width: number) {
+		const edge = row.current?.getBoundingClientRect().right ?? 0;
+		const cardEdge = control.current?.getBoundingClientRect().right ?? edge;
+		return clampOffset(edge - cardEdge, width);
+	}
+
+	function beginHold(start: RowGesture) {
+		start.mode = "hold";
+		suppressClick.current = true;
+		setDrag(null);
+		setExpanded(true);
+	}
+
 	function finish(event: PointerEvent, cancelled: boolean) {
 		const start = gesture.current;
 		if (!start || start.id !== event.pointerId) return;
@@ -82,10 +105,16 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 		window.clearTimeout(hold.current);
 		setDrag(null);
 		suppressClick.current = cancelled || start.mode !== "pending";
-		if (cancelled || start.mode !== "horizontal") return;
-		const distance = start.x - event.clientX;
-		if (distance > SWIPE_THRESHOLD) setExpanded(true);
-		if (distance < -SWIPE_THRESHOLD) setExpanded(false);
+		if (cancelled) {
+			// WebKit can cancel the pointer when a completed hold moves the row away from the touch.
+			if (start.mode !== "hold") setExpanded(start.wasExpanded);
+			return;
+		}
+		if (start.mode !== "horizontal") return;
+		start.offset = clampOffset(start.offset + start.lastX - event.clientX, start.width);
+		const threshold = Math.min(SWIPE_THRESHOLD, start.width / 2);
+		if (start.offset === 0 || start.origin - start.offset >= threshold) setExpanded(false);
+		else if (start.offset === start.width || start.offset - start.origin >= threshold) setExpanded(true);
 	}
 
 	function focusRow() {
@@ -101,20 +130,25 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 		return true;
 	}
 
-	const offset = drag === null ? (expanded ? `calc(${actions.length} * var(--control-lg))` : "0px") : `${drag}px`;
+	const cardOffset =
+		drag === null ? (expanded ? "var(--row-actions-width)" : "0px") : `min(${drag}px, var(--row-actions-width))`;
+	const stripOffset = drag === null ? (expanded ? "0px" : "100%") : `max(0px, calc(100% - ${drag}px))`;
 	return (
 		<li
 			ref={row}
-			className={cn("group/action-row relative overflow-clip", className)}
-			data-actions-revealed={expanded || (drag ?? 0) > 0 || undefined}
+			className={cn(
+				"relative isolate overflow-clip [--row-actions-width:min(60%,var(--row-actions-natural-width))] [[data-layout-mode=mobile]_&]:[--row-actions-width:60%]",
+				className,
+			)}
+			style={{ "--row-actions-natural-width": `calc(${actions.length} * var(--control-lg))` } as CSSProperties}
 		>
 			<div
 				ref={control}
 				className={cn(
-					"touch-pan-y touch-pinch-zoom select-none [-webkit-touch-callout:none]",
+					"relative z-1 touch-pan-y touch-pinch-zoom select-none [-webkit-touch-callout:none]",
 					drag === null && TRANSITION,
 				)}
-				style={{ width: `calc(100% - ${offset})` }}
+				style={{ transform: `translateX(calc(0px - ${cardOffset}))` }}
 			>
 				{cloneElement(children, {
 					"aria-controls": id,
@@ -125,35 +159,51 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 						if (event.defaultPrevented || event.button !== 0 || !event.isPrimary) return;
 						suppressClick.current = false;
 						event.currentTarget.setPointerCapture?.(event.pointerId);
-						gesture.current = {
+						const width = strip.current?.getBoundingClientRect().width ?? 0;
+						const offset = renderedOffset(width);
+						// Freeze an in-flight settle at its painted position until this press commits.
+						setDrag(offset);
+						const start: RowGesture = {
 							id: event.pointerId,
 							x: event.clientX,
 							y: event.clientY,
-							width: strip.current?.offsetWidth ?? 0,
+							lastX: event.clientX,
+							origin: offset,
+							offset,
+							width,
+							wasExpanded: expanded,
 							mode: "pending",
 						};
+						gesture.current = start;
 						window.clearTimeout(hold.current);
 						hold.current = window.setTimeout(() => {
-							if (gesture.current?.mode !== "pending") return;
-							gesture.current.mode = "hold";
-							suppressClick.current = true;
-							setExpanded(true);
+							if (gesture.current === start && start.mode === "pending") beginHold(start);
 						}, HOLD_MS);
 					},
 					onPointerMove(event) {
 						children.props.onPointerMove?.(event);
 						const start = gesture.current;
-						if (!start || start.id !== event.pointerId || start.mode === "hold") return;
-						const dx = start.x - event.clientX;
-						const dy = start.y - event.clientY;
-						if (start.mode === "pending") {
+						if (!start || start.id !== event.pointerId || start.mode === "vertical") return;
+						if (start.mode !== "horizontal") {
+							const dx = start.x - event.clientX;
+							const dy = start.y - event.clientY;
 							if (Math.hypot(dx, dy) < MOVE_SLOP) return;
 							window.clearTimeout(hold.current);
-							start.mode = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+							if (Math.abs(dx) <= Math.abs(dy)) {
+								start.mode = "vertical";
+								setDrag(null);
+								return;
+							}
+							if (start.mode === "hold") {
+								start.origin = renderedOffset(start.width);
+								start.offset = start.origin;
+							}
+							start.mode = "horizontal";
+							suppressClick.current = true;
 						}
-						if (start.mode === "horizontal") {
-							setDrag(Math.max(0, Math.min(start.width, (expanded ? start.width : 0) + dx)));
-						}
+						start.offset = clampOffset(start.offset + start.lastX - event.clientX, start.width);
+						start.lastX = event.clientX;
+						setDrag(start.offset);
 					},
 					onPointerUp(event) {
 						children.props.onPointerUp?.(event);
@@ -172,12 +222,8 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 						if (event.defaultPrevented) return;
 						event.preventDefault();
 						const start = gesture.current;
-						if (start && start.mode !== "pending" && start.mode !== "hold") return;
-						if (start) {
-							start.mode = "hold";
-							suppressClick.current = true;
-						}
-						setExpanded(true);
+						if (start?.mode === "pending") beginHold(start);
+						else if (!start) setExpanded(true);
 					},
 					onClick(event) {
 						if (consumeGestureClick(event)) return;
@@ -208,25 +254,25 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 			<div
 				id={id}
 				ref={strip}
-				inert={!expanded}
-				aria-hidden={!expanded || undefined}
-				className={cn("absolute inset-y-0 right-0 flex", drag === null && TRANSITION)}
-				style={{ transform: `translateX(calc(100% - ${offset}))` }}
+				inert={!expanded || drag !== null}
+				aria-hidden={!expanded || drag !== null || undefined}
+				className={cn("absolute inset-y-0 right-0 flex w-[var(--row-actions-width)]", drag === null && TRANSITION)}
+				style={{ transform: `translateX(${stripOffset})` }}
 			>
 				{actions.map((action) => (
 					<Button
 						key={action.label}
 						size="lg"
 						variant={action.tone === "danger" ? "danger" : "secondary"}
-						className="h-full! w-[var(--control-lg)] rounded-none! px-0! focus-visible:outline-offset-[-2px]!"
+						className="h-full! min-w-0 flex-1 rounded-none! px-0! focus-visible:outline-offset-[-2px]!"
 						aria-label={action.label}
 						title={action.label}
 						disabled={action.disabled}
 						onPointerDown={() => {
-							suppressClick.current = false;
+							if (!gesture.current) suppressClick.current = false;
 						}}
 						onClick={(event) => {
-							if (consumeGestureClick(event)) return;
+							if (consumeGestureClick(event) || gesture.current) return;
 							focusRow();
 							setExpanded(false);
 							action.onSelect();

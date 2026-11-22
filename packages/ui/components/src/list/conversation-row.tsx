@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "../cn.ts";
-import { HIDE_WITH_ROW_ACTIONS, type RowAction, RowActionItem } from "./row-action-item.tsx";
+import { type RowAction, RowActionItem } from "./row-action-item.tsx";
 
 /**
  * A row in a chat list, drawn the way Feishu and the WeChat desktop app draw theirs: rows lie flat
@@ -59,12 +59,7 @@ export function ConversationRow({
 							{title}
 						</span>
 						{meta ? (
-							<span
-								className={cn(
-									"shrink-0 whitespace-nowrap text-micro tabular-nums text-[var(--color-text-tertiary)]",
-									HIDE_WITH_ROW_ACTIONS,
-								)}
-							>
+							<span className="shrink-0 whitespace-nowrap text-micro tabular-nums text-[var(--color-text-tertiary)]">
 								{meta}
 							</span>
 						) : null}
@@ -73,11 +68,7 @@ export function ConversationRow({
 						<span className="flex items-center gap-[var(--spacing-2)]">
 							<span className="min-w-0 flex-1 truncate text-caption text-[var(--color-text-secondary)]">{preview}</span>
 							{badge ? (
-								<span
-									className={cn("flex shrink-0 items-center text-[var(--color-text-tertiary)]", HIDE_WITH_ROW_ACTIONS)}
-								>
-									{badge}
-								</span>
+								<span className="flex shrink-0 items-center text-[var(--color-text-tertiary)]">{badge}</span>
 							) : null}
 						</span>
 					) : null}
