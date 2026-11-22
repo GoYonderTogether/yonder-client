@@ -25,6 +25,13 @@ export const accountMessagesEn = {
 			general: "General",
 		},
 		editProfile: "Edit profile",
+		namecard: {
+			review: "View",
+			reviewTitle: "Namecard",
+			publish: "Confirm",
+			stale: "This preview is out of date. Ask Bot for an updated preview in this conversation.",
+			publishFailed: "Could not publish the card.",
+		},
 		account: {
 			phone: "Phone number",
 			password: "Password",

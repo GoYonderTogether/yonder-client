@@ -14,6 +14,7 @@ import type { CachedMessage } from "@yonder/ui-data";
 import { resolveLocale } from "@yonder/ui-i18n";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
+import { AgentCardMessage } from "./agent-card-message.tsx";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
 import { FriendRequestCard } from "./friend-request-card.tsx";
 import { MeetingMessageCard } from "./meeting-message-card.tsx";
@@ -93,7 +94,7 @@ export function ConversationMessages({
 			</div>
 		));
 	const visibleItems = delivered.size ? items.filter((item) => !delivered.has(item.id)) : items;
-	return groupMessages(visibleItems, hasFullHistory).map((block) => {
+	return groupMessages(visibleItems, hasFullHistory, { agentCards: true }).map((block) => {
 		if ("time" in block)
 			return (
 				<MessageTime
@@ -295,6 +296,7 @@ function MessageEntry({
 			{message.reaction ? <span>{message.reaction}</span> : null}
 			<MessageSources run={message.run} />
 			{message.connectorRequestId ? <ConnectorRequestCard id={message.connectorRequestId} /> : null}
+			{message.cardId ? <AgentCardMessage id={message.cardId} disconnected={disconnected} /> : null}
 			{meeting && onOpenMeeting ? <MeetingMessageCard meeting={meeting} onOpen={onOpenMeeting} /> : null}
 			{message.pending ? (
 				<span className="text-caption text-[var(--color-text-secondary)]">{t("chat.sending")}</span>

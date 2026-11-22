@@ -25,6 +25,13 @@ export const accountMessagesZhCN = {
 			general: "通用",
 		},
 		editProfile: "编辑资料",
+		namecard: {
+			review: "查看",
+			reviewTitle: "名片",
+			publish: "确认",
+			stale: "这份预览已过期，请在这个对话里让 Bot 生成新的预览。",
+			publishFailed: "未能发布名片。",
+		},
 		account: {
 			phone: "手机号",
 			password: "密码",
