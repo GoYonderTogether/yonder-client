@@ -122,6 +122,7 @@ export function PageFrame({
 			)}
 			<div
 				data-frame-scroll={!hideHeader || undefined}
+				data-conversation-scroll={conversationHeader || undefined}
 				className={cn("flex min-h-0 flex-1 flex-col", scroll && "overflow-y-auto overscroll-contain")}
 			>
 				<div

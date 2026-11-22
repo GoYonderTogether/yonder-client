@@ -40,6 +40,15 @@
 	text-overflow: ellipsis;
 }
 
+.message-bubble .message-content-heading {
+	font-weight: var(--font-weight-semibold);
+}
+
+.message-bubble :is(h1, h2).message-content-heading {
+	font-size: var(--text-h3);
+	line-height: var(--text-h3--line-height);
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.copy-success.is-visible .lucide {
 		animation: none;

@@ -3,6 +3,7 @@ import { botMessagesZhCN } from "./bots-zh-CN.ts";
 import { channelsZhCN } from "./channels.ts";
 import { commerceZhCN } from "./commerce.ts";
 import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
+import { composerInputZhCN } from "./composer-input.ts";
 import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
 import type { Messages } from "./en.ts";
 import { friendQrZhCN, friendRequestsZhCN } from "./friend-qr-zh-CN.ts";
@@ -17,7 +18,6 @@ import { setupMessagesZhCN } from "./setup-zh-CN.ts";
 import { skillMessagesZhCN } from "./skills-zh-CN.ts";
 import { trayZhCN } from "./tray-zh-CN.ts";
 import { visitsMessagesZhCN } from "./visits-zh-CN.ts";
-import { voiceInputZhCN } from "./voice-input.ts";
 
 /**
  * Chinese. Typed against the English table: a missing key fails the build rather than showing a
@@ -282,7 +282,7 @@ export const zhCN: Messages = {
 		sendPreserved: "尚未确认发送，草稿和文件已保留；重试不会重复发送这条消息。",
 		downloadFile: "下载 {{name}}",
 		attachmentFailed: "附件加载失败",
-		...voiceInputZhCN,
+		...composerInputZhCN,
 		unknownSender: "未知发送者",
 		emptyTitle: "还没有消息",
 		composerPlaceholder: "对 Bot 说点什么",

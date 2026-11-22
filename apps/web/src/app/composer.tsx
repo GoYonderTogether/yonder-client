@@ -1,14 +1,14 @@
 import { ComposerFrame, ComposerLayout } from "@yonder/chat-presentation";
 import { ArrowUp, Keyboard, Mic, Plus, Square } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { haptic } from "../lib/haptics.ts";
 import { CompletionPopup } from "./completion/completion-popup.tsx";
-import { CompletionHighlight } from "./completion/highlight.tsx";
 import { useComposerCompletion } from "./completion/use-composer-completion.ts";
 import { useTextareaEdit } from "./completion/use-textarea-edit.ts";
 import { ComposerAttachmentMenu, ComposerFileInputs } from "./composer-attachment-menu.tsx";
+import { ComposerEditor, useComposerEditor } from "./composer-editor.tsx";
 import { ComposerFiles } from "./composer-files.tsx";
 import {
 	IosAttachmentSendStatus,
@@ -62,7 +62,7 @@ export function Composer({
 }: ComposerProps) {
 	const { t } = useTranslation();
 	const input = useRef<HTMLTextAreaElement>(null);
-	const highlight = useRef<HTMLDivElement>(null);
+
 	const picker = useRef<HTMLInputElement>(null);
 	const imagePicker = useRef<HTMLInputElement>(null);
 	const cameraPicker = useRef<HTMLInputElement>(null);
@@ -86,23 +86,8 @@ export function Composer({
 		root.ownerDocument.addEventListener(outsideEvent, dismiss, true);
 		return () => root.ownerDocument.removeEventListener(outsideEvent, dismiss, true);
 	}, [menu, mobilePicker]);
-	const [expanded, setExpanded] = useState(false);
 	const [dragging, setDragging] = useState(false);
 	const dragDepth = useRef(0);
-	useLayoutEffect(() => {
-		const editor = input.current;
-		const mirror = highlight.current;
-		if (!editor || !mirror) return;
-		const sync = () => {
-			mirror.style.width = `${editor.clientWidth}px`;
-			mirror.scrollTop = editor.scrollTop;
-		};
-		sync();
-		if (typeof ResizeObserver === "undefined") return;
-		const observer = new ResizeObserver(sync);
-		observer.observe(editor);
-		return () => observer.disconnect();
-	}, []);
 	const composing = useRef(false);
 	const consumeEdit = useTextareaEdit(input, scope);
 	const completion = useComposerCompletion({
@@ -126,7 +111,7 @@ export function Composer({
 	const hasContent = Boolean(draft.trim() || files.length);
 	const voiceSending = voiceSendingScope === scope;
 	const holdMode = mobilePicker && voiceScope === scope;
-	const compactMobile = mobilePicker && (!draft || holdMode);
+	const editor = useComposerEditor(input, draft, mobilePicker, scope, holdMode, files.length);
 	const showSend = !mobilePicker || streaming || sending || (hasContent && !holdMode && !voiceSending);
 	const voiceUnavailable = disabled || readOnly || disconnected || microphoneOccupied || !onSendVoice;
 	const canSend = !disabled && !disconnected && !streaming && hasContent;
@@ -153,23 +138,6 @@ export function Composer({
 			if (hasContent) setVoiceScope((active) => (active === scope ? null : active));
 		}
 	}
-	useLayoutEffect(() => {
-		const editor = input.current;
-		if (!draft && !files.length) {
-			setExpanded(false);
-			return;
-		}
-		if (!editor) return;
-		const check = () => {
-			const height = Number.parseFloat(getComputedStyle(editor).getPropertyValue("--composer-button-size"));
-			if (editor.clientHeight > height * 1.4) setExpanded(true);
-		};
-		check();
-		if (typeof ResizeObserver === "undefined") return;
-		const observer = new ResizeObserver(check);
-		observer.observe(editor);
-		return () => observer.disconnect();
-	}, [draft, files.length]);
 	const {
 		voice,
 		active: voiceActive,
@@ -318,7 +286,7 @@ export function Composer({
 				}}
 			>
 				<ComposerFrame as="div" dragging={dragging}>
-					<CompletionPopup completion={completion} />
+					{!editor.fullscreen ? <CompletionPopup completion={completion} /> : null}
 					{files.length && !voiceSending ? (
 						<ComposerFiles
 							files={files}
@@ -343,7 +311,11 @@ export function Composer({
 					) : null}
 					<ComposerLayout
 						as="div"
-						expanded={!compactMobile && Boolean(expanded || draft.includes("\n") || files.length)}
+						expanded={
+							mobilePicker
+								? !holdMode && (editor.multiline || files.length > 0)
+								: editor.expanded || draft.includes("\n") || files.length > 0
+						}
 					>
 						{mobilePicker ? (
 							<button
@@ -364,10 +336,16 @@ export function Composer({
 							camera={mobilePicker && !iosAttachments.iphone ? cameraPicker : undefined}
 							onFiles={receiveFileInput}
 						/>
-						<div className="composer-editor" hidden={holdMode}>
-							<div ref={highlight} className="composer-highlight composer-text-style" aria-hidden="true">
-								<CompletionHighlight text={draft} bindings={bindings} token={completion.token} />
-							</div>
+						<ComposerEditor
+							editor={editor}
+							text={draft}
+							bindings={bindings}
+							token={completion.token}
+							hidden={holdMode}
+							mobile={mobilePicker}
+							readOnly={readOnly}
+							popup={editor.fullscreen ? <CompletionPopup completion={completion} /> : null}
+						>
 							<textarea
 								ref={input}
 								readOnly={readOnly}
@@ -387,9 +365,9 @@ export function Composer({
 								}}
 								onBlur={completion.close}
 								onScroll={(event) => {
-									if (highlight.current) {
-										highlight.current.scrollTop = event.currentTarget.scrollTop;
-										highlight.current.scrollLeft = event.currentTarget.scrollLeft;
+									if (editor.highlight.current) {
+										editor.highlight.current.scrollTop = event.currentTarget.scrollTop;
+										editor.highlight.current.scrollLeft = event.currentTarget.scrollLeft;
 									}
 								}}
 								onPointerDown={interrupt}
@@ -413,13 +391,15 @@ export function Composer({
 								aria-activedescendant={
 									completion.token && completion.matches.length ? `${completion.id}-${completion.active}` : undefined
 								}
-								onCompositionStart={() => {
+								onCompositionStart={(event) => {
 									interrupt();
 									composing.current = true;
+									event.currentTarget.dataset.composing = "true";
 									completion.suspend();
 								}}
 								onCompositionEnd={(event) => {
 									composing.current = false;
+									delete event.currentTarget.dataset.composing;
 									completion.sync(event.currentTarget);
 								}}
 								onKeyDown={(event) => {
@@ -444,7 +424,7 @@ export function Composer({
 								data-empty={mobilePicker && !draft ? true : undefined}
 								className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-button-size)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
 							/>
-						</div>
+						</ComposerEditor>
 						{holdMode ? (
 							<HoldToTalk
 								key={scope}

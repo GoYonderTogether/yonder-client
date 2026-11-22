@@ -1,6 +1,8 @@
-export const voiceInputEn = {
+export const composerInputEn = {
 	voiceInput: "Voice input",
 	textInput: "Text input",
+	expandComposer: "Expand composer",
+	collapseComposer: "Collapse composer",
 	holdToTalk: "Hold to talk",
 	releaseToSend: "Release to send, swipe up to cancel",
 	releaseToCancel: "Release to cancel",
@@ -20,9 +22,11 @@ export const voiceInputEn = {
 	voicePlaybackFailed: "Voice playback failed, tap to retry",
 };
 
-export const voiceInputZhCN: typeof voiceInputEn = {
+export const composerInputZhCN: typeof composerInputEn = {
 	voiceInput: "语音输入",
 	textInput: "文字输入",
+	expandComposer: "展开输入框",
+	collapseComposer: "收起输入框",
 	holdToTalk: "按住说话",
 	releaseToSend: "松手发送，上滑取消",
 	releaseToCancel: "松手取消",

@@ -3,6 +3,7 @@ import { botMessagesEn } from "./bots-en.ts";
 import { channelsEn } from "./channels.ts";
 import { commerceEn } from "./commerce.ts";
 import { composerAttachmentsEn } from "./composer-attachments-en.ts";
+import { composerInputEn } from "./composer-input.ts";
 import { connectorMessagesEn } from "./connectors-en.ts";
 import { friendQrEn, friendRequestsEn } from "./friend-qr-en.ts";
 import { inviteExperienceEn } from "./invite-experience-en.ts";
@@ -16,7 +17,6 @@ import { setupMessagesEn } from "./setup-en.ts";
 import { skillMessagesEn } from "./skills-en.ts";
 import { trayEn } from "./tray-en.ts";
 import { visitsMessagesEn } from "./visits-en.ts";
-import { voiceInputEn } from "./voice-input.ts";
 /**
  * The English table is the reference: its shape is the type every other language must satisfy, so
  * a missing or misspelled key is a compile error rather than a blank label at runtime.
@@ -278,7 +278,7 @@ export const en = {
 			"Sending was not confirmed. Your draft and files are preserved; retrying will not duplicate this message.",
 		downloadFile: "Download {{name}}",
 		attachmentFailed: "Could not load the attachment",
-		...voiceInputEn,
+		...composerInputEn,
 		unknownSender: "Unknown sender",
 		emptyTitle: "No messages yet",
 		composerPlaceholder: "Message your Bot",
