@@ -1,184 +1,191 @@
-import { useData } from "@yonder/ui-data";
-import { useEffect } from "react";
-import { type DeviceModelEndpoint, invokeDeviceModel, onDeviceModelEndpointsChanged } from "./device-model-native.ts";
+import type { ClientEvent, DeviceModelEndpoint, DeviceModelProtocol, ServerEvent } from "@yonder/protocol";
+import { useData, useProviders } from "@yonder/ui-data";
+import { useEffect, useMemo, useRef } from "react";
+import {
+	chunkMessage,
+	type DeviceLocalRequest,
+	deviceLocalRequest,
+	deviceModelError,
+	discoveryBody,
+	endMessage,
+	headMessage,
+	MAX_DISCOVER_BYTES,
+	MAX_LIFETIME_MS,
+	OPENAI_TERMINAL,
+	readyEndpoints,
+	readyMessage,
+} from "./device-local-wire.ts";
+import { invokeDeviceModel, onDeviceModelEndpointsChanged } from "./device-model-native.ts";
 import { deviceModelStream } from "./device-model-stream.ts";
 import { useLocalFilesContext } from "./local-files.ts";
 
-const requestIds = /^[a-z0-9_-]{1,100}$/iu;
-const endpointIds = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
-const errors = new Set([
-	"endpoint_unavailable",
-	"model_not_found",
-	"invalid_response",
-	"timeout",
-	"cancelled",
-	"upstream_rejected",
-]);
+const byteLength = (value: string) => new TextEncoder().encode(value).length;
 
-let nativeLifecycle = Promise.resolve();
-function nativeLifetime(name: "activate" | "reset", context: NonNullable<ReturnType<typeof useLocalFilesContext>>) {
-	const next = nativeLifecycle.then(() => invokeDeviceModel<void>(name, { context }));
-	nativeLifecycle = next.catch(() => {});
-	return next;
+/** The OpenAI-shaped stream ends with `[DONE]`; an Anthropic one ends with a part the server sees itself. */
+function openAiTerminal(protocol: DeviceModelProtocol, body: unknown): string | undefined {
+	if (protocol !== "openai") return undefined;
+	return (body as { stream?: unknown } | null)?.stream === true ? OPENAI_TERMINAL : undefined;
 }
 
-type NativeFrame = { type: "data"; data: string } | { type: "done" };
-interface Request {
-	requestId: string;
-	endpointId: string;
-	revision: number;
-	expiresAtMs: number;
-	operation: "discover" | "chat";
-	body?: unknown;
-}
-
-export function deviceModelRequest(event: unknown): Request | null {
-	const value = event as Record<string, unknown> | null;
-	if (value?.type !== "device_model.request") return null;
-	const { requestId, endpointId, revision, expiresAt, operation, body } = value;
-	const expiresAtMs = typeof expiresAt === "string" ? Date.parse(expiresAt) : NaN;
-	if (
-		typeof requestId !== "string" ||
-		!requestIds.test(requestId) ||
-		typeof endpointId !== "string" ||
-		!endpointIds.test(endpointId) ||
-		typeof revision !== "number" ||
-		!Number.isSafeInteger(revision) ||
-		revision < 1 ||
-		typeof expiresAtMs !== "number" ||
-		!Number.isSafeInteger(expiresAtMs) ||
-		(operation !== "discover" && operation !== "chat") ||
-		(operation === "discover" ? body !== undefined : !body || typeof body !== "object" || Array.isArray(body))
-	)
-		return null;
-	// The native command never receives any server-supplied URL or headers.
-	return { requestId, endpointId, revision, expiresAtMs, operation, ...(operation === "chat" ? { body } : {}) };
-}
-
-function reason(error: unknown): string {
-	const code = error instanceof Error ? error.message : String(error);
-	return errors.has(code) ? code : "endpoint_unavailable";
-}
-
+/**
+ * The device side of a device-local provider call. The server sends one `provider.relay.request`
+ * with `mode: "device-local"` to a session of the bound device; this runtime runs it here — the
+ * only machine the endpoint is reachable from — and answers with a head, ordered parts and an end.
+ *
+ * The request names an approved endpoint, never a URL or a key, so nothing the server sends can
+ * point this device at an address the owner did not approve. Only the main window of a desktop
+ * device runs this.
+ */
 export function DeviceModelRuntime() {
 	const context = useLocalFilesContext();
-	const { client, realtime } = useData();
+	const { realtime } = useData();
+	const providers = useProviders({ enabled: context !== null });
+	/**
+	 * Endpoint id to wire protocol: the only endpoints this account has pointed at this device. The
+	 * string form is what the effect below compares, so a re-render with the same bindings is free.
+	 */
+	const bound = useMemo(
+		() =>
+			(providers.data?.items ?? [])
+				.filter((provider) => provider.target?.deviceId === context?.deviceId)
+				.map((provider) => [provider.target?.endpointId ?? "", provider.protocol] as const)
+				.filter(([endpointId]) => endpointId)
+				.sort(),
+		[providers.data, context?.deviceId],
+	);
+	const boundKey = bound.map(([endpointId, protocol]) => `${endpointId}:${protocol}`).join("\n");
+	const protocols = useRef(new Map<string, DeviceModelProtocol>());
+
+	// `bound` is compared through `boundKey`; its array identity changes on every render.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: see above
 	useEffect(() => {
 		if (!context) return;
+		protocols.current = new Map(bound);
 		let active = true;
 		let readiness = 0;
-		let ready = new Map<string, number>();
-		const pending = new Map<string, AbortController>();
-		const nativeCancel = (requestId: string) =>
-			void invokeDeviceModel("cancel", { context, requestId }).catch(() => {});
-		const cancel = (requestId: string) => {
-			pending.get(requestId)?.abort();
-			pending.delete(requestId);
-			nativeCancel(requestId);
-		};
-		const allCancel = () => {
-			ready.clear();
-			for (const requestId of pending.keys()) cancel(requestId);
-		};
-		const activate = nativeLifetime("activate", context).then(
-			() => true,
-			() => false,
-		);
+		let announced = "";
+		/** Calls running here, by relay id, with the way to stop one. */
+		const running = new Map<string, () => void>();
+		const send = (message: ClientEvent) => realtime.send(message as Parameters<typeof realtime.send>[0]);
+
+		/** Announce the endpoints a provider of this account points at, and only those. */
 		const refresh = async () => {
 			const version = ++readiness;
-			if (!active || realtime.status !== "open" || !(await activate)) return;
-			const endpoints = await invokeDeviceModel<DeviceModelEndpoint[]>("ready", { context }).catch(() => []);
-			if (!active || realtime.status !== "open" || version !== readiness) return;
-			ready = new Map(endpoints.map((entry) => [entry.endpointId, entry.revision]));
-			const message = { type: "device_model.ready", endpoints };
-			realtime.send(message as unknown as Parameters<typeof realtime.send>[0]);
+			if (!active || realtime.status !== "open") return;
+			const known = await invokeDeviceModel<DeviceModelEndpoint[]>("ready", { context }).catch(() => []);
+			if (!active || version !== readiness) return;
+			const endpoints = readyEndpoints(known).filter(({ endpointId }) => protocols.current.has(endpointId));
+			const wire = JSON.stringify(endpoints);
+			if (wire === announced) return;
+			announced = wire;
+			send(readyMessage(endpoints));
 		};
 
-		async function model(request: Request) {
-			const { requestId, endpointId, revision, operation, expiresAtMs } = request;
-			if (!active || pending.has(requestId) || realtime.status !== "open") return;
-			const path = `/v1/device-model/requests/${encodeURIComponent(requestId)}`;
-			const controller = new AbortController();
-			const { signal } = controller;
-			const result = (body: unknown) => client.request(`${path}/result`, { body, signal });
-			const remaining = expiresAtMs - Date.now();
-			if (remaining <= 0 || remaining > 125_000 || ready.get(endpointId) !== revision || pending.size >= 4) {
-				await result({ error: remaining <= 0 ? "timeout" : "endpoint_unavailable" }).catch(() => {});
+		async function model(request: DeviceLocalRequest) {
+			const { relayId, endpointId, expiresAt, operation, protocol } = request;
+			if (!active || running.has(relayId) || realtime.status !== "open" || running.size >= 4) return;
+			const remaining = Date.parse(expiresAt) - Date.now();
+			if (remaining <= 0 || remaining > MAX_LIFETIME_MS || protocols.current.get(endpointId) !== protocol) {
+				send(endMessage(relayId, 0, remaining <= 0 ? "timeout" : "endpoint_unavailable"));
 				return;
 			}
-			pending.set(requestId, controller);
+			let ended = false;
+			let releaseHead!: () => void;
+			/** The server drops a chunk that arrives before the head, so parts wait for it. */
+			const headed = new Promise<void>((resolve) => {
+				releaseHead = resolve;
+			});
 			const stream = deviceModelStream(
-				async (body) => {
-					await client.request(`${path}/stream`, { body, signal });
+				async (seq, part) => {
+					await headed;
+					if (byteLength(part) > 65_536) throw new Error("invalid_response");
+					send(chunkMessage(relayId, seq, part));
 				},
-				() => cancel(requestId),
+				() => finish("invalid_response"),
 			);
-			const close = () => stream.stop();
-			signal.addEventListener("abort", close, { once: true });
-			let timer: ReturnType<typeof setTimeout> | undefined;
+			const finish = (error?: ReturnType<typeof deviceModelError>) => {
+				if (ended) return;
+				ended = true;
+				send(endMessage(relayId, stream.count(), error));
+				running.delete(relayId);
+				stream.stop();
+			};
+			const head = (contentType: "application/json" | "text/event-stream") => {
+				send(headMessage(relayId, contentType));
+				releaseHead();
+			};
+			running.set(relayId, () => {
+				ended = true;
+				releaseHead();
+				stream.stop();
+				running.delete(relayId);
+				// The server already forgot this call; stopping the work here is all that is left.
+				void invokeDeviceModel("cancel", { context, relayId }).catch(() => {});
+			});
 			try {
 				const { Channel } = await import("@tauri-apps/api/core");
-				if (signal.aborted) return;
+				if (!active) return;
 				let finishNative: (() => void) | undefined;
 				const nativeDone = new Promise<void>((resolve) => {
 					finishNative = resolve;
-					signal.addEventListener("abort", () => resolve(), { once: true });
 				});
-				const channel = new Channel<NativeFrame>((frame) => {
-					if (signal.aborted) return;
+				const channel = new Channel<{ type: "data"; data: string } | { type: "done" }>((frame) => {
+					if (!active || ended) return;
 					if (frame.type === "data") stream.push(frame.data);
 					if (frame.type === "done") finishNative?.();
 				});
-				timer = setTimeout(() => cancel(requestId), remaining);
-				const response = await invokeDeviceModel<{ models?: string[] }>("execute", { context, request, channel });
-				if (signal.aborted) return;
-				if (operation === "discover") await result({ models: (response.models ?? []).map((id) => ({ id })) });
-				else {
-					await nativeDone;
-					if (!signal.aborted) await stream.finish();
+				const response = await invokeDeviceModel<{ models?: string[] }>("execute", {
+					context,
+					request: { ...request, expiresAtMs: Date.parse(expiresAt) },
+					channel,
+				});
+				if (!active || ended) return;
+				if (operation === "discover") {
+					const body = discoveryBody(response.models ?? []);
+					if (byteLength(body) > MAX_DISCOVER_BYTES) return finish("invalid_response");
+					head("application/json");
+					return (await stream.finish(body)) === null ? finish("invalid_response") : finish();
 				}
+				await nativeDone;
+				if (!active || ended) return;
+				head("text/event-stream");
+				if ((await stream.finish(openAiTerminal(protocol, request.body))) === null) return finish("invalid_response");
+				finish();
 			} catch (error) {
-				if (signal.aborted) return;
-				if (operation === "chat" && stream.hasStreamed()) await stream.finish(reason(error));
-				else {
-					stream.stop();
-					await result({ error: reason(error) }).catch(() => {});
-				}
+				if (active && !ended) finish(deviceModelError(error));
 			} finally {
-				clearTimeout(timer);
-				signal.removeEventListener("abort", close);
-				stream.stop();
-				if (pending.get(requestId) === controller) pending.delete(requestId);
+				releaseHead();
+				running.delete(relayId);
 			}
 		}
 
-		const disposeEvents = realtime.subscribeEvents((event: unknown) => {
-			const request = deviceModelRequest(event);
+		const disposeEvents = realtime.subscribeEvents((event: ServerEvent) => {
+			const request = deviceLocalRequest(event);
 			if (request) void model(request);
 			else {
-				const cancelEvent = event as { type?: string; requestId?: unknown } | null;
-				if (
-					cancelEvent?.type === "device_model.cancel" &&
-					typeof cancelEvent.requestId === "string" &&
-					pending.has(cancelEvent.requestId)
-				)
-					cancel(cancelEvent.requestId);
+				const cancel = event as { type?: string; relayId?: unknown; mode?: unknown } | null;
+				if (cancel?.type === "provider.relay.cancel" && cancel.mode === "device-local")
+					if (typeof cancel.relayId === "string") running.get(cancel.relayId)?.();
 			}
 		});
 		const disposeStatus = realtime.subscribe(() => {
 			if (realtime.status === "open") void refresh();
-			else allCancel();
+			else {
+				for (const stop of running.values()) stop();
+				running.clear();
+				announced = "";
+			}
 		});
 		const disposeLocal = onDeviceModelEndpointsChanged(() => void refresh());
 		void refresh();
 		return () => {
 			active = false;
-			allCancel();
+			for (const stop of running.values()) stop();
+			running.clear();
 			disposeEvents();
 			disposeStatus();
 			disposeLocal();
-			void nativeLifetime("reset", context).catch(() => {});
 		};
-	}, [context, client, realtime]);
+	}, [context, realtime, boundKey]);
 	return null;
 }

@@ -34,9 +34,10 @@ const offline: DeviceSummary = {
 const phone: DeviceSummary = { ...device, id: "phone-fixture", name: "不支持的手机", platform: "ios" };
 const endpoint: DeviceModelEndpointView = {
 	deviceId: device.id,
-	endpointId: "published-endpoint-only",
+	endpointId: "3d9a2c05-5123-4e7a-9091-023471317af2",
 	revision: 1,
 	label: "本地模型 A",
+	protocol: "openai",
 };
 const savedCloud: Provider = {
 	id: "old-cloud-provider",
@@ -49,20 +50,31 @@ const savedCloud: Provider = {
 	protocol: "openai",
 	models: ["legacy"],
 };
-const expectedTarget = { kind: "device", deviceId: device.id, endpointId: endpoint.endpointId } as const;
+const expectedScope = {
+	origin: "device",
+	deviceId: device.id,
+	endpointId: endpoint.endpointId,
+	protocol: "openai",
+} as const;
 async function setup(page: Page, { configured = false }: { configured?: boolean } = {}) {
 	await isolateChat(page);
 	await page.emulateMedia({ reducedMotion: "reduce" });
 	const received: { discovery: DiscoverModelsRequest[]; saves: SaveProviderRequest[] } = { discovery: [], saves: [] };
 	let items: Provider[] = configured ? [savedCloud] : [];
-	await page.route("**/v1/devices", (route) => route.fulfill({ json: { items: [device, offline, phone] } }));
-	await page.route("**/v1/providers/device-endpoints", (route) =>
+	// The server publishes approved endpoints on each device, so the device list is the only source.
+	await page.route("**/v1/devices", (route) =>
 		route.fulfill({
 			json: {
 				items: [
-					endpoint,
-					{ ...endpoint, deviceId: offline.id, endpointId: "already-registered-offline", label: "备用地址" },
-					{ ...endpoint, deviceId: phone.id, endpointId: "ineligible", label: "不应显示" },
+					{ ...device, modelEndpoints: [endpoint] },
+					{
+						...offline,
+						modelEndpoints: [{ ...endpoint, endpointId: "8b3b4bb4-1f0a-4d3a-8a2b-1b4f0b2f8a11", label: "备用地址" }],
+					},
+					{
+						...phone,
+						modelEndpoints: [{ ...endpoint, endpointId: "c6d3a2f1-6b0e-4a2c-9c2f-2b1a0f3e4d55", label: "不应显示" }],
+					},
 				],
 			},
 		}),
@@ -84,7 +96,11 @@ async function setup(page: Page, { configured = false }: { configured?: boolean 
 			baseUrl: payload.baseUrl ?? "",
 			enabled: true,
 			isDefault: true,
-			keyConfigured: !payload.target,
+			keyConfigured: !payload.endpointId,
+			// The server answers a local profile with the target it resolved, never a URL or a key.
+			...(payload.endpointId && payload.deviceId
+				? { target: { kind: "device" as const, deviceId: payload.deviceId, endpointId: payload.endpointId } }
+				: {}),
 		};
 		items = [next, ...items];
 		return route.fulfill({ json: next });
@@ -128,7 +144,7 @@ test("one editor selects Cloud or an approved Desktop, and Web sends only the ex
 	await name(page).fill("本机模型 Vol.1");
 	await discover(page).click();
 	await page.getByRole("checkbox", { name: "fixture-model" }).check();
-	expect(requests.discovery).toEqual([{ protocol: "openai", target: expectedTarget }]);
+	expect(requests.discovery).toEqual([expectedScope]);
 	await capture(page, "provider-web-device-bound");
 	await page.getByRole("button", { name: "保存", exact: true }).click();
 	expect(requests.saves).toEqual([
@@ -138,8 +154,7 @@ test("one editor selects Cloud or an approved Desktop, and Web sends only the ex
 			website: null,
 			models: ["fixture-model"],
 			metadata: { "fixture-model": { contextLength: 4096 } },
-			protocol: "openai",
-			target: expectedTarget,
+			...expectedScope,
 		},
 	]);
 	await expect(page.getByText("工作 Mac · 在线", { exact: true })).toBeVisible();
@@ -193,7 +208,6 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 			},
 		});
 	});
-	await page.route("**/v1/devices", (route) => route.fulfill({ json: { items: [{ ...device, current: true }] } }));
 	await page.route("**/v1/me/sessions", (route) =>
 		route.fulfill({
 			json: {
@@ -213,13 +227,21 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 		}),
 	);
 	let checks = 0;
-	await page.route("**/v1/providers/device-endpoints", (route) => {
+	// The current device publishes its approved endpoints on the device list, once the shell has
+	// registered one; that is what the editor waits for before discovery or save.
+	await page.route("**/v1/devices", (route) => {
 		checks++;
 		return route.fulfill({
 			json: {
-				items: registrations.length
-					? [endpoint, { ...endpoint, endpointId: "native-approved-id", label: "新地址" }]
-					: [endpoint],
+				items: [
+					{
+						...device,
+						current: true,
+						modelEndpoints: registrations.length
+							? [endpoint, { ...endpoint, endpointId: "native-approved-id", label: "新地址" }]
+							: [endpoint],
+					},
+				],
 			},
 		});
 	});
@@ -243,8 +265,8 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await discover(page).click();
 	await page.getByRole("checkbox", { name: "fixture-model" }).check();
 	expect(checks).toBeGreaterThan(1);
-	const target = { kind: "device", deviceId: device.id, endpointId: "native-approved-id" };
-	expect(requests.discovery).toEqual([{ protocol: "openai", target }]);
+	const nativeScope = { ...expectedScope, endpointId: "native-approved-id" };
+	expect(requests.discovery).toEqual([nativeScope]);
 	expect(registrations).toEqual([
 		{
 			command: "device_model_register",
@@ -257,7 +279,7 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	]);
 	await expect(keyField).toHaveValue("");
 	await page.getByRole("button", { name: "保存", exact: true }).click();
-	await expect.poll(() => requests.saves.at(-1)?.target).toEqual(target);
+	await expect.poll(() => requests.saves.at(-1)?.endpointId).toBe(nativeScope.endpointId);
 	expect(requests.saves.at(-1)).not.toHaveProperty("baseUrl");
 	expect(requests.saves.at(-1)).not.toHaveProperty("apiKey");
 	await expect(page.getByRole("button", { name: "编辑供应商", exact: true })).toBeVisible();
@@ -278,14 +300,10 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 		command: "device_model_set_key",
 		args: {
 			context: { ownerId: "chat-person", deviceId: device.id, sessionId: "local-browser-session" },
-			endpointId: expectedTarget.endpointId,
+			endpointId: expectedScope.endpointId,
 			apiKey: "synthetic-replacement-key",
 		},
 	});
-	expect(requests.discovery).toEqual([
-		{ protocol: "openai", target },
-		{ protocol: "openai", target: expectedTarget },
-		{ protocol: "openai", target: expectedTarget },
-	]);
+	expect(requests.discovery).toEqual([nativeScope, expectedScope, expectedScope]);
 	expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain("synthetic-");
 });

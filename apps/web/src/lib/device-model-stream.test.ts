@@ -1,42 +1,42 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { deviceModelRequest } from "./device-model-runtime.tsx";
-import { type DeviceModelBatch, deviceModelStream } from "./device-model-stream.ts";
+import { deviceModelStream } from "./device-model-stream.ts";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-test("serializes acknowledged data batches and sends DONE only in the terminal batch", async () => {
+test("sends ordered parts and reports the count the end must carry", async () => {
 	let acknowledge!: () => void;
 	const held = new Promise<void>((resolve) => {
 		acknowledge = resolve;
 	});
-	const sent: DeviceModelBatch[] = [];
-	const relay = deviceModelStream(async (batch) => {
-		sent.push(batch);
-		if (!batch.seq) await held;
+	const sent: [number, string][] = [];
+	const stream = deviceModelStream(async (seq, part) => {
+		sent.push([seq, part]);
+		if (!seq) await held;
 	}, vi.fn());
-	relay.push('data: {"choices":[]}\n\n');
+	stream.push('data: {"choices":[]}\n\n');
 	await vi.advanceTimersByTimeAsync(0);
-	relay.push('data: {"choices":[{}]}\n\n');
-	const finish = relay.finish();
-	expect(sent).toHaveLength(1);
+	stream.push('data: {"choices":[{}]}\n\n');
+	const finish = stream.finish("data: [DONE]\n\n");
+	expect(sent).toEqual([[0, 'data: {"choices":[]}\n\n']]);
 	acknowledge();
-	await finish;
+	expect(await finish).toBe(3);
 	expect(sent).toEqual([
-		{ seq: 0, data: 'data: {"choices":[]}\n\n', done: false },
-		{ seq: 1, data: 'data: {"choices":[{}]}\n\n', done: false },
-		{ seq: 2, data: "data: [DONE]\n\n", done: true },
+		[0, 'data: {"choices":[]}\n\n'],
+		[1, 'data: {"choices":[{}]}\n\n'],
+		[2, "data: [DONE]\n\n"],
 	]);
+	expect(stream.count()).toBe(3);
 });
 
-test("an unacknowledged or stopped stream never replays or sends a success sentinel", async () => {
+test("an unacknowledged or stopped stream never replays a part and never reports success", async () => {
 	const fail = vi.fn();
 	const post = vi.fn(async () => {
 		throw new Error("ambiguous receipt");
 	});
-	const relay = deviceModelStream(post, fail);
-	relay.push("data: {}\n\n");
-	await relay.finish();
+	const stream = deviceModelStream(post, fail);
+	stream.push("data: {}\n\n");
+	expect(await stream.finish()).toBeNull();
 	expect(post).toHaveBeenCalledTimes(1);
 	expect(fail).toHaveBeenCalledTimes(1);
 
@@ -45,35 +45,19 @@ test("an unacknowledged or stopped stream never replays or sends a success senti
 	cancelled.stop();
 	await vi.runAllTimersAsync();
 	expect(post).toHaveBeenCalledTimes(1);
+	expect(await cancelled.finish()).toBeNull();
 });
 
-test("rejects oversized UTF-8 data before handing anything to the result API", async () => {
+test("rejects a part that would exceed the server's part or total limit before sending it", async () => {
 	const fail = vi.fn();
 	const post = vi.fn(async () => {});
-	const relay = deviceModelStream(post, fail);
-	relay.push("录".repeat(22_000));
-	await relay.finish();
+	const stream = deviceModelStream(post, fail);
+	stream.push("录".repeat(22_000));
+	await vi.runAllTimersAsync();
 	expect(fail).toHaveBeenCalledTimes(1);
 	expect(post).not.toHaveBeenCalled();
-});
 
-test("only forwards scoped request fields to native, never upstream addresses or headers", () => {
-	const event = {
-		type: "device_model.request",
-		requestId: "request-1",
-		endpointId: "3d9a2c05-5123-4e7a-9091-023471317af2",
-		revision: 1,
-		expiresAt: "2026-11-22T12:00:00.000Z",
-		operation: "discover",
-	};
-	expect(deviceModelRequest({ ...event, url: "not forwarded", headers: {} })).toEqual({
-		requestId: event.requestId,
-		endpointId: event.endpointId,
-		revision: 1,
-		expiresAtMs: Date.parse(event.expiresAt),
-		operation: "discover",
-	});
-	expect(deviceModelRequest({ ...event, requestId: "../result" })).toBeNull();
-	expect(deviceModelRequest({ ...event, body: {}, operation: "discover" })).toBeNull();
-	expect(deviceModelRequest({ ...event, operation: "chat" })).toBeNull();
+	const large = deviceModelStream(post, vi.fn());
+	expect(await large.finish("x".repeat(65_537))).toBeNull();
+	expect(post).not.toHaveBeenCalled();
 });

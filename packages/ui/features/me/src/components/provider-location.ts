@@ -1,12 +1,12 @@
-import type { DeviceSummary } from "@yonder/protocol";
+import type { DeviceModelProtocol, DeviceSummary } from "@yonder/protocol";
 import type { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "./device-display-name.ts";
 
 export type RegisterLocalProviderEndpoint = (
 	input:
-		| { deviceId: string; baseUrl: string; label?: string; apiKey?: string }
-		| { deviceId: string; endpointId: string; apiKey: string },
-) => Promise<{ endpointId: string; revision: number; label: string }>;
+		| { deviceId: string; baseUrl: string; label?: string; protocol: DeviceModelProtocol; apiKey?: string }
+		| { deviceId: string; endpointId: string; protocol: DeviceModelProtocol; apiKey: string },
+) => Promise<{ endpointId: string; revision: number; label: string; protocol: DeviceModelProtocol }>;
 
 export const CLOUD_PROVIDER = "cloud";
 export const NEW_ENDPOINT = "new-local-endpoint";
@@ -35,6 +35,29 @@ export function isLocalProviderAddress(address: string) {
 	} catch {
 		return false;
 	}
+}
+
+/** A cloud provider's address: public https, with nothing but a path after the host. */
+export function isHttpsProviderAddress(value: string) {
+	try {
+		const url = new URL(value.trim());
+		return (
+			url.protocol === "https:" &&
+			!isLoopbackProviderAddress(value) &&
+			Boolean(url.hostname) &&
+			!url.username &&
+			!url.password &&
+			!url.search &&
+			!url.hash
+		);
+	} catch {
+		return false;
+	}
+}
+
+/** One spelling of an address, so a trailing slash alone is not an edit. */
+export function normaliseProviderUrl(value: string) {
+	return value.trim().replace(/\/+$/, "");
 }
 
 export function providerDeviceLabel(device: DeviceSummary, t: ReturnType<typeof useTranslation>["t"], locale: string) {

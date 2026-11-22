@@ -4,13 +4,15 @@ import { renderHook, waitFor } from "@testing-library/react";
 import type { Conversation, Member, MeResponse } from "@yonder/protocol";
 import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
+import { createQueryClient } from "../query/client.ts";
 import { keys } from "../query/keys.ts";
-import { ownedBots, useDeleteBot, useUpdateBot, useUploadBotAvatar } from "./bots.ts";
+import { ownedBots, useDeleteBot, useReception, useUpdateBot, useUploadBotAvatar } from "./bots.ts";
 
 const endpoints = vi.hoisted(() => ({
 	updateBot: vi.fn(),
 	uploadBotAvatar: vi.fn(),
 	deleteBot: vi.fn(),
+	reception: vi.fn(),
 }));
 vi.mock("../query/provider.tsx", () => ({ useApi: () => endpoints }));
 
@@ -112,4 +114,19 @@ test("owned Bots are the account's own, the default one first", () => {
 	expect(ownedBots([other, stranger, person, mine], "me").map((item) => item.id)).toEqual(["bot_a", "bot_b"]);
 	expect(ownedBots(undefined, "me")).toEqual([]);
 	expect(ownedBots([other], undefined)).toEqual([]);
+});
+
+test("the reception setting is read again on every mount, not taken from a cache under a minute old", async () => {
+	// The app's own query client treats data under a minute old as fresh.
+	const client = createQueryClient();
+	client.setQueryData(keys.contacts(), { items: [person, bot] });
+	const wrapper = ({ children }: { children: ReactNode }) => (
+		<QueryClientProvider client={client}>{children}</QueryClientProvider>
+	);
+	// A value a previous window left in the persisted cache: fresh by age, stale by fact.
+	client.setQueryData(keys.reception(), { botId: "bot_a", custom: false });
+	endpoints.reception.mockResolvedValue({ botId: "bot_b", custom: true });
+	const hook = renderHook(() => useReception(), { wrapper });
+	await waitFor(() => expect(hook.result.current.data).toEqual({ botId: "bot_b", custom: true }));
+	expect(endpoints.reception).toHaveBeenCalled();
 });

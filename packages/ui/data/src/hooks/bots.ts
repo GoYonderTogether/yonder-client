@@ -9,9 +9,14 @@ import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 import { removeDirectConversationWith, removeMember, writeMember } from "../realtime/member-cache.ts";
 
+/**
+ * Which Bot receives visitors. It is a single owner setting that another device or window can
+ * change, and the page shows it as the checked option, so a mount always reads it again rather
+ * than trusting a value cached up to a minute ago.
+ */
 export function useReception() {
 	const api = useApi();
-	return useQuery({ queryKey: keys.reception(), queryFn: () => api.reception() });
+	return useQuery({ queryKey: keys.reception(), queryFn: () => api.reception(), staleTime: 0 });
 }
 
 export function useSetReception() {

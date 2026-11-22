@@ -12,9 +12,11 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	CLOUD_PROVIDER,
+	isHttpsProviderAddress as isHttpsAddress,
 	isLocalProviderAddress,
 	isLoopbackProviderAddress,
 	NEW_ENDPOINT,
+	normaliseProviderUrl as normaliseUrl,
 	providerDeviceLabel,
 	type RegisterLocalProviderEndpoint,
 } from "./provider-location.ts";
@@ -146,8 +148,14 @@ export function ProviderEditor({
 		if (!target || key) {
 			const result = await registerEndpoint(
 				endpoint
-					? { deviceId, endpointId: endpoint.endpointId, apiKey: key }
-					: { deviceId, baseUrl: address, label: t("models.localEndpoint"), ...(key ? { apiKey: key } : {}) },
+					? { deviceId, endpointId: endpoint.endpointId, protocol, apiKey: key }
+					: {
+							deviceId,
+							baseUrl: address,
+							label: t("models.localEndpoint"),
+							protocol,
+							...(key ? { apiKey: key } : {}),
+						},
 			);
 			if (endpoint && result.endpointId !== endpoint.endpointId) throw new Error("Unexpected endpoint");
 			target = { kind: "device", deviceId, endpointId: result.endpointId };
@@ -209,7 +217,7 @@ export function ProviderEditor({
 			if (version !== discoveryVersion.current) return;
 			const result = await actions.discoverModels(
 				target
-					? { target, protocol: "openai" }
+					? { origin: "device", deviceId: target.deviceId, endpointId: target.endpointId, protocol }
 					: {
 							baseUrl: baseUrl.trim(),
 							protocol,
@@ -268,7 +276,7 @@ export function ProviderEditor({
 				models: modelIds,
 				...(Object.keys(selectedMetadata).length ? { metadata: selectedMetadata } : {}),
 				...(target
-					? { target, protocol: "openai" as const }
+					? { origin: "device" as const, deviceId: target.deviceId, endpointId: target.endpointId, protocol }
 					: { baseUrl: normaliseUrl(baseUrl), protocol, ...(needsKey ? { apiKey } : {}) }),
 			});
 			setApiKey("");
@@ -472,25 +480,4 @@ export function ProviderEditor({
 			</Button>
 		</form>
 	);
-}
-
-function isHttpsAddress(value: string): boolean {
-	try {
-		const url = new URL(value.trim());
-		return (
-			url.protocol === "https:" &&
-			!isLoopbackProviderAddress(value) &&
-			Boolean(url.hostname) &&
-			!url.username &&
-			!url.password &&
-			!url.search &&
-			!url.hash
-		);
-	} catch {
-		return false;
-	}
-}
-
-function normaliseUrl(value: string): string {
-	return value.trim().replace(/\/+$/, "");
 }

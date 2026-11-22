@@ -64,7 +64,9 @@ export function ProviderRelayRuntime(): null {
 	}, [boundKey]);
 
 	useEffect(() => {
+		// `mode: "device-local"` is another runtime's call: it carries an endpoint, not a URL.
 		const run = async (event: Extract<ServerEvent, { type: "provider.relay.request" }>) => {
+			if ("mode" in event) return;
 			const { relayId } = event;
 			active.current.add(relayId);
 			const send = (message: ClientEvent) => {
@@ -94,7 +96,7 @@ export function ProviderRelayRuntime(): null {
 		};
 		const stop = realtime.subscribeEvents((event: ServerEvent) => {
 			if (event.type === "provider.relay.request") void run(event);
-			else if (event.type === "provider.relay.cancel") {
+			else if (event.type === "provider.relay.cancel" && event.mode !== "device-local") {
 				active.current.delete(event.relayId);
 				void import("@tauri-apps/api/core").then(({ invoke }) =>
 					invoke("provider_relay_cancel", { relayId: event.relayId }).catch(() => {}),

@@ -1,9 +1,12 @@
+import type { DeviceModelProtocol } from "@yonder/protocol";
 import { localFilesSupported, useLocalFilesContext } from "./local-files.ts";
 
+/** What the shell keeps locally: an approved address, its protocol and, optionally, its key. */
 export interface DeviceModelEndpoint {
 	endpointId: string;
 	revision: number;
 	label: string;
+	protocol: DeviceModelProtocol;
 }
 
 const changed = new Set<() => void>();
@@ -19,8 +22,8 @@ export async function invokeDeviceModel<T>(name: string, args: Record<string, un
 }
 
 type EndpointRegistration =
-	| { deviceId: string; baseUrl: string; label?: string; apiKey?: string }
-	| { deviceId: string; endpointId: string; apiKey: string };
+	| { deviceId: string; baseUrl: string; label?: string; protocol: DeviceModelProtocol; apiKey?: string }
+	| { deviceId: string; endpointId: string; protocol: DeviceModelProtocol; apiKey: string };
 
 export function useDeviceModelEndpointRegistration() {
 	const context = useLocalFilesContext();
@@ -40,6 +43,7 @@ export function useDeviceModelEndpointRegistration() {
 						id: crypto.randomUUID(),
 						baseUrl: input.baseUrl,
 						label: input.label || "Local models",
+						protocol: input.protocol,
 						...(input.apiKey ? { apiKey: input.apiKey } : {}),
 					});
 		for (const listener of changed) listener();

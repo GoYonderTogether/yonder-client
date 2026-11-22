@@ -85,8 +85,20 @@ const myDevice: DeviceSummary = {
 	lastSeenAt: "2026-11-22T10:30:00.000Z",
 };
 const remote: DeviceSummary = { ...myDevice, id: "desktop-b", name: "Other desktop", current: false };
-const nativeEndpoint = { deviceId: myDevice.id, endpointId: "device-opaque-one", revision: 1, label: "Local model" };
-const remoteEndpoint = { deviceId: remote.id, endpointId: "device-opaque-two", revision: 1, label: "Office Local" };
+const nativeEndpoint = {
+	deviceId: myDevice.id,
+	endpointId: "device-opaque-one",
+	revision: 1,
+	label: "Local model",
+	protocol: "openai" as const,
+};
+const remoteEndpoint = {
+	deviceId: remote.id,
+	endpointId: "device-opaque-two",
+	revision: 1,
+	label: "Office Local",
+	protocol: "openai" as const,
+};
 function startLocal({ native = false }: { native?: boolean } = {}) {
 	actions.save.mockClear();
 	actions.discoverModels.mockClear();
@@ -123,14 +135,17 @@ test("cloud cannot send localhost, and native registers a single exact address b
 	fireEvent.click(screen.getByRole("button", { name: "Get models" }));
 	await waitFor(() =>
 		expect(actions.discoverModels).toHaveBeenCalledWith({
+			origin: "device",
+			deviceId: myDevice.id,
+			endpointId: nativeEndpoint.endpointId,
 			protocol: "openai",
-			target: { kind: "device", deviceId: myDevice.id, endpointId: nativeEndpoint.endpointId },
 		}),
 	);
 	expect(invoke).toHaveBeenCalledExactlyOnceWith({
 		deviceId: myDevice.id,
 		baseUrl: "http://localhost:11434/v1",
 		label: "Local model",
+		protocol: "openai",
 	});
 	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Local" } });
 	fireEvent.change(screen.getByRole("textbox", { name: "Models (comma-separated)" }), { target: { value: "m1" } });
@@ -142,7 +157,9 @@ test("cloud cannot send localhost, and native registers a single exact address b
 			website: null,
 			models: ["m1"],
 			protocol: "openai",
-			target: { kind: "device", deviceId: myDevice.id, endpointId: nativeEndpoint.endpointId },
+			origin: "device",
+			deviceId: myDevice.id,
+			endpointId: nativeEndpoint.endpointId,
 		}),
 	);
 	expect(invoke).toHaveBeenCalledTimes(1);
@@ -158,8 +175,10 @@ test("Web shows only advertised exact endpoints and never accepts an address or 
 	fireEvent.click(screen.getByRole("button", { name: "Get models" }));
 	await waitFor(() =>
 		expect(actions.discoverModels).toHaveBeenCalledWith({
+			origin: "device",
+			deviceId: remote.id,
+			endpointId: remoteEndpoint.endpointId,
 			protocol: "openai",
-			target: { kind: "device", deviceId: remote.id, endpointId: remoteEndpoint.endpointId },
 		}),
 	);
 	expect(invoke).not.toHaveBeenCalled();
