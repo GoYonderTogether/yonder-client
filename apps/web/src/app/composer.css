@@ -450,18 +450,38 @@
 	position: absolute;
 	z-index: -1;
 	inset: 0;
+	border-radius: var(--radius-full);
 	background: color-mix(in srgb, var(--color-bg-raised) 90%, var(--color-accent));
 	content: "";
 }
 
+@supports (clip-path: shape(from 0 0, curve to 100% 0 with 50% 0, arc to 0 0 of 24px cw, close)) {
+	.composer-recording-target::before {
+		--cap: calc(var(--spacing-12) / 2);
+		--bow: calc(var(--spacing-1) * 0.75);
+		--bottom: calc(100% - var(--spacing-1));
+		--bowed-bottom: calc(var(--bottom) + var(--bow));
+		inset-block-end: calc(-1 * var(--spacing-1));
+		border-radius: 0;
+		clip-path: shape(
+			from var(--cap) 0,
+			curve to calc(100% - var(--cap)) 0 with 35% var(--bow) /
+			65% var(--bow),
+			arc to calc(100% - var(--cap)) var(--bottom) of var(--cap) cw,
+			curve to var(--cap) var(--bottom) with 65% var(--bowed-bottom) /
+			35% var(--bowed-bottom),
+			arc to var(--cap) 0 of var(--cap) cw,
+			close
+		);
+	}
+}
+
 .composer-recording-target-left::before {
-	border-radius: 69% 47% 42% 61% / 53% 58% 42% 66%;
-	transform: rotate(-13deg);
+	transform: rotate(-8deg);
 }
 
 .composer-recording-target-right::before {
-	border-radius: 47% 69% 61% 42% / 58% 53% 66% 42%;
-	transform: rotate(13deg);
+	transform: rotate(8deg);
 }
 
 .composer-recording[data-to-text] .composer-recording-target-right::before {
