@@ -2,6 +2,49 @@
 
 ## [Unreleased]
 
+## [0.3.26112201] - 2026-11-22
+
+### Changed
+
+- web：prioritize visible entry content and contain header chrome
+
+### Fixed
+
+- models：align desktop providers with canonical device-local relay
+- protocol：match the server's connector argument docs and order
+- mac：show permissions already granted on first sign-in
+- recording：simplify live recorder controls and waveform
+- recording：keep live audio syncing while prior recordings finish
+- ci：align internal iOS web build version
+- support native QuickTime Voice Memos recordings
+- page macOS Notes attachments
+- expose Apple Notes attachment pagination
+- clarify iPhone Calendar access recovery
+- show mobile chat unread dots and open iOS notification settings
+- guide Apple connector permissions and simplify actions
+- devices：leave social exports with their implementation
+- settings：keep device downloads in the application
+- ui：anchor overlay actions below the scroll body
+
+### Added
+
+- web：add platform icons to signed-in downloads
+- stage device model Keychain support and landing downloads
+- chat：open a task session from its entry in the main chat
+- chat：render owner Agent question and namecard cards in the chat
+- agent：load owner Agent cards through the protocol and cache
+- meetings：draw opt-in SVG diagrams in recording notes
+- export native macOS Apple connector media
+- show cross-device connector sources and route Apple media
+- reception：drag files and folders between directories
+- connectors：connect Apple data through device permissions
+- reception：review Bot organization of shared memory files
+- settings：group channels and scale reception browsing
+- settings：redesign Bot selection and reception library
+- devices：group platforms and confirm device sign-out
+- contacts：open desktop contacts as a tab page
+- chat：add Bot restart and clear history actions
+
 ## [0.3.26112109] - 2026-11-21
 
 ### Added
