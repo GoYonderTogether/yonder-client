@@ -1,11 +1,12 @@
 import { Button, Menu } from "@yonder/ui-components";
 import { useData } from "@yonder/ui-data";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Download } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createDownloadCatalog } from "../downloads.ts";
 import type { DownloadPlatform } from "../environment.ts";
 import { detectEnvironment, readPlatformChoice, writePlatformChoice } from "../environment.ts";
+import { LANDING_PLATFORM_ICONS } from "./landing-platform-icons.ts";
 import type { PublicViewProps } from "./public-layout.tsx";
 
 const PLATFORMS: DownloadPlatform[] = ["macos", "windows", "android", "ios", "web"];
@@ -62,13 +63,21 @@ export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps &
 	const download = environment.type === "browser" && platform !== "web" ? catalog[platform].url : null;
 	const note = platform === "macos" ? t("landing.macNote") : platform === "windows" ? t("landing.windowsNote") : null;
 	const inApp = environment.type === "in-app";
+	const RecommendedIcon = download ? LANDING_PLATFORM_ICONS[platform] : Download;
 	const downloadOptions = PLATFORMS.flatMap((item) => {
 		const entry = catalog[item];
 		if (item === "web" || !entry.url) return [];
 		const name = t(`landing.platforms.${item}`);
 		const requirement =
 			item === "macos" ? t("landing.macRequirement") : item === "windows" ? t("landing.windowsRequirement") : "";
-		return [{ id: entry.url, label: requirement ? `${name} · ${requirement}` : name }];
+		const Icon = LANDING_PLATFORM_ICONS[item];
+		return [
+			{
+				id: entry.url,
+				label: requirement ? `${name} · ${requirement}` : name,
+				icon: <Icon size={16} aria-hidden="true" />,
+			},
+		];
 	});
 
 	return (
@@ -80,6 +89,7 @@ export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps &
 				{appPath && !inApp ? (
 					<div className="lp-download-split">
 						<a className="lp-action lp-action-secondary lp-download-main" href={download ?? "/download"}>
+							<RecommendedIcon size={16} aria-hidden="true" />
 							{download
 								? t("landing.downloadFor", { platform: t(`landing.platforms.${platform}`) })
 								: t("landingPage.nav.download")}

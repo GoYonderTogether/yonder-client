@@ -224,9 +224,9 @@ test("a restored web session can visit and reload the landing page, then open it
 	await expect(page).toHaveURL(/\/messages\/main\?from=test#item$/);
 });
 
-for (const [device, userAgent, platform, installer] of [
-	["macOS", mac, "macOS", `${downloadRoot}_aarch64.dmg`],
-	["iOS", iphone, "iOS", "https://testflight.apple.com/join/8C5Y9KHQ"],
+for (const [device, userAgent, platform, installer, icon] of [
+	["macOS", mac, "macOS", `${downloadRoot}_aarch64.dmg`, "laptop"],
+	["iOS", iphone, "iOS", "https://testflight.apple.com/join/8C5Y9KHQ", "smartphone"],
 ] as const) {
 	test(`the signed-in ${device} hero keeps only the installer and app actions`, async ({ browser }) => {
 		const context = await browser.newContext({ userAgent });
@@ -235,10 +235,9 @@ for (const [device, userAgent, platform, installer] of [
 			await isolateChat(page);
 			await page.goto("/");
 			const actions = page.locator(".lp-hero .lp-download");
-			await expect(actions.getByRole("link", { name: `下载 ${platform} 版`, exact: true })).toHaveAttribute(
-				"href",
-				installer,
-			);
+			const installerLink = actions.getByRole("link", { name: `下载 ${platform} 版`, exact: true });
+			await expect(installerLink).toHaveAttribute("href", installer);
+			await expect(installerLink.locator(`svg.lucide-${icon}`)).toHaveAttribute("aria-hidden", "true");
 			await expect(actions.getByRole("link", { name: "打开应用", exact: true })).toHaveAttribute(
 				"href",
 				"/messages/main",
@@ -273,6 +272,8 @@ test("the macOS split download supports keyboard selection of the existing Windo
 			"iOS",
 		]);
 		await expect(menu.getByRole("menuitem", { name: /macOS/ })).toBeFocused();
+		await expect(menu.locator("svg[aria-hidden='true']")).toHaveCount(4);
+		await expect(menu.getByRole("menuitem", { name: /Windows/ }).locator("svg.lucide-monitor")).toBeVisible();
 		await page.keyboard.press("Escape");
 		await expect(menu).toHaveCount(0);
 		await expect(options).toBeFocused();
