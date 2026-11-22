@@ -6125,6 +6125,8 @@ dependencies = [
  "libc",
  "objc2-app-kit",
  "regex",
+ "reqwest",
+ "rustls",
  "serde",
  "serde_json",
  "sha2",

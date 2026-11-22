@@ -6,7 +6,9 @@ import { createI18n, type Locale } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
 
-vi.mock("@yonder/ui-data", () => ({
+const setDefault = vi.hoisted(() => vi.fn());
+vi.mock("@yonder/ui-data", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@yonder/ui-data")>()),
 	useProviders: () => ({
 		data: {
 			// A stale response from an older server must not expose platform details either.
@@ -23,6 +25,7 @@ vi.mock("@yonder/ui-data", () => ({
 					enabled: true,
 					keyConfigured: true,
 					isDefault: true,
+					origin: "cloud",
 				},
 				{
 					id: "user",
@@ -34,15 +37,26 @@ vi.mock("@yonder/ui-data", () => ({
 					enabled: true,
 					keyConfigured: true,
 					isDefault: false,
+					origin: "cloud",
 				},
 			],
 			platformModels: [
 				{ id: "mdl-glm", name: "glm-5.3-flash", enabled: true, isDefault: true },
-				{ id: "mdl-deepseek", name: "DeepSeek-V4.1-Flash-1017", enabled: true, isDefault: false },
+				{
+					id: "mdl-deepseek",
+					providerId: "platform-2",
+					name: "DeepSeek-V4.1-Flash-1017",
+					enabled: true,
+					isDefault: false,
+				},
 			],
 		},
 	}),
-	useProviderActions: () => ({ setDefault: {}, remove: {}, test: {} }),
+	useProviderActions: () => ({
+		setDefault: { mutate: setDefault, isPending: false, isError: false, isSuccess: false },
+		remove: {},
+		test: {},
+	}),
 }));
 
 import { ModelsSection } from "./models-section.tsx";
@@ -56,24 +70,20 @@ function show(locale: Locale = "en", page: string | null = null, onOpenPage = vi
 }
 
 test.each([
-	["zh-CN", "使用中", "编辑供应商", "搜索模型或供应商"],
-	["en", "In use", "Edit provider", "Search models or providers"],
+	["zh-CN", "编辑供应商", "搜索模型或供应商", "主模型"],
+	["en", "Edit provider", "Search models or providers", "Main model"],
 ] as const)(
-	"shows platform models without vendor metadata and retains custom management in %s",
-	(locale, active, edit, searchLabel) => {
+	"lists platform models without vendor metadata and keeps custom management in %s",
+	(locale, edit, searchLabel, mainTitle) => {
 		show(locale);
 		const search = screen.getByRole("searchbox", { name: searchLabel });
 		expect(search).toBeVisible();
 		expect(search).toHaveAttribute("placeholder", searchLabel);
-		expect(search.previousElementSibling).toHaveClass("lucide-search");
-		expect(screen.queryByText(searchLabel)).toBeNull();
-		expect(search.parentElement?.querySelector("svg.lucide-search")).toHaveAttribute("aria-hidden", "true");
-		const platformRow = screen.getByText("glm-5.3-flash").closest("li");
-		const userRow = screen.getByText("Personal provider").closest("li");
-		if (!platformRow || !userRow) throw new Error("model or provider row missing");
-		expect(screen.getByText("DeepSeek-V4.1-Flash-1017")).toBeVisible();
-		expect(within(platformRow).getByText(active)).toBeVisible();
-		expect(within(platformRow).queryByRole("button")).toBeNull();
+		expect(screen.getByText(mainTitle)).toBeVisible();
+		const userRow = screen.getByText("Personal provider", { selector: "p, p *" }).closest("li");
+		if (!userRow) throw new Error("provider row missing");
+		// Platform models are choices in the main-model list; nothing about the vendor is shown.
+		expect(screen.getByRole("radio", { name: "DeepSeek-V4.1-Flash-1017" })).toBeVisible();
 		expect(
 			screen.queryByText(
 				/RightCode|upstream\.example|vendor\.example|private platform|another-model|平台供应商|Platform provider/,
@@ -85,20 +95,15 @@ test.each([
 	},
 );
 
-test("searches platform and custom model names, without searching hidden vendor metadata", async () => {
+test("searches the person's own providers, without searching hidden vendor metadata", async () => {
 	show();
 	const user = userEvent.setup();
 	const search = screen.getByRole("searchbox");
-	await user.type(search, "FLASH-1017");
-	expect(screen.getByText("DeepSeek-V4.1-Flash-1017")).toBeVisible();
-	expect(screen.queryByText("glm-5.3-flash")).toBeNull();
-	await user.clear(search);
 	await user.type(search, "personal-model");
-	expect(screen.getByText("Personal provider")).toBeVisible();
+	expect(screen.getByText("Personal provider", { selector: "p, p *" })).toBeVisible();
 	await user.clear(search);
 	await user.type(search, "RightCode");
 	expect(screen.getByText("No matching models or custom providers")).toBeVisible();
-	expect(screen.queryByText("glm-5.3-flash")).toBeNull();
 });
 
 test.each(["edit-platform", "duplicate-platform"])("blocks platform metadata through legacy %s deep links", (page) => {
@@ -133,4 +138,18 @@ test("provider actions open outside the clipped list and return focus on Escape"
 		within(screen.getByRole("dialog", { name: "Personal provider" })).getByRole("button", { name: "Duplicate" }),
 	);
 	expect(onOpenPage).toHaveBeenCalledWith("duplicate-user");
+});
+
+test("the main model is one list of platform models and own providers, and picking one saves its provider", async () => {
+	show("en");
+	const group = screen.getByText("Main model").closest("section") ?? document.body;
+	const radios = within(group as HTMLElement).getAllByRole("radio");
+	expect(radios.map((radio) => radio.getAttribute("aria-label"))).toEqual([
+		"glm-5.3-flash",
+		"DeepSeek-V4.1-Flash-1017",
+		"Personal provider",
+	]);
+	expect(radios[0]).toBeChecked();
+	await userEvent.click(radios[2] as HTMLElement);
+	expect(setDefault).toHaveBeenCalledWith("user");
 });

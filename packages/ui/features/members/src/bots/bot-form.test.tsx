@@ -208,6 +208,7 @@ function overview(member: Member, onDeleted = vi.fn()) {
 			bot={member}
 			onEdit={vi.fn()}
 			onPersona={vi.fn()}
+			onModel={vi.fn()}
 			onChannels={vi.fn()}
 			onDeleted={onDeleted}
 		/>,

@@ -3,6 +3,7 @@ import { useProviderActions, useProviders } from "@yonder/ui-data";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DefaultModelSection } from "./default-model-section.tsx";
 import { ProviderEditor, type ProviderPreset } from "./provider-editor.tsx";
 import { ProviderRow } from "./provider-row.tsx";
 
@@ -34,7 +35,6 @@ export function ModelsSection({
 	const [notice, setNotice] = useState<{ id: string; ok: boolean } | null>(null);
 	const [search, setSearch] = useState("");
 	const userProviders = providers.data?.items.filter((provider) => provider.scope === "user") ?? [];
-	const platformModels = providers.data?.platformModels ?? [];
 	if (page === "add") {
 		if (preset)
 			return (
@@ -111,10 +111,10 @@ export function ModelsSection({
 			value?.toLowerCase().includes(query),
 		),
 	);
-	const filteredModels = platformModels.filter((model) => model.name.toLowerCase().includes(query));
-	const total = userProviders.length + platformModels.length;
+	const total = userProviders.length;
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)]">
+			<DefaultModelSection />
 			<div className="flex justify-end">
 				<Button
 					variant="primary"
@@ -143,26 +143,8 @@ export function ModelsSection({
 			{providers.data && total === 0 ? (
 				<p className="text-caption text-[var(--color-text-secondary)]">{t("models.empty")}</p>
 			) : null}
-			{total > 0 && filtered.length === 0 && filteredModels.length === 0 ? (
+			{total > 0 && filtered.length === 0 ? (
 				<p className="text-caption text-[var(--color-text-secondary)]">{t("models.noMatches")}</p>
-			) : null}
-			{filteredModels.length > 0 ? (
-				<ListGroup title={t("models.catalog")}>
-					{filteredModels.map((model) => (
-						<li
-							key={model.id}
-							className="flex items-center justify-between gap-[var(--spacing-3)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] last:border-0"
-						>
-							<span className="break-words text-body">{model.name}</span>
-							{model.isDefault && model.enabled ? (
-								<span className="shrink-0 text-caption text-[var(--color-accent-text)]">{t("models.inUse")}</span>
-							) : null}
-							{!model.enabled ? (
-								<span className="shrink-0 text-caption text-[var(--color-text-tertiary)]">{t("models.disabled")}</span>
-							) : null}
-						</li>
-					))}
-				</ListGroup>
 			) : null}
 			{filtered.length > 0 ? (
 				<ListGroup title={t("models.custom")}>

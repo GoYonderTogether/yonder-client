@@ -10,6 +10,11 @@ export interface Provider {
 	keyConfigured: boolean;
 	enabled: boolean;
 	isDefault: boolean;
+	/** cloud = the server calls out directly; device = the call is relayed through a device session. */
+	origin: "cloud" | "device";
+	/** Set only when origin is device. */
+	deviceId?: string | null;
+	deviceName?: string | null;
 }
 
 /** Public platform catalog: upstream connection details never leave the server. */
@@ -35,6 +40,10 @@ export interface SaveProviderRequest {
 	models: string[];
 	apiKey?: string;
 	metadata?: Record<string, ProviderModelMetadata>;
+	/** Default is cloud. Device requires deviceId and lets baseUrl be a local address. */
+	origin?: "cloud" | "device";
+	/** The device that relays the calls; required when origin is device. */
+	deviceId?: string;
 }
 
 export interface ProviderModelMetadata {

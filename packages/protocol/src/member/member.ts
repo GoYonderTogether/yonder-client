@@ -15,6 +15,8 @@ export interface Member {
 	nicknames?: string[];
 	selectedNickname?: string | null;
 	botRoleLabel?: string | null;
+	/** What this Bot answers with (an own provider id or a platform model id); null follows the default. Owner only. */
+	modelChoice?: string | null;
 	/** Content-addressed: the `v` query parameter changes when the image changes. */
 	avatarUrl: string | null;
 	avatarColor?: string | null;
