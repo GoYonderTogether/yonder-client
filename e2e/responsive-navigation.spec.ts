@@ -30,6 +30,7 @@ async function isolate(page: Page) {
 	await page.addInitScript(() => localStorage.setItem("yonder.locale", "en"));
 	await page.route("**/v1/**", async (route) => {
 		const path = new URL(route.request().url()).pathname;
+		if (path === "/v1/providers") return route.fulfill({ json: { items: [], platformModels: [] } });
 		const json =
 			path === "/v1/auth/refresh"
 				? { accessToken: "public-ui-test", refreshToken: "public-ui-test" }

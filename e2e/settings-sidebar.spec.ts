@@ -60,7 +60,7 @@ test("wide desktop settings use flat selected rows and only deeper pages show Ba
 	await expect(page).toHaveURL(/\/me\/models$/);
 	const search = page.getByRole("searchbox", { name: "搜索模型或供应商" });
 	await search.fill("1017");
-	await expect(page.getByText("glm-5.3-flash", { exact: true })).toHaveCount(0);
+	await expect(page.getByRole("radio", { name: "glm-5.3-flash", exact: true })).toBeChecked();
 	await search.clear();
 	await search.blur();
 	await page.mouse.move(1200, 850);
@@ -130,7 +130,7 @@ test.describe("phone settings", () => {
 		const search = page.getByRole("searchbox", { name: "搜索模型或供应商" });
 		await search.fill("1017");
 		await expect(page.getByText("DeepSeek-V4.1-Flash-1017", { exact: true })).toBeVisible();
-		await expect(page.getByText("glm-5.3-flash", { exact: true })).toHaveCount(0);
+		await expect(page.getByRole("radio", { name: "glm-5.3-flash", exact: true })).toBeChecked();
 		await page.getByRole("button", { name: "返回", exact: true }).click();
 		await expect(page).toHaveURL(/\/me$/);
 		await page.getByRole("button", { name: "关闭", exact: true }).click();

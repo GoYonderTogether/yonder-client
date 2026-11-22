@@ -270,7 +270,6 @@ async function mockShell(page: Page, userAgent: string) {
 	await page.addInitScript((userAgent) => {
 		const opens: string[] = [];
 		Object.defineProperty(navigator, "userAgent", { value: userAgent });
-		localStorage.setItem("dev.yonder.desktop.refresh-token", "isolated-commerce-shell");
 		Object.assign(window, {
 			commerceBrowserOpens: opens,
 			__TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
@@ -279,7 +278,7 @@ async function mockShell(page: Page, userAgent: string) {
 				transformCallback: () => 1,
 				unregisterCallback() {},
 				invoke: async (command: string, args: { url: string }) => {
-					if (command.endsWith("get_password")) return "isolated-commerce-shell";
+					if (command === "get_desktop_refresh_token") return "isolated-commerce-shell";
 					if (command === "plugin:opener|open_url") opens.push(args.url);
 					return null;
 				},

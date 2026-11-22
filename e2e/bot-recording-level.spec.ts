@@ -32,10 +32,16 @@ for (const mobile of [false, true])
 
 			const meter = page.getByRole("meter", { name: "麦克风音量" });
 			await expect.poll(async () => Number(await meter.getAttribute("value")), { timeout: 15000 }).toBeGreaterThan(0);
+			const waveform = page.locator(".meeting-level-bars > span");
 			await expect
-				.poll(() => page.locator(".meeting-level-bars span[data-peak]").count(), { timeout: 15000 })
-				.toBeGreaterThan(0);
-			await expect(page.locator(".meeting-level-bars span")).toHaveCount(6);
+				.poll(
+					() =>
+						waveform.evaluateAll(
+							(bars) => bars.filter((bar) => Number((bar as HTMLElement).style.getPropertyValue("--level")) > 0).length,
+						),
+					{ timeout: 15000 },
+				)
+				.toBeGreaterThan(5);
 			const dialog = page.getByRole("dialog", { name: "实时转写", exact: true });
 			await expect(dialog).toBeVisible();
 			await expect(dialog.getByRole("button", { name: "暂停录音", exact: true })).toHaveCount(0);

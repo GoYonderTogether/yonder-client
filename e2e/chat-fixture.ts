@@ -92,6 +92,7 @@ export async function isolateChat(
 			await route.fulfill({ json: { message: saved, clientNonce: payload.clientNonce } });
 			return;
 		}
+		if (path === "/v1/providers") return route.fulfill({ json: { items: [], platformModels: [] } });
 		const json =
 			path === "/v1/auth/refresh"
 				? { accessToken: "isolated-chat-ui", expiresIn: 3600 }
