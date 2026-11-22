@@ -295,7 +295,7 @@ test("recording feedback shows a shallow arc and changes the glow on an upward s
 		});
 	const normal = await glow();
 	expect(normal.color).toBe(normal.accent);
-	expect(normal.shade).toContain("0.12");
+	expect(normal.shade).toContain("0.16");
 	// Chromium serializes a circle with a single radius and omits the shape keyword.
 	const radial = /radial-gradient\((?:circle )?(\d+(?:\.\d+)?)px at 50% calc\(100% \+ (\d+(?:\.\d+)?)px\),/g;
 	const [rim, tint] = normal.gradient.matchAll(radial);

@@ -93,7 +93,7 @@
 	position: fixed;
 	inset: 0;
 	z-index: 60;
-	background: color-mix(in srgb, color-mix(in srgb, var(--color-mask-solid) 78%, var(--color-accent)) 12%, transparent);
+	background: color-mix(in srgb, color-mix(in srgb, var(--color-mask-solid) 78%, var(--color-accent)) 16%, transparent);
 	pointer-events: none;
 }
 .composer-recording[data-cancel] {
@@ -477,11 +477,11 @@
 	}
 }
 
-.composer-recording-target-left::before {
+.composer-recording-target-left {
 	transform: rotate(-8deg);
 }
 
-.composer-recording-target-right::before {
+.composer-recording-target-right {
 	transform: rotate(8deg);
 }
 
