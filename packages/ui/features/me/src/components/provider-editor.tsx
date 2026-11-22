@@ -1,6 +1,7 @@
 import type { DeviceSummary, Provider, ProviderModelMetadata } from "@yonder/protocol";
 import { Button, Field, PasswordField, SelectField, TextField } from "@yonder/ui-components";
 import { useProviderActions } from "@yonder/ui-data";
+import { DiscardChangesDialog } from "@yonder/ui-shell";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -97,6 +98,7 @@ export function ProviderEditor({
 		provider && (normaliseUrl(baseUrl) !== normaliseUrl(provider.baseUrl) || protocol !== provider.protocol),
 	);
 	const needsKey = !onDevice && (replacing || destinationChanged || Boolean(currentTarget));
+	const [confirmPreset, setConfirmPreset] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [available, setAvailable] = useState<string[]>([]);
@@ -299,7 +301,8 @@ export function ProviderEditor({
 							variant="link"
 							size="sm"
 							onClick={() => {
-								if (!dirty || window.confirm(t("models.discard"))) onChangePreset?.();
+								if (dirty) setConfirmPreset(true);
+								else onChangePreset();
 							}}
 						>
 							{t("models.chooseAgain")}
@@ -481,6 +484,15 @@ export function ProviderEditor({
 			<Button type="submit" variant="primary" disabled={fetching} loading={saving}>
 				{t("app.save")}
 			</Button>
+			<DiscardChangesDialog
+				open={confirmPreset}
+				body={t("models.discard")}
+				onCancel={() => setConfirmPreset(false)}
+				onConfirm={() => {
+					setConfirmPreset(false);
+					onChangePreset?.();
+				}}
+			/>
 		</form>
 	);
 }

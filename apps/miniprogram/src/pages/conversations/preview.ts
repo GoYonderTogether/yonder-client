@@ -10,6 +10,7 @@ export function conversationPreview(
 ): string {
 	const last = conversation.lastMessage;
 	if (last?.type === "system" && last.system) return systemSentence(last.system, locale);
+	if (last?.recordingNote) return locale === "zh-CN" ? "[录音笔记]" : "[Recording notes]";
 	if (last?.voice) return locale === "zh-CN" ? "语音消息" : "Voice message";
 	return last?.body || (conversation.kind === "group" ? fallback.group : fallback.direct);
 }

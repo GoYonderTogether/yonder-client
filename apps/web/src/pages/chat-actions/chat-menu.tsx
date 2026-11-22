@@ -1,7 +1,8 @@
 import { IconButton } from "@yonder/ui-components";
-import { Bot, ContactRound, FileAudio, Plus, ScanLine, UserPlus, Users } from "lucide-react";
+import { Bot, ContactRound, Plus, ScanLine, UserPlus, Users } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { RecordingNoteIcon } from "../../app/recording-note-icon.tsx";
 
 export type ChatAction = "createBot" | "addContact" | "createGroup" | "scan" | "recordMeeting" | "contacts";
 const ICONS = {
@@ -10,7 +11,7 @@ const ICONS = {
 	addContact: UserPlus,
 	createGroup: Users,
 	scan: ScanLine,
-	recordMeeting: FileAudio,
+	recordMeeting: RecordingNoteIcon,
 };
 
 export function ChatMenu({

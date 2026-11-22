@@ -58,7 +58,7 @@ export function Overlay({
 				<div
 					ref={viewport}
 					className={cn(
-						"fixed inset-x-0 z-50 flex [--dialog-max-height:85dvh]",
+						"pointer-events-none fixed inset-x-0 z-50 flex [--dialog-max-height:85dvh] [&>[aria-modal=true]]:pointer-events-auto [&>[data-overlay-backdrop]]:pointer-events-auto",
 						sheet ? "top-[var(--app-offset-top,0px)] h-[var(--app-height,100dvh)]" : "inset-y-0",
 					)}
 					role="presentation"

@@ -376,13 +376,14 @@ for (const layout of ["desktop", "mobile"] as const) {
 			});
 			await page.goto("/messages/main");
 			const entry = page.getByRole("button", { name: `查看录音笔记 · ${recording.title}` });
-			await expect(entry).toContainText("09:24:00 – 09:24:20");
-			await expect(entry).toContainText("00:00:20");
-			await expect(entry).toContainText("2 张照片");
+			await expect(entry).toHaveText(/^.+ · 20秒$/);
 			expect(api.detailRequests()).toBe(0);
 			await entry.click();
 			const card = page.locator("[data-item-recording]");
 			await expect(card).toContainText("登录页先交付");
+			await expect(card).toContainText("09:24:00 – 09:24:20");
+			await expect(card).toContainText("00:00:20");
+			await expect(card).toContainText("2 张照片");
 			await expect(card.locator("[data-recording-photos] button")).toHaveCount(2);
 			await expect(card.locator("[data-recording-photos] button").first()).toHaveAccessibleName("00:00:04 的照片");
 			await expect(card.locator("[data-recording-photos] img")).toHaveCount(2);

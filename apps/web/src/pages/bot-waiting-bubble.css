@@ -1,0 +1,41 @@
+.bot-waiting-dots {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-1);
+	height: var(--text-body--line-height);
+	width: max-content;
+}
+
+.bot-waiting-dots > i {
+	flex: none;
+	width: calc(var(--spacing-1) + var(--spacing-hair));
+	height: calc(var(--spacing-1) + var(--spacing-hair));
+	border-radius: var(--radius-full);
+	background: var(--color-text-secondary);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.bot-waiting-dots > i {
+		animation: bot-waiting-pulse calc(var(--duration-slower) * 3) var(--ease-standard) infinite;
+	}
+
+	.bot-waiting-dots > i:nth-child(2) {
+		animation-delay: var(--duration-fast);
+	}
+
+	.bot-waiting-dots > i:nth-child(3) {
+		animation-delay: calc(var(--duration-fast) * 2);
+	}
+}
+
+@keyframes bot-waiting-pulse {
+	0%,
+	60%,
+	100% {
+		opacity: 0.5;
+	}
+
+	30% {
+		opacity: 1;
+	}
+}

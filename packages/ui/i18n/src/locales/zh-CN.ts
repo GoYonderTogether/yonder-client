@@ -46,6 +46,7 @@ export const zhCN: Messages = {
 		reload: "重新加载页面",
 		reloadConfirm: "重新加载页面？未保存的更改可能丢失。",
 		retry: "重试",
+		discardChanges: "放弃更改",
 		cancel: "取消",
 		save: "保存",
 		saving: "保存中…",

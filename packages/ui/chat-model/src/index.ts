@@ -28,7 +28,7 @@ export function isAgentCardId(id: unknown): id is string {
 	return typeof id === "string" && /^[a-z\d_-]{1,128}$/iu.test(id);
 }
 
-type MessageCapabilities = { agentCards?: boolean };
+type MessageCapabilities = { agentCards?: boolean; recordingNotes?: boolean };
 
 const hasAgentCard = (message: Message, support: MessageCapabilities) =>
 	support.agentCards && message.senderKind === "bot" && isAgentCardId(message.cardId);
@@ -51,6 +51,7 @@ export function newestReadableMessage(
 				!message.attachments.length &&
 				!message.outwardRequest &&
 				!message.friendRequestId &&
+				!(support.recordingNotes && message.meeting) &&
 				!hasAgentCard(message, support))
 		)
 			continue;
@@ -95,6 +96,28 @@ export function groupMessages<T extends Message>(
 		}
 	}
 	return blocks;
+}
+
+/** Only a server-accepted owner turn with a live, still-empty Bot response can show waiting dots. */
+export function hasPendingBotReply(items: readonly Message[] | undefined, botId: string, ownerId: string): boolean {
+	if (!items) return false;
+	const accepted = new Set(
+		items
+			.filter((item) => item.senderId === ownerId && item.type === "text" && !item.id.startsWith("temp_"))
+			.map(({ id }) => id),
+	);
+	return items.some(
+		(message) =>
+			message.senderId === botId &&
+			(message.run?.status === "queued" || message.run?.status === "running") &&
+			message.run.messageId === message.id &&
+			accepted.has(message.run.userMessageId) &&
+			isEmptyBotReply(message) &&
+			!message.cardId &&
+			!message.meeting &&
+			!message.taskSession &&
+			!message.channelAttemptId,
+	);
 }
 
 /** A reply record can exist before it has content and stay empty after a run finishes. */

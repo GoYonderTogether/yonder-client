@@ -205,7 +205,6 @@ test("Me layers preserve the selected chat, composer, parent instance and origin
 });
 
 test("a refused dirty-form exit leaves the route and page in place", async () => {
-	const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
 	const router = createMemoryRouter([{ path: "*", element: <AppFrame /> }], {
 		initialEntries: ["/me/account/password"],
 	});
@@ -213,11 +212,12 @@ test("a refused dirty-form exit leaves the route and page in place", async () =>
 	const page = await screen.findByText("Password page");
 	fireEvent.click(screen.getByRole("button", { name: "Mark dirty" }));
 	await act(() => fireEvent.click(screen.getByRole("button", { name: "Back" })));
-	expect(confirm).toHaveBeenCalledWith("models.discard");
+	expect(screen.getByText("models.discard")).toBeInTheDocument();
+	await act(() => fireEvent.click(screen.getByRole("button", { name: "app.cancel" })));
 	expect(router.state.location.pathname).toBe("/me/account/password");
 	expect(screen.getByText("Password page")).toBe(page);
-	confirm.mockReturnValue(true);
 	await act(() => fireEvent.click(screen.getByRole("button", { name: "Back" })));
+	await act(() => fireEvent.click(screen.getByRole("button", { name: "app.discardChanges" })));
 	expect(router.state.location.pathname).toBe("/me/account");
 	expect(router.state.historyAction).toBe("REPLACE");
 	router.dispose();

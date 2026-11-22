@@ -382,3 +382,94 @@ test("existing relay providers retain device identity and can be tested, but nev
 	await expect(custom.getByText("连接成功", { exact: true })).toBeVisible();
 	await capture(page, "provider-legacy-relay-list");
 });
+
+for (const width of [1280, 390]) {
+	test(`provider navigation and dirty draft remain usable without a native dialog at ${width}px`, async ({ page }) => {
+		const requests = await setup(page);
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await page.setViewportSize({ width, height: 900 });
+		await page.addInitScript(() => {
+			window.confirm = () => {
+				throw new Error("No native confirmation in this host");
+			};
+		});
+		await page.goto("/tasks");
+		const entry = page.getByRole("button", { name: "我", exact: true });
+		await entry.click();
+		await page.getByRole("button", { name: "模型", exact: true }).click();
+		const back = (path: string) =>
+			page.locator(`[data-page-layer="${path}"]`).getByRole("button", { name: "返回", exact: true });
+		const open = async () => {
+			await page.getByRole("button", { name: "添加供应商", exact: true }).click();
+			await page.getByRole("button", { name: "自定义供应商", exact: true }).click();
+		};
+		const modal = page.getByRole("dialog", { name: "放弃更改", exact: true }).and(page.locator('[aria-modal="true"]'));
+		await open();
+		await name(page).click();
+		await expect(name(page)).toBeFocused();
+		await capture(page, `provider-clean-${width}`);
+		await back("/me/models/add").click();
+		await expect(page).toHaveURL(/\/me\/models$/);
+		await open();
+		await name(page).fill("浏览器测试");
+		await back("/me/models/add").click();
+		await expect(modal).toBeVisible({ timeout: 3000 });
+		await expect(modal).toBeFocused();
+		await expect
+			.poll(() => modal.evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).m41))
+			.toBeCloseTo(0, 0);
+		await capture(page, `provider-confirmation-${width}`);
+		await page.keyboard.press("Escape");
+		await expect(modal).toHaveCount(0);
+		await expect(name(page)).toHaveValue("浏览器测试");
+		await expect(back("/me/models/add")).toBeFocused();
+		// The scrim can disappear before the panel finishes animating. Its portal must not eat clicks.
+		await expect(name(page)).toBeEnabled();
+		await name(page).focus();
+		const editable = await name(page).evaluate((element) => {
+			const { x, y, width, height } = element.getBoundingClientRect();
+			return document.elementFromPoint(x + width / 2, y + height / 2) === element;
+		});
+		expect(editable).toBe(true);
+		const changePreset = page.getByRole("button", { name: "更换预设", exact: true });
+		await changePreset.click();
+		await modal.getByRole("button", { name: "取消", exact: true }).click();
+		await expect(changePreset).toBeFocused();
+		await expect(name(page)).toHaveValue("浏览器测试");
+		if (width === 1280) {
+			const close = page.getByRole("button", { name: "关闭", exact: true });
+			await close.click();
+			await modal.getByRole("button", { name: "取消", exact: true }).click();
+			await expect(modal).toHaveCount(0);
+			await expect(close).toBeFocused();
+			await expect(page).toHaveURL(/\/me\/models\/add$/);
+		}
+		await page.keyboard.press("Escape");
+		await expect(modal).toBeFocused();
+		await page.keyboard.press("Shift+Tab");
+		const discard = modal.getByRole("button", { name: "放弃更改", exact: true });
+		await expect(discard).toBeFocused();
+		await page.keyboard.press("Enter");
+		await expect(page).toHaveURL(/\/me\/models$/);
+		await expect(modal).toHaveCount(0);
+		await open();
+		await expect(name(page)).toHaveValue("");
+		await name(page).fill("浏览器测试");
+		await url(page).fill("https://models.example.test");
+		await page.getByLabel("API Key").fill("synthetic-fixture-only");
+		await discover(page).click();
+		await page.getByRole("checkbox", { name: "fixture-model" }).check();
+		await page.getByRole("button", { name: "保存", exact: true }).click();
+		await expect(page).toHaveURL(/\/me\/models$/);
+		await expect(page.getByText("浏览器测试", { exact: true })).toBeVisible();
+		expect(requests.saves).toHaveLength(1);
+		if (width === 390) {
+			await back("/me/models").click();
+			await expect(page).toHaveURL(/\/me$/);
+		}
+		await page.getByRole("button", { name: "关闭", exact: true }).click();
+		await expect(page).toHaveURL(/\/tasks$/);
+		await expect(page.locator("[data-overlay-backdrop]")).toHaveCount(0);
+		await expect(entry).toBeFocused();
+	});
+}

@@ -122,6 +122,8 @@ export interface Conversation {
 		type?: "text" | "task_notice" | "system";
 		system?: SystemEvent;
 		voice?: { durationMs: number };
+		/** Set when the latest message opens a recording note. */
+		recordingNote?: true;
 	} | null;
 	unreadCount: number;
 	muted?: boolean;

@@ -44,6 +44,7 @@ export const en = {
 		reload: "Reload page",
 		reloadConfirm: "Reload the page? Unsaved changes may be lost.",
 		retry: "Try again",
+		discardChanges: "Discard changes",
 		cancel: "Cancel",
 		save: "Save",
 		saving: "Saving…",

@@ -74,7 +74,7 @@ export async function isolateChat(
 		...(options.group ? { kind: "group" as const, title: "界面验收群聊", isPrimary: false } : {}),
 	};
 	const sent: { body: string; type: string; clientNonce: string }[] = [];
-	const sockets: WebSocketRoute[] = [];
+	const sockets = new Set<WebSocketRoute>();
 	await page.addInitScript(
 		({ dark }) => {
 			localStorage.setItem("yonder.locale", "zh-CN");
@@ -118,7 +118,8 @@ export async function isolateChat(
 		await route.fulfill({ json });
 	});
 	await page.routeWebSocket("**/v1/realtime*", (socket) => {
-		sockets.push(socket);
+		sockets.add(socket);
+		socket.onClose(() => sockets.delete(socket));
 		socket.onMessage(() => undefined);
 	});
 	function emit(
@@ -132,6 +133,12 @@ export async function isolateChat(
 	}
 	return {
 		sent,
+		connected: () => sockets.size > 0,
+		disconnect: async () => {
+			const current = [...sockets];
+			sockets.clear();
+			await Promise.all(current.map((socket) => socket.close({ code: 1012 })));
+		},
 		create: (message: Message) => emit({ type: "message.created", message }),
 		update: (message: Message) => emit({ type: "message.updated", message }),
 		updateRun: (run: Run) => emit({ type: "run.updated", run }),

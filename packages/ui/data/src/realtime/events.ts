@@ -81,6 +81,12 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 		}
 		case "conversation.state_changed": {
 			void queryClient.invalidateQueries({ queryKey: keys.conversations.list() });
+			if (event.itemId) {
+				void queryClient.invalidateQueries({ queryKey: keys.items.lists() });
+				void queryClient.invalidateQueries({ queryKey: keys.items.detail(event.itemId) });
+				void queryClient.invalidateQueries({ queryKey: keys.items.session(event.conversationId) });
+				void queryClient.invalidateQueries({ queryKey: keys.messages.all(event.conversationId) });
+			}
 			break;
 		}
 		case "conversation.removed": {

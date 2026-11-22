@@ -58,7 +58,7 @@ export type ServerEvent =
 	  }
 	| { type: "devices.changed"; eventId: string; at: string }
 	| { type: "conversation.updated"; eventId: string; at: string; conversation: Conversation }
-	| { type: "conversation.state_changed"; eventId: string; at: string; conversationId: string }
+	| { type: "conversation.state_changed"; eventId: string; at: string; conversationId: string; itemId?: string }
 	/** The conversation left this account's list: drop it, with its messages and any open view. */
 	| { type: "conversation.removed"; eventId: string; at: string; conversationId: string }
 	| { type: "member.updated"; eventId: string; at: string; member: Member }

@@ -134,11 +134,12 @@ test("private chat ellipsis opens the peer card and Bot details with separate se
 	await expect(edit.getByRole("textbox", { name: "名字", exact: true })).toHaveValue(bot.displayName);
 	await capture(edit, "desktop-bot-edit.png");
 	await edit.getByRole("textbox", { name: "名字", exact: true }).fill("未提交的名字");
-	page.once("dialog", (dialog) => dialog.dismiss());
+	const discard = page.getByRole("dialog", { name: "放弃更改", exact: true });
 	await page.goBack();
+	await discard.getByRole("button", { name: "取消" }).click();
 	await expect(edit.getByRole("textbox", { name: "名字", exact: true })).toHaveValue("未提交的名字");
-	page.once("dialog", (dialog) => dialog.accept());
 	await page.goBack();
+	await discard.getByRole("button", { name: "放弃更改" }).click();
 	await expect(edit).toHaveCount(0);
 	await expect(page).toHaveURL(/\/messages\/main$/);
 	await detail.getByRole("button", { name: /^基本资料/ }).click();

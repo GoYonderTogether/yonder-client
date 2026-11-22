@@ -122,6 +122,18 @@ test("an empty Bot placeholder does not hide the last visible message", () => {
 	const voice = { durationMs: 1000 };
 	updateMessage(client, { ...user, id: "m3", createdAt: "2026-01-01T00:00:02.000Z", body: null, voice });
 	expect(client.getQueryData(key)).toMatchObject({ items: [{ lastMessage: { body: null, voice } }] });
+	updateMessage(client, {
+		...bot,
+		id: "m4",
+		createdAt: "2026-01-01T00:00:03.000Z",
+		streaming: false,
+		meeting: { id: "m", title: "Report" },
+	});
+	expect(client.getQueryData(key)).toMatchObject({ items: [{ lastMessage: { body: "", recordingNote: true } }] });
+	updateMessage(client, { ...user, id: "m5", createdAt: "2026-01-01T00:00:04.000Z", body: "ordinary report" });
+	expect(client.getQueryData<{ items: Conversation[] }>(key)?.items[0]?.lastMessage).not.toHaveProperty(
+		"recordingNote",
+	);
 });
 
 test("a history clear invalidates old pages and prevents delayed messages from restoring the history or its preview", async () => {

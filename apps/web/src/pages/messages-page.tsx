@@ -1,4 +1,11 @@
-import { agentChatStatus, conversationBotOwner, newestReadableMessage, ownedBotFor } from "@yonder/chat-model";
+import {
+	agentChatStatus,
+	conversationBotOwner,
+	hasPendingBotReply,
+	isTwoPartyAgentChat,
+	newestReadableMessage,
+	ownedBotFor,
+} from "@yonder/chat-model";
 import { exhaustedPools, QuotaLowBanner } from "@yonder/feature-me";
 import { BotName, systemEventText, type Translate } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
@@ -21,6 +28,7 @@ import { type ReactNode, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { isForeground, useForeground } from "../lib/foreground.ts";
+import { BotWaitingBubble } from "./bot-waiting-bubble.tsx";
 import { ChatActions } from "./chat-actions/index.tsx";
 import { ConversationMessages } from "./conversation-messages.tsx";
 import {
@@ -43,6 +51,7 @@ function rowPreview(conversation: Conversation, t: Translate): string | undefine
 	if (!last) return undefined;
 	if (conversation.kind === "system") return t("friendRequests.title");
 	if (last.type === "system" && last.system) return systemEventText(last.system, t) || undefined;
+	if (last.recordingNote) return t("meetingRecorder.listPreview");
 	if (last.voice) return t("chat.voiceMessage");
 	return last.body ? messagePreview(last.body) : undefined;
 }
@@ -215,7 +224,7 @@ export function ConversationPage({
 			person &&
 			items?.length &&
 			(item || conversation?.unreadCount)
-			? newestReadableMessage(items, person.id, { agentCards: true })
+			? newestReadableMessage(items, person.id, { agentCards: true, recordingNotes: Boolean(onOpenMeeting) })
 			: undefined,
 		canRead,
 	);
@@ -232,6 +241,14 @@ export function ConversationPage({
 		conversation.kind === "system"
 			? t("friendRequests.notifications")
 			: peer?.displayName || conversationTitle(conversation, person?.id);
+	const showReplyDots = Boolean(
+		person &&
+			agent &&
+			!conversation.visit &&
+			isTwoPartyAgentChat(conversation, person.id) &&
+			(item || ((conversation.isPrimary ?? mainBotHome) && agent.memberId === bot?.id)) &&
+			hasPendingBotReply(items, agent.memberId, person.id),
+	);
 	const status = agent && !disconnected ? agentChatStatus(items, agent.memberId, subtasks) : undefined;
 	const statusText =
 		status?.kind === "processing"
@@ -405,6 +422,7 @@ export function ConversationPage({
 								}
 							/>
 						) : null}
+						{showReplyDots ? <BotWaitingBubble /> : null}
 						<div ref={bottom} className="h-px shrink-0" />
 					</div>
 				) : null}

@@ -80,3 +80,27 @@ test("only a capable renderer keeps a card-only Bot output and marks it readable
 	}
 	expect(newestReadableMessage([{ ...card, streaming: true }], "mem_reader", supported)).toBeUndefined();
 });
+
+test("a recording-only Bot message acknowledges its watermark only on a surface that renders it", () => {
+	const recording: Message = {
+		id: "msg_recording",
+		conversationId: "cnv_test",
+		senderId: "bot_test",
+		senderKind: "bot",
+		type: "text",
+		body: "",
+		attachments: [],
+		replyToId: null,
+		createdAt: "2026-11-19T01:00:02.000Z",
+		editedAt: null,
+		streaming: false,
+		version: 1,
+		meeting: { id: "mtg_note", title: "Recording note" },
+	};
+	expect(newestReadableMessage([recording], "mem_reader")).toBeUndefined();
+	expect(newestReadableMessage([recording], "mem_reader", { recordingNotes: true })).toBe(recording.id);
+	expect(newestReadableMessage([recording], "bot_test", { recordingNotes: true })).toBeUndefined();
+	expect(
+		newestReadableMessage([{ ...recording, streaming: true }], "mem_reader", { recordingNotes: true }),
+	).toBeUndefined();
+});

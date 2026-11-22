@@ -1,6 +1,7 @@
-import { Camera, FileAudio, FileText, Image } from "lucide-react";
+import { Camera, FileText, Image } from "lucide-react";
 import type { ChangeEvent, RefObject } from "react";
 import { useTranslation } from "react-i18next";
+import { RecordingNoteIcon } from "./recording-note-icon.tsx";
 
 export function ComposerAttachmentMenu({
 	panel,
@@ -46,7 +47,7 @@ export function ComposerAttachmentMenu({
 			</button>
 			{onMeeting ? (
 				<button type="button" onClick={() => choose(onMeeting)}>
-					<FileAudio size={18} aria-hidden="true" />
+					<RecordingNoteIcon size={18} aria-hidden="true" />
 					{t("chatActions.recordMeeting")}
 				</button>
 			) : null}

@@ -1,10 +1,11 @@
 import { Button } from "@yonder/ui-components";
-import { Camera, FileAudio, FileText, Images } from "lucide-react";
+import { Camera, FileText, Images } from "lucide-react";
 import { type RefObject, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { type IosAttachmentIssue, isIphoneAttachmentHost, pickIphoneAttachments } from "../lib/ios-chat-attachments.ts";
 import { IosComposerPhotoBrowser } from "./composer-ios-photo-browser.tsx";
 import type { ComposerProps } from "./composer-props.ts";
+import { RecordingNoteIcon } from "./recording-note-icon.tsx";
 
 type PickerMode = "photos" | "camera" | "documents";
 type PickerRequest = { scope: string; mode: PickerMode; photoIds?: string[]; limit: number; sendOriginal: boolean };
@@ -177,7 +178,7 @@ export function IosComposerAttachmentPanel({
 								onMeeting();
 							}}
 						>
-							<FileAudio size={24} aria-hidden="true" />
+							<RecordingNoteIcon size={24} aria-hidden="true" />
 							{t("chatActions.recordMeeting")}
 						</button>
 					) : null}

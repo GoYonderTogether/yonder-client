@@ -50,7 +50,7 @@ import { useFrameChat } from "./use-frame-chat.ts";
 import { useFrameMeeting } from "./use-frame-meeting.ts";
 import { useMeEntry } from "./use-me-entry.ts";
 import { useMeetingLink } from "./use-meeting-link.ts";
-import { useModelDirtyGuard } from "./use-model-dirty-guard.ts";
+import { useModelDirtyGuard } from "./use-model-dirty-guard.tsx";
 import { type PageNavigationState, usePageNavigation } from "./use-page-navigation.ts";
 import { MAIN_BOT_PATH, usePhoneTabs } from "./use-phone-tabs.ts";
 import { useTaskPreset } from "./use-task-preset.ts";
@@ -79,7 +79,7 @@ export function AppFrame() {
 	const [layoutMode, setLayoutMode] = useState<LayoutMode | null>(null);
 	const [chatOpen, setChatOpen] = useState(0);
 	const phone = !desktop && (layoutMode === "mobile" || layoutMode === null);
-	const { modelDirty, setBotDirty } = useModelDirtyGuard();
+	const { modelDirty, setBotDirty, dialog: discardDialog } = useModelDirtyGuard(layoutMode ?? "mobile", desktop);
 	const previousLocation = useRef("/messages");
 
 	const located = locate(location.pathname);
@@ -264,6 +264,7 @@ export function AppFrame() {
 	function mePage(pagePath: string): ReactNode {
 		return (
 			<SettingsRoutePage
+				key={pagePath.startsWith("/me/models/") ? location.key : pagePath}
 				path={pagePath}
 				onOpen={navigation.open}
 				onBack={navigation.back}
@@ -485,6 +486,7 @@ export function AppFrame() {
 				{composer}
 			</TaskBotDrawer>
 			{recordingSurface.dialog}
+			{discardDialog}
 			<MessageNotifications
 				key={person?.id}
 				personId={person?.id}

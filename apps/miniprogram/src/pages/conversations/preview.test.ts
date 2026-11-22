@@ -48,6 +48,16 @@ describe("conversation list preview", () => {
 		expect(conversationPreview(recording, "zh-CN", fallback)).toBe("语音消息");
 		expect(conversationPreview(recording, "en", fallback)).toBe("Voice message");
 	});
+	it("uses the recording-note label instead of the report body", () => {
+		const note = conversation({
+			body: "A recording report",
+			senderKind: "bot",
+			createdAt: "2026-11-17T00:00:00Z",
+			recordingNote: true,
+		});
+		expect(conversationPreview(note, "zh-CN", fallback)).toBe("[录音笔记]");
+		expect(conversationPreview(note, "en", fallback)).toBe("[Recording notes]");
+	});
 	it("keeps a text body and falls back when there is no message", () => {
 		expect(
 			conversationPreview(

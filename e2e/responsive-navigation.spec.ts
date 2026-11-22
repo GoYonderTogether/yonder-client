@@ -411,15 +411,16 @@ test("settings keep the active form across desktop resize and guard outside clic
 	await expect(backdrop).toBeVisible();
 	await expect(name).toHaveValue("Unsent provider");
 	await expect(name).toBeFocused();
-	const rejected = page.waitForEvent("dialog").then((dialog) => dialog.dismiss());
+	const discard = page
+		.getByRole("dialog", { name: "Discard changes", exact: true })
+		.and(page.locator('[aria-modal="true"]'));
 	await backdrop.click({ position: { x: 5, y: 100 } });
-	await rejected;
+	await discard.getByRole("button", { name: "Cancel", exact: true }).click();
 	await expect(page).toHaveURL(/\/me\/models\/add$/);
 	await expect(settings).toBeVisible();
 	await expect(name).toHaveValue("Unsent provider");
-	const accepted = page.waitForEvent("dialog").then((dialog) => dialog.accept());
 	await backdrop.click({ position: { x: 5, y: 100 } });
-	await accepted;
+	await discard.getByRole("button", { name: "Discard changes", exact: true }).click();
 	await expect(settings).toHaveCount(0);
 	await expect(page).toHaveURL(/\/messages$/);
 });

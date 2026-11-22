@@ -1,7 +1,11 @@
 import { recordingDuration } from "@yonder/feature-meetings";
 import type { Message } from "@yonder/protocol";
-import { ChevronRight, FileAudio, ListTodo } from "lucide-react";
+import { ChevronRight, ListTodo } from "lucide-react";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
+
+import { RecordingNoteIcon } from "../app/recording-note-icon.tsx";
+import { recordingNoteDate, recordingNoteDuration } from "./meeting-message-summary.ts";
 
 export function MeetingMessageCard({
 	meeting,
@@ -13,20 +17,36 @@ export function MeetingMessageCard({
 	task?: boolean;
 	onOpen: (id: string) => void;
 }) {
-	const { t } = useTranslation();
-	const Icon = task ? ListTodo : FileAudio;
+	const { t, i18n } = useTranslation();
+	const detailsId = useId();
+	const date = task ? null : recordingNoteDate(meeting.startedAt, i18n.resolvedLanguage);
+	const duration = task ? null : recordingNoteDuration(meeting.durationMs);
+	const details = [date, duration ? t(`meetingRecorder.card${duration.unit}`, duration) : null]
+		.filter(Boolean)
+		.join(" · ");
 	return (
 		<button
 			type="button"
 			data-meeting-task-card
+			aria-describedby={details ? detailsId : undefined}
 			aria-label={t(task ? "chat.openTaskSession" : "meetingRecorder.openResult", { title: meeting.title })}
 			onClick={() => onOpen(meeting.id)}
 			className="flex min-h-[var(--control-lg)] w-full max-w-[calc(var(--control-lg)*7)] items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-raised)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-start text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]"
 		>
-			<Icon aria-hidden="true" size={20} className="shrink-0 text-[var(--color-accent-text)]" />
-			<span className="min-w-0 flex-1">
-				<span className="block truncate text-body font-medium">{meeting.title}</span>
-				<MeetingMetadata {...meeting} />
+			{task ? (
+				<ListTodo aria-hidden="true" size={20} className="shrink-0 text-[var(--color-accent-text)]" />
+			) : (
+				<RecordingNoteIcon aria-hidden="true" className="shrink-0" />
+			)}
+			<span id={details ? detailsId : undefined} className="min-w-0 flex-1 text-body font-medium tabular-nums">
+				{task ? (
+					<>
+						<span className="block truncate">{meeting.title}</span>
+						<MeetingMetadata {...meeting} />
+					</>
+				) : (
+					details
+				)}
 			</span>
 			<ChevronRight aria-hidden="true" size={18} className="shrink-0 text-[var(--color-text-secondary)]" />
 		</button>

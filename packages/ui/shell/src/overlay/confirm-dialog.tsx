@@ -1,5 +1,6 @@
 import { Button } from "@yonder/ui-components";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useShellChrome } from "../layout/shell-context.tsx";
 import { Overlay } from "./overlay.tsx";
 
@@ -65,5 +66,19 @@ export function ConfirmDialog({
 				) : null}
 			</div>
 		</Overlay>
+	);
+}
+
+export function DiscardChangesDialog(props: Pick<ConfirmDialogProps, "open" | "body" | "onConfirm" | "onCancel">) {
+	const { t } = useTranslation();
+	return (
+		<ConfirmDialog
+			{...props}
+			title={t("app.discardChanges")}
+			confirmLabel={t("app.discardChanges")}
+			cancelLabel={t("app.cancel")}
+			closeLabel={t("app.close")}
+			backLabel={t("app.back")}
+		/>
 	);
 }
