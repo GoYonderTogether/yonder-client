@@ -42,13 +42,15 @@
 	text-align: center;
 }
 .meeting-recording-header :where(.meeting-recording-button),
-.meeting-recording-toolbar > :first-child {
+.meeting-recording-toolbar > :nth-child(2) {
 	justify-self: start;
 }
 .meeting-recording-toolbar {
 	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-	padding-bottom: max(var(--spacing-3), env(safe-area-inset-bottom));
-	border-top: 1px solid var(--color-border-subtle);
+	width: min(100%, var(--width-form));
+	justify-self: center;
+	box-sizing: border-box;
+	padding-bottom: max(var(--spacing-4), env(safe-area-inset-bottom));
 }
 .meeting-recording-toolbar > :last-child {
 	justify-self: end;
@@ -80,6 +82,16 @@
 .meeting-recording-stop {
 	color: var(--color-danger);
 }
+.meeting-recording-icon {
+	width: var(--control-lg);
+	min-height: var(--control-lg);
+	border-radius: var(--radius-full);
+}
+.meeting-recording-end,
+.meeting-recording-end:enabled:hover {
+	background: var(--color-danger);
+	color: var(--color-danger-inverse);
+}
 .meeting-recording-clock {
 	font-size: var(--text-h2);
 	font-weight: var(--font-weight-medium);
@@ -94,14 +106,6 @@
 	box-sizing: border-box;
 	margin-inline: auto;
 	padding: var(--spacing-5) var(--spacing-6) var(--spacing-12);
-}
-.meeting-transcript-eyebrow {
-	display: flex;
-	align-items: center;
-	gap: var(--spacing-2);
-	margin: 0 0 var(--spacing-6);
-	color: var(--color-text-tertiary);
-	font-size: var(--text-caption);
 }
 .meeting-recording-notice {
 	margin-block: var(--spacing-3);
@@ -137,8 +141,8 @@
 }
 .meeting-transcript-entry img {
 	display: block;
-	max-width: 100%;
-	max-height: 45dvh;
+	max-width: min(64%, calc(var(--width-form) / 2));
+	max-height: calc(var(--settings-window-height) / 5);
 	margin-top: var(--spacing-2);
 	border-radius: var(--radius-card);
 	object-fit: contain;
@@ -227,25 +231,21 @@
 	}
 }
 
-.meeting-recording-readout {
-	display: grid;
-	justify-items: center;
-}
 .meeting-level-bars {
 	display: flex;
-	height: var(--spacing-3);
+	grid-column: 1 / -1;
+	justify-content: flex-end;
 	align-items: center;
+	height: var(--spacing-16);
+	overflow: hidden;
 	gap: var(--spacing-hair);
-	color: var(--color-text-tertiary);
+	color: var(--color-danger);
 }
-.meeting-level-bars span {
-	width: var(--spacing-1);
-	height: var(--spacing-hair);
+.meeting-level-bars > span {
+	flex: 0 0 var(--spacing-hair);
+	height: max(var(--spacing-hair), calc(var(--level) * var(--spacing-16)));
 	border-radius: var(--radius-full);
 	background: currentColor;
-}
-.meeting-level-bars span[data-peak] {
-	height: var(--spacing-2);
 }
 .meeting-recovery {
 	width: min(100%, var(--width-form));

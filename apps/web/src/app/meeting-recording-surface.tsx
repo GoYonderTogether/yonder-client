@@ -16,6 +16,7 @@ import {
 } from "../lib/meeting-photos.ts";
 import { useObjectUrl } from "../lib/use-object-url.ts";
 import { MeetingCamera } from "./meeting-camera.tsx";
+import { MeetingWaveform } from "./meeting-waveform.tsx";
 import { MAIN_BOT_PATH } from "./use-phone-tabs.ts";
 import "./meeting-recording-surface.css";
 
@@ -362,10 +363,6 @@ function MeetingRecordingDialog({
 					}}
 				>
 					<div className="meeting-transcript-inner">
-						<p className="meeting-transcript-eyebrow">
-							<span className="meeting-recording-dot" aria-hidden="true" />
-							{t("meetingRecorder.recording")}
-						</p>
 						{offline ? (
 							<p className="meeting-recording-notice" role="status">
 								{t("meetingRecorder.offlineLive")}
@@ -397,52 +394,35 @@ function MeetingRecordingDialog({
 					</div>
 				</div>
 				<footer className="meeting-recording-toolbar">
+					<MeetingWaveform elapsedMs={active.durationMs} level={audioLevel} />
 					{cameraAvailable ? (
 						<button
 							ref={cameraButton}
 							type="button"
-							className="meeting-recording-button"
+							className="meeting-recording-button meeting-recording-icon"
+							aria-label={t("meetingRecorder.camera")}
 							disabled={photos.length >= MEETING_PHOTO_LIMIT}
 							onClick={() => {
 								setPhotoNotice(false);
 								setCamera(true);
 							}}
 						>
-							<Camera size={19} aria-hidden="true" />
-							{t("meetingRecorder.camera")}
+							<Camera size={20} aria-hidden="true" />
 						</button>
 					) : (
 						<span />
 					)}
-					<div className="meeting-recording-readout">
-						<output aria-live="off" aria-label={t("meetingRecorder.elapsed")} className="meeting-recording-clock">
-							{recordingDuration(active.durationMs)}
-						</output>
-						{audioLevel !== undefined ? (
-							<>
-								<meter
-									className="sr-only"
-									min={0}
-									max={100}
-									value={Math.round(audioLevel * 100)}
-									aria-label={t("meetingRecorder.audioLevel")}
-								/>
-								<div className="meeting-level-bars" aria-hidden="true">
-									{[0, 1, 2, 3, 4, 5].map((index) => (
-										<span key={index} data-peak={index < Math.ceil(audioLevel * 6) || undefined} />
-									))}
-								</div>
-							</>
-						) : null}
-					</div>
+					<output aria-live="off" aria-label={t("meetingRecorder.elapsed")} className="meeting-recording-clock">
+						{recordingDuration(active.durationMs)}
+					</output>
 					<button
 						type="button"
-						className="meeting-recording-button meeting-recording-stop"
+						className="meeting-recording-button meeting-recording-icon meeting-recording-end"
+						aria-label={t("meetingRecorder.stop")}
 						disabled={busy}
 						onClick={() => void onStop()}
 					>
-						<Square size={12} fill="currentColor" aria-hidden="true" />
-						{t("meetingRecorder.stop")}
+						<Square size={16} fill="currentColor" aria-hidden="true" />
 					</button>
 				</footer>
 			</div>
