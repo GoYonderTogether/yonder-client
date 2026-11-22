@@ -10,6 +10,7 @@ import { connectDeviceDownloadZhCN, landingPageZhCN } from "./landing-page-zh-CN
 import { meetingRecorderZhCN } from "./meeting-recorder-zh-CN.ts";
 import { membersMessagesZhCN } from "./members-zh-CN.ts";
 import { memoryMessagesZhCN } from "./memory-zh-CN.ts";
+import { messagesZhCN } from "./messages.ts";
 import { modelMessagesZhCN } from "./models-zh-CN.ts";
 import { pricingMessagesZhCN } from "./pricing-zh-CN.ts";
 import { setupMessagesZhCN } from "./setup-zh-CN.ts";
@@ -109,22 +110,7 @@ export const zhCN: Messages = {
 		tabs: "主导航",
 	},
 
-	messages: {
-		title: "消息",
-		pinned: "置顶",
-		muted: "消息免打扰",
-		notificationsSection: "消息通知",
-		unread_one: "{{count}} 条未读消息",
-		unread_other: "{{count}} 条未读消息",
-		enableSystemNotifications: "允许系统通知",
-		openNotificationSettings: "打开通知设置",
-		systemNotificationsDenied: "请在设备或浏览器的设置中允许通知。",
-		muteFailed: "无法更改免打扰设置，请重试。",
-		newMessage: "新消息",
-		botReply: "Bot 已回复",
-		newConversation: "新对话",
-		myBot: "我的 Bot",
-	},
+	messages: messagesZhCN,
 
 	friendRequests: friendRequestsZhCN,
 	chatActions: {
@@ -373,6 +359,13 @@ export const zhCN: Messages = {
 		itemHeading: "事项",
 		newItemHeading: "新事项",
 		itemActions: "事项操作",
+		itemRename: "重命名",
+		itemArchive: "归档",
+		itemRestore: "取消归档",
+		itemsArchived: "已归档",
+		itemsArchivedEmpty: "暂无归档事项",
+		itemDeleteConfirm: "从任务列表删除「{{title}}」？原始记录会保留。",
+		upcomingDeleteConfirm: "删除「{{title}}」？这项任务将不会按计划执行。",
 		itemRecording: "会议录音",
 		itemTranscript: "转写全文",
 		itemRecordingSummary: "录音摘要",

@@ -1,16 +1,20 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ItemSummary, Member } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
 import { ItemsList } from "./items-list.tsx";
 
-const state = vi.hoisted(() => ({ items: [] as ItemSummary[], contacts: [] as Member[] }));
+const state = vi.hoisted(() => ({
+	items: [] as ItemSummary[],
+	contacts: [] as Member[],
+	change: vi.fn(async (_request: unknown) => ({ ok: true })),
+}));
 vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@yonder/ui-data")>()),
-	useItems: () => ({
-		data: { pages: [{ items: state.items, nextCursor: null }] },
+	useItems: (_botId: string | undefined, archived: boolean) => ({
+		data: { pages: [{ items: state.items.filter((item) => Boolean(item.archived) === archived), nextCursor: null }] },
 		isLoading: false,
 		isError: false,
 		hasNextPage: false,
@@ -19,6 +23,8 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 		refetch: async () => {},
 	}),
 	useContacts: () => ({ data: { items: state.contacts } }),
+	useSchedules: () => ({ data: { items: [] } }),
+	useItemListAction: () => ({ mutate: state.change, mutateAsync: state.change, reset: vi.fn() }),
 }));
 
 const bot: Member = {
@@ -110,4 +116,42 @@ test("a failure shows the real reason the server recorded, never a made-up succe
 test("an empty account is told so", () => {
 	show([]);
 	expect(screen.getByText("No items yet")).toBeVisible();
+});
+
+test("task row actions rename, archive, restore and ask before deleting", async () => {
+	state.change.mockClear();
+	show([
+		item({ id: "active", title: "Active task" }),
+		item({ id: "archived", title: "Archived task", archived: true }),
+	]);
+	const row = () => screen.getByRole("button", { name: /Active task|Archived task/ });
+	fireEvent.contextMenu(row());
+	fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+	const form = screen.getByRole("textbox", { name: "Title" });
+	expect(form).toHaveValue("Active task");
+	fireEvent.change(form, { target: { value: "Renamed task" } });
+	fireEvent.submit(form.closest("form") as HTMLFormElement);
+	await waitFor(() =>
+		expect(state.change).toHaveBeenCalledWith(
+			expect.objectContaining({ id: "active", patch: { title: "Renamed task" } }),
+		),
+	);
+	await waitFor(() => expect(screen.queryByRole("textbox", { name: "Title" })).not.toBeInTheDocument());
+
+	fireEvent.contextMenu(row());
+	fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+	expect(state.change).toHaveBeenCalledWith(expect.objectContaining({ id: "active", patch: { archived: true } }));
+	fireEvent.click(screen.getByRole("button", { name: "Archived" }));
+	fireEvent.contextMenu(row());
+	fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+	expect(state.change).toHaveBeenCalledWith(expect.objectContaining({ id: "archived", patch: { archived: false } }));
+
+	fireEvent.contextMenu(row());
+	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+	const dialog = screen.getByRole("dialog", { name: "Delete" });
+	expect(state.change).toHaveBeenCalledTimes(3);
+	fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+	await waitFor(() =>
+		expect(state.change).toHaveBeenCalledWith(expect.objectContaining({ id: "archived", remove: true })),
+	);
 });

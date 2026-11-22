@@ -55,6 +55,7 @@ export {
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
 export {
+	useConversationListActions,
 	useMarkConversationRead,
 	useResetBotConversation,
 	useSetConversationMuted,
@@ -68,6 +69,7 @@ export {
 	useCreateItem,
 	useItem,
 	useItemActions,
+	useItemListAction,
 	useItemSession,
 	useItems,
 } from "./hooks/items.ts";

@@ -71,7 +71,7 @@ export function Avatar({
 			data-avatar-fallback={src ? undefined : "true"}
 		>
 			{src ? (
-				<img src={src} alt="" className="size-full object-cover" loading="lazy" decoding="async" />
+				<img src={src} alt="" className="size-full object-cover" loading="lazy" decoding="async" draggable={false} />
 			) : kind === "bot" ? (
 				<BotFace id={face} size={size} />
 			) : (

@@ -5,6 +5,7 @@ import type {
 	ItemSessionResponse,
 	ItemSummary,
 	SendMessageRequest,
+	UpdateItemRequest,
 } from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
 
@@ -12,7 +13,7 @@ import type { ApiClient } from "./client.ts";
 export function itemEndpoints(client: ApiClient) {
 	function items(
 		cursor?: string,
-		options: { limit?: number; botId?: string; activeSubtasks?: boolean } = {},
+		options: { limit?: number; botId?: string; activeSubtasks?: boolean; archived?: boolean } = {},
 		signal?: AbortSignal,
 	): Promise<ItemListResponse> {
 		const query = new URLSearchParams();
@@ -20,6 +21,7 @@ export function itemEndpoints(client: ApiClient) {
 		if (options.limit !== undefined) query.set("limit", String(options.limit));
 		if (options.botId) query.set("botId", options.botId);
 		if (options.activeSubtasks) query.set("activeSubtasks", "1");
+		if (options.archived) query.set("archived", "1");
 		const search = query.toString();
 		return client.request(`/v1/items${search ? `?${search}` : ""}`, signal ? { signal } : {});
 	}
@@ -40,6 +42,21 @@ export function itemEndpoints(client: ApiClient) {
 		},
 		openItemSession(id: string): Promise<ItemSessionResponse> {
 			return client.request(`/v1/items/${encodeURIComponent(id)}/session`, { body: {} });
+		},
+		renameItemSession(id: string, title: string): Promise<ItemSessionResponse> {
+			return client.request(`/v1/items/${encodeURIComponent(id)}/session`, { method: "PATCH", body: { title } });
+		},
+		updateItem(id: string, body: UpdateItemRequest): Promise<{ ok: true }> {
+			return client.request(`/v1/items/${encodeURIComponent(id)}`, { method: "PATCH", body });
+		},
+		deleteItem(id: string): Promise<{ ok: true }> {
+			return client.request(`/v1/items/${encodeURIComponent(id)}`, { method: "DELETE" });
+		},
+		updateUpcomingItem(id: string, body: UpdateItemRequest): Promise<{ ok: true }> {
+			return client.request(`/v1/schedules/${encodeURIComponent(id)}/item`, { method: "PATCH", body });
+		},
+		deleteUpcomingItem(id: string): Promise<{ ok: true }> {
+			return client.request(`/v1/schedules/${encodeURIComponent(id)}/item`, { method: "DELETE" });
 		},
 		createItem(body: SendMessageRequest): Promise<CreateItemResponse> {
 			return client.request("/v1/items", { body, idempotencyKey: body.clientNonce });

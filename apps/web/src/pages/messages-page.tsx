@@ -7,6 +7,7 @@ import {
 	type CachedMessage,
 	useActiveBotSubtasks,
 	useBot,
+	useConversationListActions,
 	useConversations,
 	useMarkConversationRead,
 	useMessages,
@@ -15,9 +16,9 @@ import {
 	useRunActions,
 	useSendMessage,
 } from "@yonder/ui-data";
-import { ListFrame, MAIN_CONVERSATION, PageFrame, useShellChrome } from "@yonder/ui-shell";
-import { ArrowDown, BellOff, Ellipsis, Pin } from "lucide-react";
-import { type ReactNode, useCallback, useMemo } from "react";
+import { ConfirmDialog, ListFrame, MAIN_CONVERSATION, PageFrame, useShellChrome } from "@yonder/ui-shell";
+import { ArrowDown, BellOff, Ellipsis, Pin, PinOff, Trash2 } from "lucide-react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { isForeground, useForeground } from "../lib/foreground.ts";
@@ -62,8 +63,19 @@ export function MessagesList({
 	const { mode } = useShellChrome();
 	const bot = useBot();
 	const conversations = useConversations();
+	const items = conversations.data?.items;
+	const visible = useMemo(
+		() =>
+			items
+				?.filter((conversation) => !conversation.hiddenFromMessages)
+				.sort((a, b) => Number(b.pinned) - Number(a.pinned)),
+		[items],
+	);
 	const person = usePerson();
-	const primary = primaryConversation(conversations.data?.items, bot?.id);
+	const primary = primaryConversation(items, bot?.id);
+	const { pin, remove } = useConversationListActions();
+	const [deleting, setDeleting] = useState<{ id: string; title: string } | null>(null);
+	const busy = pin.isPending || remove.isPending;
 	return (
 		<ListFrame
 			title={mode === "mobile" ? "" : t("nav.messages")}
@@ -74,8 +86,13 @@ export function MessagesList({
 					{t("app.retry")}
 				</Button>
 			) : null}
+			{pin.isError ? (
+				<p role="alert" className="px-[var(--spacing-3)] text-caption text-[var(--color-danger)]">
+					{t("messages.pinFailed")}
+				</p>
+			) : null}
 			<ConversationList label={t("nav.messages")}>
-				{conversations.data?.items.map((conversation) => {
+				{visible?.map((conversation) => {
 					const peer = conversation.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
 					const title =
 						conversation.kind === "system"
@@ -87,6 +104,24 @@ export function MessagesList({
 					return (
 						<ConversationRow
 							key={conversation.id}
+							actions={[
+								{
+									label: t(conversation.pinned ? "messages.unpin" : "messages.pin"),
+									icon: conversation.pinned ? <PinOff /> : <Pin />,
+									onSelect: () => pin.mutate({ id: conversation.id, pinned: !conversation.pinned }),
+									disabled: busy,
+								},
+								{
+									label: t("messages.delete"),
+									icon: <Trash2 />,
+									tone: "danger",
+									onSelect: () => {
+										remove.reset();
+										setDeleting({ id: conversation.id, title });
+									},
+									disabled: busy,
+								},
+							]}
 							leading={<ConversationAvatar conversation={conversation} personId={person?.id} />}
 							title={
 								peer?.kind === "bot" ? (
@@ -135,6 +170,23 @@ export function MessagesList({
 					);
 				})}
 			</ConversationList>
+			{deleting ? (
+				<ConfirmDialog
+					open
+					title={t("messages.deleteTitle")}
+					body={t("messages.deleteBody", { name: deleting.title })}
+					confirmLabel={t("messages.delete")}
+					cancelLabel={t("app.cancel")}
+					closeLabel={t("app.close")}
+					backLabel={t("app.back")}
+					busy={remove.isPending}
+					error={remove.isError ? t("messages.deleteFailed") : null}
+					onCancel={() => {
+						if (!remove.isPending) setDeleting(null);
+					}}
+					onConfirm={() => remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
+				/>
+			) : null}
 		</ListFrame>
 	);
 }

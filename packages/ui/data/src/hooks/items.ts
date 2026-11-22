@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { MeResponse, SendMessageRequest } from "@yonder/protocol";
+import type { MeResponse, SendMessageRequest, UpdateItemRequest } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
@@ -7,12 +7,13 @@ import { useApi } from "../query/provider.tsx";
  * The items list (16-3 第八节): one merged, newest-first page over subtasks, schedule firings and
  * meeting processing. `botId` narrows it to one Bot's items; the page shows all of them.
  */
-export function useItems(botId?: string | null) {
+export function useItems(botId?: string | null, archived = false) {
 	const api = useApi();
 	return useInfiniteQuery({
-		queryKey: keys.items.list(botId ?? null),
+		queryKey: archived ? keys.items.archived() : keys.items.list(botId ?? null),
 		initialPageParam: undefined as string | undefined,
-		queryFn: ({ pageParam }) => api.items(pageParam, botId ? { botId } : {}),
+		queryFn: ({ pageParam }) =>
+			api.items(pageParam, { ...(botId ? { botId } : {}), ...(archived ? { archived } : {}) }),
 		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
 		staleTime: 15_000,
 		refetchOnWindowFocus: true,
@@ -22,6 +23,33 @@ export function useItems(botId?: string | null) {
 			)
 				? 3000
 				: false,
+	});
+}
+
+type ItemListChange = { id: string; upcoming: boolean } & ({ patch: UpdateItemRequest } | { remove: true });
+
+export function useItemListAction() {
+	const api = useApi();
+	const client = useQueryClient();
+	return useMutation({
+		mutationFn: (change: ItemListChange) => {
+			const { id, upcoming } = change;
+			if ("remove" in change) return upcoming ? api.deleteUpcomingItem(id) : api.deleteItem(id);
+			return upcoming ? api.updateUpcomingItem(id, change.patch) : api.updateItem(id, change.patch);
+		},
+		onMutate: () => client.getQueryData<MeResponse>(keys.me())?.member.id,
+		onSuccess: async (_, { id, upcoming }, personId) => {
+			if (client.getQueryData<MeResponse>(keys.me())?.member.id !== personId) return;
+			await Promise.all([
+				client.invalidateQueries({ queryKey: keys.items.lists() }),
+				upcoming
+					? client.invalidateQueries({ queryKey: keys.schedules.all() })
+					: Promise.all([
+							client.invalidateQueries({ queryKey: keys.items.detail(id) }),
+							client.invalidateQueries({ queryKey: keys.items.session(id) }),
+						]),
+			]);
+		},
 	});
 }
 

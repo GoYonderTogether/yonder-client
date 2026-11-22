@@ -75,6 +75,7 @@ export type {
 	ItemState,
 	ItemStep,
 	ItemSummary,
+	UpdateItemRequest,
 } from "./chat/items.ts";
 export type { OutwardRequestAction, OutwardRequestCard, OutwardRequestState } from "./chat/outward.ts";
 export type {

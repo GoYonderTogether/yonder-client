@@ -67,6 +67,7 @@ export {
 	ListSwitch,
 	ListValue,
 } from "./list/list.tsx";
+export type { RowAction } from "./list/row-action-item.tsx";
 export type { LogoProps } from "./logo/logo.tsx";
 export { AppIcon, Logo } from "./logo/logo.tsx";
 export type { MenuItem, MenuProps, MenuSurfaceProps, MenuTriggerProps } from "./menu/menu.tsx";

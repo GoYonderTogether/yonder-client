@@ -142,7 +142,9 @@ export function AppFrame() {
 	const primary = primaryConversation(conversations.data?.items, bot?.id);
 	const unreadCount =
 		conversations.data?.items.reduce(
-			(total, item) => total + (phone && (item.id === primary?.id || item.muted) ? 0 : (item.unreadCount ?? 0)),
+			(total, item) =>
+				total +
+				(item.hiddenFromMessages || (phone && (item.id === primary?.id || item.muted)) ? 0 : (item.unreadCount ?? 0)),
 			0,
 		) ?? 0;
 	const mainBot = tab === "messages" && (selection === MAIN_CONVERSATION || selection === primary?.id);

@@ -1,11 +1,15 @@
 import type { Member } from "@yonder/protocol";
-import { Button, EmptyState, ListGroup } from "@yonder/ui-components";
-import { ApiError, useContacts, useItems } from "@yonder/ui-data";
-import { ChevronDown, ListChecks } from "lucide-react";
+import { Button, EmptyState, ListGroup, ListRow, type RowAction } from "@yonder/ui-components";
+import { ApiError, useContacts, useItemListAction, useItems, useSchedules } from "@yonder/ui-data";
+import { Archive, ArchiveRestore, ChevronDown, ListChecks, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { groupItems, itemGroupKey } from "./items-format.ts";
+import { ItemActionDialog } from "./item-action-dialog.tsx";
+import { groupItems, itemGroupKey, upcomingOneOffs } from "./items-format.ts";
 import { ItemRow } from "./items-row.tsx";
+import { formatInstant } from "./schedule-format.ts";
+
+type ItemTarget = { id: string; title: string; upcoming: boolean };
 
 /**
  * The 事项 tab (16-3 第八节): every item the Bot has worked on, newest first, grouped by day. 更早
@@ -13,15 +17,53 @@ import { ItemRow } from "./items-row.tsx";
  */
 export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 	const { t, i18n } = useTranslation();
-	const query = useItems();
+	const [archived, setArchived] = useState(false);
+	const [dialog, setDialog] = useState<(ItemTarget & { action: "rename" | "delete" }) | null>(null);
+	const edit = useItemListAction();
+	const query = useItems(undefined, archived);
+	const schedules = useSchedules();
 	const contacts = useContacts();
 	const [showEarlier, setShowEarlier] = useState(false);
 	const [now] = useState(() => new Date());
 	const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 	const groups = useMemo(() => groupItems(items, now, deviceZone()), [items, now]);
 	const names = useMemo(() => botNames(contacts.data?.items), [contacts.data]);
+	const upcoming = upcomingOneOffs(schedules.data?.items ?? []).filter((plan) => Boolean(plan.archived) === archived);
+	const locale = i18n.resolvedLanguage ?? i18n.language;
 	const more = useRef<HTMLDivElement>(null);
 	const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
+	const error =
+		edit.error instanceof ApiError ? t(edit.error.messageKey) : edit.isError ? t("tasks.actionFailed") : null;
+
+	function start(target: ItemTarget, action: "rename" | "delete") {
+		edit.reset();
+		setDialog({ ...target, action });
+	}
+
+	function actions(target: ItemTarget): RowAction[] {
+		const ArchiveIcon = archived ? ArchiveRestore : Archive;
+		return [
+			{
+				label: t("tasks.itemRename"),
+				icon: <Pencil size={18} />,
+				onSelect: () => start(target, "rename"),
+				disabled: edit.isPending,
+			},
+			{
+				label: t(archived ? "tasks.itemRestore" : "tasks.itemArchive"),
+				icon: <ArchiveIcon size={18} />,
+				onSelect: () => edit.mutate({ ...target, patch: { archived: !archived } }),
+				disabled: edit.isPending,
+			},
+			{
+				label: t("tasks.delete"),
+				icon: <Trash2 size={18} />,
+				tone: "danger",
+				onSelect: () => start(target, "delete"),
+				disabled: edit.isPending,
+			},
+		];
+	}
 
 	// Older items load as the end of the list comes near; a day boundary is not a page boundary.
 	useEffect(() => {
@@ -39,6 +81,39 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)] py-[var(--spacing-3)]">
+			<div className="flex justify-end px-[var(--spacing-2)]">
+				<Button
+					size="sm"
+					variant={archived ? "secondary" : "ghost"}
+					aria-pressed={archived}
+					disabled={edit.isPending}
+					onClick={() => {
+						edit.reset();
+						setArchived(!archived);
+						setShowEarlier(false);
+					}}
+				>
+					<Archive size={16} aria-hidden />
+					{t("tasks.itemsArchived")}
+				</Button>
+			</div>
+			{error && !dialog ? (
+				<p role="alert" className="px-[var(--spacing-4)] text-caption text-[var(--color-danger)]">
+					{error}
+				</p>
+			) : null}
+			{upcoming.length > 0 ? (
+				<ListGroup title={t("tasks.itemUpcoming")}>
+					{upcoming.map((plan) => (
+						<ListRow
+							key={plan.id}
+							title={plan.title}
+							subtitle={formatInstant(plan.timezone, plan.nextRunAt ?? plan.at, locale)}
+							actions={actions({ id: plan.id, title: plan.title, upcoming: true })}
+						/>
+					))}
+				</ListGroup>
+			) : null}
 			{query.isLoading ? (
 				<ListGroup>
 					<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">
@@ -58,8 +133,11 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 					</li>
 				</ListGroup>
 			) : null}
-			{!query.isLoading && !query.isError && items.length === 0 ? (
-				<EmptyState icon={<ListChecks size={24} strokeWidth={1.6} />} title={t("tasks.emptyTitle")} />
+			{!query.isLoading && !query.isError && items.length === 0 && upcoming.length === 0 ? (
+				<EmptyState
+					icon={<ListChecks size={24} strokeWidth={1.6} />}
+					title={t(archived ? "tasks.itemsArchivedEmpty" : "tasks.emptyTitle")}
+				/>
 			) : null}
 			{groups.map((section) => {
 				const earlier = section.group === "earlier";
@@ -71,6 +149,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 								key={item.id}
 								item={item}
 								botName={names.get(item.botMemberId) ?? null}
+								actions={actions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}
 								locale={i18n.language}
 							/>
@@ -91,6 +170,31 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 				);
 			})}
 			<div ref={more} aria-hidden className="h-[1px]" />
+			{dialog ? (
+				<ItemActionDialog
+					key={`${dialog.id}:${dialog.action}`}
+					initialTitle={dialog.title}
+					action={dialog.action}
+					upcoming={dialog.upcoming}
+					busy={edit.isPending}
+					error={error}
+					onClose={() => {
+						if (edit.isPending) return;
+						edit.reset();
+						setDialog(null);
+					}}
+					onConfirm={async (title) => {
+						try {
+							await edit.mutateAsync(
+								title === undefined ? { ...dialog, remove: true } : { ...dialog, patch: { title } },
+							);
+							setDialog(null);
+						} catch {
+							// The dialog shows the mutation error and keeps the input available.
+						}
+					}}
+				/>
+			) : null}
 		</div>
 	);
 }

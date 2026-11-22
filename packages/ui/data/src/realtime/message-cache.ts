@@ -109,6 +109,8 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 	// from `system` in the reader's language (19 第三节).
 	const isSystem = message.type === "system";
 	if (!isSystem && !message.voice && !message.body?.trim()) return;
+	if (!message.streaming && cachedConversation(client, message.conversationId)?.hiddenFromMessages)
+		void client.invalidateQueries({ queryKey: keys.conversations.list() });
 	client.setQueryData<ConversationList>(keys.conversations.list(), (current) => {
 		if (!current) return current;
 		return {

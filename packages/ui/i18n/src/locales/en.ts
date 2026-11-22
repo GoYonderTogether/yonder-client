@@ -9,6 +9,7 @@ import { connectDeviceDownloadEn, landingPageEn } from "./landing-page-en.ts";
 import { meetingRecorderEn } from "./meeting-recorder-en.ts";
 import { membersMessagesEn } from "./members-en.ts";
 import { memoryMessagesEn } from "./memory-en.ts";
+import { messagesEn } from "./messages.ts";
 import { modelMessagesEn } from "./models-en.ts";
 import { pricingMessagesEn } from "./pricing-en.ts";
 import { setupMessagesEn } from "./setup-en.ts";
@@ -106,22 +107,7 @@ export const en = {
 		tabs: "Main navigation",
 	},
 
-	messages: {
-		title: "Messages",
-		pinned: "Pinned",
-		muted: "Mute notifications",
-		notificationsSection: "Notifications",
-		unread_one: "{{count}} unread message",
-		unread_other: "{{count}} unread messages",
-		enableSystemNotifications: "Allow system notifications",
-		openNotificationSettings: "Open notification settings",
-		systemNotificationsDenied: "Allow notifications in your device or browser settings.",
-		muteFailed: "Could not change notifications. Try again.",
-		newMessage: "New message",
-		botReply: "Bot reply ready",
-		newConversation: "New conversation",
-		myBot: "My Bot",
-	},
+	messages: messagesEn,
 
 	friendRequests: friendRequestsEn,
 	chatActions: {
@@ -371,6 +357,13 @@ export const en = {
 		itemHeading: "Item",
 		newItemHeading: "New item",
 		itemActions: "Item actions",
+		itemRename: "Rename",
+		itemArchive: "Archive",
+		itemRestore: "Restore",
+		itemsArchived: "Archived",
+		itemsArchivedEmpty: "No archived items",
+		itemDeleteConfirm: "Delete “{{title}}” from Tasks? Its source records are kept.",
+		upcomingDeleteConfirm: "Delete “{{title}}”? It will no longer run at the scheduled time.",
 		itemRecording: "Meeting recording",
 		itemTranscript: "Transcript",
 		itemRecordingSummary: "Recording summary",

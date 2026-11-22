@@ -47,6 +47,17 @@ export function conversationEndpoints(client: ApiClient) {
 			});
 		},
 
+		setConversationPinned(conversationId: string, pinned: boolean): Promise<{ ok: true }> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/preferences`, {
+				method: "PATCH",
+				body: { pinned },
+			});
+		},
+
+		removeConversationFromMessages(conversationId: string): Promise<{ ok: true }> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}`, { method: "DELETE" });
+		},
+
 		askOwner(messageId: string): Promise<OutwardRequestCard> {
 			return client.request(`/v1/messages/${encodeURIComponent(messageId)}/ask-owner`, {
 				body: {},

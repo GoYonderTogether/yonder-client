@@ -1,5 +1,5 @@
 import type { ItemSummary } from "@yonder/protocol";
-import { ListRow } from "@yonder/ui-components";
+import { ListRow, type RowAction } from "@yonder/ui-components";
 import { useTranslation } from "react-i18next";
 import { itemFailureKey, itemStateKey, itemSummaryLine, itemTimeLabel } from "./items-format.ts";
 
@@ -21,11 +21,13 @@ export function ItemRow({
 	botName,
 	onOpen,
 	locale,
+	actions,
 }: {
 	item: ItemSummary;
 	botName: string | null;
 	onOpen: () => void;
 	locale: string;
+	actions: readonly RowAction[];
 }) {
 	const { t } = useTranslation();
 	const line = itemSummaryLine(item);
@@ -44,6 +46,7 @@ export function ItemRow({
 	const meta = [botName, itemTimeLabel(item.startedAt, locale)].filter(Boolean).join(" · ");
 	return (
 		<ListRow
+			actions={actions}
 			chevron
 			onClick={onOpen}
 			title={item.title}

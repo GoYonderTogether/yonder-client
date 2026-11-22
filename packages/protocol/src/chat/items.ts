@@ -35,6 +35,12 @@ export interface ItemSummary {
 	 */
 	failureReason: string | null;
 	waitingReason?: string;
+	archived?: boolean;
+}
+
+export interface UpdateItemRequest {
+	title?: string;
+	archived?: boolean;
 }
 
 /** One recorded step of the work. The detail view shows them in order. */

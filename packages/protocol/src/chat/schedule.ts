@@ -29,6 +29,7 @@ export interface Schedule {
 	id: string;
 	conversationId: string;
 	title: string;
+	archived?: boolean;
 	instruction: string;
 	action: ScheduleAction;
 	/** The exact words a reminder sends; `null` for a task. */

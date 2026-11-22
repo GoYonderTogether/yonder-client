@@ -73,7 +73,7 @@ export default function Conversations() {
 			.join("、") ||
 		t("会话", "Conversation");
 	const visible = items
-		.filter((item) => title(item).toLowerCase().includes(search.toLowerCase()))
+		.filter((item) => !item.hiddenFromMessages && title(item).toLowerCase().includes(search.toLowerCase()))
 		.sort(
 			(a, b) => Number(b.pinned) - Number(a.pinned) || (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""),
 		);

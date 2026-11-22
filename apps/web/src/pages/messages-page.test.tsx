@@ -1,18 +1,22 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { Conversation } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import type { ReactNode } from "react";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
 
-const data = vi.hoisted(() => ({ items: [] as Conversation[] }));
+const data = vi.hoisted(() => ({ items: [] as Conversation[], pin: vi.fn(), remove: vi.fn() }));
 vi.mock("@yonder/ui-data", async (original) => ({
 	...(await original<typeof import("@yonder/ui-data")>()),
 	useBot: () => ({ id: "ownbot", displayName: "My BOT" }),
 	usePerson: () => ({ id: "host", displayName: "Owner" }),
 	useConversations: () => ({ data: { items: data.items } }),
+	useConversationListActions: () => ({
+		pin: { mutate: data.pin },
+		remove: { mutate: data.remove, reset: vi.fn() },
+	}),
 	useMessages: () => ({ data: { pages: [] } }),
 	useQuota: () => ({ data: undefined }),
 	useRunActions: () => ({ retry: { mutate: vi.fn(), isPending: false } }),
@@ -71,4 +75,26 @@ test("a visit the owner already decided carries no marker", () => {
 	data.items = [visitRow("open")];
 	render(localised(<MessagesList current={null} onOpen={vi.fn()} />));
 	expect(screen.getByRole("button", { name: /Stranger/ })).not.toHaveTextContent("Waiting for you");
+});
+
+test("row actions unpin and require confirmation before deleting from Messages", () => {
+	data.items = [
+		{ ...visitRow("open"), pinned: true },
+		{ ...visitRow("open"), id: "hidden", title: "Hidden conversation", hiddenFromMessages: true },
+	];
+	const onOpen = vi.fn();
+	render(localised(<MessagesList current={null} onOpen={onOpen} />));
+	expect(screen.queryByText("Hidden conversation")).toBeNull();
+	const row = screen.getByRole("button", { name: /Stranger/ });
+	fireEvent.contextMenu(row);
+	fireEvent.click(screen.getByRole("button", { name: "Unpin conversation" }));
+	expect(data.pin).toHaveBeenCalledWith({ id: "visit-conversation", pinned: false });
+	fireEvent.contextMenu(row);
+	fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
+	const dialog = within(screen.getByRole("dialog", { name: "Delete conversation?" }));
+	expect(dialog.getByText(/Your chat history stays/)).toBeInTheDocument();
+	expect(data.remove).not.toHaveBeenCalled();
+	fireEvent.click(dialog.getByRole("button", { name: "Delete conversation" }));
+	expect(data.remove).toHaveBeenCalledWith("visit-conversation", { onSuccess: expect.any(Function) });
+	expect(onOpen).not.toHaveBeenCalled();
 });

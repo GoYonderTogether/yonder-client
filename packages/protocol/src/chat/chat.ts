@@ -126,6 +126,8 @@ export interface Conversation {
 	unreadCount: number;
 	muted?: boolean;
 	pinned: boolean;
+	/** A viewer removed this row from Messages, while the conversation remains accessible. */
+	hiddenFromMessages?: boolean;
 	version: number;
 }
 

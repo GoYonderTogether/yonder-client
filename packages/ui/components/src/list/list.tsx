@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { useId } from "react";
 import { cn } from "../cn.ts";
+import { HIDE_WITH_ROW_ACTIONS, type RowAction, RowActionItem } from "./row-action-item.tsx";
 
 /**
  * Settings sections (docs/settings-forms.md): a semibold title, a solid hairline under it, rows
@@ -77,6 +78,7 @@ export interface ListRowProps extends Omit<ButtonHTMLAttributes<HTMLButtonElemen
 	selected?: boolean;
 	/** `danger` for delete and sign out; `accent` for a row that runs an action (connect). */
 	tone?: "default" | "danger" | "accent";
+	actions?: readonly RowAction[] | undefined;
 }
 
 const ROW_BODY =
@@ -91,12 +93,13 @@ export function ListRow({
 	chevron = false,
 	selected = false,
 	tone = "default",
+	actions,
 	className,
 	type = "button",
 	...rest
 }: ListRowProps) {
 	return (
-		<li className={ROW_LINE}>
+		<RowActionItem actions={actions} className={ROW_LINE}>
 			<button
 				type={type}
 				aria-current={selected ? "true" : undefined}
@@ -130,11 +133,18 @@ export function ListRow({
 					) : null}
 				</span>
 				{trailing ? (
-					<span className="max-w-[55%] shrink-0 truncate text-body text-[var(--color-text-tertiary)]">{trailing}</span>
+					<span
+						className={cn(
+							"max-w-[55%] shrink-0 truncate text-body text-[var(--color-text-tertiary)]",
+							HIDE_WITH_ROW_ACTIONS,
+						)}
+					>
+						{trailing}
+					</span>
 				) : null}
 				{chevron ? <Chevron /> : null}
 			</button>
-		</li>
+		</RowActionItem>
 	);
 }
 
@@ -319,7 +329,7 @@ function Chevron() {
 			viewBox="0 0 16 16"
 			fill="none"
 			aria-hidden="true"
-			className="shrink-0 text-[var(--color-text-tertiary)]"
+			className={cn("shrink-0 text-[var(--color-text-tertiary)]", HIDE_WITH_ROW_ACTIONS)}
 		>
 			<path d="m6 3 5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
 		</svg>
