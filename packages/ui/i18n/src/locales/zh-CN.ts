@@ -13,6 +13,7 @@ import { meetingRecorderZhCN } from "./meeting-recorder-zh-CN.ts";
 import { membersMessagesZhCN } from "./members-zh-CN.ts";
 import { memoryMessagesZhCN } from "./memory-zh-CN.ts";
 import { modelMessagesZhCN } from "./models-zh-CN.ts";
+import { photoArchiveZhCN } from "./photo-archive-zh-CN.ts";
 import { pricingMessagesZhCN } from "./pricing-zh-CN.ts";
 import { setupMessagesZhCN } from "./setup-zh-CN.ts";
 import { skillMessagesZhCN } from "./skills-zh-CN.ts";
@@ -315,12 +316,7 @@ export const zhCN: Messages = {
 		jumpToLatest: "跳至最新",
 		loadOlder: "加载更早的消息",
 		memoryUpdated: "记忆已更新",
-		photoArchive: {
-			month: "{{year}} 年 {{month}} 月",
-			stopped: "照片连接已关闭，相册整理停在 {{at}}，记忆里有 {{count}} 个月。重新连接后从这里接着做。",
-			ended: "相册整理中断，停在 {{at}}，最近一年已整理完，记忆里有 {{count}} 个月。",
-			finished: "相册整理完成，记忆里有 {{count}} 个月。",
-		},
+		photoArchive: photoArchiveZhCN,
 		memoryUpdatedOne: "记忆已更新 · {{title}}",
 		memoryUpdatedMany: "记忆已更新 · {{count}} 处",
 		memoryRevisionUnavailable: "文件历史里找不到这次改动",

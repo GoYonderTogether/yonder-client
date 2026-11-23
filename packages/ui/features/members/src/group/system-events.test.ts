@@ -90,3 +90,21 @@ describe("photo archive lines", () => {
 		expect(systemEventText(finished, t)).toBe("Your photos are organized, with 30 months in memory.");
 	});
 });
+
+describe("photo archive plan lines", () => {
+	test("say what changed", () => {
+		const t = translate("zh-CN");
+		expect(systemEventText({ event: "photo_archive_plan", plan: { paused: true, months: null, until: null } }, t)).toBe(
+			"相册整理已暂停。",
+		);
+		expect(
+			systemEventText(
+				{ event: "photo_archive_plan", plan: { paused: false, months: ["2024-08", "2024-07"], until: "2022-01" } },
+				t,
+			),
+		).toBe("相册整理接下来先做 2024-08、2024-07，往前做到 2022-01。");
+		expect(
+			systemEventText({ event: "photo_archive_plan", plan: { paused: false, months: null, until: null } }, t),
+		).toBe("相册整理继续进行。");
+	});
+});

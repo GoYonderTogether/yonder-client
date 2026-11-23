@@ -60,7 +60,20 @@ export interface PhotoArchiveSystemEvent {
 	months: number;
 }
 
-export type SystemEvent = GroupSystemEvent | MemoryUpdatedSystemEvent | PhotoArchiveSystemEvent;
+/**
+ * The Bot or the owner changed what the photo archive does next. `months` are done first; `until`
+ * (YYYY-MM) is how far back it goes, null meaning three years before the grant month.
+ */
+export interface PhotoArchivePlanSystemEvent {
+	event: "photo_archive_plan";
+	plan: { paused: boolean; months: string[] | null; until: string | null };
+}
+
+export type SystemEvent =
+	| GroupSystemEvent
+	| MemoryUpdatedSystemEvent
+	| PhotoArchiveSystemEvent
+	| PhotoArchivePlanSystemEvent;
 export type SystemEventKind = SystemEvent["event"];
 
 /**

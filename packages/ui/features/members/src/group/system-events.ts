@@ -28,6 +28,15 @@ export function systemEventText(event: SystemEvent, t: Translate): string {
 			? t("chat.memoryUpdatedOne", { title: only.title || only.path })
 			: t("chat.memoryUpdatedMany", { count: event.changes.length });
 	}
+	if (event.event === "photo_archive_plan") {
+		const { paused, months, until } = event.plan;
+		if (paused) return t("chat.photoArchive.paused");
+		const list = months?.length ? months.join(t(SEPARATOR_KEY)) : "";
+		if (list && until) return t("chat.photoArchive.chosenUntil", { months: list, month: until });
+		if (list) return t("chat.photoArchive.chosen", { months: list });
+		if (until) return t("chat.photoArchive.until", { month: until });
+		return t("chat.photoArchive.resumed");
+	}
 	if (event.event === "photo_archive") {
 		if (event.state === "finished") return t("chat.photoArchive.finished", { count: event.months });
 		const [year = "", month = ""] = (event.month ?? "").split("-");

@@ -87,3 +87,14 @@ describe("photo archive lines", () => {
 		);
 	});
 });
+
+describe("photo archive plan lines", () => {
+	it("says what changed", () => {
+		expect(
+			systemSentence({ event: "photo_archive_plan", plan: { paused: true, months: null, until: null } }, "zh-CN"),
+		).toBe("相册整理已暂停。");
+		expect(
+			systemSentence({ event: "photo_archive_plan", plan: { paused: false, months: ["2024-08"], until: null } }, "en"),
+		).toBe("Photo organizing does 2024-08 next.");
+	});
+});

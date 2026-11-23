@@ -28,6 +28,20 @@ export function systemSentence(event: SystemEvent, locale: Locale): string {
 		const count = event.changes.length;
 		return pair(locale, `记忆已更新 · ${count} 处`, `Memory updated · ${count} files`);
 	}
+	if (event.event === "photo_archive_plan") {
+		const { paused, months, until } = event.plan;
+		if (paused) return pair(locale, "相册整理已暂停。", "Photo organizing is paused.");
+		const list = months?.length ? joinNames(months, locale) : "";
+		if (list && until)
+			return pair(
+				locale,
+				`相册整理接下来先做 ${list}，往前做到 ${until}。`,
+				`Photo organizing does ${list} next and goes back to ${until}.`,
+			);
+		if (list) return pair(locale, `相册整理接下来先做 ${list}。`, `Photo organizing does ${list} next.`);
+		if (until) return pair(locale, `相册整理往前做到 ${until}。`, `Photo organizing goes back to ${until}.`);
+		return pair(locale, "相册整理继续进行。", "Photo organizing goes on.");
+	}
 	if (event.event === "photo_archive") {
 		const count = event.months;
 		if (event.state === "finished")
