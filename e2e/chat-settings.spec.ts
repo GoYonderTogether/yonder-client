@@ -214,6 +214,38 @@ test.describe("phone chat settings", () => {
 		hasTouch: true,
 	});
 
+	test("a public Bot visitor reaches the same member card from all header entries", async ({ page }, info) => {
+		const visit = {
+			...recentChat,
+			id: "public-bot-visit",
+			members: [person, recent, botContact].map(participant),
+			visit: { id: "public-visit", role: "visitor", state: "open", trialSent: 0, trialLimit: 5, botId: botContact.id },
+		} satisfies Conversation;
+		await isolateChat(page, { items: [] });
+		await page.route("**/v1/conversations", (route) => route.fulfill({ json: { items: [conversation, visit] } }));
+		await page.route(`**/v1/members/${botContact.handle}`, (route) =>
+			route.fulfill({ json: { card: { ...botContact, owner: null }, relation: "none", conversationId: visit.id } }),
+		);
+		await page.goto(`/messages/${visit.id}`);
+		const header = page.locator('[data-page-layer="detail"] [data-floating-frame-header]');
+		await expect(header).toBeVisible();
+		const panel = page.getByRole("dialog", { name: "资料", exact: true });
+		for (const entry of [
+			settingsButton(page),
+			header.locator("[data-chat-agent-avatar]"),
+			header.locator("[data-chat-agent-name]"),
+		]) {
+			await entry.click();
+			await expect(panel.getByRole("heading", { name: botContact.displayName })).toBeVisible();
+			await expect(panel.getByRole("button", { name: /基本资料|删除 Bot|重启 Bot|清空历史聊天/ })).toHaveCount(0);
+			await panel.getByRole("button", { name: "返回", exact: true }).click();
+			await expect(panel).toHaveCount(0);
+		}
+		await header.locator("[data-chat-agent-name]").click();
+		await expect(panel.getByRole("heading", { name: botContact.displayName })).toBeVisible();
+		await page.screenshot({ path: info.outputPath("phone-public-bot-card.png"), animations: "disabled" });
+	});
+
 	test("long title, shared page back, and selection from recent and full contact lists", async ({ page }, info) => {
 		const title = "一段很长的中文群聊名称用于检查标题与两个导航按钮".repeat(3);
 		const added = await openGroupChat(page, title);

@@ -188,8 +188,10 @@ export function ConversationPage({
 	const conversation = item?.conversation ?? conversations.data?.items.find((item) => item.id === conversationId);
 	const peer = conversation?.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
 	const agent = peer?.kind === "bot" ? peer : undefined;
-	const floatingHeader = mainBotHome && (!conversation || Boolean(agent));
-	const mobileBotHome = floatingHeader && mode === "mobile";
+	const mainBotHeader = mainBotHome && (!conversation || Boolean(agent));
+	const mobileBotHome = mainBotHeader && mode === "mobile";
+	const mobileBotHeader = mode === "mobile" && Boolean(agent && !item);
+	const floatingHeader = mainBotHeader || mobileBotHeader;
 	const { data: subtasks } = useActiveBotSubtasks(
 		item || conversation?.visit?.role === "visitor" ? undefined : agent?.memberId,
 	);
@@ -258,6 +260,8 @@ export function ConversationPage({
 				: undefined;
 	const openPeer = peer && onOpenMember ? () => onOpenMember(peer.memberId) : undefined;
 	const openSettings = conversation.kind === "group" ? onOpenGroup : openPeer;
+	const clickableIdentity = mobileBotHeader && openPeer;
+	const Identity = clickableIdentity ? "button" : "div";
 	const agentAvatar = agent && !item && (
 		<Avatar
 			name={title}
@@ -283,35 +287,38 @@ export function ConversationPage({
 							aria-label={title}
 							className="flex flex-col items-center gap-[var(--spacing-1)] px-[var(--spacing-4)]"
 						>
-							{mobileBotHome && openPeer ? (
-								<Button
-									data-chat-agent-avatar
-									variant="ghost"
-									size="lg"
-									className="px-0"
-									aria-label={t("bots.settings")}
-									aria-haspopup="dialog"
-									onClick={openPeer}
-								>
-									{agentAvatar}
-								</Button>
-							) : (
-								<div data-chat-agent-avatar className="flex">
-									{agentAvatar}
-								</div>
-							)}
-							<div
-								data-chat-agent-name
-								className="w-fit max-w-[75%] text-center text-body font-medium text-[var(--color-text-primary)]"
-								title={title}
+							<Identity
+								data-chat-agent-identity={clickableIdentity ? true : undefined}
+								className={
+									clickableIdentity
+										? "flex w-fit max-w-[75%] flex-col items-center gap-[var(--spacing-1)] rounded-[var(--radius-full)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+										: "contents"
+								}
+								{...(clickableIdentity
+									? {
+											type: "button",
+											"aria-label": t("bots.settings"),
+											"aria-haspopup": "dialog" as const,
+											onClick: openPeer,
+										}
+									: {})}
 							>
-								<BotName
-									name={title}
-									ownedBot={ownedBotFor(agent.memberId, person?.id, bot, contacts)}
-									owner={conversationBotOwner(agent, conversation)}
-									compact="header"
-								/>
-							</div>
+								<span data-chat-agent-avatar className="flex">
+									{agentAvatar}
+								</span>
+								<span
+									data-chat-agent-name
+									className={`w-fit ${clickableIdentity ? "max-w-full" : "max-w-[75%]"} text-center text-body font-medium text-[var(--color-text-primary)]`}
+									title={title}
+								>
+									<BotName
+										name={title}
+										ownedBot={ownedBotFor(agent.memberId, person?.id, bot, contacts)}
+										owner={conversationBotOwner(agent, conversation)}
+										compact="header"
+									/>
+								</span>
+							</Identity>
 							{statusText ? (
 								<div
 									role="status"
@@ -327,7 +334,7 @@ export function ConversationPage({
 				action={
 					item ? (
 						item.action
-					) : openSettings && !mobileBotHome ? (
+					) : openSettings ? (
 						<IconButton
 							aria-label={t("chat.settings")}
 							aria-haspopup="dialog"

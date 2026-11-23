@@ -91,6 +91,7 @@ test("narrow desktop uses the phone-style settings list and Back at both levels"
 	const back = page.getByRole("button", { name: "返回", exact: true });
 	const close = page.getByRole("button", { name: "关闭", exact: true });
 	const models = page.getByRole("button", { name: "模型", exact: true });
+	await expect(page.getByRole("dialog", { name: "我", exact: true }).locator("[data-shell-topbar]")).toHaveText("我");
 	// The list enters from the left and leaves to the left: a round close, never a back arrow.
 	await expect(close).toBeVisible();
 	await expect(back).toHaveCount(0);
@@ -114,6 +115,67 @@ test.describe("phone settings", () => {
 		isMobile: true,
 		hasTouch: true,
 	});
+	for (const native of [false, true]) {
+		test(`phone Me uses a standalone close above the name card (${native ? "simulated native" : "mobile web"})`, async ({
+			page,
+		}, testInfo) => {
+			const safeTop = native ? 59 : 0;
+			const safeRight = native ? 12 : 0;
+			if (native) {
+				await page.addInitScript(
+					({ safeTop, safeRight }) => {
+						const observer = new MutationObserver(() => {
+							const root = document.documentElement;
+							if (!root) return;
+							root.dataset.nativeMobile = "true";
+							root.style.setProperty("--native-safe-area-inset-top", `${safeTop}px`);
+							root.style.setProperty("--native-safe-area-inset-right", `${safeRight}px`);
+							observer.disconnect();
+						});
+						observer.observe(document, { childList: true, subtree: true });
+					},
+					{ safeTop, safeRight },
+				);
+			}
+			await isolate(page);
+			await page.goto("/messages");
+			const avatar = page.getByRole("button", { name: "我", exact: true });
+			await avatar.click();
+			const dialog = page.getByRole("dialog", { name: "我", exact: true });
+			await expect(dialog).toHaveAttribute("aria-modal", "true");
+			await expect(dialog.locator("[data-shell-topbar]")).toHaveCount(0);
+			await expect(dialog.getByText("我", { exact: true })).toHaveCount(0);
+			const close = dialog.getByRole("button", { name: "关闭", exact: true });
+			const card = dialog.locator(".me-card");
+			await expect(card.getByText("@settingstest")).toBeVisible();
+			const [closeBox, cardBox] = await Promise.all([close.boundingBox(), card.boundingBox()]);
+			if (!closeBox || !cardBox) throw new Error("Expected a visible close control and name card");
+			expect(closeBox.y).toBeGreaterThan(safeTop);
+			expect(closeBox.x).toBeGreaterThan(devices["iPhone 15"].viewport.width / 2);
+			expect(closeBox.x + closeBox.width).toBeLessThan(devices["iPhone 15"].viewport.width - safeRight);
+			expect(closeBox.height).toBe(closeBox.width);
+			expect(cardBox.y).toBeGreaterThan(closeBox.y + closeBox.height);
+			const appearance = await close.evaluate((element) => {
+				const style = getComputedStyle(element);
+				return { radius: parseFloat(style.borderTopLeftRadius), filled: style.backgroundColor !== "rgba(0, 0, 0, 0)" };
+			});
+			expect(appearance.radius).toBeGreaterThanOrEqual(closeBox.width / 2);
+			expect(appearance.filled).toBe(true);
+			await page.screenshot({
+				path: testInfo.outputPath(`me-${native ? "native-insets" : "phone-web"}.png`),
+				animations: "disabled",
+			});
+			await close.click();
+			await expect(page).toHaveURL(/\/messages$/);
+			await expect(dialog).toHaveCount(0);
+			await avatar.click();
+			await expect(dialog).toBeVisible();
+			await page.keyboard.press("Escape");
+			await expect(page).toHaveURL(/\/messages$/);
+			await expect(dialog).toHaveCount(0);
+		});
+	}
+
 	test("keeps grouped cards, chevrons and root/section Back on an actual phone user agent", async ({
 		page,
 	}, testInfo) => {

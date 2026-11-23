@@ -1,4 +1,4 @@
-/* Native insets come from the host. The main Bot also uses floating chrome in the browser. */
+/* Native insets come from the host. Bot chats also use floating chrome in the browser. */
 html[data-native-mobile="true"] {
 	--safe-area-top: var(--native-safe-area-inset-top, env(safe-area-inset-top));
 	--safe-area-right: var(--native-safe-area-inset-right, env(safe-area-inset-right));
@@ -74,7 +74,8 @@ html[data-native-mobile="true"] [data-floating-frame-header]::before {
 	inset-inline-end: var(--spacing-3);
 }
 
-[data-floating-frame-header] button {
+[data-floating-frame-header] button:not([data-chat-agent-identity]),
+[data-floating-frame-header] [data-chat-agent-identity] > span {
 	pointer-events: auto;
 }
 
@@ -147,6 +148,29 @@ html[data-native-mobile="true"] [data-frame-scroll] {
 html[data-native-mobile="true"] :is([data-mobile-dock], [data-native-composer]) {
 	position: absolute;
 	inset: auto 0 0;
+}
+
+/* Non-Bot phone conversations keep the message scroller entirely below the app bar. */
+html[data-native-mobile="true"]
+	:where([data-layout-mode="mobile"])
+	[data-conversation-header]:not(:where([data-floating-frame-header])) {
+	position: relative;
+	inset: auto;
+	background: var(--color-bg-base);
+}
+
+html[data-native-mobile="true"]
+	:where([data-layout-mode="mobile"])
+	[data-conversation-header]:not(:where([data-floating-frame-header]))::before {
+	content: none;
+}
+
+html[data-native-mobile="true"]
+	:where([data-layout-mode="mobile"])
+	[data-conversation-header]:not(:where([data-floating-frame-header]))
+	+ [data-frame-scroll] {
+	padding-top: 0;
+	scroll-padding-top: 0;
 }
 
 /*

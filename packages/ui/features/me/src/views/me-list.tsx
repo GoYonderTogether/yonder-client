@@ -22,7 +22,7 @@ export function MeList({ current, onOpen }: MeListProps) {
 	const { t } = useTranslation();
 	const me = useMe();
 	const person = me.data?.member;
-	const { mode } = useShellChrome();
+	const { mode, desktop } = useShellChrome();
 
 	if (mode !== "mobile") {
 		return (
@@ -85,7 +85,7 @@ export function MeList({ current, onOpen }: MeListProps) {
 	}
 
 	return (
-		<ListFrame title={t("me.title")}>
+		<ListFrame title={t("me.title")} standaloneAction={!desktop}>
 			<div className="flex flex-col gap-[var(--spacing-5)]">
 				<MeCard person={person} selected={current === "profile"} onOpen={() => onOpen("profile")} />
 

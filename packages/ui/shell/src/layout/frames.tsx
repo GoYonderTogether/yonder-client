@@ -10,11 +10,13 @@ export function ListFrame({
 	title,
 	center,
 	action,
+	standaloneAction = false,
 	children,
 }: {
 	title?: string;
 	center?: ReactNode;
 	action?: ReactNode;
+	standaloneAction?: boolean;
 	children: ReactNode;
 }) {
 	const { mode, left, right: shellRight, meOpen, scroll } = useShellChrome();
@@ -27,35 +29,41 @@ export function ListFrame({
 		}
 	}, [positions, scrollKey]);
 	const phone = mode === "mobile";
-	const header = useChromeSize("--frame-header-height");
+	const header = useChromeSize("--frame-header-height", !standaloneAction);
 	const heading = title ? (
 		<h1 className="truncate text-h3 font-semibold text-[var(--color-text-primary)]">{title}</h1>
 	) : null;
 	return (
 		<div data-shell-frame className="relative flex min-h-0 flex-1 flex-col">
-			<div ref={header} data-frame-header className="shrink-0">
-				<TopBar
-					left={
-						meOpen || phone ? (
-							left
-						) : (
-							<div className="flex min-w-0 items-center gap-[var(--spacing-3)]">
-								{left}
-								{heading}
-							</div>
-						)
-					}
-					center={meOpen ? title : phone ? heading : null}
-					right={shellRight ?? action}
-					titleAlign={phone && !meOpen && !title ? "start" : "center"}
-					phone={phone}
-				/>
-				{center ? (
-					<div className="flex shrink-0 justify-center px-[var(--spacing-4)] pb-[var(--spacing-3)] [&>[role=radiogroup]]:h-auto [&>[role=radiogroup]]:w-full [&>[role=radiogroup]]:rounded-[var(--radius-full)] [&>[role=radiogroup]]:py-[calc(var(--spacing-1)/2)] [&_label]:min-h-[calc(var(--control-lg)-var(--spacing-1))] [&_label]:flex-1 [&_label]:rounded-[var(--radius-full)] [&_label]:text-body [&_label>span]:my-[calc(var(--spacing-1)/2)] [&_label>span]:w-full [&_label>span]:justify-center [&_label>span]:rounded-[var(--radius-full)]">
-						{center}
-					</div>
-				) : null}
-			</div>
+			{standaloneAction ? (
+				<div className="flex shrink-0 justify-end px-[var(--spacing-4)] pt-[calc(var(--safe-area-top,env(safe-area-inset-top))+var(--spacing-3))] pb-[var(--spacing-3)]">
+					{shellRight ?? action}
+				</div>
+			) : (
+				<div ref={header} data-frame-header className="shrink-0">
+					<TopBar
+						left={
+							meOpen || phone ? (
+								left
+							) : (
+								<div className="flex min-w-0 items-center gap-[var(--spacing-3)]">
+									{left}
+									{heading}
+								</div>
+							)
+						}
+						center={meOpen ? title : phone ? heading : null}
+						right={shellRight ?? action}
+						titleAlign={phone && !meOpen && !title ? "start" : "center"}
+						phone={phone}
+					/>
+					{center ? (
+						<div className="flex shrink-0 justify-center px-[var(--spacing-4)] pb-[var(--spacing-3)] [&>[role=radiogroup]]:h-auto [&>[role=radiogroup]]:w-full [&>[role=radiogroup]]:rounded-[var(--radius-full)] [&>[role=radiogroup]]:py-[calc(var(--spacing-1)/2)] [&_label]:min-h-[calc(var(--control-lg)-var(--spacing-1))] [&_label]:flex-1 [&_label]:rounded-[var(--radius-full)] [&_label]:text-body [&_label>span]:my-[calc(var(--spacing-1)/2)] [&_label>span]:w-full [&_label>span]:justify-center [&_label>span]:rounded-[var(--radius-full)]">
+							{center}
+						</div>
+					) : null}
+				</div>
+			)}
 			<div
 				data-frame-scroll
 				ref={scrollRef}

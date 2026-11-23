@@ -67,8 +67,8 @@ for (const viewport of ["desktop", "phone"] as const) {
 					}
 				: { viewport: { width: 1440, height: 900 } },
 		);
-		test("secondary Bot uses the conversation identity and ordinary chat settings", async ({ page }, info) => {
-			const secondaryBot = { ...bot, memberId: "secondary-bot" };
+		test("owned secondary Bot preserves settings and shares the phone header", async ({ page }, info) => {
+			const secondaryBot = { ...bot, memberId: "secondary-bot", handle: "secondarybot" };
 			const secondary = {
 				...chats.agent,
 				id: "secondary-chat",
@@ -82,15 +82,57 @@ for (const viewport of ["desktop", "phone"] as const) {
 				],
 			});
 			await page.route("**/v1/conversations", (route) => route.fulfill({ json: { items: [conversation, secondary] } }));
+			await page.route("**/v1/contacts", (route) =>
+				route.fulfill({
+					json: {
+						items: [
+							{
+								...accountBot,
+								id: secondaryBot.memberId,
+								handle: secondaryBot.handle,
+								displayName: secondaryBot.displayName,
+								isDefault: false,
+							},
+						],
+					},
+				}),
+			);
 			await page.goto(`/messages/${secondary.id}`);
 			const detail = page.locator('[data-page-layer="detail"]');
 			const header = detail.locator("[data-frame-header]");
 			await expect(header.locator("[data-chat-agent-avatar] [data-avatar-fallback]")).toBeVisible();
 			await expect(header.locator("[data-chat-agent-name] [data-bot-display-name]")).toHaveText(bot.displayName);
-			await expect(header.getByRole("button", { name: "聊天设置", exact: true })).toBeInViewport();
-			await expect(header).not.toHaveAttribute("data-floating-frame-header");
+			const more = header.getByRole("button", { name: "聊天设置", exact: true });
+			await expect(more).toBeInViewport();
+			if (phone) {
+				await expect(header).toHaveAttribute("data-floating-frame-header");
+				await expect(header.getByRole("button", { name: "返回", exact: true })).toBeInViewport();
+				await expect(header.getByRole("button", { name: "我", exact: true })).toHaveCount(0);
+				for (const control of [header.locator("[data-chat-agent-avatar]"), header.locator("[data-chat-agent-name]")]) {
+					await expect(control).toHaveCSS("border-radius", "9999px");
+					await expect(control).toHaveCSS("box-shadow", /rgba?\(/);
+				}
+				expect(await header.evaluate((element) => getComputedStyle(element, "::before").height)).toBe("4px");
+			} else {
+				await expect(header).not.toHaveAttribute("data-floating-frame-header");
+			}
 			await expect(detail.getByRole("log")).toBeVisible();
 			await page.screenshot({ path: info.outputPath(`${viewport}-secondary-bot.png`), animations: "disabled" });
+			if (!phone) return;
+			const panel = page.getByRole("dialog", { name: secondaryBot.displayName, exact: true });
+			for (const entry of [
+				more,
+				header.locator("[data-chat-agent-avatar]"),
+				header.locator("[data-chat-agent-name]"),
+			]) {
+				await entry.click();
+				await expect(panel.getByText(`@${secondaryBot.handle}`, { exact: true })).toBeVisible();
+				await expect(panel.getByRole("button", { name: /^基本资料/ })).toBeVisible();
+				await panel.getByRole("button", { name: "返回", exact: true }).click();
+				await expect(panel).toHaveCount(0);
+			}
+			await header.getByRole("button", { name: "返回", exact: true }).click();
+			await expect(page).toHaveURL(/\/messages$/);
 		});
 
 		for (const mode of ["person", "group", "agent"] as const) {
@@ -121,9 +163,8 @@ for (const viewport of ["desktop", "phone"] as const) {
 				const more = header.getByRole("button", { name: "聊天设置", exact: true });
 				const accountSettings = header.getByRole("button", { name: "我", exact: true });
 				if (botHome) await expect(topbar).toHaveCount(0);
-				if (mobileBotHome) {
-					await expect(accountSettings).toBeInViewport();
-				} else await expect(more).toBeInViewport();
+				if (mobileBotHome) await expect(accountSettings).toBeInViewport();
+				await expect(more).toBeInViewport();
 				const avatars = log.locator("[data-message-sender-avatar]");
 				const senderNames = log.locator("[data-message-sender-name]");
 				if (mode === "agent") {
@@ -190,6 +231,10 @@ for (const viewport of ["desktop", "phone"] as const) {
 						await botBack.click();
 						await expect(botDetail).toHaveCount(0);
 						await expect(page).toHaveURL(/\/messages\/main$/);
+						await more.click();
+						await expect(botDetail.getByText(`@${bot.handle}`, { exact: true })).toBeVisible();
+						await botBack.click();
+						await expect(botDetail).toHaveCount(0);
 						await expect(name).toBeVisible();
 						await expect(status).toHaveCount(0);
 					}
