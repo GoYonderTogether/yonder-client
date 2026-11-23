@@ -222,6 +222,32 @@ describe("refresh", () => {
 		expect(fetchImpl).toHaveBeenCalledTimes(2);
 	});
 
+	test.each([503, 200])("a temporary refresh response (%s) preserves the stored session", async (status) => {
+		const onSessionLost = vi.fn();
+		const setRefreshToken = vi.fn();
+		const tokens = { ...createMemoryTokenStore(), getRefreshToken: () => "stored", setRefreshToken };
+		tokens.setAccessToken("expired");
+		const api = new ApiClient({
+			baseUrl: "https://api.test",
+			tokens,
+			clientKind: "shell",
+			appVersion: "test",
+			fetch: async (url) =>
+				url.endsWith("/v1/auth/refresh")
+					? new Response("<html>updating</html>", { status })
+					: errorResponse("token_expired", 401),
+			onSessionLost,
+		});
+
+		const refreshError = { status: status === 200 ? 502 : status };
+		await expect(api.request("/v1/me")).rejects.toMatchObject(refreshError);
+		await expect(api.refreshSession({ throwOnUnavailable: true })).rejects.toMatchObject(refreshError);
+		expect(await api.refreshSession()).toBe(false);
+		expect(tokens.getAccessToken()).toBe("expired");
+		expect(setRefreshToken).not.toHaveBeenCalled();
+		expect(onSessionLost).not.toHaveBeenCalled();
+	});
+
 	test("concurrent 401s share one refresh, because rotating twice looks like reuse", async () => {
 		const tokens = createMemoryTokenStore();
 		tokens.setAccessToken("stale");
