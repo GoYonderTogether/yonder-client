@@ -4,9 +4,18 @@
  */
 
 import { useSessionStore } from "@yonder/ui-data";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import type { Location } from "react-router";
-import { createBrowserRouter, Navigate, Route, RouterProvider, Routes, useLocation } from "react-router";
+import {
+	createBrowserRouter,
+	Navigate,
+	Route,
+	RouterProvider,
+	Routes,
+	useLocation,
+	useSearchParams,
+} from "react-router";
+import { defaultMessagePath } from "../lib/default-message-path.ts";
 import { Splash } from "../pages/splash.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { MemberCardRoute } from "./member-card-route.tsx";
@@ -59,7 +68,7 @@ export function AppRoutes() {
 								)}
 								<Route path="/" element={<LandingPage />} />
 								<Route path="/download" element={<DownloadPage />} />
-								<Route path="/sign-in" element={<SignInPage />} />
+								<Route path="/sign-in" element={<SignInRoute />} />
 								<Route path="/terms" element={<LegalPage kind="terms" />} />
 								<Route path="/privacy" element={<LegalPage kind="privacy" />} />
 								<Route path="/pricing" element={<PricingPage />} />
@@ -113,6 +122,22 @@ export function AppRoutes() {
 			)}
 		</>
 	);
+}
+
+function SignInRoute() {
+	const booting = useSessionStore((state) => state.booting);
+	return booting ? <Splash /> : <SignInAfterRestore />;
+}
+
+function SignInAfterRestore() {
+	// Once the form is shown, its own login callback chooses the next page.
+	const [restored] = useState(() => useSessionStore.getState().status === "signed-in");
+	const [params] = useSearchParams();
+	const next = params.get("next");
+	if (!restored) return <SignInPage />;
+	const destination =
+		next?.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : defaultMessagePath();
+	return <Navigate to={destination} replace />;
 }
 
 /**

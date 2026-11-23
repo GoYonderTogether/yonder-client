@@ -17,7 +17,7 @@ const ACCOUNT = "refresh-token";
 
 export interface KeychainStorage {
 	get(): string | null;
-	set(value: string | null): void;
+	set(value: string | null): void | Promise<void>;
 	/** Resolves once the token has been read from the keychain; the session boot waits for it. */
 	ready: Promise<void>;
 }
@@ -26,6 +26,7 @@ export async function createKeychainStorage(): Promise<KeychainStorage> {
 	if (isMobileShell()) return sandboxStorage();
 	const keyring = await import("tauri-plugin-keyring-api");
 	let token: string | null = null;
+	let pending = Promise.resolve();
 
 	const ready = keyring
 		.getPassword(SERVICE, ACCOUNT)
@@ -42,10 +43,13 @@ export async function createKeychainStorage(): Promise<KeychainStorage> {
 		get: () => token,
 		set(value) {
 			token = value;
-			// The write is fire-and-forget from the caller's point of view; a failure means the user
-			// signs in again next launch, which is the safe direction to fail in.
-			if (value === null) void keyring.deletePassword(SERVICE, ACCOUNT).catch(() => undefined);
-			else void keyring.setPassword(SERVICE, ACCOUNT, value).catch(() => undefined);
+			// Preserve call order so a slow refresh write cannot overwrite a new sign-in or sign-out.
+			pending = pending
+				.then(() =>
+					value === null ? keyring.deletePassword(SERVICE, ACCOUNT) : keyring.setPassword(SERVICE, ACCOUNT, value),
+				)
+				.catch(() => undefined);
+			return pending;
 		},
 	};
 }
@@ -57,7 +61,11 @@ export function isTauri(): boolean {
 
 /** True inside the iOS or Android shell, where the keyring plugin is not compiled in. */
 function isMobileShell(): boolean {
-	return typeof navigator !== "undefined" && /iPhone|iPad|Android/i.test(navigator.userAgent);
+	if (typeof navigator === "undefined") return false;
+	return (
+		/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+		(/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+	);
 }
 
 function sandboxStorage(): KeychainStorage {

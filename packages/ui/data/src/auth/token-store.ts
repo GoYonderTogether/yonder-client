@@ -6,12 +6,15 @@ import type { TokenStore } from "@yonder/api-client";
 
 export interface MemoryTokenStore extends TokenStore {
 	/** Replace the shell's refresh-token behaviour; the web leaves it undefined. */
-	withRefreshStorage(storage: { get(): string | null; set(value: string | null): void }): MemoryTokenStore;
+	withRefreshStorage(storage: {
+		get(): string | null;
+		set(value: string | null): void | Promise<void>;
+	}): MemoryTokenStore;
 }
 
 export function createMemoryTokenStore(): MemoryTokenStore {
 	let accessToken: string | null = null;
-	let refreshStorage: { get(): string | null; set(value: string | null): void } | null = null;
+	let refreshStorage: Parameters<MemoryTokenStore["withRefreshStorage"]>[0] | null = null;
 
 	const store: MemoryTokenStore = {
 		getAccessToken: () => accessToken,

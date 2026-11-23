@@ -62,7 +62,7 @@ export async function serveContactWindowSession(client: {
 	if (!isDesktopShell() || isContactWindow()) return () => undefined;
 	const [{ invoke }, { listen }] = await Promise.all([import("@tauri-apps/api/core"), import("@tauri-apps/api/event")]);
 	return listen<string>("contacts-session-request", async ({ payload: requestId }) => {
-		const ok = client.accessToken !== null && (await client.refreshSession());
-		await invoke("provide_contacts_session", { requestId, accessToken: ok ? client.accessToken : null });
+		if (client.accessToken !== null) await client.refreshSession();
+		await invoke("provide_contacts_session", { requestId, accessToken: client.accessToken });
 	});
 }

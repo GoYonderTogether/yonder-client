@@ -31,7 +31,7 @@ export interface DataProviderProps {
 	appVersion: string;
 	clientKind: "web" | "shell";
 	/** A shell supplies keychain-backed storage for the refresh token. */
-	refreshTokenStorage?: { get(): string | null; set(value: string | null): void };
+	refreshTokenStorage?: { get(): string | null; set(value: string | null): void | Promise<void> };
 	/** Access-only session borrowed by an auxiliary shell window. */
 	refreshAccessToken?: () => Promise<string | null>;
 	/** Close auxiliary windows before the account changes. */
@@ -73,8 +73,6 @@ export function DataProvider({
 		persister.activate();
 		return () => persister.dispose();
 	}, [persister]);
-	const setStatus = useSessionStore((state) => state.setStatus);
-
 	const clientParts = useMemo(() => {
 		const tokens = createMemoryTokenStore();
 		if (refreshTokenStorage) tokens.withRefreshStorage(refreshTokenStorage);
@@ -87,20 +85,11 @@ export function DataProvider({
 			onSessionLost: () => {
 				void onSessionChange?.();
 				queryClient.removeQueries({ queryKey: keys.memory.all() });
-				setStatus("signed-out");
+				useSessionStore.setState({ status: "signed-out", booting: false });
 			},
 		});
 		return import.meta.env.DEV ? { client, expireAccessTokenForDev: () => tokens.setAccessToken(null) } : { client };
-	}, [
-		baseUrl,
-		clientKind,
-		appVersion,
-		refreshTokenStorage,
-		refreshAccessToken,
-		onSessionChange,
-		queryClient,
-		setStatus,
-	]);
+	}, [baseUrl, clientKind, appVersion, refreshTokenStorage, refreshAccessToken, onSessionChange, queryClient]);
 	const { client } = clientParts;
 
 	const api = useMemo(() => createEndpoints(client), [client]);
@@ -123,8 +112,8 @@ export function DataProvider({
 				queryClient.clear();
 				await persister.removeClient();
 				storage.remove(CACHE_STORAGE_KEY);
-				client.setSession(session);
-				setStatus("signed-in");
+				await client.setSession(session);
+				useSessionStore.setState({ status: "signed-in", booting: false });
 			},
 			signOutLocal() {
 				// An explicit sign-out and the realtime revocation can arrive together.
@@ -132,13 +121,13 @@ export function DataProvider({
 					.then(async () => {
 						await onSessionChange?.();
 						await clearChatCache();
-						client.clearTokens();
+						await client.clearTokens();
 						realtime.stop();
 						queryClient.clear();
 						await persister.removeClient();
 						// Theme and language are device preferences and stay on the sign-in screen.
 						storage.remove(CACHE_STORAGE_KEY);
-						setStatus("signed-out");
+						useSessionStore.setState({ status: "signed-out", booting: false });
 					})
 					.finally(() => {
 						pendingSignOut.current = undefined;
@@ -146,7 +135,7 @@ export function DataProvider({
 				return pendingSignOut.current;
 			},
 		}),
-		[clientParts, client, api, realtime, storage, queryClient, persister, setStatus, onSessionChange],
+		[clientParts, client, api, realtime, storage, queryClient, persister, onSessionChange],
 	);
 
 	return (
@@ -168,25 +157,33 @@ export function DataProvider({
 }
 
 /**
- * One refresh attempt before the first screen decides what to show: the access token lives in
- * memory, so after a reload the cookie (or the keychain) is the only way back in.
+ * Restore the access token from the cookie or keychain after a reload. Keep waiting through a
+ * restart or network outage so a returning user does not have to sign in again.
  */
 function SessionBootstrapper() {
 	const { client } = useData();
-	const setStatus = useSessionStore((state) => state.setStatus);
-	const setBooting = useSessionStore((state) => state.setBooting);
-
 	useEffect(() => {
 		let cancelled = false;
-		void client.refreshSession().then((ok) => {
-			if (cancelled) return;
-			setStatus(ok ? "signed-in" : "signed-out");
-			setBooting(false);
-		});
+		let retry: ReturnType<typeof setTimeout> | undefined;
+		const pending = () => !cancelled && useSessionStore.getState().booting;
+		async function restore() {
+			if (!pending()) return;
+			try {
+				const ok = await client.refreshSession({ throwOnUnavailable: true });
+				if (pending()) useSessionStore.setState({ status: ok ? "signed-in" : "signed-out", booting: false });
+			} catch {
+				if (!pending()) return;
+				useSessionStore.setState({ status: "reconnecting" });
+				retry = setTimeout(() => void restore(), 5000);
+			}
+		}
+		useSessionStore.setState({ status: "unknown", booting: true });
+		void restore();
 		return () => {
 			cancelled = true;
+			clearTimeout(retry);
 		};
-	}, [client, setStatus, setBooting]);
+	}, [client]);
 
 	return null;
 }
