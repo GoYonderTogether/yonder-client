@@ -10,14 +10,21 @@ import type { SubtaskSummary } from "../chat/subtask.ts";
 import type { ConnectorCommand, ConnectorGrant, ConnectorRequestView } from "../connectors/connectors.ts";
 import type { FriendRequest } from "../member/friend-request.ts";
 import type { Member } from "../member/member.ts";
-import type { DeviceLocalRelayRequest, DeviceModelEndpoint, DeviceModelError } from "../models/device-provider.ts";
+import type {
+	DeviceLocalRelayRequest,
+	DeviceModelEndpoint,
+	DeviceModelError,
+	DeviceModelRequest,
+} from "../models/device-provider.ts";
 import type { QuotaResponse } from "../quota/quota.ts";
 
 export type ClientEvent =
 	| { type: "ping"; at: string }
 	| { type: "ack"; lastEventId: string }
+	/** A device advertising the device-model wire reports its endpoints here. */
+	| { type: "device_model.ready"; endpoints: DeviceModelEndpoint[] }
 	| { type: "connector.ready"; connectionIds: string[] }
-	/** `toolsVersion` is the device's file-tool argument version; a device that omits it is V1. */
+	/** `toolsVersion` is the device's connector command version; a device that omits it is V1. */
 	| { type: "connector.ready"; connections: { id: string; revision: number; toolsVersion?: number }[] }
 	/** The device answers one relayed provider call: a head, then body parts, then an end. */
 	| { type: "provider.relay.head"; relayId: string; status: number; contentType?: string }
@@ -39,13 +46,15 @@ export interface MessageNotification {
 
 /** Events this slice actually sends. A member change is what makes a second tab update. */
 export type ServerEvent =
+	/** The device-model wire: the device discovers or infers, then POSTs numbered batches back. */
+	| (DeviceModelRequest & { eventId: string; at: string })
+	| { type: "device_model.cancel"; requestId: string; eventId: string; at: string }
 	| { type: "friend_request.updated"; eventId: string; at: string; request: FriendRequest }
 	| { type: "connectors.changed"; eventId: string; at: string }
 	| { type: "connector.command"; eventId: string; at: string; command: ConnectorCommand }
 	| { type: "connector.command.cancelled"; eventId: string; at: string; commandId: string }
 	/** A connector request changed state; every endpoint patches the card from this payload. */
 	| { type: "connector_request.updated"; eventId: string; at: string; request: ConnectorRequestView }
-	/** An owner-only Agent card changed state; the card every endpoint is showing updates in place. */
 	| { type: "agent-card.updated"; eventId: string; at: string; card: AgentCard }
 	/** Sent only to the target device's sessions: store these grants locally, then report `connector.ready`. */
 	| {

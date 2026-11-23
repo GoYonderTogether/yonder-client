@@ -20,7 +20,7 @@ export interface Provider {
 	/** Local-key mode: a device-owned profile, never a server URL or key. */
 	endpointId?: string;
 	deviceStatus?: "online" | "offline";
-	/** Read compatibility for clients from the initial device-local release. */
+	/** Read compatibility with the device model-release clients: the selected device endpoint. */
 	target?: DeviceProviderTarget;
 }
 
@@ -43,6 +43,7 @@ export interface SaveProviderRequest {
 	note?: string | null;
 	website?: string | null;
 	baseUrl?: string;
+	target?: DeviceProviderTarget;
 	protocol: Provider["protocol"];
 	models: string[];
 	apiKey?: string;
@@ -72,6 +73,7 @@ export interface DiscoverModelsRequest {
 	origin?: "device";
 	deviceId?: string;
 	endpointId?: string;
+	target?: DeviceProviderTarget;
 	protocol: Provider["protocol"];
 	providerId?: string;
 	apiKey?: string;

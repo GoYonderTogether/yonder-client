@@ -51,6 +51,7 @@ export const keys = {
 	},
 	contacts: () => ["contacts"] as const,
 	contactSearch: (query: string) => ["contact-search", query] as const,
+	providerDeviceEndpoints: () => ["provider-device-endpoints"] as const,
 	providers: () => ["providers"] as const,
 	connectors: {
 		all: () => ["connectors"] as const,

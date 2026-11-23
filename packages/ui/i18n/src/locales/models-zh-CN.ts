@@ -63,4 +63,5 @@ export const modelMessagesZhCN = {
 	followDefault: "跟随主模型",
 	botModelTitle: "模型",
 	botModelHint: "{{name}} 用哪个模型回答。选「跟随主模型」就回到默认。",
+	metadataSource: "上下文长度和能力来自供应商。",
 } as const;

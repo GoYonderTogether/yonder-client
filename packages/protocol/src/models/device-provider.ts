@@ -11,11 +11,19 @@ export interface DeviceModelEndpoint {
 	endpointId: string;
 	revision: number;
 	label: string;
+	/** The wire the endpoint speaks; a device that names none speaks OpenAI. */
 	protocol: DeviceModelProtocol;
 }
 
-export interface DeviceModelEndpointView extends DeviceModelEndpoint {
+/**
+ * One endpoint as the device-model endpoint list returns it. The device-model wire is OpenAI-only,
+ * so this view carries no protocol; the local relay's `DeviceModelEndpoint` names one.
+ */
+export interface DeviceModelEndpointView {
 	deviceId: string;
+	endpointId: string;
+	revision: number;
+	label: string;
 }
 
 export type DeviceModelError =
@@ -53,6 +61,10 @@ export interface DeviceAnthropicModelInput {
 	tool_choice?: { type: "none" };
 }
 
+/**
+ * The device-local relay (the shipped client): one HTTP call made on the device, answered with a
+ * head, then ordered body parts, then an end.
+ */
 export type DeviceLocalRelayInput =
 	| { operation: "discover"; protocol: DeviceModelProtocol }
 	| { operation: "chat"; protocol: "openai"; body: DeviceModelInput }
@@ -64,3 +76,26 @@ export type DeviceLocalRelayRequest = DeviceLocalRelayInput & {
 	revision: number;
 	expiresAt: string;
 };
+
+/**
+ * The device-model request/result wire: the server asks the device to discover or infer, and the
+ * device POSTs numbered result batches back. A device that advertises this wire answers here.
+ */
+interface DeviceModelRequestBase {
+	type: "device_model.request";
+	requestId: string;
+	endpointId: string;
+	revision: number;
+	expiresAt: string;
+}
+
+export type DeviceModelRequest =
+	| (DeviceModelRequestBase & { operation: "discover" })
+	| (DeviceModelRequestBase & { operation: "chat"; body: DeviceModelInput });
+
+export interface DeviceModelStreamBatch {
+	seq: number;
+	data: string;
+	done: boolean;
+	error?: DeviceModelError;
+}

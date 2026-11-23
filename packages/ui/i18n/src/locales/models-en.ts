@@ -63,4 +63,5 @@ export const modelMessagesEn = {
 	followDefault: "Follow the main model",
 	botModelTitle: "Model",
 	botModelHint: "The model {{name}} answers with. Pick “Follow the main model” to go back to the default.",
+	metadataSource: "Context length and capabilities are from the provider.",
 } as const;

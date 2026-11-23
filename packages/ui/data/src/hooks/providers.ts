@@ -13,6 +13,17 @@ export function useProviders(options: { enabled?: boolean } = {}) {
 	});
 }
 
+export function useProviderDeviceEndpoints(enabled: boolean) {
+	const api = useApi();
+	return useQuery({
+		queryKey: keys.providerDeviceEndpoints(),
+		queryFn: ({ signal }) => api.providerDeviceEndpoints(signal),
+		enabled,
+		gcTime: 0,
+		retry: false,
+	});
+}
+
 export function useProviderActions() {
 	const api = useApi();
 	const client = useQueryClient();

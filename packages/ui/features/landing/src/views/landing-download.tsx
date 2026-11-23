@@ -120,7 +120,7 @@ export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps &
 						{t("landing.copyLink")}
 					</button>
 				) : download ? (
-					<a className="lp-action lp-action-primary" href={download}>
+					<a className={`lp-action ${appPath ? "lp-action-secondary" : "lp-action-primary"}`} href={download}>
 						{t("landing.downloadFor", { platform: t(`landing.platforms.${platform}`) })}
 					</a>
 				) : null}

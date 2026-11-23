@@ -6103,7 +6103,7 @@ dependencies = [
 
 [[package]]
 name = "yonder-desktop"
-version = "0.3.26112109"
+version = "0.3.26112302"
 dependencies = [
  "cap-fs-ext",
  "cap-primitives",

@@ -242,9 +242,12 @@ export type {
 	DeviceLocalRelayInput,
 	DeviceLocalRelayRequest,
 	DeviceModelEndpoint,
+	DeviceModelEndpointView,
 	DeviceModelError,
 	DeviceModelInput,
 	DeviceModelProtocol,
+	DeviceModelRequest,
+	DeviceModelStreamBatch,
 	DeviceProviderTarget,
 } from "./models/device-provider.ts";
 export type {
