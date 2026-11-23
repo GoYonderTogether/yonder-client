@@ -67,3 +67,26 @@ describe("closedGroupNotice", () => {
 		expect(closedGroupNotice(undefined, translate("zh-CN"))).toBeNull();
 	});
 });
+
+describe("photo archive lines", () => {
+	const stopped: SystemEvent = { event: "photo_archive", state: "stopped", month: "2025-03", months: 9 };
+	const ended: SystemEvent = { event: "photo_archive", state: "ended", month: "2024-11", months: 14 };
+	const finished: SystemEvent = { event: "photo_archive", state: "finished", months: 30 };
+
+	test("state the fact in Chinese", () => {
+		const t = translate("zh-CN");
+		expect(systemEventText(stopped, t)).toBe(
+			"照片连接已关闭，相册整理停在 2025 年 3 月，记忆里有 9 个月。重新连接后从这里接着做。",
+		);
+		expect(systemEventText(ended, t)).toBe("相册整理中断，停在 2024 年 11 月，最近一年已整理完，记忆里有 14 个月。");
+		expect(systemEventText(finished, t)).toBe("相册整理完成，记忆里有 30 个月。");
+	});
+
+	test("state the fact in English", () => {
+		const t = translate("en");
+		expect(systemEventText(stopped, t)).toBe(
+			"Photos was disconnected. Organizing stopped at 3/2025, with 9 months in memory. Reconnect to continue from there.",
+		);
+		expect(systemEventText(finished, t)).toBe("Your photos are organized, with 30 months in memory.");
+	});
+});

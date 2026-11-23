@@ -311,6 +311,13 @@ export const en = {
 		jumpToLatest: "Jump to latest",
 		loadOlder: "Load earlier messages",
 		memoryUpdated: "Memory updated",
+		photoArchive: {
+			month: "{{month}}/{{year}}",
+			stopped:
+				"Photos was disconnected. Organizing stopped at {{at}}, with {{count}} months in memory. Reconnect to continue from there.",
+			ended: "Organizing was interrupted at {{at}}. The last year is done, with {{count}} months in memory.",
+			finished: "Your photos are organized, with {{count}} months in memory.",
+		},
 		memoryUpdatedOne: "Memory updated · {{title}}",
 		memoryUpdatedMany: "Memory updated · {{count}} files",
 		memoryRevisionUnavailable: "This change isn't in the file's history",

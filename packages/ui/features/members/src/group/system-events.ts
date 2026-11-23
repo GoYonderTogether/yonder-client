@@ -28,6 +28,14 @@ export function systemEventText(event: SystemEvent, t: Translate): string {
 			? t("chat.memoryUpdatedOne", { title: only.title || only.path })
 			: t("chat.memoryUpdatedMany", { count: event.changes.length });
 	}
+	if (event.event === "photo_archive") {
+		if (event.state === "finished") return t("chat.photoArchive.finished", { count: event.months });
+		const [year = "", month = ""] = (event.month ?? "").split("-");
+		const at = t("chat.photoArchive.month", { year, month: String(Number(month)) });
+		return event.state === "stopped"
+			? t("chat.photoArchive.stopped", { at, count: event.months })
+			: t("chat.photoArchive.ended", { at, count: event.months });
+	}
 	const actor = event.actorName?.trim() || t(SOMEONE_KEY);
 	const people = names(event);
 	const joined = people.length > 0 ? people.join(t(SEPARATOR_KEY)) : t(SOMEONE_KEY);

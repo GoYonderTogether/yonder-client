@@ -76,3 +76,14 @@ describe("closed group copy", () => {
 		expect(closureSentence(undefined, "en")).toBe("This group no longer accepts messages");
 	});
 });
+
+describe("photo archive lines", () => {
+	it("states the fact the same way as the web", () => {
+		expect(systemSentence({ event: "photo_archive", state: "stopped", month: "2025-03", months: 9 }, "zh-CN")).toBe(
+			"照片连接已关闭，相册整理停在 2025 年 3 月，记忆里有 9 个月。重新连接后从这里接着做。",
+		);
+		expect(systemSentence({ event: "photo_archive", state: "finished", months: 30 }, "en")).toBe(
+			"Your photos are organized, with 30 months in memory.",
+		);
+	});
+});

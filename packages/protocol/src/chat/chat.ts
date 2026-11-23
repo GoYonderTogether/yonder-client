@@ -48,7 +48,19 @@ export interface MemoryUpdatedSystemEvent {
 	changes: MemoryUpdateChange[];
 }
 
-export type SystemEvent = GroupSystemEvent | MemoryUpdatedSystemEvent;
+/**
+ * The photo archive stopped, ended or finished (11-23). It states a fact, so it is a system line and
+ * never a Bot reply. `month` is the first month not organized (YYYY-MM); `months` is how many months
+ * with photos are in memory.
+ */
+export interface PhotoArchiveSystemEvent {
+	event: "photo_archive";
+	state: "stopped" | "ended" | "finished";
+	month?: string;
+	months: number;
+}
+
+export type SystemEvent = GroupSystemEvent | MemoryUpdatedSystemEvent | PhotoArchiveSystemEvent;
 export type SystemEventKind = SystemEvent["event"];
 
 /**

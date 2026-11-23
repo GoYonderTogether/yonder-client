@@ -66,6 +66,7 @@ export type {
 	MemoryUpdatedSystemEvent,
 	Message,
 	MessagePage,
+	PhotoArchiveSystemEvent,
 	ResetConversationResponse,
 	Run,
 	SendMessageRequest,
