@@ -37,9 +37,10 @@ export function applyChatHistoryClear(client: QueryClient, id: string, cutoff: C
 	const current = client.getQueryData<InfiniteData<MessagePage>>(historyKey);
 	if (!isNewChatHistoryCutoff(cutoff, current?.pages[0]?.historyClearedThrough)) return;
 	void client.cancelQueries({ queryKey: historyKey });
-	client.setQueryData<InfiniteData<MessagePage>>(historyKey, (history) => {
-		if (!history) return history;
-		const pages = history.pages.map((page) => {
+	// TanStack cancellation restores the fetch-start snapshot; clear the latest realtime state instead.
+	client.setQueryData<InfiniteData<MessagePage>>(historyKey, () => {
+		if (!current) return current;
+		const pages = current.pages.map((page) => {
 			const items = page.items.filter(
 				(message: CachedMessage) =>
 					message.pending || message.sendFailed || chatHistoryTimeOffset(message.createdAt, cutoff) > 0,
@@ -53,8 +54,8 @@ export function applyChatHistoryClear(client: QueryClient, id: string, cutoff: C
 		});
 		const end = pages.findIndex((page) => !page.hasMore);
 		return end < 0
-			? { ...history, pages }
-			: { pages: pages.slice(0, end + 1), pageParams: history.pageParams.slice(0, end + 1) };
+			? { ...current, pages }
+			: { pages: pages.slice(0, end + 1), pageParams: current.pageParams.slice(0, end + 1) };
 	});
 	void client.invalidateQueries({ queryKey: historyKey });
 }

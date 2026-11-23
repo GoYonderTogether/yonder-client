@@ -22,6 +22,8 @@ export const CACHE_STORAGE_KEY = "yonder.query-cache";
 export const CACHE_VERSION = "4";
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
+const isMessageHistory = (key: readonly unknown[]) => key[0] === "messages" && key.length === 3 && key[2] === "latest";
+
 export const dehydrateOptions: DehydrateOptions = {
 	// Memory can contain secret files, member cards have revocable visibility, and Agent cards are
 	// owner-only state that the server must re-authorize on every load.
@@ -36,7 +38,11 @@ export const dehydrateOptions: DehydrateOptions = {
 			"agent-card",
 			"provider-device-endpoints",
 		].includes(String(query.queryKey[0])) &&
-		defaultShouldDehydrateQuery(query),
+		(defaultShouldDehydrateQuery(query) ||
+			(isMessageHistory(query.queryKey) &&
+				query.state.data !== undefined &&
+				(query.state.error instanceof NetworkError ||
+					(query.state.error instanceof ApiError && query.state.error.status >= 500)))),
 	shouldDehydrateMutation: (mutation) =>
 		!["memory", "agent-card"].includes(String(mutation.options.mutationKey?.[0])) &&
 		defaultShouldDehydrateMutation(mutation),
@@ -92,7 +98,31 @@ export function createPersister(store: KeyValueStore): Persister & { activate():
 	return {
 		persistClient: (client: PersistedClient) => {
 			if (!active) return;
-			pending = client;
+			// A failed refresh still holds the last good history. Restore it without the failed request state.
+			pending = {
+				...client,
+				clientState: {
+					...client.clientState,
+					queries: client.clientState.queries.map((query) =>
+						isMessageHistory(query.queryKey) && query.state.status === "error" && query.state.data !== undefined
+							? {
+									...query,
+									state: {
+										...query.state,
+										status: "success",
+										error: null,
+										errorUpdatedAt: 0,
+										errorUpdateCount: 0,
+										fetchFailureCount: 0,
+										fetchFailureReason: null,
+										fetchStatus: "idle",
+										isInvalidated: true,
+									},
+								}
+							: query,
+					),
+				},
+			};
 			if (timer === undefined) timer = setTimeout(flush, 1000);
 		},
 		restoreClient: async () => {

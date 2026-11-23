@@ -1,5 +1,6 @@
 import { dehydrate } from "@tanstack/react-query";
 import { persistQueryClientRestore, persistQueryClientSubscribe } from "@tanstack/react-query-persist-client";
+import { ApiError, NetworkError } from "@yonder/api-client";
 import { afterEach, expect, test, vi } from "vitest";
 import { createMemoryStorage } from "../storage/index.ts";
 import { CACHE_STORAGE_KEY, CACHE_VERSION, createPersister, createQueryClient, dehydrateOptions } from "./client.ts";
@@ -143,4 +144,56 @@ test("discards corrupt cache and ignores failed writes", async () => {
 	await vi.advanceTimersByTimeAsync(1000);
 	expect(queryClient.getQueryData(["me"])).toBe("value");
 	unsubscribe();
+});
+
+test("a failed background history fetch does not evict the last good history from disk", async () => {
+	vi.useFakeTimers();
+	const storage = createMemoryStorage();
+	const key = keys.messages.latest("chat");
+	const client = createQueryClient();
+	const persister = createPersister(storage);
+	const options = { queryClient: client, persister, buster: CACHE_VERSION, dehydrateOptions };
+	const unsubscribe = persistQueryClientSubscribe(options);
+	const data = { pages: [{ items: [{ id: "saved" }], nextCursor: null, hasMore: false }], pageParams: [null] };
+	client.setQueryData(key, data);
+	const lastSuccess = client.getQueryState(key)?.dataUpdatedAt;
+	await vi.advanceTimersByTimeAsync(1000);
+	await expect(
+		client.fetchInfiniteQuery({
+			queryKey: key,
+			queryFn: () => Promise.reject(new NetworkError("offline")),
+			retry: false,
+			initialPageParam: null,
+			staleTime: 0,
+		}),
+	).rejects.toBeInstanceOf(NetworkError);
+	expect(client.getQueryState(key)?.status).toBe("error");
+	await vi.advanceTimersByTimeAsync(1000);
+	const restored = createQueryClient();
+	await persistQueryClientRestore({ ...options, queryClient: restored });
+	expect(restored.getQueryState(key)).toMatchObject({
+		status: "success",
+		data,
+		dataUpdatedAt: lastSuccess,
+		error: null,
+	});
+	unsubscribe();
+	client.clear();
+	restored.clear();
+});
+
+test("a history permission failure is not persisted as a successful history", async () => {
+	const client = createQueryClient();
+	const key = keys.messages.latest("chat");
+	client.setQueryData(key, { pages: [], pageParams: [] });
+	await expect(
+		client.fetchInfiniteQuery({
+			queryKey: key,
+			queryFn: () => Promise.reject(new ApiError({ code: "forbidden", status: 403, message: "denied" })),
+			initialPageParam: null,
+			staleTime: 0,
+		}),
+	).rejects.toBeInstanceOf(ApiError);
+	expect(dehydrate(client, dehydrateOptions).queries).toEqual([]);
+	client.clear();
 });

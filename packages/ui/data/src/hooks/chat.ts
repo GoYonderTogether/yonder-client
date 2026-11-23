@@ -5,6 +5,7 @@ import { useApi } from "../query/provider.tsx";
 import type { CachedMessage } from "../realtime/cached-message.ts";
 import { updateMessage } from "../realtime/message-cache.ts";
 import { listChatCache, outboxCacheKey, removeChatCache, writeChatCache } from "../storage/chat-cache.ts";
+import { fetchHistoryPage, shareMessageHistory } from "./message-history.ts";
 
 export type { CachedMessage };
 
@@ -41,17 +42,19 @@ export function useMessages(conversationId: string | null, refreshOnMount = fals
 	const client = useQueryClient();
 	return useInfiniteQuery({
 		queryKey: keys.messages.latest(conversationId ?? ""),
-		queryFn: async ({ pageParam }) => {
-			const page = await api.messages(conversationId ?? "", pageParam, { markRead: false });
-			const owner = client.getQueryData<MeResponse>(keys.me())?.member.id;
-			if (pageParam || !owner || !conversationId) return page;
-			const outbox = await listChatCache<CachedMessage>(outboxCacheKey(owner, conversationId)).catch(() => []);
-			for (const message of outbox) {
-				if (page.items.some((item) => item.clientNonce === message.clientNonce))
-					void removeChatCache(outboxCacheKey(owner, conversationId, message.clientNonce ?? "")).catch(() => {});
-			}
-			return { ...page, items: mergeOutbox(page.items, outbox) };
-		},
+		queryFn: ({ pageParam }) =>
+			fetchHistoryPage(client, conversationId ?? "", async () => {
+				const page = await api.messages(conversationId ?? "", pageParam, { markRead: false });
+				const owner = client.getQueryData<MeResponse>(keys.me())?.member.id;
+				if (pageParam || !owner || !conversationId) return page;
+				const outbox = await listChatCache<CachedMessage>(outboxCacheKey(owner, conversationId)).catch(() => []);
+				for (const message of outbox) {
+					if (page.items.some((item) => item.clientNonce === message.clientNonce))
+						void removeChatCache(outboxCacheKey(owner, conversationId, message.clientNonce ?? "")).catch(() => {});
+				}
+				return { ...page, items: mergeOutbox(page.items, outbox) };
+			}),
+		structuralSharing: shareMessageHistory,
 		initialPageParam: undefined as string | undefined,
 		getNextPageParam: (page) => page.nextCursor ?? undefined,
 		enabled: Boolean(conversationId),
