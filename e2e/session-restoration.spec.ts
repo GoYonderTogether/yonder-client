@@ -1,25 +1,49 @@
 import { expect, test } from "@playwright/test";
+import { bodies, isolateChat } from "./chat-fixture.ts";
 
 const signIn = "/sign-in?next=%2Fdownload";
 const refresh = "**/v1/auth/refresh";
 
 test.use({ locale: "zh-CN" });
 
-test("a backend restart during startup resumes the stored session and its destination", async ({ page }, info) => {
+test("a temporary startup failure keeps the existing cookie for the next load", async ({ context, page, baseURL }) => {
 	let attempts = 0;
-	await page.route(refresh, (route) => {
+	if (!baseURL) throw new Error("missing browser test origin");
+	await context.addCookies([
+		{ name: "yonder_rt", value: "stored", domain: new URL(baseURL).hostname, path: "/v1/auth", httpOnly: true },
+	]);
+	await page.route(refresh, async (route) => {
+		expect((await route.request().allHeaders()).cookie).toBe("yonder_rt=stored");
 		attempts += 1;
 		return attempts === 1
 			? route.fulfill({ status: 502, body: "Service restarting" })
 			: route.fulfill({ json: { accessToken: "restored" } });
 	});
 
+	const refreshing = page.waitForResponse(refresh);
 	await page.goto(signIn);
-	await expect(page.getByText("连接已断开，正在重连。")).toBeVisible();
+	expect((await refreshing).status()).toBe(502);
+	await expect(page.getByRole("status", { name: "loading" })).toBeVisible();
 	await expect(page.locator("#sign-in-phone")).toHaveCount(0);
-	await page.screenshot({ path: info.outputPath("session-reconnecting.png") });
+	await page.reload();
 	await expect(page).toHaveURL(/\/download$/, { timeout: 10000 });
 	expect(attempts).toBe(2);
+});
+
+test("a returning web user enters the app and reads existing cached messages while offline", async ({ page }) => {
+	await isolateChat(page);
+	await page.goto("/messages/main");
+	await expect(page.getByText(bodies.question)).toBeVisible();
+	await expect
+		.poll(() =>
+			page.evaluate((body) => localStorage.getItem("yonder.yonder.query-cache")?.includes(body), bodies.question),
+		)
+		.toBe(true);
+
+	await page.route("**/v1/**", (route) => route.abort("internetdisconnected"));
+	await page.reload();
+	await expect(page.getByText(bodies.question)).toBeVisible();
+	await expect(page).toHaveURL(/\/messages\/main$/);
 });
 
 test("two web tabs refresh the shared cookie in order", async ({ context, page, baseURL }) => {

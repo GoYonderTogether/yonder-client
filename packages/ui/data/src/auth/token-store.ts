@@ -12,14 +12,16 @@ export interface MemoryTokenStore extends TokenStore {
 	}): MemoryTokenStore;
 }
 
-export function createMemoryTokenStore(): MemoryTokenStore {
+export function createMemoryTokenStore(onAccessToken?: (firstToken: boolean) => void): MemoryTokenStore {
 	let accessToken: string | null = null;
 	let refreshStorage: Parameters<MemoryTokenStore["withRefreshStorage"]>[0] | null = null;
 
 	const store: MemoryTokenStore = {
 		getAccessToken: () => accessToken,
 		setAccessToken: (token) => {
+			const firstToken = accessToken === null;
 			accessToken = token;
+			if (token) onAccessToken?.(firstToken);
 		},
 		withRefreshStorage(storage) {
 			refreshStorage = storage;
