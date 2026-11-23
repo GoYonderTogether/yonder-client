@@ -71,9 +71,29 @@ export function newestReadableMessage(
 	return newest?.id;
 }
 
-export type MessageBlock<T> = { time: Date; messageId: string; atStart: boolean } | { run: T[] };
+/**
+ * `repeats` maps a failed reply's id to how many identical failures in a row it stands for (2 or
+ * more). The server folds the Bot's own history by the same rule (server docs/architecture.md「系统行」).
+ */
+export type MessageBlock<T> =
+	| { time: Date; messageId: string; atStart: boolean }
+	| { run: T[]; repeats?: Map<string, number> };
 
-/** A time label breaks a sender run, and a system message stands on its own. */
+/** A reply that failed and said nothing: the owner sees only the reason under it. */
+function failedReason(message: Message): string | null {
+	return message.type === "text" &&
+		message.senderKind === "bot" &&
+		message.run?.status === "failed" &&
+		!message.body?.trim() &&
+		!message.attachments.length
+		? (message.run.failureReason?.trim() ?? "") || "unknown"
+		: null;
+}
+
+/**
+ * A time label breaks a sender run, and a system message stands on its own. Identical failures in a
+ * row from the same Bot are one line with a count: the newest one stays, so its retry is the one shown.
+ */
 export function groupMessages<T extends Message>(
 	items: readonly T[],
 	hasFullHistory = false,
@@ -98,6 +118,24 @@ export function groupMessages<T extends Message>(
 		const last = blocks.at(-1);
 		const run = last && "run" in last ? last.run : undefined;
 		const sender = run?.[0];
+		const reason = failedReason(item);
+		const earlier = run?.at(-1);
+		if (
+			last &&
+			"run" in last &&
+			run &&
+			earlier &&
+			reason !== null &&
+			failedReason(earlier) === reason &&
+			earlier.senderId === item.senderId
+		) {
+			const count = (last.repeats?.get(earlier.id) ?? 1) + 1;
+			last.repeats ??= new Map();
+			last.repeats.delete(earlier.id);
+			last.repeats.set(item.id, count);
+			run[run.length - 1] = item;
+			continue;
+		}
 		if (run && item.type !== "system" && sender?.type !== "system" && sender?.senderId === item.senderId) {
 			run.push(item);
 		} else {

@@ -298,6 +298,7 @@ export const zhCN: Messages = {
 		sending: "发送中…",
 		sendFailed: "消息没有发出",
 		runFailed: "回复失败",
+		failureRepeats: "连续 {{count}} 次",
 		modelNotConfigured: "模型没有配置",
 		quotaExhausted: "额度已用完，再发消息也不会开始回复。",
 		quotaMainExhausted: "主额度已用完，这条消息没有回复。",

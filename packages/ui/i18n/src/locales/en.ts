@@ -294,6 +294,7 @@ export const en = {
 		sending: "Sending…",
 		sendFailed: "Message not sent",
 		runFailed: "The response failed",
+		failureRepeats: "{{count}} times in a row",
 		modelNotConfigured: "No model configured",
 		quotaExhausted: "Your quota is exhausted. Sending a message will not start a reply.",
 		quotaMainExhausted: "Main quota is used up, so this message was not answered.",

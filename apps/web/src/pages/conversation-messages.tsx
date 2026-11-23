@@ -33,6 +33,8 @@ interface MessageProps {
 	onResend: (message: CachedMessage) => void;
 	onRetry: (userMessageId: string) => void;
 	retrying: boolean;
+	/** How many identical failures in a row this reply's failure line stands for (2 or more). */
+	failureRepeats?: number | undefined;
 	onOpenMeeting?: (id: string) => void;
 	onChooseOption?: ((body: string, cardId: string) => void) | undefined;
 	optionReply?: CachedMessage | undefined;
@@ -147,6 +149,7 @@ export function ConversationMessages({
 						key={message.id}
 						message={message}
 						self={self}
+						failureRepeats={block.repeats?.get(message.id)}
 						{...actions}
 						onChooseOption={message.id === optionCards.openId ? actions.onChooseOption : undefined}
 						optionReply={optionCards.replies.get(message.id)}
@@ -154,7 +157,7 @@ export function ConversationMessages({
 				);
 			return (
 				<div key={message.id} className={self ? "flex flex-col items-end" : "min-w-0"}>
-					<MessageEntry message={message} self={self} {...actions} />
+					<MessageEntry message={message} self={self} failureRepeats={block.repeats?.get(message.id)} {...actions} />
 					<AskOwner messageId={message.id} conversationId={conversation.id} disabled={actions.disconnected} />
 				</div>
 			);
@@ -252,6 +255,7 @@ function MessageEntry({
 	onResend,
 	onRetry,
 	retrying,
+	failureRepeats,
 	onOpenMeeting,
 	onChooseOption,
 	optionReply,
@@ -314,7 +318,8 @@ function MessageEntry({
 			) : null}
 			{message.run?.status === "failed" ? (
 				<div role="alert" className="flex items-center gap-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
-					{t(runFailureKey(message.run.failureReason))}{" "}
+					{t(runFailureKey(message.run.failureReason))}
+					{failureRepeats && failureRepeats > 1 ? ` · ${t("chat.failureRepeats", { count: failureRepeats })}` : ""}{" "}
 					{!message.outwardDraft && message.run.canRetry !== false ? (
 						<Button
 							variant="link"

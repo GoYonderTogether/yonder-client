@@ -104,3 +104,67 @@ test("a recording-only Bot message acknowledges its watermark only on a surface 
 		newestReadableMessage([{ ...recording, streaming: true }], "mem_reader", { recordingNotes: true }),
 	).toBeUndefined();
 });
+
+const failed = (id: string, reason: string, createdAt: string, extra: Partial<Message> = {}): Message => ({
+	id,
+	conversationId: "cnv_test",
+	senderId: "bot_test",
+	senderKind: "bot",
+	type: "text",
+	body: "",
+	attachments: [],
+	replyToId: null,
+	createdAt,
+	editedAt: null,
+	streaming: false,
+	version: 1,
+	run: {
+		id: `run_${id}`,
+		conversationId: "cnv_test",
+		messageId: id,
+		userMessageId: `usr_${id}`,
+		status: "failed",
+		failureReason: reason,
+	},
+	...extra,
+});
+const said = (id: string, createdAt: string): Message => ({
+	...failed(id, "x", createdAt),
+	senderId: "mem_owner",
+	senderKind: "person",
+	body: "再试一次",
+	run: null,
+});
+
+test("three identical failures in a row are one line with a count, on the newest reply", () => {
+	const blocks = groupMessages([
+		failed("msg_1", "idle_timeout", "2026-11-23T01:00:00.000Z"),
+		failed("msg_2", "idle_timeout", "2026-11-23T01:00:10.000Z"),
+		failed("msg_3", "idle_timeout", "2026-11-23T01:00:20.000Z"),
+	]);
+	const runs = blocks.flatMap((block) => ("run" in block ? [block] : []));
+	expect(runs).toHaveLength(1);
+	expect(runs[0]?.run.map((message) => message.id)).toEqual(["msg_3"]);
+	expect(runs[0]?.repeats?.get("msg_3")).toBe(3);
+	expect(runs[0]?.repeats?.size).toBe(1);
+});
+
+test("a different reason, a message between, or a reply that said something breaks the run of failures", () => {
+	const blocks = groupMessages([
+		failed("msg_1", "idle_timeout", "2026-11-23T01:00:00.000Z"),
+		failed("msg_2", "tool_repeat", "2026-11-23T01:00:05.000Z"),
+		failed("msg_3", "tool_repeat", "2026-11-23T01:00:10.000Z"),
+		said("msg_4", "2026-11-23T01:00:15.000Z"),
+		failed("msg_5", "tool_repeat", "2026-11-23T01:00:20.000Z"),
+		failed("msg_6", "tool_repeat", "2026-11-23T01:00:25.000Z", { body: "查到一半" }),
+	]);
+	const runs = blocks.flatMap((block) => ("run" in block ? [block] : []));
+	expect(runs.map((block) => block.run.map((message) => message.id))).toEqual([
+		["msg_1", "msg_3"],
+		["msg_4"],
+		["msg_5", "msg_6"],
+	]);
+	expect(runs[0]?.repeats?.get("msg_3")).toBe(2);
+	expect(runs[0]?.repeats?.get("msg_1")).toBeUndefined();
+	expect(runs[2]?.repeats).toBeUndefined();
+});

@@ -203,7 +203,12 @@ export function renderMessageBlock(
 							) : null}
 							{message.run?.status === "failed" ? (
 								<View className="mini-chat-run-error">
-									<Text className="mini-error">{runFailureText(message.run.failureReason)}</Text>
+									<Text className="mini-error">
+										{runFailureText(message.run.failureReason)}
+										{(block.repeats?.get(message.id) ?? 1) > 1
+											? ` · ${t(`连续 ${block.repeats?.get(message.id)} 次`, `${block.repeats?.get(message.id)} times in a row`)}`
+											: ""}
+									</Text>
 									{message.run.canRetry !== false ? (
 										<Button secondary onClick={() => void chat.action(message)}>
 											{t("重试", "Retry")}
