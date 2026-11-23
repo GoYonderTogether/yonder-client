@@ -242,6 +242,7 @@ export type {
 	DeviceLocalRelayInput,
 	DeviceLocalRelayRequest,
 	DeviceModelEndpoint,
+	/** Client-only: the same endpoint as a device list shows it, with the device it belongs to. */
 	DeviceModelEndpointView,
 	DeviceModelError,
 	DeviceModelInput,

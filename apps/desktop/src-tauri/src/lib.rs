@@ -9,6 +9,8 @@ mod device_info;
 mod device_model;
 #[cfg(desktop)]
 mod device_model_http;
+#[cfg(desktop)]
+mod device_model_sse;
 
 #[cfg(desktop)]
 mod desktop_credentials;

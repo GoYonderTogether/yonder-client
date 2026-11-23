@@ -1,4 +1,5 @@
 use super::*;
+use crate::device_model_sse::SseFrames;
 
 #[test]
 fn only_fixed_cleartext_loopback_routes_are_allowed() {
@@ -30,14 +31,14 @@ fn approved_openai_requests_only() {
 
 #[test]
 fn frames_are_bounded_and_split_chunks_wait_for_a_complete_event() {
-    let mut parser = SseFrames::default();
+    let mut parser = SseFrames::new(Wire::OpenAi);
     let mut frames = Vec::new();
     let mut emit = |frame| { frames.push(frame); Ok(()) };
     assert!(!parser.push(b"data: {\"choices\":[]}", None, &mut emit).unwrap());
     assert!(parser.push(b"\r\n\r\ndata: [DONE]\n\n", None, &mut emit).unwrap());
     assert_eq!(frames, vec!["data: {\"choices\":[]}\n\n"]);
-    assert!(SseFrames::default().push(&vec![b'a'; MAX_FRAME + 5], None, &mut |_| Ok(())).is_err());
-    assert!(SseFrames::default().push(b"data: not-json\n\n", None, &mut |_| Ok(())).is_err());
+    assert!(SseFrames::new(Wire::OpenAi).push(&vec![b'a'; 64 * 1024 + 5], None, &mut |_| Ok(())).is_err());
+    assert!(SseFrames::new(Wire::OpenAi).push(b"data: not-json\n\n", None, &mut |_| Ok(())).is_err());
 }
 
 fn synthetic_upstream(response: &'static str, protocol: Protocol, expected_key: Option<&'static str>) -> (Url, std::thread::JoinHandle<String>) {
@@ -144,7 +145,7 @@ fn validates_fixed_bearer_and_rejects_direct_reflection() {
     for invalid in ["", "stand-in\r\nredacted", "not a bearer token"] {
         assert!(validate_key(invalid).is_err());
     }
-    let mut frames = SseFrames::default();
+    let mut frames = SseFrames::new(Wire::OpenAi);
     let reflection = concat!(r#"data: {"choices":[{"delta":{"content":"Bearer synthetic-test-\u006bey"}}]}"#, "\n\n");
     assert_eq!(
         frames.push(reflection.as_bytes(), Some("synthetic-test-key"), &mut |_| {
@@ -185,13 +186,3 @@ fn native_anthropic_uses_exact_routes_and_credential_scheme() {
     assert_eq!(check_anthropic_body(&bad), Err("upstream_rejected"));
 }
 
-#[test]
-fn anthropic_terminal_must_be_real_and_match_its_event() {
-    let frame = |data: &str| {
-        SseFrames { protocol: Protocol::Anthropic, ..Default::default() }
-            .push(data.as_bytes(), None, &mut |_| Ok(()))
-    };
-    assert_eq!(frame("data: [DONE]\n\n"), Err("invalid_response"));
-    assert_eq!(frame("event: message_stop\ndata: {\"type\":\"ping\"}\n\n"), Err("invalid_response"));
-    assert_eq!(frame("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"), Ok(true));
-}

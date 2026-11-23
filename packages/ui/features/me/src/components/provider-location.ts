@@ -1,12 +1,12 @@
-import type { DeviceModelEndpoint, DeviceSummary, Provider } from "@yonder/protocol";
+import type { DeviceModelEndpoint, DeviceModelProtocol, DeviceSummary, Provider } from "@yonder/protocol";
 import type { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "./device-display-name.ts";
 
 export type RegisterLocalProviderEndpoint = (
 	input:
 		| { deviceId: string; baseUrl: string; protocol?: Provider["protocol"]; label?: string; apiKey?: string }
-		| { deviceId: string; endpointId: string; apiKey: string },
-) => Promise<Omit<DeviceModelEndpoint, "protocol"> & { protocol?: "anthropic" }>;
+		| { deviceId: string; endpointId: string; protocol?: DeviceModelProtocol; apiKey: string },
+) => Promise<Omit<DeviceModelEndpoint, "protocol"> & { protocol?: DeviceModelProtocol }>;
 
 export interface NativeProviderBinding {
 	deviceId: string;

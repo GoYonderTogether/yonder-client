@@ -1,4 +1,5 @@
 import type {
+	DeviceListResponse,
 	DeviceModelEndpointView,
 	DiscoverModelsRequest,
 	Provider,
@@ -15,8 +16,17 @@ export function providerEndpoints(client: ApiClient) {
 			return client.request("/v1/providers");
 		},
 
-		providerDeviceEndpoints(signal?: AbortSignal): Promise<{ items: DeviceModelEndpointView[] }> {
-			return client.request("/v1/providers/device-endpoints", signal ? { signal } : undefined);
+		/**
+		 * The approved endpoints of every device, each tagged with the device it belongs to. The
+		 * server publishes them on the device list, so this is the same read with a narrower shape.
+		 */
+		async providerDeviceEndpoints(signal?: AbortSignal): Promise<{ items: DeviceModelEndpointView[] }> {
+			const { items } = await client.request<DeviceListResponse>("/v1/devices", signal ? { signal } : undefined);
+			return {
+				items: items.flatMap(({ id, modelEndpoints }) =>
+					(modelEndpoints ?? []).map((endpoint) => ({ ...endpoint, deviceId: id })),
+				),
+			};
 		},
 
 		discoverModels(

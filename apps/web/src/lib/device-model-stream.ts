@@ -1,77 +1,107 @@
 const MAX_PART = 64 * 1024;
-const MAX_CHAT = 2 * 1024 * 1024;
-const TERMINALS = {
-	openai: "data: [DONE]\n\n",
-	anthropic: 'event: message_stop\ndata: {"type":"message_stop"}\n\n',
-} as const;
+const MAX_TOTAL = 2 * 1024 * 1024;
+/** The server stops counting parts here, so a call that would need more is refused. */
+const MAX_PARTS = 2048;
 const utf8 = new TextEncoder();
 
-type ReplyBase = { mode: "device-local"; relayId: string };
+/**
+ * Ordered parts for one device-local relay call. The server accepts part `n` only after every part
+ * before it and takes `nextSeq` from the end, so a part that may or may not have arrived is never
+ * replayed as an ambiguous duplicate: the call fails instead.
+ */
+export function deviceModelStream(sendPart: (seq: number, part: string) => Promise<void>, onSendFailure: () => void) {
+	const waiting: { data: string; size: number }[] = [];
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	let writing: Promise<void> | undefined;
+	let total = 0;
+	let seq = 0;
+	let stopped = false;
+	let ending = false;
 
-export type DeviceModelReply = ReplyBase &
-	(
-		| { type: "provider.relay.head"; status: 200; contentType: "application/json" | "text/event-stream" }
-		| { type: "provider.relay.chunk"; seq: number; part: string }
-		| { type: "provider.relay.end"; nextSeq: number; error?: string }
-	);
+	function stop() {
+		stopped = true;
+		waiting.length = 0;
+		clearTimeout(timer);
+	}
 
-/** Each relay is single-socket and ordered. Nothing is retried on a new socket. */
-export function deviceModelRelay(
-	relayId: string,
-	operation: "discover" | "chat",
-	protocol: "openai" | "anthropic",
-	send: (event: DeviceModelReply) => boolean,
-) {
-	const base = { mode: "device-local", relayId } as const;
-	const terminal = TERMINALS[protocol];
-	let nextSeq = 0;
-	let room = MAX_CHAT - (operation === "chat" ? utf8.encode(terminal).length : 0);
-	let headed = false;
-	let closed = false;
-	function transmit(event: DeviceModelReply): boolean {
-		try {
-			if (send(event)) return true;
-		} catch {
-			// The checked WebSocket can close before the write.
-		}
-		closed = true;
-		return false;
+	function fail() {
+		stop();
+		onSendFailure();
 	}
-	function end(error?: string): boolean {
-		if (closed) return false;
-		closed = true;
-		return transmit({ ...base, type: "provider.relay.end", nextSeq, ...(error ? { error } : {}) });
-	}
-	function write(part: string): boolean {
-		if (closed) return false;
-		if (!headed) {
-			const contentType = operation === "discover" ? "application/json" : "text/event-stream";
-			if (!transmit({ ...base, type: "provider.relay.head", status: 200, contentType })) return false;
-			headed = true;
+
+	async function drain() {
+		while (!stopped && waiting.length) {
+			let data = "";
+			let size = 0;
+			while (waiting[0] && size + waiting[0].size <= MAX_PART) {
+				const chunk = waiting.shift();
+				if (!chunk) break;
+				data += chunk.data;
+				size += chunk.size;
+			}
+			await sendPart(seq, data);
+			seq++;
 		}
-		if (!transmit({ ...base, type: "provider.relay.chunk", seq: nextSeq, part })) return false;
-		nextSeq += 1;
-		return true;
 	}
-	function bounded(part: string): boolean {
-		const size = utf8.encode(part).length;
-		if (!size || size > MAX_PART || size > room) {
-			end("invalid_response");
-			return false;
-		}
-		room -= size;
-		return write(part);
+
+	async function flush() {
+		clearTimeout(timer);
+		timer = undefined;
+		do {
+			writing ??= drain()
+				.catch(fail)
+				.finally(() => {
+					writing = undefined;
+				});
+			await writing;
+		} while (!stopped && waiting.length);
 	}
 
 	return {
-		push: bounded,
-		finishDiscovery(models: string[]) {
-			return bounded(JSON.stringify({ data: models.map((id) => ({ id })) })) && end();
+		push(data: string) {
+			if (stopped || ending) return;
+			const size = utf8.encode(data).length;
+			// A part carries whole events; splitting one would leave the server a broken frame.
+			if (!size || size > MAX_PART || total + size > MAX_TOTAL || seq + 1 > MAX_PARTS) {
+				fail();
+				return;
+			}
+			total += size;
+			waiting.push({ data, size });
+			if (!timer && !writing) timer = setTimeout(() => void flush(), seq === 0 ? 0 : 32);
 		},
-		finishChat() {
-			// Called only after the native HTTP reader attested its protocol-specific terminal.
-			return write(terminal) && end();
+		/**
+		 * Send what is buffered, then `last` as the final part — the one frame the server holds back
+		 * until it reads the end — and answer how many parts were sent, which is the end's `nextSeq`.
+		 * `null` means the stream already failed, so nothing may claim success.
+		 */
+		async finish(last?: string): Promise<number | null> {
+			if (stopped || ending) return null;
+			ending = true;
+			await flush();
+			if (stopped) return null;
+			if (last !== undefined) {
+				const size = utf8.encode(last).length;
+				if (size > MAX_PART || total + size > MAX_TOTAL || seq + 1 > MAX_PARTS) {
+					fail();
+					return null;
+				}
+				total += size;
+				try {
+					await sendPart(seq, last);
+				} catch {
+					fail();
+					return null;
+				}
+				seq++;
+			}
+			stop();
+			return seq;
 		},
-		fail: (error: string) => end(error),
+		/** How many parts reached the socket; the end must report exactly this. */
+		count: () => seq,
+		/** What the answer costs in bytes, for the limit that depends on the operation. */
+		bytes: () => total,
+		stop,
 	};
 }

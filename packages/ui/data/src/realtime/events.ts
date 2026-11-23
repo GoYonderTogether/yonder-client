@@ -69,6 +69,8 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 		}
 		case "devices.changed": {
 			void queryClient.invalidateQueries({ queryKey: keys.devices() });
+			// The approved endpoints are published on the device list, so they change with it.
+			void queryClient.invalidateQueries({ queryKey: keys.providerDeviceEndpoints() });
 			void queryClient.invalidateQueries({ queryKey: keys.sessions() });
 			break;
 		}
