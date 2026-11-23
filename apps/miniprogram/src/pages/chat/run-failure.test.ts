@@ -7,6 +7,13 @@ describe("run failure sentences", () => {
 		expect(runFailureSentence("tool_repeat", "en")).toBe("The Bot kept repeating the same action, so it was stopped.");
 	});
 
+	it("says a reply sent outside the reply rules did not go through", () => {
+		expect(runFailureSentence("reply_protocol", "zh-CN")).toBe("Bot 没有按回复规则发送这条回复，这次回复没有成功。");
+		expect(runFailureSentence("reply_protocol", "en")).toBe(
+			"The Bot did not reply the way a reply is sent, so this reply did not go through.",
+		);
+	});
+
 	it("says a chat run with no progress was stopped", () => {
 		expect(runFailureSentence("idle_timeout", "en")).toBe(
 			"The Bot made no progress for a long time, so it was stopped.",

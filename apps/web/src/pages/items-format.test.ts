@@ -82,6 +82,7 @@ describe("what an item says", () => {
 		expect(itemFailureKey("schedule_missed")).toBe("chat.scheduleMissed");
 		expect(itemFailureKey("idle_timeout")).toBe("chat.idleTimeout");
 		expect(itemFailureKey("tool_repeat")).toBe("chat.toolRepeat");
+		expect(itemFailureKey("reply_protocol")).toBe("chat.replyProtocol");
 		expect(itemFailureKey("cancelled_by_bot")).toBe("tasks.itemStateCancelled");
 		expect(itemFailureKey("what_is_this")).toBe("chat.runFailed");
 		expect(itemFailureKey(null)).toBe("chat.runFailed");

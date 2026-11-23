@@ -365,6 +365,8 @@ function runFailureKey(reason: string | null | undefined): string {
 			return "chat.idleTimeout";
 		case "tool_repeat":
 			return "chat.toolRepeat";
+		case "reply_protocol":
+			return "chat.replyProtocol";
 		case "subtask_burst":
 			return "chat.subtaskBurst";
 		default:
@@ -384,6 +386,8 @@ function scheduleFailureKey(reason: string): string {
 			return "chat.idleTimeout";
 		case "tool_repeat":
 			return "chat.toolRepeat";
+		case "reply_protocol":
+			return "chat.replyProtocol";
 		case "subtask_burst":
 			return "chat.subtaskBurst";
 		default:

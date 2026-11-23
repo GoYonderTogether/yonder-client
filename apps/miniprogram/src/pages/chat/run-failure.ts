@@ -5,6 +5,10 @@ const SENTENCES: Record<string, { zh: string; en: string }> = {
 		zh: "Bot 反复执行同一个操作，已停止。",
 		en: "The Bot kept repeating the same action, so it was stopped.",
 	},
+	reply_protocol: {
+		zh: "Bot 没有按回复规则发送这条回复，这次回复没有成功。",
+		en: "The Bot did not reply the way a reply is sent, so this reply did not go through.",
+	},
 	idle_timeout: {
 		zh: "Bot 长时间没有进展，已经停下。",
 		en: "The Bot made no progress for a long time, so it was stopped.",

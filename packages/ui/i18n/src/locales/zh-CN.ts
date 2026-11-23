@@ -306,6 +306,7 @@ export const zhCN: Messages = {
 		scheduleFailed: "定时任务「{{title}}」这次没有执行。",
 		idleTimeout: "Bot 长时间没有进展，已经停下。",
 		toolRepeat: "Bot 反复执行同一个操作，已停止。",
+		replyProtocol: "Bot 没有按回复规则发送这条回复，这次回复没有成功。",
 		subtaskBurst: "这个任务一分钟内派出了太多子任务，已经暂停，以免继续消耗额度。",
 		quotaCodingExhausted: "执行额度已用完，这个任务没有运行。",
 		quotaExternalExhausted: "对外额度已用完，这条消息没有回复。",

@@ -69,6 +69,8 @@ export function itemFailureKey(reason: string | null): string {
 			return "visits.relayCancelled";
 		case "tool_repeat":
 			return "chat.toolRepeat";
+		case "reply_protocol":
+			return "chat.replyProtocol";
 		case "subtask_burst":
 			return "chat.subtaskBurst";
 		case "cancelled":

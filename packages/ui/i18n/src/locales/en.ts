@@ -302,6 +302,7 @@ export const en = {
 		scheduleFailed: "The scheduled task 「{{title}}」 could not run this time.",
 		idleTimeout: "The Bot made no progress for a long time, so it was stopped.",
 		toolRepeat: "The Bot kept repeating the same action, so it was stopped.",
+		replyProtocol: "The Bot did not reply the way a reply is sent, so this reply did not go through.",
 		subtaskBurst: "This task issued too many subtasks within a minute, so it was paused before it spent more quota.",
 		quotaCodingExhausted: "Execution quota is used up, so this task did not run.",
 		quotaExternalExhausted: "External quota is used up, so this message was not answered.",
