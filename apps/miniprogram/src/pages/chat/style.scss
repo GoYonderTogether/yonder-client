@@ -131,6 +131,14 @@
 	padding: 0 var(--spacing-4) var(--spacing-4);
 }
 
+.mini-chat-older {
+	display: flex;
+	min-height: var(--icon-sm);
+	align-items: center;
+	justify-content: center;
+	color: var(--color-text-secondary);
+}
+
 .interaction-card .mini-button {
 	width: auto;
 	min-width: var(--control-md);

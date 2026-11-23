@@ -1,6 +1,9 @@
+import { automaticResume, resumableMeeting } from "@yonder/feature-meetings";
 import type { Conversation } from "@yonder/protocol";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { isTauri } from "../lib/keychain.ts";
+import { isDesktopExperience } from "../lib/platform.ts";
 import { useAppNotice } from "./app-notice.tsx";
 import { useMeetingRecorder } from "./use-meeting-recorder.ts";
 import { useMeetingUpload } from "./use-meeting-upload.ts";
@@ -14,6 +17,7 @@ export function useFrameMeeting(ownerId: string | null) {
 	useMeetingUpload(ownerId, recorder);
 	const [shortVoiceActive, setShortVoiceActive] = useState(false);
 	const active = recorder.state.recordings.find((recording) => recording.id === recorder.state.activeId);
+	const interrupted = resumableMeeting(recorder.state.recordings, Date.now());
 	const previous = useRef<{ ownerId: string | null; recordingId: string | null }>(null);
 	useEffect(() => {
 		const last = previous.current;
@@ -24,8 +28,18 @@ export function useFrameMeeting(ownerId: string | null) {
 		notify({ key: `meeting:${last.recordingId}:interrupted`, text: t("meetingRecorder.interrupted"), tone: "warning" });
 	}, [ownerId, recorder.state, notify, t]);
 
+	// Only the desktop shell continues by itself. Phones need a tap: a background app may not open the mic.
+	const desktop = isTauri() && isDesktopExperience();
+	const attempted = useRef(new Set<string>());
+	useEffect(() => {
+		if (!desktop || !recorder.ready || recorder.busy || active || !interrupted || !recorder.resume) return;
+		if (!automaticResume(interrupted) || attempted.current.has(interrupted.id)) return;
+		attempted.current.add(interrupted.id);
+		void recorder.resume(interrupted.id);
+	}, [desktop, recorder, active, interrupted]);
+
 	function start(target: Conversation | undefined) {
-		if (recorder.busy || active) return;
+		if (recorder.busy || active || interrupted) return;
 		const reason = shortVoiceActive
 			? "microphoneOccupied"
 			: recorder.ready && !recorder.state.supported
@@ -41,5 +55,5 @@ export function useFrameMeeting(ownerId: string | null) {
 		void recorder.start(t("meetingRecorder.defaultTitle"), target.id, true);
 	}
 
-	return { recorder, active, setShortVoiceActive, start };
+	return { recorder, active, interrupted, setShortVoiceActive, start };
 }

@@ -30,36 +30,39 @@ process.env.TMPDIR = temp;
 try {
 	const browser = await chromium.launch({ headless: true, ...(chrome ? { executablePath: chrome } : {}) });
 	try {
-		const page = await browser.newPage({ deviceScaleFactor: 1 });
 		const black = svgs["svg/yonder-mark-black.svg"];
-		const render = async (file, svg, size, opaque = false) => {
-			await page.setViewportSize({ width: size, height: size });
-			await page.setContent(
-				`<style>html,body{margin:0;background:${opaque ? "white" : "transparent"}}svg{width:${size}px;height:${size}px;display:block}</style>${svg}`,
-			);
-			await page.screenshot({ path: file, omitBackground: !opaque });
-		};
 		const renderHTML = async (file, html, size, opaque = false) => {
-			await page.setViewportSize({ width: size, height: size });
-			await page.setContent(html);
-			await page.screenshot({ path: file, omitBackground: !opaque });
+			// Resizing a reused page can produce clipped or repeated rows in Chromium screenshots.
+			const page = await browser.newPage({ deviceScaleFactor: 1, viewport: { width: size, height: size } });
+			try {
+				await page.setContent(html);
+				return await page.screenshot({ path: file, omitBackground: !opaque });
+			} finally {
+				await page.close();
+			}
 		};
+		const render = (file, svg, size, opaque = false) =>
+			renderHTML(
+				file,
+				`<style>html,body{margin:0;background:${opaque ? "white" : "transparent"}}svg{width:100vw;height:100vh;display:block}</style>${svg}`,
+				size,
+				opaque,
+			);
 		// App icons. The mark's 512 canvas is drawn at 85% of the tile, so the mark itself covers
 		// about 62% of the tile's width on every platform.
 		//
 		// iOS and Android mask the icon themselves: their source is a full-bleed opaque square.
 		await renderHTML(join(out, "png/yonder-tile-ink-1024.png"), appIconHTML({ size: 1024, tile: 1024 }), 1024, true);
-		// macOS and Windows show the file as it is, so it is the rounded tile itself, on Apple's
-		// grid: an 824 body inset 100 on a 1024 canvas, corner radius 185, a soft shadow below.
-		await renderHTML(join(out, "png/yonder-app-icon-1024.png"), appIconHTML({ size: 1024, tile: 824 }), 1024);
+		// Desktop and web app icons use the rounded tile on a transparent canvas.
+		const appIcon = await renderHTML(
+			join(out, "png/yonder-app-icon-1024.png"),
+			appIconHTML({ size: 1024, tile: 824 }),
+			1024,
+		);
+		const webIconHTML = `<style>html,body{margin:0}img{width:100vw;height:100vh;display:block}</style><img src="data:image/png;base64,${appIcon.toString("base64")}" alt="">`;
+		for (const size of [192, 512]) await renderHTML(join(web, `icon-${size}.png`), webIconHTML, size);
 		for (const size of [16, 32, 48]) await render(join(web, `favicon-${size}.png`), black, size);
-		for (const [name, size] of [
-			["apple-touch-icon.png", 180],
-			["icon-192.png", 192],
-			["icon-512.png", 512],
-		]) {
-			await render(join(web, name), black, size, true);
-		}
+		await render(join(web, "apple-touch-icon.png"), black, 180, true);
 		for (const [name, size] of [
 			["menubar-template.png", 18],
 			["menubar-template@2x.png", 36],
@@ -75,16 +78,15 @@ try {
 
 /**
  * An app icon page: a white tile of `tile` px centred on a `size` px canvas, holding the black mark.
- * A full-bleed tile (`tile === size`) has square corners and no shadow, because the system masks it.
+ * A full-bleed tile (`tile === size`) has square corners for system masking.
  */
 function appIconHTML({ size, tile }) {
 	const inset = (size - tile) / 2;
 	const rounded = tile < size;
 	const radius = rounded ? Math.round(tile * 0.2245) : 0;
-	const shadow = rounded ? "box-shadow:0 10px 18px rgba(0,0,0,.16),0 1px 3px rgba(0,0,0,.10);" : "";
 	const mark = Math.round(tile * 0.85);
 	return `<style>html,body{margin:0;background:transparent}
-.t{position:absolute;left:${inset}px;top:${inset}px;width:${tile}px;height:${tile}px;border-radius:${radius}px;background:#fff;${shadow}display:grid;place-items:center}
+.t{position:absolute;left:${inset}px;top:${inset}px;width:${tile}px;height:${tile}px;border-radius:${radius}px;background:#fff;display:grid;place-items:center}
 svg{width:${mark}px;height:${mark}px;display:block}</style><div class="t">${markSVG({ color: "#111315" })}</div>`;
 }
 
@@ -133,7 +135,7 @@ figure .dark{background:#111110}figure img{width:100%;height:100%}figcaption{mar
 </style><main><h1>标志资产</h1><p>浅色底使用正形，深色底使用反白几何。</p><section>
 <figure><div><img src="svg/yonder-mark-black.svg" alt="浅色底标志"></div><figcaption>浅色</figcaption></figure>
 <figure><div class="dark"><img src="svg/yonder-mark-white.svg" alt="深色底反白标志"></div><figcaption>深色</figcaption></figure>
-<figure><div><img src="png/yonder-tile-ink-1024.png" alt="应用图标"></div><figcaption>应用图标</figcaption></figure>
+<figure><div class="dark"><img src="png/yonder-app-icon-1024.png" alt="应用图标"></div><figcaption>应用图标</figcaption></figure>
 </section></main></html>\n`,
 );
 

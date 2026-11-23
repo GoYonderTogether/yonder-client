@@ -28,7 +28,7 @@ test("ready shortcut requires explicit restart consent and supports installation
 	expect(button.querySelector("svg")).toHaveAttribute("width", "20");
 	expect(button.querySelector("svg")).toHaveAttribute("stroke-width", "1.7");
 	fireEvent.click(button);
-	expect(screen.getByRole("dialog")).toHaveTextContent("录音、上传及本地任务");
+	expect(screen.getByRole("dialog")).toHaveTextContent("正在录音会先保存，重启后自动接着录");
 	expect(confirm).not.toHaveBeenCalled();
 	fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "取消" }));
 	expect(install).not.toHaveBeenCalled();

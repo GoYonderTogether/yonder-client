@@ -2,7 +2,15 @@ import { agentChatStatus, conversationBotOwner, newestReadableMessage, ownedBotF
 import { exhaustedPools, QuotaLowBanner } from "@yonder/feature-me";
 import { BotName, systemEventText, type Translate } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
-import { Avatar, Button, ConversationList, ConversationRow, EmptyState, IconButton } from "@yonder/ui-components";
+import {
+	Avatar,
+	Button,
+	ConversationList,
+	ConversationRow,
+	EmptyState,
+	IconButton,
+	Spinner,
+} from "@yonder/ui-components";
 import {
 	type CachedMessage,
 	useActiveBotSubtasks,
@@ -236,6 +244,8 @@ export function ConversationPage({
 	);
 	const quota = useQuota();
 	const messages = useMessages(conversationId, mobileBotHome || Boolean(item || conversation?.unreadCount));
+	const { fetchNextPage } = messages;
+	const loadEarlier = useCallback(() => void fetchNextPage({ cancelRefetch: false }), [fetchNextPage]);
 	const actions = useRunActions();
 	const send = useSendMessage(conversationId, person?.id);
 	const items = useMemo(
@@ -250,6 +260,9 @@ export function ConversationPage({
 	const { bottom, showLatest, atBottom, atLatest, canReadLatest, jumpToLatest } = useMessageScroll(
 		conversationId,
 		items,
+		readActive && messages.hasNextPage && !messages.isFetching && !messages.isFetchNextPageError
+			? loadEarlier
+			: undefined,
 	);
 	const foreground = useForeground();
 	const canRead = useCallback(() => isForeground() && canReadLatest(), [canReadLatest]);
@@ -384,7 +397,7 @@ export function ConversationPage({
 					/>
 				) : null}
 				{messages.isLoading ? <p role="status">{t("chat.loadingHistory")}</p> : null}
-				{messages.isError ? (
+				{messages.isError && !messages.isFetchNextPageError ? (
 					<Button variant="link" onClick={() => void messages.refetch()}>
 						{t("app.retry")}
 					</Button>
@@ -405,9 +418,15 @@ export function ConversationPage({
 					>
 						{!messages.hasNextPage ? item?.intro : null}
 						{messages.hasNextPage ? (
-							<Button size="sm" onClick={() => void messages.fetchNextPage()} loading={messages.isFetchingNextPage}>
-								{t("chat.loadOlder")}
-							</Button>
+							<div className="flex min-h-[var(--icon-sm)] justify-center text-[var(--color-text-secondary)]">
+								{messages.isFetchingNextPage ? (
+									<Spinner size="sm" label={t("chat.loadingEarlier")} />
+								) : messages.isFetchNextPageError ? (
+									<Button size="sm" variant="link" onClick={loadEarlier}>
+										{t("chat.retryEarlier")}
+									</Button>
+								) : null}
+							</div>
 						) : null}
 						{items?.length ? (
 							<ConversationMessages

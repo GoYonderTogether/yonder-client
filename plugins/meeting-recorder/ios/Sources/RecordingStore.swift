@@ -39,7 +39,7 @@ struct MeetingRecording: Codable {
   }
 }
 
-enum RecorderFailure: String, Error { case invalidOwner, wrongOwner, missingRecording, invalidAudio, storageFailed }
+enum RecorderFailure: String, Error { case invalidOwner, wrongOwner, missingRecording, invalidAudio, storageFailed, notResumable, resumeExpired }
 
 final class RecordingStore {
   let root: URL
@@ -91,6 +91,27 @@ final class RecordingStore {
     try save(record)
   }
 
+  static let resumeWindowMs: Int64 = 10 * 60 * 1000
+
+  /// The interrupted recording that can still be continued; throws when it cannot.
+  func resumable(owner: String, id: String) throws -> MeetingRecording {
+    guard let record = try list(owner: owner, recover: true).first(where: { $0.id == id }) else { throw RecorderFailure.missingRecording }
+    let error = record.error ?? ""
+    let unrecoverable = ["storage", "damaged", "corrupt", "owner_changed", "capture_start_failed"].contains { error.contains($0) }
+    guard record.state == "interrupted", !record.segments.isEmpty, !unrecoverable, let ended = record.endedAt else { throw RecorderFailure.notResumable }
+    guard Self.now < ended + Self.resumeWindowMs else { throw RecorderFailure.resumeExpired }
+    return record
+  }
+
+  /// Ending an interrupted recording is the user saying it is over; it can then be processed.
+  func conclude(owner: String, id: String) throws {
+    guard var record = try list(owner: owner, recover: true).first(where: { $0.id == id }) else { throw RecorderFailure.missingRecording }
+    guard record.state == "interrupted", !record.segments.isEmpty else { return }
+    record.state = "ended"
+    record.error = nil
+    try save(record)
+  }
+
   func read(owner: String, id: String, index: Int) throws -> Data {
     let folder = try directory(owner, id)
     let record = try JSONDecoder().decode(MeetingRecording.self, from: Data(contentsOf: folder.appendingPathComponent("recording.json")))
@@ -115,7 +136,9 @@ final class RecordingStore {
         record.savedDurationMs = record.segments.reduce(0) { $0 + $1.durationMs }
         record.durationMs = record.savedDurationMs
         record.state = "interrupted"
-        record.endedAt = Self.now
+        // The window counts from the last durable write, not from when the app was reopened.
+        let written = (try? FileManager.default.attributesOfItem(atPath: manifest.path)[.modificationDate] as? Date) ?? nil
+        record.endedAt = written.map { Int64($0.timeIntervalSince1970 * 1000) } ?? Self.now
         record.error = recovered.damaged ? "audio_segment_damaged" : "recording_interrupted"
         do { try save(record) } catch { record.error = "audio_storage_failed" }
       }

@@ -2,7 +2,7 @@ import type { QuotaPool, UsagePurpose } from "@yonder/protocol";
 import { Button, FormSection, ListGroup, ListRow } from "@yonder/ui-components";
 import { useQuota, useUsageOverview } from "@yonder/ui-data";
 import type { TFunction } from "i18next";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { QuotaChart } from "./quota-chart.tsx";
 import { QuotaLedger } from "./quota-ledger.tsx";
@@ -85,9 +85,11 @@ export function quotaPageTitle(page: QuotaPage, t: TFunction, locale: string): s
 export function QuotaSection({
 	page = null,
 	onOpenPage = () => undefined,
+	checkoutEntry,
 }: {
 	page?: string | null;
 	onOpenPage?: (page: string) => void;
+	checkoutEntry?: ReactNode;
 }) {
 	const { t } = useTranslation();
 	const quota = useQuota();
@@ -129,6 +131,7 @@ export function QuotaSection({
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)]">
 			<QuotaMeters quota={quota.data} onOpenPool={(pool) => open({ kind: "pool", pool })} />
+			{checkoutEntry}
 			<Overview
 				range={range}
 				onRange={setRange}

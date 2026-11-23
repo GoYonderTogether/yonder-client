@@ -143,6 +143,41 @@ internal object MeetingRecorderRuntime {
         check(paused) { "audio_capture_or_storage_failed" }
     }
 
+    /** Continues an interrupted recording into the same record. Nothing is written until the microphone runs. */
+    fun resumeInterrupted(context: Context, requested: String, id: String): JSONObject = synchronized(lock) {
+        require(owner == requested) { "wrong_owner" }
+        check(active == null && worker == null) { "recording_busy" }
+        val record = storage(context).resumable(requested, id)
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) throw SecurityException("microphone_denied")
+        val rate = record.getInt("sampleRate")
+        val minimum = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        check(minimum > 0) { "microphone_unavailable" }
+        val recorder = AudioRecord(MediaRecorder.AudioSource.MIC, rate, AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT, maxOf(minimum * 2, 8192))
+        try {
+            check(recorder.state == AudioRecord.STATE_INITIALIZED) { "microphone_unavailable" }
+            recorder.startRecording()
+            check(recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) { "microphone_unavailable" }
+            record.put("state", "recording").put("endedAt", JSONObject.NULL).put("error", JSONObject.NULL)
+            storage(context).save(record)
+            active = record; audio = recorder; pendingBytes = 0; stopReason = null; running.set(true)
+            watchSilencing(context, recorder)
+            worker = thread(name = "meeting-audio-writer") { capture(context, recorder, record) }
+        } catch (error: Exception) {
+            running.set(false); active = null; audio = null; worker = null
+            recorder.release()
+            throw error
+        }
+        state(context, requested)
+    }
+
+    /** Ends an interrupted recording that is not being captured. */
+    fun concludeInterrupted(context: Context, requested: String, id: String) = synchronized(lock) {
+        require(owner == requested) { "wrong_owner" }
+        check(active == null) { "recording_busy" }
+        storage(context).conclude(requested, id)
+    }
+
     fun resume(context: Context, requested: String, id: String) = synchronized(lock) {
         require(owner == requested && active?.optString("id") == id && paused) { "wrong_recording" }
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) throw SecurityException("microphone_denied")

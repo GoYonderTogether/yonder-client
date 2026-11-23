@@ -24,3 +24,12 @@ test("rejects foreign origins, credentials, fragments and malformed handles", ()
 	])
 		assert.equal(qrTarget(input, base), null, input);
 });
+
+test("allows contact and invite URLs across official domains only", () => {
+	const legacy = "https://yonder.zethai.cn";
+	const canonical = "https://yonderbot.net";
+	assert.equal(qrTarget(`${canonical}/@hello123`, legacy), "@hello123");
+	assert.equal(qrTarget(`${legacy}/i/a_123`, canonical), "/i/a_123");
+	assert.equal(qrTarget(`${canonical}/@hello123`, base), null);
+	assert.equal(qrTarget("https://yonderbot.net.evil.example/@hello123", legacy), null);
+});

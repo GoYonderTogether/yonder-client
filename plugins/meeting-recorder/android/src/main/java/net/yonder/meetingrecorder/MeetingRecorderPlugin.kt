@@ -100,7 +100,8 @@ class MeetingRecorderPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun stop(invoke: Invoke) = respond(invoke) { args ->
         val owner = requireNotNull(args.ownerId) { "invalid_owner" }
-        MeetingRecorderRuntime.stop(null, owner, args.recordingId)
+        if (MeetingRecorderRuntime.state(activity, owner).isNull("activeId")) MeetingRecorderRuntime.concludeInterrupted(activity, owner, args.recordingId)
+        else MeetingRecorderRuntime.stop(null, owner, args.recordingId)
         JSObject(MeetingRecorderRuntime.state(activity, owner).toString())
     }
 
@@ -112,10 +113,33 @@ class MeetingRecorderPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun resume(invoke: Invoke) = respond(invoke) { args ->
-        val owner = requireNotNull(args.ownerId) { "invalid_owner" }
-        MeetingRecorderRuntime.resume(activity, owner, args.recordingId)
-        JSObject(MeetingRecorderRuntime.state(activity, owner).toString())
+    fun resume(invoke: Invoke) {
+        val args = invoke.parseArgs(MeetingArgs::class.java)
+        val owner = args.ownerId
+        if (owner == null || !MeetingRecorderRuntime.state(activity, owner).isNull("activeId")) {
+            respond(invoke) { a ->
+                val o = requireNotNull(a.ownerId) { "invalid_owner" }
+                MeetingRecorderRuntime.resume(activity, o, a.recordingId)
+                JSObject(MeetingRecorderRuntime.state(activity, o).toString())
+            }
+            return
+        }
+        // An interrupted recording is continued like a new start: through the foreground service, so the
+        // microphone keeps running when the app goes to the background.
+        try {
+            if (getPermissionState("microphone") != PermissionState.GRANTED) { invoke.reject("microphone_denied"); return }
+            require(MeetingRecorderService.startResult == null) { "recording_busy" }
+            MeetingRecorderService.startResult = { result ->
+                result.fold({ invoke.resolve(JSObject(MeetingRecorderRuntime.state(activity, owner).toString())) },
+                    { error -> invoke.reject(error.message ?: "meeting_recorder_resume_failed") })
+            }
+            val intent = Intent(activity, MeetingRecorderService::class.java).setAction("resume")
+                .putExtra("ownerId", owner).putExtra("recordingId", args.recordingId)
+            if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent) else activity.startService(intent)
+        } catch (error: Exception) {
+            MeetingRecorderService.startResult = null
+            invoke.reject(error.message ?: "meeting_recorder_resume_failed")
+        }
     }
 
     @Command

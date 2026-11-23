@@ -13,6 +13,26 @@ const androidApk = "https://dl.zethai.cn/android/yonder-android.apk";
 
 test.use({ locale: "en-US" });
 
+test("the filing appears in both languages on the filed host only", async ({ page, baseURL }, info) => {
+	await page.route(/^https:\/\/(yonderbot\.net|yonder\.zethai\.cn)\//, async (route) => {
+		const { pathname, search } = new URL(route.request().url());
+		const response = await route.fetch({ url: new URL(pathname + search, baseURL).href });
+		await route.fulfill({ response });
+	});
+	const filing = page.locator("footer").getByRole("link", { name: /鄂ICP备2026027205号-2/ });
+	await page.goto("https://yonderbot.net/");
+	await expect(filing).toHaveText("ICP filing: 鄂ICP备2026027205号-2");
+	await expect(filing).toHaveAttribute("href", "https://beian.miit.gov.cn/");
+	await page.getByRole("button", { name: "中文", exact: true }).click();
+	await expect(filing).toHaveText("鄂ICP备2026027205号-2");
+	await page.locator("footer").screenshot({ path: info.outputPath("yonderbot-icp-footer.png") });
+	for (const url of ["https://yonder.zethai.cn/", "/"]) {
+		await page.goto(url);
+		await expect(page.locator("footer")).toBeVisible();
+		await expect(filing).toHaveCount(0);
+	}
+});
+
 async function watchDownloads(page: Page) {
 	await page.addInitScript(() => {
 		const seen: string[] = [];

@@ -21,13 +21,32 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-function Harness({ conversationId = "a", ids }: { conversationId?: string; ids: string[] }) {
+function Harness({
+	conversationId = "a",
+	ids,
+	offset,
+}: {
+	conversationId?: string;
+	ids: string[];
+	offset?: (id: string) => number;
+}) {
 	const { bottom, showLatest, jumpToLatest } = useMessageScroll(
 		conversationId,
 		ids.map((id) => ({ id })),
 	);
 	return (
 		<div className="overflow-y-auto" data-testid="scroll">
+			{offset &&
+				ids.map((id) => (
+					<div
+						key={id}
+						data-message-id={id}
+						ref={(node) => {
+							if (node)
+								node.getBoundingClientRect = () => new DOMRect(0, offset(id) - (node.parentElement?.scrollTop ?? 0));
+						}}
+					/>
+				))}
 			<div ref={bottom} />
 			{showLatest ? (
 				<button type="button" onClick={jumpToLatest}>
@@ -90,6 +109,23 @@ test("prepending history preserves the message under the reader's eyes", () => {
 	fireEvent.scroll(scroll);
 	height = 1400;
 	view.rerender(<Harness ids={["1", "2", "3"]} />);
+	expect(scroll.scrollTop).toBe(700);
+});
+
+test("preserves the reading position if an older page and a live reply render together", () => {
+	vi.stubGlobal("CSS", { escape: (id: string) => id });
+	let height = 1000;
+	let firstOffset = 12;
+	const offset = () => firstOffset;
+	const view = render(<Harness ids={[]} offset={offset} />);
+	const scroll = screen.getByTestId("scroll");
+	Object.defineProperties(scroll, { scrollHeight: { get: () => height }, clientHeight: { value: 200 } });
+	view.rerender(<Harness ids={["2", "3"]} offset={offset} />);
+	scroll.scrollTop = 300;
+	fireEvent.scroll(scroll);
+	firstOffset += 400;
+	height += 500;
+	view.rerender(<Harness ids={["1", "2", "3", "4"]} offset={offset} />);
 	expect(scroll.scrollTop).toBe(700);
 });
 

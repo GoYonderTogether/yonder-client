@@ -6,6 +6,7 @@ fn main() {
         "stop",
         "pause",
         "resume",
+        "interrupt_for_restart",
         "read_audio",
         "configure_upload",
         "get_upload_jobs",

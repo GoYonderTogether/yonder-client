@@ -1,4 +1,4 @@
-import type { MeetingRecorderController, MeetingUploadJob } from "@yonder/feature-meetings";
+import { type MeetingRecorderController, type MeetingUploadJob, meetingUploadReady } from "@yonder/feature-meetings";
 import { keys, useData, useDataQueryClient } from "@yonder/ui-data";
 import { useEffect, useEffectEvent, useRef } from "react";
 import { apiBaseUrl } from "../lib/config.ts";
@@ -81,13 +81,7 @@ export function useMeetingUpload(ownerId: string | null, recorder: MeetingRecord
 			for (const recording of state.recordings) {
 				if (owner.current !== ownerId) break;
 				const { id, conversationId } = recording;
-				if (
-					recording.ownerId !== ownerId ||
-					recording.state !== "ended" ||
-					!conversationId ||
-					!recording.segments.length
-				)
-					continue;
+				if (recording.ownerId !== ownerId || !conversationId || !meetingUploadReady(recording, Date.now())) continue;
 				const key = `meeting-upload.${ownerId}.${id}`;
 				const retryAt = attempts.current.get(key) ?? 0;
 				if (retryAt === Infinity || (!reconnected && retryAt > Date.now())) continue;

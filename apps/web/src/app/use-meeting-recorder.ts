@@ -26,6 +26,7 @@ function recorderState(value: unknown): MeetingRecorderState {
 }
 
 const ERROR_CODES = new Set([
+	"resume_expired",
 	"permission_denied",
 	"recording_busy",
 	"owner_mismatch",

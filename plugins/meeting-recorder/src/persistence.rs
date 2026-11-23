@@ -120,16 +120,64 @@ impl Store {
     }
 
     pub fn finish(&self, recording: &mut Recording, error: Option<String>) -> Result<(), String> {
+        self.finish_at(recording, error, None)
+    }
+
+    fn finish_at(
+        &self,
+        recording: &mut Recording,
+        error: Option<String>,
+        ended_at: Option<u64>,
+    ) -> Result<(), String> {
         recording.state = if error.is_some() {
             "interrupted"
         } else {
             "ended"
         }
         .into();
-        recording.ended_at = Some(now_ms());
+        recording.ended_at = Some(ended_at.unwrap_or_else(now_ms));
         recording.duration_ms = recording.saved_duration_ms;
         recording.error = error;
         self.save(recording)
+    }
+
+    /// The interrupted recording that can still be continued, without changing it.
+    pub fn resumable(&self, owner: &str, id: &str) -> Result<Recording, String> {
+        let recording = self
+            .list(owner, None)?
+            .into_iter()
+            .find(|item| item.id == id)
+            .ok_or("meeting_audio_not_found")?;
+        let deadline = crate::model::resume_deadline(&recording).ok_or("meeting_not_resumable")?;
+        if now_ms() >= deadline {
+            return Err("meeting_resume_expired".into());
+        }
+        Ok(recording)
+    }
+
+    /// Reopens it for appending. Audio already saved is kept; a failure leaves the record as it was.
+    pub fn reopen(&self, owner: &str, id: &str) -> Result<Recording, String> {
+        let mut recording = self.resumable(owner, id)?;
+        recording.state = "recording".into();
+        recording.ended_at = None;
+        recording.error = None;
+        self.save(&recording)?;
+        Ok(recording)
+    }
+
+    /// Ending an interrupted recording is the user saying it is over; it can then be processed.
+    pub fn conclude(&self, owner: &str, id: &str) -> Result<(), String> {
+        let mut recording = self
+            .list(owner, None)?
+            .into_iter()
+            .find(|item| item.id == id)
+            .ok_or("meeting_audio_not_found")?;
+        if recording.state != "interrupted" || recording.segments.is_empty() {
+            return Ok(());
+        }
+        recording.state = "ended".into();
+        recording.error = None;
+        self.save(&recording)
     }
 
     pub fn read_audio(&self, owner: &str, id: &str, index: usize) -> Result<Vec<u8>, String> {
@@ -203,7 +251,13 @@ impl Store {
         }
         item.segments = segments;
         item.saved_duration_ms = item.segments.iter().map(|s| s.duration_ms).sum();
-        if let Err(failure) = self.finish(item, Some(error.into())) {
+        // The window counts from the last durable write, not from whenever the app was reopened.
+        let last_write = fs::metadata(path.join("recording.json"))
+            .and_then(|meta| meta.modified())
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|elapsed| elapsed.as_millis() as u64);
+        if let Err(failure) = self.finish_at(item, Some(error.into()), last_write) {
             // Stopped state and playable audio remain readable even while disk writes fail.
             item.error = Some(format!("{error}; meeting_storage_unavailable: {failure}"));
         }

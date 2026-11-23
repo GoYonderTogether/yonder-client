@@ -53,7 +53,7 @@ test("desktop shows the downloaded version and a user-controlled restart", async
 	fireEvent.click(screen.getByRole("button", { name: "重启并安装" }));
 	expect(install).not.toHaveBeenCalled();
 	expect(confirm).not.toHaveBeenCalled();
-	expect(screen.getByRole("dialog")).toHaveTextContent("录音、上传及本地任务");
+	expect(screen.getByRole("dialog")).toHaveTextContent("正在录音会先保存，重启后自动接着录");
 	fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "取消" }));
 	await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 	fireEvent.click(screen.getByRole("button", { name: "重启并安装" }));

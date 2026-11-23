@@ -11,7 +11,7 @@ fn download_url(url: &str) -> Result<Url, &'static str> {
     let invalid = "Expected a public Yonder device download URL.";
     let url = Url::parse(url).map_err(|_| invalid)?;
     if url.scheme() != "https"
-        || url.host_str() != Some("yonder.zethai.cn")
+        || !matches!(url.host_str(), Some("yonderbot.net" | "yonder.zethai.cn"))
         || url.port().is_some()
         || !url.username().is_empty()
         || url.password().is_some()
@@ -107,12 +107,15 @@ mod tests {
     #[test]
     fn native_actions_only_accept_public_device_download_urls() {
         for url in [
+            "https://yonderbot.net/download?connect-device=1&platform=android",
             "https://yonder.zethai.cn/download?connect-device=1",
             "https://yonder.zethai.cn/download?connect-device=1&platform=macos&platform=windows",
         ] {
             assert_eq!(download_url(url).unwrap().as_str(), url);
         }
         for url in [
+            "https://yonderbot.net.evil.invalid/download?connect-device=1",
+            "https://yonderbot.net/download?connect-device=1&token=secret",
             "http://yonder.zethai.cn/download?connect-device=1",
             "https://yonder.zethai.cn.evil.invalid/download?connect-device=1",
             "https://token@yonder.zethai.cn/download?connect-device=1",

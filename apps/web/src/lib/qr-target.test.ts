@@ -6,7 +6,7 @@ import { qrTarget } from "./qr-target.ts";
 
 const origin = "https://yonder.zethai.cn";
 
-test("only existing same-origin member and invite routes, handles and phone numbers are accepted", () => {
+test("accepts member and invite routes, handles and phone numbers, not arbitrary links", () => {
 	expect(qrTarget(`${origin}/@Willow7?source=qr`, origin)).toBe("@willow7");
 	expect(qrTarget(`${origin}/i/abc234def5`, origin)).toBe("/i/abc234def5");
 	expect(qrTarget("@Willow7", origin)).toBe("@willow7");
@@ -22,6 +22,14 @@ test("only existing same-origin member and invite routes, handles and phone numb
 	]) {
 		expect(qrTarget(invalid, origin)).toBeNull();
 	}
+});
+
+test("accepts both production origins on either official host, but not on a self-hosted service", () => {
+	const canonical = "https://yonderbot.net";
+	expect(qrTarget(`${origin}/@Willow7?i=legacy`, canonical)).toBe("@willow7");
+	expect(qrTarget(`${canonical}/i/abc234def5`, origin)).toBe("/i/abc234def5");
+	expect(qrTarget(`${canonical}/@Willow7`, "https://self.example")).toBeNull();
+	expect(qrTarget("https://yonderbot.net.evil.test/@Willow7", origin)).toBeNull();
 });
 
 test("a real QR pixel matrix decodes into the existing member route", async () => {

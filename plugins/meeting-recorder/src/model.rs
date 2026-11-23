@@ -60,3 +60,38 @@ pub fn valid_key(value: &str) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// An interrupted recording can be continued for this long; afterwards it is processed as saved.
+pub const RESUME_WINDOW_MS: u64 = 10 * 60 * 1000;
+
+/// Storage and ownership failures leave nothing safe to append to.
+fn unrecoverable(error: &str) -> bool {
+    ["storage", "damaged", "corrupt", "owner_changed", "capture_start_failed"]
+        .iter()
+        .any(|word| error.contains(word))
+}
+
+/// When continuing stops being possible; `None` when the recording can never be continued.
+pub fn resume_deadline(recording: &Recording) -> Option<u64> {
+    if recording.state != "interrupted" || recording.segments.is_empty() {
+        return None;
+    }
+    if recording.error.as_deref().is_some_and(unrecoverable) {
+        return None;
+    }
+    recording.ended_at.map(|ended| ended + RESUME_WINDOW_MS)
+}
+
+/// Transcription starts once the recording is really over: ended by the user, or past the window.
+pub fn upload_ready(recording: &Recording, now: u64) -> bool {
+    if recording.segments.is_empty() {
+        return false;
+    }
+    match recording.state.as_str() {
+        "ended" => true,
+        "interrupted" if recording.ended_at.is_some() => {
+            resume_deadline(recording).map_or(true, |deadline| now >= deadline)
+        }
+        _ => false,
+    }
+}

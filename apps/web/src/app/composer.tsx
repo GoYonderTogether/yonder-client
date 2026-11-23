@@ -105,7 +105,6 @@ export function Composer({
 		return () => observer.disconnect();
 	}, []);
 	const composing = useRef(false);
-	const compositionEndedAt = useRef(Number.NEGATIVE_INFINITY);
 	const consumeEdit = useTextareaEdit(input, scope);
 	const completion = useComposerCompletion({
 		input,
@@ -414,21 +413,16 @@ export function Composer({
 								}}
 								onCompositionEnd={(event) => {
 									composing.current = false;
-									compositionEndedAt.current = performance.now();
 									completion.sync(event.currentTarget);
 								}}
 								onKeyDown={(event) => {
-									// Leave candidate confirmation to the IME, even if its key looks like Enter.
+									// Legacy WebKit can fire compositionend before the confirming keydown, which still has keyCode 229.
 									if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
 										interrupt();
 										return;
 									}
 									const enter = event.key === "Enter" && !event.shiftKey;
-									if (
-										enter &&
-										(sendOnEnter || completion.matches.length > 0) &&
-										(event.repeat || performance.now() - compositionEndedAt.current < 500)
-									) {
+									if (enter && event.repeat && (sendOnEnter || completion.matches.length > 0)) {
 										event.preventDefault();
 										return;
 									}

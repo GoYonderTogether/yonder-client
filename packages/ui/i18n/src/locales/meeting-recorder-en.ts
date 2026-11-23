@@ -13,6 +13,13 @@ export const meetingRecorderEn = {
 	ended: "Saved",
 	interrupted: "Interrupted",
 	interruptedHelp: "Saved audio is available. Start a new recording to record again.",
+	interruptedCapsule: "Recording interrupted",
+	interruptedHint:
+		"Recording was interrupted. Continue within {{minutes}} min, or end it to start notes. After that, notes cover what was saved.",
+	continue: "Continue recording",
+	finish: "End and start notes",
+	resumed: "Recording continued.",
+	resumeExpired: "The 10-minute window to continue has passed. Your saved audio is being turned into notes.",
 	elapsed: "Recording duration",
 	saved: "Saved on this device · {{duration}}",
 	history: "Recordings on this device",
@@ -62,6 +69,7 @@ export const meetingRecorderEn = {
 		recording_busy: "The microphone is already in use. End the other recording first.",
 		owner_mismatch: "The signed-in account changed. Reopen the recorder.",
 		storage_failed: "Audio could not be saved. Check available storage.",
+		resume_expired: "The 10-minute window to continue has passed. Your saved audio is being turned into notes.",
 		audio_unavailable: "The microphone is unavailable. Check your audio device.",
 	},
 };

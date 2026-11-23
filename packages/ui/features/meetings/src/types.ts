@@ -7,6 +7,8 @@ export interface MeetingRecording {
 	state: "recording" | "ended" | "interrupted";
 	startedAt: number;
 	endedAt: number | null;
+	/** Wall-clock time of the last durable write; the web recorder cannot know when a closed page stopped. */
+	savedAt?: number;
 	durationMs: number;
 	savedDurationMs: number;
 	sampleRate: number;

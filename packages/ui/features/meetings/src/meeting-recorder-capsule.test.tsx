@@ -65,3 +65,56 @@ test("the recording capsule shows active controls only and keeps time while paus
 	expect(view.container).toBeEmptyDOMElement();
 	expect(recordingDuration(3_661_999)).toBe("01:01:01");
 });
+
+test("an interrupted recording shows Continue and End with a hint, until the window closes", () => {
+	const now = Date.now();
+	const recorder: MeetingRecorderController = {
+		state: {
+			supported: true,
+			activeId: null,
+			recordings: [
+				{
+					id: "cut",
+					ownerId: "person",
+					title: "Meeting",
+					state: "interrupted",
+					startedAt: now - 60_000,
+					endedAt: now - 30_000,
+					durationMs: 30_000,
+					savedDurationMs: 30_000,
+					sampleRate: 16000,
+					channels: 1,
+					segments: [{ index: 0, durationMs: 30_000, byteLength: 10 }],
+					error: "page_closed",
+				},
+			],
+		},
+		ready: true,
+		busy: false,
+		start: vi.fn(),
+		stop: vi.fn(),
+		pause: vi.fn(),
+		resume: vi.fn(),
+		reload: vi.fn(),
+		readAudio: vi.fn(),
+	};
+	const view = render(
+		<I18nextProvider i18n={createI18n("en")}>
+			<MeetingRecorderCapsule recorder={recorder} />
+		</I18nextProvider>,
+	);
+	expect(screen.getByRole("region", { name: "Recording interrupted" })).toBeVisible();
+	expect(screen.getByRole("status", { name: "Recording duration" })).toHaveTextContent("00:00:30");
+	expect(screen.getByText(/Continue within 10 min/)).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "Continue recording" }));
+	expect(recorder.resume).toHaveBeenCalledWith("cut");
+	fireEvent.click(screen.getByRole("button", { name: "End and start notes" }));
+	expect(recorder.stop).toHaveBeenCalledWith("cut");
+	for (const item of recorder.state.recordings) item.endedAt = now - 11 * 60_000;
+	view.rerender(
+		<I18nextProvider i18n={createI18n("en")}>
+			<MeetingRecorderCapsule recorder={recorder} />
+		</I18nextProvider>,
+	);
+	expect(view.container).toBeEmptyDOMElement();
+});

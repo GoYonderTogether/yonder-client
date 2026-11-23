@@ -16,6 +16,7 @@ enum Action {
     Resume(String, String),
     Audio(String, String, usize),
     Finish,
+    Interrupt(String),
     Active,
 }
 enum Reply {
@@ -151,6 +152,10 @@ impl DesktopRecorder {
     pub fn finish(&self) {
         let _ = self.request(Action::Finish);
     }
+    /// The app is about to restart: keep the audio and mark it continuable instead of ended.
+    pub fn interrupt(&self, reason: &str) {
+        let _ = self.request(Action::Interrupt(reason.into()));
+    }
     pub fn is_recording(&self) -> bool {
         matches!(self.request(Action::Active), Ok(Reply::Active(true)))
     }
@@ -254,6 +259,10 @@ impl Worker {
                     .map(|active| active.recording.id.as_str())
                     != Some(id.as_str())
                 {
+                    if self.active.is_none() {
+                        self.store.conclude(&owner, &id)?;
+                        return self.state().map(Reply::State);
+                    }
                     return Err("meeting_not_recording".into());
                 }
                 self.finish(None)?;
@@ -278,6 +287,28 @@ impl Worker {
                 active.paused = true;
                 active.audio_level = 0.0;
             }
+            Action::Resume(owner, id) if self.active.is_none() => {
+                self.authorize(&owner)?;
+                // Nothing is written until the microphone is really running: a failed attempt
+                // must not move the end time and quietly extend the resume window.
+                let recorded = self.store.resumable(&owner, &id)?;
+                let capture = Capture::new()?;
+                if capture.sample_rate != recorded.sample_rate || capture.channels != recorded.channels {
+                    // The device changed: appended audio would play at the wrong speed.
+                    return Err("meeting_audio_format_changed".into());
+                }
+                capture.play()?;
+                let recording = self.store.reopen(&owner, &id)?;
+                self.active = Some(Active {
+                    capture,
+                    recording,
+                    pending: Vec::new(),
+                    last_audio: crate::capture_clock::now(),
+                    audio_level: 0.0,
+                    paused: false,
+                });
+                (self.on_active)(true);
+            }
             Action::Resume(owner, id) => {
                 self.authorize(&owner)?;
                 let active = self
@@ -294,6 +325,7 @@ impl Worker {
                 return self.store.read_audio(&owner, &id, index).map(Reply::Audio);
             }
             Action::Finish => self.finish(None)?,
+            Action::Interrupt(reason) => self.finish(Some(reason))?,
             Action::Active => return Ok(Reply::Active(self.active.is_some())),
         }
         self.state().map(Reply::State)

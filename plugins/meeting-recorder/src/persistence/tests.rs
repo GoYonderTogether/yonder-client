@@ -92,3 +92,72 @@ fn persistent_manifest_write_failure_still_returns_stopped_state_and_audio() {
     assert_eq!(store.list("owner_a", None).unwrap()[0].state, "interrupted");
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn interrupted_recording_continues_into_the_same_recording_inside_the_window() {
+    let root = directory();
+    let store = Store::new(root.clone()).unwrap();
+    let mut recording = store.create("owner_a", "Meeting", 8000, 1).unwrap();
+    store.append(&mut recording, &vec![9; 32_000]).unwrap();
+    store
+        .finish(&mut recording, Some("meeting_audio_capture_interrupted".into()))
+        .unwrap();
+    let mut reopened = store.reopen("owner_a", &recording.id).unwrap();
+    assert_eq!(
+        (reopened.state.as_str(), reopened.ended_at, reopened.segments.len()),
+        ("recording", None, 1)
+    );
+    store.append(&mut reopened, &vec![9; 16_000]).unwrap();
+    assert_eq!(reopened.segments.len(), 2);
+    assert_eq!(reopened.segments[1].index, 1);
+    assert_eq!(reopened.saved_duration_ms, 6000);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn recording_cannot_continue_after_ten_minutes_or_after_a_storage_failure() {
+    let root = directory();
+    let store = Store::new(root.clone()).unwrap();
+    let mut old = store.create("owner_a", "Old", 8000, 1).unwrap();
+    store.append(&mut old, &vec![9; 32_000]).unwrap();
+    store
+        .finish(&mut old, Some("meeting_recording_interrupted".into()))
+        .unwrap();
+    old.ended_at = Some(now_ms() - crate::model::RESUME_WINDOW_MS - 1);
+    store.save(&old).unwrap();
+    assert_eq!(
+        store.reopen("owner_a", &old.id).unwrap_err(),
+        "meeting_resume_expired"
+    );
+    assert!(crate::model::upload_ready(&old, now_ms()));
+
+    let mut broken = store.create("owner_a", "Broken", 8000, 1).unwrap();
+    store.append(&mut broken, &vec![9; 32_000]).unwrap();
+    store
+        .finish(&mut broken, Some("meeting_audio_corrupt".into()))
+        .unwrap();
+    assert_eq!(
+        store.reopen("owner_a", &broken.id).unwrap_err(),
+        "meeting_not_resumable"
+    );
+    assert!(crate::model::upload_ready(&broken, now_ms()));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn interrupted_recording_waits_for_the_window_and_ending_it_releases_it() {
+    let root = directory();
+    let store = Store::new(root.clone()).unwrap();
+    let mut recording = store.create("owner_a", "Meeting", 8000, 1).unwrap();
+    store.append(&mut recording, &vec![9; 32_000]).unwrap();
+    store
+        .finish(&mut recording, Some("meeting_recording_interrupted".into()))
+        .unwrap();
+    assert!(!crate::model::upload_ready(&recording, now_ms()));
+    store.conclude("owner_a", &recording.id).unwrap();
+    let ended = store.list("owner_a", None).unwrap().remove(0);
+    assert_eq!(ended.state, "ended");
+    assert!(ended.error.is_none());
+    assert!(crate::model::upload_ready(&ended, now_ms()));
+    fs::remove_dir_all(root).unwrap();
+}

@@ -5937,7 +5937,7 @@ dependencies = [
 
 [[package]]
 name = "yonder-desktop"
-version = "0.3.26112001"
+version = "0.3.26112002"
 dependencies = [
  "cc",
  "objc2-app-kit",

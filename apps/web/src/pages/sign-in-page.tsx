@@ -1,8 +1,9 @@
 import { AuthLayout, ForgotPasswordForm, SignInForm } from "@yonder/feature-auth";
-import { useData } from "@yonder/ui-data";
+import { clearInvite, useData } from "@yonder/ui-data";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
+import { WechatWebEntry } from "../app/wechat-web.tsx";
 import { BUILD_VERSION } from "../lib/config.ts";
 import { defaultMessagePath } from "../lib/default-message-path.ts";
 import { useDeviceInfo } from "../lib/device-info.ts";
@@ -67,6 +68,17 @@ export function SignInPage() {
 						}}
 						device={device}
 						onSignedIn={(result) => void onSignedIn(result)}
+						renderAlternative={(options) => (
+							<WechatWebEntry
+								mode="sign-in"
+								device={device}
+								{...options}
+								onSignedIn={(result) => {
+									clearInvite(storage);
+									return onSignedIn(result);
+								}}
+							/>
+						)}
 					/>
 					<button
 						type="button"

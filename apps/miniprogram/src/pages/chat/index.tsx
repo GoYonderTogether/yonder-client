@@ -52,7 +52,7 @@ export default function Chat() {
 	const [anchor, setAnchor] = useState("");
 	const pendingOlderAnchor = useRef<{
 		messageId: string;
-		before: ScrollAnchorMetrics;
+		before: ScrollAnchorMetrics | null;
 		scope: string;
 		ready: boolean;
 		revision: number;
@@ -143,7 +143,8 @@ export default function Chat() {
 	useEffect(() => {
 		const pending = pendingOlderAnchor.current;
 		if (!pending || pending.scope !== draftKey || !pending.ready || anchorRevision < pending.revision) return;
-		if (!chat.messages.some((message) => message.id === pending.messageId)) {
+		const before = pending.before;
+		if (!before || followRef.current || !chat.messages.some((message) => message.id === pending.messageId)) {
 			pendingOlderAnchor.current = null;
 			return;
 		}
@@ -155,12 +156,36 @@ export default function Chat() {
 					pendingOlderAnchor.current = null;
 					return;
 				}
-				const delta = after.relativeY - pending.before.relativeY;
+				const delta = after.relativeY - before.relativeY;
 				if (Math.abs(delta) > 1) setScrollTop(Math.max(0, after.scrollTop + delta));
 				pendingOlderAnchor.current = null;
 			});
 		});
 	}, [chat.messages, draftKey, anchorRevision]);
+	const loadEarlier = async () => {
+		if (chat.loading || !chat.cursor || chat.olderLoading || pendingOlderAnchor.current) return;
+		setFollow(false);
+		setAnchor("");
+		setScrollTop(undefined);
+		const messageId = chat.messages[0]?.id ?? "";
+		const pending = {
+			messageId,
+			before: null as ScrollAnchorMetrics | null,
+			scope: draftKey,
+			ready: false,
+			revision: anchorRevision + 1,
+		};
+		pendingOlderAnchor.current = pending;
+		if (messageId) pending.before = await measureScrollAnchor(messageId);
+		if (pendingOlderAnchor.current !== pending || draftKeyRef.current !== draftKey) return;
+		const loaded = await chat.load(true);
+		if (pendingOlderAnchor.current !== pending) return;
+		if (!loaded) pendingOlderAnchor.current = null;
+		else {
+			pending.ready = true;
+			setAnchorRevision(pending.revision);
+		}
+	};
 	const send = async () => {
 		if (
 			sending.current ||
@@ -277,12 +302,16 @@ export default function Chat() {
 					scrollIntoView={anchor}
 					{...(scrollTop === undefined ? {} : { scrollTop })}
 					scrollWithAnimation={false}
+					upperThreshold={2}
 					lowerThreshold={2}
 					onTouchMove={() => setFollow(false)}
 					onScroll={(event) => {
 						const scrollTop = event.detail.scrollTop;
 						if (scrollTop < lastScrollTop.current) setFollow(false);
 						lastScrollTop.current = scrollTop;
+					}}
+					onScrollToUpper={() => {
+						if (!chat.olderError) void loadEarlier();
 					}}
 					onScrollToLower={() => {
 						setScrollTop(undefined);
@@ -292,38 +321,17 @@ export default function Chat() {
 				>
 					{chat.cursor ? (
 						<View className="mini-chat-older">
-							<Button
-								secondary
-								disabled={chat.olderLoading}
-								onClick={() => {
-									const firstId = blocks.find((block) => "run" in block)?.run[0]?.id;
-									setFollow(false);
-									setAnchor("");
-									if (chat.olderLoading || pendingOlderAnchor.current) return;
-									if (!firstId) return void chat.load(true);
-									void measureScrollAnchor(firstId).then((before) => {
-										if (!before || draftKeyRef.current !== draftKey || pendingOlderAnchor.current) return;
-										const pending = {
-											messageId: firstId,
-											before,
-											scope: draftKey,
-											ready: false,
-											revision: anchorRevision + 1,
-										};
-										pendingOlderAnchor.current = pending;
-										void chat.load(true).then((loaded) => {
-											if (pendingOlderAnchor.current !== pending) return;
-											if (!loaded) pendingOlderAnchor.current = null;
-											else {
-												pending.ready = true;
-												setAnchorRevision(pending.revision);
-											}
-										});
-									});
-								}}
-							>
-								{chat.olderLoading ? t("正在加载…", "Loading…") : t("加载更早消息", "Load earlier messages")}
-							</Button>
+							{chat.olderLoading ? (
+								<View
+									className="mini-chat-spinner"
+									ariaRole="status"
+									ariaLabel={t("正在加载更早的消息…", "Loading earlier messages…")}
+								/>
+							) : chat.olderError ? (
+								<Button secondary onClick={() => void loadEarlier()}>
+									{t("重试加载更早的消息", "Retry loading earlier messages")}
+								</Button>
+							) : null}
 						</View>
 					) : null}
 					{blocks.map((block) => renderMessageBlock(block, chat, presentation, followAfterLayout, optionCards))}

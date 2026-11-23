@@ -1,6 +1,7 @@
 import { accountMessagesZhCN } from "./account-zh-CN.ts";
 import { botMessagesZhCN } from "./bots-zh-CN.ts";
 import { channelsZhCN } from "./channels.ts";
+import { commerceZhCN } from "./commerce.ts";
 import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
 import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
 import type { Messages } from "./en.ts";
@@ -27,6 +28,7 @@ import { voiceInputZhCN } from "./voice-input.ts";
 export const zhCN: Messages = {
 	bots: botMessagesZhCN,
 	channels: channelsZhCN,
+	commerce: commerceZhCN,
 	composerAttachments: composerAttachmentsZhCN,
 	connectors: connectorMessagesZhCN,
 	questionCards: questionCardsZhCN,
@@ -295,7 +297,8 @@ export const zhCN: Messages = {
 		quotaToolsExhausted: "工具额度已用完，联网搜索暂时不能用。",
 		loadingHistory: "正在加载消息…",
 		jumpToLatest: "跳至最新",
-		loadOlder: "加载更早的消息",
+		loadingEarlier: "正在加载更早的消息…",
+		retryEarlier: "重试加载更早的消息",
 		memoryUpdated: "记忆已更新",
 		memoryUpdatedOne: "记忆已更新 · {{title}}",
 		memoryUpdatedMany: "记忆已更新 · {{count}} 处",

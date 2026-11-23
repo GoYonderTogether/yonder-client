@@ -1,6 +1,6 @@
 use crate::{
     desktop::DesktopRecorder,
-    model::{now_ms, valid_key},
+    model::{now_ms, upload_ready, valid_key},
     persistence::Store,
     wav,
 };
@@ -198,9 +198,7 @@ impl UploadQueue {
             .any(|record| match self.load(&owner, &record.id) {
                 Ok(Some(job)) => matches!(job.state.as_str(), "queued" | "uploading"),
                 Ok(None) => {
-                    record.state == "ended"
-                        && record.conversation_id.is_some()
-                        && !record.segments.is_empty()
+                    record.conversation_id.is_some() && upload_ready(record, now_ms())
                 }
                 Err(_) => true,
             })
@@ -258,7 +256,7 @@ impl UploadQueue {
             };
             let mut job = match self.load(&session.owner, &recording.id)? {
                 Some(job) => job,
-                None if recording.state == "ended" && !recording.segments.is_empty() => UploadJob {
+                None if upload_ready(&recording, now_ms()) => UploadJob {
                     recording_id: recording.id.clone(),
                     conversation_id: conversation,
                     meeting_id: None,
