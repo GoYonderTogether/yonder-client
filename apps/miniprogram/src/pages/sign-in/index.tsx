@@ -5,7 +5,7 @@ import darkLogo from "./logo-dark.svg";
 import "./style.scss";
 import Taro, { useRouter } from "@tarojs/taro";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { Button, SessionRestoreState } from "../../components/ui";
+import { Button } from "../../components/ui";
 import { t, useLocale } from "../../lib/i18n";
 import { api, deviceInfo, uploadAvatar, useSession } from "../../lib/runtime";
 
@@ -229,12 +229,6 @@ export default function SignIn() {
 		}
 	};
 	const capsule = process.env.TARO_ENV === "h5" ? null : Taro.getMenuButtonBoundingClientRect();
-	if (status === "booting" || status === "restore-unavailable")
-		return (
-			<View style={capsule ? { paddingTop: `${Math.max(0, capsule.bottom)}px` } : undefined}>
-				<SessionRestoreState loading={status === "booting"} />
-			</View>
-		);
 	return (
 		<View
 			className={capsule ? "mini-auth-native" : ""}
@@ -401,8 +395,8 @@ export default function SignIn() {
 										</NativeButton>
 									) : (
 										<NativeButton
-											className={`auth-primary mini-auth-button ${busy ? "is-busy" : ""}`}
-											disabled={busy || undefined}
+											className={`auth-primary mini-auth-button ${busy || status === "booting" ? "is-busy" : ""}`}
+											disabled={busy || status === "booting" || undefined}
 											loading={busy || undefined}
 											onClick={() => void wechat()}
 										>
@@ -411,8 +405,14 @@ export default function SignIn() {
 									)
 								) : (
 									<NativeButton
-										className={`auth-primary mini-auth-button ${busy || sending || (mode === "code" && !phoneStage && seconds > 0) ? "is-busy" : ""}`}
-										disabled={busy || sending || (mode === "code" && !phoneStage && seconds > 0) || undefined}
+										className={`auth-primary mini-auth-button ${busy || sending || status === "booting" || (mode === "code" && !phoneStage && seconds > 0) ? "is-busy" : ""}`}
+										disabled={
+											busy ||
+											sending ||
+											status === "booting" ||
+											(mode === "code" && !phoneStage && seconds > 0) ||
+											undefined
+										}
 										loading={process.env.TARO_ENV === "h5" ? undefined : busy || sending || undefined}
 										onClick={() => void (mode === "code" && !phoneStage ? send() : submit())}
 									>

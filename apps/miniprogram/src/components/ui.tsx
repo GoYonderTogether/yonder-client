@@ -2,7 +2,7 @@ import { Input, Button as NativeButton, Text, View } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { type CSSProperties, type ReactNode, useEffect } from "react";
 import { t, useLocale } from "../lib/i18n";
-import { bootstrapSession, useSession } from "../lib/runtime";
+import { useSession } from "../lib/runtime";
 import { navigationLayout, pageDestination } from "./navigation";
 
 export function Page({
@@ -83,11 +83,7 @@ export function Page({
 				</View>
 			</View>
 			<View className={`mini-content ${chatLayout ? "mini-content-chat" : ""}`}>
-				{!protectedPage || sessionStatus === "signed-in" ? (
-					children
-				) : (
-					<SessionRestoreState loading={sessionStatus !== "restore-unavailable"} />
-				)}
+				{!protectedPage || sessionStatus === "signed-in" ? children : <State loading />}
 			</View>
 		</View>
 	);
@@ -200,16 +196,6 @@ export function State({
 			)}
 			{!loading && !error && empty && <Text className="mini-muted">{empty}</Text>}
 		</View>
-	);
-}
-export function SessionRestoreState({ loading }: { loading: boolean }) {
-	return loading ? (
-		<State loading />
-	) : (
-		<State
-			error={t("暂时无法恢复登录，请重试", "Unable to restore your session. Please retry.")}
-			retry={() => void bootstrapSession()}
-		/>
 	);
 }
 export function errorText(error: unknown): string {

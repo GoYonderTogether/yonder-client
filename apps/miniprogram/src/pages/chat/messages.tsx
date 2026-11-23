@@ -107,7 +107,7 @@ export function renderMessageBlock(
 				))}
 			</>
 		);
-	const self = first.senderId === chat.me?.member.id;
+	const self = first.senderId === chat.memberId;
 	const sender = chat.conversation?.members.find((member) => member.memberId === first.senderId);
 	const name = sender?.displayName || t("成员", "Member");
 	const avatarUrl = sender?.avatarUrl;

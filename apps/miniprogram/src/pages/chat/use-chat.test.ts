@@ -37,7 +37,7 @@ vi.mock("../../lib/runtime", () => ({
 	newNonce: () => "nonce",
 	subscribeEvents: mock.subscribe,
 	useRealtimeRevision: () => 0,
-	useSession: () => ({ status: "signed-in", me: { member: { id: mock.owner } } }),
+	useSession: () => ({ status: "signed-in", me: null, memberId: mock.owner }),
 }));
 
 import { useChat } from "./use-chat";
@@ -61,6 +61,21 @@ const row: Message = {
 	streaming: false,
 	version: 1,
 };
+
+test("a stored member ID restores the local outbox while the profile is offline", async () => {
+	(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+	mock.owner = "a";
+	mock.store.clear();
+	mock.store.set("yonder.mini.outbox.a.one", [row]);
+	mock.store.set("yonder.mini.outbox.b.one", [{ ...row, id: "other-owner" }]);
+	mock.messages.mockReset().mockRejectedValue(new Error("offline"));
+	mock.conversations.mockReset().mockRejectedValue(new Error("offline"));
+	const root = createRoot(document.createElement("div"));
+	await act(async () => root.render(createElement(Probe, { id: "one" })));
+	expect(state.me).toBeNull();
+	expect(state.messages).toEqual([{ ...row, pending: false, sendFailed: true }]);
+	await act(async () => root.unmount());
+});
 
 test("coalesces initial history and ignores a late result from the old scope", async () => {
 	(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

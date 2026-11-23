@@ -11,13 +11,13 @@ import { closureText } from "./sentences";
 import { isVisitErrorCode, visitErrorSentence } from "./visits";
 
 export function useChat(id: string) {
-	const { me, status } = useSession();
+	const { me, memberId, status } = useSession();
 	const revision = useRealtimeRevision();
-	const outboxKey = `yonder.mini.outbox.${me?.member.id ?? ""}.${id}`;
+	const outboxKey = `yonder.mini.outbox.${memberId ?? ""}.${id}`;
 	const messagesOwner = useRef(outboxKey);
 	const [messages, setMessages] = useState<ChatMessage[]>(() => {
 		try {
-			const stored = Taro.getStorageSync(outboxKey);
+			const stored = memberId ? Taro.getStorageSync(outboxKey) : [];
 			return Array.isArray(stored)
 				? stored.map((message: ChatMessage) => ({ ...message, pending: false, sendFailed: true }))
 				: [];
@@ -41,7 +41,7 @@ export function useChat(id: string) {
 	const actionLock = useRef(false);
 	const cursorRef = useRef<string | null>(null);
 	useEffect(() => {
-		if (status !== "signed-in" || !me || messagesOwner.current !== outboxKey) return;
+		if (status !== "signed-in" || !memberId || messagesOwner.current !== outboxKey) return;
 		try {
 			Taro.setStorageSync(
 				outboxKey,
@@ -50,7 +50,7 @@ export function useChat(id: string) {
 		} catch {
 			setError(t("无法保存待发送消息，请重试", "Could not save the pending message. Try again."));
 		}
-	}, [messages, outboxKey, status, me]);
+	}, [messages, outboxKey, status, memberId]);
 	const active = useRef(true);
 	const epoch = useRef(0);
 	const requests = useRef(new Map<string, SendMessageRequest>());
@@ -74,7 +74,7 @@ export function useChat(id: string) {
 		return true;
 	}, []);
 	useEffect(() => {
-		active.current = Boolean(id && me?.member.id);
+		active.current = Boolean(id && memberId);
 		historyCutoff.current = undefined;
 		latestLoad.current = null;
 		olderLoad.current = null;
@@ -93,7 +93,7 @@ export function useChat(id: string) {
 		requests.current.clear();
 		messagesOwner.current = outboxKey;
 		try {
-			const stored = me?.member.id ? Taro.getStorageSync(outboxKey) : [];
+			const stored = memberId ? Taro.getStorageSync(outboxKey) : [];
 			setMessages(
 				Array.isArray(stored)
 					? stored.map((message: ChatMessage) => ({ ...message, pending: false, sendFailed: true }))
@@ -107,7 +107,7 @@ export function useChat(id: string) {
 			active.current = false;
 			epoch.current++;
 		};
-	}, [id, me?.member.id, outboxKey]);
+	}, [id, memberId, outboxKey]);
 	const load = useCallback(
 		(older = false): Promise<boolean> => {
 			if (!id || status !== "signed-in" || messagesOwner.current !== outboxKey) return Promise.resolve(false);
@@ -235,7 +235,7 @@ export function useChat(id: string) {
 		});
 	}, [id, status, load, refresh, acceptConversation, acceptMessage]);
 	const send = async (body: string, attachments: Attachment[], skillIds: string[], retryNonce?: string) => {
-		if (sendLock.current || !id || messagesOwner.current !== outboxKey) return;
+		if (sendLock.current || !id || !memberId || messagesOwner.current !== outboxKey) return;
 		sendLock.current = true;
 		const ticket = epoch.current;
 		const nonce = retryNonce ?? newNonce();
@@ -254,7 +254,7 @@ export function useChat(id: string) {
 		const pending: ChatMessage = {
 			id: `temp_${nonce}`,
 			conversationId: id,
-			senderId: me?.member.id ?? "",
+			senderId: memberId,
 			senderKind: "person",
 			type: "text",
 			body: request.body,
@@ -380,6 +380,7 @@ export function useChat(id: string) {
 	};
 	return {
 		me,
+		memberId,
 		messages: status === "signed-in" && messagesOwner.current === outboxKey ? messages : [],
 		conversation: messagesOwner.current === outboxKey ? conversation : undefined,
 		loading: messagesOwner.current === outboxKey ? loading : true,

@@ -29,7 +29,7 @@ export default function Chat() {
 	const chat = useChat(id);
 	const uploads = useChatUploads(chat.me?.member.id, id);
 	const { contentHeight, keyboardVisible, onFocus, onBlur } = useChatViewport();
-	const draftKey = `yonder.mini.draft.${chat.me?.member.id ?? ""}.${id}`;
+	const draftKey = `yonder.mini.draft.${chat.memberId ?? ""}.${id}`;
 	const draftKeyRef = useRef(draftKey);
 	draftKeyRef.current = draftKey;
 	const [draft, setDraft] = useState(() => ({
@@ -135,8 +135,8 @@ export default function Chat() {
 		setDraft({ scope: draftKey, value: String(Taro.getStorageSync(draftKey) || "") });
 	}, [draftKey]);
 	useEffect(() => {
-		if (chat.me && draft.scope === draftKey) Taro.setStorageSync(draftKey, draft.value);
-	}, [draft, draftKey, chat.me]);
+		if (chat.memberId && draft.scope === draftKey) Taro.setStorageSync(draftKey, draft.value);
+	}, [draft, draftKey, chat.memberId]);
 	useEffect(() => {
 		if (follow && lastMessage && layoutSignature) followAfterLayout();
 	}, [lastMessage, layoutSignature, follow, followAfterLayout]);

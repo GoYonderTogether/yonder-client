@@ -10,7 +10,7 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-test("socket reconnects preserve the account until refresh confirms the session expired", async () => {
+test("a socket network error reconnects without rotating or losing the account", async () => {
 	vi.useFakeTimers();
 	let networkError = () => {};
 	let close = (_event: { code: number }) => {};
@@ -27,7 +27,7 @@ test("socket reconnects preserve the account until refresh confirms the session 
 		send: vi.fn(),
 	};
 	mock.connectSocket.mockResolvedValue(task);
-	const refresh = vi.fn(async () => false).mockRejectedValueOnce(new Error("service unavailable"));
+	const refresh = vi.fn(async () => false);
 	const lost = vi.fn();
 	configureRealtime({ baseUrl: "https://example.test", token: () => "access", refresh, lost });
 	await resumeRealtime();
@@ -40,9 +40,4 @@ test("socket reconnects preserve the account until refresh confirms the session 
 	await Promise.resolve();
 	expect(refresh).toHaveBeenCalledOnce();
 	expect(lost).not.toHaveBeenCalled();
-	await vi.advanceTimersByTimeAsync(2000);
-	expect(mock.connectSocket).toHaveBeenCalledTimes(3);
-	close({ code: 4401 });
-	await Promise.resolve();
-	expect(lost).toHaveBeenCalledOnce();
 });

@@ -64,12 +64,15 @@ test("a previous account's late attachment is discarded and its temporary file r
 
 test("offline startup retains the refresh credential and foreground retries after recovery", async () => {
 	mock.fetch.mockRejectedValue(new TypeError("offline"));
+	const previous = await import("./runtime");
+	mock.store.set(previous.REFRESH_STORAGE_KEY, "saved-refresh");
+	vi.resetModules();
 	const runtime = await import("./runtime");
-	mock.store.set(runtime.REFRESH_STORAGE_KEY, "saved-refresh");
+	expect(runtime.useSession()).toMatchObject({ status: "signed-in", memberId: null, me: null });
 	await runtime.bootstrapSession();
 	expect(mock.store.get(runtime.REFRESH_STORAGE_KEY)).toBe("saved-refresh");
 	expect(runtime.client.accessToken).toBeNull();
-	expect(runtime.useSession().status).toBe("restore-unavailable");
+	expect(runtime.useSession().status).toBe("signed-in");
 	mock.fetch.mockImplementation(async (url: string) => ({
 		status: 200,
 		ok: true,
@@ -92,9 +95,10 @@ test("a mini program update during server downtime restores the saved session", 
 	vi.resetModules();
 	vi.stubGlobal("YONDER_APP_VERSION", "next-version");
 	const runtime = await import("./runtime").finally(() => vi.unstubAllGlobals());
+	expect(runtime.useSession()).toMatchObject({ status: "signed-in", memberId: "test-person", me: null });
 	mock.fetch.mockResolvedValueOnce({ status: 503, ok: false, json: async () => ({}) });
 	await runtime.bootstrapSession();
-	expect(runtime.useSession().status).toBe("restore-unavailable");
+	expect(runtime.useSession().status).toBe("signed-in");
 	expect(mock.store.get(runtime.REFRESH_STORAGE_KEY)).toBe("old-refresh");
 	expect(mock.fetch).toHaveBeenLastCalledWith(
 		expect.stringMatching(/\/v1\/auth\/refresh$/),
@@ -109,7 +113,7 @@ test("a mini program update during server downtime restores the saved session", 
 		})
 		.mockResolvedValueOnce({ status: 503, ok: false, json: async () => ({}) });
 	await runtime.bootstrapSession();
-	expect(runtime.useSession().status).toBe("restore-unavailable");
+	expect(runtime.useSession()).toMatchObject({ status: "signed-in", memberId: "test-person", me: null });
 	expect(mock.store.get(runtime.REFRESH_STORAGE_KEY)).toBe("rotated-refresh");
 
 	mock.fetch
@@ -125,15 +129,17 @@ test("a mini program update during server downtime restores the saved session", 
 });
 
 test("an expired refresh credential still signs out", async () => {
+	const previous = await import("./runtime");
+	await previous.startSession({ accessToken: "old-access", refreshToken: "old-refresh", me: me() });
+	vi.resetModules();
 	const runtime = await import("./runtime");
-	mock.store.set(runtime.REFRESH_STORAGE_KEY, "expired-refresh");
 	mock.fetch.mockResolvedValueOnce({
 		status: 401,
 		ok: false,
 		json: async () => ({ error: { code: "session_revoked" } }),
 	});
 	await runtime.bootstrapSession();
-	expect(runtime.useSession().status).toBe("signed-out");
+	expect(runtime.useSession()).toMatchObject({ status: "signed-out", memberId: null, me: null });
 	expect(mock.store.has(runtime.REFRESH_STORAGE_KEY)).toBe(false);
 });
 
