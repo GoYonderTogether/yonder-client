@@ -12,6 +12,7 @@ import { meetingRecorderEn } from "./meeting-recorder-en.ts";
 import { membersMessagesEn } from "./members-en.ts";
 import { memoryMessagesEn } from "./memory-en.ts";
 import { modelMessagesEn } from "./models-en.ts";
+import { photoArchiveEn } from "./photo-archive-en.ts";
 import { pricingMessagesEn } from "./pricing-en.ts";
 import { setupMessagesEn } from "./setup-en.ts";
 import { skillMessagesEn } from "./skills-en.ts";
@@ -312,6 +313,7 @@ export const en = {
 		jumpToLatest: "Jump to latest",
 		loadOlder: "Load earlier messages",
 		memoryUpdated: "Memory updated",
+		photoArchive: photoArchiveEn,
 		memoryUpdatedOne: "Memory updated · {{title}}",
 		memoryUpdatedMany: "Memory updated · {{count}} files",
 		memoryRevisionUnavailable: "This change isn't in the file's history",

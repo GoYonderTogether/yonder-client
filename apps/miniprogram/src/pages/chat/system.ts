@@ -28,6 +28,42 @@ export function systemSentence(event: SystemEvent, locale: Locale): string {
 		const count = event.changes.length;
 		return pair(locale, `记忆已更新 · ${count} 处`, `Memory updated · ${count} files`);
 	}
+	if (event.event === "photo_archive_plan") {
+		const { paused, months, until } = event.plan;
+		if (paused) return pair(locale, "相册整理已暂停。", "Photo organizing is paused.");
+		const list = months?.length ? joinNames(months, locale) : "";
+		if (list && until)
+			return pair(
+				locale,
+				`相册整理接下来先做 ${list}，往前做到 ${until}。`,
+				`Photo organizing does ${list} next and goes back to ${until}.`,
+			);
+		if (list) return pair(locale, `相册整理接下来先做 ${list}。`, `Photo organizing does ${list} next.`);
+		if (until) return pair(locale, `相册整理往前做到 ${until}。`, `Photo organizing goes back to ${until}.`);
+		return pair(locale, "相册整理继续进行。", "Photo organizing goes on.");
+	}
+	if (event.event === "photo_archive") {
+		const count = event.months;
+		if (event.state === "finished")
+			return pair(
+				locale,
+				`相册整理完成，记忆里有 ${count} 个月。`,
+				`Your photos are organized, with ${count} months in memory.`,
+			);
+		const [year = "", month = ""] = (event.month ?? "").split("-");
+		const at = pair(locale, `${year} 年 ${Number(month)} 月`, `${Number(month)}/${year}`);
+		return event.state === "stopped"
+			? pair(
+					locale,
+					`照片连接已关闭，相册整理停在 ${at}，记忆里有 ${count} 个月。重新连接后从这里接着做。`,
+					`Photos was disconnected. Organizing stopped at ${at}, with ${count} months in memory. Reconnect to continue from there.`,
+				)
+			: pair(
+					locale,
+					`相册整理中断，停在 ${at}，最近一年已整理完，记忆里有 ${count} 个月。`,
+					`Organizing was interrupted at ${at}. The last year is done, with ${count} months in memory.`,
+				);
+	}
 	const targets = joinNames(event.targetNames, locale);
 	const names = targets || pair(locale, "有人", "someone");
 	const actor = event.actorName || pair(locale, "有人", "Someone");
