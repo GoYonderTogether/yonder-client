@@ -3,7 +3,16 @@ export { BOT_FACE_IDS, type BotFaceId, botFaceFor, botFacePaths, firstCharacter,
 export { BOT_ROLE_LIMIT, botRoleProblem, conversationBotOwner, ownedBotFor } from "./bot-label.ts";
 export { chatHistoryTimeOffset, isNewChatHistoryCutoff } from "./chat-history-clear.ts";
 export { conversationPeer } from "./conversation-peer.ts";
-export { addableContacts, filterContacts, GROUP_MEMBER_LIMIT, recentContacts } from "./group-invites.ts";
+export {
+	addableContacts,
+	addableFor,
+	canRemoveMember,
+	filterContacts,
+	GROUP_MEMBER_LIMIT,
+	groupMemberRights,
+	isOwnBot,
+	recentContacts,
+} from "./group-invites.ts";
 export { optionCardAttachments, optionCardState } from "./option-cards.ts";
 export { runSources } from "./run-sources.ts";
 

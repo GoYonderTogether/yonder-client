@@ -95,6 +95,8 @@ function QuestionCard({
 		<>
 			<MessageOptions
 				question={card.title}
+				summary={card.state === "open" ? card.summary : undefined}
+				result={card.result}
 				options={choices.options.map(({ label }) => label)}
 				images={choices.options.map(() => undefined)}
 				selected={selected}

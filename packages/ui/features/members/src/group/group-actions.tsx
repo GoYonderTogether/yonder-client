@@ -3,15 +3,21 @@ import { ListGroup, ListRow } from "@yonder/ui-components";
 import { Bot, LogOut, Trash2, UserPlus, UserRoundCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+/**
+ * The group's management rows. A member who is not the owner gets exactly one: bringing in one of
+ * their own Bots (`addOwnBots`). Everything else here is the owner's.
+ */
 export function GroupActions({
 	conversation,
 	busy,
+	owner,
 	onAddMembers,
 	onTransfer,
 	onBotSettings,
 }: {
 	conversation: Conversation;
 	busy: boolean;
+	owner: boolean;
 	onAddMembers: () => void;
 	onTransfer: () => void;
 	onBotSettings: () => void;
@@ -24,11 +30,11 @@ export function GroupActions({
 		<ListGroup title={t("members.group.manage")}>
 			<ListRow
 				leading={<UserPlus size={18} aria-hidden />}
-				title={t("members.group.addMembers")}
+				title={t(owner ? "members.group.addMembers" : "members.group.addOwnBot")}
 				onClick={onAddMembers}
 				disabled={busy}
 			/>
-			{canTransfer ? (
+			{owner && canTransfer ? (
 				<ListRow
 					leading={<UserRoundCheck size={18} aria-hidden />}
 					title={t("members.group.transfer")}
@@ -36,7 +42,7 @@ export function GroupActions({
 					disabled={busy}
 				/>
 			) : null}
-			{conversation.groupBotPayer !== undefined ? (
+			{owner && conversation.groupBotPayer !== undefined ? (
 				<ListRow
 					leading={<Bot size={18} aria-hidden />}
 					title={t("members.group.botSettings")}

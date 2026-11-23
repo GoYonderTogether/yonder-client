@@ -33,12 +33,18 @@ function OptionImage({ file }: { file: Attachment }) {
 
 export function MessageOptions({
 	question,
+	summary,
+	result,
 	options,
 	images,
 	selected,
 	onChoose,
 }: {
 	question: string | null;
+	/** What the choice is about, one line under the question: what is about to be done. */
+	summary?: string | undefined;
+	/** What became of the choice, one line under the options: done, or why it was not. */
+	result?: string | undefined;
 	options: string[];
 	images: (Attachment | undefined)[];
 	selected: string | null;
@@ -56,6 +62,7 @@ export function MessageOptions({
 					</View>
 				</View>
 			) : null}
+			{summary ? <Text className="message-option-card-summary">{summary}</Text> : null}
 			<View className="message-option-list">
 				{options.map((option, index) => {
 					const file = images[index];
@@ -80,6 +87,7 @@ export function MessageOptions({
 					);
 				})}
 			</View>
+			{result ? <Text className="message-option-card-result">{result}</Text> : null}
 		</View>
 	);
 }

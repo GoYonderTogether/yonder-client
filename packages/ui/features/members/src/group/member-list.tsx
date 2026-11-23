@@ -1,3 +1,4 @@
+import { canRemoveMember } from "@yonder/chat-model";
 import type { ConversationMember } from "@yonder/protocol";
 import { Button, IconButton, ListGroup } from "@yonder/ui-components";
 import { UserMinus } from "lucide-react";
@@ -12,7 +13,7 @@ export interface MemberListProps {
 	ownerId?: string | undefined;
 	/** Opens a member's card. */
 	onOpen?: ((member: ConversationMember) => void) | undefined;
-	/** Owner only: remove someone. The caller confirms before calling it. */
+	/** Remove someone: anyone for the owner, only their own Bot for a member. The caller confirms first. */
 	onRemove?: ((member: ConversationMember) => void) | undefined;
 	/** Owner only: hand the group to a person. */
 	onTransfer?: ((member: ConversationMember) => void) | undefined;
@@ -44,6 +45,7 @@ export function MemberList({
 			{ordered.map((member) => {
 				const self = member.memberId === personId;
 				const bot = member.kind === "bot";
+				const removable = canRemoveMember(ownerId ? { ownerId } : {}, personId, member);
 				const badge = [member.memberId === ownerId && t("members.group.owner"), self && t("members.group.you")]
 					.filter(Boolean)
 					.join(" · ");
@@ -54,9 +56,9 @@ export function MemberList({
 						badge={badge}
 						onOpen={onOpen ? () => onOpen(member) : undefined}
 						actions={
-							isOwner && !self ? (
+							!self && (isOwner || removable) ? (
 								<>
-									{!bot && onTransfer ? (
+									{isOwner && !bot && onTransfer ? (
 										<Button
 											size="sm"
 											variant="ghost"
@@ -67,7 +69,7 @@ export function MemberList({
 											{t("members.group.transfer")}
 										</Button>
 									) : null}
-									{onRemove ? (
+									{removable && onRemove ? (
 										<IconButton
 											size="sm"
 											aria-label={t("members.group.removeMember", { name: member.displayName })}

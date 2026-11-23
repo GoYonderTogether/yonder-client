@@ -1,8 +1,15 @@
 import { Text, View } from "@tarojs/components";
-import { type MessageBlock, optionCardAttachments, type optionCardState, ownedBotFor } from "@yonder/chat-model";
+import {
+	isAgentCardId,
+	type MessageBlock,
+	optionCardAttachments,
+	type optionCardState,
+	ownedBotFor,
+} from "@yonder/chat-model";
 import { MessageAttachmentsFrame, MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
 import type { Member } from "@yonder/protocol";
 import type { ReactNode } from "react";
+import { AgentCardMessage } from "../../components/agent-card-message";
 import { MiniBotName } from "../../components/bot-name";
 import { FriendRequestCard } from "../../components/friend-request-card";
 import { Button, go } from "../../components/ui";
@@ -145,6 +152,9 @@ export function renderMessageBlock(
 							id={`message-${message.id}`}
 							key={message.id}
 						>
+							{message.cardId && message.senderKind === "bot" && isAgentCardId(message.cardId) ? (
+								<AgentCardMessage id={message.cardId} disconnected={false} />
+							) : null}
 							{message.options?.length ? (
 								<MessageOptions
 									question={message.body}

@@ -1,4 +1,4 @@
-import { addableContacts, filterContacts, GROUP_MEMBER_LIMIT, recentContacts } from "@yonder/chat-model";
+import { addableFor, filterContacts, GROUP_MEMBER_LIMIT, recentContacts } from "@yonder/chat-model";
 import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button, Checkbox, cn, SearchInput } from "@yonder/ui-components";
 import { useContacts, useConversations } from "@yonder/ui-data";
@@ -9,6 +9,8 @@ import { memberFailureText } from "../profile/failure.ts";
 export interface AddMembersProps {
 	/** The group as it is now; people already in it are not offered again. */
 	conversation: Conversation;
+	/** The viewer: the owner is offered every contact, anyone else only their own Bots. */
+	personId?: string | undefined;
 	adding: boolean;
 	error: unknown;
 	inPage?: boolean;
@@ -18,21 +20,23 @@ export interface AddMembersProps {
 
 /**
  * The owner adds people from their own contacts (19 3.1). A Bot the owner already has is a contact
- * too, so it can be added; anyone already in the group cannot.
+ * too, so it can be added; anyone already in the group cannot. Any other member brings in only
+ * their own Bots, so they are the only contacts offered to them.
  */
-export function AddMembers({ conversation, adding, error, inPage, onAdd, onCancel }: AddMembersProps) {
+export function AddMembers({ conversation, personId, adding, error, inPage, onAdd, onCancel }: AddMembersProps) {
 	const { t } = useTranslation();
 	const contacts = useContacts();
 	const conversations = useConversations();
 	const [query, setQuery] = useState("");
 	const [selected, setSelected] = useState<string[]>([]);
-	const items = addableContacts(contacts.data?.items ?? [], conversation.members);
+	const viewer = personId ?? conversation.ownerId;
+	const items = addableFor(conversation, contacts.data?.items ?? [], viewer);
 	const eligible = new Map(items.map((member) => [member.id, member]));
 	const selectedIds = selected.filter((id) => eligible.has(id));
 	const needle = query.trim();
 	const visible = filterContacts(items, needle);
 	const room = Math.max(0, GROUP_MEMBER_LIMIT - conversation.members.length);
-	const recent = needle ? [] : recentContacts(conversations.data?.items ?? [], eligible, conversation.ownerId);
+	const recent = needle ? [] : recentContacts(conversations.data?.items ?? [], eligible, viewer);
 
 	const rows = (members: Member[]) =>
 		members.map((member) => {

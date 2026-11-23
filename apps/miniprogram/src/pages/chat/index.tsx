@@ -115,7 +115,10 @@ export default function Chat() {
 					? t("系统通知", "System notifications")
 					: conversationTitle(chat.conversation.members, chat.me?.member.id, chat.conversation.title)))) ||
 		t("聊天", "Chat");
-	const blocks = useMemo(() => groupMessages(chat.messages, chat.hasFullHistory), [chat.messages, chat.hasFullHistory]);
+	const blocks = useMemo(
+		() => groupMessages(chat.messages, chat.hasFullHistory, { agentCards: true }),
+		[chat.messages, chat.hasFullHistory],
+	);
 	const presentation = { showMessageAvatars, showSenderNames: isGroup, locale, contacts: useCachedBots() };
 	const optionCards = optionCardState(chat.messages, chat.me?.member.id);
 	const hasActiveRun = chat.messages.some(

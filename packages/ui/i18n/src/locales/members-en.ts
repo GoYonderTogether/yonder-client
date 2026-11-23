@@ -37,6 +37,7 @@ export const membersMessagesEn = {
 		save: "Save",
 		cancel: "Cancel",
 		addMembers: "Add members",
+		addOwnBot: "Add my Bot",
 		manage: "Group management",
 		selectMembers: "Select contacts",
 		recentContacts: "Recent contacts",

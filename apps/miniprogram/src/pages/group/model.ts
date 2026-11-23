@@ -1,4 +1,5 @@
-import type { Conversation, ConversationMember } from "@yonder/protocol";
+import { addableFor, isOwnBot } from "@yonder/chat-model";
+import type { Conversation, ConversationMember, Member } from "@yonder/protocol";
 import type { Locale } from "../../lib/i18n";
 
 /**
@@ -31,20 +32,34 @@ export function isClosed(conversation: Conversation): boolean {
 	return Boolean(conversation.closedReason);
 }
 
-/** A removal is offered on everyone except me and the owner, and never in a closed group. */
+/**
+ * A removal is offered on everyone except me and the owner for the group's owner, and on my own
+ * Bots for any other member (the one say a member has over who is in the group). Never in a closed
+ * group.
+ */
 export function canRemove(conversation: Conversation, ownId: string | undefined, member: ConversationMember): boolean {
-	if (!isOwner(conversation, ownId) || isClosed(conversation)) return false;
-	if (member.memberId === ownId || member.role === "owner") return false;
-	return member.memberId !== conversation.ownerId;
+	if (isClosed(conversation) || member.memberId === ownId || member.role === "owner") return false;
+	if (member.memberId === conversation.ownerId) return false;
+	return isOwner(conversation, ownId) || isOwnBot(member);
 }
 
-/** Ownership passes to a person only (a Bot cannot own a group), never to me. */
+/** Ownership passes to a person only (a Bot cannot own a group), never to me, and only the owner hands it over. */
 export function canTransfer(
 	conversation: Conversation,
 	ownId: string | undefined,
 	member: ConversationMember,
 ): boolean {
-	return canRemove(conversation, ownId, member) && member.kind === "person";
+	return isOwner(conversation, ownId) && canRemove(conversation, ownId, member) && member.kind === "person";
+}
+
+/** Who may open the add page: the owner for anyone, any other member for their own Bots, when one is left. */
+export function canAddMembers(
+	conversation: Conversation,
+	ownId: string | undefined,
+	contacts: readonly Member[],
+): boolean {
+	if (isClosed(conversation) || !ownId) return false;
+	return isOwner(conversation, ownId) || addableFor(conversation, contacts, ownId).length > 0;
 }
 
 /** Leaving is for members, not the owner, and only while the group is open. */

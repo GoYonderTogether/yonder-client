@@ -1,6 +1,7 @@
+import { addableFor, groupMemberRights } from "@yonder/chat-model";
 import type { Conversation, ConversationMember } from "@yonder/protocol";
 import { Avatar, ListGroup, ListRow } from "@yonder/ui-components";
-import { useGroupActions, useMe } from "@yonder/ui-data";
+import { useContacts, useGroupActions, useMe } from "@yonder/ui-data";
 import { Overlay, useShellChrome, useSidePanel } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
 import { useId, useRef, useState } from "react";
@@ -35,8 +36,9 @@ type Confirm =
 
 /**
  * Group info (17 3.2): the name, who is in it, and the few things the viewer may do. The owner
- * renames, adds people, hands the group over and dissolves it; a member can only leave. A closed
- * group keeps the name and the member list and loses every action (19 3.2).
+ * renames, adds people, hands the group over and dissolves it; a member can leave, and bring in or
+ * take out their own Bots. A closed group keeps the name and the member list and loses every action
+ * (19 3.2).
  */
 export function GroupInfo({ conversation, personId, onOpenMember, onLeft, preferences }: GroupInfoProps) {
 	const { t } = useTranslation();
@@ -47,6 +49,11 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft, prefer
 	const person = personId ?? me;
 	const owner = Boolean(conversation.ownerId) && person === conversation.ownerId;
 	const closed = Boolean(conversation.closedReason);
+	const contacts = useContacts();
+	// A member who is not the owner has one row here, and only while one of their Bots is left to add.
+	const canAdd =
+		groupMemberRights(conversation, person).addOwnBots &&
+		(owner || addableFor(conversation, contacts.data?.items ?? [], person).length > 0);
 	const actions = useGroupActions(conversation.id);
 	const [transferring, setTransferring] = useState(false);
 	const [adding, setAdding] = useState(false);
@@ -142,10 +149,11 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft, prefer
 				</p>
 			) : null}
 
-			{owner && !closed ? (
+			{(owner || canAdd) && !closed ? (
 				<GroupActions
 					conversation={conversation}
 					busy={busy}
+					owner={owner}
 					onAddMembers={openAddMembers}
 					onTransfer={() => setTransferring(true)}
 					onBotSettings={() =>
@@ -162,14 +170,14 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft, prefer
 			)}
 
 			<Overlay
-				open={adding && owner && !closed}
+				open={adding && (owner || canAdd) && !closed}
 				onClose={() => setAdding(false)}
-				title={t("members.group.addMembers")}
+				title={t(owner ? "members.group.addMembers" : "members.group.addOwnBot")}
 				closeLabel={t("app.close")}
 				mode={mode}
 				mobilePresentation="sheet"
 			>
-				<GroupAddMembers conversation={conversation} onDone={() => setAdding(false)} />
+				<GroupAddMembers conversation={conversation} personId={person} onDone={() => setAdding(false)} />
 			</Overlay>
 
 			<Overlay

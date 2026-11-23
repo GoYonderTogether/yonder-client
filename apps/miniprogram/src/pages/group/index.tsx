@@ -10,6 +10,7 @@ import { api, client, useSession } from "../../lib/runtime";
 import { ChatAvatar } from "../chat/avatar";
 import { AddMembers } from "./add-members";
 import {
+	canAddMembers,
 	canLeave,
 	canRemove,
 	canTransfer,
@@ -86,11 +87,18 @@ export default function Group() {
 		const group = items.find((item) => item.id === id && item.kind === "group");
 		if (!group)
 			throw new Error(t("这个群聊不存在，或你已经不在群里", "This group does not exist, or you are no longer in it"));
-		return { group, conversations: items };
+		// Contacts tell a member whether any of their own Bots is left to bring in; a failed read only
+		// hides that one row, never the group.
+		const contacts = await api.contacts().then(
+			(result) => result.items,
+			() => [],
+		);
+		return { group, conversations: items, contacts };
 	});
 	const data = resource?.group;
 	const owner = data ? isOwner(data, me?.member.id) : false;
 	const closed = data ? isClosed(data) : false;
+	const canAdd = data ? canAddMembers(data, me?.member.id, resource?.contacts ?? []) : false;
 	const [title, setTitle] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const openSettings = (page: "add" | "bot") => go(`/pages/group/index?id=${encodeURIComponent(id)}&view=${page}`);
@@ -133,9 +141,14 @@ export default function Group() {
 	const resourceState = loading || error ? <State loading={loading} error={error} retry={() => void reload()} /> : null;
 
 	if (view === "add" || view === "bot") {
-		const pageTitle = view === "add" ? t("添加成员", "Add members") : t("Bot 设置", "Bot settings");
+		const pageTitle =
+			view === "add"
+				? owner
+					? t("添加成员", "Add members")
+					: t("添加我的 Bot", "Add my Bot")
+				: t("Bot 设置", "Bot settings");
 		const payer = resource?.group.groupBotPayer;
-		if (!resource || !owner || closed || (view === "bot" && payer === undefined))
+		if (!resource || closed || (view === "add" ? !canAdd : !owner || payer === undefined))
 			return (
 				<Page title={pageTitle}>
 					{resourceState || <State error={t("当前无法管理该群聊", "This group cannot be managed right now")} />}
@@ -254,10 +267,13 @@ export default function Group() {
 					</View>
 				) : null}
 				{data && !closed ? <ConversationMute conversationId={data.id} /> : null}
-				{data && owner && !closed ? (
+				{data && canAdd && !closed ? (
 					<View className="mini-card">
-						<Row title={t("添加成员", "Add members")} onClick={() => openSettings("add")} />
-						{data.groupBotPayer !== undefined ? (
+						<Row
+							title={owner ? t("添加成员", "Add members") : t("添加我的 Bot", "Add my Bot")}
+							onClick={() => openSettings("add")}
+						/>
+						{owner && data.groupBotPayer !== undefined ? (
 							<Row title={t("Bot 设置", "Bot settings")} onClick={() => openSettings("bot")} />
 						) : null}
 					</View>

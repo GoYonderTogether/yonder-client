@@ -32,6 +32,7 @@ export const membersMessagesZhCN = {
 		save: "保存",
 		cancel: "取消",
 		addMembers: "添加成员",
+		addOwnBot: "添加我的 Bot",
 		manage: "群管理",
 		selectMembers: "选择联系人",
 		recentContacts: "最近联系人",

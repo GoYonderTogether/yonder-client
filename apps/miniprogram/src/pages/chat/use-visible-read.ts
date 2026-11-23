@@ -22,7 +22,8 @@ export function useVisibleRead(
 		showing.current = false;
 		setVisible(false);
 	});
-	const messageId = visible && readingLatest && personId ? newestReadableMessage(items, personId) : undefined;
+	const messageId =
+		visible && readingLatest && personId ? newestReadableMessage(items, personId, { agentCards: true }) : undefined;
 	useEffect(() => {
 		void scrollRevision;
 		if (!conversationId || !personId || !messageId) return;

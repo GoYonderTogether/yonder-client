@@ -1,6 +1,6 @@
 import { Checkbox, CheckboxGroup, Input, Label, ScrollView, Text, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
-import { addableContacts, filterContacts, GROUP_MEMBER_LIMIT, recentContacts } from "@yonder/chat-model";
+import { addableFor, filterContacts, GROUP_MEMBER_LIMIT, recentContacts } from "@yonder/chat-model";
 import type { Conversation, Member } from "@yonder/protocol";
 import { useEffect, useRef, useState } from "react";
 import { action, Button, State } from "../../components/ui";
@@ -29,7 +29,8 @@ export function AddMembers({
 			mounted.current = false;
 		};
 	}, []);
-	const contacts = addableContacts(data ?? [], group.members);
+	// The owner is offered every contact; any other member only their own Bots.
+	const contacts = addableFor(group, data ?? [], personId);
 	const eligible = new Map(contacts.map((contact) => [contact.id, contact]));
 	const selectedIds = selected.filter((id) => eligible.has(id));
 	const room = Math.max(0, GROUP_MEMBER_LIMIT - group.members.length);

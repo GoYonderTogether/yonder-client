@@ -1,3 +1,4 @@
+import { groupMemberRights } from "@yonder/chat-model";
 import type { Conversation, ConversationMember } from "@yonder/protocol";
 import { useConversations, useGroupActions } from "@yonder/ui-data";
 import { useTranslation } from "react-i18next";
@@ -75,22 +76,24 @@ export function GroupAddMembersPage({ conversationId, personId, onDone }: GroupP
 	const { t } = useTranslation();
 	const group = useGroupConversation(conversationId);
 	if (!group) return null;
-	if (group.closedReason || !group.ownerId || group.ownerId !== personId) {
+	if (!groupMemberRights(group, personId).addOwnBots) {
 		return (
 			<p role="status" className="p-[var(--spacing-5)] text-caption text-[var(--color-text-secondary)]">
 				{t(group.closedReason ? "members.errors.conversationClosed" : "errors.forbidden")}
 			</p>
 		);
 	}
-	return <GroupAddMembers conversation={group} onDone={onDone} inPage />;
+	return <GroupAddMembers conversation={group} personId={personId} onDone={onDone} inPage />;
 }
 
 export function GroupAddMembers({
 	conversation,
+	personId,
 	onDone,
 	inPage = false,
 }: {
 	conversation: Conversation;
+	personId: string | undefined;
 	onDone: () => void;
 	inPage?: boolean;
 }) {
@@ -99,6 +102,7 @@ export function GroupAddMembers({
 		<div className={inPage ? "h-full p-[var(--spacing-5)]" : "p-[var(--spacing-5)]"}>
 			<AddMembers
 				conversation={conversation}
+				personId={personId}
 				adding={addMembers.isPending}
 				error={addMembers.error}
 				inPage={inPage}

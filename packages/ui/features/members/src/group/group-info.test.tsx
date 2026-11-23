@@ -300,3 +300,76 @@ test("payer is edited through the Bot settings page", async () => {
 	await userEvent.selectOptions(payer, "owner");
 	expect(state.actions.setBotPayer).toHaveBeenCalledWith("owner");
 });
+
+const myBot = {
+	memberId: "bot_mine",
+	kind: "bot" as const,
+	handle: "mine1234",
+	displayName: "Scout",
+	avatarUrl: null,
+};
+const botOfOther = { ...bot, botOwner: { handle: "otherhandle", displayName: "Bo" } };
+const spareBot = {
+	id: "bot_spare",
+	kind: "bot",
+	handle: "spare123",
+	displayName: "Spare",
+	avatarUrl: null,
+	ownerId: "mem_other",
+};
+
+test("a member with a Bot left to bring has one row, and sees none of the owner's others", () => {
+	state.contacts = { items: [spareBot] };
+	show(group(), "mem_other");
+	expect(screen.getByRole("button", { name: "Add my Bot" })).toBeVisible();
+	expect(screen.queryByRole("button", { name: "Add members" })).toBeNull();
+	expect(screen.queryByRole("button", { name: /Transfer ownership/ })).toBeNull();
+	expect(screen.queryByRole("button", { name: "Bot settings" })).toBeNull();
+	expect(screen.getByRole("button", { name: /Leave group/ })).toBeVisible();
+});
+
+test("a member whose Bots are all in the group, or who has none, gets no add row", () => {
+	state.contacts = { items: [{ ...spareBot, id: "bot_mine", displayName: "Scout" }] };
+	show(group({ members: [owner, member, myBot, botOfOther] }), "mem_other");
+	expect(screen.queryByRole("button", { name: "Add my Bot" })).toBeNull();
+	expect(screen.queryByText("Group management")).toBeNull();
+});
+
+test("a member's picker offers only their own Bots, and adds them", async () => {
+	state.contacts = {
+		items: [
+			spareBot,
+			{ id: "mem_new", kind: "person", handle: "newhandle", displayName: "Dee", avatarUrl: null, ownerId: null },
+			{ ...spareBot, id: "bot_friends", displayName: "Friend's", ownerId: "mem_new" },
+		],
+	};
+	show(group(), "mem_other");
+	await userEvent.click(screen.getByRole("button", { name: "Add my Bot" }));
+	const dialog = screen.getByRole("dialog", { name: "Add my Bot" });
+	expect(within(dialog).queryByRole("checkbox", { name: /Dee/ })).toBeNull();
+	expect(within(dialog).queryByRole("checkbox", { name: /Friend's/ })).toBeNull();
+	await userEvent.click(within(dialog).getByRole("checkbox", { name: /Spare/ }));
+	await userEvent.click(within(dialog).getByRole("button", { name: "Add" }));
+	expect(state.actions.addMembers).toHaveBeenCalledWith({ memberIds: ["bot_spare"] }, expect.anything());
+});
+
+test("a member can take out their own Bot but not a stranger's Bot or a person", async () => {
+	show(group({ members: [owner, member, myBot, botOfOther] }), "mem_other");
+	await userEvent.click(screen.getByRole("button", { name: "All members" }));
+	expect(screen.queryByRole("button", { name: "Remove Ana" })).toBeNull();
+	expect(screen.queryByRole("button", { name: "Remove Helper" })).toBeNull();
+	expect(screen.queryByRole("button", { name: /Make .* the group owner/ })).toBeNull();
+	await userEvent.click(screen.getByRole("button", { name: "Remove Scout" }));
+	expect(state.actions.removeMember).not.toHaveBeenCalled();
+	const confirm = screen.getByRole("dialog", { name: "Remove Scout from the group?" });
+	fireEvent.click(within(confirm).getByRole("button", { name: "Remove" }));
+	expect(state.actions.removeMember).toHaveBeenCalledWith("bot_mine", expect.anything());
+});
+
+test("a closed group offers a member nothing to add or remove", async () => {
+	state.contacts = { items: [spareBot] };
+	show(group({ members: [owner, member, myBot], closedReason: "removed" }), "mem_other");
+	expect(screen.queryByRole("button", { name: "Add my Bot" })).toBeNull();
+	await userEvent.click(screen.getByRole("button", { name: "All members" }));
+	expect(screen.queryByRole("button", { name: "Remove Scout" })).toBeNull();
+});

@@ -98,6 +98,25 @@ test("a question offers its choices only while open, then keeps them without but
 	expect(screen.getByRole("button", { name: "Discard" })).toBeDisabled();
 });
 
+test("a card says what it is about while open, and afterwards what became of the choice", () => {
+	state.card = { ...question, summary: "Remove Dee from the group" };
+	const view = show();
+	expect(screen.getByText("Remove Dee from the group")).toBeVisible();
+	expect(screen.queryByRole("status")).toBeNull();
+
+	// The server wrote why the confirmed change was refused: it must reach the owner.
+	state.card = {
+		...question,
+		state: "done",
+		summary: "Remove Dee from the group",
+		result: "Not done: you are no longer the owner of this group",
+		body: { type: "choices", options: answers, selected: "yes" },
+	};
+	rerenderCard(view);
+	expect(screen.queryByText("Remove Dee from the group")).toBeNull();
+	expect(screen.getByRole("status")).toHaveTextContent("Not done: you are no longer the owner of this group");
+});
+
 test("the namecard opens the exact preview and one confirm publishes it; after that the row stays", async () => {
 	state.card = namecard;
 	const view = show("acd_namecard");

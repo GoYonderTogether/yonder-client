@@ -40,6 +40,24 @@
 	font-weight: var(--font-weight-semibold);
 }
 
+.message-option-card-summary,
+.message-option-card-result {
+	margin: 0;
+	padding: var(--spacing-3) var(--spacing-4);
+	overflow-wrap: anywhere;
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	color: var(--color-text-secondary);
+}
+
+.message-option-card-summary {
+	border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.message-option-card-result {
+	border-top: 1px solid var(--color-border-subtle);
+}
+
 .message-option-list {
 	margin: 0;
 	padding: 0;
