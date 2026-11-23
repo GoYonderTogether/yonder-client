@@ -75,8 +75,6 @@ export function TasksList({
 			) : null}
 			{scheduled ? (
 				<div className="flex flex-col gap-[var(--spacing-4)]">
-					{/* HEAD's one-page goals tab is the live implementation. main's GoalRecords and the
-					    tracking list it stacked above overlap it, so they stay out. */}
 					<GoalsTab creating={creating} />
 				</div>
 			) : (
