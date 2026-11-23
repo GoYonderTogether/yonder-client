@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.3.26112301] - 2026-11-23
+
+### Added
+
+- tasks：a calmer goals tab with goals, their checks and finished ones
+- memory：show the Bot's profile of the owner in AI 对我的了解
+- recording：improve task recording cards and synchronize recording titles
+- preview the AI impression and opt in to internal error reporting
+
+### Fixed
+
+- unblock provider settings and improve recording conversations
+
 ## [0.3.26112201] - 2026-11-22
 
 ### Changed
