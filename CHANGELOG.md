@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.26112302] - 2026-11-23
+
+### Fixed
+
+- chat：keep the phone voice control on the left
+
+### Added
+
+- chat：say why a reply failed the reply protocol
+
 ## [0.3.26112301] - 2026-11-23
 
 ### Added
