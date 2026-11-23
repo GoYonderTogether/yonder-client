@@ -80,25 +80,19 @@
 	grid-template-columns: var(--composer-button-size) minmax(0, 1fr) repeat(2, var(--composer-button-size));
 	grid-template-areas: "voice text send plus";
 }
-/* Reserve the same text width before and after wrapping, with typed drafts starting at the leading edge. */
-[data-composer-mobile] .composer-layout:has(.composer-editor:not([hidden]) .composer-text:not([data-empty])) {
-	grid-template-columns: minmax(0, 1fr) repeat(2, var(--composer-button-size));
-	grid-template-areas: "text voice plus";
-}
-[data-mobile-send] .composer-layout:has(.composer-editor:not([hidden]) .composer-text:not([data-empty])) {
-	grid-template-columns: minmax(0, 1fr) repeat(3, var(--composer-button-size));
-	grid-template-areas: "text voice send plus";
-}
 [data-composer-mobile] .composer-expanded {
 	grid-template-areas: ". text ." "voice . plus";
 }
 [data-mobile-send] .composer-expanded {
 	grid-template-areas: ". text . ." "voice . send plus";
 }
+/* Move only the expanded draft to the leading edge without changing its wrap width. */
 [data-composer-mobile] .composer-expanded:has(.composer-editor:not([hidden]) .composer-text:not([data-empty])) {
+	grid-template-columns: minmax(0, 1fr) repeat(2, var(--composer-button-size));
 	grid-template-areas: "text . ." "voice . plus";
 }
 [data-mobile-send] .composer-expanded:has(.composer-editor:not([hidden]) .composer-text:not([data-empty])) {
+	grid-template-columns: minmax(0, 1fr) repeat(3, var(--composer-button-size));
 	grid-template-areas: "text . . ." "voice . send plus";
 }
 [data-composer-mobile] .composer-text[data-empty] {
