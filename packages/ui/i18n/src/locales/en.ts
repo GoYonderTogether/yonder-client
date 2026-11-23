@@ -362,6 +362,8 @@ export const en = {
 		itemsEarlier: "Earlier",
 		itemsLoading: "Loading items…",
 		itemsLoadMore: "Load earlier items",
+		itemsArchived: "Archived",
+		itemsArchivedEmpty: "No archived items",
 		create: "Create",
 		addItem: "New item",
 		addGoal: "New goal",

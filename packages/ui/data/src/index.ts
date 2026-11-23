@@ -67,6 +67,7 @@ export { useChangeGoal, useGoalSettings, useGoals } from "./hooks/goals.ts";
 export { useGroupActions } from "./hooks/groups.ts";
 export {
 	useActiveBotSubtasks,
+	useArchivedItems,
 	useCreateItem,
 	useItem,
 	useItemActions,
