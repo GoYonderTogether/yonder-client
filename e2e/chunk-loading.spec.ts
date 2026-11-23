@@ -23,6 +23,7 @@ const loaded = (requested: string[], chunk: string) => requested.some((path) => 
 
 test("public pages and protected redirects defer the application chunks", async ({ page }, testInfo) => {
 	await isolateNetwork(page);
+	await page.route("**/v1/auth/refresh", (route) => route.fulfill({ status: 401, json: {} }));
 	await page.addInitScript(() => localStorage.setItem("yonder.locale", "en"));
 	const requested = observeChunks(page);
 	await page.goto("/");

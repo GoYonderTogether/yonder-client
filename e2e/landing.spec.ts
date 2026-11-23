@@ -183,7 +183,7 @@ test("a shell without a session goes to sign in", async ({ page }) => {
 	await expect(page.getByRole("link", { name: /All downloads|全部下载/ })).toHaveCount(0);
 });
 
-test("a shell keeps the splash while session refresh hangs", async ({ page }) => {
+test("a shell with stored credentials enters the app while session refresh hangs", async ({ page }) => {
 	let release = () => {};
 	const pending = new Promise<void>((resolve) => {
 		release = resolve;
@@ -199,8 +199,7 @@ test("a shell keeps the splash while session refresh hangs", async ({ page }) =>
 	try {
 		await page.goto("/", { waitUntil: "domcontentloaded" });
 		await requested;
-		await page.waitForTimeout(3500);
-		await expect(page.getByRole("status", { name: "loading" })).toBeVisible();
+		await expect(page).toHaveURL(/\/messages\/main$/);
 		await expect(page.getByRole("link", { name: /All downloads|全部下载/ })).toHaveCount(0);
 	} finally {
 		release();

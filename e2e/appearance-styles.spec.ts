@@ -130,6 +130,7 @@ for (const dark of [false, true]) {
 			} finally {
 				await guest.close();
 			}
+			await page.route("**/v1/auth/refresh", (route) => route.fulfill({ status: 401, json: {} }));
 			await page.goto("/sign-in");
 			const checkbox = page.getByRole("checkbox");
 			await checkbox.check();

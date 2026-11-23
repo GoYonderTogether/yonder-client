@@ -1,12 +1,16 @@
 import type {
+	AnswerQuestionCardRequest,
 	Attachment,
 	AttachmentTextPreview,
 	CompactConversationRequest,
 	CompactConversationResponse,
 	Conversation,
+	Message,
 	MessagePage,
 	OutwardRequestAction,
 	OutwardRequestCard,
+	QuestionCardActionInput,
+	QuestionCardActionResponse,
 	ResetConversationResponse,
 	SendMessageRequest,
 	SendMessageResponse,
@@ -47,6 +51,17 @@ export function conversationEndpoints(client: ApiClient) {
 			});
 		},
 
+		setConversationPinned(conversationId: string, pinned: boolean): Promise<{ ok: true }> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/preferences`, {
+				method: "PATCH",
+				body: { pinned },
+			});
+		},
+
+		removeConversationFromMessages(conversationId: string): Promise<{ ok: true }> {
+			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}`, { method: "DELETE" });
+		},
+
 		askOwner(messageId: string): Promise<OutwardRequestCard> {
 			return client.request(`/v1/messages/${encodeURIComponent(messageId)}/ask-owner`, {
 				body: {},
@@ -77,6 +92,24 @@ export function conversationEndpoints(client: ApiClient) {
 		sendMessage(conversationId: string, body: SendMessageRequest): Promise<SendMessageResponse> {
 			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/messages`, {
 				body,
+				idempotencyKey: body.clientNonce,
+			});
+		},
+
+		questionCard(messageId: string): Promise<Message> {
+			return client.request(`/v1/messages/${encodeURIComponent(messageId)}/question`);
+		},
+
+		answerQuestionCard(messageId: string, body: AnswerQuestionCardRequest): Promise<QuestionCardActionResponse> {
+			return client.request(`/v1/messages/${encodeURIComponent(messageId)}/question`, {
+				body,
+				idempotencyKey: body.clientNonce,
+			});
+		},
+
+		skipQuestionCard(messageId: string, body: QuestionCardActionInput): Promise<QuestionCardActionResponse> {
+			return client.request(`/v1/messages/${encodeURIComponent(messageId)}/question`, {
+				body: { ...body, action: "skip" },
 				idempotencyKey: body.clientNonce,
 			});
 		},

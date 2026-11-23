@@ -57,6 +57,7 @@ export {
 export { useConnectorActions, useConnectorCatalog, useConnectors } from "./hooks/connectors.ts";
 export { useContactActions, useContactSearch, useContacts } from "./hooks/contacts.ts";
 export {
+	useConversationListActions,
 	useMarkConversationRead,
 	useResetBotConversation,
 	useSetConversationMuted,
@@ -71,6 +72,7 @@ export {
 	useCreateItem,
 	useItem,
 	useItemActions,
+	useItemListAction,
 	useItemSession,
 	useItems,
 	useRenameItemSession,
@@ -90,6 +92,7 @@ export type { ModelChoice } from "./hooks/model-choices.ts";
 export { defaultChoiceId, modelChoices } from "./hooks/model-choices.ts";
 export { usePrivacy, useUpdatePrivacy } from "./hooks/privacy.ts";
 export { useProviderActions, useProviders } from "./hooks/providers.ts";
+export { useQuestionCardAction } from "./hooks/question-cards.ts";
 export {
 	useInvite,
 	useQuota,

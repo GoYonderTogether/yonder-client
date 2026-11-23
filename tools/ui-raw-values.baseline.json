@@ -6,13 +6,10 @@
 		"text-px": 4,
 		"radius-raw": 6,
 		"font-weight-number": 9,
-		"window-confirm": 5
+		"window-confirm": 3
 	},
 	"files": {
 		"apps/web/src/app/chunk-boundary.tsx": {
-			"window-confirm": 1
-		},
-		"apps/web/src/app/use-model-dirty-guard.ts": {
 			"window-confirm": 1
 		},
 		"apps/web/src/lib/file-type-icon.css": {
@@ -45,9 +42,6 @@
 			"radius-raw": 1
 		},
 		"packages/ui/features/me/src/components/models-section.tsx": {
-			"window-confirm": 1
-		},
-		"packages/ui/features/me/src/components/provider-editor.tsx": {
 			"window-confirm": 1
 		},
 		"packages/ui/features/me/src/skills/skill-detail.tsx": {

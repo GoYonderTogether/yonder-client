@@ -129,16 +129,20 @@ test("IME confirmation restores the correct filter for the next Enter to select"
 	const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
 	fireEvent(input, tab);
 	expect(tab.defaultPrevented).toBe(false);
+	// compositionEnd starts the composer's 500ms no-send window; step past it before the next Enter.
+	const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
 	fireEvent.compositionEnd(input);
 	expect(screen.getAllByRole("option")).toHaveLength(1);
 	fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
 	fireEvent.keyUp(input, { key: "Enter" });
 	expect(input).toHaveValue("/pdf-3");
+	clock.mockReturnValue(2000);
 	expect(accepted).not.toHaveBeenCalled();
 	fireEvent.keyDown(input, { key: "Enter" });
 	expect(input).toHaveValue("/pdf-3 ");
 	expect(accepted).toHaveBeenCalledWith(expect.objectContaining({ id: "s3" }));
 	expect(sent).not.toHaveBeenCalled();
+	clock.mockRestore();
 });
 
 test("dismissed and unmatched text sends normally; dismissal and selection do not rewrite it", () => {

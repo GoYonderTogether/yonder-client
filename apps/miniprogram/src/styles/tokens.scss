@@ -46,6 +46,7 @@ page,
 	--spacing-10: 40px;
 	--spacing-12: 48px;
 	--spacing-16: 64px;
+	--spacing-hair: 2px;
 	--animate-push-in: yonder-push-in var(--duration-slow) var(--ease-decelerate);
 	--animate-pop-in: yonder-pop-in var(--duration-base) var(--ease-decelerate);
 	--animate-sheet-up: yonder-sheet-up var(--duration-slow) var(--ease-decelerate);
@@ -58,6 +59,7 @@ page,
 	--color-bg-subtle-hover: rgba(46, 50, 56, 0.09);
 	--color-bg-surface: #ffffff;
 	--color-bg-raised: #ffffff;
+	--color-bg-card: color-mix(in srgb, #2e3238 5%, #ffffff);
 	--color-bg-dock: var(--color-bg-base);
 	--color-bg-overlay: rgba(22, 22, 26, 0.6);
 	--color-bg-hover: rgba(46, 50, 56, 0.09);
@@ -161,6 +163,8 @@ page,
 	--conversation-row-height: 60px;
 	--card-padding: 20px;
 	--page-padding: 24px;
+	--width-form: 400px;
+	--icon-sm: 16px;
 }
 @media (prefers-color-scheme: dark) {
 	/* biome-ignore lint/correctness/noUnknownTypeSelector: WeChat native page root. */
@@ -176,6 +180,7 @@ page,
 		--color-bg-subtle-hover: rgba(255, 255, 255, 0.16);
 		--color-bg-surface: #232429;
 		--color-bg-raised: #35363c;
+		--color-bg-card: var(--color-bg-chrome);
 		--color-bg-dock: var(--color-bg-base);
 		--color-bg-overlay: rgba(22, 22, 26, 0.6);
 		--color-bg-hover: rgba(255, 255, 255, 0.16);

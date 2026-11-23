@@ -12,7 +12,7 @@ export type SessionStatus = "unknown" | "signed-in" | "signed-out";
 
 export interface SessionState {
 	status: SessionStatus;
-	/** True while the first refresh attempt is running, so the shell does not flash the sign-in page. */
+	/** True until a prior session is recognized or the server answers. */
 	booting: boolean;
 	setStatus: (status: SessionStatus) => void;
 	setBooting: (booting: boolean) => void;

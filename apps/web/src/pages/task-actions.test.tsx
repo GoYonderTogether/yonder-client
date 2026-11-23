@@ -5,36 +5,50 @@ import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
 import { TaskActions } from "./task-actions.tsx";
 
-function show() {
+function show({ manual = true }: { manual?: boolean } = {}) {
 	const add = vi.fn();
-	const addGoal = vi.fn();
 	const create = vi.fn();
+	const createManually = vi.fn();
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
-			<TaskActions onAdd={add} onAddGoal={addGoal} onCreateSchedule={create} />
+			<TaskActions
+				onAdd={add}
+				onCreateSchedule={create}
+				{...(manual ? { onCreateScheduleManually: createManually } : {})}
+			/>
 		</I18nextProvider>,
 	);
-	return { add, addGoal, create, plus: screen.getByRole("button", { name: "Create" }) };
+	return { add, create, createManually, plus: screen.getByRole("button", { name: "Create" }) };
 }
 
-test("the plus is one menu with an item, a goal and a scheduled task, whichever tab is open", () => {
-	const { add, addGoal, create, plus } = show();
+test("the plus is one menu on both tabs: a draft, and a scheduled task either way", () => {
+	const { add, create, createManually, plus } = show();
 	expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 	fireEvent.click(plus);
 	expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
 		"New item",
 		"New goal",
 		"New scheduled task",
+		"Create scheduled task manually",
 	]);
-	fireEvent.click(screen.getByRole("menuitem", { name: "New item" }));
-	expect(add).toHaveBeenCalledOnce();
-	fireEvent.click(plus);
 	fireEvent.click(screen.getByRole("menuitem", { name: "New goal" }));
-	expect(addGoal).toHaveBeenCalledOnce();
+	// The draft hand-off also carries where the label was, so its fly-in starts from the menu row.
+	expect(add).toHaveBeenCalledWith(expect.objectContaining({ label: "New goal" }));
+	expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
 	fireEvent.click(plus);
 	fireEvent.click(screen.getByRole("menuitem", { name: "New scheduled task" }));
 	expect(create).toHaveBeenCalledOnce();
-	expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+	fireEvent.click(plus);
+	fireEvent.click(screen.getByRole("menuitem", { name: "Create scheduled task manually" }));
+	expect(createManually).toHaveBeenCalledOnce();
+});
+
+test("a phone, where the Bot draws every preset, offers no manual schedule row", () => {
+	const { plus } = show({ manual: false });
+	fireEvent.click(plus);
+	expect(screen.queryByRole("menuitem", { name: "Create scheduled task manually" })).toBeNull();
+	expect(screen.getAllByRole("menuitem")).toHaveLength(3);
 });
 
 test("the menu closes on Escape or an outside press and returns focus to the plus", () => {

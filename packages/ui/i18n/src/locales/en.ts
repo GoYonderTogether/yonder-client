@@ -11,9 +11,11 @@ import { connectDeviceDownloadEn, landingPageEn } from "./landing-page-en.ts";
 import { meetingRecorderEn } from "./meeting-recorder-en.ts";
 import { membersMessagesEn } from "./members-en.ts";
 import { memoryMessagesEn } from "./memory-en.ts";
+import { messagesEn } from "./messages.ts";
 import { modelMessagesEn } from "./models-en.ts";
 import { photoArchiveEn } from "./photo-archive-en.ts";
 import { pricingMessagesEn } from "./pricing-en.ts";
+import { questionCardsEn } from "./question-cards.ts";
 import { setupMessagesEn } from "./setup-en.ts";
 import { skillMessagesEn } from "./skills-en.ts";
 import { trayEn } from "./tray-en.ts";
@@ -28,6 +30,7 @@ export const en = {
 	commerce: commerceEn,
 	composerAttachments: composerAttachmentsEn,
 	connectors: connectorMessagesEn,
+	questionCards: questionCardsEn,
 	inviteExperience: inviteExperienceEn,
 	friendQr: friendQrEn,
 	landingPage: landingPageEn,
@@ -109,22 +112,7 @@ export const en = {
 		tabs: "Main navigation",
 	},
 
-	messages: {
-		title: "Messages",
-		pinned: "Pinned",
-		muted: "Mute notifications",
-		notificationsSection: "Notifications",
-		unread_one: "{{count}} unread message",
-		unread_other: "{{count}} unread messages",
-		enableSystemNotifications: "Allow system notifications",
-		openNotificationSettings: "Open notification settings",
-		systemNotificationsDenied: "Allow notifications in your device or browser settings.",
-		muteFailed: "Could not change notifications. Try again.",
-		newMessage: "New message",
-		botReply: "Bot reply ready",
-		newConversation: "New conversation",
-		myBot: "My Bot",
-	},
+	messages: messagesEn,
 
 	friendRequests: friendRequestsEn,
 	chatActions: {
@@ -326,6 +314,8 @@ export const en = {
 		emptyTitle: "No items yet",
 		emptyScheduled: "Nothing tracked or planned yet",
 		newSchedule: "New scheduled task",
+		newScheduleManually: "Create scheduled task manually",
+		expandBotConversation: "Expand main Bot conversation",
 		scheduleTitle: "Title",
 		scheduleInstruction: "What to do",
 		scheduleAction: "Kind",
@@ -372,6 +362,11 @@ export const en = {
 		itemHeading: "Item",
 		newItemHeading: "New item",
 		itemActions: "Item actions",
+		itemRename: "Rename",
+		itemArchive: "Archive",
+		itemRestore: "Restore",
+		itemDeleteConfirm: "Delete “{{title}}” from Tasks? Its source records are kept.",
+		upcomingDeleteConfirm: "Delete “{{title}}”? It will no longer run at the scheduled time.",
 		itemRecording: "Meeting recording",
 		itemTranscript: "Transcript",
 		itemRecordingSummary: "Recording summary",
@@ -391,7 +386,6 @@ export const en = {
 		itemResumeFailed: "Could not resume this item.",
 		itemNotFound: "This item is gone.",
 		flyToComposer: "Put in the message box",
-		flyCancel: "Cancel",
 		goalsTracking: "Tracking",
 		groupActive: "Active",
 		groupSchedules: "Schedules",

@@ -1,148 +1,196 @@
-import { ERROR_CODES } from "@yonder/protocol";
-import { Button, InlineError, LoadingRow } from "@yonder/ui-components";
+import { connectorRequestReason } from "@yonder/chat-model";
+import { InteractionCard, InteractionCardActions } from "@yonder/chat-presentation";
+import { ERROR_CODES, type FileConnectorId } from "@yonder/protocol";
+import { Button, InlineError, LoadingRow, Spinner } from "@yonder/ui-components";
 import { ApiError, useConnectorRequest, useConnectorRequestActions, useConnectorRequestDevices } from "@yonder/ui-data";
-import { useState } from "react";
+import { ICON_SIZE, ICON_STROKE } from "@yonder/ui-tokens";
+import { Check, LockKeyhole, X } from "lucide-react";
+import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-/** The capability line under the connector names; the same copy the connectors page uses. */
-const SCOPE_KEYS = {
-	"local-files": "connectors.readScope",
-	"computer-control": "connectors.fileToolsScope",
-} as const;
-
-const NAME_KEYS = {
-	"local-files": "connectors.localFiles.name",
-	"computer-control": "connectors.computerControl.name",
-} as const;
-
-/** The real failure: a known error code is shown in the reader's language, anything else verbatim. */
-function failureText(failure: string, t: (key: string) => string): string {
-	return (ERROR_CODES as readonly string[]).includes(failure) ? t(`errors.${failure}`) : failure;
-}
-
-/**
- * One authorization card. Allowing it is the consent: the server picks the target device, that
- * device's client stores the grant, and every endpoint's copy of this card follows
- * `connector_request.updated`. Nothing here navigates away or waits for the Bot to finish.
- */
 export function ConnectorRequestCard({ id }: { id: string }) {
 	const { t } = useTranslation();
 	const request = useConnectorRequest(id);
 	const actions = useConnectorRequestActions();
-	const [choosing, setChoosing] = useState(false);
-	const [offline, setOffline] = useState(false);
-	const devices = useConnectorRequestDevices(id, choosing);
-	if (request.isPending) return <p role="status">{t("app.loading")}</p>;
+	const [selected, setSelected] = useState<string | null>();
+	const [picking, setPicking] = useState(false);
+	const deviceChoice = useId();
+	const focusPicker = useRef(false);
 	const row = request.data;
+	const retry = row?.state === "expired" || row?.state === "failed";
+	const confirmable = row?.state === "pending" || retry;
+	const devices = useConnectorRequestDevices(id, confirmable);
+	if (request.isPending) return <LoadingRow label={t("app.loading")} />;
 	const connectorIds = row?.connectorIds;
 	if (
 		!row ||
 		!Array.isArray(connectorIds) ||
 		connectorIds.length === 0 ||
-		connectorIds.some((connectorId) => typeof connectorId !== "string" || !Object.hasOwn(SCOPE_KEYS, connectorId))
+		connectorIds.some((id) => id !== "local-files" && id !== "computer-control")
 	)
 		return (
 			<InlineError onRetry={() => void request.refetch()} retryLabel={t("app.retry")}>
 				{t("connectors.requestFailed")}
 			</InlineError>
 		);
-	const scopeKeys = [...new Set(connectorIds.map((connectorId) => SCOPE_KEYS[connectorId]))];
+
 	const selectable = (devices.data?.items ?? []).filter((device) => device.online && device.supported);
-	/**
-	 * Allow, and retry after an expiry or a failure: both are a `confirm` with the connectors this card
-	 * shows. Without a device the server picks one and may start a new dispatch on another device, so a
-	 * retry is not pinned to the device that just failed.
-	 */
-	const allow = (deviceId?: string) => {
-		setOffline(false);
+	const preferred = row.deviceHintId ?? (retry ? row.deviceId : null);
+	const device =
+		selected === undefined
+			? (selectable.find((item) => item.id === preferred) ??
+				(!preferred && selectable.length === 1 ? selectable[0] : undefined))
+			: selectable.find((item) => item.id === selected);
+	const showPicker = confirmable && (picking || !device);
+	const deviceName = confirmable ? device?.name : row.deviceName;
+	const scope = connectorIds.includes("local-files")
+		? connectorIds.includes("computer-control")
+			? "both"
+			: "read"
+		: "write";
+	const settled = row.state === "granted" || row.state === "cancelled";
+	const title = settled
+		? t(`connectors.requestState.${row.state}`)
+		: deviceName
+			? t(`connectors.requestTitle.${scope}`, { device: deviceName })
+			: t(confirmable ? "connectors.requestDevicesTitle" : "connectors.requestCardTitle");
+	const reason = connectorRequestReason(row.reason);
+	const range = t(`connectors.requestScope.${scope}`);
+	const detail = deviceName ? (reason ? t("connectors.requestDetail", { reason, scope: range }) : range) : undefined;
+	const canResume = row.state === "granted" && row.continuation === "failed" && !row.continuationFailure;
+	const busy = actions.confirm.isPending || actions.cancel.isPending;
+	const failure = actions.confirm.error ?? actions.cancel.error;
+	const storedFailure = row.failure;
+	const Glyph = row.state === "granted" ? Check : row.state === "cancelled" ? X : LockKeyhole;
+
+	function allow(deviceId: string, shownConnectors: FileConnectorId[]) {
 		actions.confirm.mutate(
-			{ id, connectorIds, ...(deviceId ? { deviceId } : {}) },
+			{ id, connectorIds: shownConnectors, deviceId },
 			{
-				onSuccess: () => setChoosing(false),
 				onError: (error) => {
 					if (!(error instanceof ApiError)) return;
-					if (error.code === "device_required") setChoosing(true);
-					if (error.code === "device_offline") {
-						setOffline(true);
-						setChoosing(false);
+					if (error.code === "device_offline" || error.code === "device_required") {
+						setSelected(null);
+						void devices.refetch();
 					}
-					// The card changed after it was shown (a connector was added): nothing was dispatched.
-					// Show what it says now so the next tap is consent to that.
 					if (error.code === "request_changed") void request.refetch();
 				},
 			},
 		);
-	};
-	const retry = row.state === "expired" || row.state === "failed";
-	const continuation = row.state === "granted" ? row.continuation : undefined;
-	const continuationLabel = continuation === "failed" ? (row.continuationFailure ?? continuation) : continuation;
-	const canResume = continuation === "failed" && !row.continuationFailure;
-	const failure = actions.confirm.error ?? actions.cancel.error;
-	// The device answer named none, or the server said the target is not online: same sentence, and
-	// the card stays pending so the user can try again once the client is open.
-	const noDevice = offline || (choosing && !devices.isPending && (devices.isError || selectable.length === 0));
+	}
+
 	return (
-		<section className="flex min-w-0 flex-col gap-[var(--spacing-2)] rounded-[var(--radius-card)] bg-[var(--color-bg-subtle)] p-[var(--spacing-4)]">
-			<strong>{t("connectors.requestCardTitle")}</strong>
-			<p className="break-words text-body font-medium">
-				{connectorIds.map((connectorId) => t(NAME_KEYS[connectorId])).join(" · ")}
-			</p>
-			{row.reason ? <p className="whitespace-pre-wrap break-words text-body">{row.reason}</p> : null}
-			{row.deviceName ? (
-				<p className="break-words text-caption text-[var(--color-text-tertiary)]">
-					{t("connectors.requestDevice", { device: row.deviceName })}
+		<InteractionCard
+			as="div"
+			title={title}
+			label={title}
+			detail={settled ? undefined : detail}
+			glyph={
+				row.state === "dispatched" ? (
+					<Spinner size="sm" label={t("connectors.requestState.dispatched")} />
+				) : (
+					<Glyph aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE.normal} />
+				)
+			}
+		>
+			{retry ? (
+				<p className="interaction-card-status" role="status">
+					{t(`connectors.requestState.${row.state}`)}
 				</p>
 			) : null}
-			{scopeKeys.map((scopeKey) => (
-				<p key={scopeKey} className="text-caption text-[var(--color-text-secondary)]">
-					{t(scopeKey)}
-				</p>
-			))}
-			<p className="text-caption text-[var(--color-text-secondary)]">
-				{continuationLabel
-					? t(`connectors.requestContinuation.${continuationLabel}`)
-					: t(`connectors.requestState.${row.state}`)}
-			</p>
-			{row.state === "failed" && row.failure ? <InlineError>{failureText(row.failure, t)}</InlineError> : null}
-			{choosing ? (
-				<div className="flex min-w-0 flex-col gap-[var(--spacing-2)]">
-					<p className="text-caption text-[var(--color-text-secondary)]">{t("connectors.requestDevicesTitle")}</p>
-					<div className="flex flex-wrap gap-[var(--spacing-2)]">
-						{selectable.map((device) => (
-							<Button key={device.id} size="sm" variant="secondary" onClick={() => allow(device.id)}>
-								{device.name}
-							</Button>
-						))}
-					</div>
-					{devices.isPending && selectable.length === 0 ? <LoadingRow label={t("app.loading")} /> : null}
-				</div>
+			{row.state === "failed" && storedFailure ? (
+				<InlineError>
+					{(ERROR_CODES as readonly string[]).includes(storedFailure) ? t(`errors.${storedFailure}`) : storedFailure}
+				</InlineError>
 			) : null}
-			{noDevice ? (
-				<p className="text-caption text-[var(--color-text-secondary)]">{t("connectors.requestDeviceOffline")}</p>
+			{showPicker ? (
+				devices.isPending ? (
+					<LoadingRow label={t("app.loading")} />
+				) : devices.isError || !selectable.length ? (
+					<InlineError onRetry={() => void devices.refetch()} retryLabel={t("app.retry")}>
+						{t(devices.isError ? "connectors.loadFailed" : "connectors.requestDeviceOffline")}
+					</InlineError>
+				) : (
+					<fieldset
+						className="interaction-card-choices interaction-card-device-list"
+						aria-label={t("connectors.requestDevicesTitle")}
+						disabled={busy}
+						ref={(list) => {
+							if (!list || !focusPicker.current) return;
+							focusPicker.current = false;
+							list.querySelector<HTMLInputElement>("input:checked")?.focus();
+						}}
+					>
+						{selectable.map((item) => {
+							const checked = device?.id === item.id;
+							return (
+								<label
+									key={item.id}
+									className={`interaction-card-choice${checked ? " interaction-card-choice-selected" : ""}`}
+								>
+									<input
+										type="radio"
+										name={deviceChoice}
+										checked={checked}
+										className="mt-[var(--spacing-1)] shrink-0 accent-[var(--color-accent)]"
+										onChange={() => {
+											setPicking(true);
+											setSelected(item.id);
+										}}
+									/>
+									<span className="interaction-card-device-name">{item.name}</span>
+								</label>
+							);
+						})}
+					</fieldset>
+				)
 			) : null}
-			<div className="flex flex-wrap gap-[var(--spacing-2)]">
-				{(row.state === "pending" || retry) && !choosing ? (
-					<Button variant="primary" size="sm" loading={actions.confirm.isPending} onClick={() => allow()}>
-						{t(retry ? "connectors.requestRetry" : "connectors.requestAllow")}
-					</Button>
-				) : null}
-				{row.state === "pending" || row.state === "dispatched" ? (
-					<Button size="sm" loading={actions.cancel.isPending} onClick={() => actions.cancel.mutate(id)}>
-						{t("app.cancel")}
-					</Button>
-				) : null}
-				{canResume ? (
-					<Button size="sm" loading={actions.resume.isPending} onClick={() => actions.resume.mutate(id)}>
-						{t("connectors.requestContinue")}
-					</Button>
-				) : null}
-			</div>
+			{row.state === "pending" || row.state === "dispatched" || (confirmable && device) || canResume ? (
+				<InteractionCardActions as="div">
+					{confirmable && device && !showPicker && selectable.length > 1 ? (
+						<Button
+							variant="ghost"
+							onClick={() => {
+								focusPicker.current = true;
+								setPicking(true);
+							}}
+							disabled={busy}
+						>
+							{t("connectors.requestSwitchDevice")}
+						</Button>
+					) : null}
+					{row.state === "pending" || row.state === "dispatched" ? (
+						<Button
+							loading={actions.cancel.isPending}
+							disabled={actions.confirm.isPending}
+							onClick={() => actions.cancel.mutate(id)}
+						>
+							{t(row.state === "pending" ? "connectors.requestDeny" : "app.cancel")}
+						</Button>
+					) : null}
+					{confirmable && device ? (
+						<Button
+							variant="primary"
+							loading={actions.confirm.isPending}
+							disabled={actions.cancel.isPending}
+							onClick={() => allow(device.id, connectorIds)}
+						>
+							{t(retry ? "connectors.requestRetry" : "connectors.requestAllow")}
+						</Button>
+					) : null}
+					{canResume ? (
+						<Button loading={actions.resume.isPending} onClick={() => actions.resume.mutate(id)}>
+							{t("connectors.requestContinue")}
+						</Button>
+					) : null}
+				</InteractionCardActions>
+			) : null}
 			{canResume && actions.resume.error ? <InlineError>{t("connectors.requestContinueFailed")}</InlineError> : null}
-			{failure && row.state !== "granted" && !noDevice && !choosing ? (
+			{failure && !settled ? (
 				<InlineError>
 					{failure instanceof ApiError ? t(`errors.${failure.code}`) : t("connectors.requestFailed")}
 				</InlineError>
 			) : null}
-		</section>
+		</InteractionCard>
 	);
 }

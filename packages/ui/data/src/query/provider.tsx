@@ -3,10 +3,11 @@
  * realtime connection and the sign-out sweep, so a feature calls `useMe()` and trusts the rest.
  */
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useIsRestoring, useQueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import type { Endpoints } from "@yonder/api-client";
 import { ApiClient, createEndpoints } from "@yonder/api-client";
+import type { MeResponse } from "@yonder/protocol";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { useSessionStore } from "../auth/session-store.ts";
@@ -31,7 +32,7 @@ export interface DataProviderProps {
 	appVersion: string;
 	clientKind: "web" | "shell";
 	/** A shell supplies keychain-backed storage for the refresh token. */
-	refreshTokenStorage?: { get(): string | null; set(value: string | null): void };
+	refreshTokenStorage?: { get(): string | null; set(value: string | null): void | Promise<void> };
 	/** Access-only session borrowed by an auxiliary shell window. */
 	refreshAccessToken?: () => Promise<string | null>;
 	/** Close auxiliary windows before the account changes. */
@@ -55,6 +56,8 @@ export interface DataContextValue {
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
+const WEB_SESSION_EXPIRY = "session-expiry";
+const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function DataProvider({
 	baseUrl,
@@ -73,10 +76,16 @@ export function DataProvider({
 		persister.activate();
 		return () => persister.dispose();
 	}, [persister]);
-	const setStatus = useSessionStore((state) => state.setStatus);
-
 	const clientParts = useMemo(() => {
-		const tokens = createMemoryTokenStore();
+		const realtime: RealtimeConnection = new RealtimeConnection({
+			baseUrl,
+			getAccessToken: () => tokens.getAccessToken(),
+		});
+		const tokens = createMemoryTokenStore((firstToken) => {
+			if (clientKind === "web") storage.set(WEB_SESSION_EXPIRY, String(Date.now() + SESSION_LIFETIME_MS));
+			// Cached data may already have opened the app before it had an access token.
+			if (firstToken && useSessionStore.getState().status === "signed-in") realtime.connect();
+		});
 		if (refreshTokenStorage) tokens.withRefreshStorage(refreshTokenStorage);
 		const client = new ApiClient({
 			baseUrl,
@@ -86,36 +95,25 @@ export function DataProvider({
 			...(refreshAccessToken ? { refreshAccessToken } : {}),
 			onSessionLost: () => {
 				void onSessionChange?.();
+				if (clientKind === "web") storage.set(WEB_SESSION_EXPIRY, "0");
 				queryClient.removeQueries({ queryKey: keys.memory.all() });
 				queryClient.removeQueries({ queryKey: keys.agentCards.all() });
-				setStatus("signed-out");
+				useSessionStore.setState({ status: "signed-out", booting: false });
 			},
 		});
-		return import.meta.env.DEV ? { client, expireAccessTokenForDev: () => tokens.setAccessToken(null) } : { client };
-	}, [
-		baseUrl,
-		clientKind,
-		appVersion,
-		refreshTokenStorage,
-		refreshAccessToken,
-		onSessionChange,
-		queryClient,
-		setStatus,
-	]);
-	const { client } = clientParts;
+		return import.meta.env.DEV
+			? { client, realtime, expireAccessTokenForDev: () => tokens.setAccessToken(null) }
+			: { client, realtime };
+	}, [baseUrl, clientKind, appVersion, refreshTokenStorage, refreshAccessToken, onSessionChange, queryClient, storage]);
+	const { client, realtime } = clientParts;
 
 	const api = useMemo(() => createEndpoints(client), [client]);
-	const realtime = useMemo(
-		() => new RealtimeConnection({ baseUrl, getAccessToken: () => client.accessToken }),
-		[baseUrl, client],
-	);
 	const pendingSignOut = useRef<Promise<void> | undefined>(undefined);
 
 	const value = useMemo<DataContextValue>(
 		() => ({
 			...clientParts,
 			api,
-			realtime,
 			storage,
 			async startSession(session) {
 				await onSessionChange?.();
@@ -124,8 +122,8 @@ export function DataProvider({
 				queryClient.clear();
 				await persister.removeClient();
 				storage.remove(CACHE_STORAGE_KEY);
-				client.setSession(session);
-				setStatus("signed-in");
+				await client.setSession(session);
+				useSessionStore.setState({ status: "signed-in", booting: false });
 			},
 			signOutLocal() {
 				// An explicit sign-out and the realtime revocation can arrive together.
@@ -133,13 +131,14 @@ export function DataProvider({
 					.then(async () => {
 						await onSessionChange?.();
 						await clearChatCache();
-						client.clearTokens();
+						await client.clearTokens();
+						if (clientKind === "web") storage.set(WEB_SESSION_EXPIRY, "0");
 						realtime.stop();
 						queryClient.clear();
 						await persister.removeClient();
 						// Theme and language are device preferences and stay on the sign-in screen.
 						storage.remove(CACHE_STORAGE_KEY);
-						setStatus("signed-out");
+						useSessionStore.setState({ status: "signed-out", booting: false });
 					})
 					.finally(() => {
 						pendingSignOut.current = undefined;
@@ -147,7 +146,7 @@ export function DataProvider({
 				return pendingSignOut.current;
 			},
 		}),
-		[clientParts, client, api, realtime, storage, queryClient, persister, setStatus, onSessionChange],
+		[clientParts, client, clientKind, api, realtime, storage, queryClient, persister, onSessionChange],
 	);
 
 	return (
@@ -161,7 +160,7 @@ export function DataProvider({
 					dehydrateOptions,
 				}}
 			>
-				<SessionBootstrapper />
+				<SessionBootstrapper web={clientKind === "web"} refreshTokenStorage={refreshTokenStorage} />
 				{children}
 			</PersistQueryClientProvider>
 		</DataContext.Provider>
@@ -169,25 +168,47 @@ export function DataProvider({
 }
 
 /**
- * One refresh attempt before the first screen decides what to show: the access token lives in
- * memory, so after a reload the cookie (or the keychain) is the only way back in.
+ * Identify a prior session from platform storage before checking it with the server.
+ * This lets the existing cache open for returning users while offline.
  */
-function SessionBootstrapper() {
-	const { client } = useData();
-	const setStatus = useSessionStore((state) => state.setStatus);
-	const setBooting = useSessionStore((state) => state.setBooting);
-
+function SessionBootstrapper({
+	web,
+	refreshTokenStorage,
+}: {
+	web: boolean;
+	refreshTokenStorage: DataProviderProps["refreshTokenStorage"];
+}) {
+	const { client, storage } = useData();
+	const queryClient = useQueryClient();
+	const restoring = useIsRestoring();
 	useEffect(() => {
+		if (restoring) return;
 		let cancelled = false;
-		void client.refreshSession().then((ok) => {
-			if (cancelled) return;
-			setStatus(ok ? "signed-in" : "signed-out");
-			setBooting(false);
-		});
+		let expires = web ? storage.get(WEB_SESSION_EXPIRY) : null;
+		if (web && expires === null) {
+			// Earlier versions already persist the authenticated profile.
+			const profile = queryClient.getQueryState<MeResponse>(keys.me());
+			if (profile?.data?.member?.id) {
+				expires = String(profile.dataUpdatedAt + SESSION_LIFETIME_MS);
+				storage.set(WEB_SESSION_EXPIRY, expires);
+			}
+		}
+		const known = web ? Number(expires) > Date.now() : Boolean(refreshTokenStorage?.get());
+		useSessionStore.setState(known ? { status: "signed-in", booting: false } : { status: "unknown", booting: true });
+		void client
+			.refreshSession({ throwOnUnavailable: true })
+			.then((ok) => {
+				if (cancelled || ok !== Boolean(client.accessToken)) return;
+				if (!ok && web) storage.set(WEB_SESSION_EXPIRY, "0");
+				useSessionStore.setState({ status: ok ? "signed-in" : "signed-out", booting: false });
+			})
+			.catch(() => {
+				// A temporary failure leaves the current UI and stored credential alone.
+			});
 		return () => {
 			cancelled = true;
 		};
-	}, [client, setStatus, setBooting]);
+	}, [client, queryClient, refreshTokenStorage, restoring, storage, web]);
 
 	return null;
 }

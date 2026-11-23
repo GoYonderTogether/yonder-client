@@ -110,6 +110,10 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 	// from `system` in the reader's language (19 第三节).
 	const isSystem = message.type === "system";
 	if (!isSystem && !message.voice && !message.meeting && !message.body?.trim()) return;
+	// A reply in a hidden conversation (清空历史) brings the conversation list back in step, so the row
+	// does not keep showing an older preview than the message that just landed.
+	if (!message.streaming && cachedConversation(client, message.conversationId)?.hiddenFromMessages)
+		void client.invalidateQueries({ queryKey: keys.conversations.list() });
 	client.setQueryData<ConversationList>(keys.conversations.list(), (current) => {
 		if (!current) return current;
 		return {

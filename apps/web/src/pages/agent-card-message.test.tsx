@@ -91,11 +91,14 @@ test("a question offers its choices only while open, then keeps them without but
 	state.card = {
 		...question,
 		state: "done",
+		result: "Removed Dee",
 		body: { type: "choices", options: answers, selected: "yes" },
 	};
 	rerenderCard(view);
+	// An answered card keeps only the choice made, with the buttons retired, and says what came of it.
 	expect(screen.getByRole("button", { name: "Keep it" })).toBeDisabled();
-	expect(screen.getByRole("button", { name: "Discard" })).toBeDisabled();
+	expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+	expect(screen.getByRole("status")).toHaveTextContent("Removed Dee");
 });
 
 test("a card says what it is about while open, and afterwards what became of the choice", () => {

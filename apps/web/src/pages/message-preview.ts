@@ -1,4 +1,20 @@
+import { systemEventText, type Translate } from "@yonder/feature-members";
+import type { Conversation } from "@yonder/protocol";
 import { type MarkdownToJSX, parser, RuleType } from "markdown-to-jsx";
+
+/**
+ * A group lifecycle message stores an event, not a sentence, so the conversation row builds its
+ * words here in the reader's language (19 3.3); every other last message keeps the ordinary preview.
+ */
+export function rowPreview(conversation: Conversation, t: Translate): string | undefined {
+	const last = conversation.lastMessage;
+	if (!last) return undefined;
+	if (conversation.kind === "system") return t("friendRequests.title");
+	if (last.type === "system" && last.system) return systemEventText(last.system, t) || undefined;
+	if (last.recordingNote) return t("meetingRecorder.listPreview");
+	if (last.voice) return t("chat.voiceMessage");
+	return last.body ? messagePreview(last.body) : undefined;
+}
 
 /** Keep the conversation row plain text, including when a message contains links. */
 export function messagePreview(body: string): string {

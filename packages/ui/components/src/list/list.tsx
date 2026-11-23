@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { useId } from "react";
 import { cn } from "../cn.ts";
+import { type RowAction, RowActionItem } from "./row-action-item.tsx";
 
 /**
  * Settings sections (docs/settings-forms.md): a semibold title, a solid hairline under it, rows
@@ -77,6 +78,7 @@ export interface ListRowProps extends Omit<ButtonHTMLAttributes<HTMLButtonElemen
 	selected?: boolean;
 	/** `danger` for delete and sign out; `accent` for a row that runs an action (connect). */
 	tone?: "default" | "danger" | "accent";
+	actions?: readonly RowAction[] | undefined;
 }
 
 const ROW_BODY =
@@ -91,12 +93,13 @@ export function ListRow({
 	chevron = false,
 	selected = false,
 	tone = "default",
+	actions,
 	className,
 	type = "button",
 	...rest
 }: ListRowProps) {
 	return (
-		<li className={ROW_LINE}>
+		<RowActionItem actions={actions} className={ROW_LINE}>
 			<button
 				type={type}
 				aria-current={selected ? "true" : undefined}
@@ -134,7 +137,7 @@ export function ListRow({
 				) : null}
 				{chevron ? <Chevron /> : null}
 			</button>
-		</li>
+		</RowActionItem>
 	);
 }
 

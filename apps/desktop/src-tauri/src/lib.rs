@@ -15,6 +15,8 @@ mod desktop_credentials;
 
 #[cfg(target_os = "ios")]
 mod ios_chat_attachments;
+#[cfg(target_os = "ios")]
+mod ios_chat_microphone;
 mod notifications;
 
 #[cfg(target_os = "macos")]
@@ -77,7 +79,11 @@ pub fn run() {
     #[cfg(any(target_os = "ios", target_os = "macos"))]
     let builder = builder.plugin(apple_resources::init());
     #[cfg(target_os = "ios")]
-    let builder = builder.plugin(ios_chat_attachments::init());
+    let builder = builder
+        .plugin(ios_chat_attachments::init())
+        .invoke_handler(tauri::generate_handler![
+            ios_chat_microphone::prepare_chat_microphone
+        ]);
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(mac_permissions::init());
     #[cfg(target_os = "android")]

@@ -2,6 +2,7 @@ export { agentChatStatus, isTwoPartyAgentChat } from "./agent-chat.ts";
 export { BOT_FACE_IDS, type BotFaceId, botFaceFor, botFacePaths, firstCharacter, tintFor } from "./avatar.ts";
 export { BOT_ROLE_LIMIT, botRoleProblem, conversationBotOwner, ownedBotFor } from "./bot-label.ts";
 export { chatHistoryTimeOffset, isNewChatHistoryCutoff } from "./chat-history-clear.ts";
+export { connectorRequestReason } from "./connector-requests.ts";
 export { conversationPeer } from "./conversation-peer.ts";
 export {
 	addableContacts,
@@ -14,6 +15,16 @@ export {
 	recentContacts,
 } from "./group-invites.ts";
 export { optionCardAttachments, optionCardState } from "./option-cards.ts";
+export {
+	attachmentsOutsideQuestionCard,
+	emptyQuestionDraft,
+	emptyQuestionDraftAnswer,
+	type QuestionDraft,
+	type QuestionDraftAnswer,
+	questionAnswerText,
+	questionDraftAnswers,
+	questionDraftPageReady,
+} from "./question-cards.ts";
 export { runSources } from "./run-sources.ts";
 
 import type { Message } from "@yonder/protocol";
@@ -60,6 +71,8 @@ export function newestReadableMessage(
 				!message.attachments.length &&
 				!message.outwardRequest &&
 				!message.friendRequestId &&
+				!message.connectorRequestId &&
+				!message.questionCard &&
 				!(support.recordingNotes && message.meeting) &&
 				!hasAgentCard(message, support))
 		)
@@ -179,6 +192,7 @@ function isEmptyBotReply(message: Message): boolean {
 		!message.outwardRequest &&
 		!message.friendRequestId &&
 		!message.connectorRequestId &&
+		!message.questionCard &&
 		!message.options?.length &&
 		message.run?.status !== "failed" &&
 		!runSources(message.run).length

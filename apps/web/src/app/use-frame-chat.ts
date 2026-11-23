@@ -1,7 +1,16 @@
-import type { Conversation } from "@yonder/protocol";
-import { useCompactConversation, useCreateItem, useItemSession, useMessages, useSendMessage } from "@yonder/ui-data";
+import type { Attachment, Conversation, SendMessageRequest } from "@yonder/protocol";
+import {
+	outboxCacheKey,
+	readChatCache,
+	useCompactConversation,
+	useCreateItem,
+	useItemSession,
+	useMessages,
+	useSendMessage,
+} from "@yonder/ui-data";
+import { type ChatVoice, voiceDuration, voiceFiles } from "../lib/chat-voice.ts";
 import { isDesktopExperience } from "../lib/platform.ts";
-import { useChatDraft } from "./use-chat-draft.ts";
+import { draftFile, useChatDraft } from "./use-chat-draft.ts";
 import { useDirectAttachmentSend } from "./use-direct-attachment-send.ts";
 
 export function useFrameChat({
@@ -34,22 +43,57 @@ export function useFrameChat({
 	const compact = useCompactConversation(target?.id);
 	const streaming = history.data?.pages
 		.flatMap((page) => page.items)
-		.findLast((message) => message.senderKind === "bot" && message.streaming);
+		.findLast((message) => message.senderKind === "bot" && message.streaming && !message.questionCard);
 	const hasBot = creating || (target?.members.some((member) => member.kind === "bot") ?? false);
 
-	async function submit(voice?: File) {
+	const knownVoiceNonce = (nonce: string) =>
+		history.data?.pages.some((page) => page.items.some((message) => message.clientNonce === nonce)) ?? false;
+
+	async function sendToTarget(input: SendMessageRequest & { attachments: Attachment[] }) {
+		if (!creating) return void (await send.mutateAsync(input));
+		const { attachments: _attachments, ...body } = input;
+		const result = await create.mutateAsync(body);
+		onCreated(result.item.id);
+	}
+
+	async function submit() {
 		if (!creating && !target) return;
 		let createdId: string | undefined;
-		const sent = await draft.submit(
-			async (input) => {
-				if (!creating) return send.mutateAsync(input);
-				const { attachments: _attachments, ...body } = input;
-				const result = await create.mutateAsync(body);
-				createdId = result.item.id;
-			},
-			voice ? { file: voice, transcribe: hasBot } : undefined,
-		);
+		const sent = await draft.submit(async (input) => {
+			if (!creating) return send.mutateAsync(input);
+			const { attachments: _attachments, ...body } = input;
+			const result = await create.mutateAsync(body);
+			createdId = result.item.id;
+		});
 		if (sent && createdId) onCreated(createdId);
+	}
+
+	async function submitVoice(recording: ChatVoice, signal: AbortSignal) {
+		if (!creating && !target) throw new Error("voice_conversation_missing");
+		const attachments: Attachment[] = [];
+		for (const [index, file] of voiceFiles(recording, 240_000).entries()) {
+			signal.throwIfAborted();
+			const { attachment } = await draft.uploadDirectFile(
+				{ ...draftFile(file), id: `${recording.nonce}:${index}` },
+				signal,
+			);
+			attachments.push(attachment);
+		}
+		signal.throwIfAborted();
+		try {
+			await sendToTarget({
+				type: "voice",
+				body: "",
+				clientNonce: recording.nonce,
+				attachmentIds: attachments.map(({ id }) => id),
+				attachments,
+				voice: { durationMs: voiceDuration(recording), ...(hasBot ? { transcribe: true } : {}) },
+			});
+		} catch (error) {
+			// After upload, let the timeline own retries if its message already survived to the outbox.
+			const queued = personId && target && (await readChatCache(outboxCacheKey(personId, target.id, recording.nonce)));
+			if (!queued) throw error;
+		}
 	}
 
 	return {
@@ -59,6 +103,8 @@ export function useFrameChat({
 		hasBot,
 		itemSession,
 		submit,
+		submitVoice,
+		knownVoiceNonce,
 		compact,
 		directAttachments,
 		streaming: Boolean(streaming),

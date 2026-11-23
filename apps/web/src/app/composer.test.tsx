@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
@@ -42,7 +42,7 @@ test.each([false, true])("own Bot attachment menu opens before a picker (mobile=
 	picker.mockRestore();
 });
 
-test("mobile swaps the empty composer between typing and holding to talk", () => {
+test("mobile swaps the empty composer between typing and holding to talk", async () => {
 	const send = vi.fn();
 	const props = {
 		recipientName: "Bot",
@@ -66,7 +66,7 @@ test("mobile swaps the empty composer between typing and holding to talk", () =>
 	expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Voice input" }));
 	expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-	expect(screen.getByRole("button", { name: "Hold to talk" })).toBeEnabled();
+	await waitFor(() => expect(screen.getByRole("button", { name: "Hold to talk" })).toBeEnabled());
 	fireEvent.click(screen.getByRole("button", { name: "Text input" }));
 	expect(screen.getByRole("textbox")).toHaveFocus();
 	view.rerender(composer("A message"));
@@ -76,7 +76,7 @@ test("mobile swaps the empty composer between typing and holding to talk", () =>
 	expect(toggle.compareDocumentPosition(screen.getByRole("textbox"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 	expect(sendButton.compareDocumentPosition(attach)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 	fireEvent.click(toggle);
-	expect(screen.getByRole("button", { name: "Hold to talk" })).toBeEnabled();
+	await waitFor(() => expect(screen.getByRole("button", { name: "Hold to talk" })).toBeEnabled());
 	expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Text input" }));
 	expect(screen.getByRole("textbox")).toHaveValue("A message");
@@ -158,17 +158,25 @@ test.each([false, true])(
 			</I18nextProvider>,
 		);
 		const input = screen.getByRole("textbox");
+		// The composer ignores Enter for 500ms after composition ends, so the test moves the clock past
+		// that window before expecting the send; the confirming Enter itself must not send.
+		const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
 		input.focus();
 		fireEvent.compositionStart(input);
 		if (legacyWebKit) fireEvent.compositionEnd(input);
-		expect(
-			fireEvent.keyDown(input, { key: "Enter", isComposing: !legacyWebKit, keyCode: legacyWebKit ? 229 : 13 }),
-		).toBe(true);
+		clock.mockReturnValue(1499);
+		// A legacy WebKit keydown after compositionend still carries keyCode 229; a modern one carries
+		// isComposing. Neither may send.
+		if (legacyWebKit) fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+		else fireEvent.keyDown(input, { key: "Enter", isComposing: true });
 		if (!legacyWebKit) fireEvent.compositionEnd(input);
 		fireEvent.keyUp(input, { key: "Enter" });
 		expect(send).not.toHaveBeenCalled();
+		// The next Enter, once the full 500ms window after compositionEnd has passed, sends.
+		clock.mockReturnValue(2000);
 		fireEvent.keyDown(input, { key: "Enter" });
 		expect(send).toHaveBeenCalledOnce();
+		clock.mockRestore();
 	},
 );
 

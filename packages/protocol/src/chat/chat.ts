@@ -153,6 +153,8 @@ export interface Conversation {
 	unreadCount: number;
 	muted?: boolean;
 	pinned: boolean;
+	/** A viewer removed this row from Messages, while the conversation remains accessible. */
+	hiddenFromMessages?: boolean;
 	version: number;
 }
 
@@ -193,6 +195,8 @@ export interface Message {
 	channelAttemptId?: string;
 	outwardDraft?: boolean;
 	options?: string[];
+	questionCard?: import("./questions.ts").QuestionCard;
+	questionReply?: { question: string };
 	/** Image attachment IDs aligned with options, with null for text-only rows. */
 	optionImageIds?: (string | null)[];
 	id: string;
@@ -207,7 +211,7 @@ export interface Message {
 	system?: SystemEvent;
 	body: string | null;
 	attachments: Attachment[];
-	voice?: { durationMs: number };
+	voice?: { durationMs: number; transcription?: "pending" | "completed" | "failed" };
 	replyToId: string | null;
 	createdAt: string;
 	/** When a streamed reply became eligible for unread counts. */
@@ -244,10 +248,10 @@ export interface MessagePage {
 }
 
 export interface SendMessageRequest {
-	type: "text";
+	type: "text" | "voice";
 	body: string;
 	attachmentIds?: string[];
-	voice?: { durationMs: number };
+	voice?: { durationMs: number; transcribe?: true };
 	clientNonce: string;
 	skillIds?: string[];
 	mentionedMemberIds?: string[];

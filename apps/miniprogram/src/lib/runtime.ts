@@ -18,13 +18,17 @@ export { subscribeEvents, suspendRealtime, useRealtimeRevision } from "./realtim
 const baseUrl = typeof YONDER_API_BASE === "undefined" ? "https://yonder.zethai.cn" : YONDER_API_BASE;
 const appVersion = typeof YONDER_APP_VERSION === "undefined" ? "0.3.26111505" : YONDER_APP_VERSION;
 export const REFRESH_STORAGE_KEY = `yonder.mini.refresh.${encodeURIComponent(baseUrl)}`;
+const memberIdStorageKey = `yonder.mini.member.${encodeURIComponent(baseUrl)}`;
 // Unscoped development credentials have no trustworthy server binding.
 Taro.removeStorageSync("yonder.mini.refresh");
+const getRefreshToken = (): string | null => Taro.getStorageSync(REFRESH_STORAGE_KEY) || null;
+const hasSavedSession = Boolean(getRefreshToken());
+let savedMemberId: string | null = (hasSavedSession && Taro.getStorageSync(memberIdStorageKey)) || null;
 let accessToken: string | null = null;
 const listeners = new Set<() => void>();
 let cachedBots: readonly Member[] = [];
 let session: { status: "booting" | "signed-out" | "signed-in"; me: MeResponse | null } = {
-	status: "booting",
+	status: hasSavedSession ? "signed-in" : "booting",
 	me: null,
 };
 const downloaded = new Map<string, string>();
@@ -43,6 +47,19 @@ function publish(next: typeof session): void {
 	if (next.me?.member.id !== session.me?.member.id) cachedBots = [];
 	session = next;
 	for (const listener of [...listeners]) listener();
+}
+
+function publishMe(me: MeResponse): void {
+	if (savedMemberId !== me.member.id) {
+		savedMemberId = me.member.id;
+		try {
+			Taro.setStorageSync(memberIdStorageKey, savedMemberId);
+		} catch {
+			// The member ID is still available to this running session.
+		}
+	}
+	setLocale(me.settings.locale);
+	publish({ status: "signed-in", me });
 }
 
 function removeDownloaded(filePath: string): void {
@@ -73,10 +90,14 @@ export const client = new ApiClient({
 		setAccessToken: (value) => {
 			accessToken = value;
 		},
-		getRefreshToken: () => Taro.getStorageSync(REFRESH_STORAGE_KEY) || null,
+		getRefreshToken,
 		setRefreshToken: (value) => {
 			if (value) Taro.setStorageSync(REFRESH_STORAGE_KEY, value);
-			else Taro.removeStorageSync(REFRESH_STORAGE_KEY);
+			else {
+				Taro.removeStorageSync(REFRESH_STORAGE_KEY);
+				Taro.removeStorageSync(memberIdStorageKey);
+				savedMemberId = null;
+			}
 		},
 	},
 	onSessionLost: clearLocal,
@@ -152,7 +173,7 @@ export function deviceInfo(): DeviceInfo & { installationId: string } {
 }
 
 export async function resumeRealtime(): Promise<void> {
-	if (session.status === "booting" || (session.status !== "signed-in" && Taro.getStorageSync(REFRESH_STORAGE_KEY))) {
+	if (session.status === "booting" || (!session.me && getRefreshToken())) {
 		await bootstrapSession();
 		return;
 	}
@@ -169,8 +190,7 @@ export async function refreshMe(): Promise<void> {
 	const expected = generation;
 	const me = await api.me();
 	assertCurrent(expected);
-	setLocale(me.settings.locale);
-	publish({ status: "signed-in", me });
+	publishMe(me);
 }
 
 export async function startSession(value: {
@@ -180,10 +200,8 @@ export async function startSession(value: {
 }): Promise<void> {
 	clearLocal();
 	client.setSession(value);
-	if (value.me) {
-		setLocale(value.me.settings.locale);
-		publish({ status: "signed-in", me: value.me });
-	} else await refreshMe();
+	if (value.me) publishMe(value.me);
+	else await refreshMe();
 	await api.registerDevice(deviceInfo()).catch(() => {});
 	await connectRealtime();
 	invalidateRealtime();
@@ -194,15 +212,16 @@ export function bootstrapSession(): Promise<void> {
 	bootstrapping ??= (async () => {
 		const expected = generation;
 		if (!(await client.refreshSession())) {
-			if (expected === generation) publish({ status: "signed-out", me: null });
+			if (expected === generation && !getRefreshToken()) publish({ status: "signed-out", me: null });
 			return;
 		}
 		try {
+			assertCurrent(expected);
 			await refreshMe();
 			await api.registerDevice(deviceInfo()).catch(() => {});
-			await connectRealtime();
+			if (expected === generation) await connectRealtime();
 		} catch {
-			if (expected === generation) publish({ status: "signed-out", me: null });
+			/* Keep the stored sign-in available until the server rejects it. */
 		}
 	})().finally(() => {
 		bootstrapping = undefined;
@@ -234,7 +253,8 @@ export function useCachedBots(): readonly Member[] {
 
 export function useSession() {
 	const snapshot = useSyncExternalStore(subscribeSession, () => session);
-	return { ...snapshot, startSession, signOut, refreshMe };
+	const memberId = snapshot.status === "signed-in" ? savedMemberId : null;
+	return { ...snapshot, memberId, startSession, signOut, refreshMe };
 }
 
 export function uploadAttachment(

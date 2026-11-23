@@ -217,7 +217,9 @@ test("a refused dirty-form exit leaves the route and page in place", async () =>
 	expect(router.state.location.pathname).toBe("/me/account/password");
 	expect(screen.getByText("Password page")).toBe(page);
 	await act(() => fireEvent.click(screen.getByRole("button", { name: "Back" })));
-	await act(() => fireEvent.click(screen.getByRole("button", { name: "app.discardChanges" })));
+	const confirm = screen.getAllByRole("button", { name: "app.discardChanges" }).at(-1);
+	if (!confirm) throw new Error("The discard dialog must offer a confirm button");
+	await act(() => fireEvent.click(confirm));
 	expect(router.state.location.pathname).toBe("/me/account");
 	expect(router.state.historyAction).toBe("REPLACE");
 	router.dispose();

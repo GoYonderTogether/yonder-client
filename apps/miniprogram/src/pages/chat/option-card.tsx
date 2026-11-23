@@ -1,11 +1,13 @@
 import { Image, Button as NativeButton, Text, View } from "@tarojs/components";
+import { InteractionCard } from "@yonder/chat-presentation";
 import type { Attachment } from "@yonder/protocol";
 import { useEffect, useState } from "react";
 import { t } from "../../lib/i18n";
 import { downloadAttachment } from "../../lib/runtime";
+import { ChatView } from "./host";
 import { MessageBody } from "./markdown";
 
-function OptionImage({ file }: { file: Attachment }) {
+export function OptionImage({ file }: { file: Attachment }) {
 	const [path, setPath] = useState("");
 	const [failed, setFailed] = useState(false);
 	useEffect(() => {
@@ -23,7 +25,13 @@ function OptionImage({ file }: { file: Attachment }) {
 		};
 	}, [file.id]);
 	return path && !failed ? (
-		<Image className="message-option-image" mode="aspectFit" src={path} onError={() => setFailed(true)} />
+		<Image
+			className="message-option-image"
+			mode="aspectFit"
+			src={path}
+			ariaLabel={file.name}
+			onError={() => setFailed(true)}
+		/>
 	) : (
 		<View className="message-option-image">
 			<Text>{failed ? t("附件加载失败", "Could not load the attachment") : t("正在加载…", "Loading…")}</Text>
@@ -51,18 +59,13 @@ export function MessageOptions({
 	onChoose: ((body: string) => void) | undefined;
 }) {
 	return (
-		<View className="message-option-card">
-			{question?.trim() ? (
-				<View className="message-option-card-heading">
-					<Text className="message-option-card-icon" ariaHidden>
-						?
-					</Text>
-					<View className="message-option-card-question">
-						<MessageBody body={question} />
-					</View>
-				</View>
-			) : null}
-			{summary ? <Text className="message-option-card-summary">{summary}</Text> : null}
+		<InteractionCard
+			as={ChatView}
+			label={question ?? undefined}
+			title={question?.trim() ? <MessageBody body={question} /> : null}
+			glyph={<Text ariaHidden>?</Text>}
+			detail={summary ? <Text className="message-option-card-summary">{summary}</Text> : null}
+		>
 			<View className="message-option-list">
 				{options.map((option, index) => {
 					const file = images[index];
@@ -88,6 +91,6 @@ export function MessageOptions({
 				})}
 			</View>
 			{result ? <Text className="message-option-card-result">{result}</Text> : null}
-		</View>
+		</InteractionCard>
 	);
 }

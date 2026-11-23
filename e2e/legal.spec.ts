@@ -24,6 +24,7 @@ test("legal pages open from sign-in and About and return to the original screen"
 	await expect(page).toHaveURL("http://example.test/");
 	await page.unroute("http://example.test/");
 
+	await page.route("**/v1/auth/refresh", (route) => route.fulfill({ status: 401, json: {} }));
 	await page.goto("/sign-in");
 
 	const phoneInput = page.locator("#sign-in-phone");

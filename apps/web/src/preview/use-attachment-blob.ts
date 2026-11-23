@@ -63,6 +63,18 @@ export function useAttachmentBlob(attachment: Attachment) {
 		pending.current = { key, promise: operation };
 		return operation;
 	}, [api, key, attachment.id]);
+	const loadPart = async (id: string) => {
+		if (id === attachment.id) return load();
+		if (!owner) return;
+		const generation = chatCacheGeneration();
+		const partKey = attachmentCacheKey(owner, id);
+		const cached = await readChatCache<Blob>(partKey).catch(() => undefined);
+		if (generation !== chatCacheGeneration() || current.current !== key) return;
+		const content = cached ?? (await api.attachmentContent(id));
+		if (generation !== chatCacheGeneration() || current.current !== key) return;
+		if (!cached) void writeChatCache(partKey, content, generation).catch(() => {});
+		return content;
+	};
 	const loadCached = useCallback(async () => {
 		if (!key) return;
 		const generation = chatCacheGeneration();
@@ -73,5 +85,13 @@ export function useAttachmentBlob(attachment: Attachment) {
 		if (mounted.current) setBlob(content);
 		return content;
 	}, [key]);
-	return { blob: loaded.current?.key === key ? blob : undefined, load, loadCached, loading, error, cacheError };
+	return {
+		blob: loaded.current?.key === key ? blob : undefined,
+		load,
+		loadPart,
+		loadCached,
+		loading,
+		error,
+		cacheError,
+	};
 }

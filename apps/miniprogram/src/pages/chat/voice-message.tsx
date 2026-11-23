@@ -8,7 +8,7 @@ type PlaybackState = "idle" | "loading" | "playing" | "paused" | "error";
 type Playback = { audio: ReturnType<typeof Taro.createInnerAudioContext>; release: () => void };
 let stopPreviousVoice: (() => void) | undefined;
 
-export function VoiceMessage({ fileId, durationMs, self }: { fileId: string; durationMs: number; self: boolean }) {
+export function VoiceMessage({ fileIds, durationMs, self }: { fileIds: string[]; durationMs: number; self: boolean }) {
 	const [state, setState] = useState<PlaybackState>("idle");
 	const playback = useRef<Playback | null>(null);
 	useEffect(() => () => playback.current?.release(), []);
@@ -53,19 +53,32 @@ export function VoiceMessage({ fileId, durationMs, self }: { fileId: string; dur
 		audio.onPause(() => {
 			if (playback.current?.audio === audio) setState("paused");
 		});
-		audio.onEnded(stop);
-		audio.onError(fail);
-		try {
-			const path = await downloadAttachment(fileId);
+		let next = 0;
+		async function playNext() {
 			if (playback.current?.audio !== audio) return;
-			audio.src = path;
-			audio.play();
-		} catch {
-			fail();
+			const id = fileIds[next++];
+			if (!id) {
+				stop();
+				return;
+			}
+			setState("loading");
+			try {
+				const path = await downloadAttachment(id);
+				if (playback.current?.audio !== audio) return;
+				audio.src = path;
+				audio.play();
+			} catch {
+				fail();
+			}
 		}
+		audio.onEnded(() => void playNext());
+		audio.onError(fail);
+		await playNext();
 	}
 
-	const duration = `${Math.ceil(durationMs / 1000)}″`;
+	const seconds = Math.ceil(durationMs / 1000);
+	const duration =
+		seconds >= 60 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : `${seconds}″`;
 	const playing = state === "playing";
 	const loading = state === "loading";
 	const failed = state === "error";

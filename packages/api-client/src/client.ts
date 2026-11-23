@@ -13,7 +13,7 @@ export interface TokenStore {
 	setAccessToken(token: string | null): void;
 	/** Shells keep the refresh token themselves; the web returns null and relies on the cookie. */
 	getRefreshToken?(): string | null;
-	setRefreshToken?(token: string | null): void;
+	setRefreshToken?(token: string | null): void | Promise<void>;
 }
 
 export type ApiResponse = Pick<Response, "status" | "ok" | "json" | "blob"> & {
@@ -178,7 +178,11 @@ export class ApiClient {
 	 */
 	#refreshOnce(): Promise<boolean> {
 		if (this.#refreshing) return this.#refreshing;
-		const refreshing = this.#refresh().finally(() => {
+		const generation = this.#generation;
+		const locks = this.#options.clientKind === "web" ? globalThis.navigator?.locks : undefined;
+		// Web tabs share the cookie. Hold the lock until its replacement has been received.
+		const refresh = () => (generation === this.#generation ? this.#refresh() : Promise.resolve(false));
+		const refreshing = (locks ? locks.request("yonder-auth-refresh", refresh) : refresh()).finally(() => {
 			if (this.#refreshing === refreshing) this.#refreshing = null;
 		});
 		this.#refreshing = refreshing;
@@ -199,30 +203,41 @@ export class ApiClient {
 		}
 		const refreshToken = this.#options.tokens.getRefreshToken?.() ?? null;
 		if (this.#options.clientKind !== "web" && !refreshToken) return false;
-		try {
-			const response = await this.#send("/v1/auth/refresh", {
-				method: "POST",
-				body: refreshToken ? { refreshToken } : {},
-				authenticated: false,
-				retried: true,
-			});
+		const response = await this.#send("/v1/auth/refresh", {
+			method: "POST",
+			body: refreshToken ? { refreshToken } : {},
+			authenticated: false,
+			retried: true,
+		});
+		if (generation !== this.#generation) return false;
+		if (!response.ok) {
+			const error = await toApiError(response);
 			if (generation !== this.#generation) return false;
-			if (!response.ok) {
-				if (response.status === 401) {
-					this.#options.tokens.setAccessToken(null);
-					this.#options.tokens.setRefreshToken?.(null);
-				}
-				return false;
-			}
-			const body = (await response.json()) as { accessToken?: string; refreshToken?: string };
-			if (!body.accessToken || generation !== this.#generation) return false;
-			this.#options.tokens.setAccessToken(body.accessToken);
-			if (body.refreshToken) this.#options.tokens.setRefreshToken?.(body.refreshToken);
-			return true;
-		} catch (error) {
-			if (error instanceof NetworkError) throw error;
+			const accountUnavailable =
+				error.status === 403 &&
+				(error.code === "account_suspended" ||
+					error.code === "account_deleted" ||
+					error.code === "account_pending_deletion");
+			if (error.status !== 401 && !accountUnavailable) throw error;
+			this.#options.tokens.setAccessToken(null);
+			await this.#options.tokens.setRefreshToken?.(null);
 			return false;
 		}
+		const body = (await response.json().catch(() => null)) as { accessToken?: string; refreshToken?: string } | null;
+		if (generation !== this.#generation) return false;
+		if (typeof body?.accessToken !== "string" || !body.accessToken) {
+			throw new ApiError({
+				code: "upstream_unavailable",
+				status: 502,
+				message: "the server did not return an access token",
+			});
+		}
+		if (typeof body.refreshToken === "string" && body.refreshToken) {
+			await this.#options.tokens.setRefreshToken?.(body.refreshToken);
+		}
+		if (generation !== this.#generation) return false;
+		this.#options.tokens.setAccessToken(body.accessToken);
+		return true;
 	}
 
 	#assertSession(generation: number): void {
@@ -230,19 +245,19 @@ export class ApiClient {
 	}
 
 	/** Drop the in-memory token. The refresh cookie is cleared by the sign-out endpoint. */
-	clearTokens(): void {
+	clearTokens(): void | Promise<void> {
 		this.#generation += 1;
 		this.#refreshing = null;
 		this.#options.tokens.setAccessToken(null);
-		this.#options.tokens.setRefreshToken?.(null);
+		return this.#options.tokens.setRefreshToken?.(null);
 	}
 
 	/** Save the newly authenticated session after the previous account's cache is cleared. */
-	setSession(session: { accessToken: string; refreshToken?: string }): void {
+	setSession(session: { accessToken: string; refreshToken?: string }): void | Promise<void> {
 		this.#generation += 1;
 		this.#refreshing = null;
 		this.#options.tokens.setAccessToken(session.accessToken);
-		this.#options.tokens.setRefreshToken?.(session.refreshToken ?? null);
+		return this.#options.tokens.setRefreshToken?.(session.refreshToken ?? null);
 	}
 
 	/** The current access token, for the realtime handshake. Never logged. */
@@ -251,14 +266,16 @@ export class ApiClient {
 	}
 
 	/**
-	 * Try to restore a session without any request failing first: the start-up path, where "no
-	 * session" is the normal answer rather than an error.
+	 * Restore a session without waiting for an authenticated request to fail first.
+	 * Startup can distinguish a temporary failure from an absent or conclusively rejected session.
 	 */
-	async refreshSession(): Promise<boolean> {
-		return this.#refreshOnce().catch((error: unknown) => {
-			if (error instanceof NetworkError) return false;
-			throw error;
-		});
+	async refreshSession({ throwOnUnavailable = false }: { throwOnUnavailable?: boolean } = {}): Promise<boolean> {
+		try {
+			return await this.#refreshOnce();
+		} catch (error) {
+			if (throwOnUnavailable) throw error;
+			return false;
+		}
 	}
 }
 

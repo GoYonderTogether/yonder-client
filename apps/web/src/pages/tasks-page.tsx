@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoalsTab } from "./goal-records.tsx";
 import { ItemDetailPage } from "./items-detail.tsx";
+import type { PresetSource } from "./items-fly.tsx";
 import { upcomingOneOffs } from "./items-format.ts";
 import { ItemsList } from "./items-list.tsx";
 import { ScheduleForm } from "./schedule-form.tsx";
@@ -22,15 +23,17 @@ export function TasksList({
 	onChange,
 	onOpenItem,
 	onAdd,
-	onAddGoal,
 	onSchedule,
+	showManualSchedule,
 }: {
 	scheduled: boolean;
 	onChange: (scheduled: boolean) => void;
 	onOpenItem: (id: string) => void;
-	onAdd: () => void;
-	onAddGoal: () => void;
-	onSchedule?: (() => void) | undefined;
+	/** On 「目标」 it opens the goal draft; on 「事项」 it opens a blank session. */
+	onAdd: (source?: PresetSource) => void;
+	onSchedule: (source: PresetSource) => void;
+	/** A phone hides the manual schedule form, because its creation always starts from the main Bot. */
+	showManualSchedule: boolean;
 }) {
 	const { t } = useTranslation();
 	const [creating, setCreating] = useState(false);
@@ -40,13 +43,17 @@ export function TasksList({
 			action={
 				<TaskActions
 					onAdd={onAdd}
-					onAddGoal={onAddGoal}
-					onCreateSchedule={() => {
-						if (onSchedule) return onSchedule();
-						// The inline form lives in 「目标」, so a schedule started from 「事项」 takes the person there.
-						if (!scheduled) onChange(true);
-						setCreating(true);
-					}}
+					onCreateSchedule={onSchedule}
+					onCreateScheduleManually={
+						showManualSchedule
+							? () => {
+									// The inline form lives in 「目标」, so a manual schedule started from 「事项」
+									// takes the person there before it opens.
+									if (!scheduled) onChange(true);
+									setCreating(true);
+								}
+							: undefined
+					}
 				/>
 			}
 			center={
@@ -69,10 +76,13 @@ export function TasksList({
 			) : null}
 			{scheduled ? (
 				<div className="flex flex-col gap-[var(--spacing-4)]">
+					{/* HEAD's one-page goals tab is the live implementation. main's GoalRecords and the
+					    tracking list it stacked above overlap it, so they stay out. */}
 					<GoalsTab creating={creating} />
 				</div>
 			) : (
 				<div className="flex flex-col gap-[var(--spacing-4)]">
+					{/* A one-off plan is the owner's next thing but not yet an item; it sits above the list. */}
 					<UpcomingOneOffs />
 					<ItemsList onOpen={onOpenItem} />
 				</div>

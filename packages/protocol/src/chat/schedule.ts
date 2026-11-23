@@ -31,6 +31,7 @@ export interface Schedule {
 	/** The goal this plan belongs to, or `null` for a plan of its own. */
 	goalId: string | null;
 	title: string;
+	archived?: boolean;
 	instruction: string;
 	action: ScheduleAction;
 	/** The exact words a reminder sends; `null` for a task. */

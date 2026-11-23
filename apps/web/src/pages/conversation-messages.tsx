@@ -1,4 +1,5 @@
 import {
+	attachmentsOutsideQuestionCard,
 	groupMessages,
 	isTwoPartyAgentChat,
 	optionCardAttachments,
@@ -24,6 +25,7 @@ import { MessageContent } from "./message-content.tsx";
 import { MessageOptions } from "./message-options.tsx";
 import { MessageSources } from "./message-sources.tsx";
 import { AskOwner, OutwardRequestCard } from "./outward-request-card.tsx";
+import { QuestionCard } from "./question-card.tsx";
 import { VoiceMessage } from "./voice-message.tsx";
 
 interface MessageProps {
@@ -38,6 +40,7 @@ interface MessageProps {
 	onOpenMeeting?: (id: string) => void;
 	onChooseOption?: ((body: string, cardId: string) => void) | undefined;
 	optionReply?: CachedMessage | undefined;
+	personId?: string | undefined;
 }
 
 /** Sender identity belongs to a consecutive run, shared by text and attachment messages. */
@@ -151,13 +154,20 @@ export function ConversationMessages({
 						self={self}
 						failureRepeats={block.repeats?.get(message.id)}
 						{...actions}
+						personId={person?.id}
 						onChooseOption={message.id === optionCards.openId ? actions.onChooseOption : undefined}
 						optionReply={optionCards.replies.get(message.id)}
 					/>
 				);
 			return (
 				<div key={message.id} className={self ? "flex flex-col items-end" : "min-w-0"}>
-					<MessageEntry message={message} self={self} failureRepeats={block.repeats?.get(message.id)} {...actions} />
+					<MessageEntry
+						message={message}
+						self={self}
+						failureRepeats={block.repeats?.get(message.id)}
+						{...actions}
+						personId={person?.id}
+					/>
 					<AskOwner messageId={message.id} conversationId={conversation.id} disabled={actions.disconnected} />
 				</div>
 			);
@@ -259,11 +269,15 @@ function MessageEntry({
 	onOpenMeeting,
 	onChooseOption,
 	optionReply,
+	personId,
 }: MessageProps) {
 	const { t } = useTranslation();
 	const { attachments, images } = optionCardAttachments(message);
-	const attachment = attachments.length === 1 ? attachments[0] : undefined;
-	const voice = attachment?.kind === "audio" ? message.voice : undefined;
+	const attachment = attachments[0];
+	const voice = attachment && attachments.every(({ kind }) => kind === "audio") ? message.voice : undefined;
+	const question = message.questionCard;
+	// A question card's own images are drawn inside the card; only the rest sit beside the bubble.
+	const ordinaryAttachments = question ? attachmentsOutsideQuestionCard(message) : attachments;
 	const meeting = message.meeting;
 	return (
 		<article
@@ -273,7 +287,16 @@ function MessageEntry({
 			className={`flex min-w-0 flex-col gap-[var(--spacing-1)] ${self ? "items-end" : "items-start"}`}
 		>
 			{message.outwardDraft ? <p className="text-caption">{t("visits.relayPrivateDraft")}</p> : null}
-			{message.options?.length ? (
+			{question ? (
+				<QuestionCard
+					id={message.id}
+					conversationId={message.conversationId}
+					personId={personId}
+					card={question}
+					attachments={message.attachments}
+					disconnected={disconnected}
+				/>
+			) : message.options?.length ? (
 				<MessageOptions
 					question={message.body}
 					options={message.options}
@@ -284,11 +307,26 @@ function MessageEntry({
 					}
 				/>
 			) : voice && attachment ? (
-				<VoiceMessage key={attachment.id} attachment={attachment} durationMs={voice.durationMs} self={self} />
+				<VoiceMessage
+					key={attachment.id}
+					attachment={attachment}
+					additional={attachments.slice(1)}
+					durationMs={voice.durationMs}
+					self={self}
+				/>
 			) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 				<MessageBubble as="div" self={self}>
+					{message.questionReply?.question ? (
+						<blockquote className="m-0 mb-[var(--spacing-2)] whitespace-pre-wrap break-words border-s border-[var(--color-border-subtle)] ps-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
+							{message.questionReply.question}
+						</blockquote>
+					) : null}
 					{message.body ? (
-						<MessageContent body={message.body} streaming={message.streaming} />
+						message.questionReply ? (
+							<span className="whitespace-pre-wrap break-words">{message.body}</span>
+						) : (
+							<MessageContent body={message.body} streaming={message.streaming} />
+						)
 					) : (
 						<span role="status" className="text-caption text-[var(--color-text-secondary)]">
 							{t(disconnected ? "chat.reconnectingReply" : "chat.streaming")}
@@ -296,7 +334,12 @@ function MessageEntry({
 					)}
 				</MessageBubble>
 			) : null}
-			{voice ? null : <MessageAttachments attachments={attachments} self={self} />}
+			{voice?.transcription === "pending" ? (
+				<span role="status" className="text-caption text-[var(--color-text-secondary)]">
+					{t("chat.transcribing")}
+				</span>
+			) : null}
+			{voice ? null : <MessageAttachments attachments={ordinaryAttachments} self={self} />}
 			{message.reaction ? <span>{message.reaction}</span> : null}
 			<MessageSources run={message.run} />
 			{message.connectorRequestId ? <ConnectorRequestCard id={message.connectorRequestId} /> : null}

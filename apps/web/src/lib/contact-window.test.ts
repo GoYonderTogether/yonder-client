@@ -63,3 +63,14 @@ test("the main window serves access-only sessions through its existing refresh o
 	await closeContactWindow();
 	expect(bridge.invoke).toHaveBeenCalledWith("close_add_contacts");
 });
+
+test("the main window lends its current access token during a temporary refresh failure", async () => {
+	vi.stubGlobal("window", { __TAURI_INTERNALS__: {}, location: { pathname: "/messages" } });
+	vi.stubGlobal("navigator", { userAgent: "Macintosh" });
+	await serveContactWindowSession({ accessToken: "existing", refreshSession: async () => false });
+	await bridge.callbacks.get("contacts-session-request")?.({ payload: "request-1" });
+	expect(bridge.invoke).toHaveBeenCalledWith("provide_contacts_session", {
+		requestId: "request-1",
+		accessToken: "existing",
+	});
+});

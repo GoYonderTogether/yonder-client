@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
+import { dehydrate } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type ReactNode, StrictMode } from "react";
-import { expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { useSessionStore } from "../auth/session-store.ts";
 import { createMemoryStorage } from "../storage/index.ts";
+import { CACHE_STORAGE_KEY, CACHE_VERSION, createQueryClient } from "./client.ts";
 import { keys } from "./keys.ts";
 import { DataProvider, useData, useDataQueryClient } from "./provider.tsx";
+
+afterEach(() => vi.unstubAllGlobals());
 
 test("a shell sign-in keeps both tokens while removing the previous account's cached data", async () => {
 	useSessionStore.setState({ booting: true, status: "unknown" });
@@ -59,4 +63,38 @@ test("a shell sign-in keeps both tokens while removing the previous account's ca
 	expect(storage.get("yonder.query-cache")).toBeNull();
 	expect(storage.get("installation-id")).toBe("same-installation");
 	vi.useRealTimers();
+});
+
+test("a legacy web profile can open offline until the server confirms that its session ended", async () => {
+	const storage = createMemoryStorage();
+	const cached = createQueryClient();
+	cached.setQueryData(keys.me(), { member: { id: "returning-user" } });
+	storage.set(
+		CACHE_STORAGE_KEY,
+		JSON.stringify({ buster: CACHE_VERSION, timestamp: Date.now(), clientState: dehydrate(cached) }),
+	);
+	cached.clear();
+
+	const fetch = vi.fn().mockRejectedValue(new TypeError("offline"));
+	vi.stubGlobal("fetch", fetch);
+	const wrapper = ({ children }: { children: ReactNode }) => (
+		<DataProvider baseUrl="" appVersion="test" clientKind="web" storage={storage}>
+			{children}
+		</DataProvider>
+	);
+	const offline = renderHook(() => useData(), { wrapper });
+	await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+	expect(useSessionStore.getState()).toMatchObject({ status: "signed-in", booting: false });
+	expect(offline.result.current.client.accessToken).toBeNull();
+	offline.unmount();
+
+	fetch.mockResolvedValueOnce(new Response("{}", { status: 401 }));
+	const confirmed = renderHook(() => useData(), { wrapper });
+	await waitFor(() => expect(useSessionStore.getState().status).toBe("signed-out"));
+	confirmed.unmount();
+
+	const reopened = renderHook(() => useData(), { wrapper });
+	await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+	expect(useSessionStore.getState()).toMatchObject({ status: "unknown", booting: true });
+	reopened.unmount();
 });

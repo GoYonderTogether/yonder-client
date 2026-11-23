@@ -84,6 +84,8 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 			if (event.itemId) {
 				void queryClient.invalidateQueries({ queryKey: keys.items.lists() });
 				void queryClient.invalidateQueries({ queryKey: keys.items.detail(event.itemId) });
+				// The session query is keyed by the item id; HEAD also refreshes the chat that changed.
+				void queryClient.invalidateQueries({ queryKey: keys.items.session(event.itemId) });
 				void queryClient.invalidateQueries({ queryKey: keys.items.session(event.conversationId) });
 				void queryClient.invalidateQueries({ queryKey: keys.messages.all(event.conversationId) });
 			}

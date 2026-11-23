@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { haptic } from "../lib/haptics.ts";
+import { prepareIosChatMicrophone } from "../lib/ios-chat-microphone.ts";
 import { CompletionPopup } from "./completion/completion-popup.tsx";
 import { useComposerCompletion } from "./completion/use-composer-completion.ts";
 import { useTextareaEdit } from "./completion/use-textarea-edit.ts";
@@ -21,6 +22,9 @@ import { CHAT_ATTACHMENT_LIMIT } from "./use-chat-draft.ts";
 import { useComposerVoice } from "./use-composer-voice.ts";
 import { VoiceControl } from "./voice-control.tsx";
 import "./composer.css";
+import "./composer-voice.css";
+import type { ChatVoice } from "../lib/chat-voice.ts";
+import { useFilePicker } from "./composer-file-picker.ts";
 import type { ComposerProps } from "./composer-props.ts";
 
 /**
@@ -33,6 +37,7 @@ export function Composer({
 	onDraftChange: setDraft,
 	onSend,
 	onSendVoice,
+	speech,
 	streaming,
 	sending = false,
 	onCancelSend,
@@ -66,13 +71,13 @@ export function Composer({
 	const picker = useRef<HTMLInputElement>(null);
 	const imagePicker = useRef<HTMLInputElement>(null);
 	const cameraPicker = useRef<HTMLInputElement>(null);
-	const legacyPickerScope = useRef<string | undefined>(undefined);
 	const addMenu = useRef<HTMLDivElement>(null);
 	const menuPanel = useRef<HTMLFieldSetElement>(null);
 	const [menuScope, setMenuScope] = useState<string>();
 	const menu = menuScope === scope;
 	if (menuScope !== undefined && !menu) setMenuScope(undefined);
 	const [voiceScope, setVoiceScope] = useState<string | null>(null);
+	const microphonePreparation = useRef<Promise<void> | undefined>(undefined);
 	const [voiceSendingScope, setVoiceSendingScope] = useState<string | null>(null);
 	const [holdError, setHoldError] = useState<{ scope: string; message: string }>();
 	useEffect(() => {
@@ -89,6 +94,7 @@ export function Composer({
 	const [dragging, setDragging] = useState(false);
 	const dragDepth = useRef(0);
 	const composing = useRef(false);
+	const compositionEndedAt = useRef(Number.NEGATIVE_INFINITY);
 	const consumeEdit = useTextareaEdit(input, scope);
 	const completion = useComposerCompletion({
 		input,
@@ -122,6 +128,12 @@ export function Composer({
 			input.current?.focus({ preventScroll: true });
 		} else {
 			input.current?.blur();
+			// Start the permission prompt before the press, so hold-to-talk feedback begins at once.
+			const preparation = microphonePreparation.current ?? prepareIosChatMicrophone();
+			microphonePreparation.current = preparation;
+			void preparation?.then(() => {
+				if (microphonePreparation.current === preparation) microphonePreparation.current = undefined;
+			});
 			setVoiceScope(scope);
 		}
 	}
@@ -129,10 +141,10 @@ export function Composer({
 		if (files.length) setVoiceScope(null);
 		onFiles?.(files);
 	}
-	async function sendVoice(file: File) {
+	async function sendVoice(recording: ChatVoice, signal: AbortSignal) {
 		setVoiceSendingScope(scope);
 		try {
-			await onSendVoice?.(file);
+			await onSendVoice?.(recording, signal);
 		} finally {
 			setVoiceSendingScope((pending) => (pending === scope ? null : pending));
 			if (hasContent) setVoiceScope((active) => (active === scope ? null : active));
@@ -163,6 +175,13 @@ export function Composer({
 		onActivityChange: mobilePicker ? undefined : onVoiceActivityChange,
 	});
 	const attachmentPickerBlocked = Boolean(pickedFiles && (streaming || pickedFiles.failed));
+	const filePicker = useFilePicker({
+		scope,
+		mobile: mobilePicker,
+		pickedFiles,
+		onFiles: addDraftFiles,
+		interrupt,
+	});
 	const iosAttachments = useIosComposerAttachments({
 		scope,
 		mobile: mobilePicker,
@@ -185,20 +204,9 @@ export function Composer({
 		if (visibleError) haptic("error");
 	}, [visibleError]);
 
-	function openFileInput(input: HTMLInputElement | null) {
-		legacyPickerScope.current = scope;
-		input?.click();
-	}
-	function receiveFileInput(selected: File[], original: boolean) {
-		const requestedScope = legacyPickerScope.current;
-		legacyPickerScope.current = undefined;
-		interrupt();
-		if (mobilePicker && requestedScope !== undefined && requestedScope !== scope) return;
-		if (mobilePicker && pickedFiles && requestedScope !== undefined) {
-			pickedFiles.send(selected, original);
-			return;
-		}
-		addDraftFiles(selected);
+	function fillVoiceDraft(text: string) {
+		setDraft([latestDraft.current, text].filter(Boolean).join("\n"));
+		setVoiceScope(null);
 	}
 
 	const attachmentMenu =
@@ -207,9 +215,9 @@ export function Composer({
 				panel={menuPanel}
 				mobile={mobilePicker}
 				direct={Boolean(mobilePicker && pickedFiles)}
-				onImages={mobilePicker ? () => openFileInput(imagePicker.current) : undefined}
-				onCamera={mobilePicker ? () => openFileInput(cameraPicker.current) : undefined}
-				onFiles={() => openFileInput(picker.current)}
+				onImages={mobilePicker ? () => filePicker.open(imagePicker.current) : undefined}
+				onCamera={mobilePicker ? () => filePicker.open(cameraPicker.current) : undefined}
+				onFiles={() => filePicker.open(picker.current)}
 				onMeeting={onMeeting}
 				onClose={() => setMenuScope(undefined)}
 			/>
@@ -334,7 +342,7 @@ export function Composer({
 							files={picker}
 							images={imagePicker}
 							camera={mobilePicker && !iosAttachments.iphone ? cameraPicker : undefined}
-							onFiles={receiveFileInput}
+							onFiles={filePicker.receive}
 						/>
 						<ComposerEditor
 							editor={editor}
@@ -399,6 +407,7 @@ export function Composer({
 								}}
 								onCompositionEnd={(event) => {
 									composing.current = false;
+									compositionEndedAt.current = performance.now();
 									delete event.currentTarget.dataset.composing;
 									completion.sync(event.currentTarget);
 								}}
@@ -409,7 +418,11 @@ export function Composer({
 										return;
 									}
 									const enter = event.key === "Enter" && !event.shiftKey;
-									if (enter && event.repeat && (sendOnEnter || completion.matches.length > 0)) {
+									if (
+										enter &&
+										(sendOnEnter || completion.matches.length > 0) &&
+										(event.repeat || performance.now() - compositionEndedAt.current < 500)
+									) {
 										event.preventDefault();
 										return;
 									}
@@ -425,11 +438,18 @@ export function Composer({
 								className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-button-size)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
 							/>
 						</ComposerEditor>
-						{holdMode ? (
+						{mobilePicker && onSendVoice ? (
 							<HoldToTalk
 								key={scope}
+								scope={scope}
+								visible={holdMode}
+								{...speech}
+								textEditor={input}
 								disabled={voiceUnavailable || menu || iosAttachments.busy || sending || streaming}
+								pendingMicrophonePermission={() => microphonePreparation.current}
 								onSend={sendVoice}
+								onText={fillVoiceDraft}
+								onRestore={() => setVoiceScope(scope)}
 								onError={(message) => setHoldError({ scope, message })}
 								onActivityChange={onVoiceActivityChange}
 							/>

@@ -82,7 +82,14 @@ const plan: Schedule = {
 function show() {
 	return render(
 		<I18nextProvider i18n={createI18n("en")}>
-			<TasksList scheduled onChange={() => {}} onOpenItem={() => {}} onAdd={() => {}} onAddGoal={() => {}} />
+			<TasksList
+				scheduled
+				onChange={() => {}}
+				onOpenItem={() => {}}
+				onAdd={() => {}}
+				onSchedule={() => {}}
+				showManualSchedule
+			/>
 		</I18nextProvider>,
 	);
 }
@@ -102,7 +109,7 @@ for (const pending of ["loading", "loadError"] as const) {
 		try {
 			show();
 			fireEvent.click(screen.getByRole("button", { name: "Create" }));
-			fireEvent.click(screen.getByRole("menuitem", { name: "New scheduled task" }));
+			fireEvent.click(screen.getByRole("menuitem", { name: "Create scheduled task manually" }));
 			expect(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
 			fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 			expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();

@@ -130,7 +130,7 @@
 	position: fixed;
 	inset: 0;
 	z-index: 60;
-	background: color-mix(in srgb, color-mix(in srgb, var(--color-mask-solid) 78%, var(--color-accent)) 12%, transparent);
+	background: color-mix(in srgb, color-mix(in srgb, var(--color-mask-solid) 78%, var(--color-accent)) 33%, transparent);
 	pointer-events: none;
 }
 .composer-recording[data-cancel] {
@@ -178,11 +178,11 @@
 	);
 }
 .composer-recording-label {
-	position: absolute;
-	z-index: 1;
-	inset-inline: var(--spacing-4);
-	bottom: calc(var(--spacing-16) + var(--spacing-10) + var(--safe-area-bottom, env(safe-area-inset-bottom, 0px)));
-	color: var(--color-text-primary);
+	width: 100%;
+	color: var(--color-on-media);
+	text-shadow:
+		0 0 var(--spacing-1) var(--color-mask-solid),
+		0 var(--spacing-hair) var(--spacing-1) var(--color-mask-solid);
 	font-size: var(--text-body);
 	font-weight: var(--font-weight-semibold);
 	line-height: var(--text-body--line-height);

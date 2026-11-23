@@ -92,8 +92,20 @@ export type {
 	ItemState,
 	ItemStep,
 	ItemSummary,
+	UpdateItemRequest,
 } from "./chat/items.ts";
 export type { OutwardRequestAction, OutwardRequestCard, OutwardRequestState } from "./chat/outward.ts";
+export type {
+	AnswerQuestionCardRequest,
+	QuestionAnswer,
+	QuestionCard,
+	QuestionCardAction,
+	QuestionCardActionInput,
+	QuestionCardActionResponse,
+	QuestionOption,
+	QuestionPrompt,
+} from "./chat/questions.ts";
+export { QUESTION_ANSWER_MAX_LENGTH } from "./chat/questions.ts";
 export type {
 	CreateScheduleRequest,
 	Schedule,

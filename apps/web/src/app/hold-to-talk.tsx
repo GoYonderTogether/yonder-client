@@ -1,256 +1,328 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import type { Endpoints } from "@yonder/api-client";
+import { ArrowLeft, ArrowRight, AudioLines } from "lucide-react";
+import { type ReactNode, type RefObject, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { MEETING_RATE, meetingWav } from "../lib/browser-meeting-wav.ts";
+import { type ChatVoice, voiceFiles } from "../lib/chat-voice.ts";
 import { haptic } from "../lib/haptics.ts";
+import { useChatVoiceCapture } from "./use-chat-voice-capture.ts";
+import { useTextHold } from "./use-text-hold.ts";
 
-interface Capture {
-	hold: number | string;
-	startY: number | undefined;
-	path: string;
-	chunks: Blob[];
-	stream?: MediaStream;
-	recorder?: MediaRecorder;
-	startedAt?: number;
-	limit?: ReturnType<typeof setTimeout>;
-	stopping?: boolean;
-	stopped?: boolean;
-	released?: boolean;
+type Gesture = "send" | "cancel" | "text";
+type Press = { id: number | string; x: number; y: number; text?: boolean };
+
+function gesture(press: Press, x: number, y: number): Gesture {
+	const dx = x - press.x;
+	if (dx <= -56) return "cancel";
+	if (dx >= 56) return "text";
+	if (y <= press.y - 44) return "cancel";
+	return press.text ? "text" : "send";
 }
 
-// Match the short-speech limit and ignore accidental taps with less than 150 ms of recorded sound.
-const MAX_MS = 120_000;
-const MIN_MS = 150;
-const CANCEL_DISTANCE = 44;
-
-function releaseMicrophone(capture: Capture) {
-	clearTimeout(capture.limit);
-	if (capture.recorder?.state === "recording") {
-		capture.stopping = true;
-		capture.recorder.stop();
-	}
-	for (const track of capture.stream?.getTracks() ?? []) {
-		track.onended = null;
-		track.stop();
-	}
-	delete capture.stream;
+function timeLabel(duration: number) {
+	const seconds = Math.floor(duration / 1000);
+	return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-function swipedUp(capture: Capture, y: number) {
-	return capture.startY !== undefined && capture.startY - y >= CANCEL_DISTANCE;
+function RecordingAction({
+	disabled,
+	onAction,
+	children,
+}: {
+	disabled?: boolean | undefined;
+	onAction: () => void;
+	children: ReactNode;
+}) {
+	const pressed = useRef(false);
+	return (
+		<button
+			type="button"
+			disabled={disabled}
+			onPointerDown={() => {
+				pressed.current = true;
+			}}
+			onPointerCancel={() => {
+				pressed.current = false;
+			}}
+			onClick={(event) => {
+				// Locking can reveal this button under the held finger. A fresh tap or keyboard activation is required.
+				const activate = event.detail === 0 || pressed.current;
+				pressed.current = false;
+				if (activate) onAction();
+			}}
+		>
+			{children}
+		</button>
+	);
 }
 
 export function HoldToTalk({
+	scope,
+	visible,
 	disabled,
+	pendingMicrophonePermission,
 	onSend,
+	onText,
 	onError,
 	onActivityChange,
+	knownNonce,
+	transcription,
+	textEditor,
+	onRestore,
 }: {
+	scope: string;
+	visible: boolean;
 	disabled: boolean;
-	onSend: (file: File) => Promise<unknown>;
+	pendingMicrophonePermission: () => Promise<void> | undefined;
+	onSend: (recording: ChatVoice, signal: AbortSignal) => Promise<unknown>;
+	onText: (text: string) => void;
 	onError: (error: string) => void;
 	onActivityChange?: ((active: boolean) => void) | undefined;
+	transcription?: Pick<Endpoints, "openVoiceSocket" | "transcribeAudio"> | undefined;
+	knownNonce?: ((nonce: string) => boolean) | undefined;
+	textEditor: RefObject<HTMLTextAreaElement | null>;
+	onRestore: () => void;
 }) {
 	const { t } = useTranslation();
-	const [phase, setPhase] = useState<"idle" | "requesting" | "held" | "finishing">("idle");
-	const [cancelOnRelease, setCancelOnRelease] = useState(false);
-	const current = useRef<Capture | null>(null);
-	const callbacks = useRef({ onSend, onError, onActivityChange });
-	callbacks.current = { onSend, onError, onActivityChange };
-	const end = useCallback((capture: Capture, visible = true) => {
-		if (current.current !== capture) return;
-		current.current = null;
-		releaseMicrophone(capture);
-		callbacks.current.onActivityChange?.(false);
-		if (visible) setPhase("idle");
-	}, []);
-	const cancelHeld = useCallback(() => {
-		const capture = current.current;
-		if (capture && !capture.released) end(capture);
-	}, [end]);
+	const voice = useChatVoiceCapture({
+		scope,
+		pendingPermission: pendingMicrophonePermission,
+		onError,
+		onActivityChange,
+		knownNonce,
+		openVoiceSocket: transcription?.openVoiceSocket,
+	});
+	const press = useRef<Press | null>(null);
+	const [direction, setDirection] = useState<Gesture>("send");
+	const held = voice.phase === "starting" || voice.phase === "held";
+	const recording = voice.phase === "held";
+	const cancelling = held && direction === "cancel";
+	const wasRecording = useRef(false);
+	const wasCancelling = useRef(false);
+	// HEAD's tactile feedback, kept on top of main's gesture UI: recording starts with a medium bump and
+	// crossing the cancel line with a selection tick, once per crossing rather than per pointer move.
 	useLayoutEffect(() => {
-		const hidden = () => {
-			if (document.hidden) cancelHeld();
-		};
-		document.addEventListener("visibilitychange", hidden);
-		window.addEventListener("pagehide", cancelHeld);
-		return () => {
-			document.removeEventListener("visibilitychange", hidden);
-			window.removeEventListener("pagehide", cancelHeld);
-			if (current.current) end(current.current, false);
-		};
-	}, [cancelHeld, end]);
+		if (recording && !wasRecording.current) haptic("medium");
+		if (held && cancelling !== wasCancelling.current) haptic("selection");
+		wasRecording.current = recording;
+		wasCancelling.current = cancelling;
+	}, [held, recording, cancelling]);
+	const finishing = voice.phase === "sending" || voice.phase === "transcribing";
+	const finishLabel = voice.phase === "transcribing" ? "chat.transcribing" : "chat.sending";
+	const locked = voice.phase === "locked";
+	const saved = voice.phase === "saved";
+	const restore = useRef(onRestore);
+	restore.current = onRestore;
+	const wasSaved = useRef(false);
 	useLayoutEffect(() => {
-		if (disabled) cancelHeld();
-	}, [cancelHeld, disabled]);
+		if (saved && !wasSaved.current) restore.current();
+		wasSaved.current = saved;
+	}, [saved]);
 
-	async function sendRecording(capture: Capture) {
-		if (current.current !== capture) return;
-		try {
-			if (!capture.chunks.length) return;
-			let file: File;
-			try {
-				const decoder = new OfflineAudioContext(1, 1, MEETING_RATE);
-				const audio = await decoder.decodeAudioData(await new Blob(capture.chunks).arrayBuffer());
-				if (current.current !== capture || audio.length < (MEETING_RATE * MIN_MS) / 1000) return;
-				const frames = Math.min(audio.length, (MEETING_RATE * MAX_MS) / 1000);
-				file = new File([meetingWav(audio, 0, frames)], "voice.wav", { type: "audio/wav" });
-			} catch {
-				if (current.current === capture) callbacks.current.onError("chat.recordingFailed");
-				return;
-			}
-			await callbacks.current.onSend(file);
-		} catch {
-			if (current.current === capture) callbacks.current.onError("chat.sendFailed");
-		} finally {
-			end(capture);
+	async function transcribe(recording: ChatVoice, signal: AbortSignal) {
+		if (!transcription) throw new Error("voice_text_unavailable");
+		const parts: string[] = [];
+		for (const file of voiceFiles(recording, 60_000)) {
+			signal.throwIfAborted();
+			const part = (await transcription.transcribeAudio(file, signal)).text.trim();
+			if (part) parts.push(part);
 		}
+		signal.throwIfAborted();
+		if (!parts.length) throw new Error("voice_text_empty");
+		onText(parts.join("\n"));
 	}
 
-	async function begin(hold: Capture["hold"], startY?: number) {
-		if (disabled || current.current) return;
-		if (!navigator.mediaDevices?.getUserMedia || !globalThis.MediaRecorder || !globalThis.OfflineAudioContext) {
-			onError("chat.voiceUnsupported");
-			return;
-		}
-		const capture: Capture = { hold, startY, path: window.location.pathname, chunks: [] };
-		current.current = capture;
-		setCancelOnRelease(false);
-		setPhase("requesting");
-		onError("");
-		onActivityChange?.(true);
-		try {
-			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-			capture.stream = stream;
-			if (current.current !== capture) {
-				releaseMicrophone(capture);
-				return;
-			}
-			const recorder = new MediaRecorder(stream);
-			capture.recorder = recorder;
-			const interrupted = () => {
-				if (current.current !== capture) return;
-				onError("chat.recordingFailed");
-				end(capture);
-			};
-			for (const track of stream.getAudioTracks()) track.onended = interrupted;
-			recorder.onerror = interrupted;
-			recorder.onstart = () => {
-				if (current.current !== capture) return;
-				capture.startedAt = performance.now();
-				capture.limit = setTimeout(() => releaseMicrophone(capture), MAX_MS);
-				haptic("medium");
-				setPhase("held");
-			};
-			recorder.ondataavailable = ({ data }) => {
-				if (current.current === capture && data.size) capture.chunks.push(data);
-			};
-			recorder.onstop = () => {
-				if (current.current !== capture) return;
-				if (!capture.stopping) return interrupted();
-				capture.stopped = true;
-				callbacks.current.onActivityChange?.(false);
-				if (capture.released) void sendRecording(capture);
-			};
-			recorder.start();
-		} catch (error) {
-			if (current.current !== capture) return;
-			onError(
-				error instanceof DOMException && error.name === "NotAllowedError"
-					? "chat.microphoneDenied"
-					: "chat.recordingFailed",
-			);
-			end(capture);
-		}
+	function cancelPress() {
+		if (!press.current) return;
+		press.current = null;
+		if (!voice.isLocked()) voice.cancel();
 	}
 
-	function finish(hold: Capture["hold"]) {
-		const capture = current.current;
-		if (!capture || capture.hold !== hold || capture.released) return;
-		// Navigation can update the URL before the previous composer unmounts.
-		if (
-			capture.path !== window.location.pathname ||
-			capture.startedAt === undefined ||
-			performance.now() - capture.startedAt < MIN_MS
-		) {
-			end(capture);
-			return;
-		}
-		capture.released = true;
-		setPhase("finishing");
-		releaseMicrophone(capture);
-		if (capture.stopped) void sendRecording(capture);
+	function release(id: Press["id"], action: Gesture = "send") {
+		if (press.current?.id !== id) return;
+		press.current = null;
+		if (voice.isLocked()) return;
+		if (action === "cancel") voice.cancel();
+		else void voice.finish(action === "text" ? transcribe : onSend, action === "text" ? "text" : "send");
 	}
 
-	const busyLabel =
-		phase === "requesting" ? "chat.requestingMicrophone" : phase === "finishing" ? "chat.sending" : undefined;
-	const recording = phase === "held";
-	const hint = t(cancelOnRelease ? "chat.releaseToCancel" : "chat.releaseToSend");
+	const cancelWhenDisabled = useEffectEvent(cancelPress);
+	useLayoutEffect(() => {
+		if (disabled && held) cancelWhenDisabled();
+	}, [disabled, held]);
+
+	useTextHold(textEditor, {
+		allowed: () => !visible && !disabled && voice.phase === "idle",
+		start: (event, context) => {
+			press.current = { id: event.pointerId, x: event.clientX, y: event.clientY, text: true };
+			setDirection("text");
+			void voice.start(false, context);
+		},
+		move: (event) => {
+			const active = press.current;
+			if (active?.id === event.pointerId && !voice.isLocked())
+				setDirection(gesture(active, event.clientX, event.clientY));
+		},
+		release: (event) => {
+			const active = press.current;
+			if (active) release(event.pointerId, gesture(active, event.clientX, event.clientY));
+		},
+		cancel: (event) => {
+			if (press.current?.id === event.pointerId) cancelPress();
+		},
+	});
+	const editorBox = textEditor.current?.parentElement;
+	const hint = t(
+		direction === "cancel"
+			? "chat.releaseToCancel"
+			: voice.phase === "starting"
+				? "chat.startingRecording"
+				: direction === "text"
+					? "chat.releaseToText"
+					: "chat.releaseToSend",
+	);
 	return (
 		<>
+			{!visible && voice.phase === "idle" && !disabled && editorBox
+				? createPortal(
+						<span className="composer-text-hold-hint" aria-hidden="true">
+							{t("chat.holdToTranscribe")}
+						</span>,
+						editorBox,
+					)
+				: null}
 			<span role="status" className="sr-only">
-				{recording ? hint : busyLabel ? t(busyLabel) : ""}
+				{held ? hint : locked ? t("chat.voiceLocked") : finishing ? t(finishLabel) : ""}
 			</span>
-			{recording &&
+			{(held || locked) &&
 				createPortal(
-					<div className="composer-recording" data-cancel={cancelOnRelease || undefined} aria-hidden="true">
-						<span className="composer-recording-label">{hint}</span>
+					<div
+						className={held ? "composer-recording" : "composer-recording composer-recording-locked"}
+						data-cancel={held && direction === "cancel" ? true : undefined}
+						data-to-text={held && direction === "text" ? true : undefined}
+						aria-hidden="true"
+					>
+						<div className="composer-recording-hint">
+							{voice.preview ? (
+								<div className="composer-recording-transcript">
+									<span>{voice.preview}</span>
+								</div>
+							) : held ? (
+								<div className="composer-recording-wave">
+									<AudioLines aria-hidden="true" />
+								</div>
+							) : null}
+							{held ? <span className="composer-recording-label">{hint}</span> : null}
+						</div>
+						{held ? (
+							<div className="composer-recording-gestures">
+								<span className="composer-recording-target composer-recording-target-left">
+									<ArrowLeft aria-hidden="true" size="1em" />
+									{t("app.cancel")}
+								</span>
+								<span className="composer-recording-target composer-recording-target-right">
+									{direction === "text" || press.current?.text ? (
+										t("chat.voiceEdit")
+									) : (
+										<span className="composer-recording-target-phrase">
+											<span>{t("chat.voiceSlideHere")}</span> <span>{t("chat.voiceSlideToText")}</span>
+										</span>
+									)}
+									<ArrowRight aria-hidden="true" size="1em" />
+								</span>
+							</div>
+						) : null}
 					</div>,
 					document.body,
 				)}
-			<button
-				type="button"
-				aria-label={t("chat.holdToTalk")}
-				aria-busy={busyLabel ? true : undefined}
-				className="composer-hold-to-talk"
-				data-held={recording || undefined}
-				disabled={disabled}
-				onContextMenu={(event) => event.preventDefault()}
-				onPointerDown={(event) => {
-					if (event.isPrimary === false || event.button !== 0 || current.current) return;
-					event.currentTarget.setPointerCapture(event.pointerId);
-					void begin(event.pointerId, event.clientY);
-				}}
-				onPointerMove={(event) => {
-					const capture = current.current;
-					if (capture?.hold !== event.pointerId || capture.released) return;
-					const cancel = swipedUp(capture, event.clientY);
-					if (cancel !== cancelOnRelease) haptic("selection");
-					setCancelOnRelease(cancel);
-				}}
-				onPointerUp={(event) => {
-					const capture = current.current;
-					if (capture?.hold !== event.pointerId) return;
-					if (swipedUp(capture, event.clientY)) cancelHeld();
-					else finish(event.pointerId);
-				}}
-				onPointerCancel={(event) => {
-					if (current.current?.hold === event.pointerId) cancelHeld();
-				}}
-				onLostPointerCapture={(event) => {
-					if (current.current?.hold === event.pointerId) cancelHeld();
-				}}
-				onBlur={cancelHeld}
-				onKeyDown={(event) => {
-					if (event.key === "Escape") cancelHeld();
-					if (event.key !== " " && event.key !== "Enter") return;
-					event.preventDefault();
-					if (!event.repeat) void begin(event.key);
-				}}
-				onKeyUp={(event) => {
-					if (event.key !== " " && event.key !== "Enter") return;
-					event.preventDefault();
-					finish(event.key);
-				}}
-				onClick={(event) => {
-					// An assistive activation can start and stop capture without a held key or pointer.
-					if (event.detail !== 0) return;
-					if (current.current) finish("assistive");
-					else void begin("assistive");
-				}}
-			>
-				<span className="truncate">{t(busyLabel ?? "chat.holdToTalk")}</span>
-			</button>
+			{locked || saved ? (
+				<fieldset className="composer-voice-actions" aria-label={t(saved ? "chat.voiceRecovered" : "chat.voiceLocked")}>
+					<span className="composer-voice-duration" data-live={locked || undefined}>
+						{timeLabel(voice.duration)}
+					</span>
+					<RecordingAction onAction={voice.cancel}>{t("app.cancel")}</RecordingAction>
+					{voice.sendingRetry ? null : saved && !voice.atLimit ? (
+						<RecordingAction disabled={disabled} onAction={() => void voice.start(true)}>
+							{t("chat.voiceResume")}
+						</RecordingAction>
+					) : (
+						<RecordingAction disabled={disabled} onAction={() => void voice.finish(transcribe, "text")}>
+							{t("chat.voiceToText")}
+						</RecordingAction>
+					)}
+					<RecordingAction
+						disabled={disabled || (locked && !voice.hasAudio())}
+						onAction={() => void voice.finish(onSend)}
+					>
+						{t(voice.sendingRetry ? "app.retry" : "chat.voiceSend")}
+					</RecordingAction>
+				</fieldset>
+			) : null}
+			{visible && !saved && (
+				<button
+					type="button"
+					aria-label={t("chat.holdToTalk")}
+					aria-busy={voice.phase === "starting" || finishing || undefined}
+					tabIndex={locked ? -1 : undefined}
+					className="composer-hold-to-talk"
+					data-held={held || undefined}
+					data-locked={locked || undefined}
+					disabled={disabled || finishing || voice.phase === "loading"}
+					onContextMenu={(event) => event.preventDefault()}
+					onPointerDown={(event) => {
+						if (event.isPrimary === false || event.button !== 0 || voice.phase !== "idle") return;
+						event.currentTarget.setPointerCapture(event.pointerId);
+						press.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+						setDirection("send");
+						void voice.start();
+					}}
+					onPointerMove={(event) => {
+						const active = press.current;
+						if (!active || active.id !== event.pointerId || voice.isLocked()) return;
+						setDirection(gesture(active, event.clientX, event.clientY));
+					}}
+					onPointerUp={(event) => {
+						const active = press.current;
+						if (active) release(event.pointerId, gesture(active, event.clientX, event.clientY));
+					}}
+					onPointerCancel={(event) => {
+						if (press.current?.id === event.pointerId) cancelPress();
+					}}
+					onLostPointerCapture={(event) => {
+						if (press.current?.id === event.pointerId) cancelPress();
+					}}
+					onBlur={cancelPress}
+					onKeyDown={(event) => {
+						if (event.key === "Escape") {
+							press.current = null;
+							voice.cancel();
+						}
+						if (event.key !== " " && event.key !== "Enter") return;
+						event.preventDefault();
+						if (!event.repeat && voice.phase === "idle") {
+							press.current = { id: event.key, x: 0, y: 0 };
+							setDirection("send");
+							void voice.start();
+						}
+					}}
+					onKeyUp={(event) => {
+						if (event.key !== " " && event.key !== "Enter") return;
+						event.preventDefault();
+						release(event.key);
+					}}
+					onClick={(event) => {
+						if (event.detail !== 0) return;
+						if (press.current?.id === "assistive") release("assistive");
+						else if (voice.phase === "idle") {
+							press.current = { id: "assistive", x: 0, y: 0 };
+							setDirection("send");
+							void voice.start();
+						}
+					}}
+				>
+					<span className="truncate">{t(finishing ? finishLabel : "chat.holdToTalk")}</span>
+				</button>
+			)}
 		</>
 	);
 }

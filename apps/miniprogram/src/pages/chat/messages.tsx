@@ -1,5 +1,6 @@
 import { Text, View } from "@tarojs/components";
 import {
+	attachmentsOutsideQuestionCard,
 	isAgentCardId,
 	type MessageBlock,
 	optionCardAttachments,
@@ -18,10 +19,12 @@ import { client } from "../../lib/runtime";
 import { MessageAttachment } from "./attachment";
 import { ChatAvatar } from "./avatar";
 import { senderBotId } from "./bot-entry";
+import { ConnectorRequestCard } from "./connector-request-card";
 import { ChatView } from "./host";
 import { MessageBody } from "./markdown";
 import { MessageSources } from "./message-sources";
 import { MessageOptions } from "./option-card";
+import { QuestionMessageCard } from "./question-card";
 import { runFailureText, systemText } from "./sentences";
 import type { useChat } from "./use-chat";
 import { VoiceMessage } from "./voice-message";
@@ -106,7 +109,7 @@ export function renderMessageBlock(
 				))}
 			</>
 		);
-	const self = first.senderId === chat.me?.member.id;
+	const self = first.senderId === chat.memberId;
 	const sender = chat.conversation?.members.find((member) => member.memberId === first.senderId);
 	const name = sender?.displayName || t("成员", "Member");
 	const avatarUrl = sender?.avatarUrl;
@@ -141,9 +144,10 @@ export function renderMessageBlock(
 				}
 			>
 				{run.map((message) => {
-					const { attachments, images } = optionCardAttachments(message);
-					const file = attachments.length === 1 ? attachments[0] : undefined;
-					const voice = file?.kind === "audio" ? message.voice : undefined;
+					const { attachments: legacyAttachments, images } = optionCardAttachments(message);
+					const attachments = message.questionCard ? attachmentsOutsideQuestionCard(message) : legacyAttachments;
+					const file = attachments[0];
+					const voice = file && attachments.every(({ kind }) => kind === "audio") ? message.voice : undefined;
 					const reply = optionCards.replies.get(message.id);
 					const canChoose = message.id === optionCards.openId && !chat.sending && !reply;
 					return (
@@ -152,10 +156,21 @@ export function renderMessageBlock(
 							id={`message-${message.id}`}
 							key={message.id}
 						>
+							{/* One message slot can carry HEAD's AgentCard and main's question, options and
+							    connector cards; each keeps its own component, and the first that applies draws. */}
 							{message.cardId && message.senderKind === "bot" && isAgentCardId(message.cardId) ? (
 								<AgentCardMessage id={message.cardId} disconnected={false} />
-							) : null}
-							{message.options?.length ? (
+							) : message.connectorRequestId ? (
+								<ConnectorRequestCard key={message.connectorRequestId} id={message.connectorRequestId} />
+							) : message.questionCard && chat.me ? (
+								<QuestionMessageCard
+									key={`${chat.me.member.id}:${message.id}`}
+									message={message}
+									card={message.questionCard}
+									ownerId={chat.me.member.id}
+									onMessages={chat.applyQuestionMessages}
+								/>
+							) : message.options?.length ? (
 								<MessageOptions
 									question={message.body}
 									options={message.options}
@@ -171,9 +186,17 @@ export function renderMessageBlock(
 									}
 								/>
 							) : voice && file ? (
-								<VoiceMessage key={file.id} fileId={file.id} durationMs={voice.durationMs} self={self} />
+								<VoiceMessage
+									key={file.id}
+									fileIds={attachments.map(({ id }) => id)}
+									durationMs={voice.durationMs}
+									self={self}
+								/>
 							) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 								<MessageBubble as={ChatView} self={self}>
+									{message.questionReply?.question ? (
+										<Text className="mini-question-quote">{message.questionReply.question.replace(/\n/g, " · ")}</Text>
+									) : null}
 									{message.body ? (
 										<MessageBody body={message.body} streaming={message.streaming} />
 									) : (
@@ -194,6 +217,9 @@ export function renderMessageBlock(
 										<MessageAttachment key={file.id} file={file} onSizeChange={followAfterLayout} />
 									))}
 								</MessageAttachmentsFrame>
+							) : null}
+							{voice?.transcription === "pending" ? (
+								<Text className="mini-muted">{t("正在转录…", "Transcribing…")}</Text>
 							) : null}
 							{message.pending ? <Text className="mini-muted">{t("发送中…", "Sending…")}</Text> : null}
 							{message.sendFailed ? (

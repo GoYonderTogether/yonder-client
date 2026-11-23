@@ -7,13 +7,14 @@ import {
 	ownedBotFor,
 } from "@yonder/chat-model";
 import { exhaustedPools, QuotaLowBanner } from "@yonder/feature-me";
-import { BotName, systemEventText, type Translate } from "@yonder/feature-members";
+import { BotName } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button, ConversationList, ConversationRow, EmptyState, IconButton } from "@yonder/ui-components";
 import {
 	type CachedMessage,
 	useActiveBotSubtasks,
 	useBot,
+	useConversationListActions,
 	useConversations,
 	useMarkConversationRead,
 	useMessages,
@@ -22,9 +23,9 @@ import {
 	useRunActions,
 	useSendMessage,
 } from "@yonder/ui-data";
-import { ListFrame, MAIN_CONVERSATION, PageFrame, useShellChrome } from "@yonder/ui-shell";
-import { ArrowDown, BellOff, Ellipsis, Pin } from "lucide-react";
-import { type ReactNode, useCallback, useMemo } from "react";
+import { ConfirmDialog, ListFrame, MAIN_CONVERSATION, PageFrame, useShellChrome } from "@yonder/ui-shell";
+import { ArrowDown, BellOff, Ellipsis, Pin, PinOff, Trash2 } from "lucide-react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { isForeground, useForeground } from "../lib/foreground.ts";
@@ -37,24 +38,10 @@ import {
 	conversationTitle,
 	primaryConversation,
 } from "./conversation-presentation.tsx";
-import { messagePreview } from "./message-preview.ts";
+import { rowPreview } from "./message-preview.ts";
 import { UnreadBadge } from "./unread-badge.tsx";
 import { useMessageScroll } from "./use-message-scroll.ts";
 import { VisitBar } from "./visit-bar.tsx";
-
-/**
- * A group lifecycle message stores an event, not a sentence, so the row builds its words here in
- * the reader's language (19 3.3); every other last message keeps the ordinary preview.
- */
-function rowPreview(conversation: Conversation, t: Translate): string | undefined {
-	const last = conversation.lastMessage;
-	if (!last) return undefined;
-	if (conversation.kind === "system") return t("friendRequests.title");
-	if (last.type === "system" && last.system) return systemEventText(last.system, t) || undefined;
-	if (last.recordingNote) return t("meetingRecorder.listPreview");
-	if (last.voice) return t("chat.voiceMessage");
-	return last.body ? messagePreview(last.body) : undefined;
-}
 
 export function MessagesList({
 	current,
@@ -71,8 +58,19 @@ export function MessagesList({
 	const { mode } = useShellChrome();
 	const bot = useBot();
 	const conversations = useConversations();
+	const items = conversations.data?.items;
+	const visible = useMemo(
+		() =>
+			items
+				?.filter((conversation) => !conversation.hiddenFromMessages)
+				.sort((a, b) => Number(b.pinned) - Number(a.pinned)),
+		[items],
+	);
 	const person = usePerson();
-	const primary = primaryConversation(conversations.data?.items, bot?.id);
+	const primary = primaryConversation(items, bot?.id);
+	const { pin, remove } = useConversationListActions();
+	const [deleting, setDeleting] = useState<{ id: string; title: string } | null>(null);
+	const busy = pin.isPending || remove.isPending;
 	return (
 		<ListFrame
 			title={mode === "mobile" ? "" : t("nav.messages")}
@@ -83,8 +81,13 @@ export function MessagesList({
 					{t("app.retry")}
 				</Button>
 			) : null}
+			{pin.isError ? (
+				<p role="alert" className="px-[var(--spacing-3)] text-caption text-[var(--color-danger)]">
+					{t("messages.pinFailed")}
+				</p>
+			) : null}
 			<ConversationList label={t("nav.messages")}>
-				{conversations.data?.items.map((conversation) => {
+				{visible?.map((conversation) => {
 					const peer = conversation.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
 					const title =
 						conversation.kind === "system"
@@ -96,6 +99,24 @@ export function MessagesList({
 					return (
 						<ConversationRow
 							key={conversation.id}
+							actions={[
+								{
+									label: t(conversation.pinned ? "messages.unpin" : "messages.pin"),
+									icon: conversation.pinned ? <PinOff /> : <Pin />,
+									onSelect: () => pin.mutate({ id: conversation.id, pinned: !conversation.pinned }),
+									disabled: busy,
+								},
+								{
+									label: t("messages.delete"),
+									icon: <Trash2 />,
+									tone: "danger",
+									onSelect: () => {
+										remove.reset();
+										setDeleting({ id: conversation.id, title });
+									},
+									disabled: busy,
+								},
+							]}
 							leading={<ConversationAvatar conversation={conversation} personId={person?.id} />}
 							title={
 								peer?.kind === "bot" ? (
@@ -144,6 +165,23 @@ export function MessagesList({
 					);
 				})}
 			</ConversationList>
+			{deleting ? (
+				<ConfirmDialog
+					open
+					title={t("messages.deleteTitle")}
+					body={t("messages.deleteBody", { name: deleting.title })}
+					confirmLabel={t("messages.delete")}
+					cancelLabel={t("app.cancel")}
+					closeLabel={t("app.close")}
+					backLabel={t("app.back")}
+					busy={remove.isPending}
+					error={remove.isError ? t("messages.deleteFailed") : null}
+					onCancel={() => {
+						if (!remove.isPending) setDeleting(null);
+					}}
+					onConfirm={() => remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
+				/>
+			) : null}
 		</ListFrame>
 	);
 }
@@ -162,6 +200,7 @@ export function ConversationPage({
 }: {
 	conversationId: string | null;
 	disconnected: boolean;
+	/** Drawn inside the Bot preset drawer: no frame header, and no empty-chat avatar behind it. */
 	embedded?: boolean;
 	mainBotHome?: boolean;
 	readActive?: boolean;
@@ -234,6 +273,7 @@ export function ConversationPage({
 	// tab's location travels with the push, as the frame does for its own 「我」 entries.
 	const openSection = (target: string) => navigate(target, { state: { tabLocation: location.pathname } });
 	if (!conversationId || !conversation)
+		// HEAD's floating agent header needs the conversation header treatment on both branches.
 		return (
 			<PageFrame title={null} hideHeader={embedded} floatingHeader={floatingHeader} conversationHeader>
 				{null}
@@ -411,7 +451,7 @@ export function ConversationPage({
 								{...(onOpenMeeting ? { onOpenMeeting } : {})}
 								onResend={(message) =>
 									send.mutate({
-										type: "text",
+										type: message.sendType ?? "text",
 										body: message.body ?? "",
 										clientNonce: message.clientNonce ?? "",
 										attachmentIds: message.attachments.map((attachment) => attachment.id),

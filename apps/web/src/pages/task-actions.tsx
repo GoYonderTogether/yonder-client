@@ -2,22 +2,23 @@ import { IconButton } from "@yonder/ui-components";
 import { CalendarClock, ListChecks, Plus, Target } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { PresetSource } from "./items-fly.tsx";
 
 /**
- * The plus offers the same three creations on 「事项」 and 「目标」: switching the segment changes the
- * list below it, never what the button does.
+ * The plus offers the same creations on 「事项」 and 「目标」: switching the segment changes the list
+ * below it, never what the button does, so the trigger keeps one name. A draft action also carries
+ * what it was and where it started, so its fly-in can leave the menu row.
  */
-const ACTIONS = ["addItem", "addGoal", "newSchedule"] as const;
-const ICONS = { addItem: ListChecks, addGoal: Target, newSchedule: CalendarClock } as const;
+const ICONS = { addItem: ListChecks, addGoal: Target, newSchedule: CalendarClock, newScheduleManually: CalendarClock };
 
 export function TaskActions({
 	onAdd,
-	onAddGoal,
 	onCreateSchedule,
+	onCreateScheduleManually,
 }: {
-	onAdd: () => void;
-	onAddGoal: () => void;
-	onCreateSchedule: () => void;
+	onAdd: (source?: PresetSource) => void;
+	onCreateSchedule: (source: PresetSource) => void;
+	onCreateScheduleManually?: (() => void) | undefined;
 }) {
 	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
@@ -26,7 +27,12 @@ export function TaskActions({
 	const trigger = useRef<HTMLButtonElement>(null);
 	const buttons = useRef<(HTMLButtonElement | null)[]>([]);
 	const id = useId();
-	const actions = ACTIONS;
+	const actions = [
+		"addItem",
+		"addGoal",
+		"newSchedule",
+		...(onCreateScheduleManually ? (["newScheduleManually"] as const) : []),
+	] as const;
 	const label = t("tasks.create");
 	useEffect(() => {
 		if (!open) return;
@@ -89,6 +95,7 @@ export function TaskActions({
 				>
 					{actions.map((action, index) => {
 						const Icon = ICONS[action];
+						const text = t(`tasks.${action}`);
 						return (
 							<button
 								key={action}
@@ -99,17 +106,21 @@ export function TaskActions({
 								role="menuitem"
 								tabIndex={index === active ? 0 : -1}
 								onFocus={() => setActive(index)}
-								onClick={() => {
+								onClick={(event) => {
+									const source = {
+										label: text,
+										bounds: (event.currentTarget.lastElementChild ?? event.currentTarget).getBoundingClientRect(),
+									};
 									setOpen(false);
 									trigger.current?.focus();
-									if (action === "newSchedule") onCreateSchedule();
-									else if (action === "addGoal") onAddGoal();
-									else onAdd();
+									if (action === "newScheduleManually") onCreateScheduleManually?.();
+									else if (action === "newSchedule") onCreateSchedule(source);
+									else onAdd(source);
 								}}
 								className="flex w-full items-center gap-[var(--spacing-3)] rounded-[var(--radius-control-sm)] px-[var(--spacing-4)] py-[var(--spacing-3)] text-left text-body text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] focus-visible:bg-[var(--color-bg-hover)]"
 							>
 								<Icon size={18} aria-hidden="true" />
-								<span>{t(`tasks.${action}`)}</span>
+								<span>{text}</span>
 							</button>
 						);
 					})}

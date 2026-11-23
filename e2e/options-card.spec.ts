@@ -52,7 +52,7 @@ for (const width of [390, 1180]) {
 			if (mobile) await photo.tap();
 			else await photo.press("Enter");
 			await expect(photo).toBeDisabled();
-			await expect(textOnly).toBeDisabled();
+			await expect(textOnly).toHaveCount(0);
 			await expect(photo).toHaveAttribute("aria-current", "true");
 			await expect
 				.poll(() => sent)

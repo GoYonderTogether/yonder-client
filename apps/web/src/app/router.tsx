@@ -4,9 +4,19 @@
  */
 
 import { useSessionStore } from "@yonder/ui-data";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import type { Location } from "react-router";
-import { createBrowserRouter, matchPath, Navigate, Route, RouterProvider, Routes, useLocation } from "react-router";
+import {
+	createBrowserRouter,
+	matchPath,
+	Navigate,
+	Route,
+	RouterProvider,
+	Routes,
+	useLocation,
+	useSearchParams,
+} from "react-router";
+import { defaultMessagePath } from "../lib/default-message-path.ts";
 import { Splash } from "../pages/splash.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { preloadFrameView } from "./lazy-tabs.ts";
@@ -84,7 +94,8 @@ export function AppRoutes() {
 									/>
 								)}
 								{publicRoutes.map(({ path, element }) => (
-									<Route key={path} path={path} element={element} />
+									// Sign-in restores a session before it draws its form (main's session recovery).
+									<Route key={path} path={path} element={path === "/sign-in" ? <SignInRoute /> : element} />
 								))}
 								<Route
 									path="/setup/:step"
@@ -102,7 +113,7 @@ export function AppRoutes() {
 												<Route path="/contacts/add" element={<ContactWindowPage />} />
 												<Route path="/today/*" element={<Navigate to="/messages" replace />} />
 												<Route path="/me/memory/*" element={<Navigate to="/memory" replace />} />
-												{/* The unscoped former files entry opens the memory home. */}
+												{/* The unscoped former files entry opens the memory home; 了解 is a live page. */}
 												<Route path="/memory/files" element={<Navigate to="/memory" replace />} />
 												{/* The old chat path, from links written before the frame changed. */}
 												<Route path="/chat/*" element={<Navigate to="/messages/main" replace />} />
@@ -134,6 +145,22 @@ export function AppRoutes() {
 			)}
 		</>
 	);
+}
+
+function SignInRoute() {
+	const booting = useSessionStore((state) => state.booting);
+	return booting ? <Splash /> : <SignInAfterRestore />;
+}
+
+function SignInAfterRestore() {
+	// Once the form is shown, its own login callback chooses the next page.
+	const [restored] = useState(() => useSessionStore.getState().status === "signed-in");
+	const [params] = useSearchParams();
+	const next = params.get("next");
+	if (!restored) return <SignInPage />;
+	const destination =
+		next?.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : defaultMessagePath();
+	return <Navigate to={destination} replace />;
 }
 
 /**

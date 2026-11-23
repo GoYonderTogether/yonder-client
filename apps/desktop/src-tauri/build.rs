@@ -22,6 +22,7 @@ fn main() {
         println!("cargo:rerun-if-changed=../apple/DeviceDownload.mm");
         println!("cargo:rerun-if-changed=../apple/KeyboardFollow.mm");
         println!("cargo:rerun-if-changed=../apple/ChatAttachmentPicker.mm");
+        println!("cargo:rerun-if-changed=../apple/ChatMicrophone.mm");
         println!("cargo:rustc-link-lib=framework=AVFoundation");
         println!("cargo:rustc-link-lib=framework=PhotosUI");
         println!("cargo:rustc-link-lib=framework=UniformTypeIdentifiers");
@@ -31,6 +32,7 @@ fn main() {
             .file("../apple/DeviceDownload.mm")
             .file("../apple/KeyboardFollow.mm")
             .file("../apple/ChatAttachmentPicker.mm")
+            .file("../apple/ChatMicrophone.mm")
             .compile("yonder_iphone_ui");
     }
     if matches!(

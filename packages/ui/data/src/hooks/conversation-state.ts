@@ -14,6 +14,22 @@ export function useSetConversationMuted(conversationId: string) {
 	});
 }
 
+export function useConversationListActions() {
+	const api = useApi();
+	const client = useQueryClient();
+	const refresh = () => client.invalidateQueries({ queryKey: keys.conversations.list() });
+	return {
+		pin: useMutation({
+			mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) => api.setConversationPinned(id, pinned),
+			onSuccess: refresh,
+		}),
+		remove: useMutation({
+			mutationFn: (id: string) => api.removeConversationFromMessages(id),
+			onSuccess: refresh,
+		}),
+	};
+}
+
 export function useResetBotConversation(conversationId: string) {
 	const api = useApi();
 	const client = useQueryClient();
