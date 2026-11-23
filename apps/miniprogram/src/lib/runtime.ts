@@ -23,7 +23,7 @@ Taro.removeStorageSync("yonder.mini.refresh");
 let accessToken: string | null = null;
 const listeners = new Set<() => void>();
 let cachedBots: readonly Member[] = [];
-let session: { status: "booting" | "signed-out" | "signed-in"; me: MeResponse | null } = {
+let session: { status: "booting" | "restore-unavailable" | "signed-out" | "signed-in"; me: MeResponse | null } = {
 	status: "booting",
 	me: null,
 };
@@ -105,7 +105,7 @@ export const api = {
 configureRealtime({
 	baseUrl,
 	token: () => client.accessToken,
-	refresh: () => client.refreshSession(),
+	refresh: () => client.refreshSession({ throwOnUnavailable: true }),
 	lost: clearLocal,
 });
 
@@ -193,16 +193,22 @@ let bootstrapping: Promise<void> | undefined;
 export function bootstrapSession(): Promise<void> {
 	bootstrapping ??= (async () => {
 		const expected = generation;
-		if (!(await client.refreshSession())) {
-			if (expected === generation) publish({ status: "signed-out", me: null });
-			return;
-		}
+		if (session.status === "restore-unavailable") publish({ status: "booting", me: null });
 		try {
+			if (!(await client.refreshSession({ throwOnUnavailable: true }))) {
+				if (expected === generation) publish({ status: "signed-out", me: null });
+				return;
+			}
+			assertCurrent(expected);
 			await refreshMe();
 			await api.registerDevice(deviceInfo()).catch(() => {});
-			await connectRealtime();
+			if (expected === generation) await connectRealtime();
 		} catch {
-			if (expected === generation) publish({ status: "signed-out", me: null });
+			if (expected === generation)
+				publish({
+					status: Taro.getStorageSync(REFRESH_STORAGE_KEY) ? "restore-unavailable" : "signed-out",
+					me: null,
+				});
 		}
 	})().finally(() => {
 		bootstrapping = undefined;

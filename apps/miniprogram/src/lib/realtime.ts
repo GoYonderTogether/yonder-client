@@ -1,6 +1,11 @@
 import Taro from "@tarojs/taro";
 import type { ServerEvent } from "@yonder/protocol";
-import { REALTIME_CLOSE_SESSION_REVOKED, REALTIME_HEARTBEAT_MS, REALTIME_PATH } from "@yonder/protocol";
+import {
+	REALTIME_CLOSE_SESSION_REVOKED,
+	REALTIME_CLOSE_UNAUTHORIZED,
+	REALTIME_HEARTBEAT_MS,
+	REALTIME_PATH,
+} from "@yonder/protocol";
 import { useSyncExternalStore } from "react";
 
 const eventListeners = new Set<(event: ServerEvent) => void>();
@@ -111,11 +116,17 @@ async function open(): Promise<void> {
 				connection.lost();
 				return;
 			}
-			if (code === 4401) {
-				void connection.refresh().then((ok) => {
-					if (ok || connection.token()) schedule();
-					else connection.lost();
-				});
+			if (code === REALTIME_CLOSE_UNAUTHORIZED) {
+				void connection.refresh().then(
+					(ok) => {
+						if (generation !== connectionGeneration) return;
+						if (ok) schedule();
+						else connection.lost();
+					},
+					() => {
+						if (generation === connectionGeneration) schedule();
+					},
+				);
 			} else schedule();
 		});
 		task.onError(() => {
