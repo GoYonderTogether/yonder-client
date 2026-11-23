@@ -12,7 +12,7 @@ import type { ApiClient } from "./client.ts";
 export function itemEndpoints(client: ApiClient) {
 	function items(
 		cursor?: string,
-		options: { limit?: number; botId?: string; activeSubtasks?: boolean } = {},
+		options: { limit?: number; botId?: string; activeSubtasks?: boolean; archived?: "only" } = {},
 		signal?: AbortSignal,
 	): Promise<ItemListResponse> {
 		const query = new URLSearchParams();
@@ -20,6 +20,7 @@ export function itemEndpoints(client: ApiClient) {
 		if (options.limit !== undefined) query.set("limit", String(options.limit));
 		if (options.botId) query.set("botId", options.botId);
 		if (options.activeSubtasks) query.set("activeSubtasks", "1");
+		if (options.archived) query.set("archived", options.archived);
 		const search = query.toString();
 		return client.request(`/v1/items${search ? `?${search}` : ""}`, signal ? { signal } : {});
 	}
