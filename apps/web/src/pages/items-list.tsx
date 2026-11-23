@@ -1,7 +1,7 @@
 import type { Member } from "@yonder/protocol";
 import { Button, EmptyState, ListGroup } from "@yonder/ui-components";
-import { ApiError, useContacts, useItems } from "@yonder/ui-data";
-import { ChevronDown, ListChecks } from "lucide-react";
+import { ApiError, useArchivedItems, useContacts, useItems } from "@yonder/ui-data";
+import { Archive, ChevronDown, ChevronRight, ListChecks } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { groupItems, itemGroupKey } from "./items-format.ts";
@@ -16,6 +16,9 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 	const query = useItems();
 	const contacts = useContacts();
 	const [showEarlier, setShowEarlier] = useState(false);
+	const [showArchived, setShowArchived] = useState(false);
+	const archived = useArchivedItems(showArchived);
+	const archivedItems = useMemo(() => archived.data?.pages.flatMap((page) => page.items) ?? [], [archived.data]);
 	const [now] = useState(() => new Date());
 	const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 	const groups = useMemo(() => groupItems(items, now, deviceZone()), [items, now]);
@@ -91,6 +94,64 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 				);
 			})}
 			<div ref={more} aria-hidden className="h-[1px]" />
+			<ListGroup>
+				<li>
+					<button
+						type="button"
+						aria-expanded={showArchived}
+						className="flex min-h-[var(--row-height)] w-full items-center gap-[var(--spacing-2)] px-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]"
+						onClick={() => setShowArchived(!showArchived)}
+					>
+						{showArchived ? <ChevronDown size={16} strokeWidth={1.8} /> : <ChevronRight size={16} strokeWidth={1.8} />}
+						<Archive size={16} strokeWidth={1.8} aria-hidden />
+						{t("tasks.itemsArchived")}
+					</button>
+				</li>
+				{showArchived && archived.isLoading ? (
+					<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">
+						{t("tasks.itemsLoading")}
+					</li>
+				) : null}
+				{showArchived && archived.isError && !archived.data ? (
+					<li className="flex items-center gap-[var(--spacing-3)] p-[var(--spacing-4)] text-caption text-[var(--color-danger)]">
+						<span role="alert">
+							{archived.error instanceof ApiError ? t(archived.error.messageKey) : t("app.loadFailed")}
+						</span>
+						<Button variant="link" size="sm" onClick={() => void archived.refetch()}>
+							{t("app.retry")}
+						</Button>
+					</li>
+				) : null}
+				{showArchived && archived.isSuccess && archivedItems.length === 0 ? (
+					<li className="p-[var(--spacing-4)] text-caption text-[var(--color-text-secondary)]">
+						{t("tasks.itemsArchivedEmpty")}
+					</li>
+				) : null}
+				{showArchived
+					? archivedItems.map((item) => (
+							<ItemRow
+								key={item.id}
+								item={item}
+								botName={names.get(item.botMemberId) ?? null}
+								onOpen={() => onOpen(item.id)}
+								locale={i18n.language}
+							/>
+						))
+					: null}
+				{showArchived && archived.hasNextPage ? (
+					<li>
+						<button
+							type="button"
+							disabled={archived.isFetchingNextPage}
+							className="flex min-h-[var(--row-height)] w-full items-center justify-center gap-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]"
+							onClick={() => void archived.fetchNextPage()}
+						>
+							<ChevronDown size={16} strokeWidth={1.8} />
+							{t("tasks.itemsLoadMore")}
+						</button>
+					</li>
+				) : null}
+			</ListGroup>
 		</div>
 	);
 }

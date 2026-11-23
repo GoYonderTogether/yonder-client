@@ -365,6 +365,8 @@ export const zhCN: Messages = {
 		itemsEarlier: "更早",
 		itemsLoading: "正在加载事项…",
 		itemsLoadMore: "加载更早的事项",
+		itemsArchived: "已归档",
+		itemsArchivedEmpty: "没有已归档的事项",
 		create: "新建",
 		addItem: "新建事项",
 		addGoal: "新建目标",

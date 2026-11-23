@@ -27,6 +27,19 @@ export function useItems(botId?: string | null) {
 	});
 }
 
+/** The archived task sessions, newest first. Nothing is requested until `enabled`, so a folded section costs no call. */
+export function useArchivedItems(enabled: boolean) {
+	const api = useApi();
+	return useInfiniteQuery({
+		queryKey: keys.items.archived(),
+		initialPageParam: undefined as string | undefined,
+		queryFn: ({ pageParam }) => api.items(pageParam, { archived: "only" }),
+		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+		enabled,
+		staleTime: 15_000,
+	});
+}
+
 export function useActiveBotSubtasks(botId: string | undefined) {
 	const api = useApi();
 	return useQuery({

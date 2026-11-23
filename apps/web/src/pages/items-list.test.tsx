@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ItemSummary, Member } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
 import { ItemsList } from "./items-list.tsx";
 
-const state = vi.hoisted(() => ({ items: [] as ItemSummary[], contacts: [] as Member[] }));
+const state = vi.hoisted(() => ({
+	items: [] as ItemSummary[],
+	archived: [] as ItemSummary[],
+	contacts: [] as Member[],
+	archivedRequested: [] as boolean[],
+}));
 vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@yonder/ui-data")>()),
 	useItems: () => ({
@@ -18,6 +23,19 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 		fetchNextPage: async () => {},
 		refetch: async () => {},
 	}),
+	useArchivedItems: (enabled: boolean) => {
+		state.archivedRequested.push(enabled);
+		return {
+			data: enabled ? { pages: [{ items: state.archived, nextCursor: null }] } : undefined,
+			isLoading: false,
+			isError: false,
+			isSuccess: enabled,
+			hasNextPage: false,
+			isFetchingNextPage: false,
+			fetchNextPage: async () => {},
+			refetch: async () => {},
+		};
+	},
 	useContacts: () => ({ data: { items: state.contacts } }),
 }));
 
@@ -110,4 +128,25 @@ test("a failure shows the real reason the server recorded, never a made-up succe
 test("an empty account is told so", () => {
 	show([]);
 	expect(screen.getByText("No items yet")).toBeVisible();
+});
+
+test("archived items sit folded under the list and are requested only once opened", () => {
+	state.archived = [item({ id: "old1", title: "归档的事", state: "completed" })];
+	state.archivedRequested = [];
+	show([item({ id: "today", title: "今天的事" })]);
+	expect(screen.queryByText("归档的事")).toBeNull();
+	expect(state.archivedRequested.every((enabled) => !enabled)).toBe(true);
+	const toggle = screen.getByRole("button", { name: "Archived" });
+	expect(toggle).toHaveAttribute("aria-expanded", "false");
+	fireEvent.click(toggle);
+	expect(toggle).toHaveAttribute("aria-expanded", "true");
+	expect(screen.getByText("归档的事")).toBeVisible();
+	expect(state.archivedRequested.at(-1)).toBe(true);
+});
+
+test("an opened archive with nothing in it says so", () => {
+	state.archived = [];
+	show([item({ id: "today", title: "今天的事" })]);
+	fireEvent.click(screen.getByRole("button", { name: "Archived" }));
+	expect(screen.getByText("No archived items")).toBeVisible();
 });
