@@ -2,6 +2,8 @@
 /* biome-ignore lint/correctness/noUnknownTypeSelector: WeChat native page root. */
 page,
 :root {
+	--color-update-download-bg: #ffffff;
+	--color-update-download-fg: #0064fa;
 	--font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Segoe UI",
 	"Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
 	--font-weight-normal: 400;
@@ -52,6 +54,7 @@ page,
 	--animate-sheet-up: yonder-sheet-up var(--duration-slow) var(--ease-decelerate);
 	--animate-fade-in: yonder-fade-in var(--duration-base) var(--ease-standard);
 	--animate-drawer-in: yonder-drawer-in var(--duration-base) var(--ease-decelerate);
+	--animate-spinner: yonder-spin 800ms linear infinite;
 	--color-bg-base: #ffffff;
 	--color-bg-chrome: color-mix(in srgb, #2e3238 5%, #ffffff);
 	--color-bg-chrome-image: none;
@@ -59,7 +62,9 @@ page,
 	--color-bg-subtle-hover: rgba(46, 50, 56, 0.09);
 	--color-bg-surface: #ffffff;
 	--color-bg-raised: #ffffff;
+	--color-bg-page: var(--color-bg-base);
 	--color-bg-card: color-mix(in srgb, #2e3238 5%, #ffffff);
+	--color-bg-card-chrome: #ffffff;
 	--color-bg-dock: var(--color-bg-base);
 	--color-bg-overlay: rgba(22, 22, 26, 0.6);
 	--color-bg-hover: rgba(46, 50, 56, 0.09);
@@ -76,6 +81,7 @@ page,
 	--color-border: var(--color-border-default);
 	--color-success: #25772f;
 	--color-warning: #a84a00;
+	--color-warning-subtle: #fff8ea;
 	--color-danger: #d52515;
 	--color-danger-subtle: #fef2ed;
 	--color-danger-inverse: #ffffff;
@@ -83,6 +89,7 @@ page,
 	--color-accent-hover: #0062d6;
 	--color-accent-subtle: #eaf5ff;
 	--color-accent-text: #0064fa;
+	--color-switch-thumb: #ffffff;
 	--color-avatar-1-bg: #eaf5ff;
 	--color-avatar-1-fg: #004fb3;
 	--color-avatar-2-bg: #ecf7ec;
@@ -121,6 +128,12 @@ page,
 	--color-memory-other: #8a9096;
 	--color-memory-other-bg: rgba(46, 50, 56, 0.07);
 	--color-memory-other-fg: #41464c;
+	--color-pool-main: #2a78d6;
+	--color-pool-background: #eb6834;
+	--color-pool-coding: #1baf7a;
+	--color-pool-external: #eda100;
+	--color-pool-tools: #7b61d1;
+	--color-pool-track: rgba(46, 50, 56, 0.08);
 	--color-on-media: #ffffff;
 	--color-media-scrim: rgba(0, 0, 0, 0.42);
 	--shadow-xs: 0 1px 2px rgba(24, 24, 22, 0.04);
@@ -142,6 +155,7 @@ page,
 	--duration-fast: 120ms;
 	--duration-base: 200ms;
 	--duration-slow: 300ms;
+	--duration-slower: 480ms;
 	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
 	--ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
 	--ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
@@ -164,7 +178,25 @@ page,
 	--card-padding: 20px;
 	--page-padding: 24px;
 	--width-form: 400px;
+	--width-sheet: 560px;
+	--width-reading: 680px;
+	--width-wide: 880px;
+	--width-max: 1024px;
 	--icon-sm: 16px;
+	--icon-md: 20px;
+	--icon-lg: 24px;
+	--icon-stroke: 1.75;
+	--icon-stroke-selected: 2.1;
+	--z-sticky: 10;
+	--z-dock: 20;
+	--z-popover: 50;
+	--z-overlay: 60;
+	--z-toast: 70;
+	--opacity-disabled: 0.6;
+	--spring-panel-stiffness: 500;
+	--spring-panel-damping: 46;
+	--spring-pane-stiffness: 1200;
+	--spring-pane-damping: 80;
 }
 @media (prefers-color-scheme: dark) {
 	/* biome-ignore lint/correctness/noUnknownTypeSelector: WeChat native page root. */
@@ -180,7 +212,9 @@ page,
 		--color-bg-subtle-hover: rgba(255, 255, 255, 0.16);
 		--color-bg-surface: #232429;
 		--color-bg-raised: #35363c;
+		--color-bg-page: var(--color-bg-base);
 		--color-bg-card: var(--color-bg-chrome);
+		--color-bg-card-chrome: var(--color-bg-raised);
 		--color-bg-dock: var(--color-bg-base);
 		--color-bg-overlay: rgba(22, 22, 26, 0.6);
 		--color-bg-hover: rgba(255, 255, 255, 0.16);
@@ -196,6 +230,7 @@ page,
 		--color-border-strong: #555b61;
 		--color-success: #5dc264;
 		--color-warning: #ffae43;
+		--color-warning-subtle: rgba(255, 174, 67, 0.2);
 		--color-danger: #fc725a;
 		--color-danger-subtle: rgba(252, 114, 90, 0.2);
 		--color-danger-inverse: #1c1f23;
@@ -203,6 +238,7 @@ page,
 		--color-accent-hover: #7fc1ff;
 		--color-accent-subtle: rgba(84, 169, 255, 0.2);
 		--color-accent-text: #54a9ff;
+		--color-switch-thumb: #ffffff;
 		--color-avatar-1-bg: #053170;
 		--color-avatar-1-fg: #a9d7ff;
 		--color-avatar-2-bg: #123c19;
@@ -241,6 +277,12 @@ page,
 		--color-memory-other: #9aa0a6;
 		--color-memory-other-bg: rgba(255, 255, 255, 0.1);
 		--color-memory-other-fg: #c6cacd;
+		--color-pool-main: #3987e5;
+		--color-pool-background: #d95926;
+		--color-pool-coding: #199e70;
+		--color-pool-external: #c98500;
+		--color-pool-tools: #8f78e0;
+		--color-pool-track: rgba(255, 255, 255, 0.1);
 		--color-on-media: #ffffff;
 		--color-media-scrim: rgba(0, 0, 0, 0.42);
 		--shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);

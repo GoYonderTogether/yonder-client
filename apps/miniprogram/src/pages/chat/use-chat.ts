@@ -37,6 +37,7 @@ export function useChat(id: string) {
 	const [hasFullHistory, setHasFullHistory] = useState(false);
 	const [sending, setSending] = useState(false);
 	const [olderLoading, setOlderLoading] = useState(false);
+	const [olderError, setOlderError] = useState(false);
 	const sendLock = useRef(false);
 	const actionLock = useRef(false);
 	const cursorRef = useRef<string | null>(null);
@@ -66,6 +67,7 @@ export function useChat(id: string) {
 		setCursor(null);
 		setHasFullHistory(false);
 		setOlderLoading(false);
+		setOlderError(false);
 		setMessages((current) =>
 			current.filter(
 				(message) => message.pending || message.sendFailed || chatHistoryTimeOffset(message.createdAt, cutoff) > 0,
@@ -82,6 +84,7 @@ export function useChat(id: string) {
 		setCursor(null);
 		setHasFullHistory(false);
 		setOlderLoading(false);
+		setOlderError(false);
 		setConversation(undefined);
 		setLoading(true);
 		setError("");
@@ -119,8 +122,10 @@ export function useChat(id: string) {
 			const ticket = epoch.current;
 			let cutoff = historyCutoff.current;
 			const currentRequest = () => active.current && ticket === epoch.current && cutoff === historyCutoff.current;
-			setError("");
-			if (older) setOlderLoading(true);
+			if (older) {
+				setOlderError(false);
+				setOlderLoading(true);
+			} else setError("");
 			const promise = (async () => {
 				try {
 					let page = await api.messages(id, pageCursor ?? undefined, { markRead: false });
@@ -141,7 +146,10 @@ export function useChat(id: string) {
 					}
 					return true;
 				} catch {
-					if (currentRequest()) setError(t("消息加载失败，请重试", "Could not load messages. Try again."));
+					if (currentRequest()) {
+						if (older) setOlderError(true);
+						else setError(t("消息加载失败，请重试", "Could not load messages. Try again."));
+					}
 					return false;
 				} finally {
 					if (currentRequest()) {
@@ -390,6 +398,7 @@ export function useChat(id: string) {
 		cursor: messagesOwner.current === outboxKey ? cursor : null,
 		hasFullHistory: messagesOwner.current === outboxKey && hasFullHistory,
 		olderLoading: messagesOwner.current === outboxKey && olderLoading,
+		olderError: messagesOwner.current === outboxKey && olderError,
 		sending: messagesOwner.current === outboxKey && sending,
 		load,
 		applyQuestionMessages,

@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import { GoalsTab } from "./goal-records.tsx";
 import { ItemDetailPage } from "./items-detail.tsx";
 import type { PresetSource } from "./items-fly.tsx";
-import { upcomingOneOffs } from "./items-format.ts";
 import { ItemsList } from "./items-list.tsx";
 import { ScheduleForm } from "./schedule-form.tsx";
 import { formatInstant } from "./schedule-format.ts";
@@ -81,11 +80,7 @@ export function TasksList({
 					<GoalsTab creating={creating} />
 				</div>
 			) : (
-				<div className="flex flex-col gap-[var(--spacing-4)]">
-					{/* A one-off plan is the owner's next thing but not yet an item; it sits above the list. */}
-					<UpcomingOneOffs />
-					<ItemsList onOpen={onOpenItem} />
-				</div>
+				<ItemsList onOpen={onOpenItem} />
 			)}
 		</ListFrame>
 	);
@@ -130,32 +125,5 @@ export function TaskPage({
 				<EmptyState icon={<ListChecks size={24} strokeWidth={1.6} />} title={t("tasks.emptyTitle")} />
 			</div>
 		</PageFrame>
-	);
-}
-
-/**
- * A one-off plan has not run yet, so it is not an item until it does. It is still the user's next
- * thing, so it is listed above the items rather than hidden in a separate tab (16-3 第二节).
- */
-function UpcomingOneOffs() {
-	const { t, i18n } = useTranslation();
-	const schedules = useSchedules();
-	const locale = i18n.resolvedLanguage ?? i18n.language;
-	const upcoming = upcomingOneOffs(schedules.data?.items ?? []);
-	if (!upcoming.length) return null;
-	return (
-		<ListGroup title={t("tasks.itemUpcoming")}>
-			{upcoming.map((plan) => (
-				<li
-					key={plan.id}
-					className="flex flex-col gap-[var(--spacing-1)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-3)] last:border-0"
-				>
-					<span className="truncate text-body text-[var(--color-text-primary)]">{plan.title}</span>
-					<span className="text-caption text-[var(--color-text-secondary)]">
-						{formatInstant(plan.timezone, plan.nextRunAt ?? plan.at, locale)}
-					</span>
-				</li>
-			))}
-		</ListGroup>
 	);
 }

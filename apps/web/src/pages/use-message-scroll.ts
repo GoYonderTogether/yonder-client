@@ -6,16 +6,34 @@ function atEnd(scroll: HTMLElement) {
 }
 
 /** Follow the reader's position, never the arrival rate of the response. */
-export function useMessageScroll(conversationId: string | null, items: readonly { id: string }[] | undefined) {
+export function useMessageScroll(
+	conversationId: string | null,
+	items: readonly { id: string }[] | undefined,
+	loadEarlier?: () => void,
+) {
 	const bottom = useRef<HTMLDivElement>(null);
 	const follow = useRef(true);
 	const pendingScrollTop = useRef<number | null>(null);
-	const previous = useRef<{ conversationId: string | null; first: string; last: string; height: number } | null>(null);
+	const previous = useRef<{
+		conversationId: string | null;
+		first: string;
+		last: string;
+		height: number;
+		scrollTop: number;
+		firstOffset: number | undefined;
+	} | null>(null);
 	const [showLatest, setShowLatest] = useState(false);
 	const [atLatest, setAtLatest] = useState(false);
 	const [endVisible, setEndVisible] = useState(typeof IntersectionObserver === "undefined");
 	const hasItems = Boolean(items?.length);
 	const viewport = useCallback(() => bottom.current?.closest<HTMLElement>(".overflow-y-auto"), []);
+	const offsetOfMessage = useCallback((scroll: HTMLElement, id: string) => {
+		if (!globalThis.CSS?.escape) return undefined;
+		const message = bottom.current?.parentElement?.querySelector(`[data-message-id="${CSS.escape(id)}"]`);
+		return message
+			? message.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop
+			: undefined;
+	}, []);
 	const canReadLatest = useCallback(() => {
 		const scroll = viewport();
 		return Boolean(scroll && atEnd(scroll) && !scroll.closest("[inert], [hidden], [aria-hidden=true]"));
@@ -46,6 +64,7 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 		setShowLatest(false);
 		const onScroll = () => {
 			const top = scroll.scrollTop;
+			if (previous.current) previous.current.scrollTop = top;
 			const distance = scroll.scrollHeight - scroll.clientHeight - top;
 			// A jump's event can arrive after the dock has already changed the scroll range.
 			if (top !== pendingScrollTop.current) follow.current = distance <= 2;
@@ -65,7 +84,10 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 		scroll.addEventListener("keydown", onKeyDown);
 		// The native dock changes the scroller's padding even when its outer size stays fixed.
 		const observer = new ResizeObserver(() => {
-			if (previous.current) previous.current.height = scroll.scrollHeight;
+			if (previous.current) {
+				previous.current.height = scroll.scrollHeight;
+				previous.current.firstOffset = offsetOfMessage(scroll, previous.current.first);
+			}
 			if (follow.current) scrollToEnd(scroll);
 			measure(scroll);
 		});
@@ -87,7 +109,7 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 			scroll.removeEventListener("pointerdown", interrupt);
 			scroll.removeEventListener("keydown", onKeyDown);
 		};
-	}, [conversationId, hasItems, measure, scrollToEnd, viewport]);
+	}, [conversationId, hasItems, measure, offsetOfMessage, scrollToEnd, viewport]);
 
 	useLayoutEffect(() => {
 		const scroll = viewport();
@@ -95,15 +117,40 @@ export function useMessageScroll(conversationId: string | null, items: readonly 
 		const old = previous.current;
 		const first = items[0]?.id ?? "";
 		const last = items[items.length - 1]?.id ?? "";
-		if (old?.conversationId === conversationId && old.first !== first && old.last === last) {
-			// Preserve the reading position when an older page is prepended.
-			scroll.scrollTop += scroll.scrollHeight - old.height;
-		} else if (follow.current) {
+		if (follow.current) {
 			scrollToEnd(scroll);
+		} else if (old?.conversationId === conversationId && old.first !== first) {
+			// Anchor to the old first message so a simultaneous live reply below it doesn't count.
+			const currentOffset = offsetOfMessage(scroll, old.first);
+			if (old.firstOffset !== undefined && currentOffset !== undefined) {
+				scroll.scrollTop = old.scrollTop + currentOffset - old.firstOffset;
+			} else if (old.last === last) {
+				scroll.scrollTop += scroll.scrollHeight - old.height;
+			}
 		}
 		measure(scroll);
-		previous.current = { conversationId, first, last, height: scroll.scrollHeight };
-	}, [conversationId, items, measure, scrollToEnd, viewport]);
+		previous.current = {
+			conversationId,
+			first,
+			last,
+			height: scroll.scrollHeight,
+			scrollTop: scroll.scrollTop,
+			firstOffset: offsetOfMessage(scroll, first),
+		};
+	}, [conversationId, items, measure, offsetOfMessage, scrollToEnd, viewport]);
+
+	useLayoutEffect(() => {
+		const scroll = viewport();
+		if (!conversationId || !hasItems || !loadEarlier || !scroll) return;
+		const loadAtTop = () => {
+			if (scroll.clientHeight > 0 && scroll.scrollTop <= 2 && !scroll.closest("[inert], [hidden], [aria-hidden=true]"))
+				loadEarlier();
+		};
+		scroll.addEventListener("scroll", loadAtTop, { passive: true });
+		// A short page can leave the viewport at the top without a scroll event.
+		loadAtTop();
+		return () => scroll.removeEventListener("scroll", loadAtTop);
+	}, [conversationId, hasItems, loadEarlier, viewport]);
 
 	return { bottom, showLatest, atBottom: atLatest, atLatest: atLatest && endVisible, canReadLatest, jumpToLatest };
 }

@@ -15,6 +15,7 @@ vi.mock("../lib/platform.ts", async (original) => ({
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("@yonder/feature-auth", () => ({ PasswordSetupForm: () => null }));
 vi.mock("@yonder/feature-me", () => ({ isMeSection: () => false, MeList: () => null, MeSectionPage: () => null }));
+// HEAD keeps the real module for its resume helpers; the capsule itself draws nothing here.
 vi.mock("@yonder/feature-meetings", async (original) => ({
 	...(await original<object>()),
 	MeetingRecorderCapsule: () => null,

@@ -9,7 +9,7 @@ import {
 import { exhaustedPools, QuotaLowBanner } from "@yonder/feature-me";
 import { BotName } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
-import { Avatar, Button, ConversationList, ConversationRow, EmptyState, IconButton } from "@yonder/ui-components";
+import { Avatar, Button, ConversationList, EmptyState, IconButton, Spinner } from "@yonder/ui-components";
 import {
 	type CachedMessage,
 	useActiveBotSubtasks,
@@ -24,7 +24,7 @@ import {
 	useSendMessage,
 } from "@yonder/ui-data";
 import { ConfirmDialog, ListFrame, MAIN_CONVERSATION, PageFrame, useShellChrome } from "@yonder/ui-shell";
-import { ArrowDown, BellOff, Ellipsis, Pin, PinOff, Trash2 } from "lucide-react";
+import { ArrowDown, Ellipsis, Pin, PinOff, Trash2 } from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
@@ -38,8 +38,7 @@ import {
 	conversationTitle,
 	primaryConversation,
 } from "./conversation-presentation.tsx";
-import { rowPreview } from "./message-preview.ts";
-import { UnreadBadge } from "./unread-badge.tsx";
+import { ConversationEntry } from "./conversation-row.tsx";
 import { useMessageScroll } from "./use-message-scroll.ts";
 import { VisitBar } from "./visit-bar.tsx";
 
@@ -88,17 +87,22 @@ export function MessagesList({
 			) : null}
 			<ConversationList label={t("nav.messages")}>
 				{visible?.map((conversation) => {
-					const peer = conversation.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
 					const title =
 						conversation.kind === "system"
 							? t("friendRequests.notifications")
 							: conversationTitle(conversation, person?.id);
-					const unread = conversation.unreadCount;
-					const selected =
-						current === conversation.id || (current === MAIN_CONVERSATION && conversation.id === primary?.id);
 					return (
-						<ConversationRow
+						<ConversationEntry
 							key={conversation.id}
+							conversation={conversation}
+							current={current}
+							personId={person?.id}
+							bot={bot}
+							primary={primary?.id}
+							contacts={contacts}
+							mobile={mode === "mobile"}
+							locale={i18n.resolvedLanguage ?? i18n.language}
+							t={t}
 							actions={[
 								{
 									label: t(conversation.pinned ? "messages.unpin" : "messages.pin"),
@@ -117,50 +121,7 @@ export function MessagesList({
 									disabled: busy,
 								},
 							]}
-							leading={<ConversationAvatar conversation={conversation} personId={person?.id} />}
-							title={
-								peer?.kind === "bot" ? (
-									<BotName
-										name={title}
-										ownedBot={ownedBotFor(peer.memberId, person?.id, bot, contacts)}
-										owner={conversationBotOwner(peer, conversation)}
-										compact="list"
-									/>
-								) : (
-									title
-								)
-							}
-							preview={rowPreview(conversation, t)}
-							meta={
-								conversation.lastMessage?.createdAt
-									? new Intl.DateTimeFormat(i18n.resolvedLanguage, { hour: "numeric", minute: "2-digit" }).format(
-											new Date(conversation.lastMessage.createdAt),
-										)
-									: undefined
-							}
-							badge={
-								unread ||
-								conversation.muted ||
-								conversation.pinned ||
-								(conversation.visit?.role === "host" && conversation.visit.state === "pending") ? (
-									<span className="flex items-center gap-[var(--spacing-1)]">
-										{conversation.visit?.role === "host" && conversation.visit.state === "pending" ? (
-											<span className="rounded-[var(--radius-control-sm)] bg-[var(--color-danger-subtle)] px-[var(--spacing-1)] text-micro text-[var(--color-danger)]">
-												{t("visits.waitingForYou")}
-											</span>
-										) : null}
-										{conversation.pinned ? <Pin size={13} aria-label={t("messages.pinned")} /> : null}
-										{conversation.muted ? <BellOff size={13} aria-label={t("messages.muted")} /> : null}
-										<UnreadBadge
-											count={unread}
-											muted={conversation.muted}
-											dot={mode === "mobile" && conversation.id === primary?.id}
-										/>
-									</span>
-								) : undefined
-							}
-							selected={selected}
-							onClick={() => onOpen(conversation.id === primary?.id ? MAIN_CONVERSATION : conversation.id)}
+							onOpen={() => onOpen(conversation.id === primary?.id ? MAIN_CONVERSATION : conversation.id)}
 						/>
 					);
 				})}
@@ -236,6 +197,8 @@ export function ConversationPage({
 	);
 	const quota = useQuota();
 	const messages = useMessages(conversationId, mobileBotHome || Boolean(item || conversation?.unreadCount));
+	const { fetchNextPage } = messages;
+	const loadEarlier = useCallback(() => void fetchNextPage({ cancelRefetch: false }), [fetchNextPage]);
 	const actions = useRunActions();
 	const send = useSendMessage(conversationId, person?.id);
 	const items = useMemo(
@@ -250,6 +213,9 @@ export function ConversationPage({
 	const { bottom, showLatest, atBottom, atLatest, canReadLatest, jumpToLatest } = useMessageScroll(
 		conversationId,
 		items,
+		readActive && messages.hasNextPage && !messages.isFetching && !messages.isFetchNextPageError
+			? loadEarlier
+			: undefined,
 	);
 	const foreground = useForeground();
 	const canRead = useCallback(() => isForeground() && canReadLatest(), [canReadLatest]);
@@ -407,7 +373,7 @@ export function ConversationPage({
 					/>
 				) : null}
 				{messages.isLoading ? <p role="status">{t("chat.loadingHistory")}</p> : null}
-				{messages.isError ? (
+				{messages.isError && !messages.isFetchNextPageError ? (
 					<Button variant="link" onClick={() => void messages.refetch()}>
 						{t("app.retry")}
 					</Button>
@@ -432,9 +398,15 @@ export function ConversationPage({
 					>
 						{!messages.hasNextPage ? item?.intro : null}
 						{messages.hasNextPage ? (
-							<Button size="sm" onClick={() => void messages.fetchNextPage()} loading={messages.isFetchingNextPage}>
-								{t("chat.loadOlder")}
-							</Button>
+							<div className="flex min-h-[var(--icon-sm)] justify-center text-[var(--color-text-secondary)]">
+								{messages.isFetchingNextPage ? (
+									<Spinner size="sm" label={t("chat.loadingEarlier")} />
+								) : messages.isFetchNextPageError ? (
+									<Button size="sm" variant="link" onClick={loadEarlier}>
+										{t("chat.retryEarlier")}
+									</Button>
+								) : null}
+							</div>
 						) : null}
 						{items?.length ? (
 							<ConversationMessages
