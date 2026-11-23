@@ -3,9 +3,14 @@ import type { DiscoverModelsRequest, SaveProviderRequest } from "@yonder/protoco
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
-export function useProviders() {
+export function useProviders(options: { enabled?: boolean } = {}) {
 	const api = useApi();
-	return useQuery({ queryKey: keys.providers(), queryFn: () => api.providers(), staleTime: 60_000 });
+	return useQuery({
+		queryKey: keys.providers(),
+		queryFn: () => api.providers(),
+		staleTime: 60_000,
+		enabled: options.enabled ?? true,
+	});
 }
 
 export function useProviderActions() {

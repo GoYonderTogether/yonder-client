@@ -10,7 +10,10 @@ const actions = vi.hoisted(() => ({
 	save: vi.fn().mockResolvedValue({}),
 	discoverModels: vi.fn().mockResolvedValue({ models: ["m1", "m2"] }),
 }));
-vi.mock("@yonder/ui-data", () => ({ useProviderActions: () => actions }));
+vi.mock("@yonder/ui-data", () => ({
+	useProviderActions: () => actions,
+	useDevices: () => ({ data: { items: [] }, isLoading: false, isError: false }),
+}));
 
 import { ProviderEditor } from "./provider-editor.tsx";
 
@@ -24,6 +27,7 @@ const provider: Provider = {
 	keyConfigured: true,
 	enabled: true,
 	isDefault: false,
+	origin: "cloud",
 };
 
 test("editing never displays a stored key and discovery reuses it only by provider id", async () => {

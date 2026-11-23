@@ -38,6 +38,7 @@ export function BotSettingsOverview({
 	bot,
 	onEdit,
 	onPersona,
+	onModel,
 	onChannels,
 	onDeleted,
 	children,
@@ -45,6 +46,7 @@ export function BotSettingsOverview({
 	bot: Member;
 	onEdit: () => void;
 	onPersona: () => void;
+	onModel: () => void;
 	onChannels: () => void;
 	onDeleted: (conversationId: string | undefined) => void;
 	/** Sections the caller adds between the settings and delete. */
@@ -65,6 +67,7 @@ export function BotSettingsOverview({
 			<ListGroup title={t("bots.settings")}>
 				<ListRow title={t("bots.basicProfile")} chevron onClick={onEdit} />
 				<ListRow title={t("members.social.personaTitle")} chevron onClick={onPersona} />
+				<ListRow title={t("models.botModelTitle")} chevron onClick={onModel} />
 				<ListRow title={t("bots.channels")} chevron onClick={onChannels} />
 			</ListGroup>
 			{children}

@@ -15,7 +15,11 @@ export type ClientEvent =
 	| { type: "ping"; at: string }
 	| { type: "ack"; lastEventId: string }
 	| { type: "connector.ready"; connectionIds: string[] }
-	| { type: "connector.ready"; connections: { id: string; revision: number }[] };
+	| { type: "connector.ready"; connections: { id: string; revision: number }[] }
+	/** The device answers one relayed provider call: a head, then body parts, then an end. */
+	| { type: "provider.relay.head"; relayId: string; status: number; contentType?: string }
+	| { type: "provider.relay.chunk"; relayId: string; part: string }
+	| { type: "provider.relay.end"; relayId: string; error?: string };
 
 export interface MessageNotification {
 	id: string;
@@ -62,7 +66,18 @@ export type ServerEvent =
 	| { type: "goals.changed"; eventId: string; at: string }
 	/** Timeline days and/or memory file paths changed. */
 	| { type: "memory.changed"; eventId: string; at: string; dates?: string[]; paths?: string[] }
-	| { type: "session.revoked"; eventId: string; at: string; sessionId: string };
+	| { type: "session.revoked"; eventId: string; at: string; sessionId: string }
+	/** Sent only to the bound device's sessions: make this HTTP call locally and stream it back. */
+	| {
+			type: "provider.relay.request";
+			eventId: string;
+			at: string;
+			relayId: string;
+			url: string;
+			headers: Record<string, string>;
+			body: string;
+	  }
+	| { type: "provider.relay.cancel"; eventId: string; at: string; relayId: string };
 
 export type ServerEventType = ServerEvent["type"];
 

@@ -7,7 +7,7 @@ import {
 	isMessageChannel,
 	MeSectionPage,
 } from "@yonder/feature-me";
-import { BotForm, BotList, BotSettingsOverview, PrivacySwitches } from "@yonder/feature-members";
+import { BotForm, BotList, BotModelPage, BotSettingsOverview, PrivacySwitches } from "@yonder/feature-members";
 import { Button } from "@yonder/ui-components";
 import { useBot, useContacts, usePerson } from "@yonder/ui-data";
 import { locate, PageFrame } from "@yonder/ui-shell";
@@ -215,6 +215,13 @@ function BotSettingsPage({
 			</SettingsPage>
 		);
 	}
+	if (leaf === "model") {
+		return (
+			<SettingsPage title={t("models.botModelTitle")} description={t("models.botModelHint", { name: bot.displayName })}>
+				<BotModelPage bot={bot} />
+			</SettingsPage>
+		);
+	}
 	if (leaf) return <NotFoundPage />;
 	return (
 		<SettingsPage title={bot.displayName}>
@@ -222,6 +229,7 @@ function BotSettingsPage({
 				bot={bot}
 				onEdit={() => onOpen(`${path}/profile`)}
 				onPersona={() => onOpen(`${path}/persona`)}
+				onModel={() => onOpen(`${path}/model`)}
 				onChannels={() => onOpen(channelsSettingsPath(botId), { channelOriginBotId: botId })}
 				onDeleted={(conversationId) => {
 					onBack("/me/bots");
