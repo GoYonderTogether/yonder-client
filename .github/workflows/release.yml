@@ -18,9 +18,9 @@ on:
         default: ""
         type: string
       require_ci:
-        description: 发版前等待该 commit 的 CI 全部成功
+        description: 发版前等待该 commit 的 CI 全部成功（默认不等：先发版，CI 异步跑，见 AGENTS.md「发版与测试」）
         required: false
-        default: true
+        default: false
         type: boolean
       expected_sha:
         description: 自动发版锁定的已验证提交；main 已变化则拒绝发版

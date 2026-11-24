@@ -7,7 +7,8 @@ Releases are manual. Nothing publishes automatically.
 ```
 Release (workflow_dispatch, release.yml)
   └─ verify ref is in main, fast-forward to origin/main
-  └─ require the aggregate `CI` check on that commit to be green
+  └─ optionally (`require_ci=true`) wait for the aggregate `CI` check; by default it does not wait:
+     release first, CI runs alongside (AGENTS.md「发版与测试」)
   └─ bump every workspace version + apps/desktop, write CHANGELOG, commit, tag v<version>
   └─ build the web bundle (the release must be buildable before anything is pushed)
   └─ push tag + main atomically, create a draft Release, publish it
