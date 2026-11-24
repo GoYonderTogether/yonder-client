@@ -22,6 +22,46 @@ mod ios;
 #[cfg(target_os = "ios")]
 pub use ios::install_ios_delegate;
 
+#[cfg(target_os = "ios")]
+#[path = "notifications_place.rs"]
+mod place;
+
+#[cfg(target_os = "ios")]
+#[tauri::command]
+async fn prepare_place_reminder() -> Result<(), &'static str> {
+    place::prepare().await
+}
+
+#[cfg(target_os = "ios")]
+#[tauri::command]
+async fn schedule_place_reminder(latitude: f64, longitude: f64, chinese: bool) -> Result<(), &'static str> {
+    place::schedule(latitude, longitude, chinese).await
+}
+
+#[cfg(target_os = "ios")]
+#[tauri::command]
+async fn place_reminder_pending() -> bool {
+    place::pending().await
+}
+
+#[cfg(target_os = "ios")]
+#[tauri::command]
+async fn cancel_place_reminder() {
+    place::cancel().await
+}
+
+#[cfg(target_os = "ios")]
+#[tauri::command]
+async fn prepare_location() -> Result<(), &'static str> {
+    place::prepare_location().await
+}
+
+#[cfg(target_os = "ios")]
+#[tauri::command]
+async fn current_location() -> Result<place::LocationFix, &'static str> {
+    place::current_location().await
+}
+
 #[tauri::command]
 async fn request_permission<R: Runtime>(app: AppHandle<R>) -> Result<bool, String> {
     #[cfg(target_os = "android")]
@@ -168,7 +208,13 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         permission_status,
         open_settings,
         push_registration,
-        take_open
+        take_open,
+        prepare_place_reminder,
+        schedule_place_reminder,
+        place_reminder_pending,
+        cancel_place_reminder,
+        prepare_location,
+        current_location
     ]);
 
     builder

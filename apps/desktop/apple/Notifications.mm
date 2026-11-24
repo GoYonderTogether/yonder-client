@@ -5,6 +5,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 
+extern "C" bool yonder_ios_is_place_notification(UNNotificationRequest *request);
 extern "C" void yonder_ios_notification_open(const char *payload);
 extern "C" void yonder_ios_notification_token(const char *token, bool sandbox);
 
@@ -26,6 +27,11 @@ extern "C" void yonder_ios_open_notification_settings(void *context, void (*call
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center
        willPresentNotification:(UNNotification *)notification
          withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completion {
+    if (yonder_ios_is_place_notification(notification.request)) {
+        completion(static_cast<UNNotificationPresentationOptions>(
+            UNNotificationPresentationOptionBanner | UNNotificationPresentationOptionSound));
+        return;
+    }
     // The app updates messages and unread counts without showing a foreground reminder.
     completion(static_cast<UNNotificationPresentationOptions>(0));
 }
@@ -33,7 +39,9 @@ extern "C" void yonder_ios_open_notification_settings(void *context, void (*call
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center
  didReceiveNotificationResponse:(UNNotificationResponse *)response
           withCompletionHandler:(void (^)(void))completion {
-    if ([response.actionIdentifier isEqualToString:UNNotificationDefaultActionIdentifier]) {
+    // A local place reminder only opens Yonder through the system's default action.
+    if (!yonder_ios_is_place_notification(response.notification.request) &&
+        [response.actionIdentifier isEqualToString:UNNotificationDefaultActionIdentifier]) {
         NSDictionary *info = response.notification.request.content.userInfo;
         NSArray<NSString *> *keys = @[ @"notificationId", @"conversationId", @"messageId", @"recipientMemberId" ];
         NSMutableDictionary *target = [NSMutableDictionary dictionary];

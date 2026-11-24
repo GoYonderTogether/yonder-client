@@ -58,6 +58,10 @@ impl AppleResources {
         for inactive in store.allowed.difference(&allowed) {
             store.cancel_connection(Some(inactive));
         }
+        #[cfg(target_os = "ios")]
+        refresh_photo_delta(
+            ready.iter().find(|grant| grant.connector_id == Source::ApplePhotos.id()).copied(),
+        );
         store.allowed = allowed;
         Ok(current)
     }
@@ -107,10 +111,33 @@ extern "C" {
     fn yonder_apple_photos_request(context: *mut c_void, reply: PermissionReply);
     #[cfg(target_os = "ios")]
     fn yonder_ios_open_apple_resource_settings(context: *mut c_void, reply: PermissionReply);
+    #[cfg(target_os = "ios")]
+    fn yonder_ios_photo_delta(mode: i32, scope: *const std::ffi::c_char);
     #[cfg(target_os = "macos")]
     fn yonder_apple_open_resource_settings(resource: i32) -> bool;
     #[cfg(target_os = "macos")]
     fn yonder_voice_memos_permission(probe: bool, explicit_request: bool) -> i32;
+}
+
+#[cfg(target_os = "ios")]
+fn photo_delta_lifecycle(mode: i32) {
+    // The C entry point advances its cancellation epoch synchronously; work is queued separately.
+    unsafe { yonder_ios_photo_delta(mode, std::ptr::null()) };
+}
+
+#[cfg(target_os = "ios")]
+fn refresh_photo_delta(grant: Option<&Grant>) {
+    use sha2::{Digest, Sha256};
+    let scope = grant.and_then(|grant| {
+        let mut digest = Sha256::new();
+        for part in [&grant.owner_id, &grant.device_id, &grant.connection_id] {
+            digest.update((part.len() as u64).to_be_bytes());
+            digest.update(part.as_bytes());
+        }
+        digest.update(grant.revision.to_be_bytes());
+        std::ffi::CString::new(format!("{:x}", digest.finalize())).ok()
+    });
+    unsafe { yonder_ios_photo_delta(1, scope.as_ref().map_or(std::ptr::null(), |s| s.as_ptr())) };
 }
 
 fn permission_name(status: i32) -> &'static str {
@@ -250,9 +277,14 @@ async fn activate<R: Runtime>(app: AppHandle<R>, context: Context) -> Result<(),
         let state = app.state::<AppleResources>();
         let mut store = state.store.lock().map_err(|_| "read_failed")?;
         let changed = store.context.as_ref() != Some(&context);
+        #[cfg(target_os = "ios")]
+        let different_owner = store.context.as_ref().is_some_and(|previous|
+            previous.owner_id != context.owner_id || previous.device_id != context.device_id);
         store.activate(&file, context)?;
         if changed {
             state.invalidate_ready();
+            #[cfg(target_os = "ios")]
+            photo_delta_lifecycle(if different_owner { 2 } else { 0 });
         }
         Ok(())
     })
@@ -267,6 +299,8 @@ async fn reset<R: Runtime>(app: AppHandle<R>, context: Context) -> Result<(), St
         if store.context.as_ref() == Some(&context) {
             store.reset();
             state.invalidate_ready();
+            #[cfg(target_os = "ios")]
+            photo_delta_lifecycle(0);
         }
         Ok(())
     })
@@ -309,6 +343,10 @@ async fn authorize<R: Runtime>(
         store.require(&context)?;
         let previous = store.grants.clone();
         let connector_id = grant.connector_id.id();
+        #[cfg(target_os = "ios")]
+        let changed_photo_grant = previous.iter().any(|entry|
+            entry.matches(&context) && entry.connector_id == connector_id &&
+            (entry.connection_id != id || entry.revision != revision));
         let mut replaced = Vec::new();
         store.grants.retain(|entry| {
             if entry.matches(&context) && entry.connector_id == connector_id {
@@ -333,6 +371,10 @@ async fn authorize<R: Runtime>(
             return Err(error);
         }
         state.invalidate_ready();
+        #[cfg(target_os = "ios")]
+        if grant.connector_id == Source::ApplePhotos {
+            photo_delta_lifecycle(if changed_photo_grant { 2 } else { 0 });
+        }
         for id in replaced {
             store.cancel_connection(Some(&id));
             store.allowed.remove(&id);
@@ -355,6 +397,11 @@ async fn revoke<R: Runtime>(
         state.invalidate_ready();
         store.cancel_connection(Some(&connection_id));
         store.allowed.remove(&connection_id);
+        #[cfg(target_os = "ios")]
+        if store.grants.iter().any(|entry| entry.matches(&context) &&
+            entry.connection_id == connection_id && entry.connector_id == Source::ApplePhotos.id()) {
+            photo_delta_lifecycle(2);
+        }
         store
             .grants
             .retain(|entry| !entry.matches(&context) || entry.connection_id != connection_id);

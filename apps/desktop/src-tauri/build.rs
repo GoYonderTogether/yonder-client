@@ -22,10 +22,12 @@ fn main() {
         println!("cargo:rerun-if-changed=../apple/DeviceDownload.mm");
         println!("cargo:rerun-if-changed=../apple/KeyboardFollow.mm");
         println!("cargo:rerun-if-changed=../apple/ChatAttachmentPicker.mm");
+        println!("cargo:rerun-if-changed=../apple/PlaceReminder.mm");
         println!("cargo:rerun-if-changed=../apple/ChatPhotoFit.h");
         println!("cargo:rerun-if-changed=../apple/ChatMicrophone.mm");
         println!("cargo:rustc-link-lib=framework=AVFoundation");
         println!("cargo:rustc-link-lib=framework=PhotosUI");
+        println!("cargo:rustc-link-lib=framework=CoreLocation");
         println!("cargo:rustc-link-lib=framework=ImageIO");
         println!("cargo:rustc-link-lib=framework=UniformTypeIdentifiers");
         cc::Build::new()
@@ -34,6 +36,7 @@ fn main() {
             .file("../apple/DeviceDownload.mm")
             .file("../apple/KeyboardFollow.mm")
             .file("../apple/ChatAttachmentPicker.mm")
+            .file("../apple/PlaceReminder.mm")
             .file("../apple/ChatMicrophone.mm")
             .compile("yonder_iphone_ui");
     }
@@ -45,6 +48,7 @@ fn main() {
         println!("cargo:rerun-if-changed=../apple/DeviceName.mm");
         println!("cargo:rerun-if-changed=../apple/AppleCalendar.mm");
         println!("cargo:rerun-if-changed=../apple/ApplePhotos.mm");
+        println!("cargo:rerun-if-changed=../apple/ApplePhotoDeltaState.h");
         println!("cargo:rerun-if-changed=../apple/AppleResourceBridge.h");
         println!("cargo:rustc-link-lib=framework=EventKit");
         println!("cargo:rustc-link-lib=framework=Photos");
@@ -136,6 +140,12 @@ fn main() {
                         "open_settings",
                         "take_open",
                         "show_desktop",
+                        "prepare_place_reminder",
+                        "schedule_place_reminder",
+                        "place_reminder_pending",
+                        "cancel_place_reminder",
+                        "prepare_location",
+                        "current_location",
                         "registerListener",
                         "removeListener",
                     ])

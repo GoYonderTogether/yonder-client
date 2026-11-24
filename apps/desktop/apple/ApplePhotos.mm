@@ -1,6 +1,10 @@
 #import "AppleResourceBridge.h"
 #import <Photos/Photos.h>
 #import <Vision/Vision.h>
+#if TARGET_OS_IOS
+#import "ApplePhotoDeltaState.h"
+#include <atomic>
+#endif
 
 #if TARGET_OS_OSX
 #import <AppKit/AppKit.h>
@@ -233,3 +237,162 @@ extern "C" void yonder_apple_photos_execute(bool read, const char *argsJSON, voi
         }
     });
 }
+
+#if TARGET_OS_IOS
+// Local metadata only. This never calls image/OCR or asks for PhotoKit access.
+static std::atomic<uint64_t> photoDeltaEpoch{0};
+static dispatch_queue_t photoDeltaQueue() {
+    static dispatch_queue_t queue = dispatch_queue_create("dev.yonder.photo-delta",
+        dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0));
+    return queue;
+}
+
+static NSURL *photoDeltaDirectory() {
+    NSURL *support = [NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory
+        inDomains:NSUserDomainMask].firstObject;
+    return [support URLByAppendingPathComponent:@"YonderPhotoHistory" isDirectory:YES];
+}
+
+static void purgePhotoDelta() {
+    NSURL *directory = photoDeltaDirectory();
+    if (directory != nil) [NSFileManager.defaultManager removeItemAtURL:directory error:nullptr];
+}
+
+static BOOL historyInvalid(NSError *error) API_AVAILABLE(ios(16.0)) {
+    return [error.domain isEqualToString:PHPhotosErrorDomain] &&
+        (error.code == PHPhotosErrorPersistentChangeTokenExpired ||
+            error.code == PHPhotosErrorPersistentChangeDetailsUnavailable);
+}
+
+static NSDictionary *visibleRefs(PHFetchResult<PHAsset *> *assets) {
+    NSMutableDictionary *refs = [NSMutableDictionary dictionary];
+    [assets enumerateObjectsUsingBlock:^(PHAsset *asset, NSUInteger, BOOL *) {
+        if (visiblePhoto(asset)) {
+            refs[asset.localIdentifier] = @[@(asset.creationDate.timeIntervalSince1970),
+                @(asset.modificationDate.timeIntervalSince1970)];
+        }
+    }];
+    return refs;
+}
+
+static NSDictionary *loadPhotoDelta(NSURL *file) {
+    NSNumber *size = nil;
+    if (![file getResourceValue:&size forKey:NSURLFileSizeKey error:nullptr] || size.unsignedIntegerValue > 262144)
+        return nil;
+    NSData *data = [NSData dataWithContentsOfURL:file];
+    if (data == nil) return nil;
+    id stored = [NSPropertyListSerialization propertyListWithData:data options:NSPropertyListImmutable
+        format:nullptr error:nullptr];
+    return [stored isKindOfClass:NSDictionary.class] ? stored : nil;
+}
+
+static NSDictionary *nextPhotoDelta(NSDictionary *saved, NSString *scope, int32_t status)
+    API_AVAILABLE(ios(16.0)) {
+    PHPhotoLibrary *library = PHPhotoLibrary.sharedPhotoLibrary;
+    NSDictionary *current = YonderPhotoDeltaCurrent(saved, scope, status);
+    // Limited selections can change without reliably appearing in persistent asset history.
+    PHPersistentChangeToken *cursor = status == AppleGranted && current != nil
+        ? [NSKeyedUnarchiver unarchivedObjectOfClass:PHPersistentChangeToken.class
+            fromData:current[@"token"] error:nullptr] : nil;
+    NSDictionary *refs = nil;
+    if (cursor != nil) {
+        NSError *error = nil;
+        PHPersistentChangeFetchResult *changes = [library fetchPersistentChangesSinceToken:cursor error:&error];
+        if (changes == nil && !historyInvalid(error)) return nil;
+        if (changes != nil) {
+            NSMutableSet<NSString *> *ids = [NSMutableSet setWithArray:[current[@"refs"] allKeys]];
+            __block PHPersistentChangeToken *last = cursor;
+            __block BOOL baseline = NO;
+            __block BOOL failed = NO;
+            __block NSUInteger records = 0;
+            [changes enumerateChangesWithBlock:^(PHPersistentChange *change, BOOL *stop) {
+                NSError *detailsError = nil;
+                PHPersistentObjectChangeDetails *details = [change changeDetailsForObjectType:PHObjectTypeAsset
+                    error:&detailsError];
+                NSUInteger count = details.insertedLocalIdentifiers.count + details.updatedLocalIdentifiers.count
+                    + details.deletedLocalIdentifiers.count;
+                if (detailsError != nil || ++records > 512 || ids.count + count > 1024) {
+                    baseline = detailsError == nil || historyInvalid(detailsError);
+                    failed = !baseline;
+                    *stop = YES;
+                    return;
+                }
+                if (details != nil) {
+                    [ids minusSet:details.deletedLocalIdentifiers];
+                    [ids unionSet:details.insertedLocalIdentifiers];
+                    [ids unionSet:details.updatedLocalIdentifiers];
+                }
+                last = change.changeToken;
+            }];
+            if (failed) return nil;
+            if (!baseline) {
+                // Never retain a reference just because an ID was present in the history.
+                refs = ids.count ? visibleRefs([PHAsset fetchAssetsWithLocalIdentifiers:ids.allObjects options:nil]) : @{};
+                cursor = last;
+            }
+        }
+    }
+    if (refs == nil) {
+        // Take the baseline cursor first: concurrent changes are replayed next time, never skipped.
+        cursor = library.currentChangeToken;
+        PHFetchOptions *options = [PHFetchOptions new];
+        options.includeHiddenAssets = NO;
+        options.fetchLimit = YonderPhotoRefLimit;
+        options.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"creationDate" ascending:NO]];
+        refs = visibleRefs([PHAsset fetchAssetsWithMediaType:PHAssetMediaTypeImage options:options]);
+    }
+    NSData *token = cursor == nil ? nil
+        : [NSKeyedArchiver archivedDataWithRootObject:cursor requiringSecureCoding:YES error:nullptr];
+    return YonderPhotoDeltaCheckpoint(scope, status, token, refs);
+}
+
+// 0: suspend; 1: refresh only in the foreground (nil scope means inaccessible); 2: revoke and purge.
+extern "C" void yonder_ios_photo_delta(int32_t mode, const char *scopeUTF8) {
+    uint64_t epoch = photoDeltaEpoch.fetch_add(1) + 1;
+    if (mode == 0) return;
+    if (mode == 2) {
+        dispatch_async(photoDeltaQueue(), ^{ purgePhotoDelta(); });
+        return;
+    }
+    NSString *scope = scopeUTF8 == nullptr ? nil : [NSString stringWithUTF8String:scopeUTF8];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (epoch != photoDeltaEpoch.load() || UIApplication.sharedApplication.applicationState != UIApplicationStateActive)
+            return;
+        dispatch_async(photoDeltaQueue(), ^{
+            @autoreleasepool {
+                if (epoch != photoDeltaEpoch.load()) return;
+                int32_t status = yonder_apple_photos_status();
+                if (scope == nil || (status != AppleGranted && status != AppleLimited)) {
+                    purgePhotoDelta();
+                    return;
+                }
+                if (@available(iOS 16.0, *)) {
+                    NSURL *directory = photoDeltaDirectory();
+                    NSURL *file = [directory URLByAppendingPathComponent:@"state.plist" isDirectory:NO];
+                    if (file == nil) return;
+                    NSDictionary *old = loadPhotoDelta(file);
+                    if (old != nil && YonderPhotoDeltaCurrent(old, scope, status) == nil) {
+                        purgePhotoDelta();
+                        old = nil;
+                    }
+                    NSDictionary *next = nextPhotoDelta(old, scope, status);
+                    if (epoch != photoDeltaEpoch.load()) return;
+                    if (yonder_apple_photos_status() != status) {
+                        purgePhotoDelta();
+                        return;
+                    }
+                    if (next == nil || [next isEqual:old]) return;
+                    NSData *data = [NSPropertyListSerialization dataWithPropertyList:next
+                        format:NSPropertyListBinaryFormat_v1_0 options:0 error:nullptr];
+                    if (data == nil || data.length > 262144) return;
+                    if ([NSFileManager.defaultManager createDirectoryAtURL:directory withIntermediateDirectories:YES
+                            attributes:@{NSFileProtectionKey: NSFileProtectionComplete} error:nullptr] &&
+                        [directory setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nullptr]) {
+                        [data writeToURL:file options:NSDataWritingAtomic | NSDataWritingFileProtectionComplete error:nullptr];
+                    }
+                }
+            }
+        });
+    });
+}
+#endif

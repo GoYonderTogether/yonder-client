@@ -189,6 +189,13 @@ execFileSync("/usr/bin/plutil", [
 	"Record voice messages and meeting audio / 录制语音消息和会议音频",
 	infoPlist,
 ]);
+execFileSync("/usr/bin/plutil", [
+	"-replace",
+	"NSLocationWhenInUseUsageDescription",
+	"-string",
+	"Use your current location or set a place reminder, only when you ask / 仅在你主动操作时获取当前位置或设置地点提醒",
+	infoPlist,
+]);
 for (const key of ["NSCalendarsUsageDescription", "NSCalendarsFullAccessUsageDescription"]) {
 	execFileSync("/usr/bin/plutil", [
 		"-replace",

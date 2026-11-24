@@ -80,6 +80,7 @@ export function DataProvider({
 		const realtime: RealtimeConnection = new RealtimeConnection({
 			baseUrl,
 			getAccessToken: () => tokens.getAccessToken(),
+			refreshSession: () => client.refreshSession({ throwOnUnavailable: true }),
 		});
 		const tokens = createMemoryTokenStore((firstToken) => {
 			if (clientKind === "web") storage.set(WEB_SESSION_EXPIRY, String(Date.now() + SESSION_LIFETIME_MS));

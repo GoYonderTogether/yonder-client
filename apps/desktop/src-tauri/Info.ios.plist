@@ -4,6 +4,8 @@
 <dict>
     <key>NSCameraUsageDescription</key>
     <string>Scan QR codes or take photos in chats and recordings / 扫描二维码，或在聊天和录音中拍照</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Use your current location or set a place reminder, only when you ask / 仅在你主动操作时获取当前位置或设置地点提醒</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Browse photos and albums to attach to chats, and allow your Agent to analyze permitted photos when using the Photos connector / 在聊天中浏览相册和添加照片，并在使用照片连接器时允许智能体分析授权范围内的照片</string>
 </dict>

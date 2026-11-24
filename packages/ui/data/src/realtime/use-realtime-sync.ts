@@ -18,7 +18,20 @@ export function useRealtimeSync(): void {
 			return;
 		}
 		realtime.connect();
-		return () => realtime.stop();
+		const resume = () => realtime.resume();
+		const online = () => realtime.resume(true);
+		const visible = () => {
+			if (document.visibilityState === "visible") resume();
+		};
+		window.addEventListener("online", online);
+		window.addEventListener("focus", resume);
+		document.addEventListener("visibilitychange", visible);
+		return () => {
+			window.removeEventListener("online", online);
+			window.removeEventListener("focus", resume);
+			document.removeEventListener("visibilitychange", visible);
+			realtime.stop();
+		};
 	}, [realtime, status]);
 
 	useEffect(() => {

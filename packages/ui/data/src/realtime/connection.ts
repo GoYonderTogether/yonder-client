@@ -25,6 +25,7 @@ export interface RealtimeHandlers {
 export interface RealtimeOptions extends RealtimeHandlers {
 	baseUrl: string;
 	getAccessToken: () => string | null;
+	refreshSession?: (() => Promise<boolean>) | undefined;
 	/** Injectable for tests. */
 	WebSocketImpl?: typeof WebSocket;
 	schedule?: (fn: () => void, ms: number) => unknown;
@@ -38,12 +39,19 @@ const BACKOFF_MS = [
 	[2_500, 3_000],
 ] as const;
 
+const PROBE_TIMEOUT_MS = 8_000;
+const AUTH_RETRY_MS = 30_000;
+
 export class RealtimeConnection {
 	readonly #options: RealtimeOptions;
 	#socket: WebSocket | null = null;
 	#status: ConnectionStatus = "idle";
 	#attempt = 0;
 	#heartbeat: ReturnType<typeof setInterval> | null = null;
+	#watchdog: ReturnType<typeof setTimeout> | null = null;
+	#refreshing: Promise<boolean> | null = null;
+	#nextAuthRetryAt = 0;
+	#authRefreshUnavailable = false;
 	#retryHandle: unknown = null;
 	#wanted = false;
 	#statusListeners = new Set<() => void>();
@@ -88,8 +96,26 @@ export class RealtimeConnection {
 		this.#open();
 	}
 
+	/** When execution or networking resumes, verify an open socket instead of replacing it. */
+	resume(networkRestored = false): void {
+		if (!this.#wanted) return;
+		if (networkRestored && this.#authRefreshUnavailable) {
+			this.#authRefreshUnavailable = false;
+			this.#nextAuthRetryAt = 0;
+		}
+		if (this.#socket) {
+			if (this.#status === "open") this.#probe(this.#socket);
+		} else {
+			this.#clearTimers();
+			this.#open();
+		}
+	}
+
 	stop(): void {
 		this.#wanted = false;
+		this.#refreshing = null;
+		this.#nextAuthRetryAt = 0;
+		this.#authRefreshUnavailable = false;
 		this.#clearTimers();
 		const socket = this.#socket;
 		this.#socket = null;
@@ -112,10 +138,16 @@ export class RealtimeConnection {
 		this.#setStatus(this.#attempt === 0 ? "connecting" : "reconnecting");
 		const socket = new Impl(url);
 		this.#socket = socket;
+		let opened = false;
+		this.#armWatchdog(socket);
 
 		socket.addEventListener("open", () => {
 			if (this.#socket !== socket) return;
+			opened = true;
 			this.#attempt = 0;
+			this.#nextAuthRetryAt = 0;
+			this.#authRefreshUnavailable = false;
+			this.#clearWatchdog();
 			this.#setStatus("open");
 			this.#startHeartbeat(socket);
 		});
@@ -124,7 +156,10 @@ export class RealtimeConnection {
 			if (this.#socket !== socket) return;
 			try {
 				const parsed = JSON.parse(String(event.data)) as ServerEvent | { type: "pong" };
-				if (parsed.type === "pong") return;
+				if (parsed.type === "pong") {
+					this.#clearWatchdog();
+					return;
+				}
 				this.#options.onEvent?.(parsed as ServerEvent);
 				for (const listener of this.#eventListeners) listener(parsed as ServerEvent);
 				// A dev panel can observe events without replacing the app's cache/session handler.
@@ -143,21 +178,45 @@ export class RealtimeConnection {
 			if (this.#socket !== socket) return;
 			this.#socket = null;
 			this.#clearTimers();
-			if (event.code === REALTIME_CLOSE_SESSION_REVOKED) {
-				this.#setStatus("stopped");
+			if (event.code === REALTIME_CLOSE_SESSION_REVOKED || event.code === REALTIME_CLOSE_UNAUTHORIZED) {
+				this.stop();
 				this.#options.onSessionLost?.();
 				return;
 			}
-			if (event.code === REALTIME_CLOSE_UNAUTHORIZED) {
-				this.#setStatus("stopped");
-				this.#options.onSessionLost?.();
-				return;
-			}
+			if (!opened && event.code === 1006) this.#refreshAfterUpgradeFailure(token);
 			this.#scheduleReconnect();
 		});
 		socket.addEventListener("error", () => {
 			// `close` follows an error; the reconnect is scheduled there.
 		});
+	}
+
+	#refreshAfterUpgradeFailure(token: string): void {
+		const refresh = this.#options.refreshSession;
+		// A rejected HTTP upgrade looks like any other abnormal close to WebSocket.
+		if (!this.#wanted || !refresh || this.#refreshing || Date.now() < this.#nextAuthRetryAt) return;
+		if (globalThis.navigator?.onLine === false || token !== this.#options.getAccessToken()) return;
+		this.#authRefreshUnavailable = false;
+		this.#nextAuthRetryAt = Date.now() + AUTH_RETRY_MS;
+		const pending = refresh();
+		this.#refreshing = pending;
+		void pending.then(
+			(refreshed) => {
+				if (this.#refreshing !== pending) return;
+				this.#refreshing = null;
+				if (refreshed && !this.#socket) this.resume();
+				// Only the API's conclusive rejection clears the access token; a network failure does not.
+				if (!refreshed && !this.#options.getAccessToken()) {
+					this.stop();
+					this.#options.onSessionLost?.();
+				}
+			},
+			() => {
+				if (this.#refreshing !== pending) return;
+				this.#refreshing = null;
+				this.#authRefreshUnavailable = true;
+			},
+		);
 	}
 
 	#scheduleReconnect(): void {
@@ -167,16 +226,39 @@ export class RealtimeConnection {
 		const jittered = min + Math.random() * (max - min);
 		this.#attempt += 1;
 		const schedule = this.#options.schedule ?? ((fn, ms) => setTimeout(fn, ms));
-		this.#retryHandle = schedule(() => this.#open(), jittered);
+		this.#retryHandle = schedule(() => {
+			this.#retryHandle = null;
+			this.#open();
+		}, jittered);
 	}
 
 	#startHeartbeat(socket: WebSocket): void {
-		this.#heartbeat = setInterval(() => {
-			if (socket.readyState === 1) socket.send(JSON.stringify({ type: "ping", at: new Date().toISOString() }));
-		}, REALTIME_HEARTBEAT_MS);
+		this.#heartbeat = setInterval(() => this.#probe(socket), REALTIME_HEARTBEAT_MS);
+	}
+
+	#probe(socket: WebSocket): void {
+		if (this.#socket !== socket || socket.readyState !== 1 || this.#watchdog !== null) return;
+		this.#armWatchdog(socket);
+		socket.send(JSON.stringify({ type: "ping", at: new Date().toISOString() }));
+	}
+
+	#armWatchdog(socket: WebSocket): void {
+		this.#watchdog = setTimeout(() => {
+			if (this.#socket !== socket) return;
+			this.#socket = null;
+			this.#clearTimers();
+			socket.close();
+			this.#scheduleReconnect();
+		}, PROBE_TIMEOUT_MS);
+	}
+
+	#clearWatchdog(): void {
+		if (this.#watchdog !== null) clearTimeout(this.#watchdog);
+		this.#watchdog = null;
 	}
 
 	#clearTimers(): void {
+		this.#clearWatchdog();
 		if (this.#heartbeat) clearInterval(this.#heartbeat);
 		this.#heartbeat = null;
 		if (this.#retryHandle !== null) {
