@@ -64,23 +64,32 @@ export const bodies = {
 };
 export async function isolateChat(
 	page: Page,
-	options: { dark?: boolean; group?: boolean; items?: Message[]; members?: Conversation["members"] } = {},
+	options: {
+		dark?: boolean;
+		group?: boolean;
+		ownerId?: string;
+		items?: Message[];
+		locale?: "zh-CN" | "en";
+		members?: Conversation["members"];
+	} = {},
 ) {
 	const items = options.items ?? [message("message-01", bodies.question, true), message("message-02", bodies.answer)];
 	const current = {
 		...conversation,
 		members: options.members ?? conversation.members,
 		// A group is never the account's primary (main Bot) conversation.
-		...(options.group ? { kind: "group" as const, title: "界面验收群聊", isPrimary: false } : {}),
+		...(options.group
+			? { kind: "group" as const, title: "界面验收群聊", isPrimary: false, ownerId: options.ownerId }
+			: {}),
 	};
 	const sent: { body: string; type: string; clientNonce: string }[] = [];
 	const sockets = new Set<WebSocketRoute>();
 	await page.addInitScript(
-		({ dark }) => {
-			localStorage.setItem("yonder.locale", "zh-CN");
+		({ dark, locale }) => {
+			localStorage.setItem("yonder.locale", locale);
 			localStorage.setItem("yonder.theme", dark ? "dark" : "light");
 		},
-		{ dark: options.dark },
+		{ dark: options.dark, locale: options.locale ?? "zh-CN" },
 	);
 	await page.route("**/v1/**", async (route) => {
 		const path = new URL(route.request().url()).pathname;
@@ -102,7 +111,7 @@ export async function isolateChat(
 							bot,
 							hasPassword: true,
 							signInMethods: [],
-							settings: { locale: "zh-CN", theme: options.dark ? "dark" : "light" },
+							settings: { locale: options.locale ?? "zh-CN", theme: options.dark ? "dark" : "light" },
 						}
 					: path === "/v1/conversations"
 						? { items: [current] }

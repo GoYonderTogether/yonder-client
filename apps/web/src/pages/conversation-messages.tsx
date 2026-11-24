@@ -175,6 +175,7 @@ export function ConversationMessages({
 		const peer = conversation.members.find((member) => member.memberId === first.senderId);
 		const member = peer ?? (self ? person : first.senderId === bot?.id ? bot : undefined);
 		const name = member?.displayName || t("chat.unknownSender");
+		const owner = first.senderKind === "person" && first.senderId === conversation.ownerId;
 		const face = (
 			<Avatar
 				name={name}
@@ -219,6 +220,15 @@ export function ConversationMessages({
 									ownedBot={ownedBotFor(first.senderId, person?.id, bot, contacts)}
 									owner={peer?.botOwner}
 								/>
+							) : owner ? (
+								<span className="message-run-owner">
+									<span data-message-sender-name title={name} className="message-run-name">
+										{name}
+									</span>
+									<span data-message-group-owner className="message-run-owner-badge">
+										{t("members.group.owner")}
+									</span>
+								</span>
 							) : (
 								<span data-message-sender-name title={name} className="message-run-name">
 									{name}

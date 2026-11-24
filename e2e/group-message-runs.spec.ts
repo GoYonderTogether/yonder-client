@@ -40,14 +40,17 @@ const sequence = () => [
 	from(assistant, 9, "收到，我来整理。"),
 	from(assistant, 10, "BOT 也按连续发送分段。"),
 ];
-async function openGroup(page: Page, options: { dark?: boolean; items?: Message[] } = {}) {
+async function openGroup(
+	page: Page,
+	options: { dark?: boolean; items?: Message[]; locale?: "en"; ownerId?: string; members?: ConversationMember[] } = {},
+) {
 	await page.route("**/files/group-a.svg", (route) =>
 		route.fulfill({
 			contentType: "image/svg+xml",
 			body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#d4dfed"/><circle cx="16" cy="12" r="6" fill="#456789"/><path d="M5 32a11 11 0 0 1 22 0" fill="#456789"/></svg>',
 		}),
 	);
-	const api = await isolateChat(page, { group: true, members, items: sequence(), ...options });
+	const api = await isolateChat(page, { group: true, members, items: sequence(), ownerId: a.memberId, ...options });
 	await page.goto(`/messages/${conversation.id}`);
 	await expect(page.getByRole("log")).toBeVisible();
 	await expect(page.locator("[data-message-run]")).toHaveCount(5);
@@ -70,6 +73,9 @@ async function assertRuns(page: Page) {
 		assistant.displayName,
 	]);
 	await expect(page.locator("[data-message-sender-header]")).toHaveCount(5);
+	await expect(page.locator("[data-message-group-owner]")).toHaveText(["群主", "群主"]);
+	for (let index = 0; index < 5; index++)
+		await expect(runs.nth(index).locator("[data-message-group-owner]")).toHaveCount(index === 0 || index === 2 ? 1 : 0);
 	await expect(page.locator("[data-message-sender-header] [data-bot-label]")).toHaveText("主 Bot");
 	for (let index = 0; index < 5; index++) {
 		const run = runs.nth(index);
@@ -277,6 +283,28 @@ test("stream patches and same-sender appends keep one header, while a returning 
 	await expect(page.locator("[data-message-sender-header]")).toHaveCount(6);
 	await expect(runs.last().locator("[data-message-sender-name]")).toHaveText(a.displayName);
 	await expect(runs.last().locator("article[data-message-id]")).toHaveCount(1);
+});
+
+test("the owner badge follows the authoritative member id and uses English for a self-owned group", async ({
+	page,
+}, info) => {
+	await openGroup(page, {
+		locale: "en",
+		ownerId: self.memberId,
+		members: members.map((member) =>
+			member.memberId === b.memberId ? { ...member, displayName: self.displayName } : member,
+		),
+	});
+	await expect(page.locator(`[data-message-run="${b.memberId}"] [data-message-sender-name]`)).toHaveText(
+		self.displayName,
+	);
+	const badges = page.locator("[data-message-group-owner]");
+	await expect(badges).toHaveText(["Group owner"]);
+	await expect(badges.locator("xpath=ancestor::*[@data-message-run]")).toHaveAttribute(
+		"data-message-run",
+		self.memberId,
+	);
+	await capture(page, info, "desktop-owner-english");
 });
 
 test("direct conversations keep one avatar per sender run without group names", async ({ page }) => {

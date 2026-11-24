@@ -112,6 +112,7 @@ export function renderMessageBlock(
 	const self = first.senderId === chat.memberId;
 	const sender = chat.conversation?.members.find((member) => member.memberId === first.senderId);
 	const name = sender?.displayName || t("成员", "Member");
+	const owner = first.senderKind === "person" && first.senderId === chat.conversation?.ownerId;
 	const avatarUrl = sender?.avatarUrl;
 	const botId = senderBotId(chat.conversation, first.senderId);
 	const avatar = showMessageAvatars ? (
@@ -137,6 +138,11 @@ export function renderMessageBlock(
 								ownedBot={ownedBotFor(first.senderId, chat.me?.member.id, chat.me?.bot, contacts)}
 								owner={sender?.botOwner}
 							/>
+						) : owner ? (
+							<View className="message-run-owner">
+								<View className="message-run-name">{name}</View>
+								<Text className="message-run-owner-badge">{t("群主", "Group owner")}</Text>
+							</View>
 						) : (
 							<View className="message-run-name">{name}</View>
 						)
