@@ -69,7 +69,7 @@ test("the Chinese dictation hint fits the 320px phone composer", async ({ page }
 	await page.goto("/messages/main");
 	const hint = page.locator(".composer-text-hold-hint");
 	await expect(hint).toHaveText("可按住 转文字");
-	await expect(hint).toHaveCSS("font-size", "13px");
+	await expect(hint).toHaveCSS("font-size", "14.3px");
 	const viewport = await page.evaluate(() => document.documentElement.scrollWidth);
 	expect(viewport).toBe(320);
 	await page.screenshot({ path: testInfo.outputPath("03-mobile-dictation-320.png"), animations: "disabled" });

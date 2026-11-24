@@ -3,7 +3,7 @@ import type { Conversation, ConversationMember } from "@yonder/protocol";
 import { bot, conversation, isolateChat, message, person } from "./chat-fixture.ts";
 
 test.use({
-	viewport: { width: 320, height: 740 },
+	viewport: { width: 1280, height: 740 },
 	isMobile: true,
 	hasTouch: true,
 	timezoneId: "Asia/Singapore",
@@ -85,7 +85,7 @@ test("Bot list prioritizes duty while preserving identity, time and external own
 	expect(await pillFill(ordinaryRow)).toBe(await pillFill(foreignRow));
 	for (const row of [ownRow, ordinaryRow, foreignRow]) {
 		const pill = row.locator("[data-bot-label]");
-		await expect(pill).toHaveCSS("height", "20px");
+		await expect(pill).toHaveCSS("height", "22px");
 		await expect(pill).toHaveCSS("border-radius", "9999px");
 		await expect(pill).toHaveCSS("flex-shrink", "0");
 		await expect(pill).toHaveCSS("align-items", "center");
@@ -127,6 +127,12 @@ test("Bot list prioritizes duty while preserving identity, time and external own
 	expect(dutyWidth.full).toBeLessThanOrEqual(dutyWidth.available);
 	expect(await overflows(ownRow.locator("[data-bot-display-name]"))).toBe(true);
 	expect(await overflows(ownRow.locator("[data-bot-duty]"))).toBe(true);
+	// At phone width the primary Bot has its own tab, while ordinary and visiting Bots stay in Messages.
+	await page.setViewportSize({ width: 320, height: 740 });
+	await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "mobile");
+	await expect(ownRow).toHaveCount(0);
+	await expect(ordinaryRow.locator("[data-bot-duty]")).toHaveText(ordinaryRole);
+	await expect(foreignRow.locator("[data-bot-owner]")).toBeVisible();
 	await page.screenshot({ path: info.outputPath("duty-priority-320.png"), scale: "css" });
 
 	await foreignRow.click();

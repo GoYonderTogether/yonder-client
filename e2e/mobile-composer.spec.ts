@@ -633,7 +633,7 @@ test("the phone draft sits directly on the single composer card and the voice ac
 	await expect(surface).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 	await expect(surface).toHaveCSS("border-top-left-radius", "0px");
 	expect(await surface.boundingBox()).toEqual(await input.boundingBox());
-	await expect(composer).toHaveCSS("border-top-left-radius", "23px");
+	await expect(composer).toHaveCSS("border-top-left-radius", "25.3px");
 	await expect(composer).toHaveCSS("background-color", "rgb(255, 255, 255)");
 	const dockColor = await page
 		.locator("[data-mobile-dock]")

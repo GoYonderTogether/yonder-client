@@ -48,15 +48,12 @@ test("the first phone tab opens the existing primary chat and truncates only the
 	await expect(nav.getByRole("button").first()).toHaveAccessibleName(longName);
 	await expect(mainBot.getByText("甲乙丙丁戊🧑🏼‍🚀…", { exact: true })).toBeVisible();
 	const mainRow = page.getByRole("list", { name: "消息" }).getByRole("button", { name: /界面验收 BOT/ });
-	await expect(mainRow).toBeVisible();
-	await expect(mainRow.locator("[data-bot-label]")).toHaveText("主 Bot");
-	const primaryBadge = mainRow.getByRole("img", { name: /1 条未读消息/ });
+	await expect(mainRow).toHaveCount(0);
+	const primaryBadge = mainBot.getByRole("img", { name: /1 条未读消息/ });
 	const mutedBadge = page.getByRole("button", { name: /免打扰会话/ }).getByRole("img", { name: /3 条未读消息/ });
-	await expect(primaryBadge).toHaveCSS("width", "8px");
-	await expect(primaryBadge).toHaveCSS("background-color", "rgb(213, 37, 21)");
-	await expect(mutedBadge).toHaveCSS("width", "8px");
-	await expect(mutedBadge).toHaveCSS("background-color", "rgba(28, 31, 35, 0.62)");
-	await expect(mainBot.getByRole("img", { name: /未读消息/ })).toHaveCSS("width", "8px");
+	await expect(primaryBadge).toHaveText("1");
+	await expect(mutedBadge).toBeVisible();
+	await expect(mutedBadge.locator(".sr-only")).toHaveText("3 条未读消息");
 	await expect(messagesTab.getByRole("img", { name: /未读消息/ })).toHaveCount(0);
 	await page.screenshot({ path: testInfo.outputPath("phone-unread-dots.png") });
 
@@ -74,6 +71,7 @@ test("the first phone tab opens the existing primary chat and truncates only the
 	await expect(header.getByRole("button", { name: "设置", exact: true })).toHaveCount(0);
 	await expect(page.getByRole("button", { name: "返回", exact: true })).toHaveCount(0);
 	await messagesTab.click();
+	await expect(mainRow).toHaveCount(0);
 	await expect(primaryBadge).toHaveCount(0);
 	await expect(mutedBadge).toBeVisible();
 	await nav.getByRole("button", { name: "任务", exact: true }).click();
@@ -101,40 +99,29 @@ test("only normal chats contribute to the phone Messages tab dot", async ({ page
 	);
 	await page.goto("/messages");
 	const primary = page.getByRole("list", { name: "消息" }).getByRole("button", { name: /界面验收 BOT/ });
-	await expect(primary.getByRole("img", { name: /3 条未读消息/ })).toHaveCSS(
-		"background-color",
-		"rgba(28, 31, 35, 0.62)",
-	);
+	await expect(primary).toHaveCount(0);
+	const primaryDot = page.locator("[data-bot-tab]").getByRole("img", { name: /3 条未读消息/ });
+	await expect(primaryDot).toBeVisible();
+	await expect(primaryDot.locator(".sr-only")).toHaveText("3 条未读消息");
 	const normal = page.getByRole("button", { name: /普通群聊/ });
 	await expect(normal.getByRole("img", { name: /4 条未读消息/ })).toHaveText("4");
 	const messagesTab = page
 		.getByRole("navigation", { name: "主导航" })
 		.getByRole("button", { name: "消息", exact: true });
-	await expect(messagesTab.getByRole("img", { name: /4 条未读消息/ })).toHaveCSS("width", "8px");
+	const messagesDot = messagesTab.getByRole("img", { name: /4 条未读消息/ });
+	await expect(messagesDot).toBeVisible();
+	await expect(messagesDot.locator(".sr-only")).toHaveText("4 条未读消息");
 });
 
-test("iPhone chat notification settings request permission and reopen System Settings after denial", async ({
-	page,
-}) => {
+test("iPhone conversation notifications only show the mute switch", async ({ page }) => {
 	await isolateChat(page);
 	await page.addInitScript(() => {
-		let permission = "default";
 		localStorage.setItem("dev.yonder.desktop.refresh-token", "isolated-notification-settings");
 		Object.defineProperty(window, "__TAURI_INTERNALS__", {
 			value: {
 				invoke: async (command: string) => {
-					switch (command) {
-						case "plugin:yonder-notifications|permission_status":
-							return permission;
-						case "plugin:yonder-notifications|request_permission":
-							permission = "denied";
-							return false;
-						case "plugin:yonder-notifications|open_settings":
-							permission = "granted";
-							return true;
-						default:
-							return null;
-					}
+					if (command === "plugin:yonder-notifications|permission_status") return "denied";
+					return null;
 				},
 				transformCallback: () => 1,
 				unregisterCallback: () => undefined,
@@ -142,16 +129,25 @@ test("iPhone chat notification settings request permission and reopen System Set
 			},
 		});
 	});
+	let muted = false;
+	await page.route("**/v1/conversations", (route) => route.fulfill({ json: { items: [{ ...conversation, muted }] } }));
+	await page.route(`**/v1/conversations/${conversation.id}/preferences`, (route) => {
+		muted = route.request().postDataJSON().muted;
+		return route.fulfill({ json: { ok: true } });
+	});
 	await page.goto("/messages/main");
 	await page.locator("[data-chat-agent-avatar]").click();
-	const allow = page.getByRole("button", { name: "允许系统通知" });
-	await allow.click();
-	const settings = page.getByRole("button", { name: "打开通知设置" });
-	await settings.click();
-	await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-	await expect(settings).toHaveCount(0);
-	await expect(allow).toHaveCount(0);
-	await expect(page.getByRole("switch", { name: "消息免打扰" })).toBeVisible();
+	const toggle = page.getByRole("switch", { name: "消息免打扰" });
+	await expect(toggle).toBeVisible();
+	const card = toggle.locator("xpath=ancestor::section[1]");
+	await expect(card.locator("li")).toHaveCount(1);
+	await expect(card.getByText(/允许系统通知|打开通知设置|设备或浏览器/u)).toHaveCount(0);
+	const saved = page.waitForRequest(
+		(request) => request.method() === "PATCH" && request.url().endsWith("/preferences"),
+	);
+	await toggle.click();
+	expect((await saved).postDataJSON()).toEqual({ muted: true });
+	await expect(toggle).toBeChecked();
 });
 
 test("the selected nickname labels the first tab on an existing conversation deep link", async ({ page }) => {

@@ -123,7 +123,7 @@ for (const native of [false, true]) {
 		await expect(avatarButton).toBeVisible();
 		await expect(account).toBeVisible();
 		await expect(caption).toHaveCSS("white-space", "nowrap");
-		await expect(name).toHaveCSS("padding-block", "2px");
+		await expect(name).toHaveCSS("padding-block", "2.2px");
 		const [headerBox, avatarBox, accountBox, captionBox] = await Promise.all([
 			header.boundingBox(),
 			avatar.boundingBox(),

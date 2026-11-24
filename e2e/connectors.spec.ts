@@ -74,7 +74,7 @@ test("scrolling and device links keep the same selected group on a narrow screen
 });
 
 test("device clicks select each group even when scroll targets coincide", async ({ page }) => {
-	await page.setViewportSize({ width: 1280, height: 505 });
+	await page.setViewportSize({ width: 1280, height: 520 });
 	await openConnectors(page, [browser, mac, work, home, phone]);
 	const nav = page.getByRole("navigation", { name: "设备" });
 	const link = (entry: DeviceSummary) => nav.getByRole("link", { name: entry.name });
@@ -89,9 +89,16 @@ test("device clicks select each group even when scroll targets coincide", async 
 		});
 	const middleTop = await top();
 	expect(middleTop).toBeGreaterThan(0);
+	const max = await nav.evaluate((bar) => {
+		const frame = bar.closest("[data-frame-scroll]");
+		if (!frame) throw new Error("Missing settings scroll container");
+		return frame.scrollHeight - frame.clientHeight;
+	});
+	expect(middleTop).toBe(max);
 	await link(home).click();
 	await expect(link(home)).toHaveAttribute("aria-current", "true");
 	expect(await top()).toBe(middleTop);
+	await expect(page.getByRole("region", { name: home.name })).toBeFocused();
 	await link(work).click();
 	await expect(link(work)).toHaveAttribute("aria-current", "true");
 	await expect(page.getByRole("region", { name: work.name })).toBeFocused();

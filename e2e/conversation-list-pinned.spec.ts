@@ -67,7 +67,7 @@ for (const phone of [false, true]) {
 			await list.getByRole("button", { name: "取消置顶", exact: true }).click();
 			if (!phone) await page.mouse.move(0, 0);
 			await expect(pinnedRow).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-			await expect(list.getByRole("listitem").first()).toContainText("界面验收 BOT");
+			await expect(list.getByRole("listitem").first()).toContainText(phone ? normal.title : "界面验收 BOT");
 			await pinnedRow.press("Shift+F10");
 			await list.getByRole("button", { name: "置顶会话", exact: true }).click();
 			if (!phone) await page.mouse.move(0, 0);

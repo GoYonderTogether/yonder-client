@@ -47,6 +47,7 @@ for (const mobile of [false, true]) {
 						items: [
 							{
 								...conversation,
+								...(mobile ? { id: "recording-preview-chat", kind: "group", isPrimary: false, title: "录音群聊" } : {}),
 								lastMessage: {
 									body: "实际录音报告正文",
 									senderKind: "bot",
@@ -54,6 +55,7 @@ for (const mobile of [false, true]) {
 									recordingNote: true,
 								},
 							},
+							...(mobile ? [conversation] : []),
 						],
 					},
 				}),

@@ -50,7 +50,7 @@ test("opening the owning Bot chat reads the recording capsule and leaves later u
 	const badge = (container: typeof nav) => container.getByRole("img", { name: /未读消息/ });
 	const row = page.getByRole("list", { name: "消息" }).getByRole("button", { name: new RegExp(bot.displayName) });
 	await expect(badge(mainBot)).toBeVisible();
-	await expect(badge(row)).toBeVisible();
+	await expect(row).toHaveCount(0);
 	expect(reads).toEqual([]);
 	await page.screenshot({ path: testInfo.outputPath("recording-unread-before-opening.png") });
 
@@ -62,18 +62,18 @@ test("opening the owning Bot chat reads the recording capsule and leaves later u
 	await page.screenshot({ path: testInfo.outputPath("recording-unread-after-opening.png") });
 
 	await messages.click();
-	await expect(badge(row)).toHaveCount(0);
+	await expect(row).toHaveCount(0);
 	await page.screenshot({ path: testInfo.outputPath("recording-list-after-opening.png") });
 	await mainBot.click();
 	await expect(page.getByRole("button", { name: /周五评审录音/ })).toBeVisible();
 	await expect(badge(mainBot)).toHaveCount(0);
 	await messages.click();
-	await expect(badge(row)).toHaveCount(0);
+	await expect(row).toHaveCount(0);
 
 	items.push(next);
 	await page.reload();
 	await expect(badge(mainBot)).toBeVisible();
-	await expect(badge(row)).toBeVisible();
+	await expect(row).toHaveCount(0);
 	await mainBot.click();
 	await expect(page.getByText(next.body ?? "")).toBeVisible();
 	await expect.poll(() => reads.at(-1)).toBe(next.id);

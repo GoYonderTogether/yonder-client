@@ -203,12 +203,12 @@ for (const layout of ["mobile", "desktop"] as const) {
 			const card = doc.locator("..");
 			await expect(doc).toHaveCount(1);
 			const paragraphs = doc.getByText(privateText, { exact: true });
-			await expect(paragraphs).toHaveCSS("font-size", "15px");
-			await expect(paragraphs).toHaveCSS("line-height", "24px");
+			await expect(paragraphs).toHaveCSS("font-size", "16.5px");
+			await expect(paragraphs).toHaveCSS("line-height", "26.4px");
 			await expect(doc.getByRole("list")).toHaveCSS("list-style-type", "disc");
 			const colors = { card: [245, 245, 245, 255], canvas: [255, 255, 255, 255] };
 			await expect.poll(() => surfaceColors(card)).toEqual(colors);
-			await expect(card).toHaveCSS("border-top-left-radius", "16px");
+			await expect(card).toHaveCSS("border-top-left-radius", "17.6px");
 			await expect(page.getByText("只有你看得到")).toHaveCount(0);
 			await expect(page.getByRole("button", { name: "打开", exact: true })).toHaveCount(0);
 			await expect(doc.locator("details, button")).toHaveCount(0);

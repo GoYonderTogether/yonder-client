@@ -105,9 +105,7 @@ for (const dark of [false, true]) {
 			const segment = page.getByRole("radiogroup").getByRole("radio", { checked: true }).locator("+ span");
 			await expect(segment).toHaveCSS("background-color", neutralSelection(dark));
 			await expect(segment).toHaveCSS("color", neutralText(dark));
-			// A pressed Button keeps the neutral selection surface instead of its variant colour. The
-			// signed-in frame no longer has one, so this checks the public platform picker in a guest
-			// context carrying the same theme and style.
+			// The guest split download menu uses menu items, not sticky pressed platform buttons.
 			const guest = await browser.newContext();
 			try {
 				await guest.addInitScript(
@@ -120,13 +118,11 @@ for (const dark of [false, true]) {
 				);
 				const guestPage = await guest.newPage();
 				await guestPage.goto("/");
-				await guestPage.locator("summary").first().click();
-				const pressed = guestPage.locator('button[aria-pressed="true"]').first();
-				await expect(pressed).toBeVisible();
-				await expect(pressed).toHaveCSS("background-color", neutralSelection(dark));
-				await pressed.hover();
-				await expect(pressed).toHaveCSS("background-color", neutralSelection(dark));
-				await expect(pressed).toHaveCSS("color", neutralText(dark));
+				await expect(guestPage.getByRole("link", { name: "用网页版", exact: true })).toBeVisible();
+				const options = guestPage.getByRole("button", { name: "下载选项", exact: true });
+				await options.press("Enter");
+				const menu = guestPage.getByRole("menu", { name: "下载选项", exact: true });
+				await expect(menu.getByRole("menuitem", { name: /Windows/ })).toBeVisible();
 			} finally {
 				await guest.close();
 			}

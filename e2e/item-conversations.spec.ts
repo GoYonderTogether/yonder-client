@@ -478,7 +478,8 @@ for (const layout of ["desktop", "mobile"] as const) {
 			const input = page.getByRole("textbox", { name: /^对 界面验收/ });
 			await expect(input).toBeEditable();
 			await expect(input).toBeInViewport({ ratio: 1 });
-			await expect(input).toHaveAttribute("placeholder", /^对 界面验收/);
+			// The phone composer uses the accessible recipient name without a native placeholder.
+			if (layout === "desktop") await expect(input).toHaveAttribute("placeholder", /^对 界面验收/);
 			await expect(input).toHaveValue("");
 			await expect(page.getByText(bodies.question, { exact: true })).toHaveCount(0);
 			expect(api.newRequests).toEqual([]);

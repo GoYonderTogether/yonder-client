@@ -50,8 +50,19 @@ test("primary Bot shows three dots only for an accepted reply run, follows recon
 	await expect(waiting.locator(".message-bubble-incoming")).toBeVisible();
 	await expect(waiting.getByRole("status")).toHaveText("正在输入");
 	await expect(waiting.locator("i")).toHaveCount(3);
-	await expect(waiting.locator("i").first()).toHaveCSS("width", "6px");
-	await expect(waiting.locator("i").first()).toHaveCSS("height", "6px");
+	const dotSize = await waiting
+		.locator("i")
+		.first()
+		.evaluate((dot) => {
+			const style = getComputedStyle(dot);
+			return {
+				width: parseFloat(style.width),
+				height: parseFloat(style.height),
+				scale: parseFloat(style.getPropertyValue("--ui-scale")),
+			};
+		});
+	expect(dotSize.width).toBeCloseTo(4 * dotSize.scale + 2, 1);
+	expect(dotSize.height).toBeCloseTo(dotSize.width, 1);
 	await expect(waiting.locator("i").first()).toHaveCSS("animation-name", "bot-waiting-pulse");
 	await expect(waiting.locator("button, time, [data-message-id]")).toHaveCount(0);
 	await expect(page.locator('[data-message-id="reply-12"]')).toHaveCount(0);

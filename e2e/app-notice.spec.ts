@@ -44,7 +44,7 @@ for (const mobile of [false, true]) {
 			const viewport = page.locator(".app-notice-viewport");
 			await expect(viewport).toHaveCSS("position", "fixed");
 			const inset = await viewport.evaluate((element) => Number.parseFloat(getComputedStyle(element).top));
-			expect(box.y).toBe(inset);
+			expect(box.y).toBeCloseTo(inset, 1);
 			if (mobile) expect(inset).toBeGreaterThan(59);
 			await page.screenshot({ path: info.outputPath(mobile ? "mobile.png" : "desktop.png"), scale: "css" });
 

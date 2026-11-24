@@ -48,7 +48,7 @@ test("wide desktop settings use flat selected rows and only deeper pages show Ba
 	const models = sidebar.getByRole("button", { name: "模型", exact: true });
 	await expect(models).toHaveAttribute("aria-current", "page");
 	await expect(models.locator("svg")).toHaveCount(1);
-	expect((await models.boundingBox())?.height).toBe(32);
+	expect((await models.boundingBox())?.height).toBeCloseTo(35.2, 1);
 	await expect(page.getByRole("button", { name: "返回", exact: true })).toHaveCount(0);
 	const selectedColor = await models.evaluate((element) => getComputedStyle(element).backgroundColor);
 	await models.hover();

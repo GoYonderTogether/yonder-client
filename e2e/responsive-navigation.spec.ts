@@ -378,12 +378,12 @@ test("desktop task sections use compact capsules below the title row", async ({ 
 			const bounds = await sections.boundingBox();
 			if (!titleRow || !bounds) throw new Error("Expected the title row and capsule");
 			expect(bounds.y).toBeGreaterThanOrEqual(titleRow.y + titleRow.height);
-			expect(bounds.height).toBe(48);
+			expect(bounds.height).toBeCloseTo(52.8, 1);
 			const radios = await sections.getByRole("radio").all();
 			const targets = await Promise.all(radios.map((radio) => radio.boundingBox()));
 			expect(targets[0]?.width).toBeCloseTo(targets[1]?.width ?? 0, 0);
-			for (const target of targets) expect(target?.height).toBe(44);
-			expect((await sections.locator("input:checked + span").boundingBox())?.height).toBe(40);
+			for (const target of targets) expect(target?.height).toBeCloseTo(48.4, 1);
+			expect((await sections.locator("input:checked + span").boundingBox())?.height).toBeCloseTo(44, 1);
 			for (const pill of [sections, sections.locator("input:checked + span")]) {
 				const radius = await pill.evaluate((element) =>
 					Number.parseFloat(getComputedStyle(element).borderTopLeftRadius),
@@ -499,14 +499,14 @@ test.describe("phone", () => {
 				.evaluate((header) => header.getBoundingClientRect().bottom);
 			const bounds = await sections.boundingBox();
 			expect(bounds?.y).toBeGreaterThanOrEqual(headerBottom);
-			expect(bounds?.height).toBe(48);
+			expect(bounds?.height).toBeCloseTo(52.8, 1);
 			expect(bounds?.width).toBeGreaterThanOrEqual(350);
 			const radios = await sections.getByRole("radio").all();
 			const targets = await Promise.all(radios.map((radio) => radio.boundingBox()));
 			// Segments share the row equally.
 			for (const target of targets) {
 				expect(target?.width).toBeCloseTo(targets[0]?.width ?? 0, 0);
-				expect(target?.height).toBe(44);
+				expect(target?.height).toBeCloseTo(48.4, 1);
 				expect(target?.width).toBeGreaterThan((bounds?.width ?? 0) / targets.length - 12);
 			}
 			await sections.getByRole("radio", { name: option, exact: true }).click();
