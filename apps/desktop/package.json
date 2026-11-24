@@ -1,7 +1,7 @@
 {
 	"name": "@yonder/desktop",
 	"private": true,
-	"version": "0.3.26112404",
+	"version": "0.3.26112405",
 	"type": "module",
 	"scripts": {
 		"build": "tauri build",
