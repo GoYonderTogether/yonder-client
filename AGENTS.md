@@ -25,6 +25,7 @@
 ## 发版与测试（2026-11-24 起）
 
 - 现阶段先发版、后测试，两者异步进行。线上出 bug 可以接受，修好再发下一版。
+- CI 只负责反映问题。CI 红了由能看到 GitHub CI 的云端 GPT 修复；发版的 Agent 触发发版后就结束，不再盯构建、部署或 CI。
 - 发版前在本机跑的测试最多 3 分钟（`npm run check` 这一类）。端到端测试、原生测试等更长的测试不在本机跑、不挡发版，交给 GitHub 的常规 CI 在发版后异步跑，CI 红了按 bug 修。
 - 发版直接执行 `gh workflow run release.yml -R GoYonderTogether/yonder-client -f ref=main`，不加 `require_ci`，不等 CI。
 
