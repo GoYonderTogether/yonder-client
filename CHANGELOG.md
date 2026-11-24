@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112411] - 2026-11-24
+
+### Fixed
+
+- chat：let the phone draft sit on the composer's one card
+
 ## [0.3.26112410] - 2026-11-24
 
 ### Fixed
