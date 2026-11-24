@@ -1,7 +1,7 @@
 {
 	"name": "@yonder/ui-tokens",
 	"private": true,
-	"version": "0.3.26112409",
+	"version": "0.3.26112410",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",

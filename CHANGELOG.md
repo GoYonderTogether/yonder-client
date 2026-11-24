@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112410] - 2026-11-24
+
+### Fixed
+
+- chat：wrap at the field's width and give bubbles a sender's tail
+
 ## [0.3.26112409] - 2026-11-24
 
 ## [0.3.26112408] - 2026-11-24
