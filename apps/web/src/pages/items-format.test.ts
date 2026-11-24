@@ -88,9 +88,10 @@ describe("what an item says", () => {
 });
 
 describe("the actions an item offers", () => {
-	test("a running subtask can be stopped; that is the only app control left", () => {
+	test("a running or waiting subtask can be stopped; a paused one has no control", () => {
 		expect(itemActions(item())).toEqual({ cancel: true });
-		expect(itemActions(item({ state: "paused" }))).toEqual({ cancel: true });
+		expect(itemActions(item({ state: "waiting_user" }))).toEqual({ cancel: true });
+		expect(itemActions(item({ state: "paused" }))).toEqual({ cancel: false });
 	});
 
 	test("a finished subtask offers nothing", () => {

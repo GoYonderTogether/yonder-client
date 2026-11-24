@@ -121,15 +121,14 @@ export function itemGroupKey(group: ItemGroup): string {
 }
 
 /**
- * The one action a blocked item offers (16 第五节: a single reason and a single action). A running
- * subtask can be stopped from here (2026-11-24); recovering it, or changing which Bot does it, is
- * told to the Bot in chat. The other sources are records and offer nothing.
+ * The one action a live item offers (16 第五节: a single reason and a single action). A running or
+ * waiting subtask can be stopped from here (2026-11-24). A paused one has no control — the Bot paused
+ * it, and recovering it or handing it on is told to the Bot in chat. Finished items, and the other
+ * two sources, offer nothing.
  */
 export function itemActions(item: ItemSummary): { cancel: boolean } {
-	return {
-		cancel:
-			item.source === "subtask" && item.state !== "completed" && item.state !== "failed" && item.state !== "cancelled",
-	};
+	const live = item.state === "running" || item.state === "waiting_user";
+	return { cancel: item.source === "subtask" && live };
 }
 
 /** When an item started, in the reader's own hour format; the day heading says which day. */
