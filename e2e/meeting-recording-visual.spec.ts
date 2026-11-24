@@ -93,6 +93,8 @@ for (const mobile of [false, true]) {
 			const shutter = dialog.getByRole("button", { name: "拍摄照片" });
 			await expect(shutter).toBeEnabled();
 			await shutter.click();
+			await expect(shutter).toBeEnabled();
+			await dialog.getByRole("button", { name: "关闭", exact: true }).click();
 			const photo = dialog.getByRole("img", { name: /录音照片/ });
 			await expect(photo).toBeVisible();
 			const bounds = await photo.boundingBox();
