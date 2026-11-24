@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112403] - 2026-11-24
+
+### Fixed
+
+- chat：unify desktop Bot conversation headers
+
 ## [0.3.26112402] - 2026-11-24
 
 ### Fixed
