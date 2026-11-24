@@ -12,6 +12,8 @@ test("a temporary startup failure keeps the existing cookie for the next load", 
 	await context.addCookies([
 		{ name: "yonder_rt", value: "stored", domain: new URL(baseURL).hostname, path: "/v1/auth", httpOnly: true },
 	]);
+	// Keep the socket healthy so only startup owns refresh in this test.
+	await context.routeWebSocket("**/v1/realtime*", () => {});
 	await page.route(refresh, async (route) => {
 		expect((await route.request().allHeaders()).cookie).toBe("yonder_rt=stored");
 		attempts += 1;
@@ -56,6 +58,7 @@ test("two web tabs refresh the shared cookie in order", async ({ context, page, 
 	await context.addCookies([
 		{ name: "yonder_rt", value: "start", domain: new URL(baseURL).hostname, path: "/v1/auth", httpOnly: true },
 	]);
+	await context.routeWebSocket("**/v1/realtime*", () => {});
 	await context.route(refresh, async (route) => {
 		const attempt = cookies.push((await route.request().allHeaders()).cookie);
 		if (attempt === 1) await pending;

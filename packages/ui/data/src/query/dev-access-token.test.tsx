@@ -8,6 +8,8 @@ import { DataProvider, useData } from "./provider.tsx";
 afterEach(() => vi.unstubAllGlobals());
 
 test("expiring the access token preserves shell refresh credentials for the next request", async () => {
+	// This fixture tests HTTP credential rotation, not failed websocket upgrade recovery.
+	vi.stubGlobal("WebSocket", undefined);
 	let refreshToken: string | null = "refresh-1";
 	let refreshes = 0;
 	const requests: Array<string | null> = [];
@@ -21,6 +23,7 @@ test("expiring the access token preserves shell refresh credentials for the next
 		"fetch",
 		vi.fn(async (url: string, options: RequestInit) => {
 			if (url.endsWith("/v1/auth/refresh")) {
+				expect(JSON.parse(String(options.body))).toEqual({ refreshToken });
 				refreshes += 1;
 				return {
 					ok: true,
