@@ -376,9 +376,12 @@
 	display: none;
 }
 @media (hover: none) and (pointer: coarse) {
-	/* Match the touch textarea's no-zoom font size in its text mirror. */
-	[data-composer-mobile] .composer-highlight {
-		font-size: max(16px, var(--text-body));
+	/* Share the no-zoom minimum with the textarea so their glyphs wrap at the same positions. */
+	.composer-input-surface {
+		--touch-field-font-size: max(16px, var(--text-body));
+	}
+	.composer-highlight {
+		font-size: var(--touch-field-font-size);
 	}
 }
 /* Kept in the draft's top-right corner: the draft reserves exactly this width on its right, so the

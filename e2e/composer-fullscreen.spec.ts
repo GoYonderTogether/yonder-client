@@ -45,7 +45,8 @@ for (const width of [320, 390]) {
 			const one = await metrics(input);
 			expect((await voice.boundingBox())?.x).toBe(voiceLeft);
 			expect(one.left).toBeGreaterThan(voiceLeft);
-			expect(one.font).toBe("16px");
+			const bodyFont = await page.locator("body").evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+			expect(Number.parseFloat(one.font)).toBeCloseTo(Math.max(16, bodyFont));
 			expect(one.mirrorFont).toBe(one.font);
 			expect(one.mirrorLineHeight).toBe(one.lineHeight);
 			await page.screenshot({ path: info.outputPath("01-one-line.png"), animations: "disabled", scale: "css" });
@@ -124,6 +125,29 @@ for (const width of [320, 390]) {
 			expect((await voice.boundingBox())?.x).toBe(voiceLeft);
 			await input.clear();
 			expect((await voice.boundingBox())?.x).toBe(voiceLeft);
+		});
+
+		test("the largest interface keeps the phone draft and Markdown mirror aligned", async ({ page }, info) => {
+			await isolateChat(page);
+			await page.addInitScript(() => localStorage.setItem("yonder.ui-size", "xlarge"));
+			await page.goto("/messages/main");
+			await expect(page.locator("html")).toHaveAttribute("data-ui-size", "xlarge");
+			const input = page.locator("textarea.composer-text");
+			await input.fill(`**明天**记得检查消息气泡和录音笔记。\n${sample}`);
+			await expect(page.locator(".composer-draft-strong")).toHaveText("明天");
+			await expect(page.getByRole("button", { name: "展开输入框" })).toBeVisible();
+			const inline = await metrics(input);
+			expect(inline.font).toBe("19.5px");
+			expect(inline.mirrorFont).toBe(inline.font);
+			expect(inline.mirrorLineHeight).toBe(inline.lineHeight);
+			expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+			await page.screenshot({ path: info.outputPath("largest-draft.png"), animations: "disabled", scale: "css" });
+			await page.getByRole("button", { name: "展开输入框" }).tap();
+			await expect(page.getByRole("dialog", { name: "文字输入" })).toBeVisible();
+			const full = await metrics(input);
+			expect(full.font).toBe(inline.font);
+			expect(full.mirrorFont).toBe(full.font);
+			expect(full.mirrorLineHeight).toBe(full.lineHeight);
 		});
 	});
 }

@@ -80,7 +80,12 @@ for (const mobile of [true, false]) {
 			const message = page.locator("[data-message-sender=self]").last();
 			const heading = message.getByRole("heading", { name: "周末安排", level: 1 });
 			await expect(heading).toBeVisible();
-			await expect(heading).toHaveCSS("font-size", "16px");
+			const hierarchy = await heading.evaluate((node) => {
+				const body = node.closest(".message-content");
+				if (!body) throw new Error("Missing Markdown message content");
+				return [Number.parseFloat(getComputedStyle(node).fontSize), Number.parseFloat(getComputedStyle(body).fontSize)];
+			});
+			expect(hierarchy[0]).toBeGreaterThan(hierarchy[1]);
 			await expect(message.locator("ul li")).toHaveCount(2);
 			await expect(message.locator("ol li")).toHaveCount(2);
 			await expect(message.locator("strong")).toHaveText("咖啡");
