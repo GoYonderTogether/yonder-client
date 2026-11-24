@@ -28,8 +28,9 @@ function UpdateControlsViewContent({ updater, onRestart }: { updater: Updater; o
 		updater.platform === "desktop"
 			? state.status === "ready" || (state.status === "error" && state.error === "install")
 			: state.status === "available" ||
+				state.status === "ready" ||
 				state.status === "installerOpened" ||
-				(state.status === "error" && state.error === "download" && !!state.version);
+				(state.status === "error" && (state.error === "download" || state.error === "install") && !!state.version);
 	let message: string | null = null;
 	switch (state.status) {
 		case "checking":

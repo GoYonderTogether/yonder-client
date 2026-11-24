@@ -23,7 +23,7 @@ export function UpdateReadyButtonView({ updater }: { updater: Updater }) {
 function UpdateReadyButtonViewContent({ updater, onRestart }: { updater: Updater; onRestart: () => void }) {
 	const { t } = useTranslation();
 	const state = useSyncExternalStore(updater.subscribe, updater.getSnapshot, updater.getSnapshot);
-	if (updater.platform !== "desktop") return null;
+	if (updater.platform !== "desktop" || state.notice) return null;
 	if (state.status === "downloading") {
 		const percent = state.progress;
 		const label = percent === undefined ? t("me.update.downloading") : t("me.update.progress", { percent });

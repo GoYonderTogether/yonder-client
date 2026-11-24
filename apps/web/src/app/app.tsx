@@ -30,7 +30,7 @@ import { LocalFilesRuntime } from "../lib/local-files-runtime.tsx";
 import { resetMeetingRecorder } from "../lib/meeting-recorder.ts";
 import { isNativeMobileNotifications } from "../lib/native-notifications.ts";
 import { ProviderRelayRuntime, providerRelaySupported } from "../lib/provider-relay-runtime.tsx";
-import { UpdateProvider } from "../updates/provider.tsx";
+import { UpdateOfferProvider, UpdateProvider } from "../updates/provider.tsx";
 import { AppNoticeProvider } from "./app-notice.tsx";
 import { ConnectorContinuationNotices } from "./connector-continuation-notices.tsx";
 import { MacPermissionsGate } from "./mac-permissions.tsx";
@@ -120,12 +120,17 @@ function Localised() {
 				) : null}
 				{providerRelaySupported() ? <ProviderRelayRuntime /> : null}
 				<UpdateProvider>
-					<MacPermissionsGate
-						account={signedIn && device.platform === "macos" ? personId : undefined}
-						storage={storage}
+					<UpdateOfferProvider
+						owner={signedIn && registration.isSuccess && !isContactWindow() ? personId : undefined}
+						devicePlatform={device.platform}
 					>
-						<AppRouter />
-					</MacPermissionsGate>
+						<MacPermissionsGate
+							account={signedIn && device.platform === "macos" ? personId : undefined}
+							storage={storage}
+						>
+							<AppRouter />
+						</MacPermissionsGate>
+					</UpdateOfferProvider>
 				</UpdateProvider>
 			</AppNoticeProvider>
 		</I18nextProvider>

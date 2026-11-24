@@ -103,7 +103,7 @@ function applyExportCompliance() {
 
 function applyAppleFrameworks() {
 	const project = readFileSync(projectFile, "utf8");
-	const frameworks = ["UserNotifications", "EventKit", "Photos", "Vision"];
+	const frameworks = ["UserNotifications", "EventKit", "Photos", "Vision", "CoreLocation"];
 	const flags = frameworks.map((framework) => `"-framework", "${framework}"`).join(", ");
 	const linked = project.includes('"UserNotifications"')
 		? project.replace(/OTHER_LDFLAGS = \((.*)\);/g, (setting, existing) => {

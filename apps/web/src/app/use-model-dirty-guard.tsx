@@ -13,14 +13,15 @@ export function useModelDirtyGuard(mode: LayoutMode, desktop: boolean) {
 	const setBotDirty = useCallback((dirty: boolean) => {
 		botDirty.current = dirty;
 	}, []);
-	const blocker = useBlocker(() => modelDirty.current || botDirty.current);
+	const isDirty = useCallback(() => modelDirty.current || botDirty.current, []);
+	const blocker = useBlocker(isDirty);
 	useEffect(() => {
 		const warn = (event: BeforeUnloadEvent) => {
-			if (modelDirty.current || botDirty.current) event.preventDefault();
+			if (isDirty()) event.preventDefault();
 		};
 		window.addEventListener("beforeunload", warn);
 		return () => window.removeEventListener("beforeunload", warn);
-	}, []);
+	}, [isDirty]);
 	const dialog = (
 		<ShellProvider value={{ mode, desktop, left: null, meOpen: false }}>
 			<DiscardChangesDialog
@@ -35,5 +36,5 @@ export function useModelDirtyGuard(mode: LayoutMode, desktop: boolean) {
 			/>
 		</ShellProvider>
 	);
-	return { modelDirty, setBotDirty, dialog };
+	return { modelDirty, setBotDirty, isDirty, dialog };
 }

@@ -1,0 +1,16 @@
+{
+	"identifier": "update-testflight",
+	"description": "The primary iOS webview opens an explicitly selected Apple TestFlight invitation.",
+	"windows": ["main"],
+	"platforms": ["iOS"],
+	"permissions": [
+		{
+			"identifier": "opener:allow-open-url",
+			"allow": [{ "url": "https://testflight.apple.com/join/*" }],
+			"deny": [
+				{ "url": "https://testflight.apple.com/join/*[?]*" },
+				{ "url": "https://testflight.apple.com/join/*[#]*" }
+			]
+		}
+	]
+}

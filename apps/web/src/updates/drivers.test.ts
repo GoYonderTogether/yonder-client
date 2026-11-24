@@ -28,13 +28,16 @@ test("Android uses the installed versionCode and passes the verified manifest to
 	expect(candidate).toMatchObject({ version: release.version, required: true });
 	await candidate?.download(() => {});
 	expect(invoke).toHaveBeenCalledWith(
-		"plugin:android-update|downloadAndInstall",
+		"plugin:android-update|download",
 		expect.objectContaining({ url: release.url, sha256: release.sha256 }),
 	);
 	vi.mocked(invoke).mockImplementation(async (command) =>
 		command === "plugin:android-update|versionCode" ? ({ versionCode: 26111502 } as never) : (release as never),
 	);
 	expect(await updateDriver("android").check()).toBeNull();
+	expect(invoke).not.toHaveBeenCalledWith("plugin:android-update|install", expect.anything());
+	await candidate?.install?.();
+	expect(invoke).toHaveBeenCalledWith("plugin:android-update|install", { sha256: release.sha256 });
 });
 
 test("desktop uses Tauri download then user-initiated install and relaunch", async () => {

@@ -100,11 +100,12 @@ async function checkAndroid(): Promise<UpdateCandidate | null> {
 			const onProgress = new Channel<{ downloaded: number; total: number }>((event) =>
 				progress(event.downloaded, event.total),
 			);
-			await invoke("plugin:android-update|downloadAndInstall", {
+			await invoke("plugin:android-update|download", {
 				url: release.url,
 				sha256: release.sha256,
 				onProgress,
 			});
 		},
+		install: () => invoke<void>("plugin:android-update|install", { sha256: release.sha256 }),
 	};
 }

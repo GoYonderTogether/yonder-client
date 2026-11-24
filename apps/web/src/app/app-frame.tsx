@@ -33,6 +33,7 @@ import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { BotTabAvatar } from "../pages/unread-badge.tsx";
 import { UpdateReadyButton } from "../updates/ready-button.tsx";
+import { UpdateTopNotice } from "../updates/top-notice.tsx";
 import { useReconnectNotice } from "./app-notice.tsx";
 import { AskMainBotProvider } from "./ask-main-bot.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
@@ -54,7 +55,6 @@ import { useModelDirtyGuard } from "./use-model-dirty-guard.tsx";
 import { type PageNavigationState, usePageNavigation } from "./use-page-navigation.ts";
 import { MAIN_BOT_PATH, usePhoneTabs } from "./use-phone-tabs.ts";
 import { useTaskPreset } from "./use-task-preset.ts";
-
 /** Assembles the active list and detail; the shell owns their responsive layout. */
 export function AppFrame() {
 	const localFiles = useLocalFilesAdapter();
@@ -79,9 +79,13 @@ export function AppFrame() {
 	const [layoutMode, setLayoutMode] = useState<LayoutMode | null>(null);
 	const [chatOpen, setChatOpen] = useState(0);
 	const phone = !desktop && (layoutMode === "mobile" || layoutMode === null);
-	const { modelDirty, setBotDirty, dialog: discardDialog } = useModelDirtyGuard(layoutMode ?? "mobile", desktop);
+	const {
+		modelDirty,
+		setBotDirty,
+		isDirty,
+		dialog: discardDialog,
+	} = useModelDirtyGuard(layoutMode ?? "mobile", desktop);
 	const previousLocation = useRef("/messages");
-
 	const located = locate(location.pathname);
 	const meOpen = located !== null && located.tab === null;
 	const path = `${location.pathname}${location.search}${location.hash}`;
@@ -199,7 +203,6 @@ export function AppFrame() {
 		onOpenMember: (member) => openMember(member.memberId, true),
 		onLeftGroup: () => navigation.back("/messages"),
 	});
-	// The panel belongs to what is on screen: moving to another chat, tab or page closes it.
 	const closeSide = useEffectEvent(() => layers.clear());
 	useEffect(() => {
 		if (location.pathname) closeSide();
@@ -240,7 +243,6 @@ export function AppFrame() {
 	const backRef = useRef(currentBack);
 	backRef.current = currentBack;
 	const back = useCallback(() => backRef.current(), []);
-
 	const { list, content } = base ? screensFor() : { list: null, content: <NotFoundPage /> };
 	const me = meOpen
 		? {
@@ -253,7 +255,6 @@ export function AppFrame() {
 				closeLabel: t("app.close"),
 			}
 		: undefined;
-
 	function deferred(content: ReactNode): ReactNode {
 		return (
 			<ChunkBoundary resetKey={path}>
@@ -261,7 +262,6 @@ export function AppFrame() {
 			</ChunkBoundary>
 		);
 	}
-
 	function mePage(pagePath: string): ReactNode {
 		return (
 			<SettingsRoutePage
@@ -283,7 +283,6 @@ export function AppFrame() {
 			/>
 		);
 	}
-
 	function screensFor(): { list: ReactNode | null; content: ReactNode } {
 		switch (tab) {
 			case "messages":
@@ -346,7 +345,6 @@ export function AppFrame() {
 				};
 		}
 	}
-
 	const talkingTo =
 		taskSelection && chat.target
 			? conversationPeer(chat.target, person?.id)?.displayName
@@ -403,9 +401,7 @@ export function AppFrame() {
 		memory: t("nav.memory"),
 		contacts: t("chatActions.contacts"),
 	};
-	// The owner of a Bot a stranger is talking to reads that chat and decides on it; they never
-	// write in it, so the composer is not there at all (19 第 2.3 节). A dissolved group, and one the
-	// viewer was removed from, is read only for the same reason: the notice takes its place (19 3.2).
+	// Visits and closed groups are read-only (§19.2.3/19.3.2).
 	const watchingVisit = conversation?.visit?.role === "host";
 	const closed = Boolean(conversation?.closedReason);
 	const dock = taskSelection ? (
@@ -423,7 +419,6 @@ export function AppFrame() {
 		meeting,
 		(target) => openMeetingSource(detailOpen ? conversation?.id : undefined, target.id, primary?.id, tabs.go),
 	);
-
 	return (
 		<AskMainBotProvider value={preset.ask}>
 			<SidePanelProvider value={layers.controls}>
@@ -486,6 +481,11 @@ export function AppFrame() {
 				>
 					{composer}
 				</BotPresetOverlay>
+				<UpdateTopNotice
+					recording={Boolean(meeting.active || meeting.shortVoiceActive)}
+					busy={() => !meeting.recorder.ready || meeting.recorder.busy || draft.sending || isDirty()}
+					persist={draft.preserveBeforeReload}
+				/>
 				{recordingSurface.dialog}
 				{discardDialog}
 				<MessageNotifications

@@ -95,3 +95,26 @@ test("a later desktop check keeps the already downloaded update without download
 	await updater.install();
 	expect(install).toHaveBeenCalledOnce();
 });
+
+test("an offered version must match local verification; Android stages before an explicit install", async () => {
+	const download = vi.fn(async () => {});
+	const install = vi.fn(async () => {});
+	const close = vi.fn(async () => {});
+	const updater = createUpdater({
+		platform: "android",
+		check: async () => ({ version: "0.3.99", required: false, download, install, close }),
+	});
+	await updater.check("0.3.98");
+	expect(updater.getSnapshot().status).toBe("idle");
+	expect(close).toHaveBeenCalledOnce();
+	expect(download).not.toHaveBeenCalled();
+	await updater.check("0.3.99");
+	expect(updater.getSnapshot()).toMatchObject({ version: "0.3.99", status: "ready", notice: true });
+	expect(download).toHaveBeenCalledOnce();
+	expect(install).not.toHaveBeenCalled();
+	expect(await updater.install("0.3.98")).toBe(false);
+	expect(install).not.toHaveBeenCalled();
+	expect(await updater.install("0.3.99")).toBe(true);
+	expect(install).toHaveBeenCalledOnce();
+	expect(updater.getSnapshot().status).toBe("installerOpened");
+});

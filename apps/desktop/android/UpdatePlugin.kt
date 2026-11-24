@@ -19,6 +19,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.URL
 import java.security.MessageDigest
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.ssl.HttpsURLConnection
 import kotlin.concurrent.thread
@@ -30,11 +31,23 @@ class UpdateDownloadArgs {
   lateinit var onProgress: Channel
 }
 
+@InvokeArg
+class UpdateInstallArgs {
+  lateinit var sha256: String
+}
+
 @TauriPlugin
 class UpdatePlugin(private val activity: Activity) : Plugin(activity) {
-  private val downloading = AtomicBoolean(false)
+  companion object {
+    private val updating = AtomicBoolean(false)
+    private val digestPattern = Regex("[0-9a-fA-F]{64}")
+    // Only a checksum-verified download in this process can arm an install.
+    private var stagedDigest: String? = null
+  }
+
   private val directory get() = File(activity.cacheDir, "updates")
-  private val apk get() = File(directory, "update.apk")
+  // An installer already granted a URI must never read a replacement APK at that URI.
+  private fun stagedApk(digest: String) = File(directory, "update-$digest.apk")
 
   @Command
   fun versionCode(invoke: Invoke) {
@@ -76,13 +89,33 @@ class UpdatePlugin(private val activity: Activity) : Plugin(activity) {
   }
 
   @Command
-  fun downloadAndInstall(invoke: Invoke) {
-    val args = try { invoke.parseArgs(UpdateDownloadArgs::class.java) } catch (_: Exception) {
+  fun downloadAndInstall(invoke: Invoke) = stage(invoke, installAfterDownload = true)
+
+  @Command
+  fun download(invoke: Invoke) = stage(invoke, installAfterDownload = false)
+
+  @Command
+  fun install(invoke: Invoke) {
+    if (!updating.compareAndSet(false, true)) {
+      invoke.reject("ongoing update")
+      return
+    }
+    activity.runOnUiThread { openInstaller(invoke) }
+  }
+
+  private fun stage(invoke: Invoke, installAfterDownload: Boolean) {
+    val args: UpdateDownloadArgs
+    val expected: String
+    try {
+      args = invoke.parseArgs(UpdateDownloadArgs::class.java)
+      require(digestPattern.matches(args.sha256))
+      expected = args.sha256.lowercase(Locale.ROOT)
+    } catch (_: Exception) {
       invoke.reject("invalid update")
       return
     }
-    if (!args.sha256.matches(Regex("[0-9a-fA-F]{64}")) || !downloading.compareAndSet(false, true)) {
-      invoke.reject("invalid or ongoing update")
+    if (!updating.compareAndSet(false, true)) {
+      invoke.reject("ongoing update")
       return
     }
     thread {
@@ -119,41 +152,70 @@ class UpdatePlugin(private val activity: Activity) : Plugin(activity) {
           connection.disconnect()
         }
         val digest = hash.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
-        require(digest.equals(args.sha256, ignoreCase = true))
-        check(temporary.renameTo(apk))
-        activity.runOnUiThread { openInstaller(invoke) }
+        require(digest == expected)
+        check(temporary.renameTo(stagedApk(expected)))
+        stagedDigest = expected
       } catch (_: Exception) {
         temporary.delete()
+        updating.set(false)
         invoke.reject("update download failed")
-      } finally {
-        downloading.set(false)
+        return@thread
+      }
+
+      if (installAfterDownload) {
+        activity.runOnUiThread { openInstaller(invoke) }
+      } else {
+        updating.set(false)
+        invoke.resolve()
       }
     }
   }
 
+  private fun verifiedApk(invoke: Invoke): File {
+    val digest = invoke.parseArgs(UpdateInstallArgs::class.java).sha256
+    require(digestPattern.matches(digest))
+    val expected = digest.lowercase(Locale.ROOT)
+    check(expected == stagedDigest)
+    return stagedApk(expected).also { check(it.isFile) }
+  }
+
   private fun openInstaller(invoke: Invoke) {
     try {
+      val apk = verifiedApk(invoke)
       if (Build.VERSION.SDK_INT >= 26 && !activity.packageManager.canRequestPackageInstalls()) {
         val settings = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}"))
         startActivityForResult(invoke, settings, "installPermissionResult")
       } else {
-        launchInstaller(invoke)
+        launchInstaller(invoke, apk)
       }
     } catch (_: Exception) {
       invoke.reject("update installer unavailable")
+    } finally {
+      updating.set(false)
     }
   }
 
   @ActivityCallback
   private fun installPermissionResult(invoke: Invoke, @Suppress("UNUSED_PARAMETER") result: ActivityResult) {
-    if (Build.VERSION.SDK_INT >= 26 && !activity.packageManager.canRequestPackageInstalls()) {
-      invoke.reject("install permission denied")
+    if (!updating.compareAndSet(false, true)) {
+      invoke.reject("ongoing update")
       return
     }
-    try { launchInstaller(invoke) } catch (_: Exception) { invoke.reject("update installer unavailable") }
+    try {
+      if (Build.VERSION.SDK_INT >= 26 && !activity.packageManager.canRequestPackageInstalls()) {
+        invoke.reject("install permission denied")
+        return
+      }
+      // The candidate may have changed while Android Settings was open.
+      launchInstaller(invoke, verifiedApk(invoke))
+    } catch (_: Exception) {
+      invoke.reject("update installer unavailable")
+    } finally {
+      updating.set(false)
+    }
   }
 
-  private fun launchInstaller(invoke: Invoke) {
+  private fun launchInstaller(invoke: Invoke, apk: File) {
     val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", apk)
     val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
       .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

@@ -2,7 +2,7 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { updateDriver, updatePlatform } from "./drivers.ts";
-import { UpdateProvider } from "./provider.tsx";
+import { UpdateProvider, useUpdater } from "./provider.tsx";
 
 vi.mock("./drivers.ts", () => ({ updatePlatform: vi.fn(), updateDriver: vi.fn() }));
 afterEach(() => {
@@ -10,30 +10,32 @@ afterEach(() => {
 	vi.resetAllMocks();
 });
 
-for (const [platform, hours] of [
-	["desktop", 6],
-	["android", 24],
-] as const) {
-	test(`${platform} checks at startup and every ${hours} hours`, async () => {
+function Manual({ capture }: { capture: (check: (() => Promise<void>) | undefined) => void }) {
+	capture(useUpdater()?.check);
+	return null;
+}
+
+for (const platform of ["desktop", "android"] as const) {
+	test(`${platform} has no periodic checks and retains explicit manual checking`, async () => {
 		vi.useFakeTimers();
 		const check = vi.fn(async () => null);
 		vi.mocked(updatePlatform).mockReturnValue(platform);
 		vi.mocked(updateDriver).mockReturnValue({ platform, check });
-		const view = render(
+		let manual: (() => Promise<void>) | undefined;
+		render(
 			<UpdateProvider>
-				<span>App</span>
+				<Manual
+					capture={(check) => {
+						manual = check;
+					}}
+				/>
 			</UpdateProvider>,
 		);
-		await act(async () => {});
-		expect(check).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
+		expect(check).not.toHaveBeenCalled();
 		await act(async () => {
-			await vi.advanceTimersByTimeAsync(hours * 60 * 60 * 1000);
+			await manual?.();
 		});
-		expect(check).toHaveBeenCalledTimes(2);
-		view.unmount();
-		await act(async () => {
-			await vi.advanceTimersByTimeAsync(hours * 60 * 60 * 1000);
-		});
-		expect(check).toHaveBeenCalledTimes(2);
+		expect(check).toHaveBeenCalledOnce();
 	});
 }

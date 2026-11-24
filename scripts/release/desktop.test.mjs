@@ -80,6 +80,7 @@ test("publishing validates signature, rejects rollback, and uploads artifact bef
 	writeFileSync(signaturePath, signature);
 	const calls = [];
 	let currentVersion = "0.3.26111499";
+	let publicArtifact = artifact;
 	const transport = {
 		async getObject({ key }) {
 			calls.push(`GET ${key}`);
@@ -88,13 +89,26 @@ test("publishing validates signature, rejects rollback, and uploads artifact bef
 		async putObject({ key }) {
 			calls.push(`PUT ${key}`);
 		},
+		async getPublicReleaseObject(key) {
+			calls.push(`PUBLIC GET ${key}`);
+			return publicArtifact;
+		},
 	};
 	const options = { version, target: "darwin-aarch64", artifactPath, signaturePath, pubkey, transport, log: () => {} };
 	await uploadDesktopRelease(options);
 	assert.deepEqual(calls, [
 		"GET desktop/darwin.json",
 		`PUT desktop/${version}/Yonder.app.tar.gz`,
+		`PUBLIC GET desktop/${version}/Yonder.app.tar.gz`,
 		"PUT desktop/darwin.json",
+	]);
+	calls.length = 0;
+	publicArtifact = Buffer.from("stale CDN bytes");
+	await assert.rejects(uploadDesktopRelease(options), /公开下载与待发布更新包不一致/);
+	assert.deepEqual(calls, [
+		"GET desktop/darwin.json",
+		`PUT desktop/${version}/Yonder.app.tar.gz`,
+		`PUBLIC GET desktop/${version}/Yonder.app.tar.gz`,
 	]);
 	calls.length = 0;
 	currentVersion = "0.3.26111510";

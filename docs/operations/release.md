@@ -180,3 +180,30 @@ must be signed with the release key, not the debug key.
 
 For the Windows check, the installed executable is named after the Cargo package
 (`apps/desktop/src-tauri/Cargo.toml` → `yonder-desktop.exe`), **not** after `productName`.
+
+## Which update sources can say “ready”
+
+- **macOS Apple silicon / Windows x64:** use the existing Tauri manifests
+  `https://dl.zethai.cn/desktop/darwin.json` and
+  `https://dl.zethai.cn/desktop/windows.json` through the signed updater. The publisher
+  verifies the exact version signature and then compares the bytes served by the public
+  download endpoint before advancing the manifest. GitHub tag/Release creation and the
+  separate installer upload do not count.
+- **Android:** use `https://dl.zethai.cn/android/latest.json`. The publisher checks the signed
+  APK's version in the Android release job and verifies the public versioned APK and fixed
+  alias against the built APK's size and SHA-256 before advancing the manifest.
+- **Web:** use the live origin's `/version.json`, not a GitHub tag or the API's health
+  version. The atomic deploy executor checks exact version and commit through nginx;
+  `/build-version.json` is the deploy verification record.
+- **iOS:** an IPA asset or `altool` upload receipt only proves submission. Confirm the
+  marketing version and build number against the workflow, then verify the exact build
+  under the Yonder iOS app in App Store Connect, available for testing by the intended
+  TestFlight group. Check Apple processing, review where required, and expiry; a build
+  ready to be assigned is not proof that the intended group can install it. An authorized
+  reviewer can instead verify the exact version/build is offered for installation in
+  TestFlight as a member of that group. Until one of those checks succeeds, leave the iOS
+  update unannounced. Never use a public Release IPA as the fallback install path.
+
+Apple references: [build status](https://developer.apple.com/help/app-store-connect/test-a-beta-version/view-build-status-and-metrics/),
+[internal groups](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers/),
+and [external testers](https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers/).

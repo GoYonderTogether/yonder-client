@@ -57,5 +57,5 @@ export function useFrameMeeting(ownerId: string | null) {
 		void recorder.start(t("meetingRecorder.defaultTitle"), target.id, true, "live");
 	}
 
-	return { recorder, live, active, interrupted, setShortVoiceActive, start };
+	return { recorder, live, active, interrupted, shortVoiceActive, setShortVoiceActive, start };
 }

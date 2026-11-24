@@ -71,7 +71,7 @@ fn main() {
             .plugin(
                 "android-update",
                 tauri_build::InlinedPlugin::new()
-                    .commands(&["latest", "versionCode", "downloadAndInstall"])
+                    .commands(&["latest", "versionCode", "downloadAndInstall", "download", "install"])
                     .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
             )
             .plugin(

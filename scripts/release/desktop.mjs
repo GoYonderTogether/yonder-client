@@ -8,6 +8,7 @@ import {
 	BUCKET,
 	contentTypeFor,
 	getObject,
+	getPublicReleaseObject,
 	PUBLIC_BASE_URL,
 	putObject,
 	REGION_ENDPOINT,
@@ -82,7 +83,7 @@ export async function uploadDesktopRelease({
 	now = new Date(),
 	dryRun = false,
 	log = console.log,
-	transport = { putObject, getObject },
+	transport = { putObject, getObject, getPublicReleaseObject },
 }) {
 	const artifact = readFileSync(artifactPath);
 	if (!artifact.length) throw new Error("更新包为空");
@@ -126,6 +127,9 @@ export async function uploadDesktopRelease({
 		bucket,
 		endpoint,
 	});
+	// Do not advertise a signed artifact that the public updater could not actually download.
+	const publicArtifact = await transport.getPublicReleaseObject(artifactKey);
+	if (!publicArtifact.equals(artifact)) throw new Error(`${artifactKey} 公开下载与待发布更新包不一致`);
 	await transport.putObject({
 		key: manifestKey,
 		body: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`),

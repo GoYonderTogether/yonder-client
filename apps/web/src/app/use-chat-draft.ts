@@ -404,12 +404,29 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		const controller = inFlightSend.current?.controller;
 		if (controller && !controller.signal.aborted) controller.abort();
 	}
-
+	async function preserveBeforeReload(): Promise<boolean> {
+		const snapshot = current.current;
+		if (inFlightSend.current || snapshot.key !== liveKey.current || !snapshot.loaded) return false;
+		if (!snapshot.key) return true;
+		const generation = chatCacheGeneration();
+		try {
+			await writeChatCache(snapshot.key, snapshot.value, generation);
+			return (
+				current.current === snapshot &&
+				liveKey.current === snapshot.key &&
+				chatCacheGeneration() === generation &&
+				!inFlightSend.current
+			);
+		} catch {
+			return false;
+		}
+	}
 	const value = state.key === key ? state.value : empty();
 	return {
 		...value,
 		skillIds: boundSkillIds(value.text, value.bindings ?? []),
 		loaded: state.key === key && state.loaded,
+		preserveBeforeReload,
 		error,
 		sending,
 		setText: (text: string, edit?: TextEditRange) =>
