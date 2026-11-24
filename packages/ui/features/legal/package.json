@@ -1,7 +1,7 @@
 {
 	"name": "@yonder/feature-legal",
 	"private": true,
-	"version": "0.3.26112406",
+	"version": "0.3.26112407",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"

@@ -1,19 +1,19 @@
 {
 	"name": "@yonder/feature-members",
 	"private": true,
-	"version": "0.3.26112406",
+	"version": "0.3.26112407",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/chat-model": "0.3.26112406",
-		"@yonder/protocol": "0.3.26112406",
-		"@yonder/ui-components": "0.3.26112406",
-		"@yonder/ui-data": "0.3.26112406",
-		"@yonder/ui-i18n": "0.3.26112406",
-		"@yonder/ui-shell": "0.3.26112406",
-		"@yonder/ui-tokens": "0.3.26112406",
+		"@yonder/chat-model": "0.3.26112407",
+		"@yonder/protocol": "0.3.26112407",
+		"@yonder/ui-components": "0.3.26112407",
+		"@yonder/ui-data": "0.3.26112407",
+		"@yonder/ui-i18n": "0.3.26112407",
+		"@yonder/ui-shell": "0.3.26112407",
+		"@yonder/ui-tokens": "0.3.26112407",
 		"lucide-react": "1.72.0"
 	},
 	"peerDependencies": {
