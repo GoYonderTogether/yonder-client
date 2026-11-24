@@ -1,4 +1,4 @@
-import { devices, expect, type Page, test } from "@playwright/test";
+import { devices, expect, type Locator, type Page, test } from "@playwright/test";
 import { isolateChat, message } from "./chat-fixture.ts";
 
 type Shell = "web" | "windows" | "android" | "ios";
@@ -7,6 +7,7 @@ const sha = "a".repeat(64);
 const testFlight = "https://testflight.apple.com/join/Abcd1234";
 const { defaultBrowserType: _android, ...android } = devices["Pixel 7"];
 const { defaultBrowserType: _ios, ...ios } = devices["iPhone 13"];
+const narrowAndroid = { ...android, viewport: { width: 320, height: 700 } };
 const desktop = { viewport: { width: 1280, height: 832 } };
 const calls = (page: Page) =>
 	page.evaluate(() => (window as Window & { updateCommands?: string[] }).updateCommands ?? []);
@@ -24,7 +25,21 @@ test.use({
 	},
 });
 
-async function prepare(page: Page, platform: Shell, absent = false) {
+const allowDownload = (page: Page) =>
+	page.evaluate(() => (window as Window & { releaseUpdateStage?: () => void }).releaseUpdateStage?.());
+
+async function assertSingleLine(notice: Locator, primary: string) {
+	const title = notice.getByRole("heading", { name: "有新版本" });
+	const button = notice.getByRole("button", { name: primary });
+	await expect(button).toBeVisible();
+	await expect(notice).toHaveText(`有新版本${primary}稍后`);
+	const [headingBox, buttonBox] = await Promise.all([title.boundingBox(), button.boundingBox()]);
+	expect(
+		headingBox && buttonBox && Math.abs(headingBox.y + headingBox.height / 2 - buttonBox.y - buttonBox.height / 2),
+	).toBeLessThan(3);
+}
+
+async function prepare(page: Page, platform: Shell, absent = false, holdStage = false) {
 	await page.route("**/*", (route) =>
 		new URL(route.request().url()).hostname === "127.0.0.1" ? route.fallback() : route.abort("blockedbyclient"),
 	);
@@ -36,9 +51,15 @@ async function prepare(page: Page, platform: Shell, absent = false) {
 	});
 	if (platform !== "web")
 		await page.addInitScript(
-			({ platform, version, sha }) => {
+			({ platform, version, sha, holdStage }) => {
 				const updateCommands: string[] = [];
-				Object.assign(window, { updateCommands });
+				let releaseUpdateStage: () => void = () => {};
+				const staging = holdStage
+					? new Promise<void>((done) => {
+							releaseUpdateStage = done;
+						})
+					: Promise.resolve();
+				Object.assign(window, { updateCommands, releaseUpdateStage });
 				localStorage.setItem("dev.yonder.desktop.refresh-token", "isolated-fixture");
 				if (platform === "windows")
 					Object.defineProperty(navigator, "userAgent", { value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" });
@@ -52,7 +73,11 @@ async function prepare(page: Page, platform: Shell, absent = false) {
 								case "plugin:updater|check":
 									return { rid: 8, version, currentVersion: "0.3.26112408" };
 								case "plugin:updater|download":
+									await staging;
 									return 9;
+								case "plugin:android-update|download":
+									await staging;
+									return null;
 								case "plugin:android-update|versionCode":
 									return { versionCode: 26112408 };
 								case "plugin:android-update|latest":
@@ -79,7 +104,7 @@ async function prepare(page: Page, platform: Shell, absent = false) {
 					},
 				});
 			},
-			{ platform, version, sha },
+			{ platform, version, sha, holdStage },
 		);
 	const post: unknown[] = [];
 	const get: string[] = [];
@@ -106,21 +131,28 @@ async function prepare(page: Page, platform: Shell, absent = false) {
 	});
 	await page.goto("/messages/main");
 	await expect(page.getByText("好，我会按决策、待解决的问题和下一步来整理。")).toBeVisible();
-	return { post, get, socket, notice: page.getByRole("complementary", { name: "有可用的新版本" }) };
+	return { post, get, socket, notice: page.getByRole("complementary", { name: "有新版本" }) };
 }
 
 test.describe("desktop", () => {
 	test.use(desktop);
 	test("signed desktop candidate stages before a single actionable top notice", async ({ page }, info) => {
-		const { notice } = await prepare(page, "windows");
-		await expect(notice).toBeVisible();
-		expect(await calls(page)).toContain("plugin:updater|download");
+		const { notice } = await prepare(page, "windows", false, true);
+		await assertSingleLine(notice, "下载并更新");
+		await expect.poll(() => calls(page)).toContain("plugin:updater|download");
+		await page.screenshot({
+			path: info.outputPath("01-desktop-downloading.png"),
+			animations: "disabled",
+			scale: "css",
+		});
+		await allowDownload(page);
+		await assertSingleLine(notice, "重启后更新");
 		expect(await calls(page)).not.toContain("plugin:updater|install");
 		await expect(page.getByRole("button", { name: /已下载.*重启/ })).toHaveCount(0);
 		await page.mouse.click(30, 334);
 		await expect(notice).toBeVisible();
-		await page.screenshot({ path: info.outputPath("01-desktop-ready.png"), animations: "disabled", scale: "css" });
-		await notice.getByRole("button", { name: "立即更新" }).click();
+		await page.screenshot({ path: info.outputPath("02-desktop-ready.png"), animations: "disabled", scale: "css" });
+		await notice.getByRole("button", { name: "重启后更新" }).click();
 		await expect.poll(() => calls(page)).toContain("plugin:updater|install");
 	});
 
@@ -133,11 +165,11 @@ test.describe("desktop", () => {
 });
 
 test.describe("Android", () => {
-	test.use(android);
+	test.use(narrowAndroid);
 	test("a verified package only opens Android confirmation after tap; permission state scopes push", async ({
 		page,
 	}, info) => {
-		const { notice, post } = await prepare(page, "android");
+		const { notice, post } = await prepare(page, "android", false, true);
 		await expect(notice).toBeVisible();
 		await expect
 			.poll(() =>
@@ -153,24 +185,34 @@ test.describe("Android", () => {
 					{ channel: "stable", systemPush: true },
 				]),
 			);
-		await page.screenshot({ path: info.outputPath("02-android-ready.png"), animations: "disabled", scale: "css" });
+		await assertSingleLine(notice, "下载并更新");
+		await page.screenshot({
+			path: info.outputPath("03-android-downloading.png"),
+			animations: "disabled",
+			scale: "css",
+		});
 		await page.evaluate(() => {
 			document.documentElement.dataset.fixturePermission = "denied";
 			window.dispatchEvent(new Event("yonder:notification-permission-changed"));
 		});
 		await expect.poll(() => post).toContainEqual({ channel: "stable", systemPush: false });
-		await notice.getByRole("button", { name: "立即更新" }).click();
+		await notice.getByRole("button", { name: "下载并更新" }).click();
+		await expect(notice.getByRole("button", { name: "下载并更新" })).toBeDisabled();
+		expect(await calls(page)).not.toContain("plugin:android-update|install");
+		await allowDownload(page);
 		await expect.poll(() => calls(page)).toContain("plugin:android-update|install");
+		expect((await calls(page)).filter((value) => value.startsWith("plugin:android-update|download "))).toHaveLength(1);
 		await expect(notice).toHaveCount(0);
 	});
 
 	test("Later hides this release across a reload without introducing a tab badge", async ({ page }, info) => {
 		const { get, notice } = await prepare(page, "android");
-		await expect(notice).toBeVisible();
+		await assertSingleLine(notice, "重启后更新");
+		await page.screenshot({ path: info.outputPath("04-android-ready.png"), animations: "disabled", scale: "css" });
 		await notice.getByRole("button", { name: "稍后" }).click();
 		await expect(notice).toHaveCount(0);
 		await page.screenshot({
-			path: info.outputPath("06-android-later-hidden.png"),
+			path: info.outputPath("05-android-later-hidden.png"),
 			animations: "disabled",
 			scale: "css",
 		});
@@ -190,15 +232,15 @@ test.describe("iOS", () => {
 			"Build this isolated browser fixture with the TestFlight internal channel",
 		);
 		const { notice, get } = await prepare(page, "ios");
-		await expect(notice).toBeVisible();
+		await assertSingleLine(notice, "打开 TestFlight");
 		expect(get).toContain("testflight-internal");
 		expect(await calls(page)).not.toContain(`plugin:opener|open_url ${testFlight}`);
 		await page.screenshot({
-			path: info.outputPath("03-ios-testflight-ready.png"),
+			path: info.outputPath("06-ios-testflight-ready.png"),
 			animations: "disabled",
 			scale: "css",
 		});
-		await notice.getByRole("button", { name: "立即更新" }).click();
+		await notice.getByRole("button", { name: "打开 TestFlight" }).click();
 		await expect.poll(() => calls(page)).toContain(`plugin:opener|open_url ${testFlight}`);
 	});
 });
@@ -227,10 +269,10 @@ test.describe("Web", () => {
 		await expect(dialog).toBeVisible();
 		await dialog.getByRole("button", { name: "收起录音" }).click();
 		await expect(dialog).toHaveCount(0);
-		await notice.getByRole("button", { name: "立即更新" }).click();
-		await expect(notice.getByText("结束录音后才能更新。")).toBeVisible();
+		await assertSingleLine(notice, "立即刷新");
+		await expect(notice.getByRole("button", { name: "立即刷新" })).toBeDisabled();
 		await page.screenshot({
-			path: info.outputPath("04-web-recording-blocked.png"),
+			path: info.outputPath("07-web-recording-blocked.png"),
 			animations: "disabled",
 			scale: "css",
 		});
@@ -260,15 +302,43 @@ test.describe("Web", () => {
 				},
 			});
 		});
-		await notice.getByRole("button", { name: "立即更新" }).click();
-		await expect(notice.getByText("正在准备更新…")).toBeVisible();
+		await notice.getByRole("button", { name: "立即刷新" }).click();
+		await assertSingleLine(notice, "立即刷新");
+		await expect(notice.getByRole("button", { name: "立即刷新" })).toBeDisabled();
 		await expect(text).toHaveValue(draft);
 		await page.screenshot({
-			path: info.outputPath("05-web-preparing-draft-retained.png"),
+			path: info.outputPath("08-web-draft-checkpoint.png"),
 			animations: "disabled",
 			scale: "css",
 		});
 		await expect(notice).toHaveCount(0);
 		await expect(text).toHaveValue(draft);
+	});
+	test("a failed durable draft write never reloads or drops the live draft", async ({ page }) => {
+		const { notice } = await prepare(page, "web");
+		const text = page.locator("textarea");
+		const refresh = notice.getByRole("button", { name: "立即刷新" });
+		await text.fill("不能丢掉的本地草稿。");
+		await expect(refresh).toBeEnabled();
+		await page.evaluate(() => {
+			const put = IDBObjectStore.prototype.put;
+			IDBObjectStore.prototype.put = function (...args) {
+				if (this.transaction.db.name === "yonder-chat") {
+					document.documentElement.dataset.fixtureDraftRejected = "true";
+					throw new DOMException("Synthetic storage failure", "QuotaExceededError");
+				}
+				return put.apply(this, args);
+			};
+		});
+		let navigated = false;
+		page.on("framenavigated", (frame) => {
+			if (frame === page.mainFrame()) navigated = true;
+		});
+		await refresh.click();
+		await expect(page.locator("html")).toHaveAttribute("data-fixture-draft-rejected", "true");
+		await expect(refresh).toBeEnabled();
+		await assertSingleLine(notice, "立即刷新");
+		await expect(text).toHaveValue("不能丢掉的本地草稿。");
+		expect(navigated).toBe(false);
 	});
 });

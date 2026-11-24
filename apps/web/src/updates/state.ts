@@ -36,6 +36,7 @@ export function createUpdater(driver: UpdateDriver) {
 	let state: UpdateState = { status: "idle" };
 	let candidate: UpdateCandidate | null = null;
 	let notice = false;
+	let checkFlight: Promise<void> | undefined;
 	const listeners = new Set<() => void>();
 	const set = (next: UpdateState) => {
 		state = next;
@@ -55,7 +56,16 @@ export function createUpdater(driver: UpdateDriver) {
 	};
 
 	async function check(expectedVersion?: string) {
-		if (busy()) return;
+		if (checkFlight || busy()) return;
+		checkFlight = checkAndDownload(expectedVersion);
+		try {
+			await checkFlight;
+		} finally {
+			checkFlight = undefined;
+		}
+	}
+
+	async function checkAndDownload(expectedVersion?: string) {
 		const old = candidate;
 		const previous = state;
 		set({ status: "checking", ...(expectedVersion ? { notice: true } : {}) });
@@ -97,6 +107,16 @@ export function createUpdater(driver: UpdateDriver) {
 		}
 	}
 
+	function readyFor(version: string) {
+		return state.version === version && (state.status === "ready" || state.error === "install");
+	}
+
+	async function prepare(version: string) {
+		if (checkFlight) await checkFlight;
+		else if (!readyFor(version)) await check(version);
+		return readyFor(version);
+	}
+
 	async function install(expectedVersion?: string) {
 		if (!candidate || busy() || (expectedVersion && candidate.version !== expectedVersion)) return false;
 		const ready = state.status === "ready" || state.error === "install";
@@ -133,6 +153,7 @@ export function createUpdater(driver: UpdateDriver) {
 			return () => listeners.delete(listener);
 		},
 		check,
+		prepare,
 		install,
 	};
 }

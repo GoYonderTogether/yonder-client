@@ -1,14 +1,12 @@
-import { ArrowUpFromLine } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useForeground } from "../lib/foreground.ts";
 import { useOfferedUpdate, useUpdater } from "./provider.tsx";
-import type { UpdateState } from "./state.ts";
+import type { Updater, UpdateState } from "./state.ts";
 import type { UpdateOffer } from "./update-offer.ts";
 import "./top-notice.css";
 
-type Detail = "preparing" | "recording" | "busy" | "draft" | "failed";
 type Guard = { recording: boolean; busy: () => boolean; persist: () => Promise<boolean> };
 
 const IDLE: UpdateState = { status: "idle" };
@@ -44,24 +42,27 @@ export function UpdateTopNotice(guard: Guard) {
 		void updater.check(offer.version);
 	}, [native, offer, updater, snapshot]);
 
-	if (
-		!context ||
-		!offer ||
-		(native &&
-			(!updater ||
-				snapshot.version !== offer.version ||
-				!(snapshot.status === "ready" || snapshot.status === "installing" || snapshot.error === "install")))
-	)
-		return null;
-
+	if (!context || !offer || (native && !updater)) return null;
+	if (native && snapshot.version === offer.version && snapshot.status === "installerOpened") return null;
+	const ready =
+		snapshot.version === offer.version &&
+		(snapshot.status === "ready" || snapshot.status === "installing" || snapshot.error === "install");
+	const action = native
+		? ready
+			? "noticeRestart"
+			: "noticeDownload"
+		: offer.platform === "web"
+			? "noticeReload"
+			: "noticeTestFlight";
 	return (
 		<TopNotice
 			key={offer.id}
 			offer={offer}
 			guard={guard}
+			action={action}
 			dismiss={context.dismiss}
 			acknowledge={context.acknowledge}
-			install={updater?.install}
+			updater={native ? updater : null}
 		/>
 	);
 }
@@ -69,15 +70,17 @@ export function UpdateTopNotice(guard: Guard) {
 function TopNotice({
 	offer,
 	guard,
+	action,
 	acknowledge,
 	dismiss,
-	install,
+	updater,
 }: {
 	offer: UpdateOffer;
 	guard: Guard;
+	action: "noticeRestart" | "noticeDownload" | "noticeReload" | "noticeTestFlight";
 	acknowledge: (offer: UpdateOffer) => void;
 	dismiss: (id: string) => void;
-	install?: ((version: string) => Promise<boolean>) | undefined;
+	updater: Updater | null;
 }) {
 	const { t } = useTranslation();
 	const focused = useForeground();
@@ -87,8 +90,7 @@ function TopNotice({
 	const inFlight = useRef(false);
 	const element = useRef<HTMLElement>(null);
 	const start = useRef<{ pointer: number; x: number; y: number } | undefined>(undefined);
-	const [detail, setDetail] = useState<Detail>();
-	const shownDetail = detail === "recording" && !guard.recording ? undefined : detail;
+	const [working, setWorking] = useState(false);
 
 	useLayoutEffect(() => {
 		mounted.current = true;
@@ -146,18 +148,15 @@ function TopNotice({
 	}, [dismiss, offer.id]);
 
 	async function update() {
-		if (inFlight.current) return;
-		if (latest.current.recording) return setDetail("recording");
-		if (latest.current.busy()) return setDetail("busy");
+		const blocked = () => latest.current.recording || latest.current.busy();
+		if (inFlight.current || blocked()) return;
 		inFlight.current = true;
+		setWorking(true);
 		try {
+			if (updater && !(await updater.prepare(offer.version))) return;
+			if (!mounted.current || blocked()) return;
 			if (offer.platform === "web" || offer.platform === "macos" || offer.platform === "windows") {
-				setDetail("preparing");
-				const saved = await latest.current.persist();
-				if (!mounted.current) return;
-				if (latest.current.recording) return setDetail("recording");
-				if (latest.current.busy()) return setDetail("busy");
-				if (!saved) return setDetail("draft");
+				if (!(await latest.current.persist()) || !mounted.current || blocked()) return;
 			}
 			if (offer.platform === "web") {
 				dismiss(offer.id);
@@ -165,13 +164,14 @@ function TopNotice({
 			} else if (offer.platform === "ios" && offer.url) {
 				await openTestFlight(offer.url);
 				if (mounted.current) dismiss(offer.id);
-			} else if (await install?.(offer.version)) {
-				if (mounted.current && offer.platform !== "android") dismiss(offer.id);
-			} else if (mounted.current) setDetail("failed");
+			} else if ((await updater?.install(offer.version)) && mounted.current && offer.platform !== "android") {
+				dismiss(offer.id);
+			}
 		} catch {
-			if (mounted.current) setDetail("failed");
+			// Leave the same action available for retry, without dismissing or reloading.
 		} finally {
 			inFlight.current = false;
+			if (mounted.current) setWorking(false);
 		}
 	}
 
@@ -186,29 +186,20 @@ function TopNotice({
 				event.preventDefault();
 			}}
 		>
-			<div className="update-top-notice__lead">
-				<ArrowUpFromLine className="update-top-notice__icon" aria-hidden="true" size={18} />
-				<h2>{t("me.update.notice")}</h2>
-			</div>
+			<h2>{t("me.update.notice")}</h2>
 			<div className="update-top-notice__actions">
 				<button
 					type="button"
 					className="update-top-notice__primary"
-					disabled={shownDetail === "preparing" || shownDetail === "recording"}
+					disabled={working || guard.recording || guard.busy()}
 					onClick={() => void update()}
 				>
-					{t("me.update.noticeUpdate")}
+					{t(`me.update.${action}`)}
 				</button>
-				<button
-					type="button"
-					className="update-top-notice__later"
-					disabled={shownDetail === "preparing"}
-					onClick={() => dismiss(offer.id)}
-				>
+				<button type="button" className="update-top-notice__later" disabled={working} onClick={() => dismiss(offer.id)}>
 					{t("me.update.noticeLater")}
 				</button>
 			</div>
-			{shownDetail ? <p role="status">{t(`me.update.noticeDetail.${shownDetail}`)}</p> : null}
 		</aside>,
 		document.body,
 	);

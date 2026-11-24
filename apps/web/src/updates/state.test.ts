@@ -118,3 +118,22 @@ test("an offered version must match local verification; Android stages before an
 	expect(install).toHaveBeenCalledOnce();
 	expect(updater.getSnapshot().status).toBe("installerOpened");
 });
+
+test("an explicit request joins the existing download and never installs on its own", async () => {
+	const staging = pending();
+	const download = vi.fn(() => staging.promise);
+	const install = vi.fn(async () => {});
+	const check = vi.fn(async () => ({ version: "0.3.99", required: false, download, install }));
+	const updater = createUpdater({ platform: "android", check });
+	const background = updater.check("0.3.99");
+	await vi.waitFor(() => expect(download).toHaveBeenCalledOnce());
+	const explicit = updater.prepare("0.3.99");
+	const mismatched = updater.prepare("0.3.98");
+	staging.resolve();
+	await background;
+	await expect(explicit).resolves.toBe(true);
+	await expect(mismatched).resolves.toBe(false);
+	expect(check).toHaveBeenCalledOnce();
+	expect(download).toHaveBeenCalledOnce();
+	expect(install).not.toHaveBeenCalled();
+});
