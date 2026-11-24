@@ -128,6 +128,7 @@ export {
 	readLocale,
 	readStyleChoice,
 	readThemeChoice,
+	readUISizeChoice,
 	useLocalePreference,
 	useSystemPrefersDark,
 	useTheme,

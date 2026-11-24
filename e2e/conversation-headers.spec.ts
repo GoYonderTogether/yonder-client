@@ -113,7 +113,16 @@ for (const viewport of ["desktop", "phone"] as const) {
 				await expect(control).toHaveCSS("border-radius", "9999px");
 			}
 			await expect(header.locator("[data-chat-agent-name]")).toHaveCSS("box-shadow", /rgba?\(/);
-			expect(await header.evaluate((element) => getComputedStyle(element, "::before").height)).toBe("4px");
+			// The veil is the floating header's safe-top allowance (`--spacing-1`), so it follows the
+			// interface size (通用 · 界面大小) instead of staying at a literal 4px.
+			const veil = await header.evaluate((element) => {
+				const root = getComputedStyle(document.documentElement);
+				return {
+					height: Number.parseFloat(getComputedStyle(element, "::before").height),
+					expected: 4 * Number(root.getPropertyValue("--ui-scale")),
+				};
+			});
+			expect(veil.height).toBeCloseTo(veil.expected, 1);
 			if (phone) {
 				await expect(header.getByRole("button", { name: "返回", exact: true })).toBeInViewport();
 				await expect(header.getByRole("button", { name: "我", exact: true })).toHaveCount(0);

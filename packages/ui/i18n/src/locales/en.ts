@@ -175,6 +175,15 @@ export const en = {
 			light: "Light",
 			dark: "Dark",
 		},
+		uiSize: {
+			title: "Interface size",
+			footer: "The tab bar, avatars, input and chat text change together. Medium is the default.",
+			xsmall: "Smallest",
+			small: "Small",
+			medium: "Medium",
+			large: "Large",
+			xlarge: "Largest",
+		},
 		locale: {
 			zhCN: "中文",
 			en: "English",

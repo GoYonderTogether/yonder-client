@@ -6,6 +6,17 @@ import { draftMarkdownMarks } from "./completion/draft-markdown.ts";
 import { CompletionHighlight } from "./completion/highlight.tsx";
 import type { CompletionToken } from "./completion/tokens.ts";
 
+/**
+ * One line of the field. The field is `min-height: var(--composer-row-height)`, so an empty field
+ * reports it, but a filled one has already grown; the row's controls are exactly that height, so a
+ * sibling control is the honest measure at any interface size.
+ */
+function oneLineHeight(editor: HTMLElement): number {
+	const layout = editor.closest(".composer-layout") ?? editor.parentElement;
+	const control = layout?.querySelector<HTMLElement>(".composer-tool, .composer-send, .composer-hold-to-talk");
+	return control ? control.getBoundingClientRect().height : editor.getBoundingClientRect().height;
+}
+
 /** Use the same textarea in and out of the top layer: no draft, cursor or IME handoff. */
 export function useComposerEditor(
 	input: RefObject<HTMLTextAreaElement | null>,
@@ -37,8 +48,10 @@ export function useComposerEditor(
 			if (!mobile) mirror.style.width = `${editor.clientWidth}px`;
 			else mirror.style.removeProperty("width");
 			mirror.scrollTop = editor.scrollTop;
-			const style = getComputedStyle(editor);
-			const rowHeight = Number.parseFloat(style.getPropertyValue("--composer-button-size"));
+			// The sizes are `calc()`s now (they follow the interface size), so their own text is not a
+			// number: measure the box instead.
+			const rowHeight = oneLineHeight(editor);
+			if (!rowHeight) return;
 			if (mobile) {
 				if (!fullscreen && !hidden) setMultiline(Boolean(draft) && mirror.clientHeight > rowHeight + 1);
 			} else if (!draft && !fileCount) setExpanded(false);

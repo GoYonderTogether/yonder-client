@@ -25,30 +25,32 @@
 	--font-weight-bold: 700;
 	--font-mono: "SF Mono", ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, "Noto Sans Mono CJK SC", monospace;
 
-	/* Type scale: eight steps, no ad-hoc sizes. `title` is the large title of a phone's root screen. */
-	--text-display: 40px;
-	--text-display--line-height: 48px;
-	--text-title: 30px;
-	--text-title--line-height: 38px;
+	/* Type scale: eight steps, no ad-hoc sizes. `title` is the large title of a phone's root screen.
+	   Every size multiplies `--ui-scale` (the 通用 · 界面大小 choice), so a step keeps its proportion
+	   to the rest of the interface at every level. */
+	--text-display: calc(40px * var(--ui-scale));
+	--text-display--line-height: calc(48px * var(--ui-scale));
+	--text-title: calc(30px * var(--ui-scale));
+	--text-title--line-height: calc(38px * var(--ui-scale));
 	--text-title--letter-spacing: -0.02em;
-	--text-h1: 24px;
-	--text-h1--line-height: 32px;
-	--text-h2: 20px;
-	--text-h2--line-height: 28px;
-	--text-h3: 16px;
-	--text-h3--line-height: 24px;
-	--text-body: 15px;
-	--text-body--line-height: 22px;
-	--text-caption: 13px;
-	--text-caption--line-height: 20px;
-	--text-micro: 11px;
-	--text-micro--line-height: 14px;
+	--text-h1: calc(24px * var(--ui-scale));
+	--text-h1--line-height: calc(32px * var(--ui-scale));
+	--text-h2: calc(20px * var(--ui-scale));
+	--text-h2--line-height: calc(28px * var(--ui-scale));
+	--text-h3: calc(16px * var(--ui-scale));
+	--text-h3--line-height: calc(24px * var(--ui-scale));
+	--text-body: calc(15px * var(--ui-scale));
+	--text-body--line-height: calc(22px * var(--ui-scale));
+	--text-caption: calc(13px * var(--ui-scale));
+	--text-caption--line-height: calc(20px * var(--ui-scale));
+	--text-micro: calc(11px * var(--ui-scale));
+	--text-micro--line-height: calc(14px * var(--ui-scale));
 
-	--radius-xs: 4px;
-	--radius-control-sm: 8px;
-	--radius-control: 12px;
-	--radius-card: 16px;
-	--radius-panel: 22px;
+	--radius-xs: calc(4px * var(--ui-scale));
+	--radius-control-sm: calc(8px * var(--ui-scale));
+	--radius-control: calc(12px * var(--ui-scale));
+	--radius-card: calc(16px * var(--ui-scale));
+	--radius-panel: calc(22px * var(--ui-scale));
 	/* Deprecated aliases with the same values as the role names. New code uses control-sm / control /
 	   card / panel; the page pass removes the remaining usages, then these four lines go. */
 	--radius-sm: var(--radius-control-sm);
@@ -57,18 +59,23 @@
 	--radius-xl: var(--radius-panel);
 	--radius-full: 9999px;
 
-	--spacing-1: 4px;
-	--spacing-2: 8px;
-	--spacing-3: 12px;
-	--spacing-4: 16px;
-	--spacing-5: 20px;
-	--spacing-6: 24px;
-	--spacing-8: 32px;
-	--spacing-10: 40px;
-	--spacing-12: 48px;
-	--spacing-16: 64px;
-	/* The only sub-4px gap: between stacked list rows and a tab icon and its label. */
+	--spacing-1: calc(4px * var(--ui-scale));
+	--spacing-2: calc(8px * var(--ui-scale));
+	--spacing-3: calc(12px * var(--ui-scale));
+	--spacing-4: calc(16px * var(--ui-scale));
+	--spacing-5: calc(20px * var(--ui-scale));
+	--spacing-6: calc(24px * var(--ui-scale));
+	--spacing-8: calc(32px * var(--ui-scale));
+	--spacing-10: calc(40px * var(--ui-scale));
+	--spacing-12: calc(48px * var(--ui-scale));
+	--spacing-16: calc(64px * var(--ui-scale));
+	/* The only sub-4px gap: between stacked list rows and a tab icon and its label. A hairline, so it
+	   stays 2px instead of joining the scale. */
 	--spacing-hair: 2px;
+	/* Tailwind's own numeric utilities (`p-3`, `size-8`, `gap-2`, `leading-3`) read this base instead
+	   of a named step, so it takes the multiplier too: a control written that way grows with one
+	   written as `var(--spacing-3)`. The named steps above stay the source for layout code. */
+	--spacing: calc(0.25rem * var(--ui-scale));
 
 	/* Motion as Tailwind animations: `animate-push-in`, `animate-sheet-up`, `animate-fade-in`. */
 	--animate-push-in: yonder-push-in var(--duration-slow) var(--ease-decelerate);
@@ -354,58 +361,29 @@
 
 /* Motion: durations and curves live here so every transition speaks the same language. */
 :root {
+	/* Interface size (通用 · 界面大小): one multiplier for every length in this file — type, spacing,
+	   radii, controls, icons, the dock — so the phone's floating chrome and a chat bubble keep their
+	   proportions at any level. A bubble's own text is body text, so it grows with the interface too;
+	   nothing here is a page width, and a page that measured the viewport itself is not scaled.
+	   `medium` is the default, 10% above the sizes before 2026-11; the five levels are below. */
+	--ui-scale: 1.1;
 	--message-bubble-width: 80%;
-	--composer-padding: 5px;
-	--composer-button-size: 36px;
+	/* The speech tail: a 9×13 corner cut from the sender's bottom edge, same colour as the bubble.
+	   Percent-encoded with no `;` or `{}` so the mini-program token generator copies it verbatim. */
+	--tail-width: calc(9px * var(--ui-scale));
+	--tail-height: calc(13px * var(--ui-scale));
+	--tail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 13' preserveAspectRatio='none'%3E%3Cpath d='M0 0Q1.2 8.6 9 13L0 13Z' fill='%23000'/%3E%3C/svg%3E");
+	--composer-padding: calc(5px * var(--ui-scale));
+	--composer-button-size: calc(36px * var(--ui-scale));
+	/* A one-line draft is exactly this tall; the field grows past it and the row wraps. Script that
+	   has to compare against "one line" measures this box instead of parsing the calc. */
+	--composer-row-height: var(--composer-button-size);
 	--composer-radius: calc(var(--composer-button-size) / 2 + var(--composer-padding));
-	--stream-blur: 6px;
-	--system-bar-blur: 20px;
-	--color-mask-solid: #000;
-	--stream-duration: 90ms;
-	--stream-stagger: 30ms;
-	--ease-stream: cubic-bezier(0.215, 0.61, 0.355, 1);
-	--feedback-duration: 600ms;
-	--feedback-reset: 2500ms;
-	/* Unit-mass underdamped spring samples: stiffness 380, damping 18. */
-	--ease-feedback: linear(
-		0,
-		0.1401,
-		0.4426,
-		0.762,
-		1.0093,
-		1.151,
-		1.1948,
-		1.1703,
-		1.1123,
-		1.0496,
-		1.0004,
-		0.9716,
-		0.9621,
-		0.9663,
-		0.9774,
-		0.9897,
-		0.9995,
-		1.0053,
-		1.0074,
-		1.0067,
-		1
-	);
-	--duration-fast: 120ms;
-	--duration-base: 200ms;
-	--duration-slow: 300ms;
-	/* Rare: a large block of content appearing for the first time (03-动效 第二节). */
-	--duration-slower: 480ms;
-	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
-	--ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
-	--ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
-	--ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
-	/* The curve iOS moves its keyboard with, so content riding on top of it moves as one piece. */
-	--ease-keyboard: cubic-bezier(0.38, 0.7, 0.125, 1);
 
 	/* Frame: the desktop's top row is as tall as macOS's traffic-light area, so every column's
 	   header lines up with it. */
-	--titlebar-height: 52px;
-	--rail-width: 76px;
+	--titlebar-height: calc(52px * var(--ui-scale));
+	--rail-width: calc(76px * var(--ui-scale));
 	/* The right-hand side panel on a wide window: group info, Bot detail, a member's card. Wide enough
 	   for the member grid and the Bot form without wrapping, narrow enough to leave the chat in view. */
 	--side-panel-width: 400px;
@@ -416,19 +394,21 @@
 	--settings-window-width: 1120px;
 	--settings-window-height: 900px;
 	--group-form-column-min: 224px;
-	--tabbar-height: 54px;
+	/* The phone's bottom tab bar: its icon and label grow with the interface, its height follows. */
+	--tabbar-height: calc(54px * var(--ui-scale));
 
 	/* Control sizes are fixed; density only affects rows and surrounding space. */
-	--control-sm: 32px;
-	--control-md: 40px;
-	--control-lg: 48px;
-	--row-height: 52px;
+	--control-sm: calc(32px * var(--ui-scale));
+	--control-md: calc(40px * var(--ui-scale));
+	--control-lg: calc(48px * var(--ui-scale));
+	--row-height: calc(52px * var(--ui-scale));
 	/* Chat list rows (Feishu, WeChat desktop): a 40px avatar, title and one preview line. */
-	--conversation-row-height: 60px;
-	--card-padding: 20px;
-	--page-padding: 24px;
+	--conversation-row-height: calc(60px * var(--ui-scale));
+	--card-padding: calc(20px * var(--ui-scale));
+	--page-padding: calc(24px * var(--ui-scale));
 
-	/* Content widths: a page column picks one by what it holds (docs/design-system.md). */
+	/* Content widths: a page column picks one by what it holds (docs/design-system.md). A column's
+	   width is a reading measure, not a control, so it does not follow the interface scale. */
 	--width-form: 400px;
 	--width-sheet: 560px;
 	--width-reading: 680px;
@@ -436,9 +416,15 @@
 	--width-max: 1024px;
 
 	/* Lucide icons: three sizes, two strokes. scale.ts holds the same numbers for the size prop. */
-	--icon-sm: 16px;
-	--icon-md: 20px;
-	--icon-lg: 24px;
+	--icon-sm: calc(16px * var(--ui-scale));
+	--icon-md: calc(20px * var(--ui-scale));
+	--icon-lg: calc(24px * var(--ui-scale));
+	/* The tab bar's label and the rail's: one step below `text-micro`, so a scaled literal. */
+	--text-tab: calc(10px * var(--ui-scale));
+	--text-tab--line-height: calc(12px * var(--ui-scale));
+	/* An avatar's initial letter: it fills a 16 or 24px tile, so it is a glyph size, not a text role. */
+	--text-avatar-sm: calc(8px * var(--ui-scale));
+	--text-avatar-md: calc(10px * var(--ui-scale));
 	--icon-stroke: 1.75;
 	--icon-stroke-selected: 2.1;
 
@@ -465,21 +451,27 @@
 }
 
 [data-density="compact"] {
-	--row-height: 60px;
-	--conversation-row-height: 64px;
-	--card-padding: 16px;
-	--page-padding: 16px;
+	--row-height: calc(60px * var(--ui-scale));
+	--conversation-row-height: calc(64px * var(--ui-scale));
+	--card-padding: calc(16px * var(--ui-scale));
+	--page-padding: calc(16px * var(--ui-scale));
 }
 
-/* 10-质量 第二节: honour the system setting rather than animating anyway. */
-@media (prefers-reduced-motion: reduce) {
-	:root {
-		--stream-duration: 0ms;
-		--stream-stagger: 0ms;
-		--feedback-duration: 0ms;
-		--duration-fast: 0ms;
-		--duration-base: 0ms;
-		--duration-slow: 0ms;
-		--duration-slower: 0ms;
-	}
+/* The remaining four interface sizes (通用 · 界面大小). The default, `medium` (1.1), is on `:root`
+   with the other control values; these swap the multiplier and nothing else, because every length
+   reads it. A level nobody stored, and no attribute at all, both mean `medium`. */
+[data-ui-size="xsmall"] {
+	--ui-scale: 0.85;
+}
+
+[data-ui-size="small"] {
+	--ui-scale: 0.95;
+}
+
+[data-ui-size="large"] {
+	--ui-scale: 1.2;
+}
+
+[data-ui-size="xlarge"] {
+	--ui-scale: 1.3;
 }

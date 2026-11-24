@@ -62,7 +62,13 @@ for (const phone of [false, true]) {
 				return { x: avatar.x, width: avatar.width, height: avatar.height, titleX: label.x };
 			}),
 		);
-		expect(bounds[0]).toMatchObject({ width: 40, height: 40 });
+		// A 40px avatar at the default interface size (通用 · 界面大小 `medium` = 1.1), so the slot
+		// is measured against the same multiplier rather than a literal that a level would move.
+		const scale = await page.evaluate(() =>
+			Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ui-scale")),
+		);
+		expect(bounds[0]?.width).toBeCloseTo(40 * scale, 1);
+		expect(bounds[0]?.height).toBeCloseTo(40 * scale, 1);
 		expect(bounds).toEqual(Array.from({ length: bounds.length }, () => bounds[0]));
 		await page.screenshot({
 			path: info.outputPath(phone ? "mobile-conversation-avatar-slots.png" : "desktop-conversation-avatar-slots.png"),

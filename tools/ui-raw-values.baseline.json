@@ -3,7 +3,7 @@
 	"totals": {
 		"hex-color": 6,
 		"rgb-color": 0,
-		"text-px": 4,
+		"text-px": 0,
 		"radius-raw": 6,
 		"font-weight-number": 9,
 		"window-confirm": 3
@@ -32,7 +32,6 @@
 			"hex-color": 6
 		},
 		"packages/ui/components/src/avatar/avatar.tsx": {
-			"text-px": 2,
 			"radius-raw": 1
 		},
 		"packages/ui/components/src/checkbox/checkbox.tsx": {
@@ -46,12 +45,6 @@
 		},
 		"packages/ui/features/me/src/skills/skill-detail.tsx": {
 			"window-confirm": 1
-		},
-		"packages/ui/shell/src/layout/mobile-dock.tsx": {
-			"text-px": 1
-		},
-		"packages/ui/shell/src/layout/rail.tsx": {
-			"text-px": 1
 		}
 	}
 }

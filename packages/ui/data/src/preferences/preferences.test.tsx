@@ -23,7 +23,7 @@ const storage = createBrowserStorage({
 
 vi.mock("../query/provider.tsx", () => ({ useData: () => ({ storage }) }));
 
-const { readStyleChoice, useLocalePreference, useTheme } = await import("./preferences.ts");
+const { readStyleChoice, readUISizeChoice, useLocalePreference, useTheme } = await import("./preferences.ts");
 
 const wrapper = ({ children }: { children: ReactNode }) => <>{children}</>;
 
@@ -44,6 +44,20 @@ describe("preferences", () => {
 		act(() => reopened.result.current.setStyle("classic"));
 		expect(app.result.current.style).toBe("classic");
 		expect(raw.get("yonder.theme")).toBe("dark");
+	});
+
+	test("interface size defaults to medium, is shared, and lands on the html element", () => {
+		expect(readUISizeChoice({ get: () => null })).toBe("medium");
+		expect(readUISizeChoice({ get: () => "huge" })).toBe("medium");
+		const settings = renderHook(() => useTheme(), { wrapper });
+		const app = renderHook(() => useTheme(), { wrapper });
+		expect(app.result.current.size).toBe("medium");
+		act(() => settings.result.current.setSize("xlarge"));
+		expect(app.result.current.size).toBe("xlarge");
+		expect(document.documentElement.dataset.uiSize).toBe("xlarge");
+		expect(raw.get("yonder.ui-size")).toBe("xlarge");
+		settings.unmount();
+		expect(renderHook(() => useTheme(), { wrapper }).result.current.size).toBe("xlarge");
 	});
 
 	test("a language chosen in one place is seen everywhere", () => {

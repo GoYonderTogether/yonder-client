@@ -180,6 +180,15 @@ export const zhCN: Messages = {
 			light: "浅色",
 			dark: "深色",
 		},
+		uiSize: {
+			title: "界面大小",
+			footer: "标签栏、头像、输入区和聊天文字一起变。默认是中等。",
+			xsmall: "最小",
+			small: "小",
+			medium: "中",
+			large: "大",
+			xlarge: "最大",
+		},
 		locale: {
 			zhCN: "中文",
 			en: "English",

@@ -80,7 +80,7 @@ export function Rail({
 								aria-current={selected ? "page" : undefined}
 								aria-describedby={unread ? badgeId : undefined}
 								className={cn(
-									"flex w-14 flex-col items-center gap-[3px] rounded-[var(--radius-md)] py-[var(--spacing-2)]",
+									"flex w-14 flex-col items-center gap-[var(--spacing-hair)] rounded-[var(--radius-control)] py-[var(--spacing-2)]",
 									"transition-colors duration-[var(--duration-fast)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
 									selected
 										? "bg-[var(--color-bg-selected)] text-[var(--color-text-primary)]"
@@ -88,7 +88,7 @@ export function Rail({
 								)}
 							>
 								<span className="relative">
-									<Icon size={20} strokeWidth={selected ? 2.1 : 1.7} aria-hidden="true" />
+									<Icon className="icon-scaled" size={20} strokeWidth={selected ? 2.1 : 1.7} aria-hidden="true" />
 									{unread ? (
 										<UnreadBadge
 											{...unread}
@@ -98,7 +98,9 @@ export function Rail({
 										/>
 									) : null}
 								</span>
-								<span className="text-[10px] font-medium leading-3">{labels[tab]}</span>
+								<span className="text-[length:var(--text-tab)] font-medium leading-[var(--text-tab--line-height)]">
+									{labels[tab]}
+								</span>
 							</button>
 						</li>
 					);
@@ -113,13 +115,13 @@ export function Rail({
 					title={settingsLabel}
 					aria-expanded={meOpen}
 					className={cn(
-						"flex size-11 items-center justify-center rounded-[var(--radius-md)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]",
+						"flex size-[var(--control-md)] items-center justify-center rounded-[var(--radius-control)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]",
 						meOpen
 							? "bg-[var(--color-bg-selected)] text-[var(--color-text-primary)]"
 							: "text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]",
 					)}
 				>
-					<Settings size={20} strokeWidth={1.7} aria-hidden="true" />
+					<Settings className="icon-scaled" size={20} strokeWidth={1.7} aria-hidden="true" />
 				</button>
 			</div>
 		</nav>
