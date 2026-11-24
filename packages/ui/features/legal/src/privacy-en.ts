@@ -2,8 +2,8 @@ import type { LegalDocument } from "./types.ts";
 
 export const enPrivacy: LegalDocument = {
 	title: "Privacy Policy",
-	version: "1.1",
-	effectiveDate: "2026-11-21",
+	version: "1.2",
+	effectiveDate: "2026-11-24",
 	intro: [
 		"The Chinese version of this document is authoritative.",
 		"未至之境（武汉）科技有限公司 (Weizhizhijing (Wuhan) Technology Co., Ltd., “we” or “us”) operates Yonder at https://yonder.zethai.cn. Yonder lets you chat with your own AI assistant (Bot), which handles tasks for you. This policy applies to Yonder as we provide it in mainland China. It explains how we process your personal information and how you can exercise your rights.",
@@ -16,7 +16,7 @@ export const enPrivacy: LegalDocument = {
 				"**Sign-in and profile**: We use your mobile number and SMS code for registration, sign-in or password reset. If you sign in through the WeChat mini program, we store your mini program identity to recognize your account. You can also set a password, display name, avatar, public number and bio.",
 				"**Devices and sessions**: We record device type, device name and sign-in time to manage sessions. If you turn on notifications, we store the device’s push identifier to send notifications to it. When handling SMS code and password sign-in requests, we use your IP address and store its hash to protect accounts and the service.",
 				"**Conversations and content**: We process your messages with your Bot and the images, files and voice you send, to display conversations and generate replies. Your Bot turns lasting parts of conversations into memory (impression, recent and timeline cards). You can view, edit, make public or delete this memory at any time.",
-				"**Meeting recordings**: When you use meeting recording, we process the recording, its transcript and the meeting summary, and keep them in your account until you delete them or close your account.",
+				"**Meeting recordings**: When you use meeting recording, we process the recording, its transcript and the meeting summary, and keep them in your account until you delete them.",
 				"**Devices and files**: After you authorize a device, your Bot can read, organize or modify files on that device within the authorized scope. File content your Bot reads may be used as context and handled as described in “AI and model providers” below.",
 				"**Channel messages**: After you connect your Bot to channels such as Feishu or WeChat, we receive and process messages that you and others send to your Bot there, and send your Bot’s replies back. Those messages are also subject to the channel platform’s own rules.",
 				"**Quota, invitations and friends**: We record quota grants, invite rewards and consumption, plus friend requests and visit records, to calculate your quota and provide social features. Anyone opening your invite link can see your display name and avatar.",
@@ -71,7 +71,7 @@ export const enPrivacy: LegalDocument = {
 			heading: "Storage, retention and transfers abroad",
 			paragraphs: [
 				"We process personal information collected and generated in mainland China under Chinese law, and store it on Alibaba Cloud servers in Hangzhou, mainland China.",
-				"We keep personal information only as long as needed to achieve the purpose of processing. Conversations, memory and recordings are kept until you delete them, or handled as described below after account closure. Network logs are kept for at least 6 months as the law requires.",
+				"We keep personal information only as long as needed to achieve the purpose of processing. You can delete memory, recordings, files and other content yourself, or ask your Bot to delete them; your Bot asks you to confirm each deletion. Deleted content disappears from your account immediately and is removed from our servers within 7 days. Data after account closure is handled under “Your rights” below. Network logs are kept for at least 6 months as the law requires.",
 				"Before providing personal information abroad, we will tell you the recipient, the purpose and how to exercise your rights, obtain your separate consent, and complete any required assessment or filing. If you turn on notifications, your device’s push identifier and a generic notice pass through Apple’s or Google’s push service; if you do not, this does not happen.",
 			],
 		},
@@ -87,7 +87,7 @@ export const enPrivacy: LegalDocument = {
 			paragraphs: [
 				"You may access, copy, correct, supplement or delete personal information, ask us to explain our processing rules, withdraw consent, restrict or refuse specific processing, or request account closure. You can edit your profile, manage memory and sign out devices in the app. You can also make these requests by contacting Wu Bingqi at 186 8073 6501. We will reply within 15 working days.",
 				"**Withdrawing consent may affect use of the related feature, but does not affect processing based on consent before withdrawal.**",
-				"You can request account closure in Me › Account and security. A 7-day cooling-off period follows, and signing in again during it cancels the request. When it ends, the account can no longer sign in and nobody can find you. We then delete or anonymize your personal information within 15 working days, **except where laws or administrative regulations require us to keep it**, for example network logs kept for at least 6 months. Information kept by law is not processed beyond storage and necessary security protection.",
+				"You can request account closure in Me › Account and security. A 7-day cooling-off period follows, and signing in again during it cancels the request. When it ends, the account can no longer sign in, nobody can find you, and your page is no longer shown. We retain your account data and no longer show it to anyone, **except where the law requires otherwise**; network logs are kept for at least 6 months as required by law. Content you deleted before closing your account is still removed as described above.",
 				"If you believe our processing infringes your rights, you can complain to us or to the competent authority.",
 			],
 		},

@@ -1,6 +1,6 @@
 import type { AgentCard } from "@yonder/protocol";
 import { expect, test } from "vitest";
-import { choiceCardView, newerCard } from "./agent-card-view";
+import { choiceCardView, newerCard, previewHeightLines } from "./agent-card-view";
 
 const options = [
 	{ id: "group-confirm", label: "执行" },
@@ -54,4 +54,28 @@ test("a late older update never undoes a newer card", () => {
 	expect(newerCard(newer, card({ version: 2 }))).toBe(newer);
 	expect(newerCard(card({ version: 1 }), newer)).toBe(newer);
 	expect(newerCard(null, newer)).toBe(newer);
+});
+
+test("a confirm card carries the server's Markdown list before the answers, open and answered", () => {
+	const targets = "删除以下 2 项：\n\n- 会议录音：周一例会\n- 记忆文件夹：客户跟进";
+	const preview = { kind: "markdown", text: targets } as const;
+	expect(choiceCardView(card({ preview }), true)?.preview).toBe(targets);
+	expect(choiceCardView(card({ state: "done", result: "已删除 2 项", preview }), true)?.preview).toBe(targets);
+});
+
+test("a card with no preview, or a preview that is not Markdown, has nothing to list", () => {
+	expect(choiceCardView(card(), true)?.preview).toBeUndefined();
+	expect(choiceCardView(card({ preview: { kind: "profile", displayName: "Owner" } }), true)?.preview).toBeUndefined();
+});
+
+test("a preview scrolls only when it outgrows the card, and never above the cap", () => {
+	expect(previewHeightLines("- 周一例会")).toBeNull();
+	expect(previewHeightLines(Array.from({ length: 6 }, (_, i) => `- 第 ${i} 项`).join("\n"))).toBeNull();
+	expect(previewHeightLines(Array.from({ length: 40 }, (_, i) => `- 第 ${i} 项`).join("\n"))).toBe(12);
+	expect(previewHeightLines(Array.from({ length: 100 }, (_, i) => `- 第 ${i} 项`).join("\n"))).toBe(12);
+});
+
+test("a preview of long Chinese names wraps, so it scrolls sooner than its line count suggests", () => {
+	const long = Array.from({ length: 10 }, (_, i) => `- 客户跟进会议录音 ${i} 号文件的全部转写与会话纪要`);
+	expect(previewHeightLines(long.join("\n"))).toBe(12);
 });

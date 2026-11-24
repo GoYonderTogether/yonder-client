@@ -7,6 +7,16 @@
 	color: var(--color-text-secondary);
 }
 
+/* The server's own list of what a card will do. It scrolls inside the card so a long list of
+   targets never pushes the answers out of view. */
+.message-option-card-preview {
+	box-sizing: border-box;
+	min-width: 0;
+	max-height: calc(var(--text-body--line-height) * 12);
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+}
+
 .message-option-list {
 	margin: 0;
 	padding: 0;

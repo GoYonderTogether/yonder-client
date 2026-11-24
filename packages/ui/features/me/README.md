@@ -21,8 +21,9 @@ The 「我」 overlay — layer three of the shell.
 - **No fake data.** Sections without data show a short empty state.
 - **Model supply** follows 架构-07 供应、调度 and `11-布局和页面层级.md` 第六节. Keys are write-only:
   the list never receives them, and save and discovery do not retain them in the mutation cache.
-- **Deleting an account really works.** It asks the user to type their handle, then schedules
-  deletion thirty days out and signs every device out.
+- **Deleting an account really works.** It asks the user to type their handle, then starts a 7-day
+  cooling-off period (signing in again cancels it) and signs every device out. When it ends the
+  account can no longer sign in; its data is retained and no longer shown to anyone.
 - **A change shows instantly and reaches other tabs.** Name and avatar go through the query cache;
   the server pushes `member.updated` to the account's other sockets.
 - **Desktop and phone are one component.** Settings are beside the list on wide screens and pushed

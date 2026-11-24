@@ -641,3 +641,12 @@ textarea.mini-chat-input:focus,
 .message-option-card-result {
 	border-top: 1px solid var(--color-border-subtle);
 }
+
+/* The server's own list of what a card will do, scrolling inside the card when it is long. */
+.message-option-card-preview {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+}

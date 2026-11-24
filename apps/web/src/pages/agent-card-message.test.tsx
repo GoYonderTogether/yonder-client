@@ -151,6 +151,71 @@ test("a stale preview is named and cannot be confirmed again", async () => {
 	expect(within(dialog).getByRole("button", { name: "Confirm" })).toBeDisabled();
 });
 
+test("a confirm card lists its targets as Markdown between the question and the answers, and keeps them after answering", () => {
+	const targets = "删除以下 2 项：\n\n- 会议录音：周一例会\n- 记忆文件夹：客户跟进\n\n删除后 7 天内从服务器清除。";
+	state.card = {
+		...question,
+		title: "删除这 2 项？",
+		summary: undefined,
+		preview: { kind: "markdown", text: targets },
+		body: {
+			type: "choices",
+			options: [
+				{ id: "delete", label: "确定删除" },
+				{ id: "cancel", label: "取消删除" },
+			],
+		},
+	};
+	const view = show();
+	// The server's list sits after the question and before the buttons, as real Markdown.
+	const card = screen.getByRole("group");
+	const preview = card.querySelector(".message-option-card-preview");
+	expect(preview).not.toBeNull();
+	const questionHeading = screen.getByText("删除这 2 项？");
+	const firstAnswer = screen.getByRole("button", { name: "确定删除" });
+	expect(questionHeading.compareDocumentPosition(preview as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	expect((preview as Node).compareDocumentPosition(firstAnswer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	expect(
+		within(preview as HTMLElement)
+			.getByText("会议录音：周一例会")
+			.closest("li"),
+	).not.toBeNull();
+	expect(
+		within(preview as HTMLElement)
+			.getByText("记忆文件夹：客户跟进")
+			.closest("li"),
+	).not.toBeNull();
+
+	state.card = {
+		...(state.card as AgentCard),
+		state: "done",
+		result: "已删除 2 项",
+		body: {
+			type: "choices",
+			options: [
+				{ id: "delete", label: "确定删除" },
+				{ id: "cancel", label: "取消删除" },
+			],
+			selected: "delete",
+		},
+	};
+	rerenderCard(view);
+	// What was deleted stays on screen for the owner, next to what became of the choice.
+	expect(screen.getByText("会议录音：周一例会")).toBeVisible();
+	expect(screen.getByText("已删除 2 项")).toBeVisible();
+	expect(screen.getByRole("button", { name: "确定删除" })).toBeDisabled();
+	expect(screen.queryByRole("button", { name: "取消删除" })).toBeNull();
+});
+
+test("a card without a markdown preview draws none, and a non-markdown preview is not shown as text", () => {
+	const view = show();
+	expect(document.querySelector(".message-option-card-preview")).toBeNull();
+
+	state.card = { ...question, preview: { kind: "profile", displayName: "Owner" } };
+	rerenderCard(view);
+	expect(document.querySelector(".message-option-card-preview")).toBeNull();
+});
+
 test("any other kind, and a card the server no longer authorizes, renders nothing", () => {
 	state.card = { ...question, kind: "digest", body: { type: "list", items: [{ id: "a", title: "A" }] } };
 	const other = show();

@@ -20,6 +20,7 @@ export function AgentCardMessage({ id, disconnected }: { id: string; disconnecte
 			<MessageOptions
 				question={view.question}
 				summary={view.summary}
+				preview={view.preview}
 				result={view.result}
 				options={view.options}
 				images={view.options.map(() => undefined)}
