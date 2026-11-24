@@ -593,7 +593,7 @@ test("a tap still focuses the empty editor, while a hold dictates without sendin
 	await page.goto("/messages/main");
 	const composer = page.locator(".composer-box");
 	const input = composer.getByRole("textbox");
-	await expect(composer.getByText("按住转文字")).toBeVisible();
+	await expect(composer.getByText("可按住转文字")).toBeVisible();
 	await input.tap();
 	await expect(input).toBeFocused();
 	await page.screenshot({ path: info.outputPath("02-text-focus.png"), caret: "initial", scale: "css" });
@@ -613,4 +613,62 @@ test("a tap still focuses the empty editor, while a hold dictates without sendin
 	await page.screenshot({ path: info.outputPath("04-text-draft.png"), scale: "css" });
 	expect(wire.recognized).toHaveLength(1);
 	expect(wire.sent).toHaveLength(0);
+});
+
+test("the phone text surface is a rounded input and the voice action remains a pill", async ({ page }, info) => {
+	await speechWire(page);
+	await page.goto("/messages/main");
+	const composer = page.locator(".composer-box");
+	const input = composer.getByRole("textbox");
+	const surface = composer.locator(".composer-input-surface");
+	const hint = composer.getByText("可按住转文字", { exact: true });
+	await expect(hint).toBeVisible();
+	await expect(hint).toHaveCSS("pointer-events", "none");
+	await expect(surface).toHaveCSS("background-color", "rgb(255, 255, 255)");
+	await expect(surface).toHaveCSS("border-top-left-radius", "8px");
+	expect(await surface.boundingBox()).toEqual(await input.boundingBox());
+	await expect(composer).not.toHaveCSS("background-color", "rgb(255, 255, 255)");
+	await page.screenshot({ path: info.outputPath("mobile-text-composer.png"), scale: "css" });
+
+	const hintStyle = await hint.evaluate((element) => {
+		const { fontSize, color } = getComputedStyle(element);
+		return { size: Number.parseFloat(fontSize), color };
+	});
+	await composer.getByRole("button", { name: "语音输入", exact: true }).tap();
+	const hold = composer.getByRole("button", { name: "按住说话", exact: true });
+	await expect(hold).toBeVisible();
+	await expect(hold).toHaveCSS("background-color", "rgb(255, 255, 255)");
+	await expect(hold).toHaveCSS("color", "rgb(28, 31, 35)");
+	await expect(hold).toHaveCSS("font-weight", "500");
+	expect(hintStyle.color).toBe("rgba(28, 31, 35, 0.62)");
+	expect(hintStyle.size).toBeLessThan(
+		Number.parseFloat(await hold.evaluate((element) => getComputedStyle(element).fontSize)),
+	);
+	expect(
+		Number.parseFloat(await hold.evaluate((element) => getComputedStyle(element).borderTopLeftRadius)),
+	).toBeGreaterThan(8);
+	await expect(input).toBeHidden();
+	await composer.getByRole("button", { name: "文字输入", exact: true }).blur();
+	await page.screenshot({ path: info.outputPath("mobile-hold-to-talk.png"), scale: "css" });
+
+	const desktop = await page
+		.context()
+		.browser()
+		?.newPage({
+			viewport: { width: 1280, height: 800 },
+			userAgent: devices["Desktop Chrome"].userAgent,
+			isMobile: false,
+			hasTouch: false,
+		});
+	if (!desktop) throw new Error("A desktop browser context is needed");
+	try {
+		await speechWire(desktop);
+		await desktop.goto(new URL("/messages/main", page.url()).href);
+		await expect(desktop.locator(".composer-box").getByRole("textbox")).toBeVisible();
+		await expect(desktop.locator("[data-composer-mobile]")).toHaveCount(0);
+		await expect(desktop.locator(".composer-input-surface")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+		await expect(desktop.locator(".composer-text-hold-hint")).toHaveCount(0);
+	} finally {
+		await desktop.close();
+	}
 });

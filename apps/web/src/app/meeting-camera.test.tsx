@@ -90,3 +90,110 @@ test("denied camera access leaves an honest closeable fallback without taking ph
 	expect(onClose).toHaveBeenCalledOnce();
 	expect(onPhoto).not.toHaveBeenCalled();
 });
+
+test("camera switch requests the opposite facing, restores the previous side on false success, and uses only supported focal buttons", async () => {
+	vi.spyOn(navigator, "userAgent", "get").mockReturnValue("iPhone");
+	let zoom = 1;
+	const applyConstraints = vi.fn(async () => {
+		zoom = 2;
+	});
+	const track = (id: string, facingMode: string) => ({
+		stop: vi.fn(),
+		addEventListener: vi.fn(),
+		removeEventListener: vi.fn(),
+		getSettings: () => ({ deviceId: id, facingMode, zoom }),
+		getCapabilities: () => ({ zoom: { min: 1, max: 2, step: 0.5 } }),
+		applyConstraints,
+	});
+	const back = track("rear-camera", "environment");
+	const mistaken = track("rear-camera", "environment");
+	const restored = track("rear-camera", "environment");
+	const front = track("front-camera", "user");
+	const candidates = [back, mistaken, restored, front];
+	const getUserMedia = vi.fn(async () => {
+		const camera = candidates.shift();
+		return { getTracks: () => [camera], getVideoTracks: () => [camera] };
+	});
+	Object.defineProperty(navigator, "mediaDevices", {
+		configurable: true,
+		value: {
+			getUserMedia,
+			enumerateDevices: async () =>
+				["rear-camera", "front-camera"].map((deviceId) => ({ kind: "videoinput", deviceId })),
+		},
+	});
+	vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+	const pause = vi.fn(async () => {});
+	const view = render(
+		<I18nextProvider i18n={i18n}>
+			<MeetingCamera
+				elapsedMs={8123}
+				photoLimitReached={false}
+				onClose={vi.fn()}
+				onPhoto={vi.fn()}
+				onTogglePause={pause}
+			/>
+		</I18nextProvider>,
+	);
+	expect(screen.getByLabelText("Recording duration")).toHaveTextContent("8 sec");
+	fireEvent.click(screen.getByRole("button", { name: "Pause recording" }));
+	expect(pause).toHaveBeenCalledOnce();
+	const switcher = await screen.findByRole("button", { name: "Switch camera" });
+	expect(screen.queryByRole("button", { name: "0.5×" })).toBeNull();
+	expect(screen.queryByRole("slider")).toBeNull();
+	fireEvent.click(screen.getByRole("button", { name: "2×" }));
+	await waitFor(() => expect(screen.getByRole("button", { name: "2×" })).toHaveAttribute("aria-pressed", "true"));
+	expect(applyConstraints).toHaveBeenCalledWith({ advanced: [{ zoom: 2 }] });
+	fireEvent.click(switcher);
+	await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(3));
+	expect(getUserMedia).toHaveBeenNthCalledWith(2, { audio: false, video: { facingMode: { exact: "user" } } });
+	expect(getUserMedia).toHaveBeenNthCalledWith(3, { audio: false, video: { facingMode: { exact: "environment" } } });
+	expect(back.stop).toHaveBeenCalledOnce();
+	expect(mistaken.stop).toHaveBeenCalledOnce();
+	await waitFor(() => expect(switcher).toBeEnabled());
+	fireEvent.click(switcher);
+	await waitFor(() => expect(switcher).toBeEnabled());
+	expect(getUserMedia).toHaveBeenNthCalledWith(4, { audio: false, video: { facingMode: { exact: "user" } } });
+	expect(restored.stop).toHaveBeenCalledOnce();
+	expect(front.stop).not.toHaveBeenCalled();
+	view.unmount();
+	expect(front.stop).toHaveBeenCalledOnce();
+});
+
+test("desktop cycles exact device IDs even if both cameras report the same facing", async () => {
+	const track = (deviceId: string) => ({
+		stop: vi.fn(),
+		addEventListener: vi.fn(),
+		removeEventListener: vi.fn(),
+		getSettings: () => ({ deviceId, facingMode: "user" }),
+		getCapabilities: () => ({}),
+	});
+	const first = track("built-in");
+	const second = track("external");
+	const candidates = [first, second];
+	const getUserMedia = vi.fn(async () => {
+		const camera = candidates.shift();
+		return { getTracks: () => [camera], getVideoTracks: () => [camera] };
+	});
+	Object.defineProperty(navigator, "mediaDevices", {
+		configurable: true,
+		value: {
+			getUserMedia,
+			enumerateDevices: async () => ["built-in", "external"].map((deviceId) => ({ kind: "videoinput", deviceId })),
+		},
+	});
+	vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+	const view = render(
+		<I18nextProvider i18n={i18n}>
+			<MeetingCamera elapsedMs={0} photoLimitReached={false} onClose={vi.fn()} onPhoto={vi.fn()} />
+		</I18nextProvider>,
+	);
+	const switcher = await screen.findByRole("button", { name: "Switch camera" });
+	fireEvent.click(switcher);
+	await waitFor(() => expect(switcher).toBeEnabled());
+	expect(getUserMedia).toHaveBeenLastCalledWith({ audio: false, video: { deviceId: { exact: "external" } } });
+	expect(first.stop).toHaveBeenCalledOnce();
+	expect(second.stop).not.toHaveBeenCalled();
+	view.unmount();
+	expect(second.stop).toHaveBeenCalledOnce();
+});

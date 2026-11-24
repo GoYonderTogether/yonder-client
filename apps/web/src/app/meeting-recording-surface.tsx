@@ -14,9 +14,11 @@ import {
 	MEETING_PHOTO_LIMIT,
 	type MeetingPhoto,
 } from "../lib/meeting-photos.ts";
-import { useObjectUrl } from "../lib/use-object-url.ts";
 import { liveTranscriptEntries } from "./live-transcript.ts";
 import { MeetingCamera } from "./meeting-camera.tsx";
+import { MeetingPhotoGallery } from "./meeting-photo-gallery.tsx";
+import { MeetingTimeline } from "./meeting-timeline.tsx";
+import { MeetingTranscriptScroll } from "./meeting-transcript-scroll.tsx";
 import { MeetingWaveform } from "./meeting-waveform.tsx";
 import { MAIN_BOT_PATH } from "./use-phone-tabs.ts";
 import "./meeting-recording-surface.css";
@@ -35,8 +37,9 @@ interface LiveMeetingView {
 	offline: boolean;
 	asrErrorCode?: string | null;
 	syncFailed?: boolean;
-	audioAccepted?: boolean;
 }
+const NO_PHOTOS: MeetingPhoto[] = [];
+
 type Session = {
 	recorder: MeetingRecorderController;
 	active?: MeetingRecording | undefined;
@@ -149,7 +152,14 @@ export function useMeetingRecordingSurface(
 			) : null;
 		return { status: recovery, dialog: null, start: startNew };
 	}
-	const photos = photoArchive?.id === scope ? photoArchive.photos : [];
+	const photos = photoArchive?.id === scope ? photoArchive.photos : NO_PHOTOS;
+	const paused = Boolean(recorder.state.paused);
+	const togglePause =
+		recorder.state.pauseSupported && recorder.pause && recorder.resume
+			? paused
+				? recorder.resume
+				: recorder.pause
+			: undefined;
 	const status = (
 		<MeetingRecorderCapsule
 			recorder={recorder}
@@ -167,6 +177,8 @@ export function useMeetingRecordingSurface(
 				key={id}
 				active={active}
 				busy={recorder.busy}
+				paused={paused}
+				onTogglePause={togglePause ? () => togglePause(id) : undefined}
 				audioLevel={recorder.state.audioLevel}
 				isLive={isLive}
 				capsule={capsule}
@@ -174,7 +186,6 @@ export function useMeetingRecordingSurface(
 				photos={photos}
 				photoArchiveError={photoArchive?.id === scope && photoArchive.error}
 				asrUnavailable={asrUnavailable}
-				audioAccepted={Boolean(live?.audioAccepted)}
 				offline={offline}
 				onCollapse={() => {
 					setExpanded(undefined);
@@ -258,6 +269,8 @@ function animateDialog(dialog: HTMLDialogElement, capsule: HTMLElement | null, o
 function MeetingRecordingDialog({
 	active,
 	busy,
+	paused,
+	onTogglePause,
 	audioLevel,
 	isLive,
 	capsule,
@@ -265,7 +278,6 @@ function MeetingRecordingDialog({
 	photos,
 	photoArchiveError,
 	asrUnavailable,
-	audioAccepted,
 	offline,
 	onCollapse,
 	onStop,
@@ -273,6 +285,8 @@ function MeetingRecordingDialog({
 }: {
 	active: MeetingRecording;
 	busy: boolean;
+	paused: boolean;
+	onTogglePause?: (() => Promise<void>) | undefined;
 	audioLevel?: number | undefined;
 	isLive: boolean;
 	capsule: RefObject<HTMLElement | null>;
@@ -280,7 +294,6 @@ function MeetingRecordingDialog({
 	photos: MeetingPhoto[];
 	photoArchiveError?: boolean | undefined;
 	asrUnavailable: boolean;
-	audioAccepted: boolean;
 	offline: boolean;
 	onCollapse: () => void;
 	onStop: () => Promise<void>;
@@ -288,12 +301,12 @@ function MeetingRecordingDialog({
 }) {
 	const { t } = useTranslation();
 	const dialog = useRef<HTMLDialogElement>(null);
-	const thread = useRef<HTMLDivElement>(null);
 	const cameraButton = useRef<HTMLButtonElement>(null);
 	const closeButton = useRef<HTMLButtonElement>(null);
-	const followEnd = useRef(true);
 	const closing = useRef(false);
 	const [camera, setCamera] = useState(false);
+	const [photoPreview, setPhotoPreview] = useState<string>();
+	const photoPreviewButton = useRef<HTMLButtonElement>(null);
 	const [photoNotice, setPhotoNotice] = useState(false);
 	const title = t(isLive ? "meetingRecorder.liveTitle" : "meetingRecorder.name");
 	const cameraAvailable = !photoArchiveError;
@@ -306,16 +319,6 @@ function MeetingRecordingDialog({
 		const enter = animateDialog(node, capsule.current, true);
 		return () => enter?.cancel();
 	}, [capsule]);
-	useLayoutEffect(() => {
-		const node = thread.current;
-		const content = node?.firstElementChild;
-		if (!node || !content || typeof ResizeObserver === "undefined") return;
-		const observer = new ResizeObserver(() => {
-			if (followEnd.current) node.scrollTop = node.scrollHeight;
-		});
-		observer.observe(content);
-		return () => observer.disconnect();
-	}, []);
 
 	function closeCamera() {
 		setCamera(false);
@@ -356,45 +359,38 @@ function MeetingRecordingDialog({
 					<h2>{title}</h2>
 					<span />
 				</header>
-				<div
-					className="meeting-transcript"
-					ref={thread}
-					onScroll={(event) => {
-						const node = event.currentTarget;
-						followEnd.current = node.scrollHeight - node.clientHeight - node.scrollTop <= 48;
-					}}
-				>
-					<div className="meeting-transcript-inner">
-						{offline ? (
-							<p className="meeting-recording-notice" role="status">
-								{t("meetingRecorder.offlineLive")}
-							</p>
-						) : null}
-						{!offline && asrUnavailable ? (
-							<p className="meeting-recording-notice" role="status">
-								{t("meetingRecorder.liveUnavailable")}
-							</p>
-						) : null}
-						{photoArchiveError ? (
-							<p className="meeting-recording-notice" role="status">
-								{t("meetingRecorder.photoArchiveFailed")}
-							</p>
-						) : null}
-						{photoNotice ? (
-							<span className="sr-only" role="status">
-								{t("meetingRecorder.photoSaved")}
-							</span>
-						) : null}
-						{isLive && !transcript.length && !offline && !asrUnavailable ? (
-							<p className="meeting-transcript-empty" role="status">
-								{t(audioAccepted ? "meetingRecorder.waitingLive" : "meetingRecorder.waitingAudio")}
-							</p>
-						) : null}
-						<div className="meeting-transcript-log" role="log" aria-live="off">
-							<MeetingTimeline transcript={transcript} photos={photos} />
-						</div>
+				<MeetingTranscriptScroll transcript={transcript} photos={photos}>
+					{offline ? (
+						<p className="meeting-recording-notice" role="status">
+							{t("meetingRecorder.offlineLive")}
+						</p>
+					) : null}
+					{!offline && asrUnavailable ? (
+						<p className="meeting-recording-notice" role="status">
+							{t("meetingRecorder.liveUnavailable")}
+						</p>
+					) : null}
+					{photoArchiveError ? (
+						<p className="meeting-recording-notice" role="status">
+							{t("meetingRecorder.photoArchiveFailed")}
+						</p>
+					) : null}
+					{photoNotice ? (
+						<span className="sr-only" role="status">
+							{t("meetingRecorder.photoSaved")}
+						</span>
+					) : null}
+					<div className="meeting-transcript-log" role="log" aria-live="off">
+						<MeetingTimeline
+							transcript={transcript}
+							photos={photos}
+							onPhotoOpen={(photoId, button) => {
+								photoPreviewButton.current = button;
+								setPhotoPreview(photoId);
+							}}
+						/>
 					</div>
-				</div>
+				</MeetingTranscriptScroll>
 				<footer className="meeting-recording-toolbar">
 					<MeetingWaveform elapsedMs={active.durationMs} level={audioLevel} />
 					{cameraAvailable ? (
@@ -432,6 +428,10 @@ function MeetingRecordingDialog({
 				<MeetingCamera
 					elapsedMs={active.durationMs}
 					photoLimitReached={photos.length >= MEETING_PHOTO_LIMIT}
+					photos={photos}
+					paused={paused}
+					pauseBusy={busy}
+					onTogglePause={onTogglePause}
 					onClose={closeCamera}
 					onPhoto={async (image, elapsedMs) => {
 						await onPhoto(image, elapsedMs);
@@ -439,45 +439,16 @@ function MeetingRecordingDialog({
 					}}
 				/>
 			) : null}
-		</dialog>
-	);
-}
-
-function MeetingTimeline({
-	transcript,
-	photos,
-}: {
-	transcript: ReturnType<typeof liveTranscriptEntries>;
-	photos: MeetingPhoto[];
-}) {
-	const { t } = useTranslation();
-	return (
-		<>
-			{transcript.map(({ index, time, text }) => (
-				<div className="meeting-transcript-entry" key={index}>
-					{time ? <time>{time}</time> : null}
-					<p>{text}</p>
-				</div>
-			))}
-			{photos.length ? (
-				<section className="meeting-timeline-photos" aria-label={t("meetingRecorder.photosOnDevice")}>
-					{photos.map((photo) => (
-						<Photo key={photo.id} photo={photo} />
-					))}
-				</section>
+			{photoPreview ? (
+				<MeetingPhotoGallery
+					photos={photos}
+					initialPhotoId={photoPreview}
+					onClose={() => {
+						setPhotoPreview(undefined);
+						requestAnimationFrame(() => photoPreviewButton.current?.focus({ preventScroll: true }));
+					}}
+				/>
 			) : null}
-		</>
-	);
-}
-
-function Photo({ photo }: { photo: MeetingPhoto }) {
-	const { t } = useTranslation();
-	const url = useObjectUrl(photo.image);
-	const time = recordingDuration(photo.elapsedMs);
-	return (
-		<figure className="meeting-transcript-entry">
-			<time>{time}</time>
-			{url ? <img src={url} alt={t("meetingRecorder.cameraPhoto", { time })} /> : null}
-		</figure>
+		</dialog>
 	);
 }

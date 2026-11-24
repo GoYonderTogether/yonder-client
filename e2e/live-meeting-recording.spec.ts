@@ -147,10 +147,11 @@ test("live recording keeps audio and consecutive photos through reconnect and en
 
 	const recorder = page.getByRole("dialog", { name: "实时转写" });
 	await expect(recorder).toBeVisible();
-	await expect(recorder.getByText("等待上传第一段录音…")).toBeVisible();
+	await expect(recorder.getByText("等待上传第一段录音…")).toHaveCount(0);
 	await page.screenshot({ path: info.outputPath("00-waiting-upload.png"), animations: "disabled", scale: "css" });
 	await expect(recorder.getByText("暂时无法实时转写，录音仍在继续。")).toBeVisible({ timeout: 15000 });
-	await expect(recorder.getByText("音频已送达，等待转写…")).toBeVisible({ timeout: 15000 });
+	await expect.poll(() => recorded.size, { timeout: 15000 }).toBeGreaterThan(0);
+	await expect(recorder.getByText("音频已送达，等待转写…")).toHaveCount(0);
 	await page.screenshot({
 		path: info.outputPath("00-waiting-transcription.png"),
 		animations: "disabled",

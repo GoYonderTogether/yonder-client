@@ -354,6 +354,10 @@
 	background: transparent;
 	color: inherit;
 }
+[data-composer-mobile] .composer-input-surface:not(:modal) {
+	border-radius: var(--radius-control-sm);
+	background: var(--color-bg-surface);
+}
 [data-composer-mobile] .composer-text {
 	position: absolute;
 	inset: 0;

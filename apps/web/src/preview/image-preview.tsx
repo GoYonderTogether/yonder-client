@@ -5,7 +5,15 @@ import { useObjectUrl } from "../lib/use-object-url.ts";
 import type { PreviewFile } from "./file-kind.ts";
 import { usePreviewTranslation } from "./preview-i18n.ts";
 
-export function ImagePreview({ file, onClose }: { file: PreviewFile; onClose: () => void }) {
+export function ImagePreview({
+	file,
+	onClose,
+	onSwipe,
+}: {
+	file: PreviewFile;
+	onClose: () => void;
+	onSwipe?: (direction: -1 | 1) => void;
+}) {
 	const t = usePreviewTranslation();
 	const area = useRef<HTMLButtonElement>(null);
 	const [display, setDisplay] = useState<Blob>();
@@ -101,7 +109,19 @@ export function ImagePreview({ file, onClose }: { file: PreviewFile; onClose: ()
 					} else if (scale > 1) setOffset((value) => ({ x: value.x + delta.x, y: value.y + delta.y }));
 				}}
 				onPointerUp={(event) => {
+					const dx = event.clientX - gesture.current.x;
+					if (
+						onSwipe &&
+						scale === 1 &&
+						points.current.size === 1 &&
+						!gesture.current.distance &&
+						Math.abs(dx) > 45 &&
+						Math.abs(dx) > Math.abs(event.clientY - gesture.current.y) * 1.5
+					) {
+						onSwipe(dx > 0 ? -1 : 1);
+					}
 					points.current.delete(event.pointerId);
+					if (!points.current.size) gesture.current.distance = 0;
 				}}
 				onPointerCancel={() => points.current.clear()}
 				onClick={(event) => {

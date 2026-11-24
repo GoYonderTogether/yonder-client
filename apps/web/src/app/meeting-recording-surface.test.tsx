@@ -103,11 +103,14 @@ test("transcript expands from its source only; elsewhere the live timer and end 
 		"12:30 is the next checkpoint.",
 		"Last line.",
 	]);
-	expect([...log.querySelectorAll("time")].map((entry) => entry.textContent)).toEqual([
-		"00:00:00.000–00:00:01.500",
-		"00:00:01.600–00:00:02.900",
-		"00:00:12.000–00:00:13.000",
-	]);
+	expect([...log.querySelectorAll("time")].map((entry) => entry.textContent)).toEqual(["0 s", "1 s", "12 s"]);
+	expect(
+		[...log.querySelectorAll("[data-transcript-start-ms]")].map((span) =>
+			span.getAttribute("data-transcript-start-ms"),
+		),
+	).toEqual(["0", "1600", "12000"]);
+	expect(log.querySelectorAll("[data-current]")).toHaveLength(1);
+	expect(log.querySelector("[data-current]")).toHaveTextContent("Last line.");
 	expect(log).not.toHaveTextContent("第1段说话人1");
 	expect(log).not.toHaveTextContent("说话人归属待确认");
 	expect(within(reading).queryByRole("button", { name: "Pause recording" })).not.toBeInTheDocument();

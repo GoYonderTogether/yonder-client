@@ -34,13 +34,18 @@ for (const mobile of [false, true]) {
 				};
 			});
 			let audioCount = 0;
+			let photoElapsed = 0;
+			let late = false;
+			const lateSpeech = "稍后补上的一句，应该排在照片后面。";
+			const elapsed = (ms: number) => new Date(ms).toISOString().slice(11, 23);
 			const speech = [
-				"这周先把手机端的录音流程走一遍。",
+				"这周先把手机端的录音流程走一遍。 现场记下容易卡住的地方。",
 				"拍一张照片，留在这段录音里。",
 				"我说的「归属待确认」是另一个议题。",
 			];
 			const transcript = [
-				`00:00:00.500–00:00:03.500 第1段说话人1：${speech[0]}`,
+				"00:00:00.500–00:00:01.300 第1段说话人1：这周先把手机端的录音流程走一遍。",
+				"00:00:01.600–00:00:03.500 第1段说话人1：现场记下容易卡住的地方。",
 				`00:00:03.900–00:00:05.100 归属待确认：${speech[1]}`,
 				"第2段 · 说话人归属待确认",
 				speech[2],
@@ -56,7 +61,11 @@ for (const mobile of [false, true]) {
 								meetingId: "visual-recording",
 								nextSegmentIndex: audioCount,
 								committedThroughSegmentIndex: audioCount - 1,
-								transcript: audioCount ? transcript : "",
+								transcript: audioCount
+									? late && photoElapsed && audioCount * 4_000 >= photoElapsed + 2_000
+										? `${transcript}\n${elapsed(photoElapsed + 1000)}–${elapsed(photoElapsed + 2000)} 第3段说话人1：${lateSpeech}`
+										: transcript
+									: "",
 								captureState: "recording",
 								lastClientSeenAt: Date.now(),
 								errorCode: null,
@@ -85,8 +94,9 @@ for (const mobile of [false, true]) {
 			await expect(stop).toHaveCSS("border-radius", "9999px");
 			const log = dialog.getByRole("log");
 			await expect(log.locator("p")).toHaveText(speech);
-			await expect(log.locator("time")).toHaveText(["00:00:00.500–00:00:03.500", "00:00:03.900–00:00:05.100"]);
-			await expect(log).not.toContainText(/说话人|归属待确认：/);
+			await expect(log.locator("time")).toHaveText(["0 秒", "3 秒"]);
+			await expect(log.getByText("第1段 · 说话人1")).toHaveCount(1);
+			await expect(log).not.toContainText(/说话人归属待确认|归属待确认：/);
 			await page.screenshot({ path: info.outputPath("before-photo.png"), animations: "disabled", scale: "css" });
 
 			await camera.click();
@@ -97,12 +107,43 @@ for (const mobile of [false, true]) {
 			await dialog.getByRole("button", { name: "关闭", exact: true }).click();
 			const photo = dialog.getByRole("img", { name: /录音照片/ });
 			await expect(photo).toBeVisible();
+			photoElapsed = await page.evaluate(
+				() =>
+					new Promise<number>((resolve, reject) => {
+						const open = indexedDB.open("yonder-meeting-photos", 1);
+						open.onerror = () => reject(open.error);
+						open.onsuccess = () => {
+							const db = open.result;
+							const read = db.transaction("photos").objectStore("photos").getAll();
+							read.onerror = () => reject(read.error);
+							read.onsuccess = () => {
+								db.close();
+								resolve(read.result[0]?.elapsedMs ?? 0);
+							};
+						};
+					}),
+			);
+			expect(photoElapsed).toBeGreaterThan(5_100);
+			late = true;
+			await expect(log.getByText(lateSpeech)).toBeVisible({ timeout: 12_000 });
+			await expect(log.locator(":scope > figure").first()).toContainText(`${Math.floor(photoElapsed / 1000)} 秒`);
+			await expect(log.locator(":scope > div, :scope > figure").nth(4)).toContainText(lateSpeech);
 			const bounds = await photo.boundingBox();
 			expect(bounds?.width).toBeGreaterThan(80);
 			expect(bounds?.width).toBeLessThanOrEqual(200);
 			expect(bounds?.height).toBeLessThanOrEqual(180);
+			await dialog.locator(".meeting-transcript").evaluate((scroll) => {
+				scroll.scrollTop = 0;
+			});
 			await page.screenshot({ path: info.outputPath("after-photo.png"), animations: "disabled", scale: "css" });
 
+			const photoButton = log.getByRole("button", { name: /录音照片/ });
+			await photoButton.click();
+			const gallery = page.getByRole("dialog", { name: "本机照片" });
+			await expect(gallery.getByRole("img")).toBeVisible();
+			await gallery.getByRole("button", { name: "关闭", exact: true }).click();
+			await expect(gallery).toHaveCount(0);
+			await expect(photoButton).toBeFocused();
 			await stop.click();
 			await expect(dialog).toHaveCount(0);
 		});

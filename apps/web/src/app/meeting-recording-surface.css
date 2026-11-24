@@ -115,10 +115,6 @@
 	color: var(--color-text-secondary);
 	font-size: var(--text-caption);
 }
-.meeting-transcript-empty {
-	color: var(--color-text-tertiary);
-	font-size: var(--text-h2);
-}
 .meeting-transcript-log {
 	display: grid;
 	gap: var(--spacing-4);
@@ -126,11 +122,18 @@
 .meeting-transcript-entry {
 	margin: 0;
 }
+.meeting-transcript-meta,
 .meeting-transcript-entry time {
 	display: block;
 	color: var(--color-text-tertiary);
 	font-size: var(--text-caption);
 	font-variant-numeric: tabular-nums;
+}
+.meeting-transcript-meta {
+	display: flex;
+	flex-wrap: wrap;
+	column-gap: var(--spacing-2);
+	align-items: baseline;
 }
 .meeting-transcript-entry p {
 	margin: var(--spacing-1) 0 0;
@@ -139,85 +142,18 @@
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }
-.meeting-transcript-entry img {
+.meeting-transcript-photo {
 	display: block;
 	max-width: min(64%, calc(var(--width-form) / 2));
-	max-height: calc(var(--settings-window-height) / 5);
 	margin-top: var(--spacing-2);
 	border-radius: var(--radius-card);
+	overflow: hidden;
+}
+.meeting-transcript-photo img {
+	display: block;
+	max-width: 100%;
+	max-height: calc(var(--settings-window-height) / 5);
 	object-fit: contain;
-}
-.meeting-camera {
-	position: relative;
-	display: grid;
-	grid-template-rows: auto minmax(0, 1fr) auto;
-	isolation: isolate;
-	height: 100%;
-	background: var(--color-bg-base);
-	color: var(--color-text-primary);
-}
-.meeting-camera video {
-	position: absolute;
-	inset: 0;
-	z-index: -1;
-	width: 100%;
-	height: 100%;
-	object-fit: contain;
-}
-.meeting-camera header,
-.meeting-camera footer {
-	padding: var(--spacing-3) var(--spacing-4);
-}
-.meeting-camera header {
-	grid-row: 1;
-	padding-top: max(var(--spacing-3), env(safe-area-inset-top));
-	background: linear-gradient(var(--color-bg-overlay), transparent);
-}
-.meeting-camera footer {
-	grid-row: 3;
-	display: grid;
-	justify-items: center;
-	gap: var(--spacing-2);
-	padding-bottom: max(var(--spacing-3), env(safe-area-inset-bottom));
-	background: linear-gradient(transparent, var(--color-bg-overlay));
-}
-.meeting-camera footer input {
-	width: min(100%, var(--width-form));
-	accent-color: var(--color-accent);
-}
-.meeting-camera p {
-	align-self: center;
-	grid-row: 2;
-	justify-self: center;
-	margin-inline: var(--spacing-5);
-	padding: var(--spacing-2) var(--spacing-3);
-	border-radius: var(--radius-control);
-	background: var(--color-bg-chrome);
-	text-align: center;
-}
-.meeting-camera-actions {
-	display: grid;
-	width: min(100%, var(--width-form));
-	grid-template-columns: 1fr auto 1fr;
-	align-items: center;
-	gap: var(--spacing-4);
-}
-.meeting-camera-control,
-.meeting-camera-shutter {
-	display: grid;
-	place-items: center;
-	width: var(--control-lg);
-	aspect-ratio: 1;
-	border-radius: var(--radius-full);
-	background: var(--color-bg-raised);
-}
-.meeting-camera-actions .meeting-camera-control {
-	justify-self: center;
-}
-.meeting-camera-shutter {
-	width: var(--spacing-16);
-	border: 2px solid var(--color-text-primary);
-	background: var(--color-bg-chrome);
 }
 @media (max-width: 640px) {
 	.meeting-recording-dialog {
@@ -269,7 +205,30 @@
 	justify-content: flex-end;
 }
 
-.meeting-timeline-photos {
+.meeting-transcript-panel {
+	position: relative;
 	display: grid;
-	gap: var(--spacing-4);
+	min-height: 0;
+	grid-template-rows: minmax(0, 1fr);
+}
+.meeting-transcript-jump {
+	position: absolute;
+	inset-block-end: var(--spacing-2);
+	inset-inline-start: 50%;
+	transform: translateX(-50%);
+	border-radius: var(--radius-full);
+	background: var(--color-bg-raised);
+	box-shadow: var(--shadow-app-icon);
+}
+.meeting-transcript-entry[data-current] {
+	position: relative;
+	isolation: isolate;
+}
+.meeting-transcript-entry[data-current]::before {
+	position: absolute;
+	z-index: -1;
+	inset: calc(-1 * var(--spacing-2));
+	border-radius: var(--radius-control);
+	background: var(--color-accent-subtle);
+	content: "";
 }
