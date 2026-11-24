@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112402] - 2026-11-24
+
+### Fixed
+
+- client：align chat rows and automatically fit large photo uploads
+
 ## [0.3.26112401] - 2026-11-24
 
 ### Added
