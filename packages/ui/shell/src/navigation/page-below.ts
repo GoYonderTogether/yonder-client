@@ -29,7 +29,8 @@ export function pageBelow(element: HTMLElement): HTMLElement | null {
 			if (style.visibility === "hidden" || style.display === "none") continue;
 			return sibling;
 		}
-		if (node.matches("[data-page-layer]")) break;
+		// Once past the layer itself, the walk may leave its own subtree but not the stack it sits in.
+		if (node !== element && node.matches("[data-page-layer]")) break;
 	}
 	return null;
 }

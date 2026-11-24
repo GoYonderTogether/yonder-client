@@ -29,12 +29,24 @@ test("a page reveals the surface before it, not the shell's header or backdrop",
 	expect(pageBelow(nested)).toBe(list);
 });
 
+test("a page that is itself a layer still looks past itself for what it covers", () => {
+	const stack = document.createElement("div");
+	const page = surface("page");
+	const top = surface("top");
+	top.dataset.pageLayer = "top";
+	stack.append(page, top);
+	document.body.append(stack);
+	expect(pageBelow(top)).toBe(page);
+});
+
 test("a stacked page reveals the page under it, even though that page is inert", () => {
 	const stack = document.createElement("div");
 	const page = surface("page");
 	const covered = surface("covered");
 	covered.inert = true;
 	const top = surface("top");
+	top.dataset.pageLayer = "top";
+	covered.dataset.pageLayer = "covered";
 	stack.append(page, covered, top);
 	document.body.append(stack);
 	expect(pageBelow(top)).toBe(covered);
