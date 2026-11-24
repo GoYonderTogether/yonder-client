@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { GoalPanel } from "./goal-panel.tsx";
 import { useMinute } from "./memory/memory-format.ts";
 import { relativeTime } from "./memory/memory-who.ts";
-import { describePlan, formatInstant, resultWord } from "./schedule-format.ts";
+import { describePlan, formatInstant, planStatusKey, resultWord } from "./schedule-format.ts";
 import { SchedulePanel } from "./schedule-panel.tsx";
 
 /** A goal the Bot keeps working on, with its recurring check when it has one. */
@@ -18,8 +18,11 @@ const LIVE = new Set<Goal["state"]>(["proposed", "active", "paused"]);
  * 「目标」 (11-循环设计-v3 第 5.1 节): what the Bot keeps working on for the owner. Goals still in play,
  * then recurring plans that belong to no goal, then finished goals folded away. A row says where the
  * thing stands in one line; everything else opens in the side panel.
+ *
+ * Meta Muse is the reference (2026-11-24): the only words a row adds are 「待确认」 for a goal the
+ * Bot proposed and 「已暂停」 for one it stopped; the owner has no control either way.
  */
-export function GoalsTab({ creating }: { creating: boolean }) {
+export function GoalsTab() {
 	const { t } = useTranslation();
 	const goalsQuery = useGoals();
 	const schedulesQuery = useSchedules();
@@ -89,7 +92,7 @@ export function GoalsTab({ creating }: { creating: boolean }) {
 						: null}
 				</ListGroup>
 			) : null}
-			{!live.length && !plans.length && !creating && !failed ? (
+			{!live.length && !plans.length && !failed ? (
 				<ListGroup>
 					<EmptyState as="li" icon={<Target size={24} strokeWidth={1.6} />} title={t("tasks.goalsEmptyGoals")} />
 				</ListGroup>
@@ -146,11 +149,12 @@ function PlanRow({ plan, onOpen }: { plan: Schedule; onOpen: () => void }) {
 	const next = plan.nextRunAt
 		? ` · ${t("tasks.nextRun", { at: formatInstant(plan.timezone, plan.nextRunAt, locale) })}`
 		: "";
+	const status = planStatusKey(plan.status);
 	return (
 		<ListRow
 			title={plan.title}
 			subtitle={`${describePlan(plan, t)}${next}`}
-			trailing={plan.status === "paused" ? t("tasks.goalState.paused") : undefined}
+			trailing={status ? t(status) : undefined}
 			chevron
 			onClick={onOpen}
 		/>

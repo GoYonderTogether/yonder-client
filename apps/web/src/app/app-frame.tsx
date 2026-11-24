@@ -34,6 +34,7 @@ import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { BotTabAvatar } from "../pages/unread-badge.tsx";
 import { UpdateReadyButton } from "../updates/ready-button.tsx";
 import { useReconnectNotice } from "./app-notice.tsx";
+import { AskMainBotProvider } from "./ask-main-bot.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
@@ -319,9 +320,8 @@ export function AppFrame() {
 							scheduled={selection === "scheduled"}
 							onChange={(value) => navigation.open(value ? "/tasks/scheduled" : "/tasks")}
 							onOpenItem={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
-							onAdd={selection === "scheduled" ? preset.addGoal : () => navigation.open("/tasks/new")}
-							onSchedule={preset.addSchedule}
-							showManualSchedule={!phone}
+							onAddItem={preset.addItem}
+							onAddGoal={preset.addGoal}
 						/>
 					),
 					content: (
@@ -425,73 +425,75 @@ export function AppFrame() {
 	);
 
 	return (
-		<SidePanelProvider value={layers.controls}>
-			<AppShell
-				tab={{
-					current: tab,
-					onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : tabs.go(tabPath(id))),
-					labels,
-					ariaLabel: t("nav.tabs"),
-					messagesUnread: { count: unreadCount, label: t("messages.unread", { count: unreadCount }) },
-					mobileBot: {
-						label: bot?.selectedNickname || bot?.displayName || t("nav.mainBot"),
-						active: mobileBot,
-						icon: <BotTabAvatar bot={bot} unreadCount={primary?.unreadCount} muted={primary?.muted} />,
-						onSelect: () => tabs.go(MAIN_BOT_PATH),
-					},
-				}}
-				desktop={desktop}
-				renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
-				personName={person?.displayName ?? ""}
-				meLabel={t("nav.me")}
-				settingsLabel={t("nav.settings")}
-				updateAction={<UpdateReadyButton />}
-				onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
-				meOpen={meOpen}
-				me={me}
-				side={side}
-				onBack={back}
-				backLabel={t("app.back")}
-				mobileShowList={!detailOpen}
-				list={list ? deferred(list) : null}
-				content={
-					tab === "messages" ? (
-						<FileDropZone
-							key={conversation?.id}
-							onFiles={draft.addFiles}
-							disabled={!conversation || conversation.kind === "system" || !draft.loaded || draft.sending || meOpen}
-						>
-							{deferred(content)}
-						</FileDropZone>
-					) : (
-						deferred(content)
-					)
-				}
-				detailOpen={detailOpen}
-				composer={preset.drawerOpen ? null : dock}
-				status={preset.drawerOpen ? null : recordingSurface.status}
-				titlebarInset={isMacDesktopShell()}
-				brand={<Logo size={32} title="Yonder" />}
-				labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
-				locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
-				onModeChange={setLayoutMode}
-			/>
-			<BotPresetOverlay
-				preset={preset}
-				title={bot?.displayName ?? ""}
-				conversationId={conversation?.id ?? null}
-				disconnected={disconnected}
-				status={preset.drawerOpen ? recordingSurface.status : null}
-			>
-				{composer}
-			</BotPresetOverlay>
-			{recordingSurface.dialog}
-			{discardDialog}
-			<MessageNotifications
-				key={person?.id}
-				personId={person?.id}
-				onOpen={(id) => tabs.go(id === primary?.id ? MAIN_BOT_PATH : `/messages/${encodeURIComponent(id)}`)}
-			/>
-		</SidePanelProvider>
+		<AskMainBotProvider value={preset.ask}>
+			<SidePanelProvider value={layers.controls}>
+				<AppShell
+					tab={{
+						current: tab,
+						onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : tabs.go(tabPath(id))),
+						labels,
+						ariaLabel: t("nav.tabs"),
+						messagesUnread: { count: unreadCount, label: t("messages.unread", { count: unreadCount }) },
+						mobileBot: {
+							label: bot?.selectedNickname || bot?.displayName || t("nav.mainBot"),
+							active: mobileBot,
+							icon: <BotTabAvatar bot={bot} unreadCount={primary?.unreadCount} muted={primary?.muted} />,
+							onSelect: () => tabs.go(MAIN_BOT_PATH),
+						},
+					}}
+					desktop={desktop}
+					renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
+					personName={person?.displayName ?? ""}
+					meLabel={t("nav.me")}
+					settingsLabel={t("nav.settings")}
+					updateAction={<UpdateReadyButton />}
+					onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
+					meOpen={meOpen}
+					me={me}
+					side={side}
+					onBack={back}
+					backLabel={t("app.back")}
+					mobileShowList={!detailOpen}
+					list={list ? deferred(list) : null}
+					content={
+						tab === "messages" ? (
+							<FileDropZone
+								key={conversation?.id}
+								onFiles={draft.addFiles}
+								disabled={!conversation || conversation.kind === "system" || !draft.loaded || draft.sending || meOpen}
+							>
+								{deferred(content)}
+							</FileDropZone>
+						) : (
+							deferred(content)
+						)
+					}
+					detailOpen={detailOpen}
+					composer={preset.drawerOpen ? null : dock}
+					status={preset.drawerOpen ? null : recordingSurface.status}
+					titlebarInset={isMacDesktopShell()}
+					brand={<Logo size={32} title="Yonder" />}
+					labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
+					locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
+					onModeChange={setLayoutMode}
+				/>
+				<BotPresetOverlay
+					preset={preset}
+					title={bot?.displayName ?? ""}
+					conversationId={conversation?.id ?? null}
+					disconnected={disconnected}
+					status={preset.drawerOpen ? recordingSurface.status : null}
+				>
+					{composer}
+				</BotPresetOverlay>
+				{recordingSurface.dialog}
+				{discardDialog}
+				<MessageNotifications
+					key={person?.id}
+					personId={person?.id}
+					onOpen={(id) => tabs.go(id === primary?.id ? MAIN_BOT_PATH : `/messages/${encodeURIComponent(id)}`)}
+				/>
+			</SidePanelProvider>
+		</AskMainBotProvider>
 	);
 }

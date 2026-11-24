@@ -17,13 +17,19 @@ export function useChangeGoal() {
 	});
 }
 
-export function useGoalSettings() {
+/**
+ * Deleting a goal ends the plans that work on it, so the schedule list is read again as well.
+ * `remove` is the name the other lists use for the same thing.
+ */
+export function useRemoveGoal() {
 	const api = useApi();
 	const client = useQueryClient();
-	return {
-		transfer: useMutation({
-			mutationFn: ({ id, botId }: { id: string; botId: string }) => api.transferGoal(id, botId),
-			onSuccess: () => client.invalidateQueries({ queryKey: keys.goals() }),
-		}),
-	};
+	return useMutation({
+		mutationFn: (id: string) => api.deleteGoal(id),
+		onSuccess: () =>
+			Promise.all([
+				client.invalidateQueries({ queryKey: keys.goals() }),
+				client.invalidateQueries({ queryKey: keys.schedules.all() }),
+			]),
+	});
 }

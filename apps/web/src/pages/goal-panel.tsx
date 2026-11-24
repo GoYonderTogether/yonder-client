@@ -1,26 +1,29 @@
 import type { GoalAction } from "@yonder/protocol";
 import { Button, IconButton, ListGroup, ListValue, Menu } from "@yonder/ui-components";
-import { ApiError, useChangeGoal, useGoalSettings, useGoals, useSchedules } from "@yonder/ui-data";
-import { ConfirmDialog } from "@yonder/ui-shell";
+import { ApiError, useChangeGoal, useGoals, useRemoveGoal, useSchedules } from "@yonder/ui-data";
+import { ConfirmDialog, useSidePanel } from "@yonder/ui-shell";
 import { Ellipsis } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BotHandoff } from "./bot-handoff.tsx";
+import { useAskMainBot } from "../app/ask-main-bot.tsx";
 import { describePlan, formatInstant, resultWord } from "./schedule-format.ts";
 
 /**
  * One goal, opened from the goals tab: what it is for, where it stands, and the recurring check that
- * works on it. Changing it in words is done in chat with the Bot; this panel only confirms, pauses,
- * finishes or stops it.
+ * works on it. Meta Muse is the reference (2026-11-24): finishing a goal is one tap, changing it is
+ * telling the main Bot (「编辑」 fills the draft), and deleting it asks once. Pause, resume, stop and
+ * hand-off are the Bot's own tools, not app controls; a goal the Bot proposed keeps 确认 / 不用.
  */
 export function GoalPanel({ goalId }: { goalId: string }) {
 	const { t, i18n } = useTranslation();
 	const locale = i18n.resolvedLanguage ?? i18n.language;
+	const side = useSidePanel();
+	const ask = useAskMainBot();
 	const goals = useGoals();
 	const schedules = useSchedules();
 	const change = useChangeGoal();
-	const settings = useGoalSettings();
-	const [stopping, setStopping] = useState(false);
+	const remove = useRemoveGoal();
+	const [deleting, setDeleting] = useState(false);
 	const goal = goals.data?.items.find((item) => item.id === goalId);
 	if (!goal)
 		return (
@@ -32,36 +35,37 @@ export function GoalPanel({ goalId }: { goalId: string }) {
 	const act = (action: GoalAction) =>
 		change.mutate({ id: goal.id, action }, { onSuccess: () => void schedules.refetch() });
 	const check = schedules.data?.items.find((plan) => plan.goalId === goal.id && plan.kind !== "once");
-	const live = goal.state === "active" || goal.state === "paused";
-	const failure = change.error
-		? change.error instanceof ApiError
-			? t(change.error.messageKey)
-			: t("tasks.actionFailed")
-		: null;
+	const active = goal.state === "active";
+	const proposed = goal.state === "proposed";
+	const refused = change.error ?? remove.error;
+	const failure = refused ? (refused instanceof ApiError ? t(refused.messageKey) : t("tasks.actionFailed")) : null;
+	const busy = change.isPending || remove.isPending;
 	const items = [
-		goal.state === "paused"
-			? { id: "resume", label: t("tasks.goalAction.resume") }
-			: { id: "pause", label: t("tasks.goalAction.pause") },
-		{ id: "complete", label: t("tasks.goalAction.complete") },
-		{ id: "stop", label: t("tasks.goalAction.stop"), tone: "danger" as const },
+		...(active ? [{ id: "complete", label: t("tasks.goalAction.complete") }] : []),
+		{ id: "edit", label: t("app.edit") },
+		{ id: "delete", label: t("tasks.delete"), tone: "danger" as const },
 	];
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)] p-[var(--spacing-4)]">
 			<div className="flex items-start justify-between gap-[var(--spacing-3)]">
 				<p className="min-w-0 text-body text-[var(--color-text-primary)]">{goal.outcome}</p>
-				{live ? (
+				{proposed ? null : (
 					<Menu
 						label={t("app.more")}
 						align="end"
 						items={items}
-						onSelect={(id) => (id === "stop" ? setStopping(true) : act(id as GoalAction))}
+						onSelect={(id) => {
+							if (id === "delete") return setDeleting(true);
+							if (id === "edit") return ask(t("tasks.presetGoalEdit", { title: goal.title }));
+							if (id === "complete") act("complete");
+						}}
 						trigger={(props) => (
-							<IconButton {...props} size="sm" aria-label={t("app.more")} disabled={change.isPending}>
+							<IconButton {...props} size="sm" aria-label={t("app.more")} disabled={busy}>
 								<Ellipsis size={18} aria-hidden="true" />
 							</IconButton>
 						)}
 					/>
-				) : null}
+				)}
 			</div>
 			{goal.progress || goal.nextStep ? (
 				<section className="flex flex-col gap-[var(--spacing-1)]">
@@ -96,16 +100,6 @@ export function GoalPanel({ goalId }: { goalId: string }) {
 					{t("tasks.handoffHistory", transfer)} · {new Date(transfer.at).toLocaleString(locale)}
 				</p>
 			))}
-			{live ? (
-				<BotHandoff
-					key={goal.botId}
-					goal
-					botId={goal.botId}
-					busy={settings.transfer.isPending}
-					error={settings.transfer.variables?.id === goal.id ? settings.transfer.error : null}
-					onTransfer={(botId) => settings.transfer.mutate({ id: goal.id, botId })}
-				/>
-			) : null}
 			{failure ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
 					{failure}
@@ -113,27 +107,27 @@ export function GoalPanel({ goalId }: { goalId: string }) {
 			) : null}
 			{goal.state === "proposed" ? (
 				<div className="flex gap-[var(--spacing-2)]">
-					<Button variant="primary" disabled={change.isPending} onClick={() => act("confirm")}>
+					<Button variant="primary" disabled={busy} onClick={() => act("confirm")}>
 						{t("tasks.goalAction.confirm")}
 					</Button>
-					<Button variant="secondary" disabled={change.isPending} onClick={() => act("stop")}>
+					<Button variant="secondary" disabled={busy} onClick={() => act("stop")}>
 						{t("tasks.declineGoal")}
 					</Button>
 				</div>
 			) : null}
 			<ConfirmDialog
-				open={stopping}
-				title={t("tasks.goalAction.stop")}
+				open={deleting}
+				title={t("tasks.delete")}
 				body={goal.title}
-				confirmLabel={t("tasks.goalAction.stop")}
+				confirmLabel={t("tasks.delete")}
 				cancelLabel={t("app.cancel")}
 				closeLabel={t("app.close")}
 				backLabel={t("app.back")}
-				busy={change.isPending}
-				onCancel={() => setStopping(false)}
+				busy={remove.isPending}
+				onCancel={() => setDeleting(false)}
 				onConfirm={() => {
-					act("stop");
-					setStopping(false);
+					remove.mutate(goal.id, { onSuccess: () => void side.close() });
+					setDeleting(false);
 				}}
 			/>
 		</div>

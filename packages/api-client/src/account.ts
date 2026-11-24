@@ -49,6 +49,10 @@ export function accountEndpoints(client: ApiClient) {
 			return client.request(`/v1/goals/${encodeURIComponent(id)}`, { method: "PATCH", body });
 		},
 
+		deleteGoal(id: string): Promise<{ ok: true }> {
+			return client.request(`/v1/goals/${encodeURIComponent(id)}`, { method: "DELETE" });
+		},
+
 		transferGoal(id: string, botId: string): Promise<Goal> {
 			return client.request(`/v1/goals/${encodeURIComponent(id)}/transfer`, { body: { botId } });
 		},

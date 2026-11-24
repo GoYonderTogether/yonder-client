@@ -132,9 +132,9 @@ export function useCreateItem(personId: string | undefined) {
 }
 
 /**
- * Cancel, pause and resume a subtask from the page: the same lifecycle the Bot already drives
- * through `task_manage`. The list and the detail are both refetched, because a pause takes effect
- * at the next step boundary — the answer is the state the record will reach, not the one it has now.
+ * Stop a running subtask from the page: the same lifecycle the Bot already drives through
+ * `task_manage`. Pausing, resuming and handing one to another Bot are the Bot's own tools now
+ * (2026-11-24), told in chat. The list and the detail are both refetched.
  */
 export function useItemActions() {
 	const api = useApi();
@@ -142,11 +142,5 @@ export function useItemActions() {
 	const refresh = () => client.invalidateQueries({ queryKey: keys.items.all() });
 	return {
 		cancel: useMutation({ mutationFn: (id: string) => api.cancelItem(id), onSuccess: refresh }),
-		pause: useMutation({ mutationFn: (id: string) => api.pauseItem(id), onSuccess: refresh }),
-		resume: useMutation({ mutationFn: (id: string) => api.resumeItem(id), onSuccess: refresh }),
-		transfer: useMutation({
-			mutationFn: ({ id, botId }: { id: string; botId: string }) => api.transferItem(id, botId),
-			onSuccess: refresh,
-		}),
 	};
 }

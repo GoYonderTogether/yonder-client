@@ -5,10 +5,9 @@ import { ApiError, useItem, useItemActions, type useItemSession } from "@yonder/
 import { PageFrame } from "@yonder/ui-shell";
 import { CircleCheck, CircleX, Clock3, Ellipsis, ListChecks } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { BotHandoff } from "./bot-handoff.tsx";
 import { ItemMeetingCard } from "./item-meeting-card.tsx";
 import { ItemSessionTitle } from "./item-session-title.tsx";
-import { itemActions, itemFailureKey, itemGroup, itemStateKey, itemTimeLabel, localDay } from "./items-format.ts";
+import { itemActions, itemFailureKey, itemGroup, itemTimeLabel, itemTrailingKey, localDay } from "./items-format.ts";
 import { MessageContent } from "./message-content.tsx";
 import { ConversationPage } from "./messages-page.tsx";
 import { OutwardRequestCard } from "./outward-request-card.tsx";
@@ -59,8 +58,11 @@ export function ItemDetailPage({
 	const canRename = Boolean(session.data) && (item.source === "meeting" || item.source === "conversation");
 	const title = <ItemHeader item={item} locale={locale} t={t} canRename={canRename && !disconnected} />;
 	const allowed = itemActions(item);
-	const busy =
-		actions.cancel.isPending || actions.pause.isPending || actions.resume.isPending || actions.transfer.isPending;
+	const busy = actions.cancel.isPending;
+	/**
+	 * Meta Muse is the reference (2026-11-24): a running item can be stopped; pausing, resuming and
+	 * handing off are the Bot's own tools, told in chat.
+	 */
 	const action = allowed.cancel ? (
 		<details className="relative z-10">
 			<summary
@@ -70,39 +72,14 @@ export function ItemDetailPage({
 				<Ellipsis size={20} aria-hidden="true" />
 			</summary>
 			<div className="absolute end-0 top-full flex min-w-max flex-col gap-[var(--spacing-2)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-raised)] p-[var(--spacing-3)] shadow-[var(--shadow-lg)]">
-				{allowed.pause ? (
-					<Button variant="secondary" size="sm" disabled={busy} onClick={() => actions.pause.mutate(item.id)}>
-						{t("tasks.pause")}
-					</Button>
-				) : null}
-				{allowed.resume ? (
-					<Button variant="secondary" size="sm" disabled={busy} onClick={() => actions.resume.mutate(item.id)}>
-						{t("tasks.resume")}
-					</Button>
-				) : null}
 				<Button variant="danger" size="sm" disabled={busy} onClick={() => actions.cancel.mutate(item.id)}>
 					{t("tasks.itemCancel")}
 				</Button>
-				{item.state === "paused" ? (
-					<BotHandoff
-						key={item.botMemberId}
-						botId={item.botMemberId}
-						busy={busy}
-						error={actions.transfer.error}
-						onTransfer={(botId) => actions.transfer.mutate({ id: item.id, botId })}
-					/>
-				) : null}
 			</div>
 		</details>
 	) : null;
-	const actionError = actions.cancel.isError
-		? "tasks.itemCancelFailed"
-		: actions.pause.isError
-			? "tasks.itemPauseFailed"
-			: actions.resume.isError
-				? "tasks.itemResumeFailed"
-				: null;
-	const reason = actions.cancel.error ?? actions.pause.error ?? actions.resume.error;
+	const actionError = actions.cancel.isError ? "tasks.itemCancelFailed" : null;
+	const reason = actions.cancel.error;
 	const hasSeed =
 		item.source !== "conversation" &&
 		(item.source === "meeting" || item.instruction || item.outwardRequest || item.failureReason || item.result);
@@ -174,13 +151,18 @@ function ItemHeader({
 	const started = itemTimeLabel(item.startedAt, locale);
 	const ended = item.endedAt ? itemTimeLabel(item.endedAt, locale) : null;
 	const endDay = end && localDay(end) !== localDay(start) ? dates.format(end) : null;
+	const word = itemTrailingKey(item);
 	return (
 		<div className="flex min-w-0 flex-col gap-[calc(var(--spacing-1)/2)]">
 			<ItemSessionTitle key={item.id} id={item.id} title={item.title} canRename={canRename} />
 			<div className="flex min-w-0 items-center gap-[var(--spacing-1)] text-caption font-normal text-[var(--color-text-secondary)]">
 				<Status size={14} aria-hidden="true" className="shrink-0" />
-				<span className="shrink-0">{t(itemStateKey(item.state))}</span>
-				<span aria-hidden="true">·</span>
+				{word ? (
+					<>
+						<span className="shrink-0">{t(word)}</span>
+						<span aria-hidden="true">·</span>
+					</>
+				) : null}
 				<span className="truncate">
 					<time dateTime={item.startedAt} title={t("tasks.itemStartedAt", { at: `${dates.format(start)} ${started}` })}>
 						{day} {started}

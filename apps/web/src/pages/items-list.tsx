@@ -1,7 +1,7 @@
 import type { Member } from "@yonder/protocol";
 import { Button, EmptyState, ListGroup, ListRow, type RowAction } from "@yonder/ui-components";
 import { ApiError, useArchivedItems, useContacts, useItemListAction, useItems, useSchedules } from "@yonder/ui-data";
-import { Archive, ArchiveRestore, ChevronDown, ChevronRight, ListChecks, Pencil, Trash2 } from "lucide-react";
+import { Archive, ChevronDown, ChevronRight, ListChecks, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ItemActionDialog } from "./item-action-dialog.tsx";
@@ -15,16 +15,15 @@ type ItemTarget = { id: string; title: string; upcoming: boolean };
  * The 事项 tab (16-3 第八节): every item the Bot has worked on, newest first, grouped by day. 更早
  * starts collapsed, because the last few days are what a person checks; the rest is one tap away.
  *
- * Archived work is the same list under a filter, shown two ways: the 已归档 toggle swaps the whole
- * list to archived items (so a row can be restored where it sits), and the folded 已归档 section at
- * the bottom keeps the newest archived sessions one tap below the live list without a page change.
+ * Meta Muse is the reference (2026-11-24): a row offers 改名 and 删除 only. Archiving is the nightly
+ * tidy's job, and an upcoming plan is a scheduled task, which the app can only delete. The folded
+ * 已归档 section stays, so past work is one tap below the live list.
  */
 export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 	const { t, i18n } = useTranslation();
-	const [archived, setArchived] = useState(false);
 	const [dialog, setDialog] = useState<(ItemTarget & { action: "rename" | "delete" }) | null>(null);
 	const edit = useItemListAction();
-	const query = useItems(undefined, archived);
+	const query = useItems();
 	const schedules = useSchedules();
 	const contacts = useContacts();
 	const [showEarlier, setShowEarlier] = useState(false);
@@ -38,7 +37,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 	const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 	const groups = useMemo(() => groupItems(items, now, deviceZone()), [items, now]);
 	const names = useMemo(() => botNames(contacts.data?.items), [contacts.data]);
-	const upcoming = upcomingOneOffs(schedules.data?.items ?? []).filter((plan) => Boolean(plan.archived) === archived);
+	const upcoming = upcomingOneOffs(schedules.data?.items ?? []);
 	const locale = i18n.resolvedLanguage ?? i18n.language;
 	const more = useRef<HTMLDivElement>(null);
 	const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
@@ -50,8 +49,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 		setDialog({ ...target, action });
 	}
 
-	function rowActions(target: ItemTarget, rowArchived: boolean): RowAction[] {
-		const ArchiveIcon = rowArchived ? ArchiveRestore : Archive;
+	function rowActions(target: ItemTarget): RowAction[] {
 		return [
 			{
 				label: t("tasks.itemRename"),
@@ -60,16 +58,23 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 				disabled: edit.isPending,
 			},
 			{
-				label: t(rowArchived ? "tasks.itemRestore" : "tasks.itemArchive"),
-				icon: <ArchiveIcon size={18} />,
-				onSelect: () => edit.mutate({ ...target, patch: { archived: !rowArchived } }),
-				disabled: edit.isPending,
-			},
-			{
 				label: t("tasks.delete"),
 				icon: <Trash2 size={18} />,
 				tone: "danger",
 				onSelect: () => start(target, "delete"),
+				disabled: edit.isPending,
+			},
+		];
+	}
+
+	/** An upcoming one-off is a scheduled task: the app deletes it, and the Bot is told to change it. */
+	function planActions(plan: { id: string; title: string }): RowAction[] {
+		return [
+			{
+				label: t("tasks.delete"),
+				icon: <Trash2 size={18} />,
+				tone: "danger",
+				onSelect: () => start({ ...plan, upcoming: true }, "delete"),
 				disabled: edit.isPending,
 			},
 		];
@@ -91,22 +96,6 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)] py-[var(--spacing-3)]">
-			<div className="flex justify-end px-[var(--spacing-2)]">
-				<Button
-					size="sm"
-					variant={archived ? "secondary" : "ghost"}
-					aria-pressed={archived}
-					disabled={edit.isPending}
-					onClick={() => {
-						edit.reset();
-						setArchived(!archived);
-						setShowEarlier(false);
-					}}
-				>
-					<Archive size={16} aria-hidden />
-					{t("tasks.itemsArchived")}
-				</Button>
-			</div>
 			{error && !dialog ? (
 				<p role="alert" className="px-[var(--spacing-4)] text-caption text-[var(--color-danger)]">
 					{error}
@@ -119,7 +108,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 							key={plan.id}
 							title={plan.title}
 							subtitle={formatInstant(plan.timezone, plan.nextRunAt ?? plan.at, locale)}
-							actions={rowActions({ id: plan.id, title: plan.title, upcoming: true }, archived)}
+							actions={planActions(plan)}
 						/>
 					))}
 				</ListGroup>
@@ -144,10 +133,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 				</ListGroup>
 			) : null}
 			{!query.isLoading && !query.isError && items.length === 0 && upcoming.length === 0 ? (
-				<EmptyState
-					icon={<ListChecks size={24} strokeWidth={1.6} />}
-					title={t(archived ? "tasks.itemsArchivedEmpty" : "tasks.emptyTitle")}
-				/>
+				<EmptyState icon={<ListChecks size={24} strokeWidth={1.6} />} title={t("tasks.emptyTitle")} />
 			) : null}
 			{groups.map((section) => {
 				const earlier = section.group === "earlier";
@@ -159,7 +145,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 								key={item.id}
 								item={item}
 								botName={names.get(item.botMemberId) ?? null}
-								actions={rowActions({ id: item.id, title: item.title, upcoming: false }, archived)}
+								actions={rowActions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}
 								locale={i18n.language}
 							/>
@@ -219,7 +205,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 								key={item.id}
 								item={item}
 								botName={names.get(item.botMemberId) ?? null}
-								actions={rowActions({ id: item.id, title: item.title, upcoming: false }, true)}
+								actions={rowActions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}
 								locale={i18n.language}
 							/>

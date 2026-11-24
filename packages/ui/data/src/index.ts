@@ -64,7 +64,7 @@ export {
 } from "./hooks/conversation-state.ts";
 export { useDeviceRegistration, useDevices, useSignOutDevice, useUpdateDeviceRemark } from "./hooks/devices.ts";
 export { useFriendRequest, useFriendRequestActions, useFriendRequests } from "./hooks/friend-requests.ts";
-export { useChangeGoal, useGoalSettings, useGoals } from "./hooks/goals.ts";
+export { useChangeGoal, useGoals, useRemoveGoal } from "./hooks/goals.ts";
 export { useGroupActions } from "./hooks/groups.ts";
 export {
 	useActiveBotSubtasks,

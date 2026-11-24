@@ -290,7 +290,8 @@ for (const layout of ["desktop", "mobile"] as const) {
 			const title = page.getByRole("heading", { name: recording.title });
 			await expect(title).toBeVisible();
 			const header = page.locator("[data-frame-header]").filter({ has: title });
-			await expect(header).toContainText("已完成");
+			// A finished item adds no state word (2026-11-24); it still shows when it ran.
+			await expect(header).not.toContainText("已完成");
 			await expect(header).toContainText(/0?9:24/);
 			await expect(header).toContainText(/0?9:25/);
 			await expect(header).not.toContainText(bot.displayName);
@@ -380,7 +381,7 @@ for (const layout of ["desktop", "mobile"] as const) {
 			});
 			api.finishMeetingTask();
 			await expect(log.getByText(recording.summary ?? "", { exact: true })).toBeVisible();
-			await expect(header).toContainText("已完成");
+			await expect(header).not.toContainText("已完成");
 			await page.getByRole("button", { name: "00:00:12 的照片" }).click();
 			await expect(page.getByRole("img", { name: "00:00:12 的照片" })).toBeVisible();
 			expect(api.photoRequests.length).toBeGreaterThan(0);
@@ -460,9 +461,8 @@ for (const layout of ["desktop", "mobile"] as const) {
 			const api = await isolateItems(page, false);
 			await page.goto("/messages/main");
 			await page.getByRole("textbox", { name: /^对 界面验收/ }).fill(priorDraft);
-			await page.getByRole("button", { name: "任务", exact: true }).click();
-			await page.getByRole("button", { name: "新建", exact: true }).click();
-			await page.getByRole("menuitem", { name: "新建事项" }).click();
+			// 「+」 asks the main Bot now (2026-11-24); the blank session route is still reachable directly.
+			await page.goto("/tasks/new");
 			await expect(page).toHaveURL(/\/tasks\/new$/);
 			await expect(page.getByRole("heading", { name: "新事项", exact: true })).toBeVisible();
 			const input = page.getByRole("textbox", { name: /^对 界面验收/ });

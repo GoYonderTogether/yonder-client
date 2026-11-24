@@ -60,10 +60,10 @@ function group(name: string) {
 	return screen.getByRole("heading", { name }).closest("section") as HTMLElement;
 }
 
-function show(creating = false) {
+function show() {
 	return render(
 		<I18nextProvider i18n={createI18n("en")}>
-			<GoalsTab creating={creating} />
+			<GoalsTab />
 		</I18nextProvider>,
 	);
 }
@@ -102,6 +102,20 @@ test("groups live goals, unowned plans and folded finished goals, and hides the 
 	expect(screen.getByText("完成种子轮")).toBeVisible();
 });
 
+test("only a paused goal row says so; a live one adds no other state word", () => {
+	model.goals = [goal, { ...goal, id: "goal_paused", title: "暂停的目标", state: "paused" }];
+	show();
+	expect(screen.getByRole("button", { name: /暂停的目标/ })).toHaveTextContent("Paused");
+	expect(screen.getByRole("button", { name: /关注武汉 AI 活动/ })).not.toHaveTextContent("Paused");
+});
+
+test("a paused plan row says so, with no control beside it", () => {
+	model.schedules = [{ ...plan, status: "paused" }];
+	show();
+	const row = within(group("Schedules")).getByRole("button", { name: /每日摘要/ });
+	expect(row).toHaveTextContent("Paused");
+});
+
 test("a row opens its goal or plan in the side panel", () => {
 	model.goals = [goal];
 	model.schedules = [plan];
@@ -114,9 +128,6 @@ test("a row opens its goal or plan in the side panel", () => {
 
 test("shows the empty state only when there is nothing live and no unowned plan", () => {
 	model.goals = [{ ...goal, state: "stopped" }];
-	const view = show();
+	show();
 	expect(screen.getByRole("heading", { name: "No goals yet" })).toBeVisible();
-	view.unmount();
-	show(true);
-	expect(screen.queryByRole("heading", { name: "No goals yet" })).toBeNull();
 });

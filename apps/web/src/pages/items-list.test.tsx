@@ -15,8 +15,8 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@yonder/ui-data")>()),
-	useItems: (_botId: string | undefined, archived: boolean) => ({
-		data: { pages: [{ items: state.items.filter((item) => Boolean(item.archived) === archived), nextCursor: null }] },
+	useItems: () => ({
+		data: { pages: [{ items: state.items, nextCursor: null }] },
 		isLoading: false,
 		isError: false,
 		hasNextPage: false,
@@ -95,14 +95,15 @@ test("items are grouped into today, yesterday and earlier, with earlier collapse
 	expect(screen.getByText("很久以前的事")).toBeVisible();
 });
 
-test("a row shows the title, its state, the Bot's name and one line of outcome", () => {
+test("a row shows the title, the word the owner acts on, the Bot and one line of outcome", () => {
 	show([
 		item({ id: "done", title: "整理会议纪要", state: "completed", result: "纪要已发到对话里。" }),
 		item({ id: "waiting", title: "等你确认", state: "waiting_user" }),
 	]);
 	const done = screen.getByText("整理会议纪要").closest("li");
 	expect(done).not.toBeNull();
-	expect(within(done as HTMLElement).getByText("Completed")).toBeVisible();
+	// A finished item adds no state word (2026-11-24); its result line says what it did.
+	expect(within(done as HTMLElement).queryByText("Completed")).toBeNull();
 	expect(within(done as HTMLElement).getByText("纪要已发到对话里。")).toBeVisible();
 	expect(within(done as HTMLElement).getByText(/我的 Bot/)).toBeVisible();
 
@@ -133,14 +134,8 @@ test("an empty account is told so", () => {
 	expect(screen.getByText("No items yet")).toBeVisible();
 });
 
-/**
- * Two controls in this list are named 已归档: the top toggle (aria-pressed) swaps the whole list to
- * archived items, and the folded row at the bottom (aria-expanded) opens the archived section. Each
- * test names the one it drives so the query is not ambiguous.
- */
+/** The folded row at the bottom: it opens the archived section, which the nightly tidy fills. */
 const foldedArchive = (expanded: boolean) => screen.getByRole("button", { name: "Archived", expanded });
-/** The list filter: pressed means the whole list is showing archived items. */
-const archivedViewToggle = () => screen.getByRole("button", { name: "Archived", pressed: false });
 
 test("archived items sit folded under the list and are requested only once opened", () => {
 	state.archived = [item({ id: "old1", title: "归档的事", state: "completed" })];
@@ -162,14 +157,15 @@ test("an opened archive with nothing in it says so", () => {
 	expect(screen.getByText("No archived items")).toBeVisible();
 });
 
-test("task row actions rename, archive, restore and ask before deleting", async () => {
+test("a task row offers rename and delete only; the list no longer archives by hand", async () => {
 	state.change.mockClear();
-	show([
-		item({ id: "active", title: "Active task" }),
-		item({ id: "archived", title: "Archived task", archived: true }),
-	]);
-	const row = () => screen.getByRole("button", { name: /Active task|Archived task/ });
+	show([item({ id: "active", title: "Active task" }), item({ id: "old", title: "Old task", archived: true })]);
+	const row = () => screen.getAllByRole("button", { name: /Active task|Old task/ })[0] as HTMLElement;
 	fireEvent.contextMenu(row());
+	expect(screen.getByRole("button", { name: "Rename" })).toBeVisible();
+	expect(screen.getByRole("button", { name: "Delete" })).toBeVisible();
+	expect(screen.queryByRole("button", { name: "Archive" })).toBeNull();
+	expect(screen.queryByRole("button", { name: "Restore" })).toBeNull();
 	fireEvent.click(screen.getByRole("button", { name: "Rename" }));
 	const form = screen.getByRole("textbox", { name: "Title" });
 	expect(form).toHaveValue("Active task");
@@ -183,19 +179,21 @@ test("task row actions rename, archive, restore and ask before deleting", async 
 	await waitFor(() => expect(screen.queryByRole("textbox", { name: "Title" })).not.toBeInTheDocument());
 
 	fireEvent.contextMenu(row());
-	fireEvent.click(screen.getByRole("button", { name: "Archive" }));
-	expect(state.change).toHaveBeenCalledWith(expect.objectContaining({ id: "active", patch: { archived: true } }));
-	fireEvent.click(archivedViewToggle());
-	fireEvent.contextMenu(row());
-	fireEvent.click(screen.getByRole("button", { name: "Restore" }));
-	expect(state.change).toHaveBeenCalledWith(expect.objectContaining({ id: "archived", patch: { archived: false } }));
-
-	fireEvent.contextMenu(row());
 	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 	const dialog = screen.getByRole("dialog", { name: "Delete" });
-	expect(state.change).toHaveBeenCalledTimes(3);
 	fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 	await waitFor(() =>
-		expect(state.change).toHaveBeenCalledWith(expect.objectContaining({ id: "archived", remove: true })),
+		expect(state.change).toHaveBeenCalledWith(expect.objectContaining({ id: "active", remove: true })),
 	);
+});
+
+test("no completed or cancelled word is added to a row; a paused one is, with no control", () => {
+	show([
+		item({ id: "done", title: "做完的事", state: "completed" }),
+		item({ id: "cancelled", title: "取消的事", state: "cancelled" }),
+		item({ id: "paused", title: "暂停的事", state: "paused" }),
+	]);
+	expect(screen.queryByText("Completed")).toBeNull();
+	expect(screen.queryByText("Cancelled")).toBeNull();
+	expect(within(screen.getByText("暂停的事").closest("li") as HTMLElement).getByText("Paused")).toBeVisible();
 });

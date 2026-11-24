@@ -1,19 +1,11 @@
 import { describe, expect, test } from "vitest";
-import {
-	describePlan,
-	formatInstant,
-	fromLocalInput,
-	localInputValue,
-	zonedInstant,
-	zonedParts,
-} from "./schedule-format.ts";
+import { describePlan, formatInstant, planStatusKey, zonedParts } from "./schedule-format.ts";
 
 /** The plan's own zone decides every displayed hour; the browser's zone is never consulted. */
 const t = (key: string): string => {
 	const table: Record<string, string> = {
 		"tasks.kindDaily": "每天",
 		"tasks.kindWeekly": "每周",
-		"tasks.kindOnce": "一次",
 		"tasks.weekday1": "周一",
 		"tasks.weekday3": "周三",
 	};
@@ -21,25 +13,10 @@ const t = (key: string): string => {
 };
 
 describe("schedule formatting", () => {
-	test("a wall-clock time resolves in the plan's zone, not the process's", () => {
-		const instant = zonedInstant("Asia/Shanghai", { year: 2026, month: 11, day: 17, hour: 9, minute: 0 });
-		expect(instant.toISOString()).toBe("2026-11-17T01:00:00.000Z");
-		expect(zonedParts("Asia/Shanghai", instant)).toMatchObject({ year: 2026, month: 11, day: 17, hour: 9 });
-	});
-
-	test("a datetime-local value round-trips through the plan's zone", () => {
-		const value = "2026-11-17T10:30";
-		const instant = fromLocalInput("Asia/Shanghai", value);
-		expect(instant?.toISOString()).toBe("2026-11-17T02:30:00.000Z");
-		expect(localInputValue("Asia/Shanghai", instant as Date)).toBe(value);
-		expect(fromLocalInput("Asia/Shanghai", "not a date")).toBeNull();
-	});
-
-	test("a datetime-local value with seconds keeps them", () => {
-		const value = "2026-11-17T10:30:45";
-		const instant = fromLocalInput("Asia/Shanghai", value);
-		expect(instant?.toISOString()).toBe("2026-11-17T02:30:45.000Z");
-		expect(localInputValue("Asia/Shanghai", instant as Date)).toBe(value);
+	test("a wall-clock time is read in the plan's zone, not the process's", () => {
+		const instant = new Date("2026-11-17T01:00:00.000Z");
+		expect(zonedParts("Asia/Shanghai", instant)).toEqual({ year: 2026, month: 11, day: 17, hour: 9, minute: 0 });
+		expect(zonedParts("UTC", instant)).toEqual({ year: 2026, month: 11, day: 17, hour: 1, minute: 0 });
 	});
 
 	test("a recurring plan reads as its own schedule, without the browser's hour", () => {
@@ -59,5 +36,14 @@ describe("schedule formatting", () => {
 		// The exact wording is locale data; the hour is what must not move.
 		expect(formatInstant("Asia/Shanghai", "2026-11-17T01:00:00.000Z", "en-US")).toContain("9:00");
 		expect(formatInstant("UTC", "2026-11-17T01:00:00.000Z", "en-US")).toContain("1:00");
+	});
+});
+
+describe("the one status word a plan's row shows", () => {
+	test("a running plan adds nothing; a stopped one says why", () => {
+		expect(planStatusKey("active")).toBeNull();
+		expect(planStatusKey("paused")).toBe("tasks.goalState.paused");
+		expect(planStatusKey("ended")).toBe("tasks.planEnded");
+		expect(planStatusKey("missed")).toBe("tasks.resultMissed");
 	});
 });

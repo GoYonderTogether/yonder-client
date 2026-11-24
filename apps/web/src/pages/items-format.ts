@@ -3,7 +3,7 @@
  * which state word it shows, and — for a failure — the one reason the user is given. Pure rules,
  * so the page has no judgement of its own and the grouping can be tested on its own.
  */
-import type { ItemState, ItemSummary, Schedule } from "@yonder/protocol";
+import type { ItemSummary, Schedule } from "@yonder/protocol";
 
 export type ItemGroup = "today" | "yesterday" | "earlier";
 
@@ -15,22 +15,17 @@ export interface ItemGroupSection {
 	items: ItemSummary[];
 }
 
-/** The page's own label key for a state; a source's stored word is never shown as-is. */
-export function itemStateKey(state: ItemState): string {
-	switch (state) {
-		case "running":
-			return "tasks.itemStateRunning";
-		case "waiting_user":
-			return "tasks.itemStateWaitingUser";
-		case "paused":
-			return "tasks.itemStatePaused";
-		case "completed":
-			return "tasks.itemStateCompleted";
-		case "failed":
-			return "tasks.itemStateFailed";
-		case "cancelled":
-			return "tasks.itemStateCancelled";
-	}
+/**
+ * The one word a row adds to an item (2026-11-24, Meta Muse as the reference): 等你 tells the owner
+ * to answer in chat, 失败 carries the real reason on the row's line, 已暂停 is the Bot's own stop and
+ * has no control. A running item says so as before; a finished one adds nothing.
+ */
+export function itemTrailingKey(item: ItemSummary): string | null {
+	if (item.state === "waiting_user") return "tasks.itemStateWaitingUser";
+	if (item.state === "failed") return "tasks.itemStateFailed";
+	if (item.state === "paused") return "tasks.itemStatePaused";
+	if (item.state === "running") return "tasks.itemStateRunning";
+	return null;
 }
 
 /**
@@ -127,15 +122,13 @@ export function itemGroupKey(group: ItemGroup): string {
 
 /**
  * The one action a blocked item offers (16 第五节: a single reason and a single action). A running
- * or paused subtask can be driven from here; the other sources are records and offer nothing.
+ * subtask can be stopped from here (2026-11-24); recovering it, or changing which Bot does it, is
+ * told to the Bot in chat. The other sources are records and offer nothing.
  */
-export function itemActions(item: ItemSummary): { pause: boolean; resume: boolean; cancel: boolean } {
-	const cancellable =
-		item.source === "subtask" && item.state !== "completed" && item.state !== "failed" && item.state !== "cancelled";
+export function itemActions(item: ItemSummary): { cancel: boolean } {
 	return {
-		pause: cancellable && (item.state === "running" || item.state === "waiting_user"),
-		resume: cancellable && item.state === "paused",
-		cancel: cancellable,
+		cancel:
+			item.source === "subtask" && item.state !== "completed" && item.state !== "failed" && item.state !== "cancelled",
 	};
 }
 

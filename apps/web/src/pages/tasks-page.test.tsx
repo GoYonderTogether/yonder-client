@@ -6,29 +6,11 @@ import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
 import { TasksList } from "./tasks-page.tsx";
 
-/** The goals tab's list and the inline schedule form; a plan's own actions are in its side panel. */
 const state = vi.hoisted(() => ({
 	schedules: [] as Schedule[],
 	loading: false,
 	loadError: false,
-	pause: vi.fn(),
-	resume: vi.fn(),
-	remove: vi.fn(),
-	failure: null as Error | null,
 }));
-
-/**
- * `mutate` never throws: a refusal lands in the mutation's own error state, which is what the page
- * reads. The test sets `state.failure` before the click and the page re-renders from it afterwards.
- */
-function mutation(action: "pause" | "resume" | "remove") {
-	return {
-		mutate: (id: string) => void state[action](id),
-		isPending: false,
-		isError: state.failure !== null,
-		error: state.failure,
-	};
-}
 
 vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@yonder/ui-data")>()),
@@ -38,18 +20,11 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 		isError: state.loadError,
 		refetch: async () => {},
 	}),
-	useScheduleActions: () => ({
-		create: mutation("pause"),
-		update: mutation("pause"),
-		pause: mutation("pause"),
-		resume: mutation("resume"),
-		remove: mutation("remove"),
-	}),
 	useItems: () => ({ data: { pages: [] }, isLoading: false, isError: false }),
+	useArchivedItems: () => ({ data: undefined, isLoading: false, isError: false, isSuccess: false }),
+	useItemListAction: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), reset: vi.fn(), isPending: false }),
 	useContacts: () => ({ data: { items: [] } }),
 	useGoals: () => ({ data: { items: [] }, isLoading: false, isError: false }),
-	useChangeGoal: () => ({ mutate: vi.fn(), isPending: false }),
-	useGoalSettings: () => ({ transfer: { isPending: false } }),
 }));
 
 vi.mock("@yonder/ui-shell", async (importOriginal) => ({
@@ -79,16 +54,15 @@ const plan: Schedule = {
 	goalId: null,
 };
 
-function show() {
+function show(scheduled: boolean, onAddItem: () => void, onAddGoal: () => void) {
 	return render(
 		<I18nextProvider i18n={createI18n("en")}>
 			<TasksList
-				scheduled
+				scheduled={scheduled}
 				onChange={() => {}}
 				onOpenItem={() => {}}
-				onAdd={() => {}}
-				onSchedule={() => {}}
-				showManualSchedule
+				onAddItem={onAddItem}
+				onAddGoal={onAddGoal}
 			/>
 		</I18nextProvider>,
 	);
@@ -96,25 +70,34 @@ function show() {
 
 test("the goals tab lists a recurring plan under Schedules and keeps a one-off out of it", () => {
 	state.schedules = [plan, { ...plan, id: "sch_2", title: "一次性提醒", kind: "once" }];
-	state.failure = null;
-	show();
+	show(true, vi.fn(), vi.fn());
 	expect(screen.getByText("每日摘要")).toBeVisible();
 	expect(screen.queryByText("一次性提醒")).toBeNull();
 	expect(screen.getByRole("heading", { name: "Schedules" })).toBeVisible();
 });
 
-for (const pending of ["loading", "loadError"] as const) {
-	test(`schedule creation remains usable while the list is ${pending}`, () => {
+test("「+」 asks the main Bot with the sentence of the segment on screen", () => {
+	const addItem = vi.fn();
+	const addGoal = vi.fn();
+	const view = show(false, addItem, addGoal);
+	fireEvent.click(screen.getByRole("button", { name: "Create" }));
+	expect(addItem).toHaveBeenCalledOnce();
+	view.unmount();
+	show(true, addItem, addGoal);
+	fireEvent.click(screen.getByRole("button", { name: "Create" }));
+	expect(addGoal).toHaveBeenCalledOnce();
+	expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+});
+
+test("the goals tab still renders while the plan list is loading or failed", () => {
+	for (const pending of ["loading", "loadError"] as const) {
 		state[pending] = true;
 		try {
-			show();
-			fireEvent.click(screen.getByRole("button", { name: "Create" }));
-			fireEvent.click(screen.getByRole("menuitem", { name: "Create scheduled task manually" }));
-			expect(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
-			fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-			expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+			const view = show(true, vi.fn(), vi.fn());
+			expect(screen.getByRole("button", { name: "Create" })).toBeVisible();
+			view.unmount();
 		} finally {
 			state[pending] = false;
 		}
-	});
-}
+	}
+});

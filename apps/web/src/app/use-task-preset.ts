@@ -1,14 +1,14 @@
 import type { Conversation } from "@yonder/protocol";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { PresetSource } from "../pages/items-fly.tsx";
 import { draftKey, mayFillDraft, type PresetOutcome, registerPresetTarget, requestPreset } from "./draft-preset.ts";
 import type { useChatDraft } from "./use-chat-draft.ts";
 
 /**
- * Prefill the main Bot draft from another screen. A phone can preview it in place when the frame
- * already holds the main Bot draft. Otherwise open the main conversation directly.
+ * Prefill the main Bot draft from another screen (2026-11-24: creation and editing are always
+ * telling the Bot, never a form). A phone can preview it in place when the frame already holds the
+ * main Bot draft. Otherwise open the main conversation directly.
  */
 export function useTaskPreset({
 	person,
@@ -28,10 +28,7 @@ export function useTaskPreset({
 	path?: string;
 }) {
 	const { t } = useTranslation();
-	/** The action label while it travels toward the prefilled composer. */
-	const [flying, setFlying] = useState<{ source: PresetSource; mobile: boolean } | null>(null);
 	const [pendingMainPreset, setPendingMainPreset] = useState<string | null>(null);
-	const flown = useCallback(() => setFlying(null), []);
 	const [drawerPath, setDrawerPath] = useState<string | null>(null);
 	const pendingDrawerPreset = useRef<string | null>(null);
 	const drawerSeed = useRef<{ revision: number; previous: string; conversationId: string } | null>(null);
@@ -62,7 +59,6 @@ export function useTaskPreset({
 	}, [drawerOpen, draft.loaded, conversationId]);
 
 	function closeDrawer(preserveDraft = false) {
-		setFlying(null);
 		setDrawerPath(null);
 		pendingDrawerPreset.current = null;
 		const seed = drawerSeed.current;
@@ -101,14 +97,8 @@ export function useTaskPreset({
 		openMain(phrase);
 	}
 
-	function openPreset(phrase: string, source?: PresetSource) {
-		const preview = mobile && conversationId === primary?.id;
-		setFlying(
-			source && (conversationId !== primary?.id || !draft.loaded || mayFillDraft(draft.text, draft.files.length))
-				? { source, mobile: preview }
-				: null,
-		);
-		if (!preview) {
+	function openPreset(phrase: string) {
+		if (!(mobile && conversationId === primary?.id)) {
 			openMain(phrase);
 			return;
 		}
@@ -117,11 +107,10 @@ export function useTaskPreset({
 	}
 
 	return {
-		flying: (flying?.mobile ? drawerOpen : path === mainPath) ? flying : null,
-		flown,
-		openPreset,
-		addGoal: (source?: PresetSource) => openPreset(t("tasks.presetGoal"), source),
-		addSchedule: (source: PresetSource) => openPreset(t("tasks.presetSchedule"), source),
+		/** What 「+」 and 「编辑」 use: one sentence in the main Bot's draft, never sent. */
+		ask: (phrase: string) => openPreset(phrase),
+		addItem: () => openPreset(t("tasks.presetItem")),
+		addGoal: () => openPreset(t("tasks.presetGoal")),
 		drawerOpen,
 		closeDrawer: () => closeDrawer(),
 		expandDrawer,

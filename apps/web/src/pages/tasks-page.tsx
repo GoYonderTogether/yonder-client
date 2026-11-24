@@ -1,60 +1,38 @@
-import { EmptyState, ListGroup, Segmented } from "@yonder/ui-components";
-import { type useItemSession, useSchedules } from "@yonder/ui-data";
+import { EmptyState, Segmented } from "@yonder/ui-components";
+import type { useItemSession } from "@yonder/ui-data";
 import { ListFrame, PageFrame } from "@yonder/ui-shell";
 import { ListChecks } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoalsTab } from "./goal-records.tsx";
 import { ItemDetailPage } from "./items-detail.tsx";
-import type { PresetSource } from "./items-fly.tsx";
 import { ItemsList } from "./items-list.tsx";
-import { ScheduleForm } from "./schedule-form.tsx";
-import { formatInstant } from "./schedule-format.ts";
 import { TaskActions } from "./task-actions.tsx";
 
 /**
  * 「事项 | 目标」 (16-3 第九节): the items tab is every finished or running piece of work, the goals
- * tab is what the Bot keeps watching. Creation lives in the title row; its menu offers an item, a
- * goal and a scheduled task on both tabs.
+ * tab is what the Bot keeps watching. 「+」 only asks the main Bot, with the sentence the segment
+ * starts (2026-11-24).
  */
 export function TasksList({
 	scheduled,
 	onChange,
 	onOpenItem,
-	onAdd,
-	onSchedule,
-	showManualSchedule,
+	onAddItem,
+	onAddGoal,
 }: {
 	scheduled: boolean;
 	onChange: (scheduled: boolean) => void;
 	onOpenItem: (id: string) => void;
-	/** On 「目标」 it opens the goal draft; on 「事项」 it opens a blank session. */
-	onAdd: (source?: PresetSource) => void;
-	onSchedule: (source: PresetSource) => void;
-	/** A phone hides the manual schedule form, because its creation always starts from the main Bot. */
-	showManualSchedule: boolean;
+	/** 「+」 on 「事项」: the main Bot draft starts an item. */
+	onAddItem: () => void;
+	/** 「+」 on 「目标」: the main Bot draft starts a goal. */
+	onAddGoal: () => void;
 }) {
 	const { t } = useTranslation();
-	const [creating, setCreating] = useState(false);
 	return (
 		<ListFrame
 			title={t("nav.tasks")}
-			action={
-				<TaskActions
-					onAdd={onAdd}
-					onCreateSchedule={onSchedule}
-					onCreateScheduleManually={
-						showManualSchedule
-							? () => {
-									// The inline form lives in 「目标」, so a manual schedule started from 「事项」
-									// takes the person there before it opens.
-									if (!scheduled) onChange(true);
-									setCreating(true);
-								}
-							: undefined
-					}
-				/>
-			}
+			action={<TaskActions scheduled={scheduled} onAddItem={onAddItem} onAddGoal={onAddGoal} />}
 			center={
 				<Segmented
 					options={[
@@ -62,20 +40,14 @@ export function TasksList({
 						{ value: "goals", label: t("tasks.goals") },
 					]}
 					value={scheduled ? "goals" : "items"}
-					onChange={(value) => {
-						setCreating(false);
-						onChange(value === "goals");
-					}}
+					onChange={(value) => onChange(value === "goals")}
 					aria-label={t("nav.tasks")}
 				/>
 			}
 		>
-			{scheduled && creating ? (
-				<ScheduleForm onCancel={() => setCreating(false)} onDone={() => setCreating(false)} />
-			) : null}
 			{scheduled ? (
 				<div className="flex flex-col gap-[var(--spacing-4)]">
-					<GoalsTab creating={creating} />
+					<GoalsTab />
 				</div>
 			) : (
 				<ItemsList onOpen={onOpenItem} />

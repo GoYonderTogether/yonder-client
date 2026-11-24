@@ -1,13 +1,12 @@
 import type { MemoryFileContent } from "@yonder/protocol";
 import { Button } from "@yonder/ui-components";
 import { useMemoryFile, useMemoryFileActions } from "@yonder/ui-data";
-import { History, ListChecks, MessageCircle, Mic, Pencil, Trash2 } from "lucide-react";
+import { ListChecks, MessageCircle, Mic, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { UserEditedBadge } from "./memory-edited.tsx";
 import { MemoryEditor } from "./memory-editor.tsx";
 import { useMinute } from "./memory-format.ts";
-import { useOpenHistory } from "./memory-history.tsx";
 import { MemoryMarkdown } from "./memory-markdown.tsx";
 import { useOpenMemoryFile, useSourceNavigation } from "./memory-navigation.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
@@ -27,6 +26,9 @@ const SOURCE_LABELS: Record<string, string> = {
  * A file's own page (24 第五节): the title, who changed it and when, its visibility, the Markdown,
  * where it came from, and what the owner can do with it. The owner owns their data, so every file
  * can be edited and deleted; `/me` files can only be emptied, not deleted (23 第九节).
+ *
+ * Meta Muse is the reference (2026-11-24): the owner edits the file directly, deletes it, or changes
+ * who can see it. Version history and restore are gone from the app.
  */
 export function MemoryFilePage({ path, onDeleted }: { path: string; onDeleted: () => void }) {
 	const file = useMemoryFile(path);
@@ -44,7 +46,6 @@ function FileBody({ file, onDeleted }: { file: MemoryFileContent; onDeleted: () 
 	const { t, i18n } = useTranslation();
 	const now = useMinute();
 	const author = useAuthorName();
-	const openHistory = useOpenHistory();
 	const openFile = useOpenMemoryFile();
 	const actions = useMemoryFileActions();
 	const [editing, setEditing] = useState(false);
@@ -103,10 +104,6 @@ function FileBody({ file, onDeleted }: { file: MemoryFileContent; onDeleted: () 
 					<Button size="sm" onClick={() => setEditing(true)}>
 						<Pencil size={16} aria-hidden />
 						{t("memory.edit")}
-					</Button>
-					<Button size="sm" onClick={() => openHistory(file.path, title)}>
-						<History size={16} aria-hidden />
-						{t("memory.history")}
 					</Button>
 					{deletable ? (
 						<Button size="sm" variant="ghost" onClick={() => setDeleting(true)}>

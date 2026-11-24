@@ -5,27 +5,31 @@ import type { Schedule } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { beforeEach, expect, test, vi } from "vitest";
+import { AskMainBotProvider } from "../app/ask-main-bot.tsx";
 import { SchedulePanel } from "./schedule-panel.tsx";
 
 const state = vi.hoisted(() => ({
 	schedules: [] as Schedule[],
-	pause: vi.fn(),
-	resume: vi.fn(),
-	remove: vi.fn(),
+	remove: vi.fn((_id: string, _options?: unknown) => {}),
+	close: vi.fn(),
+	ask: vi.fn(),
 	failure: null as Error | null,
 }));
-function mutation(action: "pause" | "resume" | "remove") {
-	return {
-		mutate: (id: string) => void state[action](id),
-		isPending: false,
-		isError: state.failure !== null && action === "pause",
-		error: action === "pause" ? state.failure : null,
-	};
-}
 vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@yonder/ui-data")>()),
 	useSchedules: () => ({ data: { items: state.schedules }, isError: false }),
-	useScheduleActions: () => ({ pause: mutation("pause"), resume: mutation("resume"), remove: mutation("remove") }),
+	useScheduleActions: () => ({
+		remove: {
+			mutate: (id: string) => void state.remove(id),
+			isPending: false,
+			isError: state.failure !== null,
+			error: state.failure,
+		},
+	}),
+}));
+vi.mock("@yonder/ui-shell", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@yonder/ui-shell")>()),
+	useSidePanel: () => ({ open: vi.fn(), push: vi.fn(), back: vi.fn(), close: state.close }),
 }));
 
 const plan: Schedule = {
@@ -60,7 +64,9 @@ const plan: Schedule = {
 function show() {
 	return render(
 		<I18nextProvider i18n={createI18n("en")}>
-			<SchedulePanel scheduleId={plan.id} />
+			<AskMainBotProvider value={state.ask}>
+				<SchedulePanel scheduleId={plan.id} />
+			</AskMainBotProvider>
 		</I18nextProvider>,
 	);
 }
@@ -68,16 +74,16 @@ function show() {
 beforeEach(() => {
 	state.schedules = [plan];
 	state.failure = null;
-	state.pause.mockReset();
-	state.remove.mockReset();
+	for (const fn of [state.remove, state.close, state.ask]) fn.mockClear();
 });
 
-test("shows the plan and its recent runs, and pauses from the menu", () => {
+test("the menu is only edit and delete, and edit fills the main Bot draft", () => {
 	show();
 	expect(screen.getByRole("heading", { name: "Recent runs" })).toBeVisible();
 	fireEvent.click(screen.getByRole("button", { name: "More" }));
-	fireEvent.click(screen.getByRole("menuitem", { name: "Pause" }));
-	expect(state.pause).toHaveBeenCalledWith("sch_1");
+	expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Edit", "Delete"]);
+	fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+	expect(state.ask).toHaveBeenCalledWith("Change the scheduled task 「每日摘要」 to: ");
 });
 
 test("deleting asks first", () => {
@@ -86,10 +92,18 @@ test("deleting asks first", () => {
 	fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
 	expect(state.remove).not.toHaveBeenCalled();
 	fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete" }));
-	expect(state.remove).toHaveBeenCalledWith("sch_1");
+	expect(state.remove).toHaveBeenCalledWith(plan.id);
 });
 
-test("a refused action says the server's real reason", () => {
+test("a paused plan says so in one word, with no pause or resume control", () => {
+	state.schedules = [{ ...plan, status: "paused" }];
+	show();
+	expect(screen.getByText("Paused")).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "More" }));
+	for (const name of ["Pause", "Resume"]) expect(screen.queryByRole("menuitem", { name })).toBeNull();
+});
+
+test("a refused delete says the server's real reason", () => {
 	state.failure = new ApiError({ code: "rate_limited", status: 429, message: "rate_limited" });
 	show();
 	expect(screen.getByRole("alert")).toHaveTextContent("Too many attempts. Try again later.");

@@ -1,4 +1,4 @@
-import type { Schedule, ScheduleKind, ScheduleRunResult } from "@yonder/protocol";
+import type { Schedule, ScheduleRunResult } from "@yonder/protocol";
 
 /**
  * How a plan reads on screen. A recurring plan is a wall-clock time in a named zone, so the text is
@@ -6,11 +6,25 @@ import type { Schedule, ScheduleKind, ScheduleRunResult } from "@yonder/protocol
  * ("next run", "last run") are formatted in the plan's zone, which is the zone the user chose.
  */
 
+/** The translator shape this module needs: one key, no interpolation. */
+export type Translate = (key: string) => string;
+
+/**
+ * The one status word a plan's row may show (2026-11-24, Meta Muse as the reference): a plan that
+ * is not running says so, and has no control either — the Bot is told instead.
+ */
+export function planStatusKey(status: Schedule["status"]): string | null {
+	if (status === "paused") return "tasks.goalState.paused";
+	if (status === "ended") return "tasks.planEnded";
+	if (status === "missed") return "tasks.resultMissed";
+	return null;
+}
+
 /** The local wall clock of `instant` in `timeZone`, as plain numbers. */
 export function zonedParts(
 	timeZone: string,
 	instant: Date,
-): { year: number; month: number; day: number; hour: number; minute: number; second: number } {
+): { year: number; month: number; day: number; hour: number; minute: number } {
 	const parts = new Intl.DateTimeFormat("en-US", {
 		timeZone,
 		hourCycle: "h23",
@@ -19,7 +33,6 @@ export function zonedParts(
 		day: "2-digit",
 		hour: "2-digit",
 		minute: "2-digit",
-		second: "2-digit",
 	}).formatToParts(instant);
 	const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
 	return {
@@ -28,65 +41,7 @@ export function zonedParts(
 		day: Number(value("day")),
 		hour: Number(value("hour")),
 		minute: Number(value("minute")),
-		second: Number(value("second")),
 	};
-}
-
-function zoneOffsetMs(timeZone: string, instant: Date): number {
-	const { year, month, day, hour, minute, second } = zonedParts(timeZone, instant);
-	const asUtc = Date.UTC(year, month - 1, day, hour, minute, second);
-	return asUtc - Math.floor(instant.getTime() / 1_000) * 1_000;
-}
-
-/**
- * The instant whose wall clock in `timeZone` is the given local time. Used for a one-off plan: the
- * form shows a date and a time in the plan's own zone, not in whatever zone the browser runs in.
- */
-export function zonedInstant(
-	timeZone: string,
-	parts: { year: number; month: number; day: number; hour: number; minute: number; second?: number },
-): Date {
-	const naive = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second ?? 0);
-	const first = naive - zoneOffsetMs(timeZone, new Date(naive));
-	const second = naive - zoneOffsetMs(timeZone, new Date(first));
-	return new Date(second);
-}
-
-/** `2026-11-17T10:00`, or `…T10:00:30` with seconds, in the plan's zone, for a `datetime-local` input. */
-export function localInputValue(timeZone: string, instant: Date): string {
-	const { year, month, day, hour, minute, second } = zonedParts(timeZone, instant);
-	const pad = (value: number) => String(value).padStart(2, "0");
-	const base = `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}`;
-	return second ? `${base}:${pad(second)}` : base;
-}
-
-/** The instant a `datetime-local` value names in the plan's zone. */
-export function fromLocalInput(timeZone: string, value: string): Date | null {
-	const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(value);
-	if (!match?.[1] || !match[2] || !match[3] || !match[4] || !match[5]) return null;
-	const instant = zonedInstant(timeZone, {
-		year: Number(match[1]),
-		month: Number(match[2]),
-		day: Number(match[3]),
-		hour: Number(match[4]),
-		minute: Number(match[5]),
-		second: Number(match[6] ?? 0),
-	});
-	return Number.isNaN(instant.getTime()) ? null : instant;
-}
-
-/** A wall-clock time as a `time` input value; a one-off plan keeps its own instant. */
-export function timeInputValue(plan: Pick<Schedule, "kind" | "at" | "timezone">): string {
-	return plan.kind === "once" ? "09:00" : plan.at;
-}
-
-/** The translator shape this module needs: one key, no interpolation. */
-export type Translate = (key: string) => string;
-
-export function planKindLabel(kind: ScheduleKind, t: Translate): string {
-	if (kind === "once") return t("tasks.kindOnce");
-	if (kind === "daily") return t("tasks.kindDaily");
-	return t("tasks.kindWeekly");
 }
 
 /**

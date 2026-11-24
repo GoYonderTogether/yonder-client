@@ -193,15 +193,9 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	await expect(reader.getByRole("button", { name: "可见级别: 公开" })).toBeVisible();
 	expect(api.writes.at(-1)).toEqual({ method: "PATCH", body: { path: notePath, visibility: "public" } });
 
-	await reader.getByRole("button", { name: "历史" }).click();
-	const history = page.getByRole("dialog", { name: "周会纪要 的历史" });
-	await history.getByRole("button", { name: /第 2 版/ }).click();
-	const version = page.getByRole("dialog", { name: "第 2 版" });
-	await expect(version.getByText("核对发布窗口。")).toBeVisible();
-	if (!phone) await page.screenshot({ path: testInfo.outputPath("memory-history.png") });
-	await version.getByRole("button", { name: "恢复到这一版" }).click();
-	await expect(version).toHaveCount(0);
-	expect(api.writes.at(-1)).toEqual({ method: "POST", body: { path: notePath, version: 2 } });
+	// Version history and restore are gone from the app (2026-11-24, Meta Muse as the reference).
+	await expect(reader.getByRole("button", { name: "历史" })).toHaveCount(0);
+	if (!phone) await page.screenshot({ path: testInfo.outputPath("memory-file.png") });
 
 	await reader.getByRole("button", { name: "删除" }).click();
 	await reader.getByRole("button", { name: "确认删除" }).click();
@@ -214,7 +208,7 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	if (phone) await page.screenshot({ path: testInfo.outputPath("memory-file-error.png") });
 }
 
-test("opens, edits, publishes, reverts and deletes memory on desktop", async ({ page }, testInfo) => {
+test("opens, edits, publishes and deletes memory on desktop", async ({ page }, testInfo) => {
 	await page.setViewportSize({ width: 1280, height: 900 });
 	await exerciseMemory(page, testInfo, false);
 });

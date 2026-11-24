@@ -5,9 +5,9 @@ import {
 	itemActions,
 	itemFailureKey,
 	itemGroup,
-	itemStateKey,
 	itemSummaryLine,
 	itemTimeLabel,
+	itemTrailingKey,
 	upcomingOneOffs,
 } from "./items-format.ts";
 
@@ -57,13 +57,6 @@ describe("the day groups", () => {
 });
 
 describe("what an item says", () => {
-	test("every state has its own sentence key", () => {
-		const states = ["running", "waiting_user", "paused", "completed", "failed", "cancelled"] as const;
-		const keys = states.map((state) => itemStateKey(state));
-		expect(new Set(keys).size).toBe(states.length);
-		for (const key of keys) expect(key.startsWith("tasks.itemState")).toBe(true);
-	});
-
 	test("a result, a failure reason and nothing are three different lines", () => {
 		expect(itemSummaryLine(item({ result: "做完了", state: "completed" }))).toEqual({
 			kind: "result",
@@ -95,19 +88,29 @@ describe("what an item says", () => {
 });
 
 describe("the actions an item offers", () => {
-	test("a running subtask can be paused and cancelled; a paused one can be resumed", () => {
-		expect(itemActions(item())).toEqual({ pause: true, resume: false, cancel: true });
-		expect(itemActions(item({ state: "paused" }))).toEqual({ pause: false, resume: true, cancel: true });
+	test("a running subtask can be stopped; that is the only app control left", () => {
+		expect(itemActions(item())).toEqual({ cancel: true });
+		expect(itemActions(item({ state: "paused" }))).toEqual({ cancel: true });
 	});
 
 	test("a finished subtask offers nothing", () => {
 		for (const state of ["completed", "failed", "cancelled"] as const)
-			expect(itemActions(item({ state }))).toEqual({ pause: false, resume: false, cancel: false });
+			expect(itemActions(item({ state }))).toEqual({ cancel: false });
 	});
 
 	test("the other two sources are records, so the page cannot drive them", () => {
 		for (const source of ["schedule_run", "meeting"] as const)
-			expect(itemActions(item({ source }))).toEqual({ pause: false, resume: false, cancel: false });
+			expect(itemActions(item({ source }))).toEqual({ cancel: false });
+	});
+});
+
+describe("the one status word a row adds", () => {
+	test("a wait, a failure, a pause and a run say so; a finished item adds nothing", () => {
+		expect(itemTrailingKey(item({ state: "waiting_user" }))).toBe("tasks.itemStateWaitingUser");
+		expect(itemTrailingKey(item({ state: "failed" }))).toBe("tasks.itemStateFailed");
+		expect(itemTrailingKey(item({ state: "paused" }))).toBe("tasks.itemStatePaused");
+		expect(itemTrailingKey(item({ state: "running" }))).toBe("tasks.itemStateRunning");
+		for (const state of ["completed", "cancelled"] as const) expect(itemTrailingKey(item({ state }))).toBeNull();
 	});
 });
 
