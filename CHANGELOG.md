@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112406] - 2026-11-24
+
+### Added
+
+- chat：a failed reply is one system line, never a caption on the bubble
+
 ## [0.3.26112405] - 2026-11-24
 
 ## [0.3.26112404] - 2026-11-24
