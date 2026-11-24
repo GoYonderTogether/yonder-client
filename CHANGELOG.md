@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112408] - 2026-11-24
+
+### Fixed
+
+- ios：enable locked SHA-256 for photo cursor scope
+
 ## [0.3.26112407] - 2026-11-24
 
 ## [0.3.26112406] - 2026-11-24
