@@ -2,9 +2,21 @@
 
 ## [Unreleased]
 
+## [0.3.26112413] - 2026-11-24
+
 ### Added
 
 - 通用：界面大小 5 档（最小/小/中/大/最大），一处倍率带动字号、间距、圆角、控件、图标、输入区与标签栏；默认「中」比原先大 10%
+- settings：interface size in five levels, default 10% larger
+- shell：the system's Back closes the top layer before history
+- shell：make the back gesture follow the system's page transition
+- chat：confirm cards list their targets, and the privacy policy matches real deletion
+
+### Fixed
+
+- client：simplify chat bubbles, update notices and version display
+- shell：find the page below a pushed page, not the page itself
+- chat：the phone's bar is grey under a white composer, and a tab wears a capsule
 
 ## [0.3.26112412] - 2026-11-24
 
