@@ -615,7 +615,9 @@ test("a tap still focuses the empty editor, while a hold dictates without sendin
 	expect(wire.sent).toHaveLength(0);
 });
 
-test("the phone text surface is a rounded input and the voice action remains a pill", async ({ page }, info) => {
+test("the phone draft sits directly on the single composer card and the voice action remains a pill", async ({
+	page,
+}, info) => {
 	await speechWire(page);
 	await page.goto("/messages/main");
 	const composer = page.locator(".composer-box");
@@ -624,9 +626,12 @@ test("the phone text surface is a rounded input and the voice action remains a p
 	const hint = composer.getByText("可按住转文字", { exact: true });
 	await expect(hint).toBeVisible();
 	await expect(hint).toHaveCSS("pointer-events", "none");
-	await expect(surface).toHaveCSS("background-color", "rgb(255, 255, 255)");
-	await expect(surface).toHaveCSS("border-top-left-radius", "8px");
+	// One card: the draft paints nothing of its own, so the text sits inside the box's own radius
+	// instead of in a second, smaller card whose corners cannot match the outer ones.
+	await expect(surface).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+	await expect(surface).toHaveCSS("border-top-left-radius", "0px");
 	expect(await surface.boundingBox()).toEqual(await input.boundingBox());
+	await expect(composer).toHaveCSS("border-top-left-radius", "23px");
 	await expect(composer).not.toHaveCSS("background-color", "rgb(255, 255, 255)");
 	await page.screenshot({ path: info.outputPath("mobile-text-composer.png"), scale: "css" });
 
