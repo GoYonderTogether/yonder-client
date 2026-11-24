@@ -1,10 +1,14 @@
 import { expect, test, vi } from "vitest";
 
 const mock = vi.hoisted(() => ({
-	readFile: vi.fn(() => new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer),
-	imageInfo: vi.fn(async () => ({ type: "png" })),
+	readFile: vi.fn(
+		(_path: string, _encoding?: unknown, _start?: number, _length?: number) =>
+			new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer,
+	),
+	imageInfo: vi.fn(async () => ({ type: "png", width: 3000, height: 2000 })),
+	stat: vi.fn(),
+	compress: vi.fn(),
 	chooseImage: vi.fn(),
-	request: vi.fn(),
 }));
 
 vi.mock("@tarojs/taro", () => ({
@@ -12,33 +16,35 @@ vi.mock("@tarojs/taro", () => ({
 		getStorageSync: () => "en",
 		setStorageSync: () => {},
 		getSystemInfoSync: () => ({ language: "en" }),
-		getFileSystemManager: () => ({ readFileSync: mock.readFile }),
+		getFileSystemManager: () => ({ readFileSync: mock.readFile, statSync: mock.stat }),
 		getImageInfo: mock.imageInfo,
 		chooseImage: mock.chooseImage,
+		compressImage: mock.compress,
 	},
 }));
-vi.mock("../../lib/runtime", () => ({ client: { request: mock.request } }));
 
-import { AVATAR_MAX_BYTES, chooseAvatar, readAvatar, uploadBotAvatar } from "./image";
+import { AVATAR_MAX_BYTES, readAvatar } from "../../lib/local-image";
+import { chooseAvatar } from "./image";
 
-test("an oversized image is refused before its bytes are read", async () => {
+test("an unrecognized oversized image is refused after reading only a bounded header", async () => {
 	mock.readFile.mockClear();
 	await expect(readAvatar({ path: "/tmp/big.png", size: AVATAR_MAX_BYTES + 1 })).rejects.toThrow(
 		"An avatar cannot be larger than 2 MB",
 	);
-	expect(mock.readFile).not.toHaveBeenCalled();
+	expect(mock.readFile.mock.calls).toEqual([["/tmp/big.png", undefined, 0, 65_536]]);
+	expect(mock.compress).not.toHaveBeenCalled();
 });
 
 test("the type comes from the file itself, and WebP, PNG and JPEG are accepted", async () => {
 	await expect(readAvatar({ path: "/tmp/a.png", size: 10 })).resolves.toMatchObject({ contentType: "image/png" });
-	mock.imageInfo.mockResolvedValueOnce({ type: "jpg" });
+	mock.imageInfo.mockResolvedValueOnce({ type: "jpg", width: 1, height: 1 });
 	await expect(readAvatar({ path: "/tmp/a.jpg" })).resolves.toMatchObject({ contentType: "image/jpeg" });
-	mock.imageInfo.mockResolvedValueOnce({ type: "webp" });
+	mock.imageInfo.mockResolvedValueOnce({ type: "webp", width: 1, height: 1 });
 	await expect(readAvatar({ path: "/tmp/a.webp" })).resolves.toMatchObject({ contentType: "image/webp" });
 });
 
 test("anything else is refused with the type named, never uploaded", async () => {
-	mock.imageInfo.mockResolvedValueOnce({ type: "gif" });
+	mock.imageInfo.mockResolvedValueOnce({ type: "gif", width: 1, height: 1 });
 	await expect(readAvatar({ path: "/tmp/a.gif" })).rejects.toThrow("image/gif");
 	mock.readFile.mockReturnValueOnce(new ArrayBuffer(0));
 	await expect(readAvatar({ path: "/tmp/empty.png", size: 0 })).rejects.toThrow("That image is empty");
@@ -47,12 +53,25 @@ test("anything else is refused with the type named, never uploaded", async () =>
 	await expect(readAvatar({ path: "/tmp/sneaky.png", size: 10 })).rejects.toThrow("cannot be larger than 2 MB");
 });
 
-test("the upload posts the bytes themselves to the Bot's avatar route", async () => {
-	mock.request.mockReset().mockResolvedValue({ id: "bot_1" });
-	await uploadBotAvatar("bot_1", { path: "/tmp/a.png", size: 4 });
-	expect(mock.request).toHaveBeenCalledWith("/v1/bots/bot_1/avatar", {
-		raw: { bytes: expect.any(ArrayBuffer), contentType: "image/png" },
+test("an oversized photo is resized locally, then read from the verified output", async () => {
+	mock.readFile.mockClear();
+	mock.readFile.mockReturnValueOnce(new Uint8Array([0xff, 0xd8, 0xff]).buffer);
+	mock.compress.mockResolvedValueOnce({ tempFilePath: "/tmp/fitted.png" });
+	mock.stat.mockReturnValueOnce({ size: 4 });
+	await expect(readAvatar({ path: "/tmp/big.jpg", size: AVATAR_MAX_BYTES + 1 })).resolves.toMatchObject({
+		contentType: "image/png",
 	});
+	expect(mock.compress).toHaveBeenLastCalledWith({ src: "/tmp/big.jpg", quality: 75, compressedWidth: 1280 });
+	expect(mock.readFile.mock.calls.map(([path]) => path)).toEqual(["/tmp/big.jpg", "/tmp/fitted.png"]);
+});
+
+test("a compression failure with a statted original does not read oversized source bytes", async () => {
+	mock.readFile.mockClear();
+	mock.stat.mockReturnValueOnce({ size: AVATAR_MAX_BYTES + 1 });
+	mock.readFile.mockReturnValueOnce(new Uint8Array([0xff, 0xd8, 0xff]).buffer);
+	mock.compress.mockRejectedValueOnce(new Error("unsupported"));
+	await expect(readAvatar({ path: "/tmp/avatar-from-wechat.jpg" })).rejects.toThrow("cannot be larger than 2 MB");
+	expect(mock.readFile.mock.calls).toEqual([["/tmp/avatar-from-wechat.jpg", undefined, 0, 65_536]]);
 });
 
 test("the picker is capped at one image and a cancelled picker resolves nothing", async () => {

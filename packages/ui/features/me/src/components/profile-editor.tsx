@@ -1,6 +1,6 @@
 import type { Member } from "@yonder/protocol";
 import { Avatar, Button, ListGroup } from "@yonder/ui-components";
-import { useUpdateMe, useUploadAvatar } from "@yonder/ui-data";
+import { AvatarImageTooLargeError, useUpdateMe, useUploadAvatar } from "@yonder/ui-data";
 import { Camera } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,7 +9,6 @@ export interface ProfileEditorProps {
 	person: Member;
 }
 
-const MAX_BYTES = 2 * 1024 * 1024;
 const TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /**
@@ -61,18 +60,17 @@ export function ProfileEditor({ person }: ProfileEditorProps) {
 			setAvatarError(t("profile.avatarWrongType"));
 			return;
 		}
-		if (file.size > MAX_BYTES) {
-			setAvatarError(t("profile.avatarTooLarge"));
-			return;
-		}
-		setPreview(URL.createObjectURL(file));
+		const address = URL.createObjectURL(file);
+		setPreview(address);
 		try {
 			const me = await upload.mutateAsync(file);
 			setPreview(me.member.avatarUrl);
 			setMessage(t("profile.saved"));
-		} catch {
+		} catch (error) {
 			setPreview(person.avatarUrl);
-			setAvatarError(t("profile.uploadFailed"));
+			setAvatarError(t(error instanceof AvatarImageTooLargeError ? "profile.avatarTooLarge" : "profile.uploadFailed"));
+		} finally {
+			URL.revokeObjectURL(address);
 		}
 	};
 
@@ -138,6 +136,7 @@ export function ProfileEditor({ person }: ProfileEditorProps) {
 			<input
 				ref={fileInput}
 				type="file"
+				disabled={upload.isPending}
 				accept={TYPES.join(",")}
 				className="sr-only"
 				aria-label={t("profile.avatar")}

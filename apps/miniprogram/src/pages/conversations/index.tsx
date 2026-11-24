@@ -109,7 +109,7 @@ export default function Conversations() {
 					return (
 						<View
 							key={item.id}
-							className="card row"
+							className={item.pinned ? "card row mini-conversation-pinned" : "card row"}
 							onClick={() => void Taro.navigateTo({ url: `/pages/chat/index?id=${encodeURIComponent(item.id)}` })}
 						>
 							{other?.avatarUrl ? (

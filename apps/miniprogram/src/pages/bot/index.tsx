@@ -8,9 +8,9 @@ import { ConversationMute } from "../../components/conversation-mute";
 import { action, Button, Field, go, Page, State } from "../../components/ui";
 import { loadOwnedBot } from "../../lib/bots";
 import { t } from "../../lib/i18n";
-import { api, client, subscribeEvents, useSession } from "../../lib/runtime";
+import { api, client, subscribeEvents, uploadBotAvatar, useSession } from "../../lib/runtime";
 import { ChatAvatar } from "../chat/avatar";
-import { chooseAvatar, uploadBotAvatar } from "./image";
+import { chooseAvatar } from "./image";
 import {
 	BOT_COLORS,
 	botChanges,

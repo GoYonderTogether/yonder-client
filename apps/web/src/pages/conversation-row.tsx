@@ -2,7 +2,7 @@ import { conversationBotOwner, ownedBotFor } from "@yonder/chat-model";
 import { BotName, type Translate } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import { ConversationRow, type RowAction } from "@yonder/ui-components";
-import { BellOff, Pin } from "lucide-react";
+import { BellOff } from "lucide-react";
 import { ConversationAvatar, conversationPeer, conversationTitle } from "./conversation-presentation.tsx";
 import { rowPreview } from "./message-preview.ts";
 import { UnreadBadge } from "./unread-badge.tsx";
@@ -44,7 +44,7 @@ export function ConversationEntry({
 	const title =
 		conversation.kind === "system" ? t("friendRequests.notifications") : conversationTitle(conversation, personId);
 	const unread = conversation.unreadCount;
-	const selected = current === conversation.id || current === "main" ? conversation.id === primary : false;
+	const selected = conversation.id === (current === "main" ? primary : current);
 	const visiting = conversation.visit?.role === "host" && conversation.visit.state === "pending";
 	return (
 		<ConversationRow
@@ -71,19 +71,20 @@ export function ConversationEntry({
 					: undefined
 			}
 			badge={
-				unread || conversation.muted || conversation.pinned || visiting ? (
+				unread || conversation.muted || visiting ? (
 					<span className="flex items-center gap-[var(--spacing-1)]">
 						{visiting ? (
 							<span className="rounded-[var(--radius-control-sm)] bg-[var(--color-danger-subtle)] px-[var(--spacing-1)] text-micro text-[var(--color-danger)]">
 								{t("visits.waitingForYou")}
 							</span>
 						) : null}
-						{conversation.pinned ? <Pin size={13} aria-label={t("messages.pinned")} /> : null}
 						{conversation.muted ? <BellOff size={13} aria-label={t("messages.muted")} /> : null}
 						<UnreadBadge count={unread} muted={conversation.muted} dot={mobile && conversation.id === primary} />
 					</span>
 				) : undefined
 			}
+			pinned={conversation.pinned}
+			aria-description={conversation.pinned ? t("messages.pinned") : undefined}
 			selected={selected}
 			onClick={onOpen}
 		/>

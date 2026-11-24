@@ -52,6 +52,7 @@ extern "C" {
         directory: *const c_char,
         documents: bool,
         camera: bool,
+        allow_photo_fit: bool,
         photo_ids_json: *const c_char,
         limit: u32,
         context: *mut c_void,
@@ -203,6 +204,7 @@ fn pick<R: Runtime>(
     documents: bool,
     camera: Option<bool>,
     photo_ids: Option<Vec<String>>,
+    allow_photo_fit: Option<bool>,
     limit: u32,
     result: Channel<Option<Value>>,
 ) -> Result<(), String> {
@@ -215,6 +217,7 @@ fn pick<R: Runtime>(
         return Err("invalid attachment selection".into());
     }
     let camera = camera.unwrap_or(false);
+    let allow_photo_fit = allow_photo_fit.unwrap_or(false) && !documents && !camera;
     let photo_ids = photo_ids.unwrap_or_default();
     if (documents && camera)
         || ((documents || camera) != photo_ids.is_empty())
@@ -243,6 +246,7 @@ fn pick<R: Runtime>(
                 directory.as_ptr(),
                 documents,
                 camera,
+                allow_photo_fit,
                 photo_ids.as_ptr(),
                 limit,
                 Box::into_raw(Box::new(result)).cast(),

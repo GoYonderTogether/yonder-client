@@ -7,6 +7,7 @@ const mock = vi.hoisted(() => ({
 	reLaunch: vi.fn(async () => {}),
 	unlink: vi.fn(),
 	fetch: vi.fn(),
+	prepareAvatar: vi.fn(),
 }));
 vi.mock("@tarojs/taro", () => ({
 	default: {
@@ -20,6 +21,7 @@ vi.mock("@tarojs/taro", () => ({
 		reLaunch: mock.reLaunch,
 	},
 }));
+vi.mock("./local-image", () => ({ readAvatar: mock.prepareAvatar }));
 vi.mock("./transport", () => ({ miniFetch: mock.fetch, localFile: (filePath: string) => ({ filePath }) }));
 vi.mock("react", () => ({
 	useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot(),
@@ -178,4 +180,41 @@ test("signing out clears the local session even when the server refuses the requ
 	expect(runtime.client.accessToken).toBeNull();
 	expect(mock.store.has("yonder.mini.draft.one")).toBe(false);
 	expect(mock.reLaunch).toHaveBeenCalledWith({ url: "/pages/sign-in/index" });
+});
+
+test("own and Bot avatar uploads use only the prepared bytes and retain the correct routes", async () => {
+	const runtime = await import("./runtime");
+	await runtime.startSession({ accessToken: "a", refreshToken: "ra", me: me() });
+	mock.fetch.mockClear();
+	mock.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => me() });
+	const prepared = new Uint8Array([0xff, 0xd8, 0xff]).buffer;
+	mock.prepareAvatar.mockResolvedValue({ bytes: prepared, contentType: "image/jpeg" });
+	await runtime.uploadAvatar({ path: "/tmp/own-original" });
+	await runtime.uploadBotAvatar("bot_1", { path: "/tmp/bot-original" });
+	expect(mock.prepareAvatar.mock.calls.slice(-2)).toEqual([
+		[{ path: "/tmp/own-original" }],
+		[{ path: "/tmp/bot-original" }],
+	]);
+	expect(mock.fetch.mock.calls.map(([url, options]) => [new URL(url).pathname, options.body])).toEqual([
+		["/v1/me/avatar", prepared],
+		["/v1/bots/bot_1/avatar", prepared],
+	]);
+});
+
+test("switching accounts during Bot avatar compression does not send under the new identity", async () => {
+	const runtime = await import("./runtime");
+	await runtime.startSession({ accessToken: "a", refreshToken: "ra", me: me() });
+	let finish: (value: object) => void = () => {};
+	mock.prepareAvatar.mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+	);
+	const pending = runtime.uploadBotAvatar("bot_1", { path: "/tmp/old-owner-photo" }).catch((error) => error);
+	await runtime.startSession({ accessToken: "b", refreshToken: "rb", me: me("new-owner") });
+	mock.fetch.mockClear();
+	finish({ bytes: new ArrayBuffer(1), contentType: "image/jpeg" });
+	expect(await pending).toMatchObject({ name: "AbortError" });
+	expect(mock.fetch).not.toHaveBeenCalled();
 });

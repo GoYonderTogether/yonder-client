@@ -24,8 +24,9 @@
 
 ## 发版与测试（2026-11-24 起）
 
-- 现阶段先发版、后测试，两者异步进行。线上出 bug 可以接受，修好再发下一版。
-- CI 只负责反映问题。CI 红了由能看到 GitHub CI 的云端 GPT 修复；发版的 Agent 触发发版后就结束，不再盯构建、部署或 CI。
+- 当前使用正式版号发出的都是开发测试版，不代表生产验收。先发版，完整 CI 在发布后异步反馈；开发迭代目标 3–5 分钟，不以各端分发完成为前提。
+- 发版 Agent 触发后交给 Dot，不重复盯构建、部署或 CI。Dot 核验每个开发版的实际可用状态并通知 Zoran；iOS 只有确认该准确版本已能在 TestFlight 更新才通知，不把上传成功当作可更新。
+- Dot 负责用最小改动修复 CI 和产品回归，不删减功能、不顺手重构。严重产品或功能冲突、需要设计取舍的问题交给 Zoran；Mac 上的 Claude/Codex Agent 负责新功能。
 - 发版前在本机跑的测试最多 3 分钟（`npm run check` 这一类）。端到端测试、原生测试等更长的测试不在本机跑、不挡发版，交给 GitHub 的常规 CI 在发版后异步跑，CI 红了按 bug 修。
 - 发版直接执行 `gh workflow run release.yml -R GoYonderTogether/yonder-client -f ref=main`，不加 `require_ci`，不等 CI。
 

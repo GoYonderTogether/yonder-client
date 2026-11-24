@@ -11,7 +11,7 @@ import {
 } from "@yonder/ui-data";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { pcm16WavDurationMs } from "../lib/browser-meeting-wav.ts";
-import { isImageFile, type PreparedImage, prepareImage } from "../lib/prepare-image.ts";
+import { canPrepareLargeImage, isImageFile, type PreparedImage, prepareImage } from "../lib/prepare-image.ts";
 import {
 	boundMemberIds,
 	boundSkillIds,
@@ -63,7 +63,10 @@ const SEND_REFUSAL_KEYS = new Set(["visit_limit", "visit_denied", "visit_cap"]);
  */
 const CONVERSATION_CLOSED_KEY = "members.errors.conversationClosed";
 
+export class AttachmentTooLargeError extends Error {}
+
 export function sendErrorMessageKey(error: unknown): string {
+	if (error instanceof AttachmentTooLargeError) return "chat.fileTooLarge";
 	if (!(error instanceof ApiError)) return "chat.sendPreserved";
 	if (error.code === "conversation_closed") return CONVERSATION_CLOSED_KEY;
 	return SEND_REFUSAL_KEYS.has(error.code) ? `errors.${error.code}` : "chat.sendPreserved";
@@ -78,6 +81,12 @@ interface Draft {
 const empty = (): Draft => ({ text: "", files: [], revision: 0 });
 export const CHAT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
 export const CHAT_ATTACHMENT_LIMIT = 10;
+
+export function canAttachFile(file: File, sendOriginal = false) {
+	return (
+		file.size <= CHAT_ATTACHMENT_MAX_BYTES || (!sendOriginal && canPrepareLargeImage(file.name, file.type, file.size))
+	);
+}
 
 export function draftFile(file: File, voiceTranscript?: string | null): DraftFile {
 	return {
@@ -172,7 +181,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 
 	function addFiles(files: File[], voiceTranscript?: string | null) {
 		if (!current.current.loaded || current.current.key !== key) return;
-		const accepted = files.filter((file) => file.size <= CHAT_ATTACHMENT_MAX_BYTES);
+		const accepted = files.filter((file) => canAttachFile(file));
 		const available = Math.max(0, CHAT_ATTACHMENT_LIMIT - current.current.value.files.length);
 		if (accepted.length !== files.length) setError("chat.fileTooLarge");
 		else if (accepted.length > available) setError("chat.tooManyFiles");
@@ -196,7 +205,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			let optimized: PreparedImage | undefined;
 			let failed = false;
 			try {
-				optimized = await prepareImage(file.blob, file.name);
+				optimized = await prepareImage(file.blob, file.name, CHAT_ATTACHMENT_MAX_BYTES);
 			} catch {
 				failed = true;
 			}
@@ -233,7 +242,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		const cacheGeneration = chatCacheGeneration();
 		const optimized =
 			!file.sendOriginal && isImageFile(file.name, file.mimeType) ? await prepare(file, scope) : file.optimized;
-		if (!scope && signal?.aborted) throw new DOMException("Attachment upload canceled", "AbortError");
+		if (signal?.aborted) throw new DOMException("Attachment upload canceled", "AbortError");
 		if (cacheGeneration !== chatCacheGeneration()) throw new Error("session_changed");
 		const selected = selectedDraftFile({ ...file, optimized });
 		if (scope)
@@ -245,6 +254,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				scope,
 			);
 		try {
+			if (selected.blob.size > CHAT_ATTACHMENT_MAX_BYTES) throw new AttachmentTooLargeError();
 			const attachment = await api.uploadAttachment(
 				new File([selected.blob], selected.name, { type: selected.mimeType }),
 				selected.nonce,
@@ -443,7 +453,11 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			void change((draft) => ({
 				...draft,
 				revision: draft.revision + 1,
-				files: draft.files.map((file) => (file.id === id ? { ...file, sendOriginal } : file)),
+				files: draft.files.map((file) =>
+					file.id === id && (!sendOriginal || file.blob.size <= CHAT_ATTACHMENT_MAX_BYTES)
+						? { ...file, sendOriginal }
+						: file,
+				),
 			})),
 		removeFile: (id: string) => {
 			preparations.current.delete(id);

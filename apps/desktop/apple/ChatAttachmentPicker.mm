@@ -5,6 +5,7 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <WebKit/WebKit.h>
 #import <objc/runtime.h>
+#import "ChatPhotoFit.h"
 
 using PickCallback = void (*)(void *, const char *);
 using DataCallback = void (*)(void *, const void *, size_t);
@@ -12,7 +13,7 @@ typedef void (^PickCompletion)(NSDictionary *);
 static char pickerKey;
 static char photoObserverKey;
 static const NSUInteger maxFileBytes = 20 * 1024 * 1024;
-
+static const NSUInteger maxFitSourceBytes = 64 * 1024 * 1024;
 // The Tauri Channel evaluates JavaScript using the WebView. Leave with_webview's dispatcher
 // before sending any events, including the immediate import and cancellation notifications.
 static void replyPick(void *context, PickCallback callback, NSDictionary *result) {
@@ -186,6 +187,7 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
 @property(nonatomic, copy) NSString *session;
 @property(nonatomic, copy) NSString *directory;
 @property(nonatomic) NSUInteger limit;
+@property(nonatomic) BOOL allowPhotoFit;
 @property(nonatomic, strong) UIViewController *picker;
 @property(nonatomic) PHAssetResourceDataRequestID resourceRequest;
 @property(nonatomic, copy) PickCompletion completion;
@@ -267,38 +269,69 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
         return;
     }
     NSUInteger index = self.files.count;
+    // Only default-send known still album photos get the larger temporary input budget.
+    BOOL mayFit = self.allowPhotoFit && !(asset.mediaSubtypes & PHAssetMediaSubtypePhotoLive) &&
+        isResizableStillType(resource.uniformTypeIdentifier);
+    NSFileManager *files = NSFileManager.defaultManager;
+    NSURL *output = [self outputAt:index];
+    NSURL *source = mayFit ? [NSURL fileURLWithPath:
+        [self.directory stringByAppendingPathComponent:[NSString stringWithFormat:@".source-%lu", (unsigned long)index]]] : nil;
+    NSFileHandle *handle = nil;
+    if (source) {
+        if ([files createFileAtPath:source.path contents:nil attributes:nil]) {
+            handle = [NSFileHandle fileHandleForWritingToURL:source error:nil];
+        }
+        if (!handle) {
+            [files removeItemAtURL:source error:nil];
+            done(@{ @"issue": @"pickFailed" });
+            return;
+        }
+    }
     NSMutableData *buffer = [NSMutableData data];
+    NSUInteger inputLimit = mayFit ? maxFitSourceBytes : maxFileBytes;
     PHAssetResourceRequestOptions *options = [PHAssetResourceRequestOptions new];
     options.networkAccessAllowed = YES;
     PHAssetResourceManager *manager = PHAssetResourceManager.defaultManager;
     __block PHAssetResourceDataRequestID request = PHInvalidAssetResourceDataRequestID;
-    __block BOOL tooLarge = NO;
+    __block NSUInteger received = 0;
+    __block NSString *issue = nil;
     PHAssetResourceDataRequestID started = [manager requestDataForAssetResource:resource options:options
         dataReceivedHandler:^(NSData *data) {
             PHAssetResourceDataRequestID cancel = PHInvalidAssetResourceDataRequestID;
             @synchronized (buffer) {
-                if (tooLarge) return;
-                if (data.length > maxFileBytes - buffer.length) {
-                    tooLarge = YES;
-                    cancel = request;
-                } else {
-                    [buffer appendData:data];
+                if (issue) return;
+                if (data.length > inputLimit - received) issue = @"fileTooLarge";
+                else if (handle && ![handle writeData:data error:nil]) issue = @"pickFailed";
+                else {
+                    if (!handle) [buffer appendData:data];
+                    received += data.length;
                 }
+                if (issue) cancel = request;
             }
             if (cancel) [manager cancelDataRequest:cancel];
         } completionHandler:^(NSError *error) {
             NSDictionary *item = nil;
             @synchronized (buffer) {
-                if (tooLarge) item = @{ @"issue": @"fileTooLarge" };
+                if (handle && ![handle closeAndReturnError:nil] && !issue) issue = @"pickFailed";
+                if (issue) item = @{ @"issue": issue };
             }
             if (!item) {
-                if (error || !accessiblePhoto(identifier) || ![buffer writeToURL:[self outputAt:index] options:0 error:nil]) {
+                NSString *name = resource.originalFilename;
+                UTType *type = [UTType typeWithIdentifier:resource.uniformTypeIdentifier];
+                if (error || !accessiblePhoto(identifier)) item = @{ @"issue": @"pickFailed" };
+                else if (received > maxFileBytes) {
+                    if (fitStillPhoto(source, output, maxFileBytes) && accessiblePhoto(identifier)) {
+                        name = [name.stringByDeletingPathExtension stringByAppendingPathExtension:@"jpg"];
+                        type = UTTypeJPEG;
+                    } else item = @{ @"issue": @"fileTooLarge" };
+                } else if (source ? ![files moveItemAtURL:source toURL:output error:nil] :
+                    ![buffer writeToURL:output options:0 error:nil]) {
                     item = @{ @"issue": @"pickFailed" };
-                } else {
-                    item = [self stagedFile:index name:resource.originalFilename
-                        type:[UTType typeWithIdentifier:resource.uniformTypeIdentifier]];
                 }
+                if (!item) item = [self stagedFile:index name:name type:type];
             }
+            if (source) [files removeItemAtURL:source error:nil];
+            if (item[@"issue"]) [files removeItemAtURL:output error:nil];
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.resourceRequest = PHInvalidAssetResourceDataRequestID;
                 if (self.completion) done(item);
@@ -307,7 +340,7 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
     self.resourceRequest = started;
     @synchronized (buffer) {
         request = started;
-        if (!tooLarge) return;
+        if (!issue) return;
     }
     if (started) [manager cancelDataRequest:started];
 }
@@ -420,7 +453,7 @@ extern "C" void yonder_ios_manage_chat_photo_access(void *webview, void *context
 @end
 
 extern "C" void yonder_ios_pick_chat_attachments(void *webview, const char *session, const char *directory,
-                                                  bool documents, bool camera, const char *photoIdsJSON,
+                                                  bool documents, bool camera, bool allowPhotoFit, const char *photoIdsJSON,
                                                   unsigned int limit, void *context, PickCallback callback) {
     WKWebView *view = (__bridge WKWebView *)webview;
     YonderChatAttachmentPicker *previous = objc_getAssociatedObject(view, &pickerKey);
@@ -437,10 +470,10 @@ extern "C" void yonder_ios_pick_chat_attachments(void *webview, const char *sess
     sessionPicker.session = [NSString stringWithUTF8String:session];
     sessionPicker.directory = [NSString stringWithUTF8String:directory];
     sessionPicker.limit = limit;
+    sessionPicker.allowPhotoFit = allowPhotoFit;
     sessionPicker.files = [NSMutableArray array];
     sessionPicker.completion = ^(NSDictionary *result) { replyPick(context, callback, result); };
     objc_setAssociatedObject(view, &pickerKey, sessionPicker, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-
     if (documents) {
         UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
             initForOpeningContentTypes:@[UTTypeItem] asCopy:NO];

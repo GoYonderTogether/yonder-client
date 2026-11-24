@@ -9,7 +9,13 @@ import {
 	writeChatCache,
 } from "@yonder/ui-data";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { CHAT_ATTACHMENT_LIMIT, CHAT_ATTACHMENT_MAX_BYTES, type DraftFile, draftFile } from "./use-chat-draft.ts";
+import {
+	AttachmentTooLargeError,
+	CHAT_ATTACHMENT_LIMIT,
+	canAttachFile,
+	type DraftFile,
+	draftFile,
+} from "./use-chat-draft.ts";
 
 type Upload = { nonce: string; files: DraftFile[] };
 type Failure = { key: string; upload: Upload };
@@ -116,8 +122,11 @@ export function useDirectAttachmentSend({
 			});
 			if (generation === chatCacheGeneration())
 				for (const { id } of attachments) void removeChatCache(attachmentCacheKey(owner, id)).catch(() => {});
-		} catch {
-			if (!handedOff && !interrupted()) setFailed({ key, upload });
+		} catch (cause) {
+			if (!handedOff && !interrupted()) {
+				if (cause instanceof AttachmentTooLargeError) setError({ key, message: "chat.fileTooLarge" });
+				setFailed({ key, upload });
+			}
 		} finally {
 			if (handedOff) await removeUpload(key, upload.nonce, generation).catch(() => {});
 			if (inFlight.current === active) {
@@ -136,7 +145,7 @@ export function useDirectAttachmentSend({
 		error: error?.key === key ? error.message : "",
 		send: (files: File[], sendOriginal: boolean) => {
 			if (!files.length || uploadToRetry || visibleKey.current !== key) return;
-			if (files.length > CHAT_ATTACHMENT_LIMIT || files.some((file) => file.size > CHAT_ATTACHMENT_MAX_BYTES)) {
+			if (files.length > CHAT_ATTACHMENT_LIMIT || files.some((file) => !canAttachFile(file, sendOriginal))) {
 				setError({ key, message: files.length > CHAT_ATTACHMENT_LIMIT ? "chat.tooManyFiles" : "chat.fileTooLarge" });
 				return;
 			}

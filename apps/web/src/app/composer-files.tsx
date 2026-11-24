@@ -11,7 +11,7 @@ import { useVideoPoster } from "../lib/use-video-poster.ts";
 import { AttachmentPreview } from "../preview/attachment-preview.tsx";
 import { createDocumentThumbnail } from "../preview/document-thumbnail.ts";
 import { previewKind } from "../preview/file-kind.ts";
-import { type DraftFile, selectedDraftFile } from "./use-chat-draft.ts";
+import { CHAT_ATTACHMENT_MAX_BYTES, type DraftFile, selectedDraftFile } from "./use-chat-draft.ts";
 
 function DraftFileTile({
 	file,
@@ -122,7 +122,7 @@ function DraftFileTile({
 					</span>
 				)}
 			</button>
-			{image ? (
+			{image && file.blob.size <= CHAT_ATTACHMENT_MAX_BYTES ? (
 				<label className="composer-file-original" data-iphone-photo={iphonePhoto || undefined}>
 					<input
 						type="checkbox"

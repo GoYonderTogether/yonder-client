@@ -4,7 +4,7 @@ import { type RowAction, RowActionItem } from "./row-action-item.tsx";
 
 /**
  * A row in a chat list, drawn the way Feishu and the WeChat desktop app draw theirs: rows lie flat
- * on the list column with no card or divider, and the open conversation uses the selected surface.
+ * on the list column with no card or divider. Pinned rows are tinted, and selection takes precedence.
  * Settings lists keep the grouped-card look (`ListGroup`); this is for conversations.
  */
 export interface ConversationRowProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "title"> {
@@ -15,8 +15,9 @@ export interface ConversationRowProps extends Omit<ButtonHTMLAttributes<HTMLButt
 	preview?: ReactNode;
 	/** Top right: the time of the last message. */
 	meta?: ReactNode;
-	/** Bottom right: an unread badge, a pin, a mute mark. */
+	/** Bottom right: an unread badge or a mute mark. */
 	badge?: ReactNode;
+	pinned?: boolean;
 	selected?: boolean;
 	actions?: readonly RowAction[] | undefined;
 }
@@ -27,6 +28,7 @@ export function ConversationRow({
 	preview,
 	meta,
 	badge,
+	pinned = false,
 	selected = false,
 	actions,
 	className,
@@ -43,6 +45,7 @@ export function ConversationRow({
 					"h-[var(--conversation-row-height)]",
 					"transition-colors duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
 					"focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
+					!selected && pinned && "bg-[var(--color-bg-subtle)]",
 					selected
 						? "bg-[var(--color-bg-selected)]"
 						: "hover:bg-[var(--color-bg-hover)] active:bg-[var(--color-bg-active)]",

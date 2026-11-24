@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { conversation, isolateChat } from "./chat-fixture.ts";
+import { bot, conversation, isolateChat, person } from "./chat-fixture.ts";
 
 interface Upload {
 	bytes: Buffer;
@@ -193,4 +193,52 @@ test("transparent pixels and EXIF rotation survive browser-native preparation", 
 	);
 	expect(decoded[0]?.alpha).toBe(0);
 	expect(decoded[1]).toMatchObject({ width: 200, height: 400 });
+});
+
+test("oversized still photos are compressed before actual avatar and chat upload requests", async ({
+	page,
+}, testInfo) => {
+	await isolateChat(page);
+	await page.goto("/me/profile");
+	const prepared = Buffer.from(await generatedImage(page, "image/jpeg", 2600, 1600), "base64");
+	const avatar = Buffer.concat([prepared, Buffer.alloc(2 * 1024 * 1024)]);
+	const avatarUploads: number[] = [];
+	await page.route("**/v1/me/avatar", async (route) => {
+		expect(route.request().headers()["content-type"]).toBe("image/jpeg");
+		avatarUploads.push(route.request().postDataBuffer()?.length ?? 0);
+		await route.fulfill({
+			json: {
+				member: { ...person, avatarUrl: "data:image/png;base64,iVBORw0KGgo=", version: 2 },
+				bot,
+				hasPassword: true,
+				signInMethods: [],
+				handleChange: { canChange: true, nextChangeAt: null },
+				settings: { locale: "zh-CN", theme: "light" },
+			},
+		});
+	});
+	await page.locator('input[type="file"][accept*="image/jpeg"]').setInputFiles({
+		name: "avatar.jpg",
+		mimeType: "image/jpeg",
+		buffer: avatar,
+	});
+	await expect.poll(() => avatarUploads.length).toBe(1);
+	expect(avatarUploads[0]).toBeGreaterThan(0);
+	expect(avatarUploads[0]).toBeLessThanOrEqual(2 * 1024 * 1024);
+	await expect(page.getByText("已保存", { exact: true })).toBeVisible();
+
+	await page.goto(`/messages/${conversation.id}`);
+	const uploads = await captureUploads(page);
+	const photo = Buffer.concat([prepared, Buffer.alloc(20 * 1024 * 1024)]);
+	await page
+		.getByLabel("上传文件", { exact: true })
+		.setInputFiles({ name: "large.jpg", mimeType: "image/jpeg", buffer: photo });
+	const tile = page.locator('[data-attachment-name="large.jpg"]');
+	await expect(tile.getByText("已压缩", { exact: true })).toBeVisible();
+	await expect(tile.getByRole("checkbox", { name: /原图/ })).toHaveCount(0);
+	await page.screenshot({ path: testInfo.outputPath("oversized-photo-ready.png"), animations: "disabled" });
+	await page.getByRole("button", { name: "发送", exact: true }).click();
+	await expect.poll(() => uploads.length).toBe(1);
+	expect(uploads[0]?.bytes.length).toBeGreaterThan(0);
+	expect(uploads[0]?.bytes.length).toBeLessThanOrEqual(20 * 1024 * 1024);
 });

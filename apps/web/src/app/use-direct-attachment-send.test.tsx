@@ -139,3 +139,25 @@ test("changing conversations aborts an upload before posting and leaves the retr
 	rerender({ conversation: "one" });
 	await waitFor(() => expect(result.current.direct.failed).toBe(true));
 });
+
+test("oversized images are prepared for upload, but documents and explicit originals are kept off the wire", async () => {
+	const bigBytes = new Uint8Array(20 * 1024 * 1024 + 1);
+	const largeImage = new File([bigBytes], "large.png", { type: "image/png" });
+	const send = vi.fn().mockResolvedValue({});
+	const { result } = chat(send);
+	await waitFor(() => expect(result.current.draft.loaded && result.current.direct.ready).toBe(true));
+	act(() => result.current.direct.send([new File([bigBytes], "notes.txt", { type: "text/plain" })], false));
+	expect(result.current.direct.error).toBe("chat.fileTooLarge");
+	act(() => result.current.direct.send([largeImage], true));
+	expect(result.current.direct.error).toBe("chat.fileTooLarge");
+	expect(local.upload).not.toHaveBeenCalled();
+
+	act(() => result.current.direct.send([largeImage], false));
+	await waitFor(() => expect(send).toHaveBeenCalledOnce());
+	expect(local.upload.mock.calls[0]?.[0]).toMatchObject({ name: "photo.jpg", size: 9 });
+
+	local.prepareImage.mockResolvedValueOnce(undefined);
+	act(() => result.current.direct.send([largeImage], false));
+	await waitFor(() => expect(result.current.direct.error).toBe("chat.fileTooLarge"));
+	expect(local.upload).toHaveBeenCalledOnce();
+});

@@ -116,6 +116,13 @@ export {
 	useSocialPersona,
 } from "./hooks/social.ts";
 export { useOutwardActions, useStartBotChat, useVisitActions } from "./hooks/visits.ts";
+export {
+	AvatarImageTooLargeError,
+	encodeSmallerImage,
+	IMAGE_PREPARE_MAX_BYTES,
+	imageSize,
+	preserveImage,
+} from "./image-encoding.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
 export {
 	readLocale,

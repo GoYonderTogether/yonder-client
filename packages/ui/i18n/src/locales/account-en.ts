@@ -290,7 +290,7 @@ export const accountMessagesEn = {
 		uploadFailed: "Could not upload that image. PNG, JPEG or WebP, up to 2 MB.",
 		nameTooLong: "Keep the name to 40 characters.",
 		nameRequired: "Enter your name.",
-		avatarTooLarge: "That image is larger than 2 MB.",
+		avatarTooLarge: "This image couldn’t be reduced to 2 MiB. Try a smaller still image.",
 		avatarWrongType: "That file is not a PNG, JPEG or WebP.",
 	},
 
@@ -334,7 +334,7 @@ export const accountMessagesEn = {
 		currentPasswordLabel: "Current password",
 		passwordHint: "At least 8 characters.",
 		setupProfileTitle: "What should the Bot call you?",
-		avatarFormats: "PNG · JPEG · WebP · ≤ 2 MB",
+		avatarFormats: "PNG · JPEG · WebP · Large photos are compressed automatically",
 		finish: "Start using Yonder",
 		errors: {
 			invalidPhone: "That does not look like a phone number. Include the country code.",

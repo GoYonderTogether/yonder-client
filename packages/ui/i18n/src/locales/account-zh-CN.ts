@@ -288,7 +288,7 @@ export const accountMessagesZhCN = {
 		uploadFailed: "这张图传不上去。支持 PNG、JPEG、WebP，最大 2 MB。",
 		nameTooLong: "名字最多 40 个字。",
 		nameRequired: "请填写名字。",
-		avatarTooLarge: "这张图超过 2 MB 了。",
+		avatarTooLarge: "这张图无法压缩到 2 MiB 以内，请换一张较小的静态图片。",
 		avatarWrongType: "这个文件不是 PNG、JPEG 或 WebP。",
 	},
 
@@ -332,7 +332,7 @@ export const accountMessagesZhCN = {
 		currentPasswordLabel: "当前密码",
 		passwordHint: "至少 8 位。",
 		setupProfileTitle: "Bot 该怎么称呼你？",
-		avatarFormats: "PNG · JPEG · WebP · ≤ 2 MB",
+		avatarFormats: "PNG · JPEG · WebP · 大图自动压缩",
 		finish: "开始用 Yonder",
 		errors: {
 			invalidPhone: "这不像一个手机号。请带上国家代码。",

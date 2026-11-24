@@ -45,6 +45,7 @@ export async function pickIphoneAttachments({
 	documents,
 	camera,
 	photoIds,
+	allowPhotoFit = false,
 	limit,
 	signal,
 	onImport,
@@ -52,6 +53,7 @@ export async function pickIphoneAttachments({
 	documents: boolean;
 	camera: boolean;
 	photoIds: string[] | undefined;
+	allowPhotoFit?: boolean;
 	limit: number;
 	signal: AbortSignal;
 	onImport: () => void;
@@ -69,7 +71,7 @@ export async function pickIphoneAttachments({
 		if (event && "importing" in event) onImport();
 		else resolveSelection(event);
 	});
-	const started = command<void>("pick", { documents, camera, photoIds, limit, result });
+	const started = command<void>("pick", { documents, camera, photoIds, allowPhotoFit, limit, result });
 	let released = false;
 	const release = () => {
 		if (released) return;

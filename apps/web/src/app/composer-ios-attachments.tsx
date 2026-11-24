@@ -53,6 +53,7 @@ export function useIosComposerAttachments({
 			documents: active.mode === "documents",
 			camera: active.mode === "camera",
 			photoIds: active.photoIds,
+			allowPhotoFit: direct && active.mode === "photos" && !active.sendOriginal,
 			limit: active.limit,
 			signal: controller.signal,
 			onImport: () => setImportedRequest(active),

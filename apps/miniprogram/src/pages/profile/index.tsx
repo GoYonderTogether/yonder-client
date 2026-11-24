@@ -76,7 +76,9 @@ export default function Profile() {
 								mediaType: ["image"],
 								sourceType: ["album", "camera"],
 							});
-							await uploadAvatar(result.tempFiles[0].tempFilePath);
+							const file = result.tempFiles[0];
+							if (!file) return;
+							await uploadAvatar({ path: file.tempFilePath, size: file.size });
 							await refreshMe();
 						})
 					}

@@ -126,6 +126,7 @@ test("iPhone Plus opens an icon grid and Album chooses ordered photos across sou
 			documents: false,
 			camera: false,
 			photoIds: ["recent-photo", "trip-photo"],
+			allowPhotoFit: false,
 			limit: 10,
 			result: expect.anything(),
 		}),
@@ -158,6 +159,7 @@ test("Files opens directly without requesting photo access and discards a stale 
 			documents: true,
 			camera: false,
 			photoIds: undefined,
+			allowPhotoFit: false,
 			limit: 10,
 			result: expect.anything(),
 		}),
@@ -235,6 +237,14 @@ test("confirmed Album selections and Files send independently, while Camera fail
 		expect(directSend).toHaveBeenNthCalledWith(1, [expect.objectContaining({ name: "photo.png" })], true),
 	);
 
+	expect(invoke).toHaveBeenCalledWith(
+		command("pick"),
+		expect.objectContaining({
+			photoIds: ["photo"],
+			allowPhotoFit: false,
+		}),
+	);
+
 	attach();
 	fireEvent.click(await screen.findByRole("button", { name: "Camera" }));
 	expect(await screen.findByText("Camera unavailable on this device.")).toBeVisible();
@@ -244,6 +254,25 @@ test("confirmed Album selections and Files send independently, while Camera fail
 	await waitFor(() =>
 		expect(directSend).toHaveBeenNthCalledWith(2, [expect.objectContaining({ name: "file.png" })], true),
 	);
+	expect(invoke).toHaveBeenCalledWith(command("pick"), expect.objectContaining({ camera: true, allowPhotoFit: false }));
+	expect(invoke).toHaveBeenCalledWith(
+		command("pick"),
+		expect.objectContaining({ documents: true, allowPhotoFit: false }),
+	);
+
+	attach();
+	fireEvent.click(screen.getByRole("button", { name: "Album" }));
+	fireEvent.click(await screen.findByRole("button", { name: "Select photo 1" }));
+	expect(screen.getByRole("checkbox", { name: "Send original" })).not.toBeChecked();
+	fireEvent.click(screen.getByRole("button", { name: "Send (1)" }));
+	await waitFor(() =>
+		expect(directSend).toHaveBeenNthCalledWith(3, [expect.objectContaining({ name: "photo.png" })], false),
+	);
+	expect(invoke).toHaveBeenCalledWith(
+		command("pick"),
+		expect.objectContaining({ photoIds: ["photo"], allowPhotoFit: true }),
+	);
+
 	expect(onFiles).not.toHaveBeenCalled();
 	expect(onSend).not.toHaveBeenCalled();
 	expect(screen.getByRole("textbox")).toHaveValue("Unsent text");

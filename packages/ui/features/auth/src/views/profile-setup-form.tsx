@@ -1,5 +1,5 @@
 import { Avatar, Button, TextField } from "@yonder/ui-components";
-import { useUpdateMe, useUploadAvatar } from "@yonder/ui-data";
+import { AvatarImageTooLargeError, useUpdateMe, useUploadAvatar } from "@yonder/ui-data";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FailureMessage, Translate } from "../hooks/describe-failure.ts";
@@ -17,7 +17,6 @@ export interface ProfileSetupFormProps {
 	submitLabel?: string | undefined;
 }
 
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /**
@@ -52,19 +51,22 @@ export function ProfileSetupForm({
 				setFailure({ text: t("profile.avatarWrongType") });
 				return;
 			}
-			if (file.size > MAX_AVATAR_BYTES) {
-				setFailure({ text: t("profile.avatarTooLarge") });
-				return;
-			}
 			// The local preview is what makes the change feel instant; the server's address replaces
 			// it when it arrives.
-			setPreviewUrl(URL.createObjectURL(file));
+			const address = URL.createObjectURL(file);
+			setPreviewUrl(address);
 			try {
 				const me = await upload.mutateAsync(file);
 				setPreviewUrl(me.member.avatarUrl);
 			} catch (error) {
 				setPreviewUrl(currentAvatarUrl);
-				setFailure(describeFailure(error, t as unknown as Translate));
+				setFailure(
+					error instanceof AvatarImageTooLargeError
+						? { text: t("profile.avatarTooLarge") }
+						: describeFailure(error, t as unknown as Translate),
+				);
+			} finally {
+				URL.revokeObjectURL(address);
 			}
 		},
 		[currentAvatarUrl, t, upload],
@@ -111,6 +113,7 @@ export function ProfileSetupForm({
 				<input
 					ref={fileInput}
 					type="file"
+					disabled={upload.isPending}
 					accept={ACCEPTED_TYPES.join(",")}
 					className="sr-only"
 					aria-label={t("profile.avatar")}

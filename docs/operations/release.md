@@ -1,6 +1,8 @@
 # Releases
 
-Releases are manual. Nothing publishes automatically.
+Releases are manual. Nothing publishes automatically. During the current development phase,
+formal version numbers identify dev-test releases, not production acceptance. See
+[verification and ownership in AGENTS.md](../../AGENTS.md#发版与测试2026-11-24-起).
 
 ## Flow
 

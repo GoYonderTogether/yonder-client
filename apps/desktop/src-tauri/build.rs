@@ -22,9 +22,11 @@ fn main() {
         println!("cargo:rerun-if-changed=../apple/DeviceDownload.mm");
         println!("cargo:rerun-if-changed=../apple/KeyboardFollow.mm");
         println!("cargo:rerun-if-changed=../apple/ChatAttachmentPicker.mm");
+        println!("cargo:rerun-if-changed=../apple/ChatPhotoFit.h");
         println!("cargo:rerun-if-changed=../apple/ChatMicrophone.mm");
         println!("cargo:rustc-link-lib=framework=AVFoundation");
         println!("cargo:rustc-link-lib=framework=PhotosUI");
+        println!("cargo:rustc-link-lib=framework=ImageIO");
         println!("cargo:rustc-link-lib=framework=UniformTypeIdentifiers");
         cc::Build::new()
             .cpp(true)

@@ -76,6 +76,7 @@ vi.mock("../../lib/runtime", () => ({
 	client: { baseUrl: "http://server" },
 	useSession: () => ({ status: "signed-in", me: { member: { id: "mem_1" } }, refreshMe: mock.refreshMe }),
 	subscribeEvents: () => () => {},
+	uploadBotAvatar: async () => bot(),
 	api: {
 		contacts: async () => ({ items: mock.bot ? [mock.bot] : [] }),
 		conversations: mock.conversations,
@@ -84,7 +85,7 @@ vi.mock("../../lib/runtime", () => ({
 		deleteBot: mock.remove,
 	},
 }));
-vi.mock("./image", () => ({ chooseAvatar: async () => undefined, uploadBotAvatar: async () => bot() }));
+vi.mock("./image", () => ({ chooseAvatar: async () => undefined }));
 
 /**
  * `Field` reads a Taro `event.detail.value`; jsdom dispatches a DOM event with no `detail`, so the

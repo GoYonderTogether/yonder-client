@@ -216,7 +216,7 @@ export default function SignIn() {
 		setBusy(true);
 		setError("");
 		try {
-			if (avatar) await uploadAvatar(avatar);
+			if (avatar) await uploadAvatar({ path: avatar });
 			if (nickname.trim()) {
 				await api.updateMe({ displayName: nickname.trim() });
 				await refreshMe();

@@ -2,6 +2,7 @@ import Taro from "@tarojs/taro";
 import type { Attachment } from "@yonder/protocol";
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../lib/i18n";
+import { fitLocalImage } from "../../lib/local-image";
 import { newNonce, uploadAttachment } from "../../lib/runtime";
 import { uploadCancellation } from "./upload-cancel";
 
@@ -104,7 +105,17 @@ export function useChatUploads(ownerId: string | undefined, conversationId: stri
 							name: file.name,
 							size: file.size,
 						}));
-			if (!active.current || expected !== currentScope.current || expected !== renderScope.current) return;
+			const current = () => active.current && expected === currentScope.current && expected === renderScope.current;
+			if (!current()) return;
+			if (kind === "image") {
+				for (const file of files) {
+					if (file.size <= maxBytes) continue;
+					const fitted = await fitLocalImage(file, maxBytes, 2048);
+					if (!current()) return;
+					file.path = fitted.path;
+					file.size = fitted.size ?? file.size;
+				}
+			}
 			const accepted = files.filter((file) => file.size <= maxBytes).slice(0, 10 - values.current.length);
 			if (accepted.length !== files.length)
 				setError(t("最多选择10个文件，每个不超过20 MiB", "Choose up to 10 files, each no larger than 20 MiB"));

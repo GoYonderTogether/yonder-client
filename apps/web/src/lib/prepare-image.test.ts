@@ -63,3 +63,13 @@ test("animated GIF, WebP and APNG plus SVG remain byte-for-byte original", async
 	}
 	expect(bitmap).not.toHaveBeenCalled();
 });
+
+test("over-limit still photo retries at lower resolution without returning over-limit bytes", async () => {
+	const source = new Blob([new Uint8Array(2000)], { type: "image/jpeg" });
+	const { canvas } = encoder(500);
+	canvas.toBlob.mockImplementationOnce((callback: BlobCallback, mime: string) =>
+		callback(new Blob([new Uint8Array(1100)], { type: mime })),
+	);
+	expect(await prepareImage(source, "photo.jpg", 1000)).toMatchObject({ width: 1434, height: 717 });
+	expect(canvas.toBlob).toHaveBeenCalledTimes(2);
+});

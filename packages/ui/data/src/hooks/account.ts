@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@yonder/api-client";
 import type { Member, MeResponse, UpdateMeRequest } from "@yonder/protocol";
 import { useSessionStore } from "../auth/session-store.ts";
+import { prepareAvatarImage } from "../image-encoding.ts";
 import { keys } from "../query/keys.ts";
 import { useApi, useData, useDataQueryClient } from "../query/provider.tsx";
 
@@ -55,7 +56,7 @@ export function useUploadAvatar() {
 	const api = useApi();
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: (file: Blob) => api.uploadAvatar(file),
+		mutationFn: async (file: Blob) => api.uploadAvatar(await prepareAvatarImage(file)),
 		onSuccess: (me) => queryClient.setQueryData(keys.me(), me),
 	});
 }

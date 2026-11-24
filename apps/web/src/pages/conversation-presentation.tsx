@@ -44,17 +44,28 @@ export function ConversationAvatar({
 	conversation: Conversation;
 	personId: string | undefined;
 }) {
-	if (conversation.kind === "system") return <Bell size={24} aria-hidden="true" />;
 	const peer = conversationPeer(conversation, personId);
-	if (conversation.kind !== "group")
-		return (
-			<Avatar
-				name={peer?.displayName ?? ""}
-				src={peer?.avatarUrl}
-				color={peer?.avatarColor}
-				kind={peer?.kind}
-				size={40}
-			/>
-		);
-	return <GroupAvatar members={conversation.members} />;
+	return (
+		<span
+			data-conversation-avatar-slot
+			aria-hidden="true"
+			className="grid size-[var(--spacing-10)] shrink-0 place-items-center"
+		>
+			{conversation.kind === "system" ? (
+				<span className="grid size-full place-items-center rounded-[var(--radius-control)] bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)]">
+					<Bell size={24} />
+				</span>
+			) : conversation.kind === "group" ? (
+				<GroupAvatar members={conversation.members} />
+			) : (
+				<Avatar
+					name={peer?.displayName ?? ""}
+					src={peer?.avatarUrl}
+					color={peer?.avatarColor}
+					kind={peer?.kind}
+					size={40}
+				/>
+			)}
+		</span>
+	);
 }

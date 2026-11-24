@@ -3,6 +3,7 @@ import { ApiClient, createEndpoints } from "@yonder/api-client";
 import type { Attachment, DeviceInfo, Member, MeResponse } from "@yonder/protocol";
 import { useSyncExternalStore } from "react";
 import { setLocale } from "./i18n";
+import { type ChosenImage, readAvatar } from "./local-image";
 import { upsertOwnedBot } from "./member-cache";
 import {
 	configureRealtime,
@@ -273,24 +274,25 @@ export function transcribeAudio(filePath: string): Promise<{ text: string }> {
 	return client.request("/v1/audio/transcriptions", { raw: { bytes: localFile(filePath) } });
 }
 
-export async function uploadAvatar(filePath: string): Promise<MeResponse> {
+export async function uploadAvatar(file: ChosenImage): Promise<MeResponse> {
 	const expected = generation;
-	let bytes: ArrayBuffer;
-	let contentType: string;
-	if (process.env.TARO_ENV === "h5") {
-		const file = await (await fetch(filePath)).blob();
-		bytes = await file.arrayBuffer();
-		contentType = file.type || "application/octet-stream";
-	} else {
-		bytes = Taro.getFileSystemManager().readFileSync(filePath) as ArrayBuffer;
-		const image = await Taro.getImageInfo({ src: filePath });
-		contentType = `image/${image.type === "jpg" ? "jpeg" : image.type}`;
-	}
+	const { bytes, contentType } = await readAvatar(file);
 	assertCurrent(expected);
 	const me = await client.request<MeResponse>("/v1/me/avatar", { raw: { bytes, contentType } });
 	assertCurrent(expected);
 	publish({ status: "signed-in", me });
 	return me;
+}
+
+export async function uploadBotAvatar(id: string, file: ChosenImage): Promise<Member> {
+	const expected = generation;
+	const { bytes, contentType } = await readAvatar(file);
+	assertCurrent(expected);
+	const bot = await client.request<Member>(`/v1/bots/${encodeURIComponent(id)}/avatar`, {
+		raw: { bytes, contentType },
+	});
+	assertCurrent(expected);
+	return bot;
 }
 
 export async function downloadAttachment(id: string): Promise<string> {
