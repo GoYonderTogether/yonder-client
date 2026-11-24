@@ -9,10 +9,12 @@ type Zoom = { min: number; max: number; step?: number };
 
 export function MeetingCamera({
 	elapsedMs,
+	photoLimitReached,
 	onClose,
 	onPhoto,
 }: {
 	elapsedMs: number;
+	photoLimitReached: boolean;
 	onClose: () => void;
 	onPhoto: (image: Promise<Blob>, elapsedMs: number) => Promise<void>;
 }) {
@@ -115,7 +117,7 @@ export function MeetingCamera({
 
 	async function capture() {
 		const element = video.current;
-		if (saving || !element || !element.videoWidth || !element.videoHeight) return;
+		if (saving || photoLimitReached || !element || !element.videoWidth || !element.videoHeight) return;
 		const time = elapsedMs;
 		setSaving(true);
 		setError(undefined);
@@ -138,7 +140,6 @@ export function MeetingCamera({
 				),
 			);
 			await onPhoto(image, time);
-			if (active.current) onClose();
 		} catch {
 			if (active.current) setError("photoFailed");
 		} finally {
@@ -182,7 +183,7 @@ export function MeetingCamera({
 					<button
 						type="button"
 						className="meeting-camera-shutter"
-						disabled={!ready || saving}
+						disabled={!ready || saving || photoLimitReached}
 						aria-label={t("meetingRecorder.cameraCapture")}
 						onClick={() => void capture()}
 					>

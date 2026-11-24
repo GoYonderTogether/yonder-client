@@ -10,6 +10,7 @@ final class LifecycleQA: UIResponder, UIApplicationDelegate {
   private let owner = "m1-isolated-qa"
   private var activeId: String?
   private var enteredBackground = false
+  private var backgroundSavedDurationMs: Int?
   private var lastState: [String: Any] = [:]
   private var backgroundObserver: NSObjectProtocol?
 
@@ -34,6 +35,11 @@ final class LifecycleQA: UIResponder, UIApplicationDelegate {
         // Persist while audio is still active; do not wait for stop() to release its background execution time.
         guard result == 1, let payload = payload?.data(using: .utf8),
           let state = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any] else { return }
+        let records = state["recordings"] as? [[String: Any]] ?? []
+        let saved = records.first { ($0["id"] as? String) == (state["activeId"] as? String) }?["savedDurationMs"] as? Int
+        DispatchQueue.main.async {
+          if self.backgroundSavedDurationMs == nil { self.backgroundSavedDurationMs = saved }
+        }
         let checkpoint: [String: Any] = ["event": event, "at": eventAt, "applicationState": stateAtEvent,
           "nativeState": state, "pid": ProcessInfo.processInfo.processIdentifier]
         let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -99,11 +105,20 @@ final class LifecycleQA: UIResponder, UIApplicationDelegate {
             self.call("getState", args: ["ownerId": self.owner]) { beforeStop in
               let records = beforeStop["recordings"] as? [[String: Any]] ?? []
               let active = records.first { ($0["id"] as? String) == id }
-              let sampled = (active?["savedDurationMs"] as? Int ?? 0) >= 4000
-              let appState = UIApplication.shared.applicationState.rawValue
-              self.call("stop", args: ["ownerId": self.owner, "recordingId": id]) { _ in
-                self.write(phase: sampled ? "stopped" : "failed", extra: ["sampledBeforeStop": sampled,
-                  "backgroundObserved": self.enteredBackground, "applicationStateBeforeStop": appState])
+              let saved = active?["savedDurationMs"] as? Int ?? 0
+              let appState = UIApplication.shared.applicationState
+              let backgroundGrowth = self.backgroundSavedDurationMs.map { saved - $0 } ?? 0
+              let sampled = (beforeStop["activeId"] as? String) == id && saved >= 4000
+                && (!CommandLine.arguments.contains("--background")
+                  || (self.enteredBackground && appState == .background && backgroundGrowth >= 8000))
+              self.call("stop", args: ["ownerId": self.owner, "recordingId": id]) { stopped in
+                let finalRecords = stopped["recordings"] as? [[String: Any]] ?? []
+                let final = finalRecords.first { ($0["id"] as? String) == id }
+                let finished = stopped["activeId"] is NSNull && (final?["state"] as? String) == "ended"
+                  && (final?["savedDurationMs"] as? Int ?? 0) >= saved
+                self.write(phase: sampled && finished ? "stopped" : "failed", extra: ["sampledBeforeStop": sampled,
+                  "backgroundObserved": self.enteredBackground, "applicationStateBeforeStop": appState.rawValue,
+                  "backgroundSavedGrowthMs": backgroundGrowth, "finishedSameRecording": finished])
               }
             }
           }

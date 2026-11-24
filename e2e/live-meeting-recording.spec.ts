@@ -17,7 +17,9 @@ test.use({
 	},
 });
 
-test("live recording keeps audio and a photo through reconnect and ends with one task", async ({ page }, info) => {
+test("live recording keeps audio and consecutive photos through reconnect and ends with one task", async ({
+	page,
+}, info) => {
 	await page.addInitScript(() => {
 		let locationRequests = 0;
 		const blocked = () => {
@@ -35,6 +37,7 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 	const id = "mtg-live-check";
 	const recorded = new Set<number>();
 	const acceptedPhotoIds = new Set<string>();
+	const photoTimes = new Map<string, number>();
 	let clientId = "";
 	let startedAt = 0;
 	let offline = false;
@@ -92,8 +95,10 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 		const photo = /\/photos\/([^/]+)$/.exec(url.pathname);
 		if (photo) {
 			expect(request.headers()["content-type"]).toContain("image/jpeg");
-			expect(Number(url.searchParams.get("elapsedMs"))).toBeGreaterThan(0);
+			const elapsedMs = Number(url.searchParams.get("elapsedMs"));
+			expect(elapsedMs).toBeGreaterThan(0);
 			const clientPhotoId = photo[1] ?? "";
+			photoTimes.set(clientPhotoId, elapsedMs);
 			acceptedPhotoIds.add(clientPhotoId);
 			return route.fulfill({
 				json: {
@@ -167,8 +172,24 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 	const shutter = recorder.getByRole("button", { name: "拍摄照片" });
 	await expect(shutter).toBeEnabled();
 	await page.screenshot({ path: info.outputPath("03-camera.png"), animations: "disabled", scale: "css" });
+	const track = await recorder.locator("video").evaluateHandle((video: HTMLVideoElement) => {
+		const stream = video.srcObject as MediaStream;
+		if (stream.getAudioTracks().length) throw new Error("The camera must not capture audio");
+		return stream.getVideoTracks()[0];
+	});
 	await shutter.click();
-	await expect(recorder.getByRole("img", { name: /录音照片/ })).toBeVisible();
+	await expect(shutter).toBeEnabled();
+	await expect(shutter).toBeVisible();
+	expect(
+		await recorder.locator("video").evaluate((video: HTMLVideoElement, expected) => {
+			return (video.srcObject as MediaStream).getVideoTracks()[0] === expected && expected.readyState === "live";
+		}, track),
+	).toBe(true);
+	await shutter.click();
+	await expect(shutter).toBeEnabled();
+	await recorder.getByRole("button", { name: "关闭", exact: true }).click();
+	await expect(recorder.getByRole("img", { name: /录音照片/ })).toHaveCount(2);
+	await expect.poll(() => track.evaluate((part) => part.readyState)).toBe("ended");
 	await page.screenshot({ path: info.outputPath("04-photo.png"), animations: "disabled", scale: "css" });
 
 	await page.evaluate(() => {
@@ -208,6 +229,9 @@ test("live recording keeps audio and a photo through reconnect and ends with one
 	await expect(page.getByRole("button", { name: "查看录音笔记 · 录音笔记" })).toHaveCount(1, { timeout: 20_000 });
 	expect(finalizations).toBe(1);
 	expect(await page.evaluate(() => (window as unknown as { locationRequests: number }).locationRequests)).toBe(0);
-	expect(acceptedPhotoIds.size).toBe(1);
+	expect(acceptedPhotoIds.size).toBe(2);
+	const offsets = [...photoTimes.values()];
+	expect(offsets).toHaveLength(2);
+	expect(offsets[1]).toBeGreaterThanOrEqual(offsets[0]);
 	expect(api.sent).toEqual([]);
 });

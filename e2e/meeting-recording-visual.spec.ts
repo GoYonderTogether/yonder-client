@@ -34,6 +34,17 @@ for (const mobile of [false, true]) {
 				};
 			});
 			let audioCount = 0;
+			const speech = [
+				"这周先把手机端的录音流程走一遍。",
+				"拍一张照片，留在这段录音里。",
+				"我说的「归属待确认」是另一个议题。",
+			];
+			const transcript = [
+				`00:00:00.500–00:00:03.500 第1段说话人1：${speech[0]}`,
+				`00:00:03.900–00:00:05.100 归属待确认：${speech[1]}`,
+				"第2段 · 说话人归属待确认",
+				speech[2],
+			].join("\n");
 			await page.route("**/v1/meetings/**", (route) => {
 				const path = new URL(route.request().url()).pathname;
 				const segment = /\/segments\/(\d+)$/.exec(path);
@@ -45,7 +56,7 @@ for (const mobile of [false, true]) {
 								meetingId: "visual-recording",
 								nextSegmentIndex: audioCount,
 								committedThroughSegmentIndex: audioCount - 1,
-								transcript: audioCount ? "拍一张照片，留在这段录音里。" : "",
+								transcript: audioCount ? transcript : "",
 								captureState: "recording",
 								lastClientSeenAt: Date.now(),
 								errorCode: null,
@@ -72,7 +83,10 @@ for (const mobile of [false, true]) {
 			await expect(camera).toHaveText("");
 			await expect(stop).toHaveText("");
 			await expect(stop).toHaveCSS("border-radius", "9999px");
-			await expect(dialog.getByText("拍一张照片，留在这段录音里。")).toBeVisible();
+			const log = dialog.getByRole("log");
+			await expect(log.locator("p")).toHaveText(speech);
+			await expect(log.locator("time")).toHaveText(["00:00:00.500–00:00:03.500", "00:00:03.900–00:00:05.100"]);
+			await expect(log).not.toContainText(/说话人|归属待确认：/);
 			await page.screenshot({ path: info.outputPath("before-photo.png"), animations: "disabled", scale: "css" });
 
 			await camera.click();

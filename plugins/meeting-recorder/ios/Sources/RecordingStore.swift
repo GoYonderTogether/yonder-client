@@ -69,7 +69,12 @@ final class RecordingStore {
       title: String(title.prefix(200)), conversationId: conversationId, separateSpeakers: separateSpeakers ? true : nil, transportMode: transportMode,
       state: "recording", startedAt: Self.now, endedAt: nil,
       durationMs: 0, savedDurationMs: 0, sampleRate: rate, channels: 1, segments: [], error: nil)
-    try FileManager.default.createDirectory(at: directory(owner, record.id), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+    var privateAttributes: [FileAttributeKey: Any] = [.posixPermissions: 0o700]
+    #if os(iOS)
+    privateAttributes[.protectionKey] = FileProtectionType.completeUntilFirstUserAuthentication
+    #endif
+    try FileManager.default.createDirectory(at: directory(owner), withIntermediateDirectories: true, attributes: privateAttributes)
+    try FileManager.default.createDirectory(at: directory(owner, record.id), withIntermediateDirectories: false, attributes: privateAttributes)
     try Self.syncDirectory(root)
     try Self.syncDirectory(directory(owner))
     try save(record)
@@ -176,11 +181,13 @@ final class RecordingStore {
 
   private func durableWrite(_ bytes: Data, to url: URL) throws {
     let temporary = url.appendingPathExtension("pending")
-    try bytes.write(to: temporary)
-    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temporary.path)
     #if os(iOS)
-    try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: temporary.path)
+    // Apply protection when creating the file so the first write also works while locked.
+    try bytes.write(to: temporary, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    #else
+    try bytes.write(to: temporary)
     #endif
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temporary.path)
     let handle = try FileHandle(forWritingTo: temporary)
     try handle.synchronize()
     try handle.close()

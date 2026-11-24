@@ -58,11 +58,17 @@ function Harness({
 			interrupted: recovery ? { ...active, state: "interrupted" } : undefined,
 			start: vi.fn(),
 			live: {
-				transcript: "First line.\nLast line.",
+				transcript: [
+					"00:00:00.000–00:00:01.500 第1段说话人1：First line.",
+					"00:00:01.600–00:00:02.900 归属待确认：我说了归属待确认。",
+					"第2段 · 说话人归属待确认",
+					"12:30 is the next checkpoint.",
+					"00:00:12.000–00:00:13.000 归属待确认：Last line.",
+				].join("\n"),
 				caption: {
 					recordingId: active.id,
 					conversationId: "source",
-					text: "Last line.",
+					text: "00:00:12.000–00:00:13.000 归属待确认：Last line.",
 					segmentIndex: 1,
 					isFinal: true,
 				},
@@ -90,11 +96,26 @@ test("transcript expands from its source only; elsewhere the live timer and end 
 	);
 	const screenView = render(view("source"));
 	const reading = await screen.findByRole("dialog", { name: "Live transcript" });
-	expect(within(reading).getByRole("log")).toHaveTextContent("First line. Last line.");
+	const log = within(reading).getByRole("log");
+	expect([...log.querySelectorAll("p")].map((entry) => entry.textContent)).toEqual([
+		"First line.",
+		"我说了归属待确认。",
+		"12:30 is the next checkpoint.",
+		"Last line.",
+	]);
+	expect([...log.querySelectorAll("time")].map((entry) => entry.textContent)).toEqual([
+		"00:00:00.000–00:00:01.500",
+		"00:00:01.600–00:00:02.900",
+		"00:00:12.000–00:00:13.000",
+	]);
+	expect(log).not.toHaveTextContent("第1段说话人1");
+	expect(log).not.toHaveTextContent("说话人归属待确认");
 	expect(within(reading).queryByRole("button", { name: "Pause recording" })).not.toBeInTheDocument();
 	fireEvent.click(within(reading).getByRole("button", { name: "Collapse recording" }));
 	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-	expect(screen.getByRole("region", { name: "Recording" })).toHaveTextContent("Last line.");
+	const compact = screen.getByRole("region", { name: "Recording" });
+	expect(compact).toHaveTextContent("Last line.");
+	expect(compact).not.toHaveTextContent("归属待确认");
 	screenView.rerender(view("another-bot"));
 	expect(screen.queryByText("Last line.")).not.toBeInTheDocument();
 	expect(screen.queryByRole("button", { name: "Expand recording" })).not.toBeInTheDocument();

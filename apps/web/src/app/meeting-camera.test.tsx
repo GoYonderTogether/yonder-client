@@ -16,7 +16,7 @@ afterEach(() => {
 
 const i18n = createI18n("en");
 
-test("the camera requests only video, timestamps a single JPEG at shutter time, and stops only its stream", async () => {
+test("the camera requests only video, timestamps consecutive JPEGs, enforces the cap, and stops only its stream", async () => {
 	const stop = vi.fn();
 	const camera = {
 		stop,
@@ -43,19 +43,33 @@ test("the camera requests only video, timestamps a single JPEG at shutter time, 
 	vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback) => callback(jpeg));
 	const onPhoto = vi.fn(async (image: Promise<Blob>) => expect(await image).toBe(jpeg));
 	const onClose = vi.fn();
-	const view = render(
+	const panel = (elapsedMs: number, photoLimitReached = false) => (
 		<I18nextProvider i18n={i18n}>
-			<MeetingCamera elapsedMs={1234} onClose={onClose} onPhoto={onPhoto} />
-		</I18nextProvider>,
+			<MeetingCamera elapsedMs={elapsedMs} photoLimitReached={photoLimitReached} onClose={onClose} onPhoto={onPhoto} />
+		</I18nextProvider>
 	);
+	const view = render(panel(1234));
 	const shutter = screen.getByRole("button", { name: "Take photo" });
 	await waitFor(() => expect(shutter).toBeEnabled());
 	expect(getUserMedia).toHaveBeenCalledWith({ audio: false, video: { facingMode: { ideal: "environment" } } });
 	expect(screen.queryByRole("button", { name: "Switch camera" })).not.toBeInTheDocument();
 	expect(screen.queryByRole("slider", { name: "Camera zoom" })).not.toBeInTheDocument();
 	fireEvent.click(shutter);
-	await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
-	expect(onPhoto).toHaveBeenCalledWith(expect.any(Promise), 1234);
+	await waitFor(() => expect(shutter).toBeEnabled());
+	expect(onPhoto).toHaveBeenNthCalledWith(1, expect.any(Promise), 1234);
+	view.rerender(panel(2456));
+	fireEvent.click(shutter);
+	await waitFor(() => expect(shutter).toBeEnabled());
+	expect(onPhoto).toHaveBeenNthCalledWith(2, expect.any(Promise), 2456);
+	expect(getUserMedia).toHaveBeenCalledOnce();
+	expect(onClose).not.toHaveBeenCalled();
+	expect(stop).not.toHaveBeenCalled();
+	view.rerender(panel(3000, true));
+	expect(shutter).toBeDisabled();
+	fireEvent.click(shutter);
+	expect(onPhoto).toHaveBeenCalledTimes(2);
+	fireEvent.click(screen.getByRole("button", { name: "Close" }));
+	expect(onClose).toHaveBeenCalledOnce();
 	view.unmount();
 	expect(stop).toHaveBeenCalledOnce();
 });
@@ -67,7 +81,7 @@ test("denied camera access leaves an honest closeable fallback without taking ph
 	const onClose = vi.fn();
 	render(
 		<I18nextProvider i18n={i18n}>
-			<MeetingCamera elapsedMs={0} onClose={onClose} onPhoto={onPhoto} />
+			<MeetingCamera elapsedMs={0} photoLimitReached={false} onClose={onClose} onPhoto={onPhoto} />
 		</I18nextProvider>,
 	);
 	expect(await screen.findByText("Camera access is off. Your audio recording is still running.")).toBeVisible();

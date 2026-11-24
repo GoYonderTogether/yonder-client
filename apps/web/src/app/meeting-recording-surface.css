@@ -121,7 +121,7 @@
 }
 .meeting-transcript-log {
 	display: grid;
-	gap: var(--spacing-5);
+	gap: var(--spacing-4);
 }
 .meeting-transcript-entry {
 	margin: 0;
@@ -134,8 +134,8 @@
 }
 .meeting-transcript-entry p {
 	margin: var(--spacing-1) 0 0;
-	font-size: var(--text-h2);
-	line-height: var(--text-h2--line-height);
+	font-size: var(--text-body);
+	line-height: var(--text-body--line-height);
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }

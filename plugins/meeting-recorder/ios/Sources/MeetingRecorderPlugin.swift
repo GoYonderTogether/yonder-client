@@ -61,6 +61,9 @@ final class MeetingRecorderPlugin: Plugin {
   private func state(_ requested: String?) throws -> JsonObject {
     guard let requested = requested else { return ["supported": true, "activeId": NSNull(), "audioLevel": 0, "recordings": []] }
     _ = try requireOwner(requested)
+    if active != nil && !paused && engine?.isRunning != true {
+      try finish(state: "interrupted", reason: "audio_configuration_changed")
+    }
     var records = try storage().list(owner: requested, recover: true, activeId: active?.id)
     if var current = active {
       current.durationMs = current.savedDurationMs + pending.count * 1000 / (current.sampleRate * 2)

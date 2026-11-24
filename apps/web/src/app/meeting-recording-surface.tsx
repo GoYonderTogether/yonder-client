@@ -6,7 +6,7 @@ import {
 } from "@yonder/feature-meetings";
 import type { Conversation } from "@yonder/protocol";
 import { Camera, ChevronDown, Square } from "lucide-react";
-import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	archiveMeetingPhoto,
@@ -15,6 +15,7 @@ import {
 	type MeetingPhoto,
 } from "../lib/meeting-photos.ts";
 import { useObjectUrl } from "../lib/use-object-url.ts";
+import { liveTranscriptEntries } from "./live-transcript.ts";
 import { MeetingCamera } from "./meeting-camera.tsx";
 import { MeetingWaveform } from "./meeting-waveform.tsx";
 import { MAIN_BOT_PATH } from "./use-phone-tabs.ts";
@@ -94,7 +95,8 @@ export function useMeetingRecordingSurface(
 	const [photoArchive, setPhotoArchive] = useState<{ id: string; photos: MeetingPhoto[]; error?: boolean }>();
 	const caption = live?.caption;
 	const latest = isLive && caption && caption.recordingId === id && caption.conversationId === source ? caption : null;
-	const transcript = latest ? (live?.transcript ?? "") : "";
+	const original = latest ? (live?.transcript ?? "") : "";
+	const transcript = useMemo(() => liveTranscriptEntries(original), [original]);
 	const asrUnavailable = isLive && Boolean(live?.asrErrorCode || live?.syncFailed);
 	function startNew(target: Conversation | undefined) {
 		if (!ownerId || !target || active || interrupted || recorder.busy) return;
@@ -151,7 +153,7 @@ export function useMeetingRecordingSurface(
 	const status = (
 		<MeetingRecorderCapsule
 			recorder={recorder}
-			caption={foreground ? latest?.text : undefined}
+			caption={foreground ? transcript.at(-1)?.text : undefined}
 			offline={foreground && offline}
 			live={foreground && isLive}
 			hiddenWhileExpanded={foreground && expanded === scope}
@@ -274,7 +276,7 @@ function MeetingRecordingDialog({
 	audioLevel?: number | undefined;
 	isLive: boolean;
 	capsule: RefObject<HTMLElement | null>;
-	transcript: string;
+	transcript: ReturnType<typeof liveTranscriptEntries>;
 	photos: MeetingPhoto[];
 	photoArchiveError?: boolean | undefined;
 	asrUnavailable: boolean;
@@ -383,7 +385,7 @@ function MeetingRecordingDialog({
 								{t("meetingRecorder.photoSaved")}
 							</span>
 						) : null}
-						{isLive && !transcript && !offline && !asrUnavailable ? (
+						{isLive && !transcript.length && !offline && !asrUnavailable ? (
 							<p className="meeting-transcript-empty" role="status">
 								{t(audioAccepted ? "meetingRecorder.waitingLive" : "meetingRecorder.waitingAudio")}
 							</p>
@@ -429,6 +431,7 @@ function MeetingRecordingDialog({
 			{camera ? (
 				<MeetingCamera
 					elapsedMs={active.durationMs}
+					photoLimitReached={photos.length >= MEETING_PHOTO_LIMIT}
 					onClose={closeCamera}
 					onPhoto={async (image, elapsedMs) => {
 						await onPhoto(image, elapsedMs);
@@ -440,15 +443,22 @@ function MeetingRecordingDialog({
 	);
 }
 
-function MeetingTimeline({ transcript, photos }: { transcript: string; photos: MeetingPhoto[] }) {
+function MeetingTimeline({
+	transcript,
+	photos,
+}: {
+	transcript: ReturnType<typeof liveTranscriptEntries>;
+	photos: MeetingPhoto[];
+}) {
 	const { t } = useTranslation();
 	return (
 		<>
-			{transcript ? (
-				<div className="meeting-transcript-entry">
-					<p>{transcript}</p>
+			{transcript.map(({ index, time, text }) => (
+				<div className="meeting-transcript-entry" key={index}>
+					{time ? <time>{time}</time> : null}
+					<p>{text}</p>
 				</div>
-			) : null}
+			))}
 			{photos.length ? (
 				<section className="meeting-timeline-photos" aria-label={t("meetingRecorder.photosOnDevice")}>
 					{photos.map((photo) => (
