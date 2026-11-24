@@ -8,6 +8,7 @@ import { faviconSVG, markSVG } from "../src/yonder-mark.js";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const out = join(root, "brand/assets");
 const web = join(root, "apps/web/public");
+const android = join(root, "apps/desktop/src-tauri/icons/android");
 for (const dir of ["svg", "png", "macos"]) mkdirSync(join(out, dir), { recursive: true });
 
 const svgs = {
@@ -51,8 +52,26 @@ try {
 		// App icons. The mark's 512 canvas is drawn at 85% of the tile, so the mark itself covers
 		// about 62% of the tile's width on every platform.
 		//
-		// iOS and Android mask the icon themselves: their source is a full-bleed opaque square.
+		// iOS masks its own full-bleed opaque square.
 		await renderHTML(join(out, "png/yonder-tile-ink-1024.png"), appIconHTML({ size: 1024, tile: 1024 }), 1024, true);
+		// Android crops the 108dp adaptive layer to a 72dp viewport before masking it.
+		// Set the mark against that visible viewport, not against the full layer.
+		for (const [density, size] of [
+			["mdpi", 108],
+			["hdpi", 162],
+			["xhdpi", 216],
+			["xxhdpi", 324],
+			["xxxhdpi", 432],
+		]) {
+			const dir = join(android, `mipmap-${density}`);
+			mkdirSync(dir, { recursive: true });
+			await renderHTML(
+				join(dir, "ic_launcher_foreground.png"),
+				appIconHTML({ size, tile: size, markScale: 0.58 }),
+				size,
+				true,
+			);
+		}
 		// Desktop and web app icons use the rounded tile on a transparent canvas.
 		const appIcon = await renderHTML(
 			join(out, "png/yonder-app-icon-1024.png"),
@@ -80,11 +99,11 @@ try {
  * An app icon page: a white tile of `tile` px centred on a `size` px canvas, holding the black mark.
  * A full-bleed tile (`tile === size`) has square corners for system masking.
  */
-function appIconHTML({ size, tile }) {
+function appIconHTML({ size, tile, markScale = 0.85 }) {
 	const inset = (size - tile) / 2;
 	const rounded = tile < size;
 	const radius = rounded ? Math.round(tile * 0.2245) : 0;
-	const mark = Math.round(tile * 0.85);
+	const mark = Math.round(tile * markScale);
 	return `<style>html,body{margin:0;background:transparent}
 .t{position:absolute;left:${inset}px;top:${inset}px;width:${tile}px;height:${tile}px;border-radius:${radius}px;background:#fff;display:grid;place-items:center}
 svg{width:${mark}px;height:${mark}px;display:block}</style><div class="t">${markSVG({ color: "#111315" })}</div>`;

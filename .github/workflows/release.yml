@@ -27,6 +27,11 @@ on:
         required: false
         default: ""
         type: string
+      android_only:
+        description: 只发布 Android；不发布 iOS、桌面或 Web，也不替换 GitHub 的全平台 Latest
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -156,9 +161,15 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: 公开 Release
-        run: gh release edit "v$VERSION" --draft=false --latest
+        run: |
+          if [ "$ANDROID_ONLY" = "true" ]; then
+            gh release edit "v$VERSION" --draft=false --latest=false
+          else
+            gh release edit "v$VERSION" --draft=false --latest
+          fi
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          ANDROID_ONLY: ${{ inputs.android_only }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # GITHUB_TOKEN 推送的提交不会再触发 push 事件，发版提交与 tag 因此从来没有跑过 CI。
       # 这里以 tag 为 ref 显式派发一次，让 CI 跑在发布出来的那个提交上；结论在 Actions 里看，
@@ -176,7 +187,11 @@ jobs:
         run: |
           sha="$(git rev-parse HEAD)"
           failed=""
-          for workflow in android-release.yml desktop-release.yml ios-release.yml; do
+          set -- android-release.yml
+          if [ "$ANDROID_ONLY" != "true" ]; then
+            set -- "$@" desktop-release.yml ios-release.yml
+          fi
+          for workflow in "$@"; do
             if ! gh workflow run "$workflow" --ref "v$VERSION" \
               -f "version=$VERSION" -f "expected_commit=$sha"; then
               failed="$failed $workflow"
@@ -194,7 +209,9 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANDROID_ONLY: ${{ inputs.android_only }}
       - name: Dispatch official web deployment
+        if: ${{ !inputs.android_only }}
         continue-on-error: true
         run: gh workflow run web-deploy.yml --ref "v$VERSION" -f "tag=v$VERSION"
         env:
