@@ -593,7 +593,8 @@ test("a tap still focuses the empty editor, while a hold dictates without sendin
 	await page.goto("/messages/main");
 	const composer = page.locator(".composer-box");
 	const input = composer.getByRole("textbox");
-	await expect(composer.getByText("可按住转文字")).toBeVisible();
+	// The hint reads 「可按住 转文字」; match it without pinning the space between the two parts.
+	await expect(composer.getByText(/可按住\s*转文字/)).toBeVisible();
 	await input.tap();
 	await expect(input).toBeFocused();
 	await page.screenshot({ path: info.outputPath("02-text-focus.png"), caret: "initial", scale: "css" });
@@ -623,7 +624,7 @@ test("the phone draft sits directly on the single composer card and the voice ac
 	const composer = page.locator(".composer-box");
 	const input = composer.getByRole("textbox");
 	const surface = composer.locator(".composer-input-surface");
-	const hint = composer.getByText("可按住转文字", { exact: true });
+	const hint = composer.getByText(/可按住\s*转文字/);
 	await expect(hint).toBeVisible();
 	await expect(hint).toHaveCSS("pointer-events", "none");
 	// One card: the draft paints nothing of its own, so the text sits inside the box's own radius
