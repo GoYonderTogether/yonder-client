@@ -32,10 +32,11 @@ export function BotPresetOverlay({
 			expandLabel={t("tasks.expandBotConversation")}
 		>
 			<ShellProvider value={{ mode: "mobile", left: null, meOpen: false }}>
+				{/* The sheet has no title bar of its own: the chat's floating header is its Bot identity,
+				    which the preview carries into the full conversation when the sheet expands. */}
 				<ConversationPage
 					conversationId={conversationId}
 					disconnected={disconnected}
-					embedded
 					mainBotHome
 					readActive={preset.drawerOpen}
 				/>

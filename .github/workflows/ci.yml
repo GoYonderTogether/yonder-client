@@ -54,7 +54,9 @@ jobs:
   public-pages:
     name: Public browser flows
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # `playwright install --with-deps chromium` alone takes ~10 minutes on the runner, and the
+    # one-worker suite takes ~14; the job needs both plus the build.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

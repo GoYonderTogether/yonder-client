@@ -27,6 +27,31 @@ export interface GesturePanelProps {
 const FLING_SPEED = 300;
 const closeDistance = (size: number) => Math.max(64, size / 4);
 
+/**
+ * Whether a released panel has gone far enough to close. `direction` is the way the panel leaves
+ * the screen, so a left panel's live offset is negative: every distance here is signed toward
+ * closing first, or a left panel could never satisfy the flick rule.
+ */
+export function releasedToClose({
+	direction,
+	position,
+	velocity,
+	projected,
+	closeThreshold,
+	expandable,
+}: {
+	direction: 1 | -1;
+	position: number;
+	velocity: number;
+	projected: number;
+	closeThreshold: number;
+	expandable: boolean;
+}): boolean {
+	if (expandable) return projected > closeThreshold;
+	const flick = direction * velocity >= FLING_SPEED;
+	return flick ? direction * position > 16 : projected > closeThreshold;
+}
+
 /** Shared navigation surface: direct pointer tracking, interruptible spring settling, one exit. */
 export function GesturePanel({
 	open,
@@ -168,9 +193,14 @@ export function GesturePanel({
 		}
 		// A tall sheet closes on a short downward pull so the upward pull can expand it first.
 		const closeThreshold = onExpand ? Math.min(52, width * 0.35) : closeDistance(width);
-		const flick = direction * velocity >= FLING_SPEED;
-		// HEAD's rule for a page layer: past a quarter (at least 64px), or a 300px/s flick from 16px on.
-		const reached = onExpand ? projected > closeThreshold : flick ? x.get() > 16 : projected > closeThreshold;
+		const reached = releasedToClose({
+			direction,
+			position: x.get(),
+			velocity,
+			projected,
+			closeThreshold,
+			expandable: Boolean(onExpand),
+		});
 		if (!cancel && (onExpand ? direction * velocity > -200 : direction * velocity > -FLING_SPEED) && reached)
 			dismiss.current();
 		// A router blocker can reject the exit. Settle back unless the controlled route actually closes.

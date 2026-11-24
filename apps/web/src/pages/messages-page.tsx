@@ -150,7 +150,6 @@ export function MessagesList({
 export function ConversationPage({
 	conversationId,
 	disconnected,
-	embedded = false,
 	mainBotHome = false,
 	readActive = true,
 	contacts,
@@ -161,8 +160,6 @@ export function ConversationPage({
 }: {
 	conversationId: string | null;
 	disconnected: boolean;
-	/** Drawn inside the Bot preset drawer: no frame header, and no empty-chat avatar behind it. */
-	embedded?: boolean;
 	mainBotHome?: boolean;
 	readActive?: boolean;
 	contacts?: readonly Member[] | undefined;
@@ -241,7 +238,7 @@ export function ConversationPage({
 	if (!conversationId || !conversation)
 		// HEAD's floating agent header needs the conversation header treatment on both branches.
 		return (
-			<PageFrame title={null} hideHeader={embedded} floatingHeader={floatingHeader} conversationHeader>
+			<PageFrame title={null} floatingHeader={floatingHeader} conversationHeader>
 				{null}
 			</PageFrame>
 		);
@@ -281,7 +278,6 @@ export function ConversationPage({
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
 			<PageFrame
-				hideHeader={embedded}
 				floatingHeader={floatingHeader}
 				conversationHeader
 				title={item ? item.title : agent ? null : title}
@@ -381,11 +377,7 @@ export function ConversationPage({
 				{!item?.intro && !messages.isLoading && !messages.isError && items?.length === 0 ? (
 					<div className="flex flex-1 items-center justify-center">
 						<EmptyState
-							icon={
-								item || (agent && !embedded) ? null : (
-									<ConversationAvatar conversation={conversation} personId={person?.id} />
-								)
-							}
+							icon={item || agent ? null : <ConversationAvatar conversation={conversation} personId={person?.id} />}
 							title={t("chat.emptyTitle")}
 						/>
 					</div>

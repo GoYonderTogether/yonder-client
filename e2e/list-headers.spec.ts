@@ -49,11 +49,6 @@ for (const width of [1280, 820, 390]) {
 			.locator("[data-frame-header]")
 			.filter({ has: page.getByRole("heading", { name: "任务", exact: true }) });
 		await expect(header.getByRole("heading", { name: "任务", exact: true })).toBeVisible();
-		const plus = header.getByRole("button", { name: "新建", exact: true });
-		await expect(plus).toBeVisible();
-		// The plus is one button that asks the main Bot (2026-11-24), not a menu.
-		await plus.click();
-		await expect(page.getByRole("menu")).toHaveCount(0);
 		const group = header.getByRole("radiogroup", { name: "任务" });
 		await expect(group).toBeVisible();
 		const titleBox = await header.getByRole("heading", { name: "任务", exact: true }).boundingBox();
@@ -61,13 +56,19 @@ for (const width of [1280, 820, 390]) {
 		if (!titleBox || !tabBox) throw new Error("List header must be visible");
 		expect(tabBox.y).toBeGreaterThan(titleBox.y + titleBox.height);
 		expect(tabBox.height).toBeGreaterThanOrEqual(44);
+		const plus = header.getByRole("button", { name: "新建", exact: true });
+		await expect(plus).toBeVisible();
+		// The plus is one button that asks the main Bot (2026-11-24), not a menu. These widths are all
+		// desktop layouts even at 390px, so it opens the main Bot's chat; the phone drawer preview is
+		// task-bot-drawer.spec.ts's.
+		await plus.click();
+		await expect(page.getByRole("menu")).toHaveCount(0);
+		await expect(page).toHaveURL(/\/messages\/main$/);
+		await page.goto("/tasks");
 		// Selection is controlled by an asynchronous router transition, not native radio state.
 		await group.getByRole("radio", { name: "目标", exact: true }).click();
 		await expect(page).toHaveURL(/\/tasks\/scheduled$/);
 		await expect(group.getByRole("radio", { name: "目标", exact: true })).toBeChecked();
-		// The same plus asks the main Bot there too; the draft it fills is checked in task-bot-drawer.
-		await plus.click();
-		await expect(page.getByRole("menu")).toHaveCount(0);
 		await page.goto("/memory");
 		await expect(page.getByRole("heading", { name: "记忆", exact: true })).toBeVisible();
 		await expect(page.getByRole("button", { name: "AI 对我的了解", exact: true })).toBeVisible();

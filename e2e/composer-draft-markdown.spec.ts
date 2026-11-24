@@ -20,7 +20,8 @@ for (const mobile of [true, false]) {
 				await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 				await page.evaluate((text) => navigator.clipboard.writeText(text), sample);
 				await input.focus();
-				await page.keyboard.press("Control+v");
+				// Chromium on macOS pastes with Command; Control+V is a no-op there.
+				await page.keyboard.press(process.platform === "darwin" ? "Meta+v" : "Control+v");
 			}
 			const mirror = page.locator(".composer-highlight");
 			const layout = page.locator(".composer-layout");
@@ -71,7 +72,7 @@ for (const mobile of [true, false]) {
 			});
 			expect(clipboardText).toBe(sample);
 			if (!mobile) {
-				await page.keyboard.press("Control+c");
+				await page.keyboard.press(process.platform === "darwin" ? "Meta+c" : "Control+c");
 				expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(sample);
 			}
 			await page.getByRole("button", { name: "发送", exact: true }).click();

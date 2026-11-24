@@ -129,11 +129,17 @@ test("iPhone offers the public TestFlight link and the web version", async ({ br
 test("Android offers the APK and the web version", async ({ browser }) => {
 	const context = await browser.newContext({ userAgent: android, locale: "en-US" });
 	const page = await context.newPage();
+	// A visitor with no cookie: the app asks them to sign in before showing their chats.
+	await page.route("**/v1/auth/refresh", (route) =>
+		route.fulfill({ status: 401, json: { error: { code: "unauthenticated" } } }),
+	);
 	await page.goto("/");
 	await expect(page.getByRole("link", { name: "Use web version" })).toBeVisible();
 	await expect(page.getByRole("link", { name: "Download for Android" })).toHaveAttribute("href", androidApk);
 	await page.getByRole("link", { name: "Use web version" }).click();
-	await expect(page).toHaveURL(/\/sign-in/);
+	// The web version is the app's entry; a visitor without a cookie is sent on to sign in.
+	await expect(page).toHaveURL(/\/sign-in\?next=/, { timeout: 10000 });
+	expect(new URL(page.url()).searchParams.get("next")).toBe("/messages");
 	await context.close();
 });
 

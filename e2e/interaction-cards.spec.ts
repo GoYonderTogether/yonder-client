@@ -106,6 +106,25 @@ test.describe("mobile survey", () => {
 		await next.tap();
 		await expect(card.getByText("3 / 3")).toBeVisible();
 		await card.getByRole("textbox").fill("晚上七点前回家");
+		// The answer draft is written to IndexedDB asynchronously; a reload before that write commits
+		// loses it, which is a test race rather than the card forgetting the answer.
+		await expect
+			.poll(() =>
+				page.evaluate(async (key) => {
+					const db = await new Promise<IDBDatabase>((resolve) => {
+						const request = indexedDB.open("yonder-chat", 1);
+						request.onsuccess = () => resolve(request.result);
+					});
+					return new Promise<string | undefined>((resolve) => {
+						const request = db.transaction("records").objectStore("records").get(key);
+						request.onsuccess = () => {
+							const draft = request.result as { answers?: Record<string, { text?: string }> } | undefined;
+							resolve(draft?.answers?.notes?.text);
+						};
+					});
+				}, "question:chat-person:chat-route-check:interaction-survey-04"),
+			)
+			.toBe("晚上七点前回家");
 		await page.reload();
 		await expect(card.getByText("3 / 3")).toBeVisible();
 		await expect(card.getByRole("textbox")).toHaveValue("晚上七点前回家");

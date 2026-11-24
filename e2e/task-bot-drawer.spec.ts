@@ -84,7 +84,9 @@ test.describe("phone", () => {
 		await expect(page).toHaveURL(/\/messages\/main$/);
 		await expect(drawer).toHaveCount(0);
 		await expect(botTab).toHaveAttribute("aria-current", "page");
-		await expect(page.getByRole("button", { name: "设置", exact: true })).toBeVisible();
+		// The main Bot is a tab root: the account avatar on the left, as on every other tab, and its
+		// own settings on the right rather than the frame's.
+		await expect(page.getByRole("button", { name: "我", exact: true })).toBeVisible();
 		await expect(page.getByRole("button", { name: "Bot 设置", exact: true })).toBeVisible();
 		await expect(page.getByRole("textbox", { name: composerName })).toHaveValue(body);
 		expect(api.sent).toEqual([]);

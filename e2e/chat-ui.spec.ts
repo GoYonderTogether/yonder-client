@@ -29,9 +29,11 @@ async function assertNoShadows(page: Page) {
 			const node = element as HTMLElement;
 			if (!node.getClientRects().length || node.closest("[inert], [aria-hidden=true]")) return [];
 			if (node.matches('[role="dialog"][data-page-layer="me"]')) return [];
+			// The floating header's avatar and name are pills with the shadow `native-mobile.css` gives
+			// them; they sit inside an identity wrapper, so match them where that CSS does.
 			if (
 				node.matches(
-					"[data-floating-frame-header] [data-chat-agent-title] > :is([data-chat-agent-avatar], [data-chat-agent-name]), button[data-chat-jump-latest]",
+					"[data-floating-frame-header] :is([data-chat-agent-avatar], [data-chat-agent-name]), button[data-chat-jump-latest]",
 				)
 			)
 				return [];
@@ -343,6 +345,9 @@ test("desktop blocks the IME Enter and sends the committed message on the next E
 	await input.dispatchEvent("keydown", { key: "Enter", keyCode: 229, bubbles: true });
 	await input.dispatchEvent("keyup", { key: "Enter", bubbles: true });
 	expect(api.sent).toHaveLength(0);
+	// The composer ignores Enter for 500ms after composition ends; the confirming Enter itself must
+	// not send, and the next one after the window does.
+	await page.waitForTimeout(510);
 	await page.keyboard.press("Enter");
 	await expect.poll(() => api.sent.length).toBe(1);
 	expect(api.sent[0]).toMatchObject({ body: "中文已确认", type: "text" });

@@ -266,3 +266,11 @@ body:has(.lp) {
 		flex-direction: column;
 	}
 }
+
+/* A 320px phone fits the wordmark and all three controls only when the padding gives way too. */
+@media (max-width: 22rem) {
+	.lp-nav-inner.lp-nav-signed-in {
+		padding-inline: var(--spacing-1);
+		gap: var(--spacing-1);
+	}
+}
