@@ -1,7 +1,15 @@
 import type { Timestamp } from "../common/error.ts";
 import type { MemoryVisibility } from "./memory.ts";
 
-export type MemoryFileKind = "impression" | "recent" | "note" | "archive" | "digest" | "public";
+export type MemoryFileKind =
+	| "impression"
+	| "recent"
+	| "profile"
+	| "proactive"
+	| "note"
+	| "archive"
+	| "digest"
+	| "public";
 
 /**
  * Who last wrote a file, as stored: `user`, `system`, `router`, `bot:<memberId>`,

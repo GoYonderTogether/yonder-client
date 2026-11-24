@@ -11,11 +11,13 @@ import type {
 	MeResponse,
 	OnboardingStep,
 	PhoneChangeCodeRequest,
+	ProactivePreferences,
 	PushTokenRegistration,
 	SendCodeResponse,
 	SetPasswordRequest,
 	UpdateDeviceRemarkRequest,
 	UpdateMeRequest,
+	UpdateProactivePreferencesRequest,
 } from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
 
@@ -33,6 +35,14 @@ export interface SessionSummary {
 /** The signed-in account: profile, credentials, sessions, devices and deletion. */
 export function accountEndpoints(client: ApiClient) {
 	return {
+		proactivePreferences(signal: AbortSignal): Promise<ProactivePreferences> {
+			return client.request("/v1/me/proactive", { signal });
+		},
+
+		updateProactivePreferences(body: UpdateProactivePreferencesRequest): Promise<ProactivePreferences> {
+			return client.request("/v1/me/proactive", { method: "PATCH", body });
+		},
+
 		me(): Promise<MeResponse> {
 			return client.request("/v1/me");
 		},

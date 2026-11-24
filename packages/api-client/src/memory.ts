@@ -5,6 +5,7 @@ import type {
 	MemoryFileList,
 	MemoryFileRevisionList,
 	MemoryOrganizationResponse,
+	OwnerUnderstandingResponse,
 	RevertMemoryFileRequest,
 	ReviewMemoryOrganizationRequest,
 	UpdateMemoryFileProtectionRequest,
@@ -19,6 +20,9 @@ const organizationPath = "/v1/me/social/organization";
 
 export function memoryEndpoints(client: ApiClient) {
 	return {
+		memoryUnderstanding(signal?: AbortSignal): Promise<OwnerUnderstandingResponse> {
+			return client.request("/v1/memory/understanding", signal ? { signal } : undefined);
+		},
 		/**
 		 * Newest days first; pass the previous page's `nextCursor` for older days. `timeZone` is the
 		 * device's IANA zone, which decides which calendar day an event belongs to.

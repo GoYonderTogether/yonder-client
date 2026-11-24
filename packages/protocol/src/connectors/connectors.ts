@@ -126,7 +126,7 @@ export type AppleConnectorOperation =
 	| "apple_voice_memos_list"
 	| "apple_voice_memos_read"
 	| "apple_voice_memos_transcribe";
-export type ConnectorOperation = FileConnectorOperation | AppleConnectorOperation;
+export type ConnectorOperation = FileConnectorOperation | AppleConnectorOperation | "asset_original";
 export interface ConnectorCommandArgs {
 	/** `search`: a file-name substring. `grep`: a regular expression (Rust `regex` syntax). Apple calendar: an event search term. */
 	query?: string;
@@ -297,7 +297,10 @@ export type AppleConnectorResult =
 	| { kind: "apple_voice_memos_read"; id: string; attachment: Attachment }
 	| { kind: "apple_voice_memos_transcribe"; id: string; text: string };
 
-export type ConnectorResult = LocalFilesResult | AppleConnectorResult;
+export type ConnectorResult =
+	| LocalFilesResult
+	| AppleConnectorResult
+	| { kind: "asset_original"; attachment: Attachment };
 
 export type ConnectorExecutionError =
 	| "permission_denied"

@@ -182,6 +182,7 @@ export type {
 	MemberProfileResponse,
 	MemberSettings,
 	MeResponse,
+	NamecardFields,
 	PrivacySettings,
 	ReceptionSetting,
 	SignInMethodSummary,
@@ -229,6 +230,9 @@ export type {
 	MemoryTarget,
 	MemoryVisibility,
 	MemoryWeight,
+	OwnerUnderstandingEvidence,
+	OwnerUnderstandingResponse,
+	OwnerUnderstandingStatement,
 	UpdateMemoryRequest,
 } from "./memory/memory.ts";
 export type {
@@ -238,11 +242,17 @@ export type {
 	ReviewMemoryOrganizationRequest,
 } from "./memory/organization.ts";
 export type {
+	ProactiveCategory,
+	ProactivePreferences,
+	ProactiveTimeWindow,
+	UpdateProactivePreferencesRequest,
+} from "./memory/proactive.ts";
+export { PROACTIVE_CATEGORIES } from "./memory/proactive.ts";
+export type {
 	DeviceAnthropicModelInput,
 	DeviceLocalRelayInput,
 	DeviceLocalRelayRequest,
 	DeviceModelEndpoint,
-	/** Client-only: the same endpoint as a device list shows it, with the device it belongs to. */
 	DeviceModelEndpointView,
 	DeviceModelError,
 	DeviceModelInput,

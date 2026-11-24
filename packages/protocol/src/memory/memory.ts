@@ -55,6 +55,8 @@ export interface MemoryMaterial {
 	detail: string | null;
 	/** Opens in the in-app reader when set. */
 	attachment: Attachment | null;
+	/** The original is on a device and has no cloud attachment to open. */
+	onDevice?: true;
 	/** An `https` page to open when there is no attachment. */
 	url: string | null;
 }
@@ -163,4 +165,41 @@ export interface UpdateMemoryRequest {
 	title?: string;
 	text?: string | null;
 	body?: string | null;
+}
+
+/** Verified direct evidence the signed-in owner can open. No external URL is supplied. */
+export interface OwnerUnderstandingEvidence {
+	eventId: string;
+	messageId: string;
+	conversationId: string;
+	occurredAt: Timestamp;
+}
+
+export interface OwnerUnderstandingStatement {
+	id: string;
+	kind: "fact" | "preference" | "commitment" | "plan" | "relation" | "habit";
+	origin: "stated";
+	speaker: "owner";
+	text: string;
+	quote: string;
+	confidence: number;
+	status: "active";
+	supersedesId: string | null;
+	validFrom: Timestamp;
+	validUntil: Timestamp | null;
+	firstSeen: Timestamp;
+	reinforcedAt: Timestamp;
+	source: OwnerUnderstandingEvidence;
+}
+
+/** GET /v1/memory/understanding. This first surface includes only verified owner chat. */
+export interface OwnerUnderstandingResponse {
+	groups: {
+		source: "chat";
+		/** Distinct cited events in this response, not the number of imported items. */
+		evidenceCount: number;
+		learned: OwnerUnderstandingStatement[];
+		inferred: [];
+		uncertain: [];
+	}[];
 }

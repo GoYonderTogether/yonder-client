@@ -99,7 +99,15 @@ export interface PrivacySettings {
 /** `PATCH /v1/me/privacy`. Only the switches present change. */
 export type UpdatePrivacyRequest = Partial<PrivacySettings>;
 
-/** What a card shows: the same four things for a person and a Bot, nothing more. */
+/** Optional owner-approved additions to a person's visitor namecard. */
+export interface NamecardFields {
+	displayName?: string;
+	bio?: string;
+	projects?: string[];
+	city?: string;
+}
+
+/** What a visitor can see on a person's or Bot's card. */
 export interface MemberCard {
 	kind: MemberKind;
 	handle: string;
@@ -112,6 +120,7 @@ export interface MemberCard {
 	 * whose owner's card this viewer may not see.
 	 */
 	owner: { handle: string; displayName: string } | null;
+	namecard?: NamecardFields;
 }
 
 /**
