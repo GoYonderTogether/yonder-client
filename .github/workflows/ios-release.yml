@@ -8,8 +8,8 @@
 # 签名材料全部来自 secrets，构建后立即删除：
 #   IOS_DISTRIBUTION_CERT_P12_BASE64  Apple Distribution 证书 + 私钥（p12，导出密码见下）
 #   IOS_DISTRIBUTION_CERT_PASSWORD    p12 的导出密码
-#   IOS_PROVISIONING_PROFILE_BASE64   App Store 分发 profile（profiles 资源，IOS_APP_STORE）
-#   IOS_TESTFLIGHT_PUSH_PROFILE_BASE64  内部测试专用 App Store profile（带 production APNs）
+#   IOS_PROVISIONING_PROFILE_BASE64   App Store 分发 profile（优先用于常规发布，需 production APNs）
+#   IOS_TESTFLIGHT_PUSH_PROFILE_BASE64  优先用于内部测试的 App Store profile（带 production APNs）
 #   IOS_TEAM_ID                       团队 ID（D4UZU32UN9）
 #   ASC_API_KEY_ID / ASC_API_ISSUER_ID / ASC_API_PRIVATE_KEY_BASE64
 #                                     App Store Connect API Key，用于上传 TestFlight
@@ -35,7 +35,7 @@ on:
         default: ""
         type: string
       testflight_internal:
-        description: 仅上传内部 TestFlight，要求生产 APNs 签名
+        description: 仅允许内部 TestFlight 分发
         required: false
         default: false
         type: boolean
@@ -141,31 +141,38 @@ jobs:
           [ -n "${TEAM_ID:-}" ] || { echo "::error::missing secret IOS_TEAM_ID"; exit 1; }
           dir="$RUNNER_TEMP/yonder-signing"
           mkdir -p "$dir" "$HOME/Library/MobileDevice/Provisioning Profiles"
-          profile_name="Yonder App Store"
-          push=0
-          if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
-            [ -n "${INTERNAL_PUSH_PROFILE_BASE64:-}" ] || { echo "::error::missing secret IOS_TESTFLIGHT_PUSH_PROFILE_BASE64"; exit 1; }
-            printf '%s' "$INTERNAL_PUSH_PROFILE_BASE64" | base64 --decode > "$dir/yonder.mobileprovision"
-            push=1
-          else
-            [ -n "${PROFILE_BASE64:-}" ] || { echo "::error::missing secret IOS_PROVISIONING_PROFILE_BASE64"; exit 1; }
-            printf '%s' "$PROFILE_BASE64" | base64 --decode > "$dir/yonder.mobileprovision"
-          fi
           keychain="$dir/yonder.keychain-db"
           keychain_password="$(openssl rand -hex 16)"
           security create-keychain -p "$keychain_password" "$keychain"
           security set-keychain-settings -lut 3600 "$keychain"
           security unlock-keychain -p "$keychain_password" "$keychain"
-          if [ "$push" = 1 ]; then
-            security cms -D -k "$keychain" -i "$dir/yonder.mobileprovision" > "$dir/profile.plist"
-            application_id="$(plutil -extract Entitlements.application-identifier raw "$dir/profile.plist")"
-            aps="$(plutil -extract Entitlements.aps-environment raw "$dir/profile.plist" 2>/dev/null || true)"
-            if [ "$application_id" != "$TEAM_ID.net.yonderbot.app" ] || [ "$aps" != production ]; then
-              echo "::error::the internal TestFlight profile must authorize production APNs for net.yonderbot.app"
-              exit 1
-            fi
-            profile_name="$(plutil -extract Name raw "$dir/profile.plist")"
+          profile_for() {
+            [ -n "$1" ] || return 1
+            printf '%s' "$1" | base64 --decode > "$dir/yonder.mobileprovision" 2>/dev/null || return 1
+            security cms -D -k "$keychain" -i "$dir/yonder.mobileprovision" > "$dir/profile.plist" 2>/dev/null || return 1
+            read_profile() { plutil -extract "$1" raw "$dir/profile.plist" 2>/dev/null; }
+            [ "$(read_profile Entitlements.application-identifier)" = "$TEAM_ID.net.yonderbot.app" ] || return 1
+            [ "$(read_profile TeamIdentifier.0)" = "$TEAM_ID" ] || return 1
+            [ "$(read_profile 'Entitlements.com\.apple\.developer\.team-identifier')" = "$TEAM_ID" ] || return 1
+            [ "$(read_profile Entitlements.aps-environment)" = production ] || return 1
+            [ "$(read_profile Entitlements.get-task-allow)" = false ] || return 1
+            if plutil -extract ProvisionedDevices xml1 -o /dev/null "$dir/profile.plist" 2>/dev/null ||
+              [ "$(read_profile ProvisionsAllDevices)" = true ]; then return 1; fi
+            expiry="$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$(read_profile ExpirationDate)" +%s 2>/dev/null)" || return 1
+            [ "$expiry" -gt "$(date +%s)" ] || return 1
+            profile_name="$(read_profile Name)" || return 1
+            case "$profile_name" in ""|*'"'*|*'\'*|*[[:cntrl:]]*) return 1 ;; esac
+          }
+          # TestFlight's audience is an export option, not a provisioning-profile property.
+          if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
+            primary="${INTERNAL_PUSH_PROFILE_BASE64:-}"; fallback="${PROFILE_BASE64:-}"
+          else
+            primary="${PROFILE_BASE64:-}"; fallback="${INTERNAL_PUSH_PROFILE_BASE64:-}"
           fi
+          profile_for "$primary" || profile_for "$fallback" || {
+            echo "::error::IOS_PROVISIONING_PROFILE_BASE64 or IOS_TESTFLIGHT_PUSH_PROFILE_BASE64 must contain an unexpired App Store profile with production APNs for this team and net.yonderbot.app"
+            exit 1
+          }
           printf '%s' "$CERT_BASE64" | base64 --decode > "$dir/dist.p12"
           # 分区列表不设的话 codesign 报 errSecInternalComponent（本地实测过）。
           security import "$dir/dist.p12" -k "$keychain" -P "$CERT_PASSWORD" \
@@ -175,7 +182,7 @@ jobs:
           cp "$dir/yonder.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$(uuidgen).mobileprovision"
           echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
           echo "IOS_PROFILE_NAME=$profile_name" >> "$GITHUB_ENV"
-          echo "YONDER_IOS_PUSH=$push" >> "$GITHUB_ENV"
+          echo "YONDER_IOS_PUSH=1" >> "$GITHUB_ENV"
           security find-identity -v -p codesigning "$keychain"
 
       - name: 初始化 iOS 工程并重放图标与签名设置
@@ -253,23 +260,25 @@ jobs:
           ipa="$(find dist-ios -name '*.ipa' | head -1)"
           [ -n "$ipa" ] || { echo "::error::no IPA was exported"; exit 1; }
           mv "$ipa" dist-ios/yonder-ios.ipa
-          if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
-            check="$RUNNER_TEMP/yonder-ios-verify"
-            unzip -q dist-ios/yonder-ios.ipa -d "$check"
-            app="$(find "$check/Payload" -maxdepth 1 -name '*.app' | head -1)"
-            codesign -d --entitlements - --xml "$app" > "$check/entitlements.plist"
-            for pair in "CFBundleIdentifier=net.yonderbot.app" "CFBundleShortVersionString=$VERSION" \
-              "CFBundleVersion=$BUILD_NUMBER" "YonderPushEnvironment=production"; do
-              key="${pair%%=*}"
-              [ "$(plutil -extract "$key" raw "$app/Info.plist")" = "${pair#*=}" ] || {
-                echo "::error::exported IPA has the wrong $key"
-                exit 1
-              }
-            done
-            [ "$(plutil -extract aps-environment raw "$check/entitlements.plist")" = production ] || {
-              echo "::error::exported IPA is missing its production APNs entitlement"
+          check="$RUNNER_TEMP/yonder-ios-verify"
+          unzip -q dist-ios/yonder-ios.ipa -d "$check"
+          app="$(find "$check/Payload" -maxdepth 1 -name '*.app' | head -1)"
+          [ -n "$app" ] || { echo "::error::no app in exported IPA"; exit 1; }
+          codesign -d --entitlements - --xml "$app" > "$check/entitlements.plist"
+          expect_value() {
+            [ "$(plutil -extract "$2" raw "$1" 2>/dev/null)" = "$3" ] || {
+              echo "::error::exported IPA has missing or invalid $2"
               exit 1
             }
+          }
+          expect_value "$app/Info.plist" CFBundleIdentifier net.yonderbot.app
+          expect_value "$app/Info.plist" YonderPushEnvironment production
+          expect_value "$check/entitlements.plist" aps-environment production
+          expect_value "$check/entitlements.plist" application-identifier "$TEAM_ID.net.yonderbot.app"
+          expect_value "$check/entitlements.plist" 'com\.apple\.developer\.team-identifier' "$TEAM_ID"
+          if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
+            expect_value "$app/Info.plist" CFBundleShortVersionString "$VERSION"
+            expect_value "$app/Info.plist" CFBundleVersion "$BUILD_NUMBER"
           fi
           ls -l dist-ios/yonder-ios.ipa
 
