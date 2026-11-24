@@ -1,7 +1,7 @@
 {
 	"name": "@yonder/ui-data",
 	"private": true,
-	"version": "0.3.26112302",
+	"version": "0.3.26112401",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
@@ -10,14 +10,14 @@
 		"@tanstack/query-sync-storage-persister": "5.107.1",
 		"@tanstack/react-query": "5.107.1",
 		"@tanstack/react-query-persist-client": "5.107.1",
-		"@yonder/api-client": "0.3.26112302",
-		"@yonder/protocol": "0.3.26112302",
-		"@yonder/ui-components": "0.3.26112302",
-		"@yonder/ui-i18n": "0.3.26112302",
-		"@yonder/ui-shell": "0.3.26112302",
-		"@yonder/ui-tokens": "0.3.26112302",
+		"@yonder/api-client": "0.3.26112401",
+		"@yonder/protocol": "0.3.26112401",
+		"@yonder/ui-components": "0.3.26112401",
+		"@yonder/ui-i18n": "0.3.26112401",
+		"@yonder/ui-shell": "0.3.26112401",
+		"@yonder/ui-tokens": "0.3.26112401",
 		"zustand": "5.1.0",
-		"@yonder/chat-model": "0.3.26112302"
+		"@yonder/chat-model": "0.3.26112401"
 	},
 	"peerDependencies": {
 		"react": ">=19"

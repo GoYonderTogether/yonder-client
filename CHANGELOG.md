@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## [0.3.26112401] - 2026-11-24
+
+### Added
+
+- tasks：fold archived items under the list and load them on open
+- chat：merge identical failures in a row into one counted line
+- groups：members bring and take out their own Bots; confirm cards show what they ask and what came of it
+- chat：the photo archive plan line, and archive strings in their own locale file
+- chat：show the photo archive's stop, end and finish as a system line
+- tasks：hand off preset drafts to the main Bot
+- models：speak the server's device-local relay protocol
+- stage desktop model providers and signed-in landing
+
+### Fixed
+
+- chat：preserve cached history across refresh failures and races
+- mobile：align Bot chat headers and simplify Me chrome
+- miniprogram：keep the existing app available with a saved session
+- auth：open known sessions offline without new UI
+- web：resume stored sessions across service updates
+- miniprogram：restore login after temporary service interruptions
+- auth：preserve sessions during transient refresh failures
+
 ## [0.3.26112302] - 2026-11-23
 
 ### Fixed
