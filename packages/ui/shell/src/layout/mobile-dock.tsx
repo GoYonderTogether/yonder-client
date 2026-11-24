@@ -102,7 +102,17 @@ export function MobileDock({
 											active ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-tertiary)]",
 										)}
 									>
-										<span data-press-target className="relative">
+										{/* The selected tab is a filled capsule around its icon, the way the system bar reads
+										    it — shape first, colour second, so the mark is not carried by stroke weight
+										    alone. The negative margins cancel the padding, so only the paint moves. */}
+										<span
+											data-press-target
+											className={cn(
+												"relative inline-flex items-center justify-center rounded-[var(--radius-full)]",
+												active &&
+													"-mx-[var(--spacing-2)] -my-[2px] bg-[var(--color-bg-selected)] px-[var(--spacing-2)] py-[2px]",
+											)}
+										>
 											{icon}
 											{unread ? (
 												<UnreadBadge

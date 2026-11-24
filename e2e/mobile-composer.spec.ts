@@ -627,12 +627,17 @@ test("the phone draft sits directly on the single composer card and the voice ac
 	await expect(hint).toBeVisible();
 	await expect(hint).toHaveCSS("pointer-events", "none");
 	// One card: the draft paints nothing of its own, so the text sits inside the box's own radius
-	// instead of in a second, smaller card whose corners cannot match the outer ones.
+	// instead of in a second, smaller card whose corners cannot match the outer ones. Light puts the
+	// white card on the grey bar, so the composer is the surface and the bar is a step down from it.
 	await expect(surface).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 	await expect(surface).toHaveCSS("border-top-left-radius", "0px");
 	expect(await surface.boundingBox()).toEqual(await input.boundingBox());
 	await expect(composer).toHaveCSS("border-top-left-radius", "23px");
-	await expect(composer).not.toHaveCSS("background-color", "rgb(255, 255, 255)");
+	await expect(composer).toHaveCSS("background-color", "rgb(255, 255, 255)");
+	const dockColor = await page
+		.locator("[data-mobile-dock]")
+		.evaluate((element) => getComputedStyle(element).backgroundColor);
+	expect(dockColor).not.toBe("rgb(255, 255, 255)");
 	await page.screenshot({ path: info.outputPath("mobile-text-composer.png"), scale: "css" });
 
 	const hintStyle = await hint.evaluate((element) => {
@@ -642,7 +647,8 @@ test("the phone draft sits directly on the single composer card and the voice ac
 	await composer.getByRole("button", { name: "语音输入", exact: true }).tap();
 	const hold = composer.getByRole("button", { name: "按住说话", exact: true });
 	await expect(hold).toBeVisible();
-	await expect(hold).toHaveCSS("background-color", "rgb(255, 255, 255)");
+	// A control on the white card: the grey fill is what makes it a pill, not a white block.
+	await expect(hold).toHaveCSS("background-color", "rgba(46, 50, 56, 0.05)");
 	await expect(hold).toHaveCSS("color", "rgb(28, 31, 35)");
 	await expect(hold).toHaveCSS("font-weight", "500");
 	expect(hintStyle.color).toBe("rgba(28, 31, 35, 0.62)");

@@ -283,6 +283,21 @@ html[data-native-mobile="true"] [data-surface="chrome"] > [data-shell-frame] > [
 	color: var(--color-text-primary);
 }
 
+/* The selected tab's capsule lands with a small overshoot: the shape says which tab is current, and
+   the pop says it just became so. Only on mount, so it never ticks on an ordinary render. */
+[data-mobile-dock] nav button[aria-current="page"] > span[data-press-target] {
+	animation: yonder-tab-pop 240ms var(--ease-decelerate);
+}
+
+@keyframes yonder-tab-pop {
+	0% {
+		transform: scale(0.88);
+	}
+	62% {
+		transform: scale(1.065);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	[data-pressable]:active [data-press-target] {
 		transform: none;
