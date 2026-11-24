@@ -112,8 +112,6 @@
 	margin-top: 0;
 }
 
-/* The sender's bottom corner is square so the tail grows straight out of it; the other three keep
-   the card radius. `--tail` is the 9×13 speech tail, mirrored for the other side. */
 .message-bubble {
 	position: relative;
 	box-sizing: border-box;
@@ -132,31 +130,6 @@
 .message-bubble-outgoing {
 	background: var(--color-accent-subtle);
 	border-bottom-right-radius: 0;
-}
-
-.message-bubble-incoming::after,
-.message-bubble-outgoing::after {
-	position: absolute;
-	bottom: 0;
-	width: var(--tail-width);
-	height: var(--tail-height);
-	background-color: inherit;
-	content: "";
-	-webkit-mask-image: var(--tail);
-	mask-image: var(--tail);
-	-webkit-mask-size: 100% 100%;
-	mask-size: 100% 100%;
-	-webkit-mask-repeat: no-repeat;
-	mask-repeat: no-repeat;
-}
-
-.message-bubble-incoming::after {
-	left: calc(-1 * var(--tail-width));
-}
-
-.message-bubble-outgoing::after {
-	right: calc(-1 * var(--tail-width));
-	transform: scaleX(-1);
 }
 
 .message-voice-button {

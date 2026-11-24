@@ -59,9 +59,11 @@ function UpdateControlsViewContent({ updater, onRestart }: { updater: Updater; o
 			break;
 		case "error":
 			message = t(
-				updater.platform === "android" && state.error === "download"
-					? "me.update.androidInstallFailed"
-					: `me.update.${state.error}Failed`,
+				state.installIssue === "permission"
+					? "me.update.androidInstallPermissionRequired"
+					: state.installIssue === "settingsUnavailable"
+						? "me.update.androidInstallSettingsUnavailable"
+						: `me.update.${state.error}Failed`,
 			);
 			break;
 	}
@@ -70,7 +72,13 @@ function UpdateControlsViewContent({ updater, onRestart }: { updater: Updater; o
 			<ListRow title={t("me.update.check")} disabled={busy} onClick={() => void updater.check()} />
 			{canInstall ? (
 				<ListRow
-					title={t(updater.platform === "desktop" ? "me.update.restart" : "me.update.download")}
+					title={t(
+						updater.platform === "desktop"
+							? "me.update.restart"
+							: state.status === "ready" || state.status === "installerOpened" || state.error === "install"
+								? "me.update.androidInstall"
+								: "me.update.download",
+					)}
 					onClick={() => {
 						if (updater.platform === "desktop") onRestart();
 						else void updater.install();

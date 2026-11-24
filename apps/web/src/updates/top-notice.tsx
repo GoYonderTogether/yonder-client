@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useTopNoticeTarget } from "../app/app-notice.tsx";
 import { useForeground } from "../lib/foreground.ts";
 import { useOfferedUpdate, useUpdater } from "./provider.tsx";
 import type { Updater, UpdateState } from "./state.ts";
@@ -19,6 +20,7 @@ async function openTestFlight(url: string) {
 }
 
 export function UpdateTopNotice(guard: Guard) {
+	const target = useTopNoticeTarget();
 	const context = useOfferedUpdate();
 	const updater = useUpdater();
 	const offer = context?.offer;
@@ -49,12 +51,15 @@ export function UpdateTopNotice(guard: Guard) {
 		(snapshot.status === "ready" || snapshot.status === "installing" || snapshot.error === "install");
 	const action = native
 		? ready
-			? "noticeRestart"
+			? offer.platform === "android"
+				? "androidInstall"
+				: "noticeRestart"
 			: "noticeDownload"
 		: offer.platform === "web"
 			? "noticeReload"
 			: "noticeTestFlight";
-	return (
+	if (!target) return null;
+	return createPortal(
 		<TopNotice
 			key={offer.id}
 			offer={offer}
@@ -63,7 +68,8 @@ export function UpdateTopNotice(guard: Guard) {
 			dismiss={context.dismiss}
 			acknowledge={context.acknowledge}
 			updater={native ? updater : null}
-		/>
+		/>,
+		target,
 	);
 }
 
@@ -77,7 +83,7 @@ function TopNotice({
 }: {
 	offer: UpdateOffer;
 	guard: Guard;
-	action: "noticeRestart" | "noticeDownload" | "noticeReload" | "noticeTestFlight";
+	action: "noticeRestart" | "androidInstall" | "noticeDownload" | "noticeReload" | "noticeTestFlight";
 	acknowledge: (offer: UpdateOffer) => void;
 	dismiss: (id: string) => void;
 	updater: Updater | null;
@@ -94,23 +100,8 @@ function TopNotice({
 
 	useLayoutEffect(() => {
 		mounted.current = true;
-		const notice = element.current;
-		const sync = () => {
-			if (notice)
-				document.documentElement.style.setProperty(
-					"--yonder-update-notice-offset",
-					`${notice.offsetTop + notice.offsetHeight + 6}px`,
-				);
-		};
-		sync();
-		const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(sync);
-		if (notice) observer?.observe(notice);
-		window.addEventListener("resize", sync);
 		return () => {
 			mounted.current = false;
-			observer?.disconnect();
-			window.removeEventListener("resize", sync);
-			document.documentElement.style.removeProperty("--yonder-update-notice-offset");
 		};
 	}, []);
 
@@ -175,9 +166,9 @@ function TopNotice({
 		}
 	}
 
-	return createPortal(
+	return (
 		<aside
-			className="update-top-notice"
+			className="update-top-notice app-notice-surface"
 			ref={element}
 			aria-label={t("me.update.notice")}
 			onPointerDown={(event) => {
@@ -200,7 +191,6 @@ function TopNotice({
 					{t("me.update.noticeLater")}
 				</button>
 			</div>
-		</aside>,
-		document.body,
+		</aside>
 	);
 }

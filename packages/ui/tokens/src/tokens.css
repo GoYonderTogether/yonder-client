@@ -355,11 +355,6 @@
 /* Motion: durations and curves live here so every transition speaks the same language. */
 :root {
 	--message-bubble-width: 80%;
-	/* The speech tail: a 9×13 corner cut from the sender's bottom edge, same colour as the bubble.
-	   Percent-encoded with no `;` or `{}` so the mini-program token generator copies it verbatim. */
-	--tail-width: 9px;
-	--tail-height: 13px;
-	--tail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 13' preserveAspectRatio='none'%3E%3Cpath d='M0 0Q1.2 8.6 9 13L0 13Z' fill='%23000'/%3E%3C/svg%3E");
 	--composer-padding: 5px;
 	--composer-button-size: 36px;
 	--composer-radius: calc(var(--composer-button-size) / 2 + var(--composer-padding));

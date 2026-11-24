@@ -56,22 +56,35 @@ async function assertBubbles(page: Page) {
 		const left = incoming.getBoundingClientRect(),
 			right = outgoing.getBoundingClientRect(),
 			parent = log.getBoundingClientRect();
+		const incomingStyle = getComputedStyle(incoming);
+		const outgoingStyle = getComputedStyle(outgoing);
+		const radii = (style: CSSStyleDeclaration) => [
+			style.borderTopLeftRadius,
+			style.borderTopRightRadius,
+			style.borderBottomRightRadius,
+			style.borderBottomLeftRadius,
+		];
 		return {
 			incomingLeft: left.left,
 			outgoingRight: right.right,
 			logLeft: parent.left,
 			logRight: parent.right,
-			incomingColor: getComputedStyle(incoming).backgroundColor,
-			outgoingColor: getComputedStyle(outgoing).backgroundColor,
-			// The sender's bottom corner is square for the tail; the other three keep the card radius.
-			incomingRadius: getComputedStyle(incoming).borderRadius,
+			incomingColor: incomingStyle.backgroundColor,
+			outgoingColor: outgoingStyle.backgroundColor,
+			incomingRadii: radii(incomingStyle),
+			outgoingRadii: radii(outgoingStyle),
+			incomingTail: getComputedStyle(incoming, "::after").content,
+			outgoingTail: getComputedStyle(outgoing, "::after").content,
 		};
 	});
 	expect(geometry.incomingLeft).toBeCloseTo(geometry.logLeft, 0);
 	expect(geometry.outgoingRight).toBeCloseTo(geometry.logRight, 0);
 	expect(geometry.incomingColor).not.toBe(geometry.outgoingColor);
 	expect(geometry.incomingColor).not.toBe("rgba(0, 0, 0, 0)");
-	expect(geometry.incomingRadius).toBe("16px 16px 16px 0px");
+	expect(geometry.incomingRadii).toEqual(["16px", "16px", "16px", "0px"]);
+	expect(geometry.outgoingRadii).toEqual(["16px", "16px", "0px", "16px"]);
+	expect(geometry.incomingTail).toBe("none");
+	expect(geometry.outgoingTail).toBe("none");
 }
 async function assertComposer(page: Page, onMultiline?: () => Promise<void>) {
 	const input = page.getByRole("textbox", { name: /^对 界面验收/ });

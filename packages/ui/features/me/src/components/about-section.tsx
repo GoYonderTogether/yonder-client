@@ -5,8 +5,6 @@ import { useTranslation } from "react-i18next";
 export interface AboutSectionProps {
 	/** The version this bundle was built with, injected at build time. */
 	appVersion: string;
-	/** What `/v1/health` answered, or null when it could not be reached. */
-	serverVersion: string | null;
 	onOpenLegal: (document: "terms" | "privacy") => void;
 	update?: ReactNode;
 }
@@ -14,7 +12,7 @@ export interface AboutSectionProps {
 /**
  * 关于: the version the user can quote when reporting a problem.
  */
-export function AboutSection({ appVersion, serverVersion, onOpenLegal, update }: AboutSectionProps) {
+export function AboutSection({ appVersion, onOpenLegal, update }: AboutSectionProps) {
 	const { t } = useTranslation();
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)]">
@@ -24,11 +22,6 @@ export function AboutSection({ appVersion, serverVersion, onOpenLegal, update }:
 			</div>
 			<ListGroup>
 				<Row label={t("me.about.version")} value={appVersion} testId="about-version" />
-				<Row
-					label={t("me.about.serverVersion")}
-					value={serverVersion ?? t("me.about.serverUnknown")}
-					testId="about-server-version"
-				/>
 			</ListGroup>
 			{update}
 			<ListGroup>

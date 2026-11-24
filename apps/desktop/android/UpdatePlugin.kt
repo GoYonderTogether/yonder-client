@@ -1,6 +1,7 @@
 package net.yonderbot.app
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -45,6 +46,8 @@ class UpdatePlugin(private val activity: Activity) : Plugin(activity) {
     private var stagedDigest: String? = null
   }
 
+  // Only accessed on the main thread, including the ActivityResult callback.
+  private var waitingForInstallSettings = false
   private val directory get() = File(activity.cacheDir, "updates")
   // An installer already granted a URI must never read a replacement APK at that URI.
   private fun stagedApk(digest: String) = File(directory, "update-$digest.apk")
@@ -181,10 +184,26 @@ class UpdatePlugin(private val activity: Activity) : Plugin(activity) {
 
   private fun openInstaller(invoke: Invoke) {
     try {
+      if (waitingForInstallSettings) {
+        invoke.reject("ongoing update")
+        return
+      }
       val apk = verifiedApk(invoke)
       if (Build.VERSION.SDK_INT >= 26 && !activity.packageManager.canRequestPackageInstalls()) {
-        val settings = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}"))
-        startActivityForResult(invoke, settings, "installPermissionResult")
+        val settings = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.fromParts("package", activity.packageName, null))
+        waitingForInstallSettings = true
+        try {
+          startActivityForResult(invoke, settings, "installPermissionResult")
+        } catch (_: ActivityNotFoundException) {
+          waitingForInstallSettings = false
+          invoke.reject("Android installation settings unavailable", "android_install_settings_unavailable")
+        } catch (_: SecurityException) {
+          waitingForInstallSettings = false
+          invoke.reject("Android installation settings unavailable", "android_install_settings_unavailable")
+        } catch (error: Exception) {
+          waitingForInstallSettings = false
+          throw error
+        }
       } else {
         launchInstaller(invoke, apk)
       }
@@ -197,13 +216,16 @@ class UpdatePlugin(private val activity: Activity) : Plugin(activity) {
 
   @ActivityCallback
   private fun installPermissionResult(invoke: Invoke, @Suppress("UNUSED_PARAMETER") result: ActivityResult) {
+    if (!waitingForInstallSettings) return
+    waitingForInstallSettings = false
     if (!updating.compareAndSet(false, true)) {
       invoke.reject("ongoing update")
       return
     }
     try {
+      // The Settings result code is not the permission: query the platform again.
       if (Build.VERSION.SDK_INT >= 26 && !activity.packageManager.canRequestPackageInstalls()) {
-        invoke.reject("install permission denied")
+        invoke.reject("Install permission not granted", "android_install_permission_required")
         return
       }
       // The candidate may have changed while Android Settings was open.

@@ -44,6 +44,7 @@ test("Android waits for a click, reports download progress and does not claim in
 			progress(3, 4);
 			await download.promise;
 		}),
+		install: vi.fn(async () => {}),
 	};
 	const updater = createUpdater({ platform: "android", check: async () => candidate });
 	await updater.check();
@@ -64,6 +65,7 @@ test("check and download failures can be retried without raw errors", async () =
 		download: async () => {
 			if (++attempts === 1) throw new Error("private exception");
 		},
+		install: vi.fn(async () => {}),
 	};
 	const check = vi.fn().mockRejectedValueOnce(new Error("private exception")).mockResolvedValue(candidate);
 	const updater = createUpdater({ platform: "android", check });
@@ -136,4 +138,25 @@ test("an explicit request joins the existing download and never installs on its 
 	expect(check).toHaveBeenCalledOnce();
 	expect(download).toHaveBeenCalledOnce();
 	expect(install).not.toHaveBeenCalled();
+});
+
+test.each([
+	["android_install_permission_required", "permission"],
+	["android_install_settings_unavailable", "settingsUnavailable"],
+] as const)("Android keeps the checked APK when %s and retries explicitly", async (code, installIssue) => {
+	const download = vi.fn(async () => {});
+	const install = vi.fn<() => Promise<void>>().mockRejectedValueOnce({ code }).mockResolvedValueOnce(undefined);
+	const updater = createUpdater({
+		platform: "android",
+		check: async () => ({ version: "0.3.99", required: false, download, install }),
+	});
+	await updater.check();
+	await expect(updater.install()).resolves.toBe(false);
+	expect(updater.getSnapshot()).toMatchObject({ status: "error", error: "install", installIssue, version: "0.3.99" });
+	expect(install).toHaveBeenCalledOnce();
+	expect(download).toHaveBeenCalledOnce();
+	await expect(updater.install()).resolves.toBe(true);
+	expect(download).toHaveBeenCalledOnce();
+	expect(install).toHaveBeenCalledTimes(2);
+	expect(updater.getSnapshot().status).toBe("installerOpened");
 });

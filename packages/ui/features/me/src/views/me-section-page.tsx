@@ -40,7 +40,6 @@ export interface MeSectionPageProps {
 	onSignedOut: () => void;
 	onOpenLegal: (document: "terms" | "privacy") => void;
 	appVersion: string;
-	serverVersion: string | null;
 	aboutUpdate?: ReactNode;
 	generalExtra?: ReactNode;
 	wechatLink?: ReactNode;
@@ -73,7 +72,6 @@ export function MeSectionPage({
 	onSignedOut,
 	onOpenLegal,
 	appVersion,
-	serverVersion,
 	aboutUpdate,
 	generalExtra,
 	wechatLink,
@@ -193,14 +191,7 @@ export function MeSectionPage({
 			case "general":
 				return <GeneralSection>{generalExtra}</GeneralSection>;
 			case "about":
-				return (
-					<AboutSection
-						appVersion={appVersion}
-						serverVersion={serverVersion}
-						onOpenLegal={onOpenLegal}
-						update={aboutUpdate}
-					/>
-				);
+				return <AboutSection appVersion={appVersion} onOpenLegal={onOpenLegal} update={aboutUpdate} />;
 		}
 	}
 }

@@ -8,7 +8,6 @@ import {
 	useConversations,
 	useData,
 	useDataQueryClient,
-	useHealth,
 	usePerson,
 	useSkills,
 } from "@yonder/ui-data";
@@ -73,7 +72,6 @@ export function AppFrame() {
 	);
 	const disconnected = connectionStatus === "reconnecting";
 	const conversations = useConversations();
-	const health = useHealth();
 	const skills = useSkills();
 	const contacts = useContacts();
 	const [layoutMode, setLayoutMode] = useState<LayoutMode | null>(null);
@@ -278,7 +276,6 @@ export function AppFrame() {
 					onModelDirtyChange: (dirty) => {
 						modelDirty.current = dirty;
 					},
-					serverVersion: health.data?.version ?? null,
 				}}
 			/>
 		);

@@ -39,11 +39,12 @@ async function assertSingleLine(notice: Locator, primary: string) {
 	).toBeLessThan(3);
 }
 
-async function prepare(page: Page, platform: Shell, absent = false, holdStage = false) {
+async function prepare(page: Page, platform: Shell, absent = false, holdStage = false, dark = false) {
 	await page.route("**/*", (route) =>
 		new URL(route.request().url()).hostname === "127.0.0.1" ? route.fallback() : route.abort("blockedbyclient"),
 	);
 	const socket = await isolateChat(page, {
+		dark,
 		items: [
 			message("preview-01", "稍后帮我整理一下今天讨论的产品方案。", true),
 			message("preview-02", "好，我会按决策、待解决的问题和下一步来整理。"),
@@ -134,6 +135,70 @@ async function prepare(page: Page, platform: Shell, absent = false, holdStage = 
 	return { post, get, socket, notice: page.getByRole("complementary", { name: "有新版本" }) };
 }
 
+for (const name of ["mobile", "desktop"] as const) {
+	test.describe(`layout overlay on ${name}`, () => {
+		test.use(name === "mobile" ? narrowAndroid : desktop);
+		test("notice and transient errors never move app chrome, and an upward swipe dismisses", async ({ page }, info) => {
+			await page.addInitScript(() => {
+				Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
+					value: async () => {
+						throw new DOMException("Fixture permission denial", "NotAllowedError");
+					},
+				});
+			});
+			const { notice } = await prepare(page, "web", false, false, name === "mobile");
+			if (name === "mobile")
+				await page.evaluate(() => {
+					document.documentElement.dataset.nativeMobile = "true";
+					document.documentElement.style.setProperty("--native-safe-area-inset-top", "59px");
+				});
+			await assertSingleLine(notice, "立即刷新");
+			const layout = () =>
+				page.evaluate((mobile) => {
+					const selectors = [
+						"[data-layout-mode]",
+						'[data-page-layer="detail"] [data-chat-agent-title]',
+						'[role="log"]',
+						'[data-page-layer="detail"] .composer-layout',
+						mobile ? "[data-mobile-dock] nav" : "nav:has([data-tauri-drag-region])",
+					];
+					return selectors.map((selector) => {
+						const element = document.querySelector(selector);
+						if (!element) throw new Error(`Missing layout element: ${selector}`);
+						return { ...element.getBoundingClientRect().toJSON(), scrollTop: element.scrollTop };
+					});
+				}, name === "mobile");
+			const withOffer = await layout();
+			await page.screenshot({ path: info.outputPath(`${name}-update-overlay.png`), animations: "disabled" });
+			await page.getByRole("button", { name: "添加附件" }).click();
+			await page.getByRole("button", { name: "录音笔记", exact: true }).click();
+			const passive = page.getByText("请在系统设置中允许麦克风访问。", { exact: true });
+			await expect(passive).toBeVisible();
+			await expect(passive).toHaveCSS("pointer-events", "none");
+			const offerBox = await notice.boundingBox();
+			const passiveBox = await passive.boundingBox();
+			if (!offerBox || !passiveBox) throw new Error("Expected both notices");
+			expect(passiveBox.y).toBeGreaterThan(offerBox.y + offerBox.height);
+			await expect(notice.getByRole("button", { name: "稍后" })).toHaveCSS("pointer-events", "auto");
+			await expect.poll(layout).toEqual(withOffer);
+			await page.screenshot({ path: info.outputPath(`${name}-stacked-overlay.png`), animations: "disabled" });
+			const titleBox = await notice.getByRole("heading").boundingBox();
+			if (!titleBox) throw new Error("Missing title");
+			const point = { x: titleBox.x + titleBox.width / 2, y: titleBox.y + titleBox.height / 2 };
+			await page.mouse.move(point.x, point.y);
+			await page.mouse.down();
+			await page.mouse.move(point.x, point.y - 32);
+			await page.mouse.up();
+			await expect(notice).toHaveCount(0);
+			await expect(passive).toBeVisible();
+			await expect.poll(layout).toEqual(withOffer);
+			await expect(passive).toHaveCount(0, { timeout: 5_000 });
+			await expect.poll(layout).toEqual(withOffer);
+			await page.screenshot({ path: info.outputPath(`${name}-no-notices.png`), animations: "disabled" });
+		});
+	});
+}
+
 test.describe("desktop", () => {
 	test.use(desktop);
 	test("signed desktop candidate stages before a single actionable top notice", async ({ page }, info) => {
@@ -207,7 +272,7 @@ test.describe("Android", () => {
 
 	test("Later hides this release across a reload without introducing a tab badge", async ({ page }, info) => {
 		const { get, notice } = await prepare(page, "android");
-		await assertSingleLine(notice, "重启后更新");
+		await assertSingleLine(notice, "安装更新");
 		await page.screenshot({ path: info.outputPath("04-android-ready.png"), animations: "disabled", scale: "css" });
 		await notice.getByRole("button", { name: "稍后" }).click();
 		await expect(notice).toHaveCount(0);

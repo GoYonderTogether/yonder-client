@@ -30,6 +30,7 @@ export interface UpdateState {
 	progress?: number;
 	notice?: true;
 	error?: "check" | "download" | "install";
+	installIssue?: "permission" | "settingsUnavailable";
 }
 
 export function createUpdater(driver: UpdateDriver) {
@@ -47,6 +48,8 @@ export function createUpdater(driver: UpdateDriver) {
 			? { version: candidate.version, required: candidate.required, ...(notice ? { notice: true as const } : {}) }
 			: {};
 	const busy = () => ["checking", "downloading", "installing"].includes(state.status);
+	const staged = (value: UpdateState) =>
+		value.status === "ready" || value.status === "installerOpened" || value.error === "install";
 	const progress = (downloaded: number, total: number) => {
 		set({
 			status: "downloading",
@@ -74,7 +77,7 @@ export function createUpdater(driver: UpdateDriver) {
 			next = await driver.check();
 		} catch {
 			// A failed check must not discard an already downloaded update.
-			set(expectedVersion || (old && previous.status === "ready") ? previous : { status: "error", error: "check" });
+			set(expectedVersion || (old && staged(previous)) ? previous : { status: "error", error: "check" });
 			return;
 		}
 		if (expectedVersion && next?.version !== expectedVersion) {
@@ -83,7 +86,7 @@ export function createUpdater(driver: UpdateDriver) {
 			return;
 		}
 		notice = Boolean(expectedVersion);
-		if (old && previous.status === "ready" && next?.version === old.version) {
+		if (old && staged(previous) && next?.version === old.version) {
 			await next.close?.().catch(() => undefined);
 			set({ status: "ready", ...info() });
 			return;
@@ -119,28 +122,34 @@ export function createUpdater(driver: UpdateDriver) {
 
 	async function install(expectedVersion?: string) {
 		if (!candidate || busy() || (expectedVersion && candidate.version !== expectedVersion)) return false;
-		const ready = state.status === "ready" || state.error === "install";
-		if (driver.platform === "desktop" || ready) {
-			if (!ready || !candidate.install) return false;
-			set({ status: "installing", ...info() });
+		if (!candidate.install) return false;
+		if (!staged(state)) {
+			if (driver.platform !== "android" || expectedVersion) return false;
+			set({ status: "downloading", ...info() });
 			try {
-				await candidate.install();
-				if (driver.platform === "android") set({ status: "installerOpened", ...info() });
-				return true;
+				await candidate.download(progress);
 			} catch {
-				set({ status: "error", error: "install", ...info() });
+				set({ status: "error", error: "download", ...info() });
 				return false;
 			}
 		}
-		if (expectedVersion) return false;
-		set({ status: "downloading", ...info() });
+		set({ status: "installing", ...info() });
 		try {
-			await candidate.download(progress);
-			await candidate.install?.();
-			set({ status: "installerOpened", ...info() });
+			await candidate.install();
+			if (driver.platform === "android") set({ status: "installerOpened", ...info() });
 			return true;
-		} catch {
-			set({ status: "error", error: "download", ...info() });
+		} catch (failure) {
+			const code =
+				driver.platform === "android" && failure && typeof failure === "object" && "code" in failure
+					? failure.code
+					: undefined;
+			const installIssue =
+				code === "android_install_permission_required"
+					? "permission"
+					: code === "android_install_settings_unavailable"
+						? "settingsUnavailable"
+						: undefined;
+			set({ status: "error", error: "install", ...info(), ...(installIssue ? { installIssue } : {}) });
 			return false;
 		}
 	}

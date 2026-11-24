@@ -70,7 +70,7 @@ test("Android shows available update and opens the installer only after confirma
 		progress(3, 4);
 		await done;
 	});
-	const candidate: UpdateCandidate = { version: "0.3.12", required: true, download };
+	const candidate: UpdateCandidate = { version: "0.3.12", required: true, download, install: vi.fn(async () => {}) };
 	const updater = createUpdater({ platform: "android", check: async () => candidate });
 	renderControls(updater);
 	fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
@@ -81,4 +81,24 @@ test("Android shows available update and opens the installer only after confirma
 	finish();
 	expect(await screen.findByText("请在系统安装界面继续")).toBeInTheDocument();
 	expect(download).toHaveBeenCalledOnce();
+});
+
+test("Android explains permission denial and retries an already downloaded update", async () => {
+	const download = vi.fn(async () => {});
+	const install = vi
+		.fn<() => Promise<void>>()
+		.mockRejectedValueOnce({ code: "android_install_permission_required" })
+		.mockResolvedValueOnce(undefined);
+	const updater = createUpdater({
+		platform: "android",
+		check: async () => ({ version: "0.3.12", required: false, download, install }),
+	});
+	renderControls(updater);
+	fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
+	fireEvent.click(await screen.findByRole("button", { name: "下载安装" }));
+	expect(await screen.findByText("请在安卓设置中允许 Yonder 安装应用，然后重试。")).toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "安装更新" }));
+	expect(await screen.findByText("请在系统安装界面继续")).toBeInTheDocument();
+	expect(download).toHaveBeenCalledOnce();
+	expect(install).toHaveBeenCalledTimes(2);
 });

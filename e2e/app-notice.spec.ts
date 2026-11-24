@@ -41,13 +41,11 @@ for (const mobile of [false, true]) {
 			await expect(bubble).toHaveCSS("animation-duration", "0s");
 			const box = await bubble.boundingBox();
 			if (!box) throw new Error("Expected a measured notice");
-			const titlebar = await page.evaluate(() =>
-				Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--titlebar-height")),
-			);
-			expect(box.y).toBeGreaterThan(titlebar + (mobile ? 59 : 0));
-			const heading = await page.locator('[data-page-layer="detail"] [data-chat-agent-title]').boundingBox();
-			if (!heading) throw new Error("Expected the Bot heading");
-			expect(box.y).toBeGreaterThan(heading.y + heading.height);
+			const viewport = page.locator(".app-notice-viewport");
+			await expect(viewport).toHaveCSS("position", "fixed");
+			const inset = await viewport.evaluate((element) => Number.parseFloat(getComputedStyle(element).top));
+			expect(box.y).toBe(inset);
+			if (mobile) expect(inset).toBeGreaterThan(59);
 			await page.screenshot({ path: info.outputPath(mobile ? "mobile.png" : "desktop.png"), scale: "css" });
 
 			const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };

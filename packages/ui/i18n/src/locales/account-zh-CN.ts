@@ -250,8 +250,6 @@ export const accountMessagesZhCN = {
 		about: {
 			title: "关于",
 			version: "版本",
-			serverVersion: "服务端",
-			serverUnknown: "连不上",
 			terms: "用户协议",
 			privacy: "隐私政策",
 		},
@@ -272,6 +270,10 @@ export const accountMessagesZhCN = {
 			downloadFailed: "下载失败，请检查网络后重试",
 			installFailed: "未能完成安装或重启，请重试",
 			androidInstallFailed: "下载或打开安装界面失败，请重试",
+			androidInstall: "安装更新",
+			androidInstallPermissionRequired: "请在安卓设置中允许 Yonder 安装应用，然后重试。",
+			androidInstallSettingsUnavailable:
+				"无法打开 Yonder 的安装权限页。请在系统设置中搜索「安装未知应用」，选择 Yonder，授权后重试。",
 			notice: "有新版本",
 			noticeDownload: "下载并更新",
 			noticeRestart: "重启后更新",

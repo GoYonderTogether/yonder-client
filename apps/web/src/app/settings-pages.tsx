@@ -35,7 +35,7 @@ import { WechatWebEntry } from "./wechat-web.tsx";
 
 type SettingsRouteProps = {
 	path: string;
-	legacy: Pick<MeSectionPageProps, "localFiles" | "onModelDirtyChange" | "serverVersion">;
+	legacy: Pick<MeSectionPageProps, "localFiles" | "onModelDirtyChange">;
 	onOpen: (path: string, state?: Omit<PageNavigationState, "tabLocation">) => void;
 	onBack: (parent: string) => void;
 	onBotDirtyChange: (dirty: boolean) => void;

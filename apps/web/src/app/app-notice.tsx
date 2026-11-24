@@ -20,11 +20,16 @@ type ActiveNotice = Notice & { scope: string | undefined };
 
 const NO_NOTICES = { show: (_notice: Notice) => {}, dismiss: (_key: string) => {} };
 const NoticeContext = createContext(NO_NOTICES);
+const TopNoticeTarget = createContext<HTMLDivElement | null>(null);
 const ICONS = { info: Info, warning: TriangleAlert, error: CircleAlert };
 const PRIORITY: Record<Tone, number> = { info: 0, warning: 1, error: 2 };
 const NOTICE_MS = 4_500;
 const RECONNECT_NOTICE = "realtime-reconnecting";
 const RECONNECT_GRACE_MS = 3_000;
+
+export function useTopNoticeTarget() {
+	return useContext(TopNoticeTarget);
+}
 
 export function useAppNotice() {
 	return useContext(NoticeContext).show;
@@ -36,6 +41,7 @@ export function useDismissAppNotice() {
 
 export function AppNoticeProvider({ children, scope }: { children: ReactNode; scope?: string | undefined }) {
 	const [notice, setNotice] = useState<ActiveNotice | null>(null);
+	const [target, setTarget] = useState<HTMLDivElement | null>(null);
 	const currentScope = useRef(scope);
 	useLayoutEffect(() => {
 		currentScope.current = scope;
@@ -70,14 +76,16 @@ export function AppNoticeProvider({ children, scope }: { children: ReactNode; sc
 	const Icon = ICONS[tone];
 	return (
 		<NoticeContext.Provider value={controls}>
-			{children}
-			<div className="app-notice-viewport" role="status" aria-atomic="true">
-				{visible ? (
-					<div key={visible.key} className="app-notice" data-tone={tone}>
-						<Icon className="app-notice-icon" aria-hidden="true" />
-						<span>{visible.text}</span>
-					</div>
-				) : null}
+			<TopNoticeTarget.Provider value={target}>{children}</TopNoticeTarget.Provider>
+			<div className="app-notice-viewport" ref={setTarget}>
+				<div className="app-notice-status" role="status" aria-atomic="true">
+					{visible ? (
+						<div key={visible.key} className="app-notice app-notice-surface" data-tone={tone}>
+							<Icon className="app-notice-icon" aria-hidden="true" />
+							<span>{visible.text}</span>
+						</div>
+					) : null}
+				</div>
 			</div>
 		</NoticeContext.Provider>
 	);

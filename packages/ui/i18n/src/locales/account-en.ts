@@ -252,8 +252,6 @@ export const accountMessagesEn = {
 		about: {
 			title: "About",
 			version: "Version",
-			serverVersion: "Server",
-			serverUnknown: "Unreachable",
 			terms: "Terms of service",
 			privacy: "Privacy policy",
 		},
@@ -274,6 +272,10 @@ export const accountMessagesEn = {
 			downloadFailed: "Download failed. Check your connection and try again.",
 			installFailed: "Could not finish installation or restart. Try again.",
 			androidInstallFailed: "Could not download or open the installer. Try again.",
+			androidInstall: "Install update",
+			androidInstallPermissionRequired: "Allow Yonder to install apps in Android settings, then try again.",
+			androidInstallSettingsUnavailable:
+				"Could not open Yonder’s install permission page. In Android settings, search for Install unknown apps, select Yonder, and then try again.",
 			notice: "New version",
 			noticeDownload: "Download & update",
 			noticeRestart: "Restart to update",

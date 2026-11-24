@@ -14,7 +14,7 @@ The 「我」 overlay — layer three of the shell.
 | 设备              | signed-in devices, editable remarks, current device and live connection status            |
 | 连接器            | horizontal device anchors above per-device groups; inspect, connect locally or disconnect |
 | 通用              | language (中文 / English) and appearance (system / light / dark)                          |
-| 关于              | version, server version, and the two legal documents, not built yet                       |
+| 关于              | client version and the two legal documents                                                |
 
 ## Rules it follows
 
