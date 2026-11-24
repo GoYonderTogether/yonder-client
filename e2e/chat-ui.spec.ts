@@ -63,6 +63,7 @@ async function assertBubbles(page: Page) {
 			logRight: parent.right,
 			incomingColor: getComputedStyle(incoming).backgroundColor,
 			outgoingColor: getComputedStyle(outgoing).backgroundColor,
+			// The sender's bottom corner is square for the tail; the other three keep the card radius.
 			incomingRadius: getComputedStyle(incoming).borderRadius,
 		};
 	});
@@ -70,7 +71,7 @@ async function assertBubbles(page: Page) {
 	expect(geometry.outgoingRight).toBeCloseTo(geometry.logRight, 0);
 	expect(geometry.incomingColor).not.toBe(geometry.outgoingColor);
 	expect(geometry.incomingColor).not.toBe("rgba(0, 0, 0, 0)");
-	expect(geometry.incomingRadius).toBe("16px");
+	expect(geometry.incomingRadius).toBe("16px 16px 16px 0px");
 }
 async function assertComposer(page: Page, onMultiline?: () => Promise<void>) {
 	const input = page.getByRole("textbox", { name: /^对 界面验收/ });

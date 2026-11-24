@@ -80,21 +80,19 @@
 	grid-template-columns: var(--composer-button-size) minmax(0, 1fr) repeat(2, var(--composer-button-size));
 	grid-template-areas: "voice text send plus";
 }
+/* An expanded draft spans the whole row; only the expand control's own width is kept clear on the
+   right, so a draft wraps as wide as the empty field instead of in a 61% column. */
 [data-composer-mobile] .composer-expanded {
-	grid-template-areas: ". text ." "voice . plus";
+	grid-template-areas: "text text text" "voice . plus";
 }
 [data-mobile-send] .composer-expanded {
-	grid-template-areas: ". text . ." "voice . send plus";
+	grid-template-areas: "text text text text" "voice . send plus";
 }
-/* Move only the expanded draft to the leading edge without changing its wrap width. */
-[data-composer-mobile] .composer-expanded:has(.composer-editor:not([hidden]) .composer-text:not([data-empty])) {
-	grid-template-columns: minmax(0, 1fr) repeat(2, var(--composer-button-size));
-	grid-template-areas: "text . ." "voice . plus";
+[data-composer-mobile] .composer-expanded :is(.composer-text, .composer-highlight) {
+	padding-inline-end: calc(var(--composer-button-size) + var(--spacing-2));
 }
-[data-mobile-send] .composer-expanded:has(.composer-editor:not([hidden]) .composer-text:not([data-empty])) {
-	grid-template-columns: minmax(0, 1fr) repeat(3, var(--composer-button-size));
-	grid-template-areas: "text . . ." "voice . send plus";
-}
+/* A one-line draft narrows by the voice slot so the expand control's corner stays clear; the moment
+   it wraps it takes the whole row. Only that corner moves, never the wrap width of a single line. */
 [data-composer-mobile] .composer-text[data-empty] {
 	height: var(--composer-button-size);
 	field-sizing: fixed;
@@ -375,13 +373,12 @@
 		font-size: max(16px, var(--text-body));
 	}
 }
+/* Kept in the draft's top-right corner: the draft reserves exactly this width on its right, so the
+   text never runs under the button and the button never sits outside the box. */
 .composer-fullscreen-toggle {
 	position: absolute;
 	inset-block-start: 0;
-	inset-inline-end: calc((var(--composer-button-size) + var(--spacing-1)) * -2);
-}
-[data-mobile-send] .composer-fullscreen-toggle {
-	inset-inline-end: calc((var(--composer-button-size) + var(--spacing-1)) * -3);
+	inset-inline-end: 0;
 }
 [data-composer-mobile] .composer-input-surface:modal {
 	--compose-viewport: var(--app-height, 100dvh);

@@ -50,15 +50,20 @@ for (const width of [320, 390]) {
 			expect(one.mirrorLineHeight).toBe(one.lineHeight);
 			await page.screenshot({ path: info.outputPath("01-one-line.png"), animations: "disabled", scale: "css" });
 
+			// While it is one line the draft keeps one width; the moment it wraps it takes the whole row.
+			// Nothing in between: the width only ever moves from the one-line value to the expanded one.
+			const widths = new Set<number>([one.width]);
 			for (const character of sample.slice(1)) {
 				await page.keyboard.insertText(character);
 				const current = await metrics(input);
-				expect(current.width).toBe(one.width);
+				widths.add(current.width);
 				expect(current.mirrorFont).toBe(current.font);
 			}
 			await expect(expand).toBeVisible();
 			await expect(page.getByRole("button", { name: "发送", exact: true })).toBeVisible();
+			await expect.poll(async () => (await metrics(input)).width, { timeout: 2000 }).toBeGreaterThan(one.width);
 			const expanded = await metrics(input);
+			expect([...widths].every((width) => width === one.width || width === expanded.width)).toBe(true);
 			expect(expanded.height).toBeGreaterThan(one.height);
 			expect(expanded.left).toBe(voiceLeft);
 			expect((await voice.boundingBox())?.x).toBe(voiceLeft);
