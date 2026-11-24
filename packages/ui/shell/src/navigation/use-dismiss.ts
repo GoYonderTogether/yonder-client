@@ -1,22 +1,45 @@
 /**
- * Dispatch Escape to the topmost active layer; buttons, history and gestures use the same callback.
- * Layout cleanup removes an exiting layer before another Escape can reach its stale callback.
+ * Dispatch Escape, the system's Back and a swipe to the topmost active layer; buttons and history
+ * use the same callback. Layout cleanup removes an exiting layer before another press can reach its
+ * stale callback.
  */
 import { useLayoutEffect, useRef } from "react";
 
-const activeLayers: { priority: number }[] = [];
+interface ActiveLayer {
+	priority: number;
+	dismiss: () => void;
+}
+
+const activeLayers: ActiveLayer[] = [];
+
+/** The topmost open layer, the one Escape, the system's Back and a gesture close first. */
+export function topLayer<T extends { priority: number }>(layers: readonly T[]): T | null {
+	return layers.reduce<T | null>((top, layer) => (!top || layer.priority >= top.priority ? layer : top), null);
+}
+
+/** Whether any layer is open, so the system's Back should close one before it moves history. */
+export function hasOpenLayer(): boolean {
+	return activeLayers.length > 0;
+}
+
+/** Closes the topmost open layer. False when nothing is open, so the caller can carry on outward. */
+export function dismissTopLayer(): boolean {
+	const top = topLayer(activeLayers);
+	if (!top) return false;
+	top.dismiss();
+	return true;
+}
 
 export function useDismiss(active: boolean, onDismiss: () => void, priority = 0): void {
 	const dismiss = useRef(onDismiss);
 	dismiss.current = onDismiss;
 	useLayoutEffect(() => {
 		if (!active) return;
-		const layer = { priority };
+		const layer: ActiveLayer = { priority, dismiss: () => dismiss.current() };
 		activeLayers.push(layer);
 		const handler = (event: KeyboardEvent) => {
 			if (event.key !== "Escape") return;
-			const top = activeLayers.reduce((current, item) => (item.priority >= current.priority ? item : current));
-			if (top !== layer || event.isComposing) return;
+			if (topLayer(activeLayers) !== layer || event.isComposing) return;
 			if (event.defaultPrevented) return;
 			event.preventDefault();
 			dismiss.current();

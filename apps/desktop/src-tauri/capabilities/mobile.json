@@ -4,6 +4,7 @@
 	"platforms": ["android", "iOS"],
 	"permissions": [
 		"core:default",
+		"core:app:allow-exit",
 		"meeting-recorder:default",
 		"yonder-device-download:allow-open",
 		"yonder-device-download:allow-share",

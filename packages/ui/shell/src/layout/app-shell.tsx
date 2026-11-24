@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { GesturePanel } from "../navigation/gesture-panel.tsx";
 import type { TabId } from "../navigation/routes.ts";
-import { useDismiss } from "../navigation/use-dismiss.ts";
+import { backAction, leaveApp, listenForSystemBack } from "../navigation/system-back.ts";
+import { dismissTopLayer, hasOpenLayer, useDismiss } from "../navigation/use-dismiss.ts";
 import { OverlayBackdrop } from "../overlay/overlay-backdrop.tsx";
 import type { LayoutMode } from "../responsive/layout-mode.ts";
 import { LIST_PANE_MIN } from "../responsive/layout-mode.ts";
@@ -108,6 +109,31 @@ export function AppShell({
 	const keyboard = useVisualViewport(container, phone);
 	useKeyboardDismiss(container, keyboard);
 	useEffect(() => onModeChange?.(mode), [mode, onModeChange]);
+	// The system's Back closes the topmost layer first; with nothing open it follows history, and
+	// only a page with nothing behind it leaves the app. A browser tab never registers this.
+	useEffect(() => {
+		let listener: { unregister(): Promise<void> } | null = null;
+		let disposed = false;
+		void listenForSystemBack((canGoBack) => {
+			const action = backAction(hasOpenLayer(), canGoBack);
+			if (action === "layer") {
+				dismissTopLayer();
+				return;
+			}
+			if (action === "history") {
+				history.back();
+				return;
+			}
+			void leaveApp();
+		}).then((registered) => {
+			if (disposed) void registered?.unregister();
+			else listener = registered;
+		});
+		return () => {
+			disposed = true;
+			void listener?.unregister();
+		};
+	}, []);
 	useEffect(() => {
 		if (desktopSettingsOpen) return;
 		meTrigger.current?.focus({ preventScroll: true });
