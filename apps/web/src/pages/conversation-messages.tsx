@@ -1,6 +1,7 @@
 import {
 	attachmentsOutsideQuestionCard,
 	groupMessages,
+	isConnectorIntakeCard,
 	isSilentFailure,
 	isTwoPartyAgentChat,
 	optionCardAttachments,
@@ -101,7 +102,8 @@ export function ConversationMessages({
 			</div>
 		));
 	const visibleItems = delivered.size ? items.filter((item) => !delivered.has(item.id)) : items;
-	return groupMessages(visibleItems, hasFullHistory, { agentCards: true }).map((block) => {
+	const grouping = { agentCards: true, connectorIntakeOwnerLayout: true };
+	return groupMessages(visibleItems, hasFullHistory, grouping).map((block) => {
 		if ("time" in block)
 			return (
 				<MessageTime
@@ -123,6 +125,13 @@ export function ConversationMessages({
 		const first = run[0];
 		if (!first) return null;
 		if (first.type === "system") return <SystemLine key={first.id} message={first} />;
+		if (person && isConnectorIntakeCard(first)) {
+			return (
+				<MessageRun key={first.id} as="div" self senderId={first.senderId}>
+					<MessageEntry message={first} self {...actions} personId={person.id} />
+				</MessageRun>
+			);
+		}
 		const self = first.senderId === person?.id;
 		// A failed run is the chat's own fact, never a caption on a message: one centred system line
 		// after the run, whether the reply wrote nothing or stopped partway. A silent failure draws no

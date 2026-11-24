@@ -4,6 +4,9 @@ export interface LocalFilesAdapter {
 	supported: boolean;
 	/** OS availability. A denied native permission is still a supported connector. */
 	supports?(connectorId: ConnectorId): boolean;
+	permissionStatus?(
+		connectorId: ConnectorId,
+	): "undetermined" | "granted" | "limited" | "denied" | "restricted" | "unavailable" | "unsupported" | undefined;
 	prepare?(connectorId: ConnectorId): Promise<void>;
 	openPermissionSettings?(connectorId: ConnectorId): Promise<void>;
 	authorize(

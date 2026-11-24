@@ -15,7 +15,7 @@ export function BotTabAvatar({
 		<span className="relative">
 			<Avatar name={bot?.displayName ?? ""} src={bot?.avatarUrl} color={bot?.avatarColor} kind="bot" size={24} />
 			<span className="absolute -top-[var(--spacing-1)] -end-[var(--spacing-2)]">
-				<UnreadBadge count={unreadCount} dot muted={muted} />
+				<UnreadBadge count={unreadCount} dot={Boolean(muted)} />
 			</span>
 		</span>
 	);

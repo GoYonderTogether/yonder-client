@@ -7,7 +7,16 @@ import type { ReactNode } from "react";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
 
-const data = vi.hoisted(() => ({ items: [] as Conversation[], pin: vi.fn(), remove: vi.fn() }));
+const data = vi.hoisted(() => ({
+	items: [] as Conversation[],
+	mode: "desktop" as const as "desktop" | "mobile",
+	pin: vi.fn(),
+	remove: vi.fn(),
+}));
+vi.mock("@yonder/ui-shell", async (original) => ({
+	...(await original<typeof import("@yonder/ui-shell")>()),
+	useShellChrome: () => ({ mode: data.mode }),
+}));
 vi.mock("@yonder/ui-data", async (original) => ({
 	...(await original<typeof import("@yonder/ui-data")>()),
 	useBot: () => ({ id: "ownbot", displayName: "My BOT" }),
@@ -97,4 +106,19 @@ test("row actions unpin and require confirmation before deleting from Messages",
 	fireEvent.click(dialog.getByRole("button", { name: "Delete conversation" }));
 	expect(data.remove).toHaveBeenCalledWith("visit-conversation", { onSuccess: expect.any(Function) });
 	expect(onOpen).not.toHaveBeenCalled();
+});
+
+test("mobile Messages omits only the primary Bot row; desktop retains it", () => {
+	data.items = [
+		{ ...visitRow("open"), id: "primary", title: "Primary Bot", isPrimary: true },
+		{ ...visitRow("open"), id: "other", title: "Other Bot", isPrimary: false },
+	];
+	data.mode = "mobile";
+	const props = { current: null, onOpen: vi.fn() };
+	const view = render(localised(<MessagesList {...props} />));
+	expect(screen.queryByRole("button", { name: /Primary Bot/u })).not.toBeInTheDocument();
+	expect(screen.getByRole("button", { name: /Other Bot/u })).toBeInTheDocument();
+	data.mode = "desktop";
+	view.rerender(localised(<MessagesList {...props} />));
+	expect(screen.getByRole("button", { name: /Primary Bot/u })).toBeInTheDocument();
 });

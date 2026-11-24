@@ -54,7 +54,21 @@ export function isAgentCardId(id: unknown): id is string {
 	return typeof id === "string" && /^[a-z\d_-]{1,128}$/iu.test(id);
 }
 
-type MessageCapabilities = { agentCards?: boolean; recordingNotes?: boolean };
+type MessageCapabilities = {
+	agentCards?: boolean;
+	recordingNotes?: boolean;
+	taskSessions?: boolean;
+	connectorIntakeOwnerLayout?: boolean;
+};
+
+/** A system-owned card caused by the owner's grant, not a message authored by the owner. */
+export function isConnectorIntakeCard(message: Message): boolean {
+	return (
+		message.senderKind === "bot" &&
+		Boolean(message.taskSession) &&
+		/^task-entry:connector-intake:apple-(calendar|photos|notes|voice-memos)$/.test(message.clientNonce ?? "")
+	);
+}
 
 const hasAgentCard = (message: Message, support: MessageCapabilities) =>
 	support.agentCards && message.senderKind === "bot" && isAgentCardId(message.cardId);
@@ -80,6 +94,7 @@ export function newestReadableMessage(
 				!message.connectorRequestId &&
 				!message.questionCard &&
 				!(support.recordingNotes && message.meeting) &&
+				!(support.taskSessions && message.taskSession) &&
 				!hasAgentCard(message, support))
 		)
 			continue;
@@ -155,7 +170,13 @@ export function groupMessages<T extends Message>(
 			run[run.length - 1] = item;
 			continue;
 		}
-		if (run && item.type !== "system" && sender?.type !== "system" && sender?.senderId === item.senderId) {
+		if (
+			run &&
+			item.type !== "system" &&
+			sender?.type !== "system" &&
+			sender?.senderId === item.senderId &&
+			(!support.connectorIntakeOwnerLayout || (!isConnectorIntakeCard(item) && !isConnectorIntakeCard(sender)))
+		) {
 			run.push(item);
 		} else {
 			blocks.push({ run: [item] });

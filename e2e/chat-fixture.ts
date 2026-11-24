@@ -136,7 +136,8 @@ export async function isolateChat(
 			| { type: "message.created" | "message.updated"; message: Message }
 			| { type: "run.updated"; run: Run }
 			| { type: "subtask.updated"; subtask: SubtaskSummary }
-			| { type: "device.update.available" },
+			| { type: "device.update.available" }
+			| { type: "conversation.state_changed"; conversationId: string },
 	) {
 		for (const socket of sockets)
 			socket.send(JSON.stringify({ ...event, eventId: crypto.randomUUID(), at: new Date().toISOString() }));
@@ -154,5 +155,6 @@ export async function isolateChat(
 		updateRun: (run: Run) => emit({ type: "run.updated", run }),
 		updateSubtask: (subtask: SubtaskSummary) => emit({ type: "subtask.updated", subtask }),
 		updateOffer: () => emit({ type: "device.update.available" }),
+		reloadConversation: () => emit({ type: "conversation.state_changed", conversationId: current.id }),
 	};
 }

@@ -9,7 +9,7 @@
 import { createContext, useContext } from "react";
 
 /** Put `phrase` in the main Bot's draft. A draft that already has text is left alone. */
-export type AskMainBot = (phrase: string) => void;
+export type AskMainBot = (phrase: string, navigateToMain?: boolean) => void;
 
 const AskMainBotContext = createContext<AskMainBot | null>(null);
 

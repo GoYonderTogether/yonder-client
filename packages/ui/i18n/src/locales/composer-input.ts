@@ -45,7 +45,7 @@ export const composerInputZhCN: typeof composerInputEn = {
 	voiceSlideHere: "滑到这里",
 	voiceSlideToText: "转文字",
 	voiceEdit: "编辑",
-	holdToTranscribe: "可按住转文字",
+	holdToTranscribe: "可按住 转文字",
 	voiceLocked: "已锁定录音",
 	voiceRecovered: "已恢复录音",
 	voiceResume: "继续录音",

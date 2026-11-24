@@ -367,7 +367,6 @@ export function AppFrame() {
 			onOriginalFileChange={draft.toggleOriginal}
 			scope={`${person?.id}:${chat.scope}`}
 			mobilePicker={!desktop}
-			showMobilePlaceholder={Boolean(taskSelection)}
 			onMeeting={recordingConversation ? () => recordingSurface.start(recordingConversation) : undefined}
 			error={draft.error || chat.directAttachments.error}
 			disabled={chat.blocked || disconnected}

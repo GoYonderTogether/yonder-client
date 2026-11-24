@@ -79,7 +79,11 @@ export function ConversationEntry({
 							</span>
 						) : null}
 						{conversation.muted ? <BellOff size={13} aria-label={t("messages.muted")} /> : null}
-						<UnreadBadge count={unread} muted={conversation.muted} dot={mobile && conversation.id === primary} />
+						<UnreadBadge
+							count={unread}
+							dot={mobile && Boolean(conversation.muted)}
+							muted={!mobile && conversation.muted}
+						/>
 					</span>
 				) : undefined
 			}

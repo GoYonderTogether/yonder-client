@@ -87,6 +87,7 @@ export function createLocalFilesAdapter(
 				? statuses[connectorId] !== undefined && statuses[connectorId] !== "unsupported"
 				: localFilesSupported();
 		},
+		permissionStatus: (connectorId) => (isAppleConnector(connectorId) ? statuses[connectorId] : undefined),
 		async prepare(connectorId) {
 			if (!isAppleConnector(connectorId)) return;
 			const status = await requestAppleResourcePermission(connectorId);
@@ -156,10 +157,12 @@ export function useLocalFilesAdapter(): LocalFilesAdapter | undefined {
 		const stop = subscribeForeground(() => {
 			if (isForeground()) refresh();
 		});
+		const stopChanges = onLocalFilesChanged(refresh);
 		refresh();
 		return () => {
 			active = false;
 			stop();
+			stopChanges();
 		};
 	}, [apple]);
 	return useMemo(() => (context ? createLocalFilesAdapter(context, statuses) : undefined), [context, statuses]);

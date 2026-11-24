@@ -19,6 +19,7 @@ import { useDeviceModelEndpointRegistration } from "../lib/device-model-native.t
 import { internalErrorPilot, reportProviderAddFailure } from "../lib/internal-errors.ts";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { UpdateControls } from "../updates/controls.tsx";
+import { useAskMainBot } from "./ask-main-bot.tsx";
 import { CheckoutEntry } from "./checkout.tsx";
 import { useConnectDevice } from "./connect-device.tsx";
 import { ConnectDeviceDownloads } from "./connect-device-downloads.tsx";
@@ -60,6 +61,7 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 	const navigate = useNavigate();
 	const hasPassword = useHasPassword();
 	const registerProviderEndpoint = useDeviceModelEndpointRegistration();
+	const ask = useAskMainBot();
 	const detail = locate(path)?.detail ?? [];
 	const [section, page, leaf, extra] = detail;
 	const connectDevice = useConnectDevice(section === "connectors" ? "connectors" : "devices", props.onOpen);
@@ -154,6 +156,7 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 						next ? props.onOpen(`/me/${section}/${encodeURIComponent(next)}`) : props.onBack(`/me/${section}`)
 					}
 					onOpenDevices={() => props.onOpen("/me/devices")}
+					onTryConnector={(draft) => ask(draft, true)}
 					onAddDevice={connectDevice.onAddDevice}
 					onSignedOut={() => navigate("/sign-in", { replace: true })}
 					onOpenLegal={(document) => navigate(`/${document}`, { state: { backgroundLocation: location } })}

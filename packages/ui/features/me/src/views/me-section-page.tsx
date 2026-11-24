@@ -30,6 +30,7 @@ export interface MeSectionPageProps {
 	page: string | null;
 	onOpenPage: (page: string | null) => void;
 	onOpenDevices?: () => void;
+	onTryConnector?: ((draft: string) => void) | undefined;
 	onAddDevice?: (platforms?: readonly DeviceSummary["platform"][]) => void;
 	renderDeviceAction?: (device: DeviceSummary) => ReactNode;
 	localFiles?: LocalFilesAdapter | undefined;
@@ -62,6 +63,7 @@ export function MeSectionPage({
 	page,
 	onOpenPage,
 	onOpenDevices,
+	onTryConnector,
 	onAddDevice,
 	renderDeviceAction,
 	localFiles,
@@ -178,7 +180,14 @@ export function MeSectionPage({
 					/>
 				);
 			case "connectors":
-				return <ConnectorsSection localFiles={localFiles} onOpenDevices={onOpenDevices} onAddDevice={onAddDevice} />;
+				return (
+					<ConnectorsSection
+						localFiles={localFiles}
+						onOpenDevices={onOpenDevices}
+						onAddDevice={onAddDevice}
+						onTryConnector={onTryConnector}
+					/>
+				);
 			case "invite":
 				return <InviteSection />;
 			case "general":

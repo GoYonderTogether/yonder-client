@@ -87,6 +87,7 @@ const props = {
 	disconnected: false,
 	onResend: vi.fn(),
 	onRetry: vi.fn(),
+	onOpenMeeting: vi.fn(),
 	retrying: false,
 };
 function view(items: CachedMessage[], overrides: Partial<typeof props> = {}) {
@@ -372,4 +373,32 @@ test("a sender's avatar opens their card, as in QQ and WeChat", () => {
 	fireEvent.click(view.getByRole("button", { name: "打开 真实成员甲 的资料" }));
 	expect(onOpenMember).toHaveBeenCalledWith("alice");
 	view.unmount();
+});
+
+test("a connector intake card is owner-side without reassigning the Bot or neighboring replies", () => {
+	const items = [
+		message("before-intake", bot.id, { senderKind: "bot" }),
+		message("intake-card", bot.id, {
+			senderKind: "bot",
+			body: "",
+			taskSession: { id: "calendar", title: "Apple Calendar" },
+			clientNonce: "task-entry:connector-intake:apple-calendar",
+		}),
+		message("after-intake", bot.id, { senderKind: "bot" }),
+		message("other-task", bot.id, {
+			senderKind: "bot",
+			body: "",
+			taskSession: { id: "other", title: "Other" },
+			clientNonce: "task-entry:opened-by-bot",
+		}),
+	];
+	const onOpenMeeting = vi.fn();
+	const { container, getByRole } = render(view(items, { onOpenMeeting }));
+	const ownerPresentation = container.querySelector('[data-message-id="intake-card"]');
+	expect(ownerPresentation?.getAttribute("data-message-sender")).toBe("self");
+	expect(ownerPresentation?.closest("[data-message-run]")?.getAttribute("data-message-run")).toBe(bot.id);
+	for (const id of ["before-intake", "after-intake", "other-task"])
+		expect(container.querySelector(`[data-message-id="${id}"]`)?.getAttribute("data-message-sender")).toBe("other");
+	fireEvent.click(getByRole("button", { name: /Apple Calendar/ }));
+	expect(onOpenMeeting).toHaveBeenCalledWith("calendar");
 });

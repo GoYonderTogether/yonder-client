@@ -1,8 +1,9 @@
 import type { ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 import { Button } from "@yonder/ui-components";
-import { useConnectorActions } from "@yonder/ui-data";
+import { useConnectorActions, useConnectors } from "@yonder/ui-data";
 import { Overlay, useShellChrome } from "@yonder/ui-shell";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { Check, Laptop, Smartphone } from "lucide-react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
 import { connectorPresentation } from "./connector-card.tsx";
@@ -13,9 +14,13 @@ export interface ConnectorPanelProps {
 	device: DeviceSummary;
 	instance?: ConnectorInstance | undefined;
 	localFiles?: LocalFilesAdapter | undefined;
-	connect?: boolean | undefined;
-	onOpenDevices?: (() => void) | undefined;
+	eligibleDevices?: readonly DeviceSummary[] | undefined;
+	onTry?: ((draft: string) => void) | undefined;
 	onClose: () => void;
+}
+
+function isReachable(device: DeviceSummary, instance: ConnectorInstance | undefined) {
+	return device.status === "online" && instance?.scope === "device" && instance.status === "online";
 }
 
 export function ConnectorPanel({
@@ -23,13 +28,141 @@ export function ConnectorPanel({
 	device,
 	instance,
 	localFiles,
-	connect,
-	onOpenDevices,
+	eligibleDevices,
+	onTry,
 	onClose,
 }: ConnectorPanelProps) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
+	const radio = useId();
+	const choices = eligibleDevices ?? [device];
+	const liveTarget = useRef<string | undefined>(device.id);
+	const [selected, setSelected] = useState(device.id);
+	const target = choices.find((choice) => choice.id === selected) ?? device;
+	const connections = useConnectors({ apple: true }).data?.items ?? [];
+	const { key } = connectorPresentation[definition.id];
+	useEffect(() => {
+		if (selected === target.id) return;
+		liveTarget.current = target.id;
+		setSelected(target.id);
+	}, [selected, target.id]);
+
+	function grant(candidate: DeviceSummary) {
+		if (candidate.id === device.id && instance) return connections.find((item) => item.id === instance.id) ?? instance;
+		const grants = connections.filter((item) => item.deviceId === candidate.id && item.connectorId === definition.id);
+		return grants.find((item) => item.scope === "device") ?? grants[0];
+	}
+
+	function close() {
+		liveTarget.current = undefined;
+		onClose();
+	}
+
+	return (
+		<Overlay
+			open
+			title={t(`connectors.${key}.name`)}
+			mode={mode}
+			mobilePresentation="large-sheet"
+			closeLabel={t("app.close")}
+			onClose={close}
+		>
+			<div className="flex flex-col gap-[var(--spacing-5)] p-[var(--spacing-4)]">
+				<ConnectorHero
+					key={target.id}
+					definition={definition}
+					device={target}
+					instance={grant(target)}
+					localFiles={localFiles}
+					isSelected={() => liveTarget.current === target.id}
+					onTry={
+						onTry &&
+						((draft) => {
+							close();
+							onTry(draft);
+						})
+					}
+				/>
+				<fieldset className="flex min-w-0 flex-col gap-[var(--spacing-2)]">
+					<legend className="px-[var(--spacing-2)] pb-[var(--spacing-2)] text-caption font-semibold text-[var(--color-text-secondary)]">
+						{t("connectors.sheet.devices")}
+					</legend>
+					{choices.map((choice) => {
+						const connection = grant(choice);
+						const permission = choice.current ? localFiles?.permissionStatus?.(definition.id) : undefined;
+						const connected =
+							isReachable(choice, connection) &&
+							permission !== "denied" &&
+							permission !== "restricted" &&
+							permission !== "unavailable" &&
+							permission !== "unsupported";
+						const Icon = choice.platform === "ios" || choice.platform === "android" ? Smartphone : Laptop;
+						return (
+							<label key={choice.id} className="cursor-pointer">
+								<input
+									type="radio"
+									name={radio}
+									className="peer sr-only"
+									checked={target.id === choice.id}
+									onChange={() => {
+										liveTarget.current = choice.id;
+										setSelected(choice.id);
+									}}
+								/>
+								<span className="flex items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] px-[var(--spacing-4)] py-[var(--spacing-3)] peer-checked:bg-[var(--color-bg-selected)] peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--color-accent)]">
+									<Icon size={18} aria-hidden className="shrink-0 text-[var(--color-text-secondary)]" />
+									<span className="min-w-0 flex-1">
+										<span className="block truncate text-body font-medium">{deviceDisplayName(choice)}</span>
+										<span className="block text-caption text-[var(--color-text-secondary)]">
+											{t(`me.devices.platforms.${choice.platform}`)}
+											{choice.current ? ` · ${t("me.account.sessionCurrent")}` : ""}
+										</span>
+									</span>
+									<span
+										className={
+											connected
+												? "shrink-0 text-caption text-[var(--color-success)]"
+												: "shrink-0 text-caption text-[var(--color-text-secondary)]"
+										}
+									>
+										{t(
+											connected
+												? "connectors.sheet.deviceConnected"
+												: choice.status === "offline"
+													? "me.devices.offline"
+													: connection
+														? "connectors.sheet.deviceWaiting"
+														: "connectors.sheet.deviceUnconnected",
+										)}
+									</span>
+									{target.id === choice.id ? (
+										<Check size={18} aria-hidden className="shrink-0 text-[var(--color-accent-text)]" />
+									) : null}
+								</span>
+							</label>
+						);
+					})}
+				</fieldset>
+			</div>
+		</Overlay>
+	);
+}
+
+function ConnectorHero({
+	definition,
+	device,
+	instance,
+	localFiles,
+	isSelected,
+	onTry,
+}: Pick<ConnectorPanelProps, "definition" | "device" | "instance" | "localFiles" | "onTry"> & {
+	isSelected: () => boolean;
+}) {
+	const { t } = useTranslation();
 	const actions = useConnectorActions();
+
+	const [authorizedId, setAuthorizedId] = useState<string>();
+	const [waitingForSettings, setWaitingForSettings] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const active = useRef(true);
@@ -39,42 +172,46 @@ export function ConnectorPanel({
 			active.current = false;
 		};
 	}, []);
-	const close = () => {
-		active.current = false;
-		onClose();
-	};
 	const control = definition.id === "computer-control";
 	const apple = definition.id.startsWith("apple-");
 	const legacy = instance?.scope === "folder";
 	const { key, Icon } = connectorPresentation[definition.id];
 	const canConfigure = canConfigureConnector(device, definition, localFiles);
 	const changed = !instance || legacy || instance.capabilities.fileTools !== control;
-	const repair = apple && instance?.status === "offline" && canConfigure;
-	const permissionError =
-		error === "connectors.systemPermissionDenied" || error === "connectors.openSystemSettingsFailed";
-	const errorMessage =
-		error === "connectors.systemPermissionDenied" && device.platform === "ios" && definition.id === "apple-calendar"
-			? "connectors.appleCalendar.iosPermissionDenied"
-			: error;
-	const startOnce = useRef(false);
-	const start = useEffectEvent(() => void apply());
+	const permission = apple && device.current ? localFiles?.permissionStatus?.(definition.id) : undefined;
+	const systemAllowed = permission === "granted" || permission === "limited";
+	const systemDenied = permission === "denied" || permission === "restricted";
+	const systemUnavailable = permission === "unavailable" || permission === "unsupported";
+	const needsSettings =
+		systemDenied ||
+		(!systemAllowed &&
+			(error === "connectors.systemPermissionDenied" || error === "connectors.openSystemSettingsFailed"));
+	const authorized = Boolean(authorizedId || (instance && !changed));
+	const ready = authorized && isReachable(device, instance) && !needsSettings && !systemUnavailable && !busy;
+	const canAuthorize =
+		device.status === "online" &&
+		!systemUnavailable &&
+		canConfigure &&
+		(!authorized || needsSettings) &&
+		(!needsSettings || !!localFiles?.openPermissionSettings);
+	const afterSettings = useEffectEvent(() => void apply(true));
 	useEffect(() => {
-		if (!connect || !canConfigure || startOnce.current) return;
-		startOnce.current = true;
-		start();
-	}, [connect, canConfigure]);
+		if (!waitingForSettings || !systemAllowed || busy) return;
+		setWaitingForSettings(false);
+		afterSettings();
+	}, [waitingForSettings, systemAllowed, busy]);
 
-	async function apply() {
-		if (!device || !localFiles || !canConfigure) return;
+	async function apply(permissionChecked = systemAllowed) {
+		if (!active.current || !isSelected() || !localFiles || !canConfigure || busy) return;
 		setBusy(true);
 		setError(null);
 		let saved: ConnectorInstance | undefined;
 		const capabilities = { fileTools: control };
 		try {
-			if (apple) {
+			if (apple && !permissionChecked) {
 				if (!localFiles.prepare) throw new Error("permission_denied");
 				await localFiles.prepare(definition.id);
-				if (!active.current) return;
+				if (!active.current || !isSelected()) return;
 			}
 			saved =
 				instance && !changed
@@ -93,10 +230,10 @@ export function ConnectorPanel({
 								scope: "device",
 								capabilities,
 							});
-			if (!active.current) throw new Error("cancelled");
+			if (!active.current || !isSelected()) throw new Error("cancelled");
 			await localFiles.authorize(saved);
-			if (!active.current) throw new Error("cancelled");
-			close();
+			if (!active.current || !isSelected()) throw new Error("cancelled");
+			setAuthorizedId(saved.id);
 		} catch (failure) {
 			if (saved && changed) {
 				try {
@@ -140,107 +277,66 @@ export function ConnectorPanel({
 		}
 	}
 
-	async function openPermissionSettings() {
-		try {
-			await localFiles?.openPermissionSettings?.(definition.id);
-		} catch {
-			if (active.current) setError("connectors.openSystemSettingsFailed");
-		}
-	}
-
-	async function disconnect() {
-		if (!instance) return;
+	async function authorize() {
+		if (!needsSettings) return apply();
+		if (!localFiles?.openPermissionSettings || busy) return;
 		setBusy(true);
-		setError(null);
+		setWaitingForSettings(true);
 		try {
-			if (apple && instance.currentDevice) await localFiles?.revoke(instance.id, definition.id);
-			try {
-				await actions.remove.mutateAsync(instance.id);
-			} finally {
-				if (!apple && instance.currentDevice && localFiles?.supported) await localFiles.revoke(instance.id);
-			}
-			close();
+			await localFiles.openPermissionSettings(definition.id);
 		} catch {
-			if (active.current) setError("connectors.disconnectFailed");
+			setWaitingForSettings(false);
+			if (active.current) setError("connectors.openSystemSettingsFailed");
 		} finally {
 			setBusy(false);
 		}
 	}
+
+	const status = systemUnavailable
+		? t("connectors.unavailable")
+		: needsSettings
+			? t(error === "connectors.openSystemSettingsFailed" ? error : "connectors.sheet.permissionNeeded")
+			: error
+				? t(error)
+				: authorized
+					? t(
+							!ready
+								? "connectors.sheet.pending"
+								: permission === "limited"
+									? "connectors.sheet.limited"
+									: "connectors.sheet.authorized",
+						)
+					: !canConfigure
+						? t("connectors.onDevice", { device: deviceDisplayName(device) })
+						: undefined;
+
+	const trial = ready && onTry;
 	return (
-		<Overlay
-			open
-			title={t(`connectors.${key}.name`)}
-			mode={mode}
-			mobilePresentation="sheet"
-			closeLabel={t("app.close")}
-			onClose={close}
-		>
-			<div className="flex flex-col gap-[var(--spacing-5)] p-[var(--spacing-5)]">
-				<div className="flex items-center gap-[var(--spacing-3)]">
-					<Icon size={28} aria-hidden className="shrink-0 text-[var(--color-text-secondary)]" />
-					<p className="text-body text-[var(--color-text-secondary)]">{t(`connectors.${key}.description`)}</p>
-				</div>
-				<p className="break-words text-body">
-					{deviceDisplayName(device)}
-					{legacy ? ` · ${instance.name}` : ""}
-					{(instance?.currentDevice ?? device.current) ? ` · ${t("me.account.sessionCurrent")}` : ""}
+		<section className="flex flex-col items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-[var(--spacing-5)] py-[var(--spacing-6)] text-center">
+			<span className="grid size-[var(--spacing-12)] place-items-center rounded-[var(--radius-md)] bg-[var(--color-bg-subtle)]">
+				<Icon size={26} aria-hidden className="text-[var(--color-text-secondary)]" />
+			</span>
+			<h3 className="text-h2 font-semibold">{t(`connectors.${key}.name`)}</h3>
+			<p className="text-body text-[var(--color-text-secondary)]">{t(`connectors.${key}.description`)}</p>
+			{status ? (
+				<p role="status" className="text-caption text-[var(--color-text-secondary)]">
+					{status}
 				</p>
-				{legacy ? <p className="text-body text-[var(--color-text-secondary)]">{t("connectors.legacyScope")}</p> : null}
-				<details className="text-caption text-[var(--color-text-secondary)]">
-					<summary className="cursor-pointer">{t("connectors.usage")}</summary>
-					<p className="pt-[var(--spacing-3)]">{t("connectors.usageBody")}</p>
-				</details>
-				{!canConfigure && changed ? (
-					<p className="text-caption text-[var(--color-text-secondary)]">
-						{t("connectors.onDevice", { device: deviceDisplayName(device) })}
-					</p>
-				) : null}
-				{errorMessage ? (
-					<p role="alert" className="text-caption text-[var(--color-danger)]">
-						{t(errorMessage)}
-					</p>
-				) : null}
-				{canConfigure && apple && localFiles?.openPermissionSettings && permissionError ? (
-					<Button variant="ghost" disabled={busy} onClick={() => void openPermissionSettings()}>
-						{t("connectors.openSystemSettings")}
-					</Button>
-				) : null}
-				<p className="text-caption text-[var(--color-text-secondary)]">
-					{t(apple ? `connectors.${key}.scope` : control ? "connectors.fileToolsScope" : "connectors.readScope")}
-				</p>
-				{canConfigure && (changed || repair) ? (
-					<Button variant="primary" loading={busy} onClick={() => void apply()}>
-						{t(
-							permissionError
-								? "connectors.retryConnect"
-								: repair
-									? "connectors.reauthorize"
-									: apple
-										? "connectors.connect"
-										: legacy
-											? "connectors.upgrade"
-											: instance
-												? "connectors.save"
-												: "connectors.enable",
-						)}
-					</Button>
-				) : null}
-				{instance ? (
-					<Button variant="danger" loading={busy} onClick={() => void disconnect()}>
-						{t("connectors.disconnect")}
-					</Button>
-				) : !canConfigure && onOpenDevices ? (
-					<Button
-						variant="primary"
-						onClick={() => {
-							close();
-							onOpenDevices();
-						}}
-					>
-						{t("connectors.viewDevices")}
-					</Button>
-				) : null}
-			</div>
-		</Overlay>
+			) : null}
+			{!ready || trial ? (
+				<Button
+					variant="primary"
+					size="lg"
+					className="rounded-[var(--radius-full)]! px-[var(--spacing-8)]"
+					disabled={!trial && !canAuthorize}
+					loading={busy}
+					onClick={() =>
+						trial ? trial(t(`connectors.${key}.trial`, { device: deviceDisplayName(device) })) : void authorize()
+					}
+				>
+					{t(trial ? "connectors.sheet.try" : "connectors.connect")}
+				</Button>
+			) : null}
+		</section>
 	);
 }

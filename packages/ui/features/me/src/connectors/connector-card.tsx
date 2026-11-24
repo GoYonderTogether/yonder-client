@@ -9,7 +9,7 @@ export interface ConnectorCardProps {
 	/** What this device has connected under the connector, folder grants included. */
 	instances: readonly ConnectorInstance[];
 	canConfigure: boolean;
-	onOpen: (definition: ConnectorDefinition, instanceId?: string, connect?: boolean) => void;
+	onOpen: (definition: ConnectorDefinition, instanceId?: string) => void;
 }
 
 /** The connector's own copy lives under `connectors.<key>`; the id is kebab-case, the key is not. */
@@ -63,7 +63,7 @@ export function ConnectorCard({ definition, device, instances, canConfigure, onO
 	const primary = connected.find((item) => item.scope === "device") ?? connected[0];
 	const status = connectorStatusKey(device, primary);
 	const statusLabel = `${t(status)} · ${t(`connectors.${key}.name`)}`;
-	const open = () => onOpen(definition, primary?.id, !primary && canConfigure && definition.id.startsWith("apple-"));
+	const open = () => onOpen(definition, primary?.id);
 	return (
 		<section className="overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-bg-card)]">
 			<div className="flex items-center gap-[var(--spacing-3)] p-[var(--spacing-4)]">

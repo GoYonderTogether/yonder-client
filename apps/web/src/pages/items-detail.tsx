@@ -83,8 +83,9 @@ export function ItemDetailPage({
 	const hasSeed =
 		item.source !== "conversation" &&
 		(item.source === "meeting" || item.instruction || item.outwardRequest || item.failureReason || item.result);
+	const conversationFailure = item.source === "conversation" && item.state === "failed" && item.failureReason;
 	const intro =
-		hasSeed || actionError ? (
+		hasSeed || actionError || conversationFailure ? (
 			<>
 				{actionError ? (
 					<p role="alert" className="text-caption text-[var(--color-danger)]">
@@ -93,6 +94,7 @@ export function ItemDetailPage({
 					</p>
 				) : null}
 				{hasSeed ? <ItemIntroduction item={item} onOpenConversation={onOpenConversation} /> : null}
+				{conversationFailure ? <ItemFailureNotice reason={conversationFailure} /> : null}
 			</>
 		) : null;
 	const conversation = session.data?.conversation;
@@ -189,8 +191,6 @@ function ItemIntroduction({
 	item: ItemDetail;
 	onOpenConversation: (id: string) => void;
 }) {
-	const { i18n } = useTranslation();
-	const failure = itemFailure(item.failureReason, i18n.resolvedLanguage ?? i18n.language);
 	return (
 		<>
 			{item.source === "meeting" ? (
@@ -215,11 +215,7 @@ function ItemIntroduction({
 					}
 				/>
 			) : null}
-			{item.failureReason ? (
-				<SystemNotice as="div" tone={failure.tone} role="note">
-					{failure.text}
-				</SystemNotice>
-			) : null}
+			{item.failureReason ? <ItemFailureNotice reason={item.failureReason} /> : null}
 			{item.source !== "meeting" && item.result ? (
 				<MessageRun as="div" self={false}>
 					<div className="flex justify-start">
@@ -230,5 +226,15 @@ function ItemIntroduction({
 				</MessageRun>
 			) : null}
 		</>
+	);
+}
+
+function ItemFailureNotice({ reason }: { reason: string }) {
+	const { i18n } = useTranslation();
+	const failure = itemFailure(reason, i18n.resolvedLanguage ?? i18n.language);
+	return (
+		<SystemNotice as="div" tone={failure.tone} role="note">
+			{failure.text}
+		</SystemNotice>
 	);
 }

@@ -40,7 +40,6 @@ export interface ComposerProps {
 	onRetryFile?: (id: string) => void;
 	onOriginalFileChange?: (id: string, original: boolean) => void;
 	mobilePicker?: boolean;
-	showMobilePlaceholder?: boolean;
 	onMeeting?: (() => void) | undefined;
 	scope?: string;
 	error?: string;

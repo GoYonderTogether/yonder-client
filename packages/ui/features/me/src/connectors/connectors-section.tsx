@@ -1,5 +1,5 @@
 import type { ConnectorDefinition, DeviceSummary } from "@yonder/protocol";
-import { ListGroup, ListRow, Segmented } from "@yonder/ui-components";
+import { ListGroup, ListRow } from "@yonder/ui-components";
 import { useConnectorCatalog, useConnectors, useDevices } from "@yonder/ui-data";
 import { Laptop, Smartphone } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,21 +7,20 @@ import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
 import { ConnectorCard } from "./connector-card.tsx";
 import { ConnectorPanel } from "./connector-panel.tsx";
-import { ConnectorSources } from "./connector-sources.tsx";
 import { canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
 
 export interface ConnectorsSectionProps {
 	localFiles?: LocalFilesAdapter | undefined;
 	onOpenDevices?: (() => void) | undefined;
+	onTryConnector?: ((draft: string) => void) | undefined;
 	onAddDevice?: ((platforms: readonly DeviceSummary["platform"][]) => void) | undefined;
 }
 
-export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: ConnectorsSectionProps) {
+export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTryConnector }: ConnectorsSectionProps) {
 	const { t, i18n } = useTranslation();
 	const catalog = useConnectorCatalog(true);
 	const connections = useConnectors({ apple: true });
 	const devices = useDevices();
-	const [view, setView] = useState("device");
 	const groups = useMemo(
 		() =>
 			(devices.data?.items ?? []).flatMap((device) => {
@@ -51,7 +50,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 	const activeTarget = groups.some(({ target }) => target === scrolledTarget) ? scrolledTarget : groups[0]?.target;
 
 	useEffect(() => {
-		if (view !== "device" || loading || failed || groups.length < 2) return;
+		if (loading || failed || groups.length < 2) return;
 		const bar = nav.current;
 		const scroller = bar?.closest<HTMLElement>("[data-frame-scroll]");
 		const list = bar?.parentElement;
@@ -86,10 +85,10 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 			scroller.removeEventListener("scroll", update);
 			resize?.disconnect();
 		};
-	}, [groups, loading, failed, view]);
+	}, [groups, loading, failed]);
 
 	useEffect(() => {
-		if (view !== "device" || !activeTarget || loading || failed) return;
+		if (!activeTarget || loading || failed) return;
 		const bar = nav.current;
 		const link = bar?.querySelector('[aria-current="true"]');
 		if (!bar || !link) return;
@@ -97,13 +96,12 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 		const bounds = bar.getBoundingClientRect();
 		const offset = left < bounds.left ? left - bounds.left : Math.max(0, right - bounds.right);
 		if (offset) bar.scrollBy({ left: offset, behavior: "instant" });
-	}, [activeTarget, loading, failed, view]);
+	}, [activeTarget, loading, failed]);
 
 	const [selected, setSelected] = useState<{
 		connectorId: ConnectorDefinition["id"];
 		deviceId: string;
 		instanceId?: string;
-		connect?: boolean;
 	} | null>(null);
 	const selectedGroup = groups.find(({ device }) => device.id === selected?.deviceId);
 	const device = selectedGroup?.device;
@@ -116,12 +114,11 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 		if (selected && !detailVisible) setSelected(null);
 	}, [selected, detailVisible]);
 
-	const open = (device: DeviceSummary, definition: ConnectorDefinition, instanceId?: string, connect?: boolean) => {
+	const open = (device: DeviceSummary, definition: ConnectorDefinition, instanceId?: string) => {
 		setSelected({
 			connectorId: definition.id,
 			deviceId: device.id,
 			...(instanceId ? { instanceId } : {}),
-			...(connect ? { connect } : {}),
 		});
 	};
 	function label(item: DeviceSummary) {
@@ -153,7 +150,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 				/>
 			</ListGroup>
 		);
-	if (!groups.length && !connections.data?.items.length) {
+	if (!groups.length) {
 		const platforms = catalog.data?.items.flatMap((definition) => definition.platforms) ?? [];
 		const addDevice = platforms.length && onAddDevice ? () => onAddDevice(platforms) : undefined;
 		const onClick = addDevice ?? onOpenDevices;
@@ -170,111 +167,90 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 	}
 	return (
 		<>
-			<Segmented
-				aria-label={t("connectors.view")}
-				options={[
-					{ value: "device", label: t("connectors.byDevice") },
-					{ value: "source", label: t("connectors.byConnector") },
-				]}
-				value={view}
-				onChange={setView}
-				size="lg"
-				className="mb-[var(--spacing-4)]"
-			/>
-			{view === "source" ? (
-				<ConnectorSources
-					definitions={catalog.data?.items ?? []}
-					instances={connections.data?.items ?? []}
-					devices={devices.data?.items ?? []}
-					localFiles={localFiles}
-					onConnect={(device, definition) => open(device, definition, undefined, definition.id.startsWith("apple-"))}
-				/>
-			) : (
-				<div className="flex min-w-0 flex-col gap-[var(--spacing-6)]">
-					<nav
-						ref={nav}
-						aria-label={t("connectors.device")}
-						className="sticky top-0 z-10 flex min-w-0 max-w-full shrink-0 gap-[var(--spacing-2)] overflow-x-auto bg-[var(--color-bg-base)] py-[var(--spacing-2)]"
-					>
-						{groups.map(({ device: item, target }) => {
-							const Icon = item.platform === "ios" || item.platform === "android" ? Smartphone : Laptop;
-							return (
-								<a
-									key={item.id}
-									href={`#${target}`}
-									aria-label={label(item)}
-									aria-current={activeTarget === target || undefined}
-									className="inline-flex shrink-0 items-center gap-[var(--spacing-2)] rounded-[var(--radius-md)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] aria-[current=true]:bg-[var(--color-bg-selected)] aria-[current=true]:text-[var(--color-text-primary)]"
-									onClick={(event) => {
-										event.preventDefault();
-										const group = Array.from(nav.current?.parentElement?.children ?? []).find(
-											(element) => element.id === target,
-										);
-										if (!(group instanceof HTMLElement)) return;
-										group.scrollIntoView({ block: "start", behavior: "instant" });
-										group.focus({ preventScroll: true });
-										const scroller = group.closest("[data-frame-scroll]");
-										clicked.current = scroller ? { target, scrollTop: scroller.scrollTop } : null;
-										setScrolledTarget(target);
-									}}
-								>
-									<Icon size={18} strokeWidth={1.7} className="shrink-0" aria-hidden />
-									<span className="max-w-[calc(var(--spacing-16)*2)] truncate">{deviceDisplayName(item)}</span>
-									{item.current ? (
-										<span className="text-micro text-[var(--color-accent-text)]">{t("me.account.sessionCurrent")}</span>
-									) : null}
-								</a>
-							);
-						})}
-					</nav>
-					{groups.map(({ device, definitions, target }) => {
-						const instances = connections.data?.items.filter((item) => item.deviceId === device.id) ?? [];
-						const duplicate = isDuplicate(device);
-						const name = deviceDisplayName(device);
+			<div className="flex min-w-0 flex-col gap-[var(--spacing-6)]">
+				<nav
+					ref={nav}
+					aria-label={t("connectors.device")}
+					className="sticky top-0 z-10 flex min-w-0 max-w-full shrink-0 gap-[var(--spacing-2)] overflow-x-auto bg-[var(--color-bg-base)] py-[var(--spacing-2)]"
+				>
+					{groups.map(({ device: item, target }) => {
+						const Icon = item.platform === "ios" || item.platform === "android" ? Smartphone : Laptop;
 						return (
-							<section
-								key={device.id}
-								id={target}
-								tabIndex={-1}
-								aria-label={label(device)}
-								className="min-w-0 scroll-mt-[var(--spacing-16)] space-y-[var(--spacing-3)]"
+							<a
+								key={item.id}
+								href={`#${target}`}
+								aria-label={label(item)}
+								aria-current={activeTarget === target || undefined}
+								className="inline-flex shrink-0 items-center gap-[var(--spacing-2)] rounded-[var(--radius-md)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] aria-[current=true]:bg-[var(--color-bg-selected)] aria-[current=true]:text-[var(--color-text-primary)]"
+								onClick={(event) => {
+									event.preventDefault();
+									const group = Array.from(nav.current?.parentElement?.children ?? []).find(
+										(element) => element.id === target,
+									);
+									if (!(group instanceof HTMLElement)) return;
+									group.scrollIntoView({ block: "start", behavior: "instant" });
+									group.focus({ preventScroll: true });
+									const scroller = group.closest("[data-frame-scroll]");
+									clicked.current = scroller ? { target, scrollTop: scroller.scrollTop } : null;
+									setScrolledTarget(target);
+								}}
 							>
-								<header>
-									<h2 className="break-words text-body font-medium">
-										{name}
-										{device.current ? (
-											<span className="ms-[var(--spacing-2)] text-micro text-[var(--color-accent-text)]">
-												{t("me.account.sessionCurrent")}
-											</span>
-										) : null}
-									</h2>
-									<p className="text-caption text-[var(--color-text-tertiary)]">
-										{name !== device.name ? `${device.name} · ` : ""}
-										{t(`me.devices.platforms.${device.platform}`)} · {t(`me.devices.${device.status}`)}
-										{duplicate
-											? ` · ${new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, { dateStyle: "short", timeStyle: "medium" }).format(new Date(device.lastSeenAt))}`
-											: ""}
-									</p>
-								</header>
-								<div className="@container">
-									<div className="grid grid-cols-1 gap-[var(--spacing-3)] @[40rem]:grid-cols-2">
-										{definitions.map((def) => (
-											<ConnectorCard
-												key={def.id}
-												definition={def}
-												device={device}
-												instances={instances}
-												canConfigure={canConfigureConnector(device, def, localFiles)}
-												onOpen={(definition, instanceId, connect) => open(device, definition, instanceId, connect)}
-											/>
-										))}
-									</div>
-								</div>
-							</section>
+								<Icon size={18} strokeWidth={1.7} className="shrink-0" aria-hidden />
+								<span className="max-w-[calc(var(--spacing-16)*2)] truncate">{deviceDisplayName(item)}</span>
+								{item.current ? (
+									<span className="text-micro text-[var(--color-accent-text)]">{t("me.account.sessionCurrent")}</span>
+								) : null}
+							</a>
 						);
 					})}
-				</div>
-			)}
+				</nav>
+				{groups.map(({ device, definitions, target }) => {
+					const instances = connections.data?.items.filter((item) => item.deviceId === device.id) ?? [];
+					const duplicate = isDuplicate(device);
+					const name = deviceDisplayName(device);
+					return (
+						<section
+							key={device.id}
+							id={target}
+							tabIndex={-1}
+							aria-label={label(device)}
+							className="min-w-0 scroll-mt-[var(--spacing-16)] space-y-[var(--spacing-3)]"
+						>
+							<header>
+								<h2 className="break-words text-body font-medium">
+									{name}
+									{device.current ? (
+										<span className="ms-[var(--spacing-2)] text-micro text-[var(--color-accent-text)]">
+											{t("me.account.sessionCurrent")}
+										</span>
+									) : null}
+								</h2>
+								<p className="text-caption text-[var(--color-text-tertiary)]">
+									{name !== device.name ? `${device.name} · ` : ""}
+									{t(`me.devices.platforms.${device.platform}`)} · {t(`me.devices.${device.status}`)}
+									{duplicate
+										? ` · ${new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, { dateStyle: "short", timeStyle: "medium" }).format(new Date(device.lastSeenAt))}`
+										: ""}
+								</p>
+							</header>
+							<div className="@container">
+								<div className="grid grid-cols-1 gap-[var(--spacing-3)] @[40rem]:grid-cols-2">
+									{definitions.map((def) => (
+										<ConnectorCard
+											key={def.id}
+											definition={def}
+											device={device}
+											instances={instances}
+											canConfigure={canConfigureConnector(device, def, localFiles)}
+											onOpen={(definition, instanceId) => open(device, definition, instanceId)}
+										/>
+									))}
+								</div>
+							</div>
+						</section>
+					);
+				})}
+			</div>
 			{detailVisible && selected && definition && device ? (
 				<ConnectorPanel
 					key={`${selected.deviceId}:${selected.connectorId}:${selected.instanceId ?? "new"}`}
@@ -282,8 +258,10 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice }: Co
 					definition={definition}
 					instance={instance}
 					localFiles={localFiles}
-					connect={selected.connect}
-					onOpenDevices={onOpenDevices}
+					eligibleDevices={groups
+						.filter(({ definitions }) => definitions.some((item) => item.id === definition.id))
+						.map(({ device: candidate }) => candidate)}
+					onTry={onTryConnector}
 					onClose={() => setSelected(null)}
 				/>
 			) : null}

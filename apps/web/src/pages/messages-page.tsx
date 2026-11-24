@@ -58,15 +58,17 @@ export function MessagesList({
 	const bot = useBot();
 	const conversations = useConversations();
 	const items = conversations.data?.items;
+	const primary = primaryConversation(items, bot?.id);
 	const visible = useMemo(
 		() =>
 			items
-				?.filter((conversation) => !conversation.hiddenFromMessages)
+				?.filter(
+					(conversation) => !conversation.hiddenFromMessages && (mode !== "mobile" || conversation.id !== primary?.id),
+				)
 				.sort((a, b) => Number(b.pinned) - Number(a.pinned)),
-		[items],
+		[items, mode, primary?.id],
 	);
 	const person = usePerson();
-	const primary = primaryConversation(items, bot?.id);
 	const { pin, remove } = useConversationListActions();
 	const [deleting, setDeleting] = useState<{ id: string; title: string } | null>(null);
 	const busy = pin.isPending || remove.isPending;
@@ -229,7 +231,11 @@ export function ConversationPage({
 			person &&
 			items?.length &&
 			(item || conversation?.unreadCount)
-			? newestReadableMessage(items, person.id, { agentCards: true, recordingNotes: Boolean(onOpenMeeting) })
+			? newestReadableMessage(items, person.id, {
+					agentCards: true,
+					recordingNotes: Boolean(onOpenMeeting),
+					taskSessions: Boolean(onOpenMeeting),
+				})
 			: undefined,
 		canRead,
 	);

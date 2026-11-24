@@ -105,6 +105,39 @@ test("a recording-only Bot message acknowledges its watermark only on a surface 
 	).toBeUndefined();
 });
 
+test("a visible task card advances the read cursor past an earlier Bot message", () => {
+	const first: Message = {
+		id: "msg_first",
+		conversationId: "cnv_test",
+		senderId: "bot_test",
+		senderKind: "bot",
+		type: "text",
+		body: "Earlier",
+		attachments: [],
+		replyToId: null,
+		createdAt: "2026-11-19T01:00:01.000Z",
+		editedAt: null,
+		streaming: false,
+		version: 1,
+	};
+	const task = {
+		...first,
+		id: "msg_task",
+		body: "",
+		createdAt: "2026-11-19T01:00:02.000Z",
+		taskSession: { id: "cnv_task", title: "Apple Calendar" },
+	};
+	expect(newestReadableMessage([first, task], "mem_reader")).toBe(first.id);
+	expect(newestReadableMessage([first, task], "mem_reader", { taskSessions: true })).toBe(task.id);
+	expect(newestReadableMessage([task], task.senderId, { taskSessions: true })).toBeUndefined();
+	expect(newestReadableMessage([{ ...task, streaming: true }], "mem_reader", { taskSessions: true })).toBeUndefined();
+	expect(
+		newestReadableMessage([task, { ...first, id: "msg_new", createdAt: "2026-11-19T01:00:03.000Z" }], "mem_reader", {
+			taskSessions: true,
+		}),
+	).toBe("msg_new");
+});
+
 const failed = (id: string, reason: string, createdAt: string, extra: Partial<Message> = {}): Message => ({
 	id,
 	conversationId: "cnv_test",

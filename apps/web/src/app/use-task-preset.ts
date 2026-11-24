@@ -108,7 +108,7 @@ export function useTaskPreset({
 
 	return {
 		/** What 「+」 and 「编辑」 use: one sentence in the main Bot's draft, never sent. */
-		ask: (phrase: string) => openPreset(phrase),
+		ask: (phrase: string, navigateToMain = false) => (navigateToMain ? openMain(phrase) : openPreset(phrase)),
 		addItem: () => openPreset(t("tasks.presetItem")),
 		addGoal: () => openPreset(t("tasks.presetGoal")),
 		drawerOpen,

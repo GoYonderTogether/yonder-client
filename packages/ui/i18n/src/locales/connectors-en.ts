@@ -38,6 +38,19 @@ export const connectorMessagesEn = {
 	requestDevice: "Device: {{device}}",
 	requestDeviceOffline: "The target device is offline. Open Yonder on that computer and try again.",
 	connect: "Connect",
+	sheet: {
+		authorize: "Authorize",
+		authorizeInSettings: "Authorize in Settings",
+		permissionNeeded: "Allow access in system settings.",
+		pending: "Authorized · waiting to connect",
+		limited: "Authorized · only what the system allows",
+		authorized: "Authorized",
+		try: "Try it",
+		devices: "Available devices",
+		deviceConnected: "Connected",
+		deviceUnconnected: "Not connected",
+		deviceWaiting: "Not ready",
+	},
 	connected: "Connected",
 	connectedOffline: "Connected · Device offline",
 	connectedNotReady: "Connected · Not ready",
@@ -76,36 +89,46 @@ export const connectorMessagesEn = {
 	needsDesktop: "Open Yonder on your computer to enable this connector.",
 	localFiles: {
 		name: "Read files",
-		description: "Find and read files on the selected device",
+		description: "Find and read files.",
+		trial: "Use only “{{device}}” to list a few top-level folders. If it is unavailable, tell me instead.",
 		scope:
 			"Your Bots can list files and read text files inside the folder you choose. Read content is sent to the cloud for processing. They cannot modify files or access anything outside that folder.",
 	},
 	computerControl: {
 		name: "Modify files",
-		description: "Create, edit and recoverably delete files",
+		description: "Create, edit, and remove files.",
+		trial: "Tell me what file operations you can help with on “{{device}}” only. Do not change any files.",
 	},
 	appleCalendar: {
 		iosPermissionDenied:
 			"Set Calendar to Full Access in Settings. If access hasn’t updated, quit and reopen Yonder, then connect again.",
 		name: "Apple Calendar",
-		description: "Let your Bot find and read calendar events",
+		description: "See events and schedules.",
+		trial:
+			"Check today’s Apple Calendar on “{{device}}” only. If that device is unavailable, tell me instead of switching devices.",
 		scope: "Your Bot can find calendar events and read their details when you ask.",
 	},
 	applePhotos: {
 		name: "Apple Photos",
-		description: "Let your Bot find photos and recognize text and content",
+		description: "Find photos and text in them.",
+		trial:
+			"Find recent landscape photos in Apple Photos on “{{device}}” only. If it is unavailable, tell me instead of switching devices.",
 		scope:
 			"Your Bot can find photos within the access you grant and read recognition results. Recognition runs on this device.",
 	},
 	appleNotes: {
 		name: "Apple Notes",
-		description: "Let your Bot find and read notes",
+		description: "Find and read notes.",
+		trial:
+			"List a few recently edited Apple Notes titles on “{{device}}” only. If it is unavailable, tell me instead of switching devices.",
 		scope: "Your Bot can find unlocked notes and read their text and attachments.",
 		unavailable: "Notes could not be opened. Open Notes on this Mac and try again.",
 	},
 	appleVoiceMemos: {
 		name: "Apple Voice Memos",
-		description: "Let your Bot find recordings, read the original audio, and transcribe it",
+		description: "Find and transcribe recordings.",
+		trial:
+			"List a few recent Voice Memos titles on “{{device}}” only. If it is unavailable, tell me instead of switching devices.",
 		scope: "Your Bot can find recordings, read the original audio, and transcribe it when you ask.",
 		unavailable: "Open Voice Memos on this Mac and wait for recordings to sync before trying again.",
 		unsupported: "Voice Memos on this Mac cannot be read by Yonder yet.",

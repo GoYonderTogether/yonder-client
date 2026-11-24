@@ -21,7 +21,7 @@ export interface OverlayProps {
 	size?: "small" | "wide";
 	closeLabel?: string;
 	mobileBackLabel?: string;
-	mobilePresentation?: "page" | "sheet" | "tall-sheet";
+	mobilePresentation?: "page" | "sheet" | "tall-sheet" | "large-sheet";
 	onExpand?: () => void;
 	expandLabel?: string;
 }
@@ -106,7 +106,9 @@ export function Overlay({
 												? expandable
 													? "h-[min(calc(77dvh+var(--sheet-expansion,0px)),var(--app-height,100dvh))] !overflow-visible"
 													: "h-[min(70dvh,var(--app-height,100dvh))]"
-												: "max-h-[min(var(--dialog-max-height),var(--app-height,100dvh))]",
+												: mobilePresentation === "large-sheet"
+													? "h-[min(80dvh,var(--app-height,100dvh))]"
+													: "max-h-[min(var(--dialog-max-height),var(--app-height,100dvh))]",
 										)
 									: "h-full w-full",
 						)}
