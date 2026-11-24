@@ -55,7 +55,7 @@ async function seenDownloads(page: Page): Promise<string[]> {
 test.describe("desktop landing", () => {
 	test.use({ userAgent: mac, locale: "en-US" });
 
-	test("offers the matching installer and remembers a manual choice for seven days", async ({ page }) => {
+	test("offers public split downloads and remembers a manual choice for seven days", async ({ page }, info) => {
 		await watchDownloads(page);
 		await page.goto("/?next=%2Fother");
 		await expect(page.getByRole("link", { name: "Download for macOS" })).toHaveAttribute(
@@ -68,9 +68,27 @@ test.describe("desktop landing", () => {
 		expect(seen.every((href) => href === `${downloadRoot}_aarch64.dmg`)).toBe(true);
 		await page.keyboard.press("Tab");
 		await expect(page.locator(":focus-visible")).toHaveCount(1);
-		await page.getByText("Wrong platform? Choose manually", { exact: true }).click();
+		const actions = page.locator(".lp-hero .lp-download");
+		await expect(actions.getByRole("link", { name: "Use web version" })).toHaveAttribute("href", "/messages");
+		await expect(page.locator(".lp-nav").getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/sign-in");
+		await expect(actions.locator(".lp-download-note, .lp-download-links, details")).toHaveCount(0);
+		await page.screenshot({ path: info.outputPath("public-desktop-buttons.png") });
+		const windows = `${downloadRoot}_x64-setup.exe`;
+		await page.route(windows, (route) => route.fulfill({ status: 204 }));
+		const options = actions.getByRole("button", { name: "Download options" });
+		await options.click();
+		const menu = actions.getByRole("menu", { name: "Download options" });
+		await expect(menu.getByRole("menuitem")).toHaveText([
+			"macOS · Apple silicon",
+			"Windows · 64-bit Windows 10+",
+			"Android",
+			"iOS",
+		]);
+		await page.screenshot({ path: info.outputPath("public-desktop-menu.png") });
 		const before = Date.now();
-		await page.getByRole("button", { name: "Windows", exact: true }).click();
+		const request = page.waitForRequest(windows);
+		await menu.getByRole("menuitem", { name: /Windows/ }).click();
+		await request;
 		await expect(page.getByRole("link", { name: "Download for Windows" })).toHaveAttribute(
 			"href",
 			`${downloadRoot}_x64-setup.exe`,
@@ -99,13 +117,13 @@ test.describe("in-app landing", () => {
 		permissions: ["clipboard-read", "clipboard-write"],
 	});
 
-	test("never flashes an installer, even after manual selection, and copies the link", async ({ page }) => {
+	test("keeps the copy-link flow and never shows installer controls in WeChat", async ({ page }) => {
 		await watchDownloads(page);
 		await page.goto("/");
 		await expect(page.getByRole("link", { name: "用网页版" })).toBeVisible();
 		await expect(page.getByText("在微信中，点右上角 ···，选在浏览器打开。")).toBeVisible();
-		await page.getByText("不对？手动选", { exact: true }).click();
-		await page.getByRole("button", { name: "Windows", exact: true }).click();
+		await expect(page.getByRole("button", { name: "下载选项" })).toHaveCount(0);
+		await expect(page.locator(".lp-download-links, .lp-download-split")).toHaveCount(0);
 		await expect(page.locator('a[href$=".exe"], a[href$=".dmg"], a[href$=".apk"]')).toHaveCount(0);
 		expect(await seenDownloads(page)).toEqual([]);
 		await page.getByRole("button", { name: "复制链接" }).click();
@@ -114,16 +132,38 @@ test.describe("in-app landing", () => {
 	});
 });
 
-test("iPhone offers the public TestFlight link and the web version", async ({ browser }) => {
-	const context = await browser.newContext({ userAgent: iphone, locale: "en-US" });
+test("iPhone shows the public TestFlight split download and separate web action", async ({ browser }, info) => {
+	const context = await browser.newContext({
+		userAgent: iphone,
+		locale: "en-US",
+		hasTouch: true,
+		viewport: { width: 390, height: 844 },
+	});
 	const page = await context.newPage();
+	try {
+		await page.goto("/");
+		const actions = page.locator(".lp-hero .lp-download");
+		await expect(actions.getByRole("link", { name: "Download for iOS" })).toHaveAttribute(
+			"href",
+			"https://testflight.apple.com/join/8C5Y9KHQ",
+		);
+		await expect(actions.getByRole("link", { name: "Use web version" })).toBeVisible();
+		await expect(actions.locator(".lp-download-note, .lp-download-links, details")).toHaveCount(0);
+		await page.screenshot({ path: info.outputPath("public-iphone-buttons.png") });
+		await actions.getByRole("button", { name: "Download options" }).tap();
+		await expect(actions.getByRole("menuitem", { name: "Android" })).toBeVisible();
+		await page.screenshot({ path: info.outputPath("public-iphone-menu.png") });
+	} finally {
+		await context.close();
+	}
+});
+
+test("unknown desktop platforms see all available downloads without a false recommendation", async ({ page }) => {
 	await page.goto("/");
-	await expect(page.getByRole("link", { name: "Download for iOS" })).toHaveAttribute(
-		"href",
-		"https://testflight.apple.com/join/8C5Y9KHQ",
-	);
-	await expect(page.getByRole("link", { name: "Use web version" })).toBeVisible();
-	await context.close();
+	const actions = page.locator(".lp-hero .lp-download");
+	await expect(actions.getByRole("link", { name: "Download", exact: true })).toHaveAttribute("href", "/download");
+	await actions.getByRole("button", { name: "Download options" }).click();
+	await expect(actions.getByRole("menuitem")).toHaveCount(4);
 });
 
 test("Android offers the APK and the web version", async ({ browser }) => {

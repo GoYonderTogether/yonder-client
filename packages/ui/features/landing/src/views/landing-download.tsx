@@ -1,4 +1,4 @@
-import { Button, Menu } from "@yonder/ui-components";
+import { Menu } from "@yonder/ui-components";
 import { useData } from "@yonder/ui-data";
 import { ChevronDown, Download } from "lucide-react";
 import { useState } from "react";
@@ -48,10 +48,7 @@ async function copyLink(): Promise<boolean> {
 	}
 }
 
-/**
- * The hero's actions: the installer and the app, with extra platform choices for guests.
- * In an in-app browser (WeChat, QQ…) no installer link is ever rendered; it offers to copy the link.
- */
+/** Installer options are public; embedded browsers only get the copy-to-browser action. */
 export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps & { appPath: string | null }) {
 	const { t } = useTranslation();
 	const { storage } = useData();
@@ -61,7 +58,6 @@ export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps &
 	const catalog = createDownloadCatalog(version, { ...(iosUrl ? { iosUrl } : {}) });
 	const platform = choice ?? (environment.type === "browser" ? environment.platform : "web");
 	const download = environment.type === "browser" && platform !== "web" ? catalog[platform].url : null;
-	const note = platform === "macos" ? t("landing.macNote") : platform === "windows" ? t("landing.windowsNote") : null;
 	const inApp = environment.type === "in-app";
 	const RecommendedIcon = download ? LANDING_PLATFORM_ICONS[platform] : Download;
 	const downloadOptions = PLATFORMS.flatMap((item) => {
@@ -74,6 +70,7 @@ export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps &
 		return [
 			{
 				id: entry.url,
+				platform: item,
 				label: requirement ? `${name} · ${requirement}` : name,
 				icon: <Icon size={16} aria-hidden="true" />,
 			},
@@ -86,7 +83,7 @@ export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps &
 				<p className="lp-download-hint">{t("landing.inApp", { app: t(`landing.apps.${environment.app}`) })}</p>
 			) : null}
 			<div className="lp-actions">
-				{appPath && !inApp ? (
+				{!inApp ? (
 					<div className="lp-download-split">
 						<a className="lp-action lp-action-secondary lp-download-main" href={download ?? "/download"}>
 							<RecommendedIcon size={16} aria-hidden="true" />
@@ -98,7 +95,15 @@ export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps &
 							className="lp-download-menu"
 							label={t("landingPage.downloadOptions")}
 							items={downloadOptions}
-							onSelect={(url) => window.location.assign(url)}
+							onSelect={(url) => {
+								const selected = downloadOptions.find((option) => option.id === url);
+								if (!selected) return;
+								if (!appPath) {
+									writePlatformChoice(storage, selected.platform);
+									setChoice(selected.platform);
+								}
+								window.location.assign(url);
+							}}
 							trigger={(trigger) => (
 								<button
 									{...trigger}
@@ -111,7 +116,7 @@ export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps &
 							)}
 						/>
 					</div>
-				) : inApp ? (
+				) : (
 					<button
 						type="button"
 						className={`lp-action ${appPath ? "lp-action-secondary" : "lp-action-primary"}`}
@@ -119,48 +124,19 @@ export function DownloadControls({ version, iosUrl, appPath }: PublicViewProps &
 					>
 						{t("landing.copyLink")}
 					</button>
-				) : download ? (
-					<a className={`lp-action ${appPath ? "lp-action-secondary" : "lp-action-primary"}`} href={download}>
-						{t("landing.downloadFor", { platform: t(`landing.platforms.${platform}`) })}
-					</a>
-				) : null}
+				)}
 				<a
-					className={`lp-action ${!appPath && (download || inApp) ? "lp-action-secondary" : "lp-action-primary"}`}
+					className={`lp-action ${!appPath && inApp ? "lp-action-secondary" : "lp-action-primary"}`}
 					href={appPath ?? catalog.web.url ?? "/messages"}
 				>
 					{t(appPath ? "landingPage.openApp" : "landing.useWeb")}
 				</a>
 			</div>
-			{!appPath && download && note ? <p className="lp-download-note">{note}</p> : null}
 			{inApp ? (
 				<span className="lp-download-note" role="status">
 					{copyStatus === "copied" ? t("landing.copied") : copyStatus === "failed" ? t("landing.copyFailed") : null}
 				</span>
 			) : null}
-			{!appPath && (
-				<div className="lp-download-links">
-					<a href="/download">{t("landing.allDownloads")}</a>
-					<details>
-						<summary>{t("landing.choosePlatform")}</summary>
-						<div className="lp-platforms">
-							{PLATFORMS.map((item) => (
-								<Button
-									key={item}
-									variant={item === platform ? "secondary" : "ghost"}
-									size="sm"
-									aria-pressed={item === platform}
-									onClick={() => {
-										writePlatformChoice(storage, item);
-										setChoice(item);
-									}}
-								>
-									{t(`landing.platforms.${item}`)}
-								</Button>
-							))}
-						</div>
-					</details>
-				</div>
-			)}
 		</div>
 	);
 }

@@ -1,24 +1,14 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import {
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	rmSync,
-	writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-const workflow = readFileSync(
-	new URL("../../.github/workflows/ios-release.yml", import.meta.url),
-	"utf8",
-);
+const workflow = readFileSync(new URL("../../.github/workflows/ios-release.yml", import.meta.url), "utf8");
 const team = "TESTTEAM42";
 const bundle = "net.yonderbot.app";
-const plist = (xml) =>
-	`<?xml version="1.0"?><plist version="1.0"><dict>${xml}</dict></plist>`;
+const plist = (xml) => `<?xml version="1.0"?><plist version="1.0"><dict>${xml}</dict></plist>`;
 const row = (key, value) => `<key>${key}</key><string>${value}</string>`;
 
 function profile({
@@ -58,27 +48,20 @@ function fixture(t) {
 	stub("security", 'if [ "$1" = cms ]; then cat "$6"; fi');
 	stub("xcodebuild", 'cp "$FAKE_IPA" dist-ios/exported.ipa');
 	stub("codesign", 'cat "$5/fake-signed-entitlements.plist"');
-	stub(
-		"xcrun",
-		'test "$1" = altool && echo uploaded > "$RUNNER_TEMP/uploaded"',
-	);
+	stub("xcrun", 'test "$1" = altool && echo uploaded > "$RUNNER_TEMP/uploaded"');
 	const env = {
 		PATH: `${bin}:/usr/bin:/bin`,
 		HOME: home,
 		RUNNER_TEMP: run,
 		GITHUB_ENV: join(run, "env"),
 		TEAM_ID: team,
-		CERT_BASE64: Buffer.from("synthetic certificate placeholder").toString(
-			"base64",
-		),
+		CERT_BASE64: Buffer.from("synthetic certificate placeholder").toString("base64"),
 		CERT_PASSWORD: "synthetic password",
 		IOS_PROFILE_NAME: "Synthetic selected profile",
 		ARCHIVE: "isolated fixtures use a stub",
 		VERSION: "0.3.26112399",
 		BUILD_NUMBER: "26112399",
-		KEY_BASE64: Buffer.from("synthetic upload key placeholder").toString(
-			"base64",
-		),
+		KEY_BASE64: Buffer.from("synthetic upload key placeholder").toString("base64"),
 		KEY_ID: "synthetic",
 		ISSUER_ID: "synthetic",
 		FAKE_IPA: join(root, "fixture.ipa"),
@@ -103,11 +86,7 @@ function fixture(t) {
 			encoding: "utf8",
 		});
 	}
-	function ipa({
-		marker = "production",
-		aps = "production",
-		signedTeam = team,
-	} = {}) {
+	function ipa({ marker = "production", aps = "production", signedTeam = team } = {}) {
 		const path = join(root, "Payload/Yonder.app");
 		mkdirSync(path, { recursive: true });
 		writeFileSync(
@@ -135,134 +114,97 @@ function fixture(t) {
 }
 
 const mac = { skip: process.platform !== "darwin" };
-const assertOk = (result) =>
-	assert.equal(result.status, 0, result.stdout + result.stderr);
+const assertOk = (result) => assert.equal(result.status, 0, result.stdout + result.stderr);
 
-test(
-	"both dispatch kinds pick a production App Store profile by eligibility and always turn APNs on",
-	mac,
-	(t) => {
-		const cases = [
-			{
-				mode: "true",
-				regular: profile({ name: "Regular push" }),
-				internal: profile({ name: "Internal preferred push" }),
-				picked: "Internal preferred push",
-			},
-			{
-				mode: "false",
-				regular: profile({ name: "Regular push" }),
-				internal: profile({ name: "Internal push" }),
-				picked: "Regular push",
-			},
-			{
-				mode: "false",
-				regular: profile({ aps: "" }),
-				internal: profile({ name: "Same-app push fallback" }),
-				picked: "Same-app push fallback",
-			},
-			{
-				mode: "true",
-				regular: profile({ name: "Regular push fallback" }),
-				internal: profile({ expiry: "2000-01-01T00:00:00Z" }),
-				picked: "Regular push fallback",
-			},
-		];
-		for (const { mode, regular, internal, picked } of cases) {
-			const { step, env } = fixture(t);
-			assertOk(
-				step("还原签名材料", {
-					TESTFLIGHT_INTERNAL: mode,
-					PROFILE_BASE64: regular,
-					INTERNAL_PUSH_PROFILE_BASE64: internal,
-				}),
-			);
-			assert.ok(
-				readFileSync(env.GITHUB_ENV, "utf8").includes(
-					`IOS_PROFILE_NAME=${picked}\nYONDER_IOS_PUSH=1\n`,
-				),
-			);
-		}
-	},
-);
+test("both dispatch kinds pick a production App Store profile by eligibility and always turn APNs on", mac, (t) => {
+	const cases = [
+		{
+			mode: "true",
+			regular: profile({ name: "Regular push" }),
+			internal: profile({ name: "Internal preferred push" }),
+			picked: "Internal preferred push",
+		},
+		{
+			mode: "false",
+			regular: profile({ name: "Regular push" }),
+			internal: profile({ name: "Internal push" }),
+			picked: "Regular push",
+		},
+		{
+			mode: "false",
+			regular: profile({ aps: "" }),
+			internal: profile({ name: "Same-app push fallback" }),
+			picked: "Same-app push fallback",
+		},
+		{
+			mode: "true",
+			regular: profile({ name: "Regular push fallback" }),
+			internal: profile({ expiry: "2000-01-01T00:00:00Z" }),
+			picked: "Regular push fallback",
+		},
+	];
+	for (const { mode, regular, internal, picked } of cases) {
+		const { step, env } = fixture(t);
+		assertOk(
+			step("还原签名材料", {
+				TESTFLIGHT_INTERNAL: mode,
+				PROFILE_BASE64: regular,
+				INTERNAL_PUSH_PROFILE_BASE64: internal,
+			}),
+		);
+		assert.ok(readFileSync(env.GITHUB_ENV, "utf8").includes(`IOS_PROFILE_NAME=${picked}\nYONDER_IOS_PUSH=1\n`));
+	}
+});
 
-test(
-	"wrong scope, APNs, expiry or distribution type all fail closed before signing or export",
-	mac,
-	(t) => {
-		for (const rejected of [
-			{ aps: "" },
-			{ aps: "development" },
-			{ app: "net.wrong.app" },
-			{ profileTeam: "WRONGTEAM1" },
-			{ expiry: "2000-01-01T00:00:00Z" },
-			{ debug: true },
-			{
-				extra:
-					"<key>ProvisionedDevices</key><array><string>test-device</string></array>",
-			},
-			{ extra: "<key>ProvisionsAllDevices</key><true/>" },
+test("wrong scope, APNs, expiry or distribution type all fail closed before signing or export", mac, (t) => {
+	for (const rejected of [
+		{ aps: "" },
+		{ aps: "development" },
+		{ app: "net.wrong.app" },
+		{ profileTeam: "WRONGTEAM1" },
+		{ expiry: "2000-01-01T00:00:00Z" },
+		{ debug: true },
+		{
+			extra: "<key>ProvisionedDevices</key><array><string>test-device</string></array>",
+		},
+		{ extra: "<key>ProvisionsAllDevices</key><true/>" },
+	]) {
+		const { step } = fixture(t);
+		const result = step("还原签名材料", {
+			PROFILE_BASE64: profile(rejected),
+		});
+		assert.notEqual(result.status, 0);
+		assert.match(result.stdout, /unexpired App Store profile with production APNs/);
+	}
+});
+
+test("both export modes require the production marker and actual signature entitlement before upload", mac, (t) => {
+	for (const internal of ["false", "true"]) {
+		for (const [fixtureOptions, error] of [
+			[{}, null],
+			[{ marker: "sandbox" }, "YonderPushEnvironment"],
+			[{ aps: "" }, "aps-environment"],
+			[{ aps: "development" }, "aps-environment"],
+			[{ signedTeam: "WRONGTEAM1" }, "application-identifier"],
 		]) {
-			const { step } = fixture(t);
-			const result = step("还原签名材料", {
-				PROFILE_BASE64: profile(rejected),
-			});
-			assert.notEqual(result.status, 0);
-			assert.match(
-				result.stdout,
-				/unexpired App Store profile with production APNs/,
-			);
-		}
-	},
-);
-
-test(
-	"both export modes require the production marker and actual signature entitlement before upload",
-	mac,
-	(t) => {
-		for (const internal of ["false", "true"]) {
-			for (const [fixtureOptions, error] of [
-				[{}, null],
-				[{ marker: "sandbox" }, "YonderPushEnvironment"],
-				[{ aps: "" }, "aps-environment"],
-				[{ aps: "development" }, "aps-environment"],
-				[{ signedTeam: "WRONGTEAM1" }, "application-identifier"],
-			]) {
-				const { step, ipa, run } = fixture(t);
-				ipa(fixtureOptions);
-				const result = step("导出 IPA", { TESTFLIGHT_INTERNAL: internal });
-				if (error) {
-					assert.notEqual(result.status, 0);
-					assert.ok(
-						result.stdout.includes(error),
-						result.stdout + result.stderr,
-					);
-					continue;
-				}
-				assertOk(result);
-				const opts = execFileSync(
-					"/usr/bin/plutil",
-					["-convert", "json", "-o", "-", join(run, "ExportOptions.plist")],
-					{
-						encoding: "utf8",
-					},
-				);
-				assert.equal(
-					JSON.parse(opts).testFlightInternalTestingOnly,
-					internal === "true" ? true : undefined,
-				);
-				assertOk(step("上传 TestFlight"));
-				assert.equal(readFileSync(join(run, "uploaded"), "utf8"), "uploaded\n");
+			const { step, ipa, run } = fixture(t);
+			ipa(fixtureOptions);
+			const result = step("导出 IPA", { TESTFLIGHT_INTERNAL: internal });
+			if (error) {
+				assert.notEqual(result.status, 0);
+				assert.ok(result.stdout.includes(error), result.stdout + result.stderr);
+				continue;
 			}
+			assertOk(result);
+			const opts = execFileSync("/usr/bin/plutil", ["-convert", "json", "-o", "-", join(run, "ExportOptions.plist")], {
+				encoding: "utf8",
+			});
+			assert.equal(JSON.parse(opts).testFlightInternalTestingOnly, internal === "true" ? true : undefined);
+			assertOk(step("上传 TestFlight"));
+			assert.equal(readFileSync(join(run, "uploaded"), "utf8"), "uploaded\n");
 		}
-		// Failed validation in the export step must not be overridden or upload a GitHub asset via the internal lane.
-		assert.doesNotMatch(
-			workflow,
-			/continue-on-error|if:.*always.*\n.*上传 TestFlight/,
-		);
-		assert.match(
-			workflow,
-			/上传 GitHub Release 资产\n +if: \$\{\{ !inputs\.testflight_internal \}\}/,
-		);
-	},
-);
+	}
+	// Failed validation in the export step must not be overridden or upload a GitHub asset via the internal lane.
+	assert.doesNotMatch(workflow, /continue-on-error|if:.*always.*\n.*上传 TestFlight/);
+	assert.match(workflow, /上传 GitHub Release 资产\n +if: \$\{\{ !inputs\.testflight_internal \}\}/);
+});
