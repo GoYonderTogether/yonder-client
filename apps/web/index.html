@@ -25,6 +25,14 @@
 				document.documentElement.dataset.theme =
 					storedTheme === "light" || storedTheme === "dark" ? storedTheme : prefersDark ? "dark" : "light";
 				document.documentElement.dataset.style = localStorage.getItem("yonder.style") === "glow" ? "glow" : "classic";
+				// 通用 · 界面大小. `medium` is the default `tokens.css` already assumes, so an unset or
+				// unknown value needs no attribute; the five levels are the ones the settings page offers.
+				const storedSize = localStorage.getItem("yonder.ui-size");
+				document.documentElement.dataset.uiSize = ["xsmall", "small", "medium", "large", "xlarge"].includes(
+					storedSize,
+				)
+					? storedSize
+					: "medium";
 				const storedLocale = localStorage.getItem("yonder.locale");
 				document.documentElement.lang =
 					storedLocale === "zh-CN" || storedLocale === "en"

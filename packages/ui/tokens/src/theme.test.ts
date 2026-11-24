@@ -1,5 +1,13 @@
 import { describe, expect, test } from "vitest";
-import { isThemeChoice, resolveTheme, THEME_CHOICES } from "./theme.ts";
+import {
+	DEFAULT_UI_SIZE,
+	isStyleChoice,
+	isThemeChoice,
+	isUISizeChoice,
+	resolveTheme,
+	THEME_CHOICES,
+	UI_SIZE_CHOICES,
+} from "./theme.ts";
 
 describe("theme", () => {
 	test("system follows the operating system", () => {
@@ -17,5 +25,15 @@ describe("theme", () => {
 		expect(isThemeChoice("system")).toBe(true);
 		expect(isThemeChoice("sepia")).toBe(false);
 		expect(isThemeChoice(null)).toBe(false);
+	});
+
+	test("interface size has five levels and defaults to the middle one", () => {
+		expect(UI_SIZE_CHOICES).toEqual(["xsmall", "small", "medium", "large", "xlarge"]);
+		expect(DEFAULT_UI_SIZE).toBe("medium");
+		expect(UI_SIZE_CHOICES).toContain(DEFAULT_UI_SIZE);
+		expect(isUISizeChoice("large")).toBe(true);
+		expect(isUISizeChoice("huge")).toBe(false);
+		expect(isUISizeChoice(undefined)).toBe(false);
+		expect(isStyleChoice("glow")).toBe(true);
 	});
 });

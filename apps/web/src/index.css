@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@yonder/ui-tokens/css";
+@import "@yonder/ui-tokens/motion.css";
 /* After the themes: the glow style overrides their surfaces. */
 @import "@yonder/ui-tokens/glow.css";
 
@@ -59,6 +60,14 @@ time,
 
 .lucide {
 	vertical-align: -0.125em;
+}
+
+/* A glyph that must follow the interface size. lucide's `size` prop writes a presentational
+   width/height, which a CSS variable cannot fill; classes set the box, and `zoom` scales the glyph
+   inside it without changing the SVG's own coordinate system. `transform` is not an option: several
+   icons carry one of their own (the tab bar's pop), and it would replace it. */
+.icon-scaled {
+	zoom: var(--ui-scale);
 }
 
 ::selection {

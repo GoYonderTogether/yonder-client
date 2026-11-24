@@ -21,6 +21,24 @@
 
 字重只写 `font-normal/medium/semibold/bold` 或 `var(--font-weight-*)`；深色主题自动减 40（360–660），写数字就跟不上。
 
+### 界面大小（5 档）
+
+`我 → 通用 → 界面大小` 写 `data-ui-size` 到 `<html>`，`tokens.css` 用一个 `--ui-scale` 倍率乘到字号、间距、
+圆角、控件高、行高、图标、输入区和标签栏上，所以标签栏、头像、输入区和聊天文字一起变，比例不变。
+
+| 档位                | `--ui-scale` | 说明                      |
+| ------------------- | ------------ | ------------------------- |
+| `xsmall` 最小       | 0.85         |                           |
+| `small` 小          | 0.95         |                           |
+| `medium` 中（默认） | 1.1          | 比 2026-11 前的尺寸大 10% |
+| `large` 大          | 1.2          |                           |
+| `xlarge` 最大       | 1.3          |                           |
+
+- 新 token 一律写成 `calc(<基准>px * var(--ui-scale))`，不要在组件里再乘一次。
+- 不跟档位变的是阅读宽度（`--width-*`、`--side-panel-width`、弹窗宽）和 2px 的 `--spacing-hair`：它们是版式，不是控件。
+- JS 里需要像素的地方用 `iconPixels(size, uiScale)`；CSS 里跟档位变的图标用 `.icon-scaled`（`apps/web/src/index.css`），
+  lucide 的 `size` 属性是表现属性，读不到变量。
+
 ### 间距、圆角、尺寸
 
 | 类别       | token                         | 值                          | 什么时候用                                   |

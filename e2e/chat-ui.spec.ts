@@ -65,13 +65,25 @@ async function assertBubbles(page: Page) {
 			outgoingColor: getComputedStyle(outgoing).backgroundColor,
 			// The sender's bottom corner is square for the tail; the other three keep the card radius.
 			incomingRadius: getComputedStyle(incoming).borderRadius,
+			cardRadius: (() => {
+				// The token is a `calc()`, so measure a probe rather than parse its text.
+				const probe = document.createElement("div");
+				probe.style.borderRadius = "var(--radius-card)";
+				document.body.appendChild(probe);
+				const value = Number.parseFloat(getComputedStyle(probe).borderRadius);
+				probe.remove();
+				return value;
+			})(),
 		};
 	});
 	expect(geometry.incomingLeft).toBeCloseTo(geometry.logLeft, 0);
 	expect(geometry.outgoingRight).toBeCloseTo(geometry.logRight, 0);
 	expect(geometry.incomingColor).not.toBe(geometry.outgoingColor);
 	expect(geometry.incomingColor).not.toBe("rgba(0, 0, 0, 0)");
-	expect(geometry.incomingRadius).toBe("16px 16px 16px 0px");
+	// `--radius-card` follows the interface size (通用 · 界面大小), so the corners are compared with
+	// the resolved token instead of its base.
+	const card = geometry.cardRadius;
+	expect(geometry.incomingRadius).toBe(`${card}px ${card}px ${card}px 0px`);
 }
 async function assertComposer(page: Page, onMultiline?: () => Promise<void>) {
 	const input = page.getByRole("textbox", { name: /^对 界面验收/ });
@@ -88,17 +100,34 @@ async function assertComposer(page: Page, onMultiline?: () => Promise<void>) {
 		return {
 			paddingLeft: parseFloat(style.paddingLeft),
 			paddingRight: parseFloat(style.paddingRight),
-			spacing2: parseFloat(getComputedStyle(area).getPropertyValue("--spacing-2")),
+			spacing2: (() => {
+				const probe = document.createElement("div");
+				probe.style.gap = "var(--spacing-2)";
+				document.body.appendChild(probe);
+				const value = Number.parseFloat(getComputedStyle(probe).rowGap);
+				probe.remove();
+				return value;
+			})(),
+			controlMd: (() => {
+				const probe = document.createElement("div");
+				probe.style.minHeight = "var(--control-md)";
+				document.body.appendChild(probe);
+				const value = Number.parseFloat(getComputedStyle(probe).minHeight);
+				probe.remove();
+				return value;
+			})(),
 			center: a.y + a.height / 2,
 			buttonCenter: b.y + b.height / 2,
 		};
 	});
-	expect(single.spacing2).toBe(8);
+	// Both follow the interface size, so they are compared with each other and the token, not 8px.
+	expect(single.spacing2).toBeCloseTo(single.controlMd / 5, 2);
 	expect(single.paddingLeft).toBe(single.spacing2);
 	expect(single.paddingRight).toBe(single.spacing2);
 	expect(single.center).toBeCloseTo(single.buttonCenter, 0);
 	await input.fill("多行文本\n".repeat(30));
-	await expect.poll(async () => (await input.boundingBox())?.height).toBe(160);
+	// Four control heights, the composer's cap; it grows with the interface size.
+	await expect.poll(async () => (await input.boundingBox())?.height).toBeCloseTo(single.controlMd * 4, 0);
 	await expect.poll(() => input.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
 	await onMultiline?.();
 	await input.fill("");
@@ -121,7 +150,16 @@ for (const dark of [false, true]) {
 				inner = main.getBoundingClientRect();
 			return [inner.top - outer.top, outer.bottom - inner.bottom, inner.left - outer.left, outer.right - inner.right];
 		});
-		expect(inset).toEqual([8, 8, 8, 8]);
+		// The frame's inset is `--spacing-2` on every side, so it follows the interface size.
+		const spacing2 = await page.evaluate(() => {
+			const probe = document.createElement("div");
+			probe.style.gap = "var(--spacing-2)";
+			document.body.appendChild(probe);
+			const value = Number.parseFloat(getComputedStyle(probe).rowGap);
+			probe.remove();
+			return value;
+		});
+		expect(inset.map((value) => Math.round(value * 100) / 100)).toEqual([spacing2, spacing2, spacing2, spacing2]);
 		await capture(page, testInfo, `desktop-${dark ? "dark" : "light"}`);
 	});
 }

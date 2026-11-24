@@ -240,7 +240,7 @@ export function Composer({
 					else picker.current?.click();
 				}}
 			>
-				<Plus size={21} aria-hidden="true" />
+				<Plus className="icon-scaled" size={21} aria-hidden="true" />
 			</button>
 			{!mobilePicker ? attachmentMenu : null}
 		</div>
@@ -434,7 +434,7 @@ export function Composer({
 									send();
 								}}
 								data-empty={mobilePicker && !draft ? true : undefined}
-								className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-button-size)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
+								className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-row-height)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
 							/>
 						</ComposerEditor>
 						{mobilePicker && onSendVoice ? (
@@ -472,9 +472,9 @@ export function Composer({
 								className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"
 							>
 								{sending ? (
-									<Square size={15} fill="currentColor" aria-hidden="true" />
+									<Square className="icon-scaled" size={15} fill="currentColor" aria-hidden="true" />
 								) : (
-									<ArrowUp size={18} strokeWidth={2.2} aria-hidden="true" />
+									<ArrowUp className="icon-scaled" size={18} strokeWidth={2.2} aria-hidden="true" />
 								)}
 							</button>
 						) : null}

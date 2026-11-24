@@ -72,7 +72,12 @@ export function MobileDock({
 									displayLabel: labels[tab],
 									active: tab === current && !botTab?.active,
 									icon: (
-										<Icon size={23} strokeWidth={tab === current && !botTab?.active ? 2.1 : 1.6} aria-hidden="true" />
+										<Icon
+											className="icon-scaled"
+											size={23}
+											strokeWidth={tab === current && !botTab?.active ? 2.1 : 1.6}
+											aria-hidden="true"
+										/>
 									),
 									onSelect: () => onSelect(tab),
 								};
@@ -96,8 +101,8 @@ export function MobileDock({
 										aria-describedby={unread ? badgeId : undefined}
 										aria-current={active ? "page" : undefined}
 										className={cn(
-											"flex size-full touch-manipulation select-none flex-col items-center justify-center gap-[3px]",
-											"text-[10px] font-medium leading-3 transition-colors duration-[var(--duration-fast)]",
+											"flex size-full touch-manipulation select-none flex-col items-center justify-center gap-[var(--spacing-hair)]",
+											"text-[length:var(--text-tab)] font-medium leading-[var(--text-tab--line-height)] transition-colors duration-[var(--duration-fast)]",
 											"focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
 											active ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-tertiary)]",
 										)}

@@ -21,8 +21,8 @@ export interface AvatarProps {
 }
 
 const PIXELS: Record<AvatarSize, string> = {
-	16: "size-4 text-[8px]",
-	24: "size-6 text-[10px]",
+	16: "size-4 text-[length:var(--text-avatar-sm)]",
+	24: "size-6 text-[length:var(--text-avatar-md)]",
 	28: "size-7 text-micro",
 	32: "size-8 text-caption",
 	36: "size-9 text-caption",
@@ -73,7 +73,7 @@ export function Avatar({
 			{src ? (
 				<img src={src} alt="" className="size-full object-cover" loading="lazy" decoding="async" draggable={false} />
 			) : kind === "bot" ? (
-				<BotFace id={face} size={size} />
+				<BotFace id={face} />
 			) : (
 				initial
 			)}

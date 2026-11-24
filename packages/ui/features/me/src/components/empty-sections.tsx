@@ -1,12 +1,12 @@
 import { ListGroup } from "@yonder/ui-components";
 import { useLocalePreference, useTheme } from "@yonder/ui-data";
 import type { Locale } from "@yonder/ui-i18n";
-import { STYLE_CHOICES, THEME_CHOICES } from "@yonder/ui-tokens";
+import { STYLE_CHOICES, THEME_CHOICES, UI_SIZE_CHOICES } from "@yonder/ui-tokens";
 import { Check } from "lucide-react";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 
-/** 通用: language and appearance, as checkmark lists — the iOS pattern for "pick one". */
+/** 通用: language, appearance and interface size, as checkmark lists — the iOS pattern for "pick one". */
 export function GeneralSection({ children }: { children?: ReactNode }) {
 	const { t } = useTranslation();
 	const theme = useTheme();
@@ -37,6 +37,19 @@ export function GeneralSection({ children }: { children?: ReactNode }) {
 							selected={theme.style === option}
 							onSelect={() => theme.setStyle(option)}
 							label={t(`common.style.${option}`)}
+						/>
+					))}
+				</ListGroup>
+			</fieldset>
+			<fieldset aria-label={t("common.uiSize.title")} className="min-w-0">
+				<ListGroup title={t("common.uiSize.title")} footer={t("common.uiSize.footer")}>
+					{UI_SIZE_CHOICES.map((option) => (
+						<Choice
+							key={option}
+							group={`${id}-size`}
+							selected={theme.size === option}
+							onSelect={() => theme.setSize(option)}
+							label={t(`common.uiSize.${option}`)}
 						/>
 					))}
 				</ListGroup>

@@ -5,8 +5,8 @@
 
 import type { Locale } from "@yonder/ui-i18n";
 import { isLocale, resolveLocale } from "@yonder/ui-i18n";
-import type { StyleChoice, ThemeChoice } from "@yonder/ui-tokens";
-import { isStyleChoice, isThemeChoice, resolveTheme } from "@yonder/ui-tokens";
+import type { StyleChoice, ThemeChoice, UISizeChoice } from "@yonder/ui-tokens";
+import { DEFAULT_UI_SIZE, isStyleChoice, isThemeChoice, isUISizeChoice, resolveTheme } from "@yonder/ui-tokens";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useData } from "../query/provider.tsx";
 import type { Storage } from "../storage/index.ts";
@@ -35,6 +35,8 @@ export interface ThemeControl {
 	setChoice: (choice: ThemeChoice) => void;
 	style: StyleChoice;
 	setStyle: (style: StyleChoice) => void;
+	size: UISizeChoice;
+	setSize: (size: UISizeChoice) => void;
 }
 
 /*
@@ -44,6 +46,7 @@ export interface ThemeControl {
 const THEME_KEY = "theme";
 const LOCALE_KEY = "locale";
 const STYLE_KEY = "style";
+const UI_SIZE_KEY = "ui-size";
 
 /** Read the stored choice; the inline first-paint script reads the same key. */
 export function readThemeChoice(storage: Pick<Storage, "get">): ThemeChoice {
@@ -54,6 +57,12 @@ export function readThemeChoice(storage: Pick<Storage, "get">): ThemeChoice {
 export function readStyleChoice(storage: Pick<Storage, "get">): StyleChoice {
 	const stored = storage.get(STYLE_KEY);
 	return isStyleChoice(stored) ? stored : "classic";
+}
+
+/** The interface size, defaulting to `medium` — the same level `tokens.css` assumes without a choice. */
+export function readUISizeChoice(storage: Pick<Storage, "get">): UISizeChoice {
+	const stored = storage.get(UI_SIZE_KEY);
+	return isUISizeChoice(stored) ? stored : DEFAULT_UI_SIZE;
 }
 
 export function readLocale(storage: Pick<Storage, "get">): Locale {
@@ -85,8 +94,8 @@ function usePreference<T>(storage: Storage, read: (storage: Pick<Storage, "get">
 }
 
 /**
- * The theme. Applying it means writing `data-theme` on `<html>` and nothing else, so no component
- * needs to know the choice changed.
+ * The theme and the interface size. Applying them means writing `data-theme`, `data-style` and
+ * `data-ui-size` on `<html>` and nothing else, so no component needs to know a choice changed.
  */
 export function useTheme(): ThemeControl {
 	const { storage } = useData();
@@ -94,11 +103,13 @@ export function useTheme(): ThemeControl {
 	const choice = usePreference(storage, readThemeChoice);
 	const resolved = resolveTheme(choice, prefersDark);
 	const style = usePreference(storage, readStyleChoice);
+	const size = usePreference(storage, readUISizeChoice);
 
 	useEffect(() => {
 		document.documentElement.dataset.theme = resolved;
 		document.documentElement.dataset.style = style;
-	}, [resolved, style]);
+		document.documentElement.dataset.uiSize = size;
+	}, [resolved, style, size]);
 
 	const setChoice = useCallback(
 		(next: ThemeChoice) => {
@@ -116,7 +127,15 @@ export function useTheme(): ThemeControl {
 		[storage],
 	);
 
-	return { choice, resolved, setChoice, style, setStyle };
+	const setSize = useCallback(
+		(next: UISizeChoice) => {
+			storage.set(UI_SIZE_KEY, next);
+			notify();
+		},
+		[storage],
+	);
+
+	return { choice, resolved, setChoice, style, setStyle, size, setSize };
 }
 
 export interface LocaleControl {

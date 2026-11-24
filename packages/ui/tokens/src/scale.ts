@@ -7,6 +7,17 @@
 /** `--icon-sm/md/lg`: inline and row icons 16, controls and close buttons 20, back chevrons 24. */
 export const ICON_SIZE = { sm: 16, md: 20, lg: 24 } as const;
 
+/**
+ * The same three sizes for a rendering surface that cannot read CSS variables: the mini-program's
+ * Taro tree and any React Native host. `iconPixels` multiplies by the interface scale (通用 · 界面
+ * 大小), which `tokens.css` applies to every length; `ICON_STROKE` is unitless and needs no scaling.
+ * In CSS, an icon keeps its `size` prop and takes `.icon-scaled` (apps/web/src/index.css) when it has
+ * to follow the choice: the prop is a presentational attribute and cannot hold a variable.
+ */
+export function iconPixels(size: IconSize, uiScale = 1): number {
+	return Math.round(ICON_SIZE[size] * uiScale);
+}
+
 /** `--icon-stroke` / `--icon-stroke-selected`: one weight, slightly heavier when selected. */
 export const ICON_STROKE = { normal: 1.75, selected: 2.1 } as const;
 
