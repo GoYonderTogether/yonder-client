@@ -294,7 +294,17 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await expect(header).not.toContainText("已完成");
 			await expect(header).toContainText(/0?9:24/);
 			await expect(header).toContainText(/0?9:25/);
-			await expect(header).not.toContainText(bot.displayName);
+			const identity = header.locator("[data-chat-agent-title]");
+			if (layout === "desktop") {
+				await expect(identity.locator("[data-bot-display-name]")).toHaveText(bot.displayName);
+				await expect(identity.locator("[data-chat-agent-avatar] [data-avatar-fallback]")).toHaveCSS(
+					"border-radius",
+					"9999px",
+				);
+				await expect(identity.locator("[data-chat-agent-name]")).toHaveCSS("box-shadow", /rgba?\(/);
+			} else {
+				await expect(identity).toHaveCount(0);
+			}
 			await expect(page.getByText("internal_step_must_stay_hidden")).toHaveCount(0);
 			const input = page.getByRole("textbox", { name: /^对 界面验收/ });
 			await expect(input).toBeEditable();

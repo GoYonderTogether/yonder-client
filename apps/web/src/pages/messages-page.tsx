@@ -188,7 +188,8 @@ export function ConversationPage({
 	const mainBotHeader = mainBotHome && (!conversation || Boolean(agent));
 	const mobileBotHome = mainBotHeader && mode === "mobile";
 	const mobileBotHeader = mode === "mobile" && Boolean(agent && !item);
-	const floatingHeader = mainBotHeader || mobileBotHeader;
+	const floatingHeader = mainBotHeader || Boolean(agent && !item);
+	const showAgentIdentity = Boolean(agent && (!item || mode !== "mobile"));
 	const { data: subtasks } = useActiveBotSubtasks(
 		item || conversation?.visit?.role === "visitor" ? undefined : agent?.memberId,
 	);
@@ -265,14 +266,14 @@ export function ConversationPage({
 	const openSettings = conversation.kind === "group" ? onOpenGroup : openPeer;
 	const clickableIdentity = mobileBotHeader && openPeer;
 	const Identity = clickableIdentity ? "button" : "div";
-	const agentAvatar = agent && !item && (
+	const agentAvatar = agent && showAgentIdentity && (
 		<Avatar
 			name={title}
 			src={agent.avatarUrl}
 			color={agent.avatarColor}
 			kind="bot"
 			size={48}
-			className={floatingHeader ? "rounded-[var(--radius-full)]!" : ""}
+			className="rounded-[var(--radius-full)]!"
 		/>
 	);
 	return (
@@ -283,7 +284,7 @@ export function ConversationPage({
 				title={item ? item.title : agent ? null : title}
 				titleAlign={agent && !item ? "center" : "start"}
 				afterTopBar={
-					agent && !item ? (
+					agent && showAgentIdentity ? (
 						<section
 							data-chat-agent-title
 							aria-label={title}

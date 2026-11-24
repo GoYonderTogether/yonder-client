@@ -91,17 +91,17 @@ html[data-native-mobile="true"] [data-floating-frame-header]::before {
 	backdrop-filter: blur(var(--floating-frame-blur));
 }
 
-[data-floating-frame-header] [data-chat-agent-avatar],
-[data-floating-frame-header] [data-chat-agent-name] {
+[data-chat-agent-title] [data-chat-agent-avatar],
+[data-chat-agent-title] [data-chat-agent-name] {
 	border-radius: var(--radius-full);
 	box-shadow: var(--shadow-app-icon);
 }
 
-[data-floating-frame-header] [data-chat-agent-avatar] {
+[data-chat-agent-title] [data-chat-agent-avatar] {
 	padding-inline: 0;
 }
 
-[data-floating-frame-header] [data-chat-agent-name] {
+[data-chat-agent-title] [data-chat-agent-name] {
 	padding-block: calc(var(--spacing-1) / 2);
 	padding-inline: var(--spacing-2);
 	background: var(--color-bg-raised);

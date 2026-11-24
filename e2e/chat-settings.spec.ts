@@ -166,8 +166,17 @@ test("private chat ellipsis opens the peer card and Bot details with separate se
 	await expect(channels).toHaveCount(0);
 	await expect(detail.getByRole("button", { name: /^渠道/ })).toBeFocused();
 	await page.goto(`/messages/${visitChat.id}`);
+	const visitHeader = page.locator('[data-page-layer="detail"] [data-floating-frame-header]');
+	await expect(visitHeader.locator("[data-chat-agent-avatar] [data-avatar-fallback]")).toHaveCSS(
+		"border-radius",
+		"9999px",
+	);
+	await expect(visitHeader.locator("[data-chat-agent-name]")).toHaveCSS("box-shadow", /rgba?\(/);
+	await expect(visitHeader.locator("[data-bot-display-name]")).toHaveText(botContact.displayName);
+	await page.screenshot({ path: info.outputPath("desktop-public-bot-header.png"), animations: "disabled" });
 	await settingsButton(page).click();
 	await expect(card.getByRole("heading", { name: botContact.displayName })).toBeVisible();
+	await expect(card.getByRole("button", { name: /基本资料|删除 Bot|重启 Bot|清空历史聊天/ })).toHaveCount(0);
 });
 
 for (const width of [1440, 600]) {
@@ -228,7 +237,8 @@ test.describe("phone chat settings", () => {
 		);
 		await page.goto(`/messages/${visit.id}`);
 		const header = page.locator('[data-page-layer="detail"] [data-floating-frame-header]');
-		await expect(header).toBeVisible();
+		await expect(header.locator("[data-chat-agent-name]")).toHaveCSS("box-shadow", /rgba?\(/);
+		await page.screenshot({ path: info.outputPath("phone-public-bot-header.png"), animations: "disabled" });
 		const panel = page.getByRole("dialog", { name: "资料", exact: true });
 		for (const entry of [
 			settingsButton(page),

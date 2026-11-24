@@ -67,7 +67,7 @@ for (const viewport of ["desktop", "phone"] as const) {
 					}
 				: { viewport: { width: 1440, height: 900 } },
 		);
-		test("owned secondary Bot preserves settings and shares the phone header", async ({ page }, info) => {
+		test("owned secondary Bot preserves settings and shares the Bot header", async ({ page }, info) => {
 			const secondaryBot = { ...bot, memberId: "secondary-bot", handle: "secondarybot" };
 			const secondary = {
 				...chats.agent,
@@ -104,22 +104,31 @@ for (const viewport of ["desktop", "phone"] as const) {
 			await expect(header.locator("[data-chat-agent-name] [data-bot-display-name]")).toHaveText(bot.displayName);
 			const more = header.getByRole("button", { name: "聊天设置", exact: true });
 			await expect(more).toBeInViewport();
+			await expect(header).toHaveAttribute("data-floating-frame-header");
+			for (const control of [
+				header.locator("[data-chat-agent-avatar]"),
+				header.locator("[data-chat-agent-avatar] [data-avatar-fallback]"),
+				header.locator("[data-chat-agent-name]"),
+			]) {
+				await expect(control).toHaveCSS("border-radius", "9999px");
+			}
+			await expect(header.locator("[data-chat-agent-name]")).toHaveCSS("box-shadow", /rgba?\(/);
+			expect(await header.evaluate((element) => getComputedStyle(element, "::before").height)).toBe("4px");
 			if (phone) {
-				await expect(header).toHaveAttribute("data-floating-frame-header");
 				await expect(header.getByRole("button", { name: "返回", exact: true })).toBeInViewport();
 				await expect(header.getByRole("button", { name: "我", exact: true })).toHaveCount(0);
-				for (const control of [header.locator("[data-chat-agent-avatar]"), header.locator("[data-chat-agent-name]")]) {
-					await expect(control).toHaveCSS("border-radius", "9999px");
-					await expect(control).toHaveCSS("box-shadow", /rgba?\(/);
-				}
-				expect(await header.evaluate((element) => getComputedStyle(element, "::before").height)).toBe("4px");
 			} else {
-				await expect(header).not.toHaveAttribute("data-floating-frame-header");
+				await expect(header.getByRole("button", { name: "Bot 设置", exact: true })).toHaveCount(0);
 			}
 			await expect(detail.getByRole("log")).toBeVisible();
 			await page.screenshot({ path: info.outputPath(`${viewport}-secondary-bot.png`), animations: "disabled" });
-			if (!phone) return;
 			const panel = page.getByRole("dialog", { name: secondaryBot.displayName, exact: true });
+			if (!phone) {
+				await more.click();
+				await expect(panel.getByText(`@${secondaryBot.handle}`, { exact: true })).toBeVisible();
+				await expect(panel.getByRole("button", { name: /^基本资料/ })).toBeVisible();
+				return;
+			}
 			for (const entry of [
 				more,
 				header.locator("[data-chat-agent-avatar]"),
