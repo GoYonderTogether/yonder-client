@@ -66,6 +66,52 @@
 	gap: var(--spacing-1);
 }
 
+/* A system line: the chat's own voice, not anybody's message. Centred and caption sized so it reads
+   as a footnote between messages; never on a bubble, never under one. */
+.system-notice {
+	display: flex;
+	justify-content: center;
+	padding-inline: var(--spacing-4);
+	margin-block: var(--spacing-1);
+	min-width: 0;
+}
+
+.system-notice-row {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: var(--spacing-2);
+	max-width: 100%;
+	min-width: 0;
+	text-align: center;
+}
+
+.system-notice-text {
+	min-width: 0;
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	color: var(--color-text-tertiary);
+	overflow-wrap: anywhere;
+}
+
+.system-notice-slot {
+	flex: 0 0 auto;
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+}
+
+/* Only a line that names something the owner can change takes colour: quota, a model, a plan. */
+.system-notice-text-action {
+	color: var(--color-warning);
+}
+
+/* In a chat the width is the column's, so a long reason wraps inside the line instead of the row. */
+.message-run + .system-notice,
+.mini-chat-entry + .system-notice {
+	margin-top: 0;
+}
+
 .message-bubble {
 	box-sizing: border-box;
 	min-width: 0;

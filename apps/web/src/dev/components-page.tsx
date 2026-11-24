@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ButtonPreviews } from "./button-previews.tsx";
 import { FieldPreviews } from "./field-previews.tsx";
+import { NoticePreviews } from "./notice-previews.tsx";
 import "./preview-states.css";
 import { TokenPreviews } from "./token-previews.tsx";
 
@@ -75,6 +76,7 @@ export default function ComponentsPage() {
 						<p className="text-caption text-[var(--color-text-secondary)]">{t("dev.interact")}</p>
 						<ButtonPreviews />
 						<FieldPreviews />
+						<NoticePreviews />
 						<TokenPreviews theme={theme} />
 					</div>
 				</div>

@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	groupItems,
 	itemActions,
-	itemFailureKey,
+	itemFailure,
 	itemGroup,
 	itemSummaryLine,
 	itemTimeLabel,
@@ -70,15 +70,14 @@ describe("what an item says", () => {
 		expect(itemSummaryLine(item())).toEqual({ kind: "none", text: null });
 	});
 
-	test("a reason code reads as a sentence, and an unknown one still reads as a failure", () => {
-		expect(itemFailureKey("background_quota_exhausted")).toBe("chat.quotaBackgroundExhausted");
-		expect(itemFailureKey("schedule_missed")).toBe("chat.scheduleMissed");
-		expect(itemFailureKey("idle_timeout")).toBe("chat.idleTimeout");
-		expect(itemFailureKey("tool_repeat")).toBe("chat.toolRepeat");
-		expect(itemFailureKey("reply_protocol")).toBe("chat.replyProtocol");
-		expect(itemFailureKey("cancelled_by_bot")).toBe("tasks.itemStateCancelled");
-		expect(itemFailureKey("what_is_this")).toBe("chat.runFailed");
-		expect(itemFailureKey(null)).toBe("chat.runFailed");
+	test("a reason code reads as a sentence, and an unknown one is the quiet failure", () => {
+		expect(itemFailure("background_quota_exhausted", "zh-CN")).toEqual({ text: "后台额度已用完", tone: "action" });
+		expect(itemFailure("idle_timeout", "zh-CN")).toEqual({ text: "Bot 长时间没有进展，已停下", tone: "quiet" });
+		expect(itemFailure("cancelled_by_bot", "zh-CN")).toEqual({ text: "已取消", tone: "quiet" });
+		// Our own machinery never shows its code, in either language.
+		expect(itemFailure("reply_protocol", "zh-CN")).toEqual({ text: "这次没有回复", tone: "quiet" });
+		expect(itemFailure("what_is_this", "en")).toEqual({ text: "No reply this time", tone: "quiet" });
+		expect(itemFailure(null, "en")).toEqual({ text: "No reply this time", tone: "quiet" });
 	});
 
 	test("a time is the reader's hour format", () => {

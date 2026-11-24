@@ -1,12 +1,15 @@
 import {
 	attachmentsOutsideQuestionCard,
 	groupMessages,
+	isSilentFailure,
 	isTwoPartyAgentChat,
 	optionCardAttachments,
 	optionCardState,
 	ownedBotFor,
+	runFailureText,
+	scheduleFailureText,
 } from "@yonder/chat-model";
-import { MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
+import { MessageBubble, MessageRun, MessageTime, SystemNotice } from "@yonder/chat-presentation";
 import { FeishuAttemptCard } from "@yonder/feature-me";
 import { BotName, systemEventText } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
@@ -14,6 +17,7 @@ import { Avatar, Button } from "@yonder/ui-components";
 import type { CachedMessage } from "@yonder/ui-data";
 import { resolveLocale } from "@yonder/ui-i18n";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
+import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentCardMessage } from "./agent-card-message.tsx";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
@@ -35,8 +39,6 @@ interface MessageProps {
 	onResend: (message: CachedMessage) => void;
 	onRetry: (userMessageId: string) => void;
 	retrying: boolean;
-	/** How many identical failures in a row this reply's failure line stands for (2 or more). */
-	failureRepeats?: number | undefined;
 	onOpenMeeting?: (id: string) => void;
 	onChooseOption?: ((body: string, cardId: string) => void) | undefined;
 	optionReply?: CachedMessage | undefined;
@@ -122,7 +124,22 @@ export function ConversationMessages({
 		if (!first) return null;
 		if (first.type === "system") return <SystemLine key={first.id} message={first} />;
 		const self = first.senderId === person?.id;
-		const entries = run.map((message) => {
+		// A failed run is the chat's own fact, never a caption on a message: one centred system line
+		// after the run, whether the reply wrote nothing or stopped partway. A silent failure draws no
+		// bubble at all, so the line is the whole of what the owner sees for that turn.
+		const spoken = run.filter((message) => !isSilentFailure(message));
+		const notices = run
+			.filter((message) => message.run?.status === "failed")
+			.map((message) => (
+				<RunFailureNotice
+					key={message.id}
+					message={message}
+					repeats={block.repeats?.get(message.id)}
+					retrying={actions.retrying}
+					onRetry={actions.onRetry}
+				/>
+			));
+		const entries = spoken.map((message) => {
 			if (message.friendRequestId) return <FriendRequestCard key={message.id} id={message.friendRequestId} />;
 			if (message.channelAttemptId)
 				return (
@@ -152,7 +169,6 @@ export function ConversationMessages({
 						key={message.id}
 						message={message}
 						self={self}
-						failureRepeats={block.repeats?.get(message.id)}
 						{...actions}
 						personId={person?.id}
 						onChooseOption={message.id === optionCards.openId ? actions.onChooseOption : undefined}
@@ -161,17 +177,12 @@ export function ConversationMessages({
 				);
 			return (
 				<div key={message.id} className={self ? "flex flex-col items-end" : "min-w-0"}>
-					<MessageEntry
-						message={message}
-						self={self}
-						failureRepeats={block.repeats?.get(message.id)}
-						{...actions}
-						personId={person?.id}
-					/>
+					<MessageEntry message={message} self={self} {...actions} personId={person?.id} />
 					<AskOwner messageId={message.id} conversationId={conversation.id} disabled={actions.disconnected} />
 				</div>
 			);
 		});
+		if (!spoken.length) return <Fragment key={first.id}>{notices}</Fragment>;
 		const peer = conversation.members.find((member) => member.memberId === first.senderId);
 		const member = peer ?? (self ? person : first.senderId === bot?.id ? bot : undefined);
 		const name = member?.displayName || t("chat.unknownSender");
@@ -186,60 +197,62 @@ export function ConversationMessages({
 			/>
 		);
 		return (
-			<MessageRun
-				as="div"
-				key={first.id}
-				self={self}
-				senderId={first.senderId}
-				avatar={
-					showAvatars ? (
-						member && onOpenMember ? (
-							<button
-								type="button"
-								aria-label={t("members.openOwner", { name })}
-								onClick={() => onOpenMember(first.senderId)}
-								className="rounded-[var(--radius-full)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
-							>
-								{face}
-							</button>
-						) : (
-							face
-						)
-					) : null
-				}
-				sender={
-					conversation.kind === "group" ? (
-						<div data-message-sender-header className="text-start text-caption text-[var(--color-text-secondary)]">
-							{first.senderKind === "bot" ? (
-								<BotName
-									name={
-										<span data-message-sender-name title={name} className="inline-block max-w-full align-top">
+			<Fragment key={first.id}>
+				<MessageRun
+					as="div"
+					self={self}
+					senderId={first.senderId}
+					avatar={
+						showAvatars ? (
+							member && onOpenMember ? (
+								<button
+									type="button"
+									aria-label={t("members.openOwner", { name })}
+									onClick={() => onOpenMember(first.senderId)}
+									className="rounded-[var(--radius-full)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+								>
+									{face}
+								</button>
+							) : (
+								face
+							)
+						) : null
+					}
+					sender={
+						conversation.kind === "group" ? (
+							<div data-message-sender-header className="text-start text-caption text-[var(--color-text-secondary)]">
+								{first.senderKind === "bot" ? (
+									<BotName
+										name={
+											<span data-message-sender-name title={name} className="inline-block max-w-full align-top">
+												{name}
+											</span>
+										}
+										ownedBot={ownedBotFor(first.senderId, person?.id, bot, contacts)}
+										owner={peer?.botOwner}
+									/>
+								) : owner ? (
+									<span className="message-run-owner">
+										<span data-message-sender-name title={name} className="message-run-name">
 											{name}
 										</span>
-									}
-									ownedBot={ownedBotFor(first.senderId, person?.id, bot, contacts)}
-									owner={peer?.botOwner}
-								/>
-							) : owner ? (
-								<span className="message-run-owner">
+										<span data-message-group-owner className="message-run-owner-badge">
+											{t("members.group.owner")}
+										</span>
+									</span>
+								) : (
 									<span data-message-sender-name title={name} className="message-run-name">
 										{name}
 									</span>
-									<span data-message-group-owner className="message-run-owner-badge">
-										{t("members.group.owner")}
-									</span>
-								</span>
-							) : (
-								<span data-message-sender-name title={name} className="message-run-name">
-									{name}
-								</span>
-							)}
-						</div>
-					) : null
-				}
-			>
-				{entries}
-			</MessageRun>
+								)}
+							</div>
+						) : null
+					}
+				>
+					{entries}
+				</MessageRun>
+				{notices}
+			</Fragment>
 		);
 	});
 }
@@ -273,9 +286,6 @@ function MessageEntry({
 	self,
 	disconnected,
 	onResend,
-	onRetry,
-	retrying,
-	failureRepeats,
 	onOpenMeeting,
 	onChooseOption,
 	optionReply,
@@ -362,93 +372,80 @@ function MessageEntry({
 				<span className="text-caption text-[var(--color-text-secondary)]">{t("chat.sending")}</span>
 			) : null}
 			{message.sendFailed ? (
-				<div role="alert" className="flex items-center gap-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
-					{t("chat.sendFailed")}{" "}
-					<Button variant="link" size="sm" onClick={() => onResend(message)}>
-						{t("app.retry")}
-					</Button>
-				</div>
-			) : null}
-			{message.run?.status === "failed" ? (
-				<div role="alert" className="flex items-center gap-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
-					{t(runFailureKey(message.run.failureReason))}
-					{failureRepeats && failureRepeats > 1 ? ` · ${t("chat.failureRepeats", { count: failureRepeats })}` : ""}{" "}
-					{!message.outwardDraft && message.run.canRetry !== false ? (
-						<Button
-							variant="link"
-							size="sm"
-							onClick={() => onRetry(message.run?.userMessageId ?? "")}
-							loading={retrying}
-						>
+				<SystemNotice
+					as="div"
+					tone="quiet"
+					role="alert"
+					action={
+						<Button variant="link" size="sm" onClick={() => onResend(message)}>
 							{t("app.retry")}
 						</Button>
-					) : null}
-				</div>
+					}
+				>
+					{t("chat.sendFailed")}
+				</SystemNotice>
 			) : null}
-			{message.scheduleNotice ? (
-				<div role="alert" className="flex items-center gap-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
-					{t(scheduleFailureKey(message.scheduleNotice.reason), { title: message.scheduleNotice.title })}
-				</div>
-			) : null}
+			{message.scheduleNotice ? <ScheduleFailureNotice notice={message.scheduleNotice} /> : null}
 			{message.burstNotice ? (
-				<div role="alert" className="text-caption text-[var(--color-danger)]">
+				<SystemNotice as="div" tone="quiet" role="note">
 					{t("chat.subtaskBurst")}
-				</div>
+				</SystemNotice>
 			) : null}
 		</article>
 	);
 }
 
 /**
- * A failed run says why. A quota refusal names the pool that ran out, so the reader knows which
- * balance to top up rather than seeing a generic failure.
+ * A failed reply as one system line, never a bubble: a quota refusal names the pool that ran out so
+ * the reader knows what to top up; everything else is one short sentence with no reason code. A
+ * reply that said nothing is already replaced by this line, so it carries no bubble of its own.
  */
-function runFailureKey(reason: string | null | undefined): string {
-	switch (reason) {
-		case "model_not_configured":
-			return "chat.modelNotConfigured";
-		case "main_quota_exhausted":
-			return "chat.quotaMainExhausted";
-		case "background_quota_exhausted":
-		case "background_quota_floor":
-			return "chat.quotaBackgroundExhausted";
-		case "coding_quota_exhausted":
-		case "coding_quota_floor":
-			return "chat.quotaCodingExhausted";
-		case "external_quota_exhausted":
-			return "chat.quotaExternalExhausted";
-		case "tools_quota_exhausted":
-			return "chat.quotaToolsExhausted";
-		case "idle_timeout":
-			return "chat.idleTimeout";
-		case "tool_repeat":
-			return "chat.toolRepeat";
-		case "reply_protocol":
-			return "chat.replyProtocol";
-		case "subtask_burst":
-			return "chat.subtaskBurst";
-		default:
-			return "chat.runFailed";
-	}
+function RunFailureNotice({
+	message,
+	repeats,
+	retrying,
+	onRetry,
+}: {
+	message: CachedMessage;
+	repeats: number | undefined;
+	retrying: boolean;
+	onRetry: (userMessageId: string) => void;
+}) {
+	const { t, i18n } = useTranslation();
+	const locale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
+	const notice = runFailureText(message.run?.failureReason, locale);
+	const canRetry = !message.outwardDraft && message.run?.canRetry !== false;
+	return (
+		<SystemNotice
+			as="div"
+			tone={notice.tone}
+			role="alert"
+			messageId={message.id}
+			action={
+				canRetry ? (
+					<Button variant="link" size="sm" onClick={() => onRetry(message.run?.userMessageId ?? "")} loading={retrying}>
+						{t("app.retry")}
+					</Button>
+				) : null
+			}
+		>
+			{notice.text}
+			{repeats && repeats > 1 ? ` · ${t("chat.failureRepeats", { count: repeats })}` : ""}
+		</SystemNotice>
+	);
 }
 
-/** A scheduled run that never happened says which plan and why; the reason is the server's own. */
-function scheduleFailureKey(reason: string): string {
-	switch (reason) {
-		case "background_quota_exhausted":
-		case "background_quota_floor":
-			return "chat.quotaBackgroundExhausted";
-		case "schedule_missed":
-			return "chat.scheduleMissed";
-		case "idle_timeout":
-			return "chat.idleTimeout";
-		case "tool_repeat":
-			return "chat.toolRepeat";
-		case "reply_protocol":
-			return "chat.replyProtocol";
-		case "subtask_burst":
-			return "chat.subtaskBurst";
-		default:
-			return "chat.scheduleFailed";
-	}
+/** A plan that never ran: the same system line, with the plan's own title. */
+function ScheduleFailureNotice({ notice }: { notice: { title: string; reason: string } }) {
+	const { i18n } = useTranslation();
+	const failure = scheduleFailureText(
+		notice.reason,
+		notice.title,
+		resolveLocale(i18n.resolvedLanguage ?? i18n.language),
+	);
+	return (
+		<SystemNotice as="div" tone={failure.tone} role="alert">
+			{failure.text}
+		</SystemNotice>
+	);
 }

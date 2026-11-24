@@ -9,6 +9,10 @@ const listeners = new Set<() => void>();
 export function t(zh: string, en: string): string {
 	return locale === "zh-CN" ? zh : en;
 }
+/** The locale in force right now, for sentences that come from a shared table. */
+export function currentLocale(): Locale {
+	return locale;
+}
 export function setLocale(value: Locale): void {
 	locale = value;
 	Taro.setStorageSync("yonder.mini.locale", value);

@@ -322,7 +322,12 @@ test("grouping preserves streaming placeholders, pending and failure actions on 
 		"回复中…",
 	);
 	expect(getByText("发送中…")).toBeTruthy();
-	expect(container.querySelector('[data-message-id="event-run"] [role="alert"]')?.textContent).toBeTruthy();
+	// A failure is the chat's own line, not a caption inside the message: it carries the reply's id
+	// and stands beside the run, with no reason code in it.
+	const notice = container.querySelector('[data-message-id="event-run"][role="alert"]');
+	expect(notice?.textContent?.trim()).toBe("这次没有回复");
+	expect(notice?.hasAttribute("data-message-system")).toBe(true);
+	expect(notice?.className).toContain("system-notice");
 	for (const button of getAllByRole("button", { name: "重试" })) fireEvent.click(button);
 	expect(onResend).toHaveBeenCalledExactlyOnceWith(failed);
 	expect(onRetry).toHaveBeenCalledExactlyOnceWith("original");

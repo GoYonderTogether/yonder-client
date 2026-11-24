@@ -1,4 +1,4 @@
-import { MessageBubble, MessageRun } from "@yonder/chat-presentation";
+import { MessageBubble, MessageRun, SystemNotice } from "@yonder/chat-presentation";
 import type { ItemDetail } from "@yonder/protocol";
 import { Button, EmptyState } from "@yonder/ui-components";
 import { ApiError, useItem, useItemActions, type useItemSession } from "@yonder/ui-data";
@@ -7,7 +7,7 @@ import { CircleCheck, CircleX, Clock3, Ellipsis, ListChecks } from "lucide-react
 import { useTranslation } from "react-i18next";
 import { ItemMeetingCard } from "./item-meeting-card.tsx";
 import { ItemSessionTitle } from "./item-session-title.tsx";
-import { itemActions, itemFailureKey, itemGroup, itemTimeLabel, itemTrailingKey, localDay } from "./items-format.ts";
+import { itemActions, itemFailure, itemGroup, itemTimeLabel, itemTrailingKey, localDay } from "./items-format.ts";
 import { MessageContent } from "./message-content.tsx";
 import { ConversationPage } from "./messages-page.tsx";
 import { OutwardRequestCard } from "./outward-request-card.tsx";
@@ -189,7 +189,8 @@ function ItemIntroduction({
 	item: ItemDetail;
 	onOpenConversation: (id: string) => void;
 }) {
-	const { t } = useTranslation();
+	const { i18n } = useTranslation();
+	const failure = itemFailure(item.failureReason, i18n.resolvedLanguage ?? i18n.language);
 	return (
 		<>
 			{item.source === "meeting" ? (
@@ -215,9 +216,9 @@ function ItemIntroduction({
 				/>
 			) : null}
 			{item.failureReason ? (
-				<p role="note" className="text-center text-caption text-[var(--color-danger)]">
-					{t(itemFailureKey(item.failureReason), { title: item.title })}
-				</p>
+				<SystemNotice as="div" tone={failure.tone} role="note">
+					{failure.text}
+				</SystemNotice>
 			) : null}
 			{item.source !== "meeting" && item.result ? (
 				<MessageRun as="div" self={false}>

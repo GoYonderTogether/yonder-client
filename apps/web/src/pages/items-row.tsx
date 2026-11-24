@@ -1,7 +1,7 @@
 import type { ItemSummary } from "@yonder/protocol";
 import { ListRow, type RowAction } from "@yonder/ui-components";
 import { useTranslation } from "react-i18next";
-import { itemFailureKey, itemSummaryLine, itemTimeLabel, itemTrailingKey } from "./items-format.ts";
+import { itemFailure, itemSummaryLine, itemTimeLabel, itemTrailingKey } from "./items-format.ts";
 
 /** The state word, coloured by what it means: a wait is the accent, a pause is quiet. */
 function stateClass(item: ItemSummary): string {
@@ -39,7 +39,7 @@ export function ItemRow({
 				: t("tasks.itemNoResult");
 	const outcome =
 		line.kind === "failure"
-			? t(itemFailureKey(line.text), { title: item.title })
+			? itemFailure(line.text, locale).text
 			: line.kind === "result"
 				? line.text
 				: (item.waitingReason ?? fallback);

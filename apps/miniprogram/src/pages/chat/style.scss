@@ -208,6 +208,57 @@
 	overflow-wrap: anywhere;
 }
 
+/* A failed run's own voice: one centred caption line, no bubble, no avatar, never under one.
+   The shared component in the web app draws the same line from the same sentence. */
+.system-notice {
+	display: flex;
+	justify-content: center;
+	margin-block: var(--spacing-2);
+	padding: 0 var(--spacing-4);
+	text-align: center;
+}
+
+.system-notice .system-notice-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: var(--spacing-2);
+	max-width: 100%;
+}
+
+.system-notice .system-notice-text {
+	color: var(--color-text-tertiary);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	overflow-wrap: anywhere;
+}
+
+/* Only a line that names something the owner can change takes colour: quota, a model, a plan. */
+.system-notice .system-notice-text-action {
+	color: var(--color-warning);
+}
+
+.system-notice .system-notice-slot {
+	flex: 0 0 auto;
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+}
+
+/* A retry in a system line is a quiet text action, not a full-width button. */
+.system-notice .mini-button {
+	display: inline-block;
+	width: auto;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--color-accent-text);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+}
+
 /* Where the composer used to be in a closed group: one line with the real reason. */
 .mini-chat-closed {
 	flex: 0 0 auto;

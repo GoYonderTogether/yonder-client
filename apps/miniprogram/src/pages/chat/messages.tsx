@@ -2,12 +2,19 @@ import { Text, View } from "@tarojs/components";
 import {
 	attachmentsOutsideQuestionCard,
 	isAgentCardId,
+	isSilentFailure,
 	type MessageBlock,
 	optionCardAttachments,
 	type optionCardState,
 	ownedBotFor,
 } from "@yonder/chat-model";
-import { MessageAttachmentsFrame, MessageBubble, MessageRun, MessageTime } from "@yonder/chat-presentation";
+import {
+	MessageAttachmentsFrame,
+	MessageBubble,
+	MessageRun,
+	MessageTime,
+	SystemNotice,
+} from "@yonder/chat-presentation";
 import type { Member } from "@yonder/protocol";
 import type { ReactNode } from "react";
 import { AgentCardMessage } from "../../components/agent-card-message";
@@ -25,7 +32,7 @@ import { MessageBody } from "./markdown";
 import { MessageSources } from "./message-sources";
 import { MessageOptions } from "./option-card";
 import { QuestionMessageCard } from "./question-card";
-import { runFailureText, systemText } from "./sentences";
+import { runFailure, scheduleFailure, systemText } from "./sentences";
 import type { useChat } from "./use-chat";
 import { VoiceMessage } from "./voice-message";
 
@@ -41,6 +48,48 @@ function BotAvatarLink({ id, children }: { id: string; children: ReactNode }) {
 		>
 			{children}
 		</View>
+	);
+}
+
+/**
+ * A failed reply as one system line, never under a bubble. A pool that ran out says so; anything
+ * else is one short sentence and no reason code, because the code belongs to our machinery.
+ */
+function RunFailureNotice({
+	message,
+	repeats,
+	onRetry,
+}: {
+	message: ChatMessage;
+	repeats: number | undefined;
+	onRetry: () => void;
+}) {
+	const failure = runFailure(message.run?.failureReason);
+	return (
+		<SystemNotice
+			as={ChatView}
+			tone={failure.tone}
+			action={
+				message.run?.canRetry !== false ? (
+					<Button secondary onClick={onRetry}>
+						{t("重试", "Retry")}
+					</Button>
+				) : null
+			}
+		>
+			{failure.text}
+			{repeats && repeats > 1 ? ` · ${t(`连续 ${repeats} 次`, `${repeats} times in a row`)}` : ""}
+		</SystemNotice>
+	);
+}
+
+/** A plan that never ran: the same system line, with the plan's own title. */
+function ScheduleFailureNotice({ notice }: { notice: { title: string; reason: string } }) {
+	const failure = scheduleFailure(notice.reason, notice.title);
+	return (
+		<SystemNotice as={ChatView} tone={failure.tone}>
+			{failure.text}
+		</SystemNotice>
 	);
 }
 
@@ -150,6 +199,16 @@ export function renderMessageBlock(
 				}
 			>
 				{run.map((message) => {
+					// A failed reply that wrote nothing would draw an empty bubble; its notice stands alone.
+					if (isSilentFailure(message))
+						return (
+							<RunFailureNotice
+								key={message.id}
+								message={message}
+								repeats={block.repeats?.get(message.id)}
+								onRetry={() => void chat.action(message)}
+							/>
+						);
 					const { attachments: legacyAttachments, images } = optionCardAttachments(message);
 					const attachments = message.questionCard ? attachmentsOutsideQuestionCard(message) : legacyAttachments;
 					const file = attachments[0];
@@ -234,20 +293,13 @@ export function renderMessageBlock(
 								</Button>
 							) : null}
 							{message.run?.status === "failed" ? (
-								<View className="mini-chat-run-error">
-									<Text className="mini-error">
-										{runFailureText(message.run.failureReason)}
-										{(block.repeats?.get(message.id) ?? 1) > 1
-											? ` · ${t(`连续 ${block.repeats?.get(message.id)} 次`, `${block.repeats?.get(message.id)} times in a row`)}`
-											: ""}
-									</Text>
-									{message.run.canRetry !== false ? (
-										<Button secondary onClick={() => void chat.action(message)}>
-											{t("重试", "Retry")}
-										</Button>
-									) : null}
-								</View>
+								<RunFailureNotice
+									message={message}
+									repeats={block.repeats?.get(message.id)}
+									onRetry={() => void chat.action(message)}
+								/>
 							) : null}
+							{message.scheduleNotice ? <ScheduleFailureNotice notice={message.scheduleNotice} /> : null}
 						</View>
 					);
 				})}

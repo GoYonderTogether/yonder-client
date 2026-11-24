@@ -91,6 +91,41 @@ export function MessageBubble({ as: Element, self, children }: Props & { self: b
 		</Element>
 	);
 }
+/**
+ * A line the chat draws that nobody said: a group change, a memory note or a failed reply. Centred,
+ * caption sized, with no avatar and no bubble, so it never reads as a message from the Bot. An
+ * action (retry, top up) sits inline after the sentence; `tone="action"` is the only tone that takes
+ * the warning colour, because it names something the owner can fix.
+ */
+export function SystemNotice({
+	as: Element,
+	tone = "quiet",
+	role,
+	messageId,
+	children,
+	action,
+}: Props & {
+	tone?: "quiet" | "action";
+	/** `note` for a fact, `alert` for something that just changed. */
+	role?: "note" | "alert";
+	/** The failed reply this line stands for, so a test or a link can find it. */
+	messageId?: string;
+	action?: ReactNode;
+}) {
+	return (
+		<Element
+			data-message-system
+			data-message-id={messageId}
+			role={role}
+			className={`system-notice system-notice-${tone}`}
+		>
+			<Element className="system-notice-row">
+				<Element className={`system-notice-text system-notice-text-${tone}`}>{children}</Element>
+				{action ? <Element className="system-notice-slot">{action}</Element> : null}
+			</Element>
+		</Element>
+	);
+}
 export function MessageAttachmentsFrame({ as: Element, self, children }: Props & { self: boolean }) {
 	return <Element className={`message-attachments ${self ? "message-attachments-self" : ""}`}>{children}</Element>;
 }

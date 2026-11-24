@@ -25,6 +25,12 @@ export {
 	questionDraftAnswers,
 	questionDraftPageReady,
 } from "./question-cards.ts";
+export {
+	type FailureTone,
+	isSilentFailure,
+	runFailureText,
+	scheduleFailureText,
+} from "./run-failure.ts";
 export { runSources } from "./run-sources.ts";
 
 import type { Message } from "@yonder/protocol";

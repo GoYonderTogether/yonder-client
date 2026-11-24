@@ -3,6 +3,7 @@
  * which state word it shows, and — for a failure — the one reason the user is given. Pure rules,
  * so the page has no judgement of its own and the grouping can be tested on its own.
  */
+import { type FailureTone, runFailureText } from "@yonder/chat-model";
 import type { ItemSummary, Schedule } from "@yonder/protocol";
 
 export type ItemGroup = "today" | "yesterday" | "earlier";
@@ -39,44 +40,20 @@ export function itemSummaryLine(item: ItemSummary): { kind: "result" | "failure"
 }
 
 /**
- * Why a source's reason code reads to a user. The codes are the server's own; a code this table does
- * not know is shown as the failure class, never guessed at.
+ * Why a source's reason code reads to a user. One table for the chat, the items and the mini program
+ * (`runFailureText`); a code it does not know is the quiet failure line, never the code itself.
  */
-export function itemFailureKey(reason: string | null): string {
-	switch (reason) {
-		case "background_quota_exhausted":
-		case "background_quota_floor":
-		case "main_quota_exhausted":
-			return "chat.quotaBackgroundExhausted";
-		case "coding_quota_exhausted":
-			return "chat.quotaCodingExhausted";
-		case "tools_quota_exhausted":
-			return "chat.quotaToolsExhausted";
-		case "schedule_missed":
-			return "chat.scheduleMissed";
-		case "idle_timeout":
-			return "chat.idleTimeout";
-		case "outward_expired":
-			return "visits.relayExpired";
-		case "outward_declined":
-			return "visits.relayDeclined";
-		case "outward_cancelled":
-			return "visits.relayCancelled";
-		case "tool_repeat":
-			return "chat.toolRepeat";
-		case "reply_protocol":
-			return "chat.replyProtocol";
-		case "subtask_burst":
-			return "chat.subtaskBurst";
-		case "cancelled":
-		case "cancelled_by_bot":
-			return "tasks.itemStateCancelled";
-		case "process_interrupted":
-		case "host_restarted":
-			return "chat.runFailed";
-		default:
-			return "chat.runFailed";
-	}
+export function itemFailure(reason: string | null, locale: string): { text: string; tone: FailureTone } {
+	// States only an item reaches: cancelled, a visit that ended. The rest reads from one table.
+	if (reason === "cancelled" || reason === "cancelled_by_bot")
+		return { text: locale === "zh-CN" ? "已取消" : "Cancelled", tone: "quiet" };
+	if (reason === "outward_expired")
+		return { text: locale === "zh-CN" ? "请求已过期" : "Request expired", tone: "quiet" };
+	if (reason === "outward_declined")
+		return { text: locale === "zh-CN" ? "主人已拒绝请求" : "The owner declined", tone: "quiet" };
+	if (reason === "outward_cancelled")
+		return { text: locale === "zh-CN" ? "请求已取消" : "Request cancelled", tone: "quiet" };
+	return runFailureText(reason, locale);
 }
 
 /** The local calendar day of an instant, as `YYYY-MM-DD` in the device's zone. */

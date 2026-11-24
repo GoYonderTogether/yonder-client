@@ -125,7 +125,7 @@ test("a failure shows the real reason the server recorded, never a made-up succe
 	]);
 	const row = screen.getByText("没跑成的事").closest("li") as HTMLElement;
 	expect(within(row).getByText("Failed")).toBeVisible();
-	expect(within(row).getByText("Background quota is used up, so this task did not run.")).toBeVisible();
+	expect(within(row).getByText("Background quota is used up")).toBeVisible();
 	expect(within(row).queryByText("半截")).toBeNull();
 });
 

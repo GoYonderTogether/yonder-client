@@ -1,5 +1,5 @@
-import { t } from "../../lib/i18n";
-import { runFailureSentence } from "./run-failure";
+import { runFailureText, scheduleFailureText } from "@yonder/chat-model";
+import { currentLocale, t } from "../../lib/i18n";
 import { closureSentence, systemSentence } from "./system";
 
 /**
@@ -14,6 +14,12 @@ export function closureText(reason: Parameters<typeof closureSentence>[0]): stri
 	return t(closureSentence(reason, "zh-CN"), closureSentence(reason, "en"));
 }
 
-export function runFailureText(reason: string | null | undefined): string {
-	return t(runFailureSentence(reason, "zh-CN"), runFailureSentence(reason, "en"));
+/** A failed run's sentence and tone, from the one table the web app reads too. */
+export function runFailure(reason: string | null | undefined) {
+	return runFailureText(reason, currentLocale());
+}
+
+/** A plan that did not run, with the plan's own title. */
+export function scheduleFailure(reason: string | null | undefined, title: string) {
+	return scheduleFailureText(reason, title, currentLocale());
 }
