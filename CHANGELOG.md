@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.26112414] - 2026-11-24
+
+### Added
+
+- memory：archived group, read-only archived files, and 恢复
+
+### Fixed
+
+- composer：keep mobile draft text and Markdown overlay aligned at all scales
+
 ## [0.3.26112413] - 2026-11-24
 
 ### Added
