@@ -1,17 +1,17 @@
 {
 	"name": "@yonder/feature-meetings",
 	"private": true,
-	"version": "0.3.26112411",
+	"version": "0.3.26112412",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/protocol": "0.3.26112411",
-		"@yonder/ui-components": "0.3.26112411",
-		"@yonder/ui-i18n": "0.3.26112411",
-		"@yonder/ui-shell": "0.3.26112411",
-		"@yonder/ui-tokens": "0.3.26112411",
+		"@yonder/protocol": "0.3.26112412",
+		"@yonder/ui-components": "0.3.26112412",
+		"@yonder/ui-i18n": "0.3.26112412",
+		"@yonder/ui-shell": "0.3.26112412",
+		"@yonder/ui-tokens": "0.3.26112412",
 		"lucide-react": "1.72.0"
 	},
 	"peerDependencies": {
