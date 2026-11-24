@@ -9,11 +9,30 @@ import { MemoryFilePage } from "./memory/memory-file.tsx";
 import { MemoryFileList } from "./memory/memory-file-list.tsx";
 import { MemoryColumn, MemoryHome, useGroupName } from "./memory/memory-home.tsx";
 import { MemoryTimeline } from "./memory/memory-timeline.tsx";
-import { type MemoryView, memoryFileParent, memoryFileRoute, memoryFolderRoute } from "./memory/memory-view.ts";
+import {
+	archivedFolderName,
+	type MemoryView,
+	memoryFileParent,
+	memoryFileRoute,
+	memoryFolderRoute,
+} from "./memory/memory-view.ts";
 import "./memory/memory.css";
 import "./memory/memory-entry.css";
 import "./memory/memory-drawer.css";
 import "./memory/memory-overlay.css";
+
+/** A group page's title: a folder's own name, or the group's name when it is the group's root. */
+function groupTitle(
+	group: string,
+	directory: string | undefined,
+	t: (key: string) => string,
+	groupName: (group: string) => string,
+) {
+	if (!directory) return groupName(group);
+	const [top, ...rest] = directory.split("/");
+	const label = group === "archived" ? archivedFolderName(top ?? "", t) : (top ?? "");
+	return rest.length ? (rest.at(-1) ?? label) : label;
+}
 
 /**
  * The list column (11-19 layout). Narrower windows read the whole home here: the card, the latest
@@ -52,7 +71,7 @@ export function MemoryPage({ view }: { view: MemoryView }) {
 		);
 	if (view.kind === "group")
 		return (
-			<PageFrame title={view.directory?.split("/").at(-1) || groupName(view.group)}>
+			<PageFrame title={groupTitle(view.group, view.directory, t, groupName)}>
 				<MemoryFileList
 					key={`${person?.id}:${view.group}/${view.directory ?? ""}`}
 					group={view.group}

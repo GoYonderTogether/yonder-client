@@ -146,6 +146,7 @@ test("memory routes use the specified HTTP methods, query parameters and bodies"
 	const edit = { path, content: "# Notes", expectedVersion: 2 };
 	const visibility = { path, visibility: "public" } as const;
 	const revert = { path, version: 1 };
+	const move = { from: "/archive/notes/a.md", to: "/notes/a.md" };
 	await Promise.all([
 		api.memoryDays("2026-11-18", "Asia/Singapore"),
 		api.memoryFiles(),
@@ -155,6 +156,7 @@ test("memory routes use the specified HTTP methods, query parameters and bodies"
 		api.updateMemoryFileVisibility(visibility),
 		api.deleteMemoryFile(path),
 		api.memoryFileRevisions(path),
+		api.moveMemoryFile(move),
 		api.revertMemoryFile(revert),
 	]);
 	expect(
@@ -176,6 +178,7 @@ test("memory routes use the specified HTTP methods, query parameters and bodies"
 		["PATCH", "/v1/memory/files/visibility", {}, visibility],
 		["DELETE", "/v1/memory/files", { path }, null],
 		["GET", "/v1/memory/files/revisions", { path }, null],
+		["POST", "/v1/memory/files/move", {}, move],
 		["POST", "/v1/memory/files/revert", {}, revert],
 	]);
 });

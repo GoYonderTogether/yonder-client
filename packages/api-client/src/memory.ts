@@ -5,6 +5,7 @@ import type {
 	MemoryFileList,
 	MemoryFileRevisionList,
 	MemoryOrganizationResponse,
+	MoveMemoryFileRequest,
 	OwnerUnderstandingResponse,
 	RevertMemoryFileRequest,
 	ReviewMemoryOrganizationRequest,
@@ -66,6 +67,9 @@ export function memoryEndpoints(client: ApiClient) {
 		},
 		memoryFileRevisions(path: string): Promise<MemoryFileRevisionList> {
 			return client.request(`${filesPath}/revisions?path=${encodeURIComponent(path)}`);
+		},
+		moveMemoryFile(body: MoveMemoryFileRequest): Promise<{ ok: true }> {
+			return client.request(`${filesPath}/move`, { method: "POST", body });
 		},
 		revertMemoryFile(body: RevertMemoryFileRequest): Promise<{ ok: true }> {
 			return client.request(`${filesPath}/revert`, { method: "POST", body });

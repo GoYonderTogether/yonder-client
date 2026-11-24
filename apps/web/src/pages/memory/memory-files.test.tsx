@@ -3,7 +3,14 @@ import { describe, expect, test } from "vitest";
 import { diffLines } from "./memory-diff.tsx";
 import { groupFiles } from "./memory-file-list.tsx";
 import { summarizeGroups } from "./memory-home.tsx";
-import { fileGroup, memoryFileParent, memoryFileRoute, readMemoryView } from "./memory-view.ts";
+import {
+	archivedEntries,
+	archivedOriginalPath,
+	fileGroup,
+	memoryFileParent,
+	memoryFileRoute,
+	readMemoryView,
+} from "./memory-view.ts";
 import { measure, relativeTime } from "./memory-who.ts";
 
 const summary = (path: string, updatedAt = "2026-11-18T00:00:00Z"): MemoryFileSummary => ({
@@ -79,6 +86,49 @@ describe("the home's groups", () => {
 			{ group: "digests", files: 1, drafts: 0 },
 			{ group: "public", files: 2, drafts: 1 },
 		]);
+	});
+});
+
+describe("archived files", () => {
+	test("form their own group last, and are kept out of notes, sources, summaries and public", () => {
+		const groups = groupFiles(
+			[
+				summary("/notes/活着的.md"),
+				summary("/archive/notes/旧笔记.md"),
+				summary("/archive/sources/会议/旧会议.md"),
+				summary("/archive/public/旧资料.md"),
+			],
+			(key) => key,
+		);
+		expect(groups.map((group) => group.key)).toEqual(["notes", "archived"]);
+		expect(groups[0]?.files.map((file) => file.path)).toEqual(["/notes/活着的.md"]);
+		expect(groups[1]?.files.map((file) => file.path)).toEqual([
+			"/archive/notes/旧笔记.md",
+			"/archive/sources/会议/旧会议.md",
+			"/archive/public/旧资料.md",
+		]);
+	});
+
+	test("a file under /archive belongs to the archived group, keeps its original path, and goes back there", () => {
+		expect(fileGroup("/archive/notes/a.md")).toBe("archived");
+		expect(archivedOriginalPath("/archive/notes/a.md")).toBe("/notes/a.md");
+		expect(archivedOriginalPath("/notes/a.md")).toBeNull();
+		expect(memoryFileParent("/archive/notes/项目/a.md")).toBe(`/memory/g/${encodeURIComponent("archived/notes/项目")}`);
+	});
+
+	test("the folded list shows the folders it came from and the files archived from the root", () => {
+		expect(
+			archivedEntries([
+				summary("/archive/notes/a.md"),
+				summary("/archive/sources/会议/b.md"),
+				summary("/archive/notes/c.md", "2026-11-19T00:00:00Z"),
+				summary("/archive/根文件.md"),
+				summary("/notes/live.md"),
+			]),
+		).toEqual({
+			folders: ["notes", "sources"],
+			files: [expect.objectContaining({ path: "/archive/根文件.md" })],
+		});
 	});
 });
 

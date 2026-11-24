@@ -75,5 +75,11 @@ export function useMemoryFileActions() {
 			onSuccess: (_response, path) => invalidateMemoryFiles(client, [path], { deleted: true }),
 		}),
 		revert: useMutation({ mutationKey, mutationFn: api.revertMemoryFile, onSuccess: refresh }),
+		// Both paths change: the file leaves the one it was under and joins the one it moves to.
+		move: useMutation({
+			mutationKey,
+			mutationFn: api.moveMemoryFile,
+			onSuccess: (_response, { from, to }) => invalidateMemoryFiles(client, [from, to]),
+		}),
 	};
 }

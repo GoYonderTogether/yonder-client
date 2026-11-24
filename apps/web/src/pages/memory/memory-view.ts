@@ -1,3 +1,5 @@
+import type { MemoryFileSummary } from "@yonder/protocol";
+
 /**
  * What the memory tab shows, read from the URL (24 第二节, 11-19 layout): the home (private profile entry, recent,
  * all groups), the whole timeline, one group of files, or one file. Kept free of React and data so
@@ -29,10 +31,22 @@ export function readMemoryView(selection: string | null, sub: string | null): Me
 }
 
 /**
- * The group a file belongs to: notes, one group per connector folder, summaries, public. The two
- * `/me` private files sit under the AI profile and belong to no group.
+ * Archived files live under this prefix with their original path kept, so `/notes/a.md` becomes
+ * `/archive/notes/a.md` and comes back by dropping the prefix (WAVE2 2026-11-25 §2).
+ */
+export const MEMORY_ARCHIVE_PREFIX = "/archive/";
+
+export function isArchivedMemoryFile(path: string): boolean {
+	return path.startsWith(MEMORY_ARCHIVE_PREFIX);
+}
+
+/**
+ * The group a file belongs to: notes, one group per connector folder, summaries, public, or the
+ * archived files under `/archive/`. The two `/me` private files sit under the AI profile and belong
+ * to no group.
  */
 export function fileGroup(path: string): string | null {
+	if (isArchivedMemoryFile(path)) return "archived";
 	if (path.startsWith("/notes/")) return "notes";
 	if (path.startsWith("/digests/")) return "digests";
 	if (path.startsWith("/public/")) return "public";
@@ -41,8 +55,48 @@ export function fileGroup(path: string): string | null {
 }
 
 export function groupPrefix(group: string): string | null {
+	if (group === "archived") return MEMORY_ARCHIVE_PREFIX;
 	if (group === "notes" || group === "digests" || group === "public") return `/${group}/`;
 	return group.startsWith("sources:") ? `/sources/${group.slice("sources:".length)}/` : null;
+}
+
+/** What an archived file's path was before it was archived, e.g. `/notes/a.md` for `/archive/notes/a.md`. */
+export function archivedOriginalPath(path: string): string | null {
+	if (!isArchivedMemoryFile(path)) return null;
+	const original = path.slice(MEMORY_ARCHIVE_PREFIX.length - 1);
+	return original === "/" ? null : original;
+}
+
+/** How an archived folder is named: the group it came from keeps the name it has elsewhere. */
+export function archivedFolderName(folder: string, t: (key: string) => string): string {
+	if (folder === "notes") return t("memory.notesFolder");
+	if (folder === "sources") return t("memory.sourcesFolder");
+	if (folder === "digests") return t("memory.digestsFolder");
+	if (folder === "public") return t("memory.publicFolder");
+	return folder;
+}
+
+/**
+ * The archived part of the file list: the folders it was archived from, mirroring the original path
+ * (a note at `/notes/a.md` is archived at `/archive/notes/a.md`), then files archived from the
+ * space's own root. Newest first.
+ */
+export function archivedEntries(files: readonly MemoryFileSummary[]): {
+	folders: string[];
+	files: MemoryFileSummary[];
+} {
+	const folders = new Set<string>();
+	const root: MemoryFileSummary[] = [];
+	for (const file of files) {
+		if (!isArchivedMemoryFile(file.path)) continue;
+		const [name, ...rest] = file.path.slice(MEMORY_ARCHIVE_PREFIX.length).split("/");
+		if (name && rest.length) folders.add(name);
+		else root.push(file);
+	}
+	return {
+		folders: [...folders].toSorted((a, b) => a.localeCompare(b)),
+		files: root.toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+	};
 }
 
 export const memoryGroupRoute = (group: string) => `/memory/g/${encodeURIComponent(group)}`;

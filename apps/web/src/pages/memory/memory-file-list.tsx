@@ -5,7 +5,7 @@ import { Folder } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMinute } from "./memory-format.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
-import { groupPrefix } from "./memory-view.ts";
+import { archivedFolderName, groupPrefix, isArchivedMemoryFile } from "./memory-view.ts";
 import { VisibilityMark } from "./memory-visibility.tsx";
 import { relativeTime } from "./memory-who.ts";
 
@@ -26,12 +26,14 @@ interface Group {
 
 /**
  * Files grouped by what they are, named rather than shown as paths (24 第五节): notes, sources (one
- * group per connector, named by its folder), summaries (daily, weekly, monthly) and public. The two
- * `/me` files sit on the back of the card and are not repeated here.
+ * group per connector, named by its folder), summaries (daily, weekly, monthly) and public, then
+ * archived files last. Archived files keep their original path under `/archive/`, so they are in
+ * none of the four groups and their folders mirror what they were archived from.
  */
 export function groupFiles(files: readonly MemoryFileSummary[], t: (key: string) => string): Group[] {
 	const newest = (items: MemoryFileSummary[]) => items.toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-	const under = (prefix: string) => files.filter((file) => file.path.startsWith(prefix));
+	const live = files.filter((file) => !isArchivedMemoryFile(file.path));
+	const under = (prefix: string) => live.filter((file) => file.path.startsWith(prefix));
 	const split = (prefix: string) => {
 		const groups = new Map<string, MemoryFileSummary[]>();
 		for (const file of under(prefix)) {
@@ -58,6 +60,8 @@ export function groupFiles(files: readonly MemoryFileSummary[], t: (key: string)
 	}
 	const published = under("/public/");
 	if (published.length) result.push({ key: "public", heading: t("memory.publicFolder"), files: newest(published) });
+	const archived = files.filter((file) => isArchivedMemoryFile(file.path));
+	if (archived.length) result.push({ key: "archived", heading: t("memory.archivedFolder"), files: newest(archived) });
 	return result;
 }
 
@@ -83,13 +87,15 @@ export function MemoryFileList({
 	if (query.isPending) return <MemoryLoading />;
 	const prefix = groupPrefix(group);
 	const directoryPrefix = prefix && `${prefix}${directory ? `${directory}/` : ""}`;
-	const groups = directoryPrefix
-		? groupFiles(
-				query.data.items.filter((file) => file.path.startsWith(directoryPrefix)),
-				t,
-			)
+	const matches = directoryPrefix ? query.data.items.filter((file) => file.path.startsWith(directoryPrefix)) : [];
+	// Archived files are the group itself rather than a sub-group of anything; every other group is
+	// split by what its files are.
+	const groups: Group[] = directoryPrefix
+		? group === "archived"
+			? [{ key: "archived", heading: t("memory.archivedFolder"), files: matches }]
+			: groupFiles(matches, t)
 		: [];
-	if (!directoryPrefix || !groups.length)
+	if (!directoryPrefix || !groups.length || (group === "archived" && !matches.length))
 		return <EmptyState icon={<Folder size={24} strokeWidth={1.6} />} title={t("memory.noFiles")} />;
 	return (
 		<div className="flex flex-col gap-[var(--spacing-5)] py-[var(--spacing-2)]">
@@ -112,7 +118,7 @@ export function MemoryFileList({
 						{folders.map((folder) => (
 							<ListRow
 								key={`folder:${folder}`}
-								title={folder}
+								title={group === "archived" && !directory ? archivedFolderName(folder, t) : folder}
 								leading={<Folder size={18} aria-hidden />}
 								chevron
 								onClick={() => onFolder(directory ? `${directory}/${folder}` : folder)}

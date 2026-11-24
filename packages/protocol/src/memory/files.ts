@@ -103,6 +103,12 @@ export interface UpdateMemoryFileProtectionRequest {
 	userEdited: false;
 }
 
+/** POST /v1/memory/files/move: one file, or one folder prefix. */
+export interface MoveMemoryFileRequest {
+	from: string;
+	to: string;
+}
+
 /** POST /v1/memory/files/revert */
 export interface RevertMemoryFileRequest {
 	path: string;

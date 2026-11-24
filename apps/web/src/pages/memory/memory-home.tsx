@@ -6,6 +6,7 @@ import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { documentPreview } from "../message-preview.ts";
+import { ArchivedGroup } from "./memory-archive.tsx";
 import { dayName, daysAgo, memoryFormat, useMinute } from "./memory-format.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
 import { ABOUT_PATHS, fileGroup, MEMORY_ABOUT_PATH, memoryGroupRoute } from "./memory-view.ts";
@@ -25,6 +26,8 @@ export function summarizeGroups(files: readonly MemoryFileSummary[]): MemoryGrou
 	for (const file of files) {
 		const group = fileGroup(file.path);
 		if (!group) continue;
+		// Archived files have their own folded group under the list rather than a tile among the live ones.
+		if (group === "archived") continue;
 		const current = groups.get(group) ?? { group, files: 0, drafts: 0 };
 		current.files += 1;
 		if (file.draft) current.drafts += 1;
@@ -44,7 +47,9 @@ export function useGroupName() {
 						? "memory.notesFolder"
 						: group === "digests"
 							? "memory.digestsFolder"
-							: "memory.publicFolder",
+							: group === "archived"
+								? "memory.archivedFolder"
+								: "memory.publicFolder",
 				);
 }
 
@@ -166,36 +171,42 @@ function Tiles() {
 	const navigate = useNavigate();
 	const name = useGroupName();
 	const { query, groups } = useGroups();
+	const archived = query.data?.items.some((file) => fileGroup(file.path) === "archived") ?? false;
 	if (query.error) return <MemoryError error={query.error} retry={() => void query.refetch()} />;
 	if (query.isPending) return <MemoryLoading />;
-	if (!groups.length)
+	if (!groups.length && !archived)
 		return (
 			<p className="rounded-[var(--radius-card)] bg-[var(--color-bg-card)] px-[var(--spacing-4)] py-[var(--spacing-4)] text-body text-[var(--color-text-tertiary)]">
 				{t("memory.noFiles")}
 			</p>
 		);
 	return (
-		<div className="grid grid-cols-2 gap-[var(--spacing-3)] min-[640px]:grid-cols-3">
-			{groups.map((summary) => (
-				<button
-					key={summary.group}
-					type="button"
-					onClick={() => navigate(memoryGroupRoute(summary.group))}
-					className="flex min-h-[calc(var(--spacing-16)+var(--spacing-8))] flex-col justify-between gap-[var(--spacing-4)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] p-[var(--spacing-4)] text-start transition-colors hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
-				>
-					<span className="flex size-8 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent-text)]">
-						<GroupIcon group={summary.group} />
-					</span>
-					<span className="flex min-w-0 flex-col">
-						<span className="truncate text-body font-semibold text-[var(--color-text-primary)]">
-							{name(summary.group)}
-						</span>
-						<span className="truncate text-caption text-[var(--color-text-tertiary)]">
-							<GroupMeta summary={summary} />
-						</span>
-					</span>
-				</button>
-			))}
+		<div className="flex flex-col gap-[var(--spacing-5)]">
+			{groups.length ? (
+				<div className="grid grid-cols-2 gap-[var(--spacing-3)] min-[640px]:grid-cols-3">
+					{groups.map((summary) => (
+						<button
+							key={summary.group}
+							type="button"
+							onClick={() => navigate(memoryGroupRoute(summary.group))}
+							className="flex min-h-[calc(var(--spacing-16)+var(--spacing-8))] flex-col justify-between gap-[var(--spacing-4)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] p-[var(--spacing-4)] text-start transition-colors hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+						>
+							<span className="flex size-8 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--color-accent-subtle)] text-[var(--color-accent-text)]">
+								<GroupIcon group={summary.group} />
+							</span>
+							<span className="flex min-w-0 flex-col">
+								<span className="truncate text-body font-semibold text-[var(--color-text-primary)]">
+									{name(summary.group)}
+								</span>
+								<span className="truncate text-caption text-[var(--color-text-tertiary)]">
+									<GroupMeta summary={summary} />
+								</span>
+							</span>
+						</button>
+					))}
+				</div>
+			) : null}
+			<ArchivedGroup />
 		</div>
 	);
 }
@@ -275,6 +286,7 @@ export function MemoryColumn({ selected }: { selected: string }) {
 					/>
 				))}
 			</ListGroup>
+			<ArchivedGroup />
 			{query.error ? <MemoryError error={query.error} retry={() => void query.refetch()} /> : null}
 		</div>
 	);

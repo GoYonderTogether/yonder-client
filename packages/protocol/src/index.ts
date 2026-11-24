@@ -208,6 +208,7 @@ export type {
 	MemoryFileRevisionList,
 	MemoryFileSource,
 	MemoryFileSummary,
+	MoveMemoryFileRequest,
 	RevertMemoryFileRequest,
 	UpdateMemoryFileProtectionRequest,
 	UpdateMemoryFileRequest,
