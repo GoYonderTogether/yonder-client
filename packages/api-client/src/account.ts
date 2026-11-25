@@ -19,6 +19,7 @@ import type {
 	UpdateDeviceRemarkRequest,
 	UpdateMeRequest,
 	UpdateNotificationPreferencesRequest,
+	UpdatePreferencesRequest,
 	UpdateProactivePreferencesRequest,
 } from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
@@ -79,6 +80,21 @@ export function accountEndpoints(client: ApiClient) {
 
 		updateMe(body: UpdateMeRequest): Promise<MeResponse> {
 			return client.request("/v1/me", { method: "PATCH", body });
+		},
+
+		/** The account's time zone and language; answers the refreshed `MeResponse`. */
+		updatePreferences(body: UpdatePreferencesRequest): Promise<MeResponse> {
+			return client.request("/v1/me/preferences", { method: "PATCH", body });
+		},
+
+		/** The device reports its IANA zone; only an `auto` account follows it. */
+		reportDeviceTimezone(timezone: string): Promise<{ ok: true }> {
+			return client.request("/v1/me/device-timezone", { body: { timezone } });
+		},
+
+		/** The device reports its system language; the same auto/manual rule. */
+		reportDeviceLocale(locale: "zh-CN" | "en"): Promise<{ ok: true }> {
+			return client.request("/v1/me/device-locale", { body: { locale } });
 		},
 
 		uploadAvatar(file: Blob): Promise<MeResponse> {

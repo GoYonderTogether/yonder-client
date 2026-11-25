@@ -40,6 +40,46 @@ export interface MeResponse {
 	/** Whether the public handle may be changed now (架构-03: first change free, then every 30 days). */
 	handleChange: HandleChange;
 	settings: MemberSettings;
+	/** The account's time zone: what applies in the app, and the device's zone for the hint. */
+	timezone: TimezonePreference;
+	/** The account's language: what applies in the app, and the device's language for the hint. */
+	locale: LocaleSetting;
+}
+
+/** `auto` follows the device's report; `manual` is the user's own pick and never moves on its own. */
+export type TimezoneMode = "auto" | "manual";
+export type LocaleMode = "auto" | "manual";
+/** The two languages the interface ships. */
+export type LocaleValue = "zh-CN" | "en";
+
+/**
+ * The resolved time zone. `zone` and `device` are IANA names (e.g. `Asia/Shanghai`,
+ * `America/New_York`), never a bare `+8`: a bare offset cannot express daylight saving, so a
+ * person's day would be wrong twice a year. `zone` is the value the whole app uses; the interface
+ * may show it as "UTC+8" for readability.
+ */
+export interface TimezonePreference {
+	mode: TimezoneMode;
+	/** The zone that applies now — the manual pick when set, otherwise the last device report. */
+	zone: string;
+	/** The user's own pick, when they pinned one; null while following the device. */
+	manual: string | null;
+	/** The last zone a device reported; null until one has. Lets the interface say "device X, account Y". */
+	device: string | null;
+}
+
+/** The resolved language. `value` is what applies; `device` is only for the same hint. */
+export interface LocaleSetting {
+	mode: LocaleMode;
+	value: LocaleValue;
+	manual: LocaleValue | null;
+	device: LocaleValue | null;
+}
+
+/** `PATCH /v1/me/preferences`: one or both preferences, each a mode with its pick when manual. */
+export interface UpdatePreferencesRequest {
+	timezone?: { mode: "auto" } | { mode: "manual"; zone: string };
+	locale?: { mode: "auto" } | { mode: "manual"; value: LocaleValue };
 }
 
 export interface HandleChange {

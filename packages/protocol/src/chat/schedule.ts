@@ -69,7 +69,7 @@ export interface CreateScheduleRequest {
 	/** An ISO instant for `once`, `HH:mm` or `HH:mm:ss` for `daily` and `weekly`. */
 	at: string;
 	weekdays?: number[];
-	/** IANA zone; `Asia/Shanghai` when omitted. */
+	/** IANA zone; the account's own time zone when omitted. */
 	timezone?: string;
 	/** Where the result belongs; the account's primary conversation when omitted. */
 	conversationId?: string;
