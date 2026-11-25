@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112502] - 2026-11-25
+
+### Fixed
+
+- e2e,composer：a mention's caret no longer undoes a newline, and two fixtures stop trusting the machine
+- chat：give bubbles 90% of the column, keep the tab capsule and the grey card
+
 ## [0.3.26112501] - 2026-11-25
 
 ### Fixed
