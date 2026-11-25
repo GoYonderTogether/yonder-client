@@ -115,18 +115,6 @@
 .composer-hold-to-talk[data-held] {
 	background: var(--color-bg-subtle-hover);
 }
-/* The phone's bar is the grey thing and the composer is the light card on it. Light only: dark
-   already reads that way. Scoped to the dock so a desktop page and the mini program, where the card
-   sits on a white page with no bar under it, keep the grey card. */
-[data-theme="light"] [data-mobile-dock] {
-	--color-bg-dock: var(--color-bg-card);
-}
-[data-theme="light"] [data-mobile-dock] .composer-box {
-	background: var(--color-bg-surface);
-}
-[data-theme="light"] [data-mobile-dock] .composer-hold-to-talk {
-	background: var(--color-bg-subtle);
-}
 .composer-box:has(.composer-hold-to-talk[data-held]) {
 	opacity: 0.28;
 }

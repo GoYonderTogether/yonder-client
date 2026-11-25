@@ -367,7 +367,7 @@
 	   nothing here is a page width, and a page that measured the viewport itself is not scaled.
 	   `medium` is the default, 10% above the sizes before 2026-11; the five levels are below. */
 	--ui-scale: 1.1;
-	--message-bubble-width: 80%;
+	--message-bubble-width: 90%;
 	/* The speech tail: a 9×13 corner cut from the sender's bottom edge, same colour as the bubble.
 	   Percent-encoded with no `;` or `{}` so the mini-program token generator copies it verbatim. */
 	--tail-width: calc(9px * var(--ui-scale));
