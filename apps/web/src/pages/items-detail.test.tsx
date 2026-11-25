@@ -17,7 +17,7 @@ vi.mock("@yonder/ui-data", () => ({
 vi.mock("./item-session-title.tsx", () => ({
 	ItemSessionTitle: ({ title }: { title: string }) => <span>{title}</span>,
 }));
-vi.mock("./messages-page.tsx", () => ({
+vi.mock("./conversation-page.tsx", () => ({
 	ConversationPage: ({ item }: { item: { intro: React.ReactNode } }) => <>{item.intro}</>,
 }));
 

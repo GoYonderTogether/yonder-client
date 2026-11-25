@@ -60,8 +60,9 @@ test("mobile chat uses the same inner margins on both sides while normal sentenc
 	expect(boxes.scrollable).toBe(true);
 	expect(boxes.left).toBeGreaterThan(0);
 	expect(boxes.right).toBeCloseTo(boxes.left, 0);
-	expect(boxes.incomingLeft).toBeCloseTo(0, 0);
-	expect(boxes.outgoingRight).toBeCloseTo(0, 0);
+	// Both sides now carry a face, so each bubble clears the same avatar and gap: one system of margins.
+	expect(boxes.incomingLeft).toBeGreaterThan(0);
+	expect(boxes.outgoingRight).toBeCloseTo(boxes.incomingLeft, 0);
 	expect(boxes.shortWidth).toBeLessThan(boxes.bubbleWidth / 2);
 	expect(boxes.lineCount).toBeGreaterThan(1);
 	expect(boxes.overflow).toBeLessThanOrEqual(1);

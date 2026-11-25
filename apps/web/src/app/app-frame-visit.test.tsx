@@ -21,7 +21,7 @@ vi.mock("@yonder/feature-meetings", async (original) => ({
 	MeetingRecorderCapsule: () => null,
 }));
 vi.mock("../updates/controls.tsx", () => ({ UpdateControls: () => null }));
-vi.mock("../pages/messages-page.tsx", () => ({
+vi.mock("../pages/conversation-page.tsx", () => ({
 	MessagesList: () => <div>Chat list</div>,
 	ConversationPage: () => <div>Conversation</div>,
 }));

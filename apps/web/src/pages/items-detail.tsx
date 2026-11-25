@@ -6,6 +6,7 @@ import { PageFrame } from "@yonder/ui-shell";
 import { formatInstant } from "@yonder/ui-time";
 import { Ellipsis, ListChecks } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ConversationPage } from "./conversation-page.tsx";
 import { ItemMeetingCard } from "./item-meeting-card.tsx";
 import { ItemSessionTitle } from "./item-session-title.tsx";
 import {
@@ -20,7 +21,6 @@ import {
 } from "./items-format.ts";
 import { ItemStatusIcon } from "./items-status.tsx";
 import { MessageContent } from "./message-content.tsx";
-import { ConversationPage } from "./messages-page.tsx";
 import { OutwardRequestCard } from "./outward-request-card.tsx";
 
 export function ItemDetailPage({

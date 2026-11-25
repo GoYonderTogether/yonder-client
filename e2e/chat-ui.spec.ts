@@ -48,7 +48,8 @@ async function assertBubbles(page: Page) {
 	const outgoing = page.locator(".message-bubble-outgoing");
 	await expect(incoming).toHaveText(bodies.answer.replaceAll("**", "").replaceAll("\n", ""));
 	await expect(outgoing).toHaveText(bodies.question);
-	await expect(page.getByRole("log").locator("[data-message-sender-avatar]")).toHaveCount(0);
+	// Both sides carry a face in every chat, including the owner's own Bot (11-25).
+	await expect(page.getByRole("log").locator("[data-message-sender-avatar]")).toHaveCount(2);
 	const geometry = await page.locator("[role=log]").evaluate((log) => {
 		const incoming = log.querySelector<HTMLElement>(".message-bubble-incoming");
 		const outgoing = log.querySelector<HTMLElement>(".message-bubble-outgoing");
@@ -67,6 +68,8 @@ async function assertBubbles(page: Page) {
 		return {
 			incomingLeft: left.left,
 			outgoingRight: right.right,
+			incomingColumn: incoming.closest(".message-run-messages")?.getBoundingClientRect().left,
+			outgoingColumn: outgoing.closest(".message-run-messages")?.getBoundingClientRect().right,
 			logLeft: parent.left,
 			logRight: parent.right,
 			incomingColor: incomingStyle.backgroundColor,
@@ -86,8 +89,11 @@ async function assertBubbles(page: Page) {
 			})(),
 		};
 	});
-	expect(geometry.incomingLeft).toBeCloseTo(geometry.logLeft, 0);
-	expect(geometry.outgoingRight).toBeCloseTo(geometry.logRight, 0);
+	// A bubble starts where its own column starts, and the column sits beside the sender's avatar.
+	expect(geometry.incomingLeft).toBeCloseTo(geometry.incomingColumn ?? -1, 0);
+	expect(geometry.outgoingRight).toBeCloseTo(geometry.outgoingColumn ?? -1, 0);
+	expect(geometry.incomingLeft).toBeGreaterThan(geometry.logLeft);
+	expect(geometry.outgoingRight).toBeLessThan(geometry.logRight);
 	expect(geometry.incomingColor).not.toBe(geometry.outgoingColor);
 	expect(geometry.incomingColor).not.toBe("rgba(0, 0, 0, 0)");
 	// `--radius-card` follows the interface size (通用 · 界面大小): compare with the resolved token.

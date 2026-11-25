@@ -38,13 +38,37 @@ import { VoiceMessage } from "./voice-message";
 
 type ChatMessage = ReturnType<typeof useChat>["messages"][number];
 
-/** A Bot with its own page can be opened from its avatar when messages show avatars. */
-function BotAvatarLink({ id, children }: { id: string; children: ReactNode }) {
+/**
+ * The sender's avatar and name. A tap opens who they are — their Bot's page in a one-to-one chat,
+ * their profile everywhere else (WeChat, QQ). In a group a long press on somebody else's avatar is
+ * the touch way to @ them, the same gesture those apps use.
+ */
+function SenderIdentity({
+	senderId,
+	handle,
+	botId,
+	name,
+	onMention,
+	children,
+}: {
+	senderId: string;
+	handle?: string | undefined;
+	botId: string | null;
+	name: string;
+	onMention?: (() => void) | undefined;
+	children: ReactNode;
+}) {
+	const open = () =>
+		botId
+			? go(`/pages/bot/index?id=${encodeURIComponent(botId)}`)
+			: handle && go(`/pages/member/index?handle=${encodeURIComponent(handle)}`);
 	return (
 		<View
-			onClick={() => go(`/pages/bot/index?id=${encodeURIComponent(id)}`)}
+			onClick={open}
+			onLongPress={onMention}
 			ariaRole="button"
-			ariaLabel={t("打开 Bot", "Open bot")}
+			ariaLabel={onMention ? t(`长按 @${name}`, `Hold to mention ${name}`) : t("打开资料", "Open profile")}
+			data-message-sender-identity={senderId}
 		>
 			{children}
 		</View>
@@ -113,15 +137,17 @@ export function renderMessageBlock(
 		showMessageAvatars,
 		showSenderNames,
 		locale,
+		/** The account's zone: the run's time label is read in it on every device. */
 		zone,
 		contacts,
+		onMention,
 	}: {
 		showMessageAvatars: boolean;
 		showSenderNames: boolean;
 		locale: Locale;
-		/** The account's zone: the run's time label is read in it on every device. */
 		zone: string;
 		contacts: readonly Member[];
+		onMention?: ((memberId: string, displayName: string) => void) | undefined;
 	},
 	followAfterLayout: () => void,
 	optionCards: ReturnType<typeof optionCardState<ChatMessage>>,
@@ -173,38 +199,54 @@ export function renderMessageBlock(
 	const owner = first.senderKind === "person" && first.senderId === chat.conversation?.ownerId;
 	const avatarUrl = sender?.avatarUrl;
 	const botId = senderBotId(chat.conversation, first.senderId);
-	const avatar = showMessageAvatars ? (
-		<ChatAvatar
+	const mentionable = showSenderNames && !self && onMention ? () => onMention(first.senderId, name) : undefined;
+	const identity = (children: ReactNode) => (
+		<SenderIdentity
+			senderId={first.senderId}
+			handle={sender?.handle}
+			botId={botId}
 			name={name}
-			kind={sender?.kind ?? first.senderKind}
-			src={avatarUrl ? (avatarUrl.startsWith("/") ? `${client.baseUrl}${avatarUrl}` : avatarUrl) : undefined}
-			color={sender?.avatarColor}
-		/>
-	) : null;
+			{...(mentionable ? { onMention: mentionable } : {})}
+		>
+			{children}
+		</SenderIdentity>
+	);
+	const avatar = showMessageAvatars
+		? identity(
+				<ChatAvatar
+					name={name}
+					kind={sender?.kind ?? first.senderKind}
+					src={avatarUrl ? (avatarUrl.startsWith("/") ? `${client.baseUrl}${avatarUrl}` : avatarUrl) : undefined}
+					color={sender?.avatarColor}
+				/>,
+			)
+		: null;
 	return (
 		<View className="mini-chat-run" key={first.id}>
 			<MessageRun
 				as={ChatView}
 				self={self}
 				senderId={first.senderId}
-				avatar={botId && avatar ? <BotAvatarLink id={botId}>{avatar}</BotAvatarLink> : avatar}
+				avatar={avatar}
 				sender={
-					showSenderNames ? (
-						first.senderKind === "bot" ? (
-							<MiniBotName
-								name={name}
-								ownedBot={ownedBotFor(first.senderId, chat.me?.member.id, chat.me?.bot, contacts)}
-								owner={sender?.botOwner}
-							/>
-						) : owner ? (
-							<View className="message-run-owner">
-								<View className="message-run-name">{name}</View>
-								<Text className="message-run-owner-badge">{t("群主", "Group owner")}</Text>
-							</View>
-						) : (
-							<View className="message-run-name">{name}</View>
-						)
-					) : null
+					showSenderNames
+						? identity(
+								first.senderKind === "bot" ? (
+									<MiniBotName
+										name={name}
+										ownedBot={ownedBotFor(first.senderId, chat.me?.member.id, chat.me?.bot, contacts)}
+										owner={sender?.botOwner}
+									/>
+								) : owner ? (
+									<View className="message-run-owner">
+										<View className="message-run-name">{name}</View>
+										<Text className="message-run-owner-badge">{t("群主", "Group owner")}</Text>
+									</View>
+								) : (
+									<View className="message-run-name">{name}</View>
+								),
+							)
+						: null
 				}
 			>
 				{run.map((message) => {

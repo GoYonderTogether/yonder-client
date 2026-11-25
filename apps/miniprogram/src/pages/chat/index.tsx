@@ -1,7 +1,7 @@
-import { Checkbox, Image, Button as NativeButton, ScrollView, Text, Textarea, View } from "@tarojs/components";
+import { Button as NativeButton, ScrollView, Text, Textarea, View } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
-import { conversationBotOwner, groupMessages, isTwoPartyAgentChat, optionCardState } from "@yonder/chat-model";
-import { ComposerFrame, ComposerLayout, UploadTile } from "@yonder/chat-presentation";
+import { conversationBotOwner, groupMessages, optionCardState } from "@yonder/chat-model";
+import { ComposerFrame, ComposerLayout } from "@yonder/chat-presentation";
 import type { SkillSummary } from "@yonder/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, go, Page, State } from "../../components/ui";
@@ -11,6 +11,7 @@ import { accountTimeZone } from "../../lib/time";
 import { AgentTitle } from "./agent-title";
 import { ChatAvatar } from "./avatar";
 import { chatBotId } from "./bot-entry";
+import { AttachMenu, PendingUploads, SkillPicker } from "./composer-extras";
 import { ChatView } from "./host";
 import { renderMessageBlock } from "./messages";
 import { conversationTitle, directPartner } from "./model";
@@ -105,7 +106,25 @@ export default function Chat() {
 	};
 	const botMember = chat.conversation?.members.find((member) => member.kind === "bot");
 	const agentPeer = !isGroup && partner?.kind === "bot" ? partner : undefined;
-	const showMessageAvatars = !chat.conversation || !isTwoPartyAgentChat(chat.conversation, chat.me?.member.id);
+	// Every conversation shows both sides' avatars (the founder's 11-25 rule), the other side on the
+	// left and the owner on the right, one face per run — the same rule the web chat follows.
+	const showMessageAvatars = Boolean(chat.conversation);
+	/**
+	 * A long press on someone's avatar in a group puts `@name ` in the draft, the touch way to @ them
+	 * (WeChat and QQ do the same on the avatar). Mentions are tracked here as text plus ids, because
+	 * the mini program has no completion-binding layer; one whose words the reader deleted is dropped
+	 * at send time instead of being sent as a stale id.
+	 */
+	const [mentions, setMentions] = useState<{ id: string; marker: string }[]>([]);
+	const [focusWanted, setFocusWanted] = useState(false);
+	const mention = (memberId: string, displayName: string) => {
+		const marker = `@${displayName}`;
+		updateText((current) => `${current}${current === "" || /\s$/u.test(current) ? "" : " "}${marker} `);
+		setMentions((current) => [...current.filter((item) => item.id !== memberId), { id: memberId, marker }]);
+		setFocusWanted(true);
+	};
+	/** The ids whose `@name` is still in the draft: a mention the reader edited away is not sent. */
+	const liveMentions = () => mentions.filter(({ marker }) => text.includes(marker)).map(({ id }) => id);
 	const title =
 		(chat.conversation &&
 			((visit ? partner?.displayName : undefined) ||
@@ -118,7 +137,14 @@ export default function Chat() {
 		() => groupMessages(chat.messages, chat.hasFullHistory, { agentCards: true }, zone),
 		[chat.messages, chat.hasFullHistory, zone],
 	);
-	const presentation = { showMessageAvatars, showSenderNames: isGroup, locale, zone, contacts: useCachedBots() };
+	const presentation = {
+		showMessageAvatars,
+		showSenderNames: isGroup,
+		locale,
+		zone,
+		contacts: useCachedBots(),
+		...(isGroup ? { onMention: mention } : {}),
+	};
 	const optionCards = optionCardState(chat.messages, chat.me?.member.id);
 	const hasActiveRun = chat.messages.some(
 		(message) =>
@@ -202,13 +228,17 @@ export default function Chat() {
 		const files = uploads.uploads.flatMap((file) => (file.attachment ? [file.attachment] : []));
 		const uploadKeys = uploads.uploads.filter((file) => file.attachment).map((file) => file.key);
 		const skillIds = [...selected];
+		const mentionedMemberIds = liveMentions();
 		// The pending bubble is on screen before the request leaves, so the field empties with it rather
 		// than after the round trip; when nothing was sent, the same text goes back.
 		setDraft((current) => (current.scope === scope && current.value === body ? { ...current, value: "" } : current));
 		try {
-			const sent = await chat.send(body, files, skillIds);
+			const sent = await chat.send(body, files, skillIds, undefined, mentionedMemberIds);
 			if (!sent) throw new Error("not_sent");
-			if (scope === draftKeyRef.current) uploads.clearSentUploads(uploadKeys);
+			if (scope === draftKeyRef.current) {
+				uploads.clearSentUploads(uploadKeys);
+				setMentions([]);
+			}
 		} catch {
 			setDraft((current) => (current.scope === scope && !current.value ? { ...current, value: body } : current));
 		} finally {
@@ -370,57 +400,8 @@ export default function Chat() {
 					</View>
 				) : watching ? null : (
 					<ComposerFrame as={ChatView}>
-						{uploads.uploads.length ? (
-							<View className="composer-files">
-								{uploads.uploads.map((file) => (
-									<UploadTile key={file.key} as={ChatView} name={file.name} kind={file.kind}>
-										<View className="composer-file-preview">
-											{file.kind === "image" ? (
-												<Image className="composer-file-image" src={file.path} mode="aspectFill" />
-											) : (
-												<Text className="mini-chat-file-icon">
-													{file.name.split(".").at(-1)?.toUpperCase() || "FILE"}
-												</Text>
-											)}
-											<View className="composer-file-name">
-												<Text>{file.name}</Text>
-											</View>
-										</View>
-										{file.error ? (
-											<NativeButton
-												className="composer-file-state mini-chat-upload-retry"
-												ariaLabel={t("上传失败，重试", "Upload failed, retry")}
-												onClick={() => uploads.retryUpload(file.key)}
-											>
-												{t("上传失败 · 重试", "Upload failed · Retry")}
-											</NativeButton>
-										) : (
-											<View className={`composer-file-state ${file.uploading ? "mini-chat-uploading" : ""}`}>
-												{file.uploading ? t("上传中…", "Uploading…") : t("已上传", "Uploaded")}
-											</View>
-										)}
-										<NativeButton
-											className="composer-file-remove mini-chat-icon-button"
-											ariaLabel={t("移除文件", "Remove file")}
-											onClick={() => uploads.removeUpload(file.key)}
-										>
-											<Text>×</Text>
-										</NativeButton>
-									</UploadTile>
-								))}
-							</View>
-						) : null}
-						{showSkills ? (
-							<View className="mini-chat-skills">
-								{!skills.length ? <Text className="mini-muted">{t("暂无已启用技能", "No enabled skills")}</Text> : null}
-								{skills.map((skill) => (
-									<View className="mini-chat-skill" key={skill.id} onClick={() => toggleSkill(skill)}>
-										<Checkbox value={skill.id} checked={selected.includes(skill.id)} />
-										<Text>{skill.name}</Text>
-									</View>
-								))}
-							</View>
-						) : null}
+						<PendingUploads uploads={uploads} />
+						{showSkills ? <SkillPicker skills={skills} selected={selected} onToggle={toggleSkill} /> : null}
 						<ComposerLayout as={ChatView} expanded={expanded}>
 							<View className="composer-add">
 								<NativeButton
@@ -433,31 +414,19 @@ export default function Chat() {
 								>
 									<Text className="mini-chat-plus-icon">+</Text>
 								</NativeButton>
-								{showAttachMenu ? (
-									<View className="composer-add-menu mini-chat-add-menu">
-										<NativeButton
-											ariaLabel={t("上传图片", "Upload images")}
-											onClick={() => {
-												setShowAttachMenu(false);
-												uploads.addImages();
-											}}
-										>
-											{t("图片", "Image")}
-										</NativeButton>
-										<NativeButton
-											ariaLabel={t("上传文件", "Upload files")}
-											onClick={() => {
-												setShowAttachMenu(false);
-												uploads.addFiles();
-											}}
-										>
-											{t("文件", "File")}
-										</NativeButton>
-										<NativeButton ariaLabel={t("技能", "Skills")} onClick={() => void openSkills()}>
-											{selected.length ? `${t("技能", "Skills")} · ${selected.length}` : t("技能", "Skills")}
-										</NativeButton>
-									</View>
-								) : null}
+								<AttachMenu
+									open={showAttachMenu}
+									skillCount={selected.length}
+									onImages={() => {
+										setShowAttachMenu(false);
+										uploads.addImages();
+									}}
+									onFiles={() => {
+										setShowAttachMenu(false);
+										uploads.addFiles();
+									}}
+									onSkills={() => void openSkills()}
+								/>
 							</View>
 							<View className="composer-editor">
 								<Textarea
@@ -470,7 +439,11 @@ export default function Chat() {
 									disableDefaultPadding
 									cursorSpacing={24}
 									placeholder={t("对话…", "Message…")}
-									onFocus={onFocus}
+									{...(focusWanted ? { focus: true, selectionStart: text.length, selectionEnd: text.length } : {})}
+									onFocus={() => {
+										onFocus();
+										if (focusWanted) setFocusWanted(false);
+									}}
 									onBlur={onBlur}
 									onInput={(event) => updateText(event.detail.value)}
 								/>

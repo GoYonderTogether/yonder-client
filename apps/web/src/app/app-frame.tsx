@@ -172,10 +172,7 @@ export function AppFrame() {
 					: null;
 		if (entry) (stacked ? layers.push : layers.open)(entry);
 	});
-	/**
-	 * A deleted Bot's chat leaves the list over the socket; if it is the one on screen, the frame
-	 * goes back to the message list rather than showing an empty page (17 3.1).
-	 */
+	/** A deleted Bot's chat leaves the socket; if it is on screen the frame returns to the list. */
 	const removedConversation = useEffectEvent((conversationId: string) => {
 		layers.clear();
 		const open = locate(navigation.current());
@@ -303,6 +300,7 @@ export function AppFrame() {
 							disconnected={disconnected}
 							mainBotHome={mainBot}
 							contacts={contacts.data?.items}
+							draft={draft}
 							readActive={!meOpen && !side.pages.length && !preset.drawerOpen}
 							onOpenMeeting={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
 							onOpenMember={openMember}
