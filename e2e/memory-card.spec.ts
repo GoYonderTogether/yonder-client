@@ -104,7 +104,7 @@ async function setup(page: Page, dark = false) {
 		summary("/public/草稿.md", "我在找什么", { draft: true }),
 	];
 	const content = (path: string, text: string) => ({
-		...summary(path, path.includes("印象") ? "印象" : "近期"),
+		...summary(path, path === "/me/impression.md" ? "印象" : "近期"),
 		content: text,
 		version: 1,
 		sources: [],
@@ -132,7 +132,7 @@ async function setup(page: Page, dark = false) {
 		if (url.pathname === "/v1/memory/files/content") {
 			const path = url.searchParams.get("path") ?? "";
 			return route.fulfill({
-				json: path.includes("印象") ? content(path, impressionMarkdown) : content(path, recentMarkdown),
+				json: path === "/me/impression.md" ? content(path, impressionMarkdown) : content(path, recentMarkdown),
 			});
 		}
 		if (url.pathname === "/v1/memory/files") return route.fulfill({ json: { items: files } });

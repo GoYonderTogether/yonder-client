@@ -5,6 +5,7 @@ import { isolateChat } from "./chat-fixture.ts";
 
 const at = "2026-11-18T09:30:00Z";
 const notePath = "/sources/recordings/周会.md";
+const folders = [{ path: "/sources/recordings", displayName: "会议" }];
 const impressionPath = "/me/impression.md";
 const recentPath = "/me/recent.md";
 
@@ -96,11 +97,14 @@ async function memoryApi(page: Page) {
 			return;
 		}
 		if (method === "GET") {
-			const json = url.pathname.endsWith("/revisions")
-				? { items: revisions }
-				: url.pathname.endsWith("/content")
-					? records[path]
-					: { items: Object.values(records) };
+			const json =
+				url.pathname === "/v1/memory/folders"
+					? { items: folders }
+					: url.pathname.endsWith("/revisions")
+						? { items: revisions }
+						: url.pathname.endsWith("/content")
+							? records[path]
+							: { items: Object.values(records), folders };
 			await route.fulfill({ json });
 			return;
 		}

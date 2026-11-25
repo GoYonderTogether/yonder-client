@@ -94,8 +94,8 @@ for (const mobile of [false, true]) {
 			await expect(stop).toHaveCSS("border-radius", "9999px");
 			const log = dialog.getByRole("log");
 			await expect(log.locator("p")).toHaveText(speech);
-			await expect(log.locator("time")).toHaveText(["0 秒", "3 秒"]);
-			await expect(log.getByText("第1段 · 说话人1")).toHaveCount(1);
+			await expect(log.locator("time")).toHaveText(["[00:00]", "[00:03]"]);
+			await expect(log.getByText("说话人 1", { exact: true })).toHaveCount(1);
 			await expect(log).not.toContainText(/说话人归属待确认|归属待确认：/);
 			await page.screenshot({ path: info.outputPath("before-photo.png"), animations: "disabled", scale: "css" });
 
@@ -126,7 +126,9 @@ for (const mobile of [false, true]) {
 			expect(photoElapsed).toBeGreaterThan(5_100);
 			late = true;
 			await expect(log.getByText(lateSpeech)).toBeVisible({ timeout: 12_000 });
-			await expect(log.locator(":scope > figure").first()).toContainText(`${Math.floor(photoElapsed / 1000)} 秒`);
+			const photoSeconds = Math.floor(photoElapsed / 1000);
+			const photoTime = `[${String(Math.floor(photoSeconds / 60)).padStart(2, "0")}:${String(photoSeconds % 60).padStart(2, "0")}]`;
+			await expect(log.locator(":scope > figure").first().locator("time")).toHaveText(photoTime);
 			await expect(log.locator(":scope > div, :scope > figure").nth(4)).toContainText(lateSpeech);
 			const bounds = await photo.boundingBox();
 			expect(bounds?.width).toBeGreaterThan(80);
