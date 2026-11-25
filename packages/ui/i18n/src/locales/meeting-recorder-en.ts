@@ -75,6 +75,7 @@ export const meetingRecorderEn = {
 	retryUpload: "Retry audio upload",
 	uploadAfterEnd: "After recording, upload the audio for {{name}} to transcribe, summarize and send back.",
 	targetUnavailable: "Open your Bot conversation before recording.",
+	transcriptProgress: "Transcribed {{completed}}/{{total}} batches · {{percent}}%",
 	processingFailed: "Could not load or process this recording.",
 	transcriptTooLarge:
 		"The full transcript exceeds the meeting notes limit. Your audio and complete transcript are saved; no text was cut off. Meeting notes could not be generated.",

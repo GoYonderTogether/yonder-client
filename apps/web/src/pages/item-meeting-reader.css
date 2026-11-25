@@ -40,6 +40,10 @@
 .recording-reader-entry > :first-child {
 	margin-block-end: var(--spacing-1);
 }
+/* A batch now holds several paragraphs; they read as one block with clear breathing room. */
+.recording-reader-entry > p + p {
+	margin-block-start: var(--spacing-2);
+}
 @media (max-width: 600px) {
 	.recording-reader {
 		width: 100%;

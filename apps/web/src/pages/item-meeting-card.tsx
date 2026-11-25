@@ -7,7 +7,12 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { MeetingArchiveImage } from "./item-meeting-photos.tsx";
 import { MeetingReader, orderedPhotos } from "./item-meeting-reader.tsx";
-import { recordingNoteDate, recordingNoteDuration, recordingNoteTimeRange } from "./meeting-message-summary.ts";
+import {
+	recordingNoteDate,
+	recordingNoteDuration,
+	recordingNoteProgress,
+	recordingNoteTimeRange,
+} from "./meeting-message-summary.ts";
 
 export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 	const { t, i18n } = useTranslation();
@@ -45,6 +50,9 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 		.join(" · ");
 	const time = recordingNoteTimeRange(meeting?.startedAt, meeting?.endedAt, i18n.resolvedLanguage);
 	const brief = meeting?.brief?.trim();
+	// While the transcript is still being recognized, the card states how far it has got — the same
+	// batches and percentage the Bot reads, so neither side can claim a progress the other lacks.
+	const progress = meeting ? recordingNoteProgress(meeting.progress) : null;
 	return (
 		<div
 			data-item-recording
@@ -71,6 +79,15 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 									<span className="flex flex-col gap-x-[var(--spacing-3)] text-caption tabular-nums text-[var(--color-text-secondary)] sm:flex-row sm:flex-wrap sm:items-baseline">
 										{details ? <span>{details}</span> : null}
 										{time ? <span>{time}</span> : null}
+									</span>
+								) : null}
+								{progress ? (
+									<span role="status" className="text-caption tabular-nums text-[var(--color-text-secondary)]">
+										{t("meetingRecorder.transcriptProgress", {
+											completed: progress.completedBatches,
+											total: progress.totalBatches,
+											percent: progress.percent,
+										})}
 									</span>
 								) : null}
 							</span>

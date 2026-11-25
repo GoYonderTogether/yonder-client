@@ -76,6 +76,7 @@ export const meetingRecorderZhCN: typeof meetingRecorderEn = {
 	retryUpload: "重试音频上传",
 	uploadAfterEnd: "结束后上传音频，由 {{name}} 转写、整理并回传。",
 	targetUnavailable: "请先打开自己的 Bot 会话再开始录音。",
+	transcriptProgress: "已转写 {{completed}}/{{total}} 批 · {{percent}}%",
 	processingFailed: "无法读取或处理这份录音。",
 	transcriptTooLarge: "完整转写超出当前纪要处理上限。音频与全文已保留，没有截掉内容；本次无法生成纪要。",
 	partialResult: "录音已中断；这份纪要仅覆盖已保存音频。",

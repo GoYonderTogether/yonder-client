@@ -1,63 +1,79 @@
+import { meetingTranscriptParagraphs, parseMeetingTranscript } from "@yonder/protocol";
 import type { MeetingPhoto } from "../lib/meeting-photos.ts";
 
 type TurnTiming = { startMs: number; endMs: number; speaker?: { batch: string; number: string } };
 type LiveTranscriptEntry = { kind: "speech"; index: number; text: string; timing?: TurnTiming };
 type TimelineEntry = (LiveTranscriptEntry & { turns?: LiveTranscriptEntry[] }) | { kind: "photo"; photo: MeetingPhoto };
 
-const timestamp = String.raw`\d{2}:[0-5]\d:[0-5]\d\.\d{3}`;
-const speakerTurn = new RegExp(`^(${timestamp})–(${timestamp}) (?:归属待确认|第([1-9]\\d*)段说话人(\\d{1,3}))：(.+)$`);
-const batchHeader = /^第[1-9]\d*段 · 说话人归属待确认$/;
-
-function elapsedMs(value: string) {
-	const [hours, minutes, seconds, milliseconds] = value.split(/[:.]/).map(Number) as [number, number, number, number];
-	return ((hours * 60 + minutes) * 60 + seconds) * 1000 + milliseconds;
-}
-
-/** Decode only the live ASR wire envelope, never redact words from the spoken text. */
+/**
+ * The live page shows the shared reading format (`@yonder/protocol`): sentences are split by
+ * `parseMeetingTranscript`, and the paragraph rule lives there too, so the Bot's `meeting_view`
+ * reads the same paragraphs. The rule used to be defined here; it is not duplicated again. A
+ * sentence with no trustworthy time is still shown, with no time attached.
+ */
 export function liveTranscriptEntries(transcript: string): LiveTranscriptEntry[] {
-	return transcript.split(/\r?\n/).flatMap((line, index) => {
-		if (!line.trim() || batchHeader.test(line)) return [];
-		const [, start, end, batch, number, text] = speakerTurn.exec(line) ?? [];
-		if (!start || !end || !text) return [{ kind: "speech", index, text: line }];
-		const startMs = elapsedMs(start);
-		const endMs = elapsedMs(end);
-		const timing =
-			endMs >= startMs ? { startMs, endMs, ...(batch && number ? { speaker: { batch, number } } : {}) } : undefined;
-		return [{ kind: "speech", index, text, ...(timing ? { timing } : {}) }];
+	return parseMeetingTranscript(transcript).map((sentence, index) => {
+		const timed = sentence.startMs !== null && sentence.endMs !== null;
+		return {
+			kind: "speech" as const,
+			index,
+			text: sentence.text,
+			...(timed
+				? {
+						timing: {
+							startMs: sentence.startMs as number,
+							endMs: sentence.endMs as number,
+							...(sentence.speaker ? { speaker: sentence.speaker } : {}),
+						},
+					}
+				: {}),
+		};
 	});
 }
 
+/** Whether the shared rule puts these two sentences in one paragraph. */
+function mergesIntoOneParagraph(previous: LiveTranscriptEntry, entry: LiveTranscriptEntry) {
+	if (!previous.timing || !entry.timing) return false;
+	const sentence = (item: LiveTranscriptEntry) => ({
+		startMs: item.timing?.startMs ?? null,
+		endMs: item.timing?.endMs ?? null,
+		speaker: item.timing?.speaker ?? null,
+		text: item.text,
+	});
+	return meetingTranscriptParagraphs([sentence(previous), sentence(entry)]).length === 1;
+}
+
+/**
+ * Place photos at the next known speech boundary, never splitting a turn or dating an untimed
+ * paragraph: a photo due before a sentence also breaks the paragraph there, because the previous
+ * speech and this one are no longer adjacent on screen.
+ */
 export function liveRecordingTimeline(transcript: LiveTranscriptEntry[], photos: MeetingPhoto[]): TimelineEntry[] {
 	const shots = [...photos].sort((a, b) => a.elapsedMs - b.elapsedMs);
 	const timeline: TimelineEntry[] = [];
 	let offset = 0;
+	let previous: TimelineEntry | undefined;
 	for (const entry of transcript) {
 		const { timing } = entry;
-		let photo = shots[offset];
-		// Place photos at the next known speech boundary, never splitting a turn or dating an untimed paragraph.
-		while (timing && photo && photo.elapsedMs <= timing.startMs) {
-			timeline.push({ kind: "photo", photo });
-			photo = shots[++offset];
+		let flushed = false;
+		while (timing && shots[offset] && (shots[offset] as MeetingPhoto).elapsedMs <= timing.startMs) {
+			timeline.push({ kind: "photo", photo: shots[offset++] as MeetingPhoto });
+			flushed = true;
 		}
-		const previous = timeline.at(-1);
-		if (
-			timing?.speaker &&
-			previous?.kind === "speech" &&
-			previous.timing?.speaker?.batch === timing.speaker.batch &&
-			previous.timing.speaker.number === timing.speaker.number &&
-			previous.timing.endMs <= timing.startMs &&
-			timing.startMs - previous.timing.endMs <= 3000 &&
-			previous.text.length + entry.text.length <= 240
-		) {
-			timeline[timeline.length - 1] = {
+		if (flushed) previous = undefined;
+		if (previous?.kind === "speech" && mergesIntoOneParagraph(previous, entry) && previous.timing && timing) {
+			const merged: TimelineEntry = {
 				...previous,
 				text: `${previous.text} ${entry.text}`,
 				turns: [...(previous.turns ?? [previous]), entry],
 				timing: { ...previous.timing, endMs: timing.endMs },
 			};
-		} else {
-			timeline.push(entry);
+			timeline[timeline.length - 1] = merged;
+			previous = merged;
+			continue;
 		}
+		timeline.push(entry);
+		previous = entry;
 	}
 	for (const photo of shots.slice(offset)) timeline.push({ kind: "photo", photo });
 	return timeline;

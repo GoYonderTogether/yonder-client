@@ -1,5 +1,11 @@
 import { recordingDuration } from "@yonder/feature-meetings";
-import type { MeetingPhoto, MeetingRecord, MeetingTranscriptBatch } from "@yonder/protocol";
+import {
+	formatMeetingTime,
+	formatMeetingTranscript,
+	type MeetingPhoto,
+	type MeetingRecord,
+	type MeetingTranscriptBatch,
+} from "@yonder/protocol";
 import { Button, Segmented } from "@yonder/ui-components";
 import { X } from "lucide-react";
 import { useId, useLayoutEffect, useRef } from "react";
@@ -46,6 +52,38 @@ function entryId(entry: Entry) {
 	return entry.kind === "batch" ? `batch-${entry.batch.firstSegment}` : `photo-${entry.photo.clientPhotoId}`;
 }
 
+type Paragraph = { id: string; time: string; speaker: string | null; text: string };
+
+/**
+ * One batch's stored transcript, read as the shared paragraphs. A batch is one ASR request, and its
+ * speaker labels are local to it, so paragraphs never merge across batches — the same boundary the
+ * live page keeps. `[mm:ss]` comes from the sentence itself, and an uncertain speaker shows nothing.
+ */
+export function batchParagraphs(batch: MeetingTranscriptBatch): Paragraph[] {
+	const id = `batch-${batch.firstSegment}`;
+	return formatMeetingTranscript(batch.text ?? "")
+		.split("\n")
+		.filter(Boolean)
+		.map((line, index) => {
+			const match = /^\[([0-9:]+)\] (?:说话人 (\d{1,3})：)?([\s\S]*)$/u.exec(line);
+			return {
+				id: `${id}-${index}`,
+				time: match?.[1] ?? "",
+				speaker: match?.[2] ? `说话人 ${match[2]}` : null,
+				text: match?.[3] ?? line,
+			};
+		});
+}
+
+/** The paragraphs of every completed batch, in recording order. */
+export function recordingParagraphs(
+	meeting: MeetingRecord,
+): { batch: MeetingTranscriptBatch; paragraphs: Paragraph[] }[] {
+	return recordingEntries(meeting).flatMap((entry) =>
+		entry.kind === "batch" ? [{ batch: entry.batch, paragraphs: batchParagraphs(entry.batch) }] : [],
+	);
+}
+
 export function MeetingReader({
 	meeting,
 	title,
@@ -64,6 +102,9 @@ export function MeetingReader({
 	const heading = useId();
 	const entries = recordingEntries(meeting);
 	const photos = orderedPhotos(meeting.photos);
+	// The 原文 tab reads the shared reading format (the same paragraphs the Bot reads through
+	// `meeting_view`), with pictures kept at the batch boundaries where they were taken.
+	const paragraphs = recordingParagraphs(meeting);
 	const summary = meeting.summary?.trim();
 	const shown = mode === "notes" && summary ? "notes" : "original";
 	const available = entries.some((entry) => entryId(entry) === source);
@@ -141,13 +182,18 @@ export function MeetingReader({
 							const time = recordingDuration(entry.elapsedMs);
 							if (entry.kind === "batch") {
 								const id = entryId(entry);
+								const shown = paragraphs.find((group) => group.batch === entry.batch)?.paragraphs ?? [];
 								return (
 									<section key={id} id={id} tabIndex={-1} className="recording-reader-entry">
-										<p className="text-caption tabular-nums text-[var(--color-text-secondary)]">
-											{time}
-											{entry.endMs !== undefined ? ` – ${recordingDuration(entry.endMs)}` : null}
-										</p>
-										<p className="whitespace-pre-wrap wrap-anywhere">{entry.batch.text}</p>
+										{shown.map((paragraph) => (
+											<p key={paragraph.id} className="whitespace-pre-wrap wrap-anywhere">
+												{paragraph.time ? (
+													<time className="tabular-nums text-[var(--color-text-secondary)]">{paragraph.time} </time>
+												) : null}
+												{paragraph.speaker ? `${paragraph.speaker}：` : null}
+												{paragraph.text}
+											</p>
+										))}
 									</section>
 								);
 							}

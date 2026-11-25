@@ -56,3 +56,12 @@ export function recordingNoteTimeRange(
 	}).format(end);
 	return `${from} – ${endLabel}`;
 }
+
+/**
+ * The progress line a recording shows while its transcript is still being recognized: the same
+ * completed/total batches and percentage the Bot reads from `meeting_view`, so the owner and the
+ * Bot state one number. Finished or unstarted recordings show nothing here.
+ */
+export function recordingNoteProgress(progress: { completedBatches: number; totalBatches: number; percent: number }) {
+	return progress.totalBatches > 0 && progress.percent < 100 ? progress : null;
+}

@@ -36,6 +36,14 @@ test("late turns put a photo between known offsets without splitting speech or i
 	expect(timeline[6]).not.toHaveProperty("timing");
 });
 
+test("a photo due between two same-speaker sentences keeps them as separate entries", () => {
+	const transcript = liveTranscriptEntries(
+		["00:00:01.000–00:00:02.000 第1段说话人1：A.", "00:00:02.500–00:00:03.000 第1段说话人1：B."].join("\n"),
+	);
+	const items = liveRecordingTimeline(transcript, [photo("mid", 2500)]);
+	expect(items.map((item) => (item.kind === "speech" ? item.text : item.photo.id))).toEqual(["A.", "mid", "B."]);
+});
+
 test("matching labels do not bridge long pauses or become huge combined paragraphs", () => {
 	const long = "a".repeat(239);
 	const turns = liveTranscriptEntries(
