@@ -103,7 +103,8 @@ test("transcript expands from its source only; elsewhere the live timer and end 
 		"12:30 is the next checkpoint.",
 		"Last line.",
 	]);
-	expect([...log.querySelectorAll("time")].map((entry) => entry.textContent)).toEqual(["0 s", "1 s", "12 s"]);
+	// The same `[mm:ss]` the reader and the write-up use.
+	expect([...log.querySelectorAll("time")].map((entry) => entry.textContent)).toEqual(["[00:00]", "[00:01]", "[00:12]"]);
 	expect(
 		[...log.querySelectorAll("[data-transcript-start-ms]")].map((span) =>
 			span.getAttribute("data-transcript-start-ms"),

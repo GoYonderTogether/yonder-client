@@ -1,3 +1,4 @@
+import { formatMeetingTime } from "@yonder/protocol";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { MeetingPhoto } from "../lib/meeting-photos.ts";
@@ -23,12 +24,11 @@ export function MeetingTimeline({
 			<div className="meeting-transcript-entry" key={entry.index} data-current={entry === latest || undefined}>
 				{entry.timing ? (
 					<div className="meeting-transcript-meta">
-						<time>
-							{t("meetingRecorder.liveElapsedSeconds", {
-								seconds: Math.floor(entry.timing.startMs / 1000),
-							})}
-						</time>
-						{entry.timing.speaker ? <span>{t("meetingRecorder.liveSpeaker", entry.timing.speaker)}</span> : null}
+						{/* The same `[mm:ss]` and 说话人 N the write-up and the reader use. */}
+						<time>[{formatMeetingTime(entry.timing.startMs)}]</time>
+						{entry.timing.speaker ? (
+							<span>{t("meetingRecorder.liveSpeaker", { number: entry.timing.speaker.number })}</span>
+						) : null}
 					</div>
 				) : null}
 				<p>
@@ -47,7 +47,7 @@ export function MeetingTimeline({
 function Photo({ photo, onOpen }: { photo: MeetingPhoto; onOpen: (id: string, button: HTMLButtonElement) => void }) {
 	const { t } = useTranslation();
 	const url = useObjectUrl(photo.image);
-	const time = t("meetingRecorder.liveElapsedSeconds", { seconds: Math.floor(photo.elapsedMs / 1000) });
+	const time = `[${formatMeetingTime(photo.elapsedMs)}]`;
 	return (
 		<figure className="meeting-transcript-entry">
 			<time>{time}</time>
