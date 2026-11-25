@@ -66,6 +66,8 @@ export const meetingRecorderZhCN: typeof meetingRecorderEn = {
 	archiveOriginal: "原文",
 	archivePrevious: "上一张照片",
 	archiveNext: "下一张照片",
+	archiveTranscriptFile: "录音原文",
+	archiveMinutesFile: "录音纪要",
 	archiveNoOriginal: "暂时没有可查看的转写原文。",
 	archiveRename: "重命名事项",
 	archiveRenameFailed: "事项重命名失败。",

@@ -4,7 +4,7 @@ import { useMeeting } from "@yonder/ui-data";
 import { ChevronRight } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { MeetingArchiveImage } from "./item-meeting-photos.tsx";
 import { MeetingReader, orderedPhotos } from "./item-meeting-reader.tsx";
 import {
@@ -13,6 +13,7 @@ import {
 	recordingNoteProgress,
 	recordingNoteTimeRange,
 } from "./meeting-message-summary.ts";
+import { memoryFileRoute } from "./memory/memory-view.ts";
 
 export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 	const { t, i18n } = useTranslation();
@@ -42,6 +43,8 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 		);
 	}
 	const photos = orderedPhotos(meeting?.photos);
+	// The two files the recording keeps in memory: its transcript and its write-up, both openable.
+	const files = meeting?.memoryFiles ?? [];
 	const topic = title.trim() || meeting?.topic?.trim() || meeting?.title.trim() || t("meetingRecorder.defaultTitle");
 	const date = recordingNoteDate(meeting?.startedAt, i18n.resolvedLanguage);
 	const duration = recordingNoteDuration(meeting?.durationMs);
@@ -115,6 +118,17 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 					)}
 				</div>
 			)}
+			{files.length ? (
+				<div className="mb-[var(--spacing-3)] flex flex-wrap items-center gap-x-[var(--spacing-3)] px-[var(--spacing-4)] text-caption">
+					{files.map((file) => (
+						<Link key={file.path} to={memoryFileRoute(file.path)} className="underline-offset-2 hover:underline">
+							{file.role === "transcript"
+								? t("meetingRecorder.archiveTranscriptFile")
+								: t("meetingRecorder.archiveMinutesFile")}
+						</Link>
+					))}
+				</div>
+			) : null}
 			{photos.length ? (
 				<div
 					className="mb-[var(--spacing-3)] flex flex-wrap items-center gap-[var(--spacing-2)] px-[var(--spacing-4)]"

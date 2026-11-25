@@ -65,6 +65,8 @@ export const meetingRecorderEn = {
 	archiveOriginal: "Original",
 	archivePrevious: "Previous photo",
 	archiveNext: "Next photo",
+	archiveTranscriptFile: "Recording transcript",
+	archiveMinutesFile: "Recording write-up",
 	archiveNoOriginal: "No transcript is available yet.",
 	archiveRename: "Rename task",
 	archiveRenameFailed: "Could not rename the task.",
