@@ -86,8 +86,10 @@ export type { CompactConversationRequest, CompactConversationResponse } from "./
 export type { Goal, GoalAction, GoalChange, GoalProgress, GoalState, OnboardingStep } from "./chat/goals.ts";
 export type {
 	CreateItemResponse,
+	ItemActivity,
 	ItemDetail,
 	ItemListResponse,
+	ItemProgress,
 	ItemSessionResponse,
 	ItemSource,
 	ItemState,

@@ -50,6 +50,30 @@ export interface ItemStep {
 	at: string;
 }
 
+/**
+ * How far one item's work has got, as the source that records it can say (PLAN.md 4.4-H, README 3.2
+ * E). The page and the Bot read the same record, so a progress claim is never an impression.
+ */
+export interface ItemProgress {
+	/** A whole percent of the work done; the recording's own meaning of it, null when the source has no percentage. */
+	percent: number | null;
+	/** Units the source counts in, e.g. completed and total batches of a recording or steps of a task. */
+	done: number | null;
+	total: number | null;
+}
+
+/**
+ * What a running item is doing right now: the last tool the model called and the newest tool error,
+ * both as the run recorded them. Null while nothing is running (a settled item, a queued one).
+ */
+export interface ItemActivity {
+	/** The last tool the model called, by its tool name. */
+	currentTool: string | null;
+	/** The real code of the newest tool call that failed, never a rewrite of it. */
+	lastError: string | null;
+	at: string;
+}
+
 /** `GET /v1/items/:id`: everything the item page shows. */
 export interface ItemDetail extends ItemSummary {
 	outwardRequest?: import("./outward.ts").OutwardRequestCard;
@@ -57,6 +81,12 @@ export interface ItemDetail extends ItemSummary {
 	instruction: string | null;
 	/** Empty when the source records no steps. */
 	steps: ItemStep[];
+	/** How far the work has got, when the source counts it (a recording's batches, an import's rows). */
+	progress?: ItemProgress | null;
+	/** What it is doing right now while it runs; null otherwise. */
+	activity?: ItemActivity | null;
+	/** Files the item's end named as its output, as memory paths (from `item_end`, PLAN.md 3-C). */
+	files?: string[];
 	/** True only for a subtask: it is the source whose lifecycle the user may drive from here. */
 	cancellable: boolean;
 	pausable: boolean;
