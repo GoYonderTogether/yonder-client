@@ -44,6 +44,18 @@ export interface MeetingPhoto {
 	elapsedMs: number;
 	byteLength: number;
 }
+
+/**
+ * How far transcription has got, from the batches themselves: the owner, the Bot and the recording
+ * card all read this one field, so a progress claim is never an impression.
+ */
+export interface MeetingProgress {
+	/** Batches with a stored transcript. */
+	completedBatches: number;
+	totalBatches: number;
+	/** Recognized duration over the recording's full duration, 0–100, rounded to a whole percent. */
+	percent: number;
+}
 export interface MeetingRecord {
 	id: string;
 	clientRecordingId: string;
@@ -64,6 +76,8 @@ export interface MeetingRecord {
 	batches: MeetingTranscriptBatch[];
 	/** Completed batches in source order; batch coverage remains authoritative. */
 	transcript: string;
+	/** Batch coverage, in batches and in recognized duration. */
+	progress: MeetingProgress;
 	summary: string | null;
 	summaryRunId: string | null;
 	resultMessageId: string | null;

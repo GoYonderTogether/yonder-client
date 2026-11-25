@@ -160,6 +160,7 @@ export type {
 	LiveMeetingProgress,
 	MeetingBatchState,
 	MeetingPhoto,
+	MeetingProgress,
 	MeetingRecord,
 	MeetingSegment,
 	MeetingSegmentManifest,
@@ -169,6 +170,22 @@ export type {
 	RetryMeetingRequest,
 	StartLiveMeetingRequest,
 } from "./meetings/meetings.ts";
+export type {
+	MeetingTranscriptLookup,
+	MeetingTranscriptParagraph,
+	MeetingTranscriptSentence,
+	MeetingTranscriptSpeaker,
+} from "./meetings/transcript.ts";
+export {
+	formatMeetingParagraph,
+	formatMeetingTime,
+	formatMeetingTranscript,
+	MEETING_PARAGRAPH_CHARS,
+	MEETING_PARAGRAPH_GAP_MS,
+	meetingTranscriptParagraphs,
+	meetingTranscriptSentences,
+	parseMeetingTranscript,
+} from "./meetings/transcript.ts";
 export type { FriendRequest } from "./member/friend-request.ts";
 export type {
 	CardBot,
