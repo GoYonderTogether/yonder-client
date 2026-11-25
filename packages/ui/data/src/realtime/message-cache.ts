@@ -141,6 +141,26 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 	});
 }
 
+/**
+ * The server withdrew a reply row that showed nothing (a turn that completed without output). The
+ * row leaves every cached page; the conversation list is refetched because the server has already
+ * moved its last-message time and preview back, and a local guess would drift from it.
+ */
+export function removeMessage(client: QueryClient, conversationId: string, messageId: string): void {
+	client.setQueryData<InfiniteData<MessagePage>>(
+		keys.messages.latest(conversationId),
+		(current) =>
+			current && {
+				...current,
+				pages: current.pages.map((page) => ({
+					...page,
+					items: page.items.filter((item) => item.id !== messageId),
+				})),
+			},
+	);
+	void client.invalidateQueries({ queryKey: keys.conversations.list() });
+}
+
 export function updateRun(client: QueryClient, run: Run): void {
 	client.setQueryData<InfiniteData<MessagePage>>(keys.messages.latest(run.conversationId), (current) => {
 		if (!current) return current;
