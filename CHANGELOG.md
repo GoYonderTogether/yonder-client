@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [0.3.26112503] - 2026-11-25
+
+### Fixed
+
+- recording：tolerate older server responses without progress
+
+### Added
+
+- memory：the organization tree reads the server's folder names too
+- memory：read every folder name from the server
+- protocol：an agent message may carry image references
+- web：the live page prints the same time and speaker label as the reader
+- web：the live page and the recording reader read the shared paragraphs
+- protocol：one reading format for a stored transcript
+
 ## [0.3.26112502] - 2026-11-25
 
 ### Fixed

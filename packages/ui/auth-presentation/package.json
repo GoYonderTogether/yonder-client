@@ -1,7 +1,7 @@
 {
 	"name": "@yonder/auth-presentation",
 	"private": true,
-	"version": "0.3.26112502",
+	"version": "0.3.26112503",
 	"type": "module",
 	"exports": {
 		".": "./src/index.tsx"

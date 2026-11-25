@@ -1,7 +1,7 @@
 {
 	"name": "@yonder/ui-i18n",
 	"private": true,
-	"version": "0.3.26112502",
+	"version": "0.3.26112503",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
