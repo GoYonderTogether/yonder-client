@@ -132,7 +132,7 @@ export default function Chat() {
 					? t("系统通知", "System notifications")
 					: conversationTitle(chat.conversation.members, chat.me?.member.id, chat.conversation.title)))) ||
 		t("聊天", "Chat");
-	const zone = accountTimeZone();
+	const zone = accountTimeZone(chat.me);
 	const blocks = useMemo(
 		() => groupMessages(chat.messages, chat.hasFullHistory, { agentCards: true }, zone),
 		[chat.messages, chat.hasFullHistory, zone],

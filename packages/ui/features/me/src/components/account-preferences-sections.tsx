@@ -4,8 +4,8 @@
  * Both follow the same shape (Google and Apple account settings, 2026-11-25): **Follow this device**
  * by default, or a locked value the whole account uses. A locked zone is an IANA name, because a
  * bare `+8` cannot express daylight saving; the `UTC±X` in the list is only a label, computed from
- * `Intl` for the current moment. Saving goes through `useSavePreferences`, the seam that becomes
- * `PATCH /v1/me/preferences` when the server's protocol lands; a failure shows the real reason.
+ * `Intl` for the current moment. Saving goes through `useSavePreferences` → `PATCH /v1/me/preferences`,
+ * whose answer is the refreshed `me`; a failure shows the server's own reason.
  */
 
 import { ListGroup, ListOption, ListRow, SearchInput } from "@yonder/ui-components";
@@ -18,13 +18,14 @@ import { useTranslation } from "react-i18next";
 /** The translator, reduced to what a sentence builder needs. */
 type Translate = ReturnType<typeof useTranslation>["t"];
 
-/** Why a save did not happen, in the reader's words. Never a stand-in for an answer that came. */
+/**
+ * Why a save did not happen, in the reader's words: the server's own sentence for its code, or the
+ * network one when the request never arrived. A bare "could not save" would hide the real cause.
+ */
 function saveFailure(error: unknown, t: Translate): string {
 	if (error instanceof NetworkError) return t("auth.errors.network");
 	if (error instanceof ApiError) return t(error.messageKey);
-	if (error instanceof Error && error.message === "unknown-time-zone") return t("common.timezone.unknownZone");
-	if (error instanceof Error && error.message === "unknown-locale") return t("common.timezone.unknownZone");
-	return t("common.timezone.storageRefused");
+	return t("common.timezone.saveUnknown");
 }
 
 export function TimeZoneSection({ onOpenPicker }: { onOpenPicker: () => void }) {
@@ -50,7 +51,7 @@ export function TimeZoneSection({ onOpenPicker }: { onOpenPicker: () => void }) 
 				checked={preferences.timezone.mode === "auto"}
 				onSelect={() => {
 					save.reset();
-					void save.save({ timezone: { mode: "auto", zone: null } });
+					void save.save({ timezone: { mode: "auto" } });
 				}}
 				title={t("common.timezone.follow", {
 					zone: timeZoneCityLabel(preferences.deviceZone, preferences.localeValue),
@@ -67,10 +68,13 @@ export function TimeZoneSection({ onOpenPicker }: { onOpenPicker: () => void }) 
 				}}
 				title={t("common.timezone.manual")}
 				subtitle={
-					preferences.timezone.mode === "manual" && preferences.timezone.zone
+					preferences.timezone.mode === "manual"
 						? t("common.timezone.locked", {
-								name: timeZoneFriendlyName(preferences.timezone.zone, preferences.localeValue),
-								offset: zoneOffsetLabel(preferences.timezone.zone),
+								name: timeZoneFriendlyName(
+									preferences.timezone.manual ?? preferences.timezone.zone,
+									preferences.localeValue,
+								),
+								offset: zoneOffsetLabel(preferences.timezone.manual ?? preferences.timezone.zone),
 							})
 						: undefined
 				}
@@ -92,13 +96,16 @@ export function TimeZoneSection({ onOpenPicker }: { onOpenPicker: () => void }) 
 export function TimeZoneDeviceNote() {
 	const { t } = useTranslation();
 	const preferences = useAccountPreferences();
-	if (preferences.timezone.mode !== "manual" || !preferences.timezone.zone) return null;
-	if (preferences.timezone.zone === preferences.deviceZone) return null;
+	const locked =
+		preferences.timezone.mode === "manual" ? (preferences.timezone.manual ?? preferences.timezone.zone) : null;
+	// The server keeps the last zone a device reported, so the hint follows the account, not this tab.
+	const device = preferences.timezone.device ?? preferences.deviceZone;
+	if (!locked || locked === device) return null;
 	return (
 		<p className="px-[var(--spacing-2)] text-caption text-[var(--color-text-tertiary)]">
 			{t("common.timezone.thisDevice", {
-				zone: timeZoneCityLabel(preferences.deviceZone, preferences.localeValue),
-				offset: zoneOffsetLabel(preferences.deviceZone),
+				zone: timeZoneCityLabel(device, preferences.localeValue),
+				offset: zoneOffsetLabel(device),
 			})}
 		</p>
 	);
@@ -130,10 +137,11 @@ export function TimeZonePicker({ onDone }: { onDone: () => void }) {
 		[choices, needle],
 	);
 	const shortcuts = useMemo(() => {
-		const current = choices.find((choice) => choice.zone === preferences.deviceZone);
+		// The current device is the one the server last heard from; before any report, this one.
+		const current = choices.find((choice) => choice.zone === (preferences.timezone.device ?? preferences.deviceZone));
 		const beijing = choices.find((choice) => choice.zone === "Asia/Shanghai");
 		return [current, beijing].filter((choice, index, all) => choice && all.indexOf(choice) === index);
-	}, [choices, preferences.deviceZone]);
+	}, [choices, preferences.deviceZone, preferences.timezone.device]);
 
 	async function choose(zone: string) {
 		save.reset();
@@ -153,7 +161,10 @@ export function TimeZonePicker({ onDone }: { onDone: () => void }) {
 							}
 							subtitle={choice.city}
 							trailing={choice.offsetLabel}
-							selected={preferences.timezone.mode === "manual" && preferences.timezone.zone === choice.zone}
+							selected={
+								preferences.timezone.mode === "manual" &&
+								(preferences.timezone.manual ?? preferences.timezone.zone) === choice.zone
+							}
 							onClick={() => void choose(choice.zone)}
 						/>
 					) : null,
@@ -181,7 +192,10 @@ export function TimeZonePicker({ onDone }: { onDone: () => void }) {
 							key={choice.zone}
 							name="account-timezone-choice"
 							value={choice.zone}
-							checked={preferences.timezone.mode === "manual" && preferences.timezone.zone === choice.zone}
+							checked={
+								preferences.timezone.mode === "manual" &&
+								(preferences.timezone.manual ?? preferences.timezone.zone) === choice.zone
+							}
 							onSelect={() => void choose(choice.zone)}
 							title={timeZoneCityLabel(choice.zone, locale)}
 							subtitle={choice.displayName}
@@ -219,9 +233,11 @@ export function LanguageSection() {
 				checked={preferences.locale.mode === "auto"}
 				onSelect={() => {
 					save.reset();
-					void save.save({ locale: { mode: "auto", locale: null } });
+					void save.save({ locale: { mode: "auto" } });
 				}}
-				title={t("common.languageChoice.follow", { locale: name(preferences.deviceLocale) })}
+				title={t("common.languageChoice.follow", {
+					locale: name(preferences.locale.device ?? preferences.deviceLocale),
+				})}
 			/>
 			{(["zh-CN", "en"] as const).map((locale) => (
 				<ListOption
@@ -231,7 +247,7 @@ export function LanguageSection() {
 					checked={preferences.locale.mode === "manual" && current === locale}
 					onSelect={() => {
 						save.reset();
-						void save.save({ locale: { mode: "manual", locale } });
+						void save.save({ locale: { mode: "manual", value: locale } });
 					}}
 					title={name(locale)}
 				/>

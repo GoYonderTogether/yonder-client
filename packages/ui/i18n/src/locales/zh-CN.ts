@@ -466,6 +466,7 @@ export const zhCN: Messages = {
 		session_revoked: "你在别的设备上退出了登录。",
 		refresh_reused: "为了安全，登录已结束。请重新登录。",
 		upload_invalid: "这个文件不能做头像。",
+		invalid_timezone: "无法识别这个时区。",
 		rate_limited: "试得太多次了，稍后再试。",
 		internal: "我们这边出了问题。",
 		sms_not_configured: "这台服务器还不能发短信。",

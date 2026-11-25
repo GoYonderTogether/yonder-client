@@ -23,17 +23,17 @@ function Client({ client, children }: { client: QueryClient; children: ReactNode
 
 const page = { items: [], nextCursor: "older" };
 
-test("every page request carries the account's time zone", async () => {
+test("the server cuts days by the account's zone, so no tz is sent", async () => {
 	api.memoryDays.mockResolvedValue(page);
 	const client = new QueryClient();
 	const wrapper = ({ children }: { children: ReactNode }) => <Client client={client}>{children}</Client>;
 	const hook = renderHook(() => useMemoryDays(), { wrapper });
 	await waitFor(() => expect(api.memoryDays).toHaveBeenCalledTimes(1));
-	expect(api.memoryDays.mock.calls[0]).toEqual([undefined, ZONE]);
+	expect(api.memoryDays.mock.calls[0]).toEqual([undefined]);
 	await act(async () => {
 		await hook.result.current.fetchNextPage();
 	});
-	expect(api.memoryDays.mock.calls[1]).toEqual(["older", ZONE]);
+	expect(api.memoryDays.mock.calls[1]).toEqual(["older"]);
 	client.clear();
 });
 

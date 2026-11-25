@@ -112,6 +112,19 @@ export async function isolateChat(
 							hasPassword: true,
 							signInMethods: [],
 							settings: { locale: options.locale ?? "zh-CN", theme: options.dark ? "dark" : "light" },
+							// The account follows this browser; the server's answer is the browser's own zone.
+							timezone: {
+								mode: "auto",
+								zone: options.timezone ?? "Asia/Shanghai",
+								manual: null,
+								device: options.timezone ?? "Asia/Shanghai",
+							},
+							locale: {
+								mode: "manual",
+								value: options.locale ?? "zh-CN",
+								manual: options.locale ?? "zh-CN",
+								device: options.locale ?? "zh-CN",
+							},
 						}
 					: path === "/v1/conversations"
 						? { items: [current] }

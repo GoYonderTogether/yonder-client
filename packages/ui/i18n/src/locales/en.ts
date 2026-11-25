@@ -467,6 +467,7 @@ export const en = {
 		session_revoked: "You were signed out on another device.",
 		refresh_reused: "Your session ended for security. Please sign in again.",
 		upload_invalid: "That file cannot be used as an avatar.",
+		invalid_timezone: "That time zone is not recognised.",
 		rate_limited: "Too many attempts. Try again later.",
 		internal: "Something went wrong on our side.",
 		sms_not_configured: "This server cannot send SMS yet.",

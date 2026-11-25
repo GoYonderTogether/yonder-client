@@ -115,7 +115,7 @@ function TimelinePage({
 	onNewer: (() => void) | undefined;
 	onOlder: (cursor: string) => void;
 }) {
-	const zone = accountTimeZone();
+	const zone = accountTimeZone(useSession().me);
 	const { data, loading, error, reload } = useMemoryResource(() => api.memoryDays(cursor, zone));
 	const [now, setNow] = useState(() => new Date());
 	// The account's zone decides which calendar day this is (2026-11-25), not this phone's.

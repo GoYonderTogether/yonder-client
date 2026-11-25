@@ -30,8 +30,18 @@ vi.mock("@yonder/ui-data", () => ({
 	},
 	NetworkError: class NetworkError extends Error {},
 	useAccountPreferences: () => ({
-		timezone: { mode: state.timezoneMode, zone: state.lockedZone },
-		locale: { mode: state.localeMode, locale: state.localeMode === "manual" ? state.locale : null },
+		timezone: {
+			mode: state.timezoneMode,
+			zone: state.lockedZone ?? state.deviceZone,
+			manual: state.lockedZone,
+			device: state.deviceZone,
+		},
+		locale: {
+			mode: state.localeMode,
+			value: state.locale,
+			manual: state.localeMode === "manual" ? state.locale : null,
+			device: state.deviceLocale,
+		},
 		zone: state.zone,
 		localeValue: state.locale,
 		deviceZone: state.deviceZone,
@@ -65,11 +75,7 @@ const { LanguageSection, TimeZoneDeviceNote, TimeZonePicker, TimeZoneSection } =
 );
 
 function show(node: React.ReactNode, locale: Locale = "zh-CN") {
-	return render(
-		<I18nextProvider i18n={createI18n(locale)}>
-			<>{node}</>
-		</I18nextProvider>,
-	);
+	return render(<I18nextProvider i18n={createI18n(locale)}>{node}</I18nextProvider>);
 }
 
 beforeEach(() => {
@@ -97,7 +103,7 @@ describe("the zone row", () => {
 		await act(async () => {
 			fireEvent.click(screen.getByRole("radio", { name: /跟随系统/ }));
 		});
-		expect(saves.at(-1)).toEqual({ timezone: { mode: "auto", zone: null } });
+		expect(saves.at(-1)).toEqual({ timezone: { mode: "auto" } });
 	});
 
 	test("a locked zone says what it is, and a differing device gets one quiet line", () => {
@@ -204,7 +210,7 @@ describe("the language row", () => {
 		await act(async () => {
 			fireEvent.click(screen.getByRole("radio", { name: "English" }));
 		});
-		expect(saves.at(-1)).toEqual({ locale: { mode: "manual", locale: "en" } });
+		expect(saves.at(-1)).toEqual({ locale: { mode: "manual", value: "en" } });
 	});
 
 	test("choosing follow clears the lock", async () => {
@@ -214,7 +220,7 @@ describe("the language row", () => {
 		await act(async () => {
 			fireEvent.click(screen.getByRole("radio", { name: /跟随系统/ }));
 		});
-		expect(saves.at(-1)).toEqual({ locale: { mode: "auto", locale: null } });
+		expect(saves.at(-1)).toEqual({ locale: { mode: "auto" } });
 	});
 
 	test("a locked language is the one checked", () => {

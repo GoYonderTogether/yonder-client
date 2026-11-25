@@ -126,11 +126,12 @@ export {
 } from "./image-encoding.ts";
 export type {
 	AccountPreferences,
-	LocalePreference,
+	InterfaceLocale,
+	LocaleSetting,
 	PreferenceMode,
 	PreferencesPatch,
 	SavePreferencesResult,
-	TimeZonePreference,
+	TimezonePreference,
 } from "./preferences/account-preferences.ts";
 export {
 	deviceLocale,
@@ -138,10 +139,11 @@ export {
 	effectiveLocale,
 	effectiveTimeZone,
 	readLocalePreference,
-	readTimeZonePreference,
 	useAccountLocale,
 	useAccountPreferences,
+	useAccountPreferencesSync,
 	useAccountTimeZone,
+	useDevicePreferenceReport,
 	useSavePreferences,
 } from "./preferences/account-preferences.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";

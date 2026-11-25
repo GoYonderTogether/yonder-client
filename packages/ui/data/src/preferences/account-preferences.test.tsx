@@ -1,29 +1,38 @@
 // @vitest-environment jsdom
 /**
- * The account's zone and language: two modes (`auto` follows this device, `manual` locks a value)
- * and one adapter the settings page saves through. Stage 1 writes local storage; the tests pin that
- * a save either lands or reports why, and never pretends a server answered.
+ * The account's zone and language come from `me` (the server's resolved preference) and are saved
+ * through the real endpoint; this suite pins that shape: the resolved value wins, a manual pick is
+ * not overridden by the device, the save writes the server's answer into the cache, an invalid zone
+ * shows the server's own reason, and a device report is sent only while the account follows it.
  */
-import { act, renderHook } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import type { LocaleSetting, MeResponse, TimezonePreference } from "@yonder/protocol";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { createBrowserStorage } from "../storage/index.ts";
+import { createMemoryStorage } from "../storage/index.ts";
 
-const raw = new Map<string, string>();
-const storage = createBrowserStorage({
-	getItem: (key: string) => raw.get(key) ?? null,
-	setItem: (key: string, value: string) => void raw.set(key, value),
-	removeItem: (key: string) => void raw.delete(key),
-	key: (index: number) => [...raw.keys()][index] ?? null,
-	get length() {
-		return raw.size;
-	},
-	clear: () => raw.clear(),
-} as unknown as globalThis.Storage);
+const api = vi.hoisted(() => ({
+	updatePreferences: vi.fn(),
+	reportDeviceTimezone: vi.fn(),
+	reportDeviceLocale: vi.fn(),
+	me: vi.fn(),
+}));
+
+const storage = createMemoryStorage();
+
+let me: MeResponse | null = null;
+
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+vi.mock("../query/provider.tsx", () => ({
+	useApi: () => api,
+	useApiOrNull: () => api,
+	useData: () => ({ storage, queryClientForPreferences: queryClient }),
+	useDataOrNull: () => ({ storage, queryClientForPreferences: queryClient }),
+}));
 
 /** The device this suite pretends to run on. */
 let deviceZone = "Asia/Singapore";
-vi.mock("../query/provider.tsx", () => ({ useDataOrNull: () => ({ storage }) }));
 vi.mock("@yonder/ui-time", async (original) => {
 	const actual = await original<typeof import("@yonder/ui-time")>();
 	return { ...actual, deviceTimeZone: () => deviceZone };
@@ -32,113 +41,176 @@ vi.mock("@yonder/ui-time", async (original) => {
 const {
 	effectiveLocale,
 	effectiveTimeZone,
-	readLocalePreference,
-	readTimeZonePreference,
+	syncAccountPreferences,
 	useAccountPreferences,
 	useAccountTimeZone,
+	useDevicePreferenceReport,
 	useSavePreferences,
 } = await import("./account-preferences.ts");
 
-const wrapper = ({ children }: { children: ReactNode }) => <>{children}</>;
+function wrapper({ children }: { children: ReactNode }) {
+	return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
+
+function fixture(overrides: { timezone?: Partial<TimezonePreference>; locale?: Partial<LocaleSetting> } = {}) {
+	const base: MeResponse = {
+		member: {
+			id: "member-a",
+			kind: "person",
+			handle: "someone",
+			displayName: "Someone",
+			avatarUrl: null,
+			bio: null,
+			ownerId: null,
+			isDefault: false,
+			createdAt: "2026-11-15T00:00:00Z",
+			version: 1,
+		},
+		bot: {
+			id: "bot-a",
+			kind: "bot",
+			handle: "someone-bot",
+			displayName: "Bot",
+			avatarUrl: null,
+			bio: null,
+			ownerId: "member-a",
+			isDefault: true,
+			createdAt: "2026-11-15T00:00:00Z",
+			version: 1,
+		},
+		signInMethods: [],
+		hasPassword: true,
+		handleChange: { canChange: true, nextChangeAt: null },
+		settings: { locale: "en", theme: "system" },
+		timezone: { mode: "auto", zone: "Asia/Singapore", manual: null, device: "Asia/Singapore", ...overrides.timezone },
+		locale: { mode: "auto", value: "en", manual: null, device: "en", ...overrides.locale },
+	};
+	return base;
+}
 
 beforeEach(() => {
-	raw.clear();
+	storage.clear();
+	queryClient.clear();
+	me = fixture();
+	syncAccountPreferences(me);
+	api.me.mockResolvedValue(me);
+	api.updatePreferences.mockReset();
+	api.reportDeviceTimezone.mockReset();
+	api.reportDeviceLocale.mockReset();
 	deviceZone = "Asia/Singapore";
 });
 
-describe("reading the stored choice", () => {
-	test("an account with nothing stored follows this device", () => {
-		expect(readTimeZonePreference({ get: () => null })).toEqual({ mode: "auto", zone: null });
-		expect(readLocalePreference({ get: () => null })).toEqual({ mode: "auto", locale: null });
+describe("the resolved values", () => {
+	test("an auto account reads the server's resolved zone and language", () => {
+		const { result } = renderHook(() => useAccountPreferences(), { wrapper });
+		expect(result.current.zone).toBe("Asia/Singapore");
+		expect(result.current.localeValue).toBe("en");
+		expect(result.current.timezone.mode).toBe("auto");
 	});
 
-	test("a locked zone reads back; an unknown zone name is refused rather than kept", () => {
-		raw.set("yonder.timezone-mode", "manual");
-		raw.set("yonder.timezone", "Asia/Shanghai");
-		expect(readTimeZonePreference(storage)).toEqual({ mode: "manual", zone: "Asia/Shanghai" });
-		raw.set("yonder.timezone", "Not/AZone");
-		expect(readTimeZonePreference(storage)).toEqual({ mode: "auto", zone: null });
-	});
-
-	test("a language stored before there was a mode counts as the account's own choice", () => {
-		raw.set("yonder.locale", "zh-CN");
-		expect(readLocalePreference(storage)).toEqual({ mode: "manual", locale: "zh-CN" });
-		raw.set("yonder.locale-mode", "auto");
-		expect(readLocalePreference(storage)).toEqual({ mode: "auto", locale: null });
-	});
-
-	test("the effective zone and language are the locked ones, else the device's", () => {
-		expect(effectiveTimeZone({ mode: "auto", zone: null }, "America/New_York")).toBe("America/New_York");
-		expect(effectiveTimeZone({ mode: "manual", zone: "Asia/Shanghai" }, "America/New_York")).toBe("Asia/Shanghai");
-		expect(effectiveLocale({ mode: "auto", locale: null }, "en")).toBe("en");
-		expect(effectiveLocale({ mode: "manual", locale: "zh-CN" }, "en")).toBe("zh-CN");
-	});
-});
-
-describe("the hook every screen reads", () => {
-	test("in auto the zone is this device's; a lock overrides it and says what the device is", () => {
-		const hook = renderHook(() => useAccountPreferences(), { wrapper });
-		expect(hook.result.current.zone).toBe("Asia/Singapore");
-		expect(hook.result.current.timezone.mode).toBe("auto");
-
-		// The save hook is what writes and notifies; a direct storage write alone would not.
-		const saver = renderHook(() => useSavePreferences(), { wrapper });
-		act(() => {
-			void saver.result.current.save({ timezone: { mode: "manual", zone: "Asia/Shanghai" } });
+	test("a manual lock governs on every device, whatever this device reports", () => {
+		me = fixture({
+			timezone: { mode: "manual", zone: "Asia/Shanghai", manual: "Asia/Shanghai", device: "America/New_York" },
+			locale: { mode: "manual", value: "zh-CN", manual: "zh-CN", device: "en" },
 		});
-		expect(hook.result.current.zone).toBe("Asia/Shanghai");
-		const zone = renderHook(() => useAccountTimeZone(), { wrapper });
-		expect(zone.result.current).toBe("Asia/Shanghai");
+		syncAccountPreferences(me);
+		const { result } = renderHook(() => useAccountPreferences(), { wrapper });
+		expect(result.current.zone).toBe("Asia/Shanghai");
+		expect(result.current.localeValue).toBe("zh-CN");
+		// The hint still knows what this device — and the account's last device — is set to.
+		expect(result.current.deviceLocale).toBe(deviceLocaleFromBrowser());
+		expect(result.current.timezone.device).toBe("America/New_York");
+	});
+
+	test("before `me` answers, the device's own zone and language stand in", () => {
+		syncAccountPreferences(null);
+		const { result } = renderHook(() => useAccountTimeZone(), { wrapper });
+		expect(result.current).toBe("Asia/Singapore");
 		const preferences = renderHook(() => useAccountPreferences(), { wrapper }).result.current;
-		expect(preferences.deviceZone).toBe("Asia/Singapore");
+		expect(preferences.fromAccount).toBe(false);
 	});
 
-	test("every reader sees a change made by the save hook", () => {
-		const reader = renderHook(() => useAccountPreferences(), { wrapper });
-		const saver = renderHook(() => useSavePreferences(), { wrapper });
-		act(() => {
-			void saver.result.current.save({ locale: { mode: "manual", locale: "en" } });
-		});
-		expect(reader.result.current.localeValue).toBe("en");
-		expect(reader.result.current.locale).toEqual({ mode: "manual", locale: "en" });
+	test("an unknown effective zone still reads as the device's, the one honest fallback", () => {
+		expect(effectiveTimeZone({ mode: "auto", zone: "", manual: null, device: null }, "Asia/Singapore")).toBe(
+			"Asia/Singapore",
+		);
+		expect(effectiveTimeZone({ mode: "manual", zone: "Asia/Shanghai", manual: "Asia/Shanghai", device: null })).toBe(
+			"Asia/Shanghai",
+		);
+		// A copy with an empty value (an old server one deep into a rollout) still falls back.
+		expect(effectiveLocale({ mode: "auto", value: "" as never, manual: null, device: null }, "en")).toBe("en");
 	});
 });
 
 describe("the save adapter", () => {
-	test("a save writes local storage, and switching back to auto clears the lock", async () => {
+	test("a save goes to the endpoint and the server's answer becomes what every screen reads", async () => {
 		const saver = renderHook(() => useSavePreferences(), { wrapper });
+		api.updatePreferences.mockResolvedValue(
+			fixture({ timezone: { mode: "manual", zone: "America/New_York", manual: "America/New_York" } }),
+		);
+		let saved = false;
 		await act(async () => {
-			expect(await saver.result.current.save({ timezone: { mode: "manual", zone: "Asia/Shanghai" } })).toBe(true);
+			saved = await saver.result.current.save({ timezone: { mode: "manual", zone: "America/New_York" } });
 		});
-		expect(raw.get("yonder.timezone")).toBe("Asia/Shanghai");
-		expect(raw.get("yonder.timezone-mode")).toBe("manual");
-		await act(async () => {
-			expect(await saver.result.current.save({ timezone: { mode: "auto", zone: null } })).toBe(true);
-		});
-		expect(raw.has("yonder.timezone")).toBe(false);
-		expect(raw.get("yonder.timezone-mode")).toBe("auto");
+		expect(saved).toBe(true);
+		expect(api.updatePreferences).toHaveBeenCalledWith({ timezone: { mode: "manual", zone: "America/New_York" } });
+		const reader = renderHook(() => useAccountTimeZone(), { wrapper });
+		await waitFor(() => expect(reader.result.current).toBe("America/New_York"));
 	});
 
-	test("a save that cannot land reports the real reason instead of pretending", async () => {
+	test("a language save keeps a mirror, so the sign-in screen and the first paint agree", async () => {
 		const saver = renderHook(() => useSavePreferences(), { wrapper });
+		api.updatePreferences.mockResolvedValue(fixture({ locale: { mode: "manual", value: "zh-CN", manual: "zh-CN" } }));
+		await act(async () => {
+			await saver.result.current.save({ locale: { mode: "manual", value: "zh-CN" } });
+		});
+		expect(storage.get("locale")).toBe("zh-CN");
+		expect(storage.get("locale-mode")).toBe("manual");
+	});
+
+	test("an invalid zone shows the server's own reason and keeps the old choice", async () => {
+		const { ApiError } = await import("@yonder/api-client");
+		const saver = renderHook(() => useSavePreferences(), { wrapper });
+		api.updatePreferences.mockRejectedValue(
+			new ApiError({ code: "invalid_timezone", status: 400, message: "unknown zone", details: { field: "timezone" } }),
+		);
 		let saved = true;
 		await act(async () => {
 			saved = await saver.result.current.save({ timezone: { mode: "manual", zone: "Not/AZone" } });
 		});
 		expect(saved).toBe(false);
-		expect(saver.result.current.error).toBeInstanceOf(Error);
-		expect((saver.result.current.error as Error).message).toBe("unknown-time-zone");
-		expect(raw.has("yonder.timezone")).toBe(false);
-		act(() => saver.result.current.reset());
-		expect(saver.result.current.error).toBeNull();
-	});
-
-	test("a language lock is written beside its mode, so the first paint can honour it", async () => {
-		const saver = renderHook(() => useSavePreferences(), { wrapper });
-		await act(async () => {
-			expect(await saver.result.current.save({ locale: { mode: "manual", locale: "en" } })).toBe(true);
-		});
-		expect(raw.get("yonder.locale")).toBe("en");
-		expect(raw.get("yonder.locale-mode")).toBe("manual");
+		expect(saver.result.current.error).toBeInstanceOf(ApiError);
+		expect((saver.result.current.error as InstanceType<typeof ApiError>).code).toBe("invalid_timezone");
+		expect(renderHook(() => useAccountTimeZone(), { wrapper }).result.current).toBe("Asia/Singapore");
 	});
 });
+
+describe("the device report", () => {
+	test("an auto account reports its own device zone and language", async () => {
+		api.reportDeviceTimezone.mockResolvedValue({ ok: true });
+		api.reportDeviceLocale.mockResolvedValue({ ok: true });
+		deviceZone = "Europe/Paris";
+		syncAccountPreferences(fixture({ timezone: { device: "Asia/Singapore" }, locale: { device: "zh-CN" } }));
+		renderHook(() => useDevicePreferenceReport(), { wrapper });
+		await waitFor(() => expect(api.reportDeviceTimezone).toHaveBeenCalledWith("Europe/Paris"));
+		await waitFor(() => expect(api.reportDeviceLocale).toHaveBeenCalled());
+	});
+
+	test("a manual account reports nothing", async () => {
+		syncAccountPreferences(
+			fixture({
+				timezone: { mode: "manual", manual: "Asia/Shanghai", device: "Asia/Singapore" },
+				locale: { mode: "manual", manual: "zh-CN", device: "en" },
+			}),
+		);
+		deviceZone = "America/New_York";
+		renderHook(() => useDevicePreferenceReport(), { wrapper });
+		await act(async () => undefined);
+		expect(api.reportDeviceTimezone).not.toHaveBeenCalled();
+		expect(api.reportDeviceLocale).not.toHaveBeenCalled();
+	});
+});
+
+function deviceLocaleFromBrowser() {
+	return /^zh\b|^zh-/iu.test(globalThis.navigator?.language ?? "en") ? "zh-CN" : "en";
+}

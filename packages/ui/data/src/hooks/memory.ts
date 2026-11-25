@@ -7,9 +7,9 @@ import { useApi } from "../query/provider.tsx";
 /**
  * The memory timeline, newest day first; `fetchNextPage` loads older days.
  *
- * It asks the server to cut days in the account's zone (2026-11-25): a memory from 11-24 23:30 in
- * Sao Paulo belongs to the 24th for its owner even when another device is already on the 25th. The
- * zone is part of the key, so a change of zone refetches instead of showing stale days.
+ * The server now cuts days by the account's own zone (stage 2, migration 127), so no `tz=` is sent:
+ * in `manual` mode the server ignores it, and in `auto` it already has the device's report. The zone
+ * stays in the key, so a change of zone refetches instead of showing days cut in the old one.
  */
 export function useMemoryDays() {
 	const api = useApi();
@@ -17,7 +17,7 @@ export function useMemoryDays() {
 	return useInfiniteQuery({
 		queryKey: keys.memory.daysInZone(zone),
 		initialPageParam: undefined as string | undefined,
-		queryFn: ({ pageParam }) => api.memoryDays(pageParam, zone),
+		queryFn: ({ pageParam }) => api.memoryDays(pageParam),
 		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
 		staleTime: 60_000,
 	});

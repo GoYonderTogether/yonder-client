@@ -8,9 +8,10 @@ import { isLocale, resolveLocale } from "@yonder/ui-i18n";
 import type { StyleChoice, ThemeChoice, UISizeChoice } from "@yonder/ui-tokens";
 import { DEFAULT_UI_SIZE, isStyleChoice, isThemeChoice, isUISizeChoice, resolveTheme } from "@yonder/ui-tokens";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSessionStore } from "../auth/session-store.ts";
 import { useData } from "../query/provider.tsx";
 import type { Storage } from "../storage/index.ts";
-import { effectiveLocale, readLocalePreference } from "./account-preferences.ts";
+import { useAccountPreferences, useSavePreferences } from "./account-preferences.ts";
 import { notifyPreferences, usePreferencesVersion } from "./store.ts";
 
 /** The system preference, watched live. */
@@ -47,8 +48,6 @@ export interface ThemeControl {
  */
 const THEME_KEY = "theme";
 const LOCALE_KEY = "locale";
-/** Kept beside account-preferences.ts's own constant; the first-paint script reads both. */
-const LOCALE_MODE_KEY = "locale-mode";
 const STYLE_KEY = "style";
 const UI_SIZE_KEY = "ui-size";
 
@@ -140,15 +139,19 @@ export interface LocaleControl {
 }
 
 /**
- * The language the app speaks. `auto` follows this device; `manual` is the account's lock, which the
- * 「通用」 page and the server (stage 2) both write. `setLocale` locks the account, because that is
- * what a choice made here means (a person picking English wants English on their other devices too).
+ * The language the app speaks: the account's resolved `me.locale` once signed in, this device's
+ * before that. `setLocale` follows the same rule — signed in, the pick locks the account (a person
+ * choosing English wants English on their other devices too), through the same save adapter as
+ * 「通用」, so a refusal is reported rather than silently undone; signed out, there is no account to
+ * hold it, so it is this device's own choice, which is what the landing and sign-in screens have
+ * always meant by their language button.
  */
 export function useLocalePreference(): LocaleControl {
 	const { storage } = useData();
-	const preference = usePreference(storage, readLocalePreference);
-	const device = usePreference(storage, () => readLocale(storage));
-	const locale = effectiveLocale(preference, device);
+	const status = useSessionStore((state) => state.status);
+	const { localeValue } = useAccountPreferences();
+	const save = useSavePreferences();
+	const locale = localeValue;
 
 	useEffect(() => {
 		document.documentElement.lang = locale;
@@ -156,11 +159,16 @@ export function useLocalePreference(): LocaleControl {
 
 	const setLocale = useCallback(
 		(next: Locale) => {
-			storage.set(LOCALE_KEY, next);
-			storage.set(LOCALE_MODE_KEY, "manual");
+			if (status === "signed-in") {
+				void save.save({ locale: { mode: "manual", value: next } });
+				return;
+			}
+			// No account yet: remember it on this device, and make it the first paint's language.
+			storage.set("locale", next);
+			storage.set("locale-mode", "manual");
 			notify();
 		},
-		[storage],
+		[save, status, storage],
 	);
 
 	return { locale, setLocale };

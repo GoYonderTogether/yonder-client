@@ -9,6 +9,8 @@ import { expect, test, vi } from "vitest";
 const setDefault = vi.hoisted(() => vi.fn());
 vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@yonder/ui-data")>()),
+	// These rows read the account's zone for "last seen"; one zone is enough for the list itself.
+	useAccountTimeZone: () => "Asia/Shanghai",
 	useProviders: () => ({
 		data: {
 			// A stale response from an older server must not expose platform details either.

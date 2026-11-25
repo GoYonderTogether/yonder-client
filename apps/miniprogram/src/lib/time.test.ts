@@ -1,25 +1,44 @@
-import { expect, test, vi } from "vitest";
+import type { MeResponse } from "@yonder/protocol";
+import { expect, test } from "vitest";
+import { accountLocale, accountTimeZone, deviceZone } from "./time.ts";
 
-const values = new Map<string, string>();
-vi.mock("@tarojs/taro", () => ({
-	default: {
-		getStorageSync: (key: string) => values.get(key) ?? "",
-		setStorageSync: (key: string, value: string) => void values.set(key, value),
-	},
-}));
+/** The account's answer, with only the two fields these helpers read. */
+function me(timezone: MeResponse["timezone"], locale: MeResponse["locale"]): MeResponse {
+	return { timezone, locale } as MeResponse;
+}
 
-const { accountTimeZone } = await import("./time.ts");
-
-test("the mini program reads instants in this device's zone until the account chooses one", () => {
-	values.clear();
-	expect(accountTimeZone()).toMatch(/^[A-Za-z]+\/[A-Za-z_+-]+$|^UTC$/);
+test("before `me` answers, the device's own zone stands in", () => {
+	expect(accountTimeZone(null)).toMatch(/^[A-Za-z]+\/[A-Za-z_+-]+$|^UTC$/);
+	expect(accountTimeZone(null)).toBe(deviceZone());
 });
 
-test("a manual zone is honoured; a mode of auto is not", () => {
-	values.set("yonder.mini.timezone", "Asia/Shanghai");
-	expect(accountTimeZone()).not.toBe("Asia/Shanghai");
-	values.set("yonder.mini.timezone-mode", "manual");
-	expect(accountTimeZone()).toBe("Asia/Shanghai");
-	values.set("yonder.mini.timezone-mode", "auto");
-	expect(accountTimeZone()).not.toBe("Asia/Shanghai");
+test("a manual lock governs; an auto account reads the resolved zone", () => {
+	expect(
+		accountTimeZone(
+			me(
+				{ mode: "manual", zone: "Asia/Shanghai", manual: "Asia/Shanghai", device: "America/New_York" },
+				{ mode: "auto", value: "zh-CN", manual: null, device: "en" },
+			),
+		),
+	).toBe("Asia/Shanghai");
+	expect(
+		accountTimeZone(
+			me(
+				{ mode: "auto", zone: "Asia/Shanghai", manual: null, device: "America/New_York" },
+				{ mode: "auto", value: "en", manual: null, device: "en" },
+			),
+		),
+	).toBe("Asia/Shanghai");
+});
+
+test("the language comes from the same answer, never from the device once it has arrived", () => {
+	expect(
+		accountLocale(
+			me(
+				{ mode: "auto", zone: "UTC", manual: null, device: null },
+				{ mode: "manual", value: "en", manual: "en", device: "zh-CN" },
+			),
+		),
+	).toBe("en");
+	expect(accountLocale(null)).toMatch(/^(zh-CN|en)$/);
 });

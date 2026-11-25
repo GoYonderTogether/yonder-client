@@ -10,7 +10,8 @@ import { api, useSession } from "../../lib/runtime";
 import { accountTimeZone } from "../../lib/time";
 
 export default function Devices() {
-	const { signOut } = useSession();
+	const { signOut, me } = useSession();
+	const zone = accountTimeZone(me);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const { data, loading, error, reload } = useResource(async () => ({
 		devices: await api.devices(),
@@ -46,7 +47,7 @@ export default function Devices() {
 						<View key={session.id}>
 							<Row
 								title={device?.remark?.trim() || device?.name || session.deviceName}
-								detail={`${session.platform} · ${formatInstant(session.lastSeenAt, { zone: accountTimeZone(), locale: currentLocale(), style: "dateTime", width: "short", year: "always" })}`}
+								detail={`${session.platform} · ${formatInstant(session.lastSeenAt, { zone, locale: currentLocale(), style: "dateTime", width: "short", year: "always" })}`}
 							/>
 							<Button
 								secondary

@@ -18,7 +18,7 @@ export default function Conversations() {
 	const { status, me } = useSession();
 	const cachedBots = useCachedBots();
 	const { locale } = useLocale();
-	const zone = accountTimeZone();
+	const zone = accountTimeZone(me);
 	const revision = useRealtimeRevision();
 	const [items, setItems] = useState<Conversation[]>([]);
 	const [loading, setLoading] = useState(true);

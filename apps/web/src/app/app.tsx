@@ -1,6 +1,8 @@
 import {
 	DataProvider,
+	useAccountPreferencesSync,
 	useData,
+	useDevicePreferenceReport,
 	useDeviceRegistration,
 	useLocalePreference,
 	useMe,
@@ -90,6 +92,10 @@ function Localised() {
 	const registration = useDeviceRegistration(isContactWindow() ? null : device);
 	const { locale } = useLocalePreference();
 	useTheme();
+	// The account's zone and language reach every screen through one store: `me` answers here, and
+	// this device reports its own only while the account follows it. A locked account is left alone.
+	useAccountPreferencesSync();
+	useDevicePreferenceReport();
 	const i18n = useMemo(() => createI18n(locale as Locale), [locale]);
 	useRealtimeSync();
 	useEffect(() => {
