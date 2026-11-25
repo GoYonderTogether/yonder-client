@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.3.26112504] - 2026-11-25
+
+### Fixed
+
+- photos：compare the iCloud refusal by its numeric code
+
+### Added
+
+- protocol：the picture command carries the edge it must encode at
+- photos：read at the model's edge, name the real refusal, and hand a picture back
+- chat：inline code and quotes are drawn, and one page previews them
+
 ## [0.3.26112503] - 2026-11-25
 
 ### Fixed

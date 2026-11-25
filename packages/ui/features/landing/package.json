@@ -1,16 +1,16 @@
 {
 	"name": "@yonder/feature-landing",
 	"private": true,
-	"version": "0.3.26112503",
+	"version": "0.3.26112504",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/ui-components": "0.3.26112503",
-		"@yonder/ui-data": "0.3.26112503",
-		"@yonder/ui-i18n": "0.3.26112503",
-		"@yonder/ui-tokens": "0.3.26112503",
+		"@yonder/ui-components": "0.3.26112504",
+		"@yonder/ui-data": "0.3.26112504",
+		"@yonder/ui-i18n": "0.3.26112504",
+		"@yonder/ui-tokens": "0.3.26112504",
 		"lenis": "1.3.27",
 		"lucide-react": "1.72.0",
 		"motion": "14.14.0",
