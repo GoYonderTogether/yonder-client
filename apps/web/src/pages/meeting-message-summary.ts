@@ -62,6 +62,6 @@ export function recordingNoteTimeRange(
  * completed/total batches and percentage the Bot reads from `meeting_view`, so the owner and the
  * Bot state one number. Finished or unstarted recordings show nothing here.
  */
-export function recordingNoteProgress(progress: { completedBatches: number; totalBatches: number; percent: number }) {
-	return progress.totalBatches > 0 && progress.percent < 100 ? progress : null;
+export function recordingNoteProgress(progress?: { completedBatches: number; totalBatches: number; percent: number }) {
+	return progress && progress.totalBatches > 0 && progress.percent < 100 ? progress : null;
 }

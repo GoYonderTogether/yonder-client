@@ -1,5 +1,10 @@
 import { expect, test } from "vitest";
-import { recordingNoteDate, recordingNoteDuration, recordingNoteTimeRange } from "./meeting-message-summary.ts";
+import {
+	recordingNoteDate,
+	recordingNoteDuration,
+	recordingNoteProgress,
+	recordingNoteTimeRange,
+} from "./meeting-message-summary.ts";
 
 test("recording dates compare local calendar days, including New Year and earlier dates", () => {
 	const now = new Date(2027, 0, 1, 0, 5);
@@ -33,4 +38,11 @@ test("recording clock times stay compact and preserve which day a range ended", 
 	expect(recordingNoteTimeRange(0, start, "en")).toBeNull();
 	expect(recordingNoteTimeRange(start, NaN, "en")).toBeNull();
 	expect(recordingNoteTimeRange(start, start - 1, "en")).toBeNull();
+});
+
+test("recordings from older servers still render without a progress field", () => {
+	expect(recordingNoteProgress(undefined)).toBeNull();
+	const progress = { completedBatches: 1, totalBatches: 4, percent: 25 };
+	expect(recordingNoteProgress(progress)).toEqual(progress);
+	expect(recordingNoteProgress({ completedBatches: 4, totalBatches: 4, percent: 100 })).toBeNull();
 });
