@@ -210,12 +210,13 @@ export function ConversationPage({
 				| undefined,
 		[messages.data],
 	);
-	const { bottom, showLatest, atBottom, atLatest, canReadLatest, jumpToLatest } = useMessageScroll(
+	const { bottom, showLatest, newCount, atBottom, atLatest, canReadLatest, jumpToLatest } = useMessageScroll(
 		conversationId,
 		items,
 		readActive && messages.hasNextPage && !messages.isFetching && !messages.isFetchNextPageError
 			? loadEarlier
 			: undefined,
+		person?.id,
 	);
 	const foreground = useForeground();
 	const canRead = useCallback(() => isForeground() && canReadLatest(), [canReadLatest]);
@@ -447,15 +448,17 @@ export function ConversationPage({
 			</PageFrame>
 			{showLatest || (items?.length && conversation.unreadCount > 0 && !atBottom) ? (
 				<div className="absolute inset-x-0 bottom-[calc(var(--native-dock-height,0px)_+_var(--spacing-4))] flex justify-center pointer-events-none">
-					<IconButton
+					<Button
 						data-chat-jump-latest
-						aria-label={t("chat.jumpToLatest")}
+						{...(newCount > 0 ? {} : { "aria-label": t("chat.jumpToLatest") })}
 						variant="secondary"
+						size="sm"
 						onClick={jumpToLatest}
 						className="pointer-events-auto rounded-[var(--radius-full)]! bg-[var(--color-bg-raised)]! [box-shadow:var(--shadow-app-icon)]"
 					>
 						<ArrowDown size={16} aria-hidden="true" />
-					</IconButton>
+						{newCount > 0 ? <span>{t("chat.newMessages", { count: newCount })}</span> : null}
+					</Button>
 				</div>
 			) : null}
 		</div>

@@ -325,6 +325,8 @@ export const en = {
 		quotaToolsExhausted: "Tools quota is used up",
 		loadingHistory: "Loading messages…",
 		jumpToLatest: "Jump to latest",
+		newMessages_one: "{{count}} new message",
+		newMessages_other: "{{count}} new messages",
 		loadingEarlier: "Loading earlier messages…",
 		retryEarlier: "Retry loading earlier messages",
 		memoryUpdated: "Memory updated",

@@ -330,6 +330,8 @@ export const zhCN: Messages = {
 		quotaToolsExhausted: "工具额度已用完",
 		loadingHistory: "正在加载消息…",
 		jumpToLatest: "跳至最新",
+		newMessages_one: "{{count}} 条新消息",
+		newMessages_other: "{{count}} 条新消息",
 		loadingEarlier: "正在加载更早的消息…",
 		retryEarlier: "重试加载更早的消息",
 		memoryUpdated: "记忆已更新",
