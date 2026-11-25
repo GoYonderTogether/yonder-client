@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { afterEach, expect, test, vi } from "vitest";
-import { AppNoticeProvider, useAppNotice, useReconnectNotice } from "./app-notice.tsx";
+import { AppNoticeProvider, useAppNotice, useDismissAppNotice, useReconnectNotice } from "./app-notice.tsx";
 
 afterEach(() => {
 	vi.useRealTimers();
@@ -13,6 +13,7 @@ afterEach(() => {
 
 function Controls() {
 	const notify = useAppNotice();
+	const dismiss = useDismissAppNotice();
 	return (
 		<>
 			<button type="button" onClick={() => notify({ key: "a", text: "Interruption", tone: "error" })}>
@@ -20,6 +21,9 @@ function Controls() {
 			</button>
 			<button type="button" onClick={() => notify({ key: "b", text: "Minor message" })}>
 				Show info
+			</button>
+			<button type="button" onClick={() => dismiss("b")}>
+				Dismiss info
 			</button>
 		</>
 	);
@@ -30,7 +34,7 @@ function Chat({ disconnected, active }: { disconnected: boolean; active: boolean
 	return null;
 }
 
-test("the notice preserves focus, shows one severity, expires, and clears on account changes", () => {
+test("passive notices preserve focus and each unique queued notice gets a full turn", () => {
 	vi.useFakeTimers();
 	const tree = (scope: string) => (
 		<AppNoticeProvider scope={scope}>
@@ -49,10 +53,30 @@ test("the notice preserves focus, shows one severity, expires, and clears on acc
 	fireEvent.click(screen.getByRole("button", { name: "Show info" }));
 	expect(status).not.toHaveTextContent("Minor message");
 	act(() => vi.advanceTimersByTime(500));
+	expect(status).toHaveTextContent("Minor message");
+	act(() => vi.advanceTimersByTime(4499));
+	expect(status).toHaveTextContent("Minor message");
+	act(() => vi.advanceTimersByTime(1));
 	expect(status).toBeEmptyDOMElement();
 	fireEvent.click(error);
+	fireEvent.click(screen.getByRole("button", { name: "Show info" }));
 	rerender(tree("second"));
+	act(() => vi.advanceTimersByTime(9000));
 	expect(status).toBeEmptyDOMElement();
+});
+
+test("dismissing a queued notice prevents it from surfacing once it becomes stale", () => {
+	vi.useFakeTimers();
+	render(
+		<AppNoticeProvider scope="person">
+			<Controls />
+		</AppNoticeProvider>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Show error" }));
+	fireEvent.click(screen.getByRole("button", { name: "Show info" }));
+	fireEvent.click(screen.getByRole("button", { name: "Dismiss info" }));
+	act(() => vi.advanceTimersByTime(4500));
+	expect(screen.getByRole("status")).toBeEmptyDOMElement();
 });
 
 test("realtime notices skip brief disconnects, hide at recovery, and appear only once per outage", () => {

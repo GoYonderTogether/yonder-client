@@ -1,4 +1,5 @@
 import { devices, expect, type Locator, type Page, test } from "@playwright/test";
+import type { ConnectorRequestView } from "@yonder/protocol";
 import { isolateChat, message } from "./chat-fixture.ts";
 
 type Shell = "web" | "windows" | "android" | "ios";
@@ -177,7 +178,10 @@ for (const name of ["mobile", "desktop"] as const) {
 			await expect(passive).toHaveCSS("pointer-events", "none");
 			const offerBox = await notice.boundingBox();
 			const passiveBox = await passive.boundingBox();
+			const top = name === "mobile" ? 59 : 0;
 			if (!offerBox || !passiveBox) throw new Error("Expected both notices");
+			expect(offerBox.y).toBeGreaterThanOrEqual(top);
+			expect(offerBox.y).toBeLessThanOrEqual(top + 16);
 			expect(passiveBox.y).toBeGreaterThan(offerBox.y + offerBox.height);
 			await expect(notice.getByRole("button", { name: "稍后" })).toHaveCSS("pointer-events", "auto");
 			await expect.poll(layout).toEqual(withOffer);
@@ -191,6 +195,7 @@ for (const name of ["mobile", "desktop"] as const) {
 			await page.mouse.up();
 			await expect(notice).toHaveCount(0);
 			await expect(passive).toBeVisible();
+			await expect.poll(async () => (await passive.boundingBox())?.y).toBeLessThanOrEqual(top + 26);
 			await expect.poll(layout).toEqual(withOffer);
 			await expect(passive).toHaveCount(0, { timeout: 5_000 });
 			await expect.poll(layout).toEqual(withOffer);
@@ -201,6 +206,40 @@ for (const name of ["mobile", "desktop"] as const) {
 
 test.describe("desktop", () => {
 	test.use(desktop);
+	test("two passive notices get separate turns while the update stays actionable", async ({ page }, info) => {
+		await page.addInitScript(() => {
+			Object.defineProperty(document, "hasFocus", { value: () => true });
+		});
+		const { notice, socket } = await prepare(page, "web");
+		await expect(notice).toBeVisible();
+		await expect.poll(socket.connected).toBe(true);
+		const request: ConnectorRequestView = {
+			id: "device-one",
+			state: "granted",
+			continuation: "failed",
+			connectorIds: ["local-files"],
+			deviceId: "desktop",
+			deviceName: "Desktop",
+			connectionIds: ["local"],
+			reason: "Read a file",
+			failure: null,
+		};
+		socket.updateConnectorRequest(request);
+		socket.updateConnectorRequest({
+			...request,
+			id: "device-two",
+			continuationFailure: "target_unavailable",
+		});
+		const status = page.locator(".app-notice-status");
+		await expect(status).toHaveText("设备已授权，任务暂未继续");
+		await expect(status).toHaveText("原会话已不可用，任务未继续", { timeout: 7_000 });
+		await expect(notice.getByRole("button", { name: "立即刷新" })).toBeEnabled();
+		await notice.getByRole("button", { name: "稍后" }).click();
+		await expect(notice).toHaveCount(0);
+		await expect(status).toHaveText("原会话已不可用，任务未继续");
+		await page.screenshot({ path: info.outputPath("desktop-passive-only.png"), animations: "disabled" });
+		await expect(status).toBeEmpty({ timeout: 7_000 });
+	});
 	test("signed desktop candidate stages before a single actionable top notice", async ({ page }, info) => {
 		const { notice } = await prepare(page, "windows", false, true);
 		await assertSingleLine(notice, "下载并更新");

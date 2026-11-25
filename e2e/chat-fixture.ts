@@ -1,5 +1,5 @@
 import type { Page, WebSocketRoute } from "@playwright/test";
-import type { Conversation, Member, Message, Run, SubtaskSummary } from "@yonder/protocol";
+import type { ConnectorRequestView, Conversation, Member, Message, Run, SubtaskSummary } from "@yonder/protocol";
 import { quota } from "./fixtures/quota.ts";
 
 // Only the automated browser uses these isolated API records. The product route is unmodified.
@@ -137,6 +137,7 @@ export async function isolateChat(
 			| { type: "run.updated"; run: Run }
 			| { type: "subtask.updated"; subtask: SubtaskSummary }
 			| { type: "device.update.available" }
+			| { type: "connector_request.updated"; request: ConnectorRequestView }
 			| { type: "conversation.state_changed"; conversationId: string },
 	) {
 		for (const socket of sockets)
@@ -155,6 +156,7 @@ export async function isolateChat(
 		updateRun: (run: Run) => emit({ type: "run.updated", run }),
 		updateSubtask: (subtask: SubtaskSummary) => emit({ type: "subtask.updated", subtask }),
 		updateOffer: () => emit({ type: "device.update.available" }),
+		updateConnectorRequest: (request: ConnectorRequestView) => emit({ type: "connector_request.updated", request }),
 		reloadConversation: () => emit({ type: "conversation.state_changed", conversationId: current.id }),
 	};
 }

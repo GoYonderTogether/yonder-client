@@ -16,7 +16,6 @@
 
 @media (width >= 1140px) {
 	.app-notice-viewport {
-		inset-block-start: calc(var(--safe-area-top, env(safe-area-inset-top, 0px)) + var(--control-lg) + var(--spacing-2));
 		inset-inline-start: auto;
 		inset-inline-end: max(var(--spacing-4), var(--safe-area-right, env(safe-area-inset-right, 0px)));
 		inline-size: 330px;
