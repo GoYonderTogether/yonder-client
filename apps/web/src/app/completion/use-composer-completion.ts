@@ -92,12 +92,18 @@ export function useComposerCompletion({
 			{ start: token.start, end: token.end },
 		);
 		close();
+		const acceptedAt = token.start + marker.length + space.length;
+		// The insert happens on the native field, but the controlled value arrives with the next
+		// render. Put the caret after the marker only while the field still ends where accept left it:
+		// a Shift+Enter or a click before this frame means the person has already chosen another
+		// position, and moving the caret back would type the next word into the accepted line.
 		requestAnimationFrame(() => {
-			input.current?.focus({ preventScroll: true });
-			input.current?.setSelectionRange(
-				token.start + marker.length + space.length,
-				token.start + marker.length + space.length,
-			);
+			const field = input.current;
+			if (!field) return;
+			if (document.activeElement !== field) return;
+			if (field.value !== next && field.value !== next.replace(/\s$/u, "")) return;
+			if (field.selectionStart !== field.selectionEnd) return;
+			field.setSelectionRange(acceptedAt, acceptedAt);
 		});
 		return true;
 	}

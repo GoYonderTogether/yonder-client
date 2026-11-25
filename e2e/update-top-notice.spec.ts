@@ -7,9 +7,17 @@ type Shell = "web" | "windows" | "android" | "ios";
 const { version: currentVersion } = JSON.parse(
 	readFileSync(new URL("../apps/web/package.json", import.meta.url), "utf8"),
 ) as { version: string };
-const [major, minor, patch] = currentVersion.split(".").map(Number);
-const versionCode = patch + 1;
-const version = `${major}.${minor}.${versionCode}`;
+/*
+ * The offer has to be newer than the app under test, or the client rightly ignores it and no notice
+ * appears. `0.<minor>.<YYMMDDNN>`: keep the day, take the sequence to its maximum. Raising the
+ * sequence instead of adding one to it keeps the version well-formed — a release is stamped `NN`
+ * from `01`, so the last slot is `99`, and `99 + 1` would print a three-digit day.
+ */
+const version = currentVersion.replace(/^0\.(\d+)\.(\d{6})\d{2}$/u, "0.$1.$299");
+if (version === currentVersion)
+	throw new Error(`Unexpected app version ${currentVersion}; expected 0.<minor>.<YYMMDDNN>`);
+/** Android compares `versionCode` alone, and the manifest takes it from the same day and sequence. */
+const versionCode = Number(version.slice(version.lastIndexOf(".") + 1));
 const sha = "a".repeat(64);
 const testFlight = "https://testflight.apple.com/join/Abcd1234";
 const { defaultBrowserType: _android, ...android } = devices["Pixel 7"];

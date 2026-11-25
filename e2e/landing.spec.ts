@@ -10,6 +10,8 @@ const { version } = JSON.parse(readFileSync(new URL("../apps/web/package.json", 
 const mac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130 Safari/537.36";
 const iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148";
 const android = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36";
+/** A desktop browser the page has no installer for: unknown platform, the neutral "Download" action. */
+const linux = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130 Safari/537.36";
 const downloadRoot = `https://dl.zethai.cn/desktop/${version}/Yonder_${version}`;
 const androidApk = "https://dl.zethai.cn/android/yonder-android.apk";
 
@@ -158,12 +160,23 @@ test("iPhone shows the public TestFlight split download and separate web action"
 	}
 });
 
-test("unknown desktop platforms see all available downloads without a false recommendation", async ({ page }) => {
-	await page.goto("/");
-	const actions = page.locator(".lp-hero .lp-download");
-	await expect(actions.getByRole("link", { name: "Download", exact: true })).toHaveAttribute("href", "/download");
-	await actions.getByRole("button", { name: "Download options" }).click();
-	await expect(actions.getByRole("menuitem")).toHaveCount(4);
+test("unknown desktop platforms see all available downloads without a false recommendation", async ({ browser }) => {
+	// The runner's own agent is a desktop one (`Macintosh` on macOS), which would get a real
+	// recommendation. Linux is the platform the page has no installer for, so it is the only one
+	// that exercises the fallback on every machine.
+	const context = await browser.newContext({ userAgent: linux, locale: "en-US" });
+	const page = await context.newPage();
+	try {
+		await page.goto("/");
+		const actions = page.locator(".lp-hero .lp-download");
+		// No installer matches, so the neutral action leads to the download page instead of
+		// recommending one the visitor cannot use.
+		await expect(actions.getByRole("link", { name: "Download", exact: true })).toHaveAttribute("href", "/download");
+		await actions.getByRole("button", { name: "Download options" }).click();
+		await expect(actions.getByRole("menuitem")).toHaveCount(4);
+	} finally {
+		await context.close();
+	}
 });
 
 test("Android offers the APK and the web version", async ({ browser }) => {

@@ -69,7 +69,14 @@ for (const phone of [false, true]) {
 		);
 		expect(bounds[0]?.width).toBeCloseTo(40 * scale, 1);
 		expect(bounds[0]?.height).toBeCloseTo(40 * scale, 1);
-		expect(bounds).toEqual(Array.from({ length: bounds.length }, () => bounds[0]));
+		// A fractional interface scale puts rows on sub-pixel offsets, so two rows that share a slot
+		// differ by a rounding error. What has to hold is that the slot and the title line up the same
+		// way in every row.
+		for (const row of bounds) {
+			expect(row.x).toBeCloseTo(bounds[0]?.x ?? 0, 0);
+			expect(row.width).toBeCloseTo(bounds[0]?.width ?? 0, 1);
+			expect(row.titleX - row.x).toBeCloseTo((bounds[0]?.titleX ?? 0) - (bounds[0]?.x ?? 0), 0);
+		}
 		await page.screenshot({
 			path: info.outputPath(phone ? "mobile-conversation-avatar-slots.png" : "desktop-conversation-avatar-slots.png"),
 			animations: "disabled",
