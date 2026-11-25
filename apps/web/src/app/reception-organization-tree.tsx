@@ -1,9 +1,11 @@
 import type { MemoryOrganizationPlan } from "@yonder/protocol";
 import { Button, Checkbox, TextField } from "@yonder/ui-components";
+import { useMemoryFolders } from "@yonder/ui-data";
 import { Overlay, useShellChrome } from "@yonder/ui-shell";
 import { Folder, Pencil } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { receptionFolderNames } from "./reception-library-paths.ts";
 
 type Move = MemoryOrganizationPlan["moves"][number];
 
@@ -44,6 +46,7 @@ export function ReceptionOrganizationTree({
 	disabled: boolean;
 }) {
 	const { t } = useTranslation();
+	const folderName = receptionFolderNames(useMemoryFolders().data?.items);
 	const tree = useMemo(() => treeFor(moves, selection.destinations), [moves, selection.destinations]);
 	const [editing, setEditing] = useState<Move | null>(null);
 	function select(ids: string[], included: boolean) {
@@ -76,6 +79,7 @@ export function ReceptionOrganizationTree({
 			<OrganizationTreeNode
 				node={tree}
 				path=""
+				folderName={folderName}
 				excluded={selection.excluded}
 				onSelect={select}
 				onEdit={setEditing}
@@ -98,6 +102,7 @@ export function ReceptionOrganizationTree({
 function OrganizationTreeNode({
 	node,
 	path,
+	folderName,
 	excluded,
 	onSelect,
 	onEdit,
@@ -105,6 +110,7 @@ function OrganizationTreeNode({
 }: {
 	node: Node;
 	path: string;
+	folderName: (path: string) => string;
 	excluded: ReadonlySet<string>;
 	onSelect: (ids: string[], included: boolean) => void;
 	onEdit: (move: Move) => void;
@@ -116,12 +122,9 @@ function OrganizationTreeNode({
 			{[...node.folders].map(([name, child]) => {
 				const fullPath = `${path}/${name}`;
 				const selected = child.ids.filter((id) => !excluded.has(id)).length;
-				const folder =
-					!path && name === "public"
-						? t("memory.publicFolder")
-						: !path && name === "notes"
-							? t("memory.notesFolder")
-							: name;
+				// The root's own folders read from the server's names; a folder the owner made keeps its
+				// own name, which is the same thing the server returns for it.
+				const folder = !path ? folderName(`/${name}`) : name;
 				return (
 					<li
 						key={name}
@@ -152,6 +155,7 @@ function OrganizationTreeNode({
 								<OrganizationTreeNode
 									node={child}
 									path={fullPath}
+									folderName={folderName}
 									excluded={excluded}
 									onSelect={onSelect}
 									onEdit={onEdit}
