@@ -1,0 +1,34 @@
+# 一次性诊断：读 App Store Connect 里每个构建的真实状态和所属测试组。
+# 不改任何东西，只打印。用来回答"构建到底在不在组里、状态是什么"。
+name: TestFlight status
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: bundle id
+        required: true
+        default: net.yonderbot.app
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Report
+        env:
+          KEY_BASE64: ${{ secrets.ASC_API_PRIVATE_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          BUNDLE_ID: ${{ inputs.bundle_id }}
+        run: |
+          set -eu
+          keydir="$RUNNER_TEMP/asc"; mkdir -p "$keydir"
+          printf '%s' "$KEY_BASE64" | base64 --decode > "$keydir/AuthKey_$KEY_ID.p8"
+          chmod 600 "$keydir/AuthKey_$KEY_ID.p8"
+          KEY_PATH="$keydir/AuthKey_$KEY_ID.p8" node scripts/release/testflight-probe.mjs
