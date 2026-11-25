@@ -294,6 +294,11 @@ export interface SendMessageRequest {
 	clientNonce: string;
 	skillIds?: string[];
 	mentionedMemberIds?: string[];
+	/**
+	 * The message this one answers, in the same conversation. In a group, replying to a Bot's message
+	 * addresses that Bot the way an `@` does, so the sender does not have to type its name.
+	 */
+	replyToId?: string;
 }
 
 export interface SendMessageResponse {
@@ -304,6 +309,8 @@ export interface SendMessageResponse {
 export interface CreateBotRequest {
 	displayName: string;
 	avatarColor?: string;
+	/** What the Bot is for, the same label the Bot's settings edit; empty is the same as absent. */
+	botRoleLabel?: string;
 }
 
 /** `POST /v1/visits`: open (or find) the chat with another person's Bot by its public handle. */
