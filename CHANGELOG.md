@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.3.26112510] - 2026-11-25
+
+### Added
+
+- tasks：the list says what is running, what waits, and where it came from
+- bots：offer the duty note while a Bot is being created
+
+### Fixed
+
+- completion：a group mentions only its members, and rows say only what a choice needs
+- chat：the reader's own message lands at the end and the count says what arrived
+- protocol：put replyToId and botRoleLabel back
+
 ## [0.3.26112509] - 2026-11-25
 
 ### Added
