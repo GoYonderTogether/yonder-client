@@ -256,6 +256,8 @@ export const accountMessagesZhCN = {
 		update: {
 			restartConfirm:
 				"现在重启安装更新？这会关闭客户端。正在录音会先保存，重启后自动接着录；上传会在重启后继续。其他本地任务可能被中断，请先完成或保存工作。本地操作可能已生效但未回执，请勿自动重试；不能保证任务自动恢复。",
+			restartChecking:
+				"正在核对是否有更新的版本。有的话会先下载，按钮上的版本号也会跟着变，确认后再重启。正在录音会先保存，重启后自动接着录；其他本地任务可能被中断，请先完成或保存工作。",
 			check: "检查更新",
 			checking: "正在检查更新…",
 			upToDate: "已是最新版本",
@@ -275,12 +277,14 @@ export const accountMessagesZhCN = {
 			androidInstallSettingsUnavailable:
 				"无法打开 Yonder 的安装权限页。请在系统设置中搜索「安装未知应用」，选择 Yonder，授权后重试。",
 			notice: "有新版本",
+			noticeVersion: "有新版本 {{version}}",
 			noticeDownload: "下载并更新",
 			noticeRestart: "重启后更新",
 			noticeReload: "立即刷新",
 			noticeTestFlight: "打开 TestFlight",
 			noticeLater: "稍后",
 			restart: "重启并安装",
+			restartVersion: "重启并安装 {{version}}",
 			download: "下载安装",
 		},
 	},

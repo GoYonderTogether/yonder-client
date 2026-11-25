@@ -98,6 +98,76 @@ test("a later desktop check keeps the already downloaded update without download
 	expect(install).toHaveBeenCalledOnce();
 });
 
+test("a newer build replaces one that was already staged before anything is installed", async () => {
+	const install = vi.fn(async () => {});
+	const firstClose = vi.fn(async () => {});
+	const first: UpdateCandidate = {
+		version: "0.3.1",
+		required: false,
+		download: vi.fn(async () => {}),
+		install,
+		close: firstClose,
+	};
+	const second: UpdateCandidate = {
+		version: "0.3.2",
+		required: false,
+		download: vi.fn(async () => {}),
+		install,
+	};
+	const check = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+	const updater = createUpdater({ platform: "desktop", check });
+	await updater.check();
+	expect(updater.getSnapshot()).toMatchObject({ status: "ready", version: "0.3.1" });
+	// A release published while the user had not restarted yet: the stale package goes, the
+	// newest one is downloaded, and the label follows it.
+	await updater.check();
+	expect(firstClose).toHaveBeenCalledOnce();
+	expect(second.download).toHaveBeenCalledOnce();
+	expect(updater.getSnapshot()).toMatchObject({ status: "ready", version: "0.3.2" });
+	await expect(updater.install("0.3.1")).resolves.toBe(false);
+	expect(install).not.toHaveBeenCalled();
+	await updater.install("0.3.2");
+	expect(install).toHaveBeenCalledOnce();
+});
+
+test("an explicit notice request waits out a running download and stages the newest build", async () => {
+	const staging = pending();
+	const downloads: string[] = [];
+	const check = vi
+		.fn()
+		.mockResolvedValueOnce({
+			version: "0.3.1",
+			required: false,
+			download: async () => {
+				downloads.push("0.3.1");
+				await staging.promise;
+			},
+			install: vi.fn(async () => {}),
+		})
+		.mockResolvedValueOnce({
+			version: "0.3.2",
+			required: false,
+			download: async () => {
+				downloads.push("0.3.2");
+			},
+			install: vi.fn(async () => {}),
+		});
+	const updater = createUpdater({ platform: "desktop", check });
+	const first = updater.check();
+	await vi.waitFor(() => expect(downloads).toEqual(["0.3.1"]));
+	// The server's hint lands mid-transfer: the banner asks for the newest build, and it must not
+	// be answered by the transfer that is already running.
+	const notice = updater.check(undefined, true);
+	// A plain background trigger is answered by the running check instead of stacking a second.
+	const background = updater.check();
+	staging.resolve();
+	await Promise.all([first, background]);
+	await notice;
+	expect(check).toHaveBeenCalledTimes(2);
+	expect(downloads).toEqual(["0.3.1", "0.3.2"]);
+	expect(updater.getSnapshot()).toMatchObject({ status: "ready", version: "0.3.2" });
+});
+
 test("an offered version must match local verification; Android stages before an explicit install", async () => {
 	const download = vi.fn(async () => {});
 	const install = vi.fn(async () => {});

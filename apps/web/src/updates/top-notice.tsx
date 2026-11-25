@@ -6,6 +6,7 @@ import { useForeground } from "../lib/foreground.ts";
 import { useOfferedUpdate, useUpdater } from "./provider.tsx";
 import type { Updater, UpdateState } from "./state.ts";
 import type { UpdateOffer } from "./update-offer.ts";
+import { compareVersions } from "./version.ts";
 import "./top-notice.css";
 
 type Guard = { recording: boolean; busy: () => boolean; persist: () => Promise<boolean> };
@@ -19,6 +20,24 @@ async function openTestFlight(url: string) {
 	await invoke<void>("plugin:opener|open_url", { url });
 }
 
+/**
+ * True when the updater is already working on this offer or something newer — a startup check
+ * usually found it first. Re-checking then would drop a download that is already running.
+ */
+function covered(offer: UpdateOffer, state: UpdateState) {
+	if (!state.version) return false;
+	try {
+		if (compareVersions(state.version, offer.version) < 0) return false;
+	} catch {
+		return false;
+	}
+	return state.status === "downloading" || state.status === "installing" || isStaged(state);
+}
+
+function isStaged(state: UpdateState) {
+	return state.status === "ready" || state.status === "installerOpened" || state.error === "install";
+}
+
 export function UpdateTopNotice(guard: Guard) {
 	const target = useTopNoticeTarget();
 	const context = useOfferedUpdate();
@@ -29,25 +48,35 @@ export function UpdateTopNotice(guard: Guard) {
 		updater?.getSnapshot ?? readIdle,
 		readIdle,
 	);
-	const attempted = useRef<UpdateOffer | undefined>(undefined);
+	const attempted = useRef<string | undefined>(undefined);
 	const native = offer?.platform === "macos" || offer?.platform === "windows" || offer?.platform === "android";
 
+	/*
+	 * Verify the offer through the updater instead of trusting the server's version. Asked as a
+	 * notice, the check stages whatever the signed feed has newest and announces it here, so a
+	 * build published while the offer was in flight replaces it rather than being skipped. The
+	 * sidebar's quieter control stays hidden because this check carries the notice flag. The
+	 * updater serialises this behind any check already running.
+	 */
 	useEffect(() => {
-		if (!native || !offer || !updater || attempted.current === offer) return;
-		if (snapshot.status === "checking" || snapshot.status === "downloading" || snapshot.status === "installing") return;
-		attempted.current = offer;
-		if (
-			snapshot.version === offer.version &&
-			(snapshot.status === "installerOpened" || (snapshot.notice && snapshot.status === "ready"))
-		)
-			return;
-		void updater.check(offer.version);
-	}, [native, offer, updater, snapshot]);
+		if (!native || !offer || !updater) return;
+		if (attempted.current === offer.id) return;
+		attempted.current = offer.id;
+		// A launch check, a return to the window, or an earlier offer already staged this build.
+		if (covered(offer, updater.getSnapshot())) return;
+		// Android pins the version because its package download is part of verifying the offer;
+		// the desktop feed is read for whatever is newest, which may be ahead of the offer.
+		void updater.check(offer.platform === "android" ? offer.version : undefined, true);
+	}, [native, offer, updater]);
 
 	if (!context || !offer || (native && !updater)) return null;
-	if (native && snapshot.version === offer.version && snapshot.status === "installerOpened") return null;
+	// One version drives the label, the check and the install: whatever the updater has staged,
+	// or the offer's own version until the first check answers.
+	const version = (native && snapshot.version) || offer.version;
+	if (native && snapshot.version === version && snapshot.status === "installerOpened") return null;
 	const ready =
-		snapshot.version === offer.version &&
+		native &&
+		snapshot.version === version &&
 		(snapshot.status === "ready" || snapshot.status === "installing" || snapshot.error === "install");
 	const action = native
 		? ready
@@ -63,6 +92,7 @@ export function UpdateTopNotice(guard: Guard) {
 		<TopNotice
 			key={offer.id}
 			offer={offer}
+			version={version}
 			guard={guard}
 			action={action}
 			dismiss={context.dismiss}
@@ -75,6 +105,7 @@ export function UpdateTopNotice(guard: Guard) {
 
 function TopNotice({
 	offer,
+	version,
 	guard,
 	action,
 	acknowledge,
@@ -82,6 +113,7 @@ function TopNotice({
 	updater,
 }: {
 	offer: UpdateOffer;
+	version: string;
 	guard: Guard;
 	action: "noticeRestart" | "androidInstall" | "noticeDownload" | "noticeReload" | "noticeTestFlight";
 	acknowledge: (offer: UpdateOffer) => void;
@@ -144,7 +176,15 @@ function TopNotice({
 		inFlight.current = true;
 		setWorking(true);
 		try {
-			if (updater && !(await updater.prepare(offer.version))) return;
+			/*
+			 * Act on the version on screen, never on whatever happens to be staged. If the feed has
+			 * moved past it since, prepare refuses; the follow-up check stages the newest build and
+			 * the label changes with it, so the next click installs exactly what it names.
+			 */
+			if (updater && !(await updater.prepare(version))) {
+				await updater.check();
+				return;
+			}
 			if (!mounted.current || blocked()) return;
 			if (offer.platform === "web" || offer.platform === "macos" || offer.platform === "windows") {
 				if (!(await latest.current.persist()) || !mounted.current || blocked()) return;
@@ -155,7 +195,7 @@ function TopNotice({
 			} else if (offer.platform === "ios" && offer.url) {
 				await openTestFlight(offer.url);
 				if (mounted.current) dismiss(offer.id);
-			} else if ((await updater?.install(offer.version)) && mounted.current && offer.platform !== "android") {
+			} else if ((await updater?.install(version)) && mounted.current && offer.platform !== "android") {
 				dismiss(offer.id);
 			}
 		} catch {
@@ -177,7 +217,7 @@ function TopNotice({
 				event.preventDefault();
 			}}
 		>
-			<h2>{t("me.update.notice")}</h2>
+			<h2>{t("me.update.noticeVersion", { version })}</h2>
 			<div className="update-top-notice__actions">
 				<button
 					type="button"

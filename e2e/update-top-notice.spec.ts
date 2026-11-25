@@ -44,10 +44,12 @@ const allowDownload = (page: Page) =>
 	page.evaluate(() => (window as Window & { releaseUpdateStage?: () => void }).releaseUpdateStage?.());
 
 async function assertSingleLine(notice: Locator, primary: string) {
-	const title = notice.getByRole("heading", { name: "有新版本" });
+	// The notice names the build it will install: with releases this frequent, "a new version"
+	// alone cannot tell the user which one the button is about to restart into.
+	const title = notice.getByRole("heading", { name: `有新版本 ${version}` });
 	const button = notice.getByRole("button", { name: primary });
 	await expect(button).toBeVisible();
-	await expect(notice).toHaveText(`有新版本${primary}稍后`);
+	await expect(notice).toHaveText(`有新版本 ${version}${primary}稍后`);
 	const [headingBox, buttonBox] = await Promise.all([title.boundingBox(), button.boundingBox()]);
 	expect(
 		headingBox && buttonBox && Math.abs(headingBox.y + headingBox.height / 2 - buttonBox.y - buttonBox.height / 2),
@@ -274,11 +276,14 @@ test.describe("desktop", () => {
 		await expect.poll(() => calls(page)).toContain("plugin:updater|install");
 	});
 
-	test("old API is silent; a later foreground does not turn it into a toast", async ({ page }) => {
+	test("an old API hides the offer while the app still finds the build on its own feed", async ({ page }) => {
 		const { notice, get } = await prepare(page, "windows", true);
 		await expect.poll(() => get.length).toBeGreaterThan(0);
 		await expect(notice).toHaveCount(0);
-		expect(await calls(page)).not.toContain("plugin:updater|check");
+		// Signing out of the offer endpoint does not hide a release: the desktop shell reads its
+		// own signed feed shortly after launch, and the sidebar's restart control carries it.
+		await expect.poll(() => calls(page), { timeout: 15_000 }).toContain("plugin:updater|check");
+		await expect(notice).toHaveCount(0);
 	});
 });
 

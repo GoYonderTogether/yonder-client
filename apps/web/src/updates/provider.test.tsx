@@ -16,26 +16,38 @@ function Manual({ capture }: { capture: (check: (() => Promise<void>) | undefine
 }
 
 for (const platform of ["desktop", "android"] as const) {
-	test(`${platform} has no periodic checks and retains explicit manual checking`, async () => {
+	test(`${platform} checks shortly after launch, on return, and on demand`, async () => {
 		vi.useFakeTimers();
 		const check = vi.fn(async () => null);
 		vi.mocked(updatePlatform).mockReturnValue(platform);
 		vi.mocked(updateDriver).mockReturnValue({ platform, check });
 		let manual: (() => Promise<void>) | undefined;
-		render(
+		const view = render(
 			<UpdateProvider>
 				<Manual
-					capture={(check) => {
-						manual = check;
+					capture={(capture) => {
+						manual = capture;
 					}}
 				/>
 			</UpdateProvider>,
 		);
-		await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
+		// Nothing during the first seconds: sign-in and the first screen come first.
 		expect(check).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(5_000);
+		expect(check).toHaveBeenCalledOnce();
+		// Coming back to the window after the throttle is the cheapest way to notice a release.
+		await vi.advanceTimersByTimeAsync(31 * 60 * 1000);
+		await act(async () => {
+			window.dispatchEvent(new Event("focus"));
+		});
+		expect(check).toHaveBeenCalledTimes(2);
 		await act(async () => {
 			await manual?.();
 		});
-		expect(check).toHaveBeenCalledOnce();
+		expect(check).toHaveBeenCalledTimes(3);
+		view.unmount();
+		// Unmounting must leave no timer behind to call into a disposed updater.
+		await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
+		expect(check).toHaveBeenCalledTimes(3);
 	});
 }
