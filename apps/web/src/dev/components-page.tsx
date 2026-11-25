@@ -6,6 +6,7 @@ import { ButtonPreviews } from "./button-previews.tsx";
 import { FieldPreviews } from "./field-previews.tsx";
 import { NoticePreviews } from "./notice-previews.tsx";
 import "./preview-states.css";
+import { ReplyPreviews } from "./reply-previews.tsx";
 import { TokenPreviews } from "./token-previews.tsx";
 
 export default function ComponentsPage() {
@@ -77,6 +78,7 @@ export default function ComponentsPage() {
 						<ButtonPreviews />
 						<FieldPreviews />
 						<NoticePreviews />
+						<ReplyPreviews />
 						<TokenPreviews theme={theme} />
 					</div>
 				</div>

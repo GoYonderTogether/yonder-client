@@ -124,6 +124,19 @@ test("updates the link correctly while a message streams", () => {
 	}
 });
 
+test("keeps a quote as its own block and a path as inline code", () => {
+	const { container } = render(
+		<MessageContent body={"你说过：\n> 转写质量太差。\n\n改动在 `src/pages/message-content.tsx`。"} />,
+	);
+	const quote = container.querySelector("blockquote");
+	expect(quote?.className).toContain("message-content-blockquote");
+	expect(quote?.textContent).toBe("转写质量太差。");
+	const code = container.querySelector("code");
+	expect(code?.className).toBe("message-content-inline-code");
+	expect(code?.textContent).toBe("src/pages/message-content.tsx");
+	expect(container.querySelector("pre")).toBeNull();
+});
+
 test("keeps Markdown tables semantic and keyboard focusable", () => {
 	const { getByRole } = render(<MessageContent body={"| 项目 | 内容 |\n| --- | --- |\n| 目标 | 示例 |"} />);
 	expect(getByRole("table").getAttribute("tabindex")).toBe("0");

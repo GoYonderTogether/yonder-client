@@ -204,6 +204,14 @@ export const en = {
 			beforeLabel: "Before",
 			afterLabel: "After",
 		},
+		replies: {
+			title: "Reply formatting",
+			intro:
+				"A link opens something, a code span is for copying, and a quote block needs a lead-in. The left half shows what the prompt now rules out: a bare address, a path as prose, and a quote with nothing introducing it.",
+			beforeLabel: "Before",
+			afterLabel: "After",
+			avatarLabel: "One full message with its avatar",
+		},
 		notApplicable: "Not applicable",
 		row: "{{variant}} · {{size}}",
 		value: "{{value}}",

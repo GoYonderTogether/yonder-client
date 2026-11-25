@@ -209,6 +209,14 @@ export const zhCN: Messages = {
 			beforeLabel: "改之前",
 			afterLabel: "改之后",
 		},
+		replies: {
+			title: "回复排版",
+			intro:
+				"链接用来打开，行内代码用来照抄，引用块只在有引出语时用。下面左半边是提示词现在禁止的写法：裸地址、路径当正文、没有引出语的引用。",
+			beforeLabel: "改之前",
+			afterLabel: "改之后",
+			avatarLabel: "带头像的完整一条",
+		},
 		notApplicable: "不适用",
 		row: "{{variant}} · {{size}}",
 		value: "{{value}}",

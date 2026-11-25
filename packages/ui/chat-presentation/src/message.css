@@ -198,6 +198,32 @@
 .message-content-code {
 	font-family: var(--font-mono);
 }
+/* An inline span of code sits on its own tint with a hairline edge: without them a path or a
+   command reads as the surrounding sentence, and the reader cannot see what to copy. The border
+   carries the shape at the 5% tint, which alone nearly disappears on a light bubble. */
+.message-content-inline-code {
+	padding: 0 var(--spacing-1);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-control-sm);
+	background: var(--color-bg-subtle);
+	font-size: 0.94em;
+}
+/* The web renderer's `code` override also reaches the `<code>` inside a fenced block, which already
+   sits in its own tinted box; the tint belongs to a span inside a sentence only. */
+.message-code-scroll .message-content-inline-code {
+	padding: 0;
+	border: 0;
+	background: none;
+	font-size: inherit;
+}
+/* A quote is the source's words, drawn as a block so it is not mistaken for the Bot's own
+   sentence. The rule on the inline-start edge is what says "this was said elsewhere". */
+.message-content-blockquote {
+	margin: 0;
+	padding-inline-start: var(--spacing-3);
+	border-inline-start: var(--spacing-hair) solid var(--color-border-default);
+	color: var(--color-text-secondary);
+}
 .message-content-list-item {
 	display: flex;
 	gap: var(--spacing-2);
