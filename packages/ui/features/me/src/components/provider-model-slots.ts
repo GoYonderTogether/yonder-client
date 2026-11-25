@@ -17,6 +17,45 @@ export interface ModelSlot {
 	efforts: EffortLevel[];
 }
 
+/**
+ * The wire a known device endpoint serves, as the four-protocol form names it. The gateway recorded
+ * the endpoint's wire when it was approved, and discovery or a save must speak that wire rather than
+ * whatever the form's own select happens to show (2026-11-26).
+ */
+export function endpointWire(
+	endpoints: readonly { endpointId: string; protocol?: string }[] | undefined,
+	endpointId: string,
+): ProviderProtocol | undefined {
+	if (!endpointId) return undefined;
+	return presetWire(endpoints?.find((candidate) => candidate.endpointId === endpointId)?.protocol);
+}
+
+/** A pre-four-protocol name (`openai`, `anthropic`) as the wire the form trades in. */
+export function presetWire(value: string | undefined): ProviderProtocol | undefined {
+	if (!value) return undefined;
+	if (value === "openai") return "openai-chat";
+	if (value === "anthropic") return "anthropic-messages";
+	return value as ProviderProtocol;
+}
+
+/** A provider address without its trailing slashes, for comparing two spellings of one place. */
+export function normaliseAddress(value: string): string {
+	return value.trim().replace(/\/+$/, "");
+}
+
+/** Display names from the metadata map, so a slot can show one without the rest of the row. */
+export function displayNamesFrom(
+	metadata: Record<string, ProviderModelMetadata> | undefined,
+): Record<string, string> | undefined {
+	if (!metadata) return undefined;
+	const names = Object.fromEntries(
+		Object.entries(metadata)
+			.filter(([, item]) => item.name)
+			.map(([id, item]) => [id, item.name as string]),
+	);
+	return Object.keys(names).length ? names : undefined;
+}
+
 export function newSlot(partial: Partial<ModelSlot> = {}): ModelSlot {
 	return {
 		key: crypto.randomUUID(),

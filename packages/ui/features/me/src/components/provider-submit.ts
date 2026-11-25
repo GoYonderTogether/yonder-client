@@ -62,7 +62,10 @@ export function useProviderSubmit(options: {
 			}
 		} finally {
 			writing.current = false;
-			if (version === options.version.current) setFetching(false);
+			// The loading flag is cleared whatever happened: a run overtaken by a newer one must not
+			// leave the button disabled for good, which is what a guarded clear did when the person
+			// typed in the key field while the request was in flight (2026-11-26).
+			setFetching(false);
 		}
 	}
 

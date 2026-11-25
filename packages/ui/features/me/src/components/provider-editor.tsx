@@ -1,6 +1,6 @@
 import type { DeviceSummary, Provider, ProviderModelMetadata, ProviderProtocol } from "@yonder/protocol";
 import { Button, Field, PasswordField, SelectField, TextField } from "@yonder/ui-components";
-import { useAccountTimeZone, useProviderActions } from "@yonder/ui-data";
+import { useAccountTimeZone } from "@yonder/ui-data";
 import { DiscardChangesDialog } from "@yonder/ui-shell";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -19,10 +19,14 @@ import {
 	type RegisterLocalProviderEndpoint,
 } from "./provider-location.ts";
 import {
+	displayNamesFrom,
+	endpointWire,
 	type ModelSlot,
 	newSlot,
+	normaliseAddress,
 	PROTOCOL_EXAMPLES,
 	PROTOCOL_OPTIONS,
+	presetWire,
 	slotsFromProvider,
 } from "./provider-model-slots.ts";
 import { ProviderModelSlots } from "./provider-model-slots.tsx";
@@ -40,30 +44,8 @@ export interface ProviderPreset {
 	website?: string | null;
 }
 
-/** A preset predating the four-protocol release may name a wire by its old name. */
-export function presetProtocol(
-	value: ProviderProtocol | "openai" | "anthropic" | undefined,
-): ProviderProtocol | undefined {
-	if (!value) return undefined;
-	if (value === "openai") return "openai-chat" as const;
-	if (value === "anthropic") return "anthropic-messages" as const;
-	return value;
-}
-
-/** Display names from the metadata map, so a slot can show one without the rest of the row. */
-function normalise(value: string): string {
-	return value.trim().replace(/\/+$/, "");
-}
-
-function namesFrom(metadata: Record<string, ProviderModelMetadata> | undefined): Record<string, string> | undefined {
-	if (!metadata) return undefined;
-	const names = Object.fromEntries(
-		Object.entries(metadata)
-			.filter(([, item]) => item.name)
-			.map(([id, item]) => [id, item.name as string]),
-	);
-	return Object.keys(names).length ? names : undefined;
-}
+/** A preset predating the four-protocol release may name a wire by its old name; see `presetWire`. */
+export const presetProtocol = presetWire;
 
 export function ProviderEditor({
 	provider,
@@ -86,7 +68,6 @@ export function ProviderEditor({
 }) {
 	const { t, i18n } = useTranslation();
 	const zone = useAccountTimeZone();
-	const actions = useProviderActions();
 	const currentTarget = localProviderBinding(provider);
 	const initialTarget = currentTarget ?? preset?.target;
 	const [deviceId, setDeviceId] = useState(initialTarget?.deviceId ?? CLOUD_PROVIDER);
@@ -100,7 +81,7 @@ export function ProviderEditor({
 	const [note, setNote] = useState(provider?.note ?? preset?.note ?? "");
 	const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? preset?.baseUrl ?? "");
 	const [slots, setSlots] = useState<ModelSlot[]>(() => {
-		if (provider) return slotsFromProvider(provider.models, provider.metadata, namesFrom(provider.metadata));
+		if (provider) return slotsFromProvider(provider.models, provider.metadata, displayNamesFrom(provider.metadata));
 		const ids = (preset?.models ?? "")
 			.split(",")
 			.map((id) => id.trim())
@@ -122,10 +103,12 @@ export function ProviderEditor({
 	const canRegister = !!(registerEndpoint && device?.current && supportsDesktop(device));
 	const fixedDeviceProtocol = currentTarget ? presetProtocol(provider?.protocol) : undefined;
 	/**
-	 * When editing a device provider its endpoint's wire is fixed. When adding one, the device wire is
-	 * the wire form's own choice: the device gateway records which of its two wires the endpoint serves.
+	 * A device endpoint's wire is the endpoint's own, never the form's guess: the gateway recorded it
+	 * when the endpoint was approved, and discovery or a save must speak that wire. A new endpoint
+	 * (registered from this form) uses the wire chosen here. Only the cloud form lets a person pick.
 	 */
-	const deviceProtocol: ProviderProtocol = fixedDeviceProtocol ?? protocol;
+	const selectedProtocol = endpointWire(devices.find(({ id }) => id === deviceId)?.modelEndpoints, endpointId);
+	const deviceProtocol: ProviderProtocol = fixedDeviceProtocol ?? selectedProtocol ?? protocol;
 	const binding = useDeviceBinding({
 		deviceId,
 		device,
@@ -137,12 +120,18 @@ export function ProviderEditor({
 		canSetLocalKey: canRegister,
 		registerEndpoint,
 		version: version.current,
+		onKeyRegistered: () => setLocalKey(""),
 	});
 	const { endpoint, addEndpoint } = binding;
 	const known = device?.modelEndpoints ?? [];
 	// Changing the destination invalidates the stored key: it was entered for another address or wire.
+	// The wire is compared in the four-protocol names, because a provider saved before them says
+	// `openai`, which is `openai-chat` — comparing the raw strings would always read as a change and
+	// would ask for a key that is already stored.
 	const destinationChanged = Boolean(
-		provider && (normalise(baseUrl) !== normalise(provider.baseUrl) || protocol !== provider.protocol),
+		provider &&
+			(normaliseAddress(baseUrl) !== normaliseAddress(provider.baseUrl) ||
+				protocol !== presetProtocol(provider.protocol)),
 	);
 	const needsKey = !onDevice && (replacing || destinationChanged || Boolean(currentTarget));
 	const canSetLocalKey = canRegister && (addEndpoint || Boolean(endpoint));

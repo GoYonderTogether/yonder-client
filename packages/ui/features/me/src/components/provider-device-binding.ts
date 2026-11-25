@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
 	isLocalProviderAddress,
 	type NativeProviderBinding,
+	NEW_ENDPOINT,
 	normaliseUrl,
 	type RegisteredLocalProviderEndpoint,
 	type RegisterLocalProviderEndpoint,
@@ -23,6 +24,8 @@ export type ResolvedTarget = { target: NativeProviderBinding } | { error: "devic
  */
 export function useDeviceBinding(options: {
 	deviceId: string;
+	/** The field cleared once a typed local key has been registered: it lives in the device now. */
+	onKeyRegistered?: (() => void) | undefined;
 	device: DeviceSummary | undefined;
 	endpointId: string;
 	localUrl: string;
@@ -44,8 +47,12 @@ export function useDeviceBinding(options: {
 	 * A new local address the person has not typed yet is still the endpoint being created: the form
 	 * has to show the address field before there is anything to validate. `resolveTarget` is where
 	 * the address is actually checked, so an empty one fails there rather than hiding the field.
+	 *
+	 * The picker's explicit "a new address" option counts too. It sets `endpointId` to a sentinel
+	 * rather than to "", so a form that only tested for an empty id hid the address field — the one
+	 * control the person had just asked for (2026-11-26).
 	 */
-	const addEndpoint = Boolean(options.canRegister && !options.endpointId);
+	const addEndpoint = Boolean(options.canRegister && (!options.endpointId || options.endpointId === NEW_ENDPOINT));
 	// The caller bumps its discovery version on every change; a resolution started before it is stale.
 	const versionRef = useRef(options.version);
 	versionRef.current = options.version;
@@ -53,7 +60,10 @@ export function useDeviceBinding(options: {
 	async function resolveTarget(version: number): Promise<NativeProviderBinding> {
 		const { deviceId, endpointId, canRegister, registerEndpoint } = options;
 		// The device gateway records its endpoint as one of two wire names; a four-protocol name is
-		// registered as the device wire it most resembles (see deviceWire on the server).
+		// registered as the device wire it most resembles (see deviceWire on the server). The
+		// readiness check below compares against this same device wire — comparing it with the
+		// four-protocol name would never match, and the form would wait for a ready announcement
+		// that had already arrived (2026-11-26).
 		const deviceProtocol: DeviceModelProtocol =
 			options.deviceProtocol === "anthropic-messages" ? "anthropic" : "openai";
 		const key = options.canSetLocalKey ? options.localKey.trim() : "";
@@ -83,6 +93,9 @@ export function useDeviceBinding(options: {
 			target = { deviceId, endpointId: result.endpointId };
 			revision = result.revision;
 			if (!current) registered.current = { baseUrl: address, protocol: deviceProtocol, target, revision };
+			// The key now lives in the device's keychain; keeping it in the form would leave a copy
+			// in the web view and let the next save resend it for no reason.
+			if (key) options.onKeyRegistered?.();
 		}
 		// The ready announcement is the acknowledgement the server can route to this endpoint; only a
 		// fresh matching one may be used. Never fall back to a different endpoint.

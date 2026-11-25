@@ -26,8 +26,17 @@ test("Bot list prioritizes duty while preserving identity, time and external own
 	};
 	const typing = { ...message("message-01", "正在根据会话内容整理答复。", false, true), senderId: external.memberId };
 	await isolateChat(page, { items: [typing] });
+	// `me` also carries the account's zone and language (migration 127); without them the page falls
+	// back to this browser's own, which is English here and would rename every control.
 	await page.route("**/v1/me", (route) =>
-		route.fulfill({ json: { member: person, bot: { ...bot, displayName: main.displayName, botRoleLabel: role } } }),
+		route.fulfill({
+			json: {
+				member: person,
+				bot: { ...bot, displayName: main.displayName, botRoleLabel: role },
+				timezone: { mode: "manual", zone: "Asia/Shanghai", manual: "Asia/Shanghai", device: "Asia/Singapore" },
+				locale: { mode: "manual", value: "zh-CN", manual: "zh-CN", device: "en" },
+			},
+		}),
 	);
 	await page.route("**/v1/contacts", (route) =>
 		route.fulfill({
@@ -90,7 +99,10 @@ test("Bot list prioritizes duty while preserving identity, time and external own
 		await expect(pill).toHaveCSS("flex-shrink", "0");
 		await expect(pill).toHaveCSS("align-items", "center");
 		await expect(pill).toHaveCSS("justify-content", "center");
-		const timestamp = row.getByText("8:07", { exact: true });
+		// 00:07Z is 08:07 in the account's Shanghai zone. A clock is written 24-hour with a leading
+		// zero, the one shape every time label in the app uses (2026-11-25), so a reader never has to
+		// tell 「8:07」 from a 12-hour reading.
+		const timestamp = row.getByText("08:07", { exact: true });
 		await expect(timestamp).toBeInViewport();
 		await expect(timestamp).toHaveCSS("flex-shrink", "0");
 		const boxes = await row
@@ -120,11 +132,15 @@ test("Bot list prioritizes duty while preserving identity, time and external own
 	}
 	const overflows = (element: typeof ownRow) => element.evaluate((node) => node.scrollWidth > node.clientWidth);
 	expect(await overflows(ordinaryRow.locator("[data-bot-display-name]"))).toBe(true);
+	// A zero-padded 24-hour clock is one character wider than the old 「8:07」, so the duty line
+	// gives way first — by an ellipsis inside the row, never by widening the row past the list.
 	const dutyWidth = await ordinaryRow.locator("[data-bot-duty]").evaluate((node) => ({
-		full: node.scrollWidth,
-		available: node.clientWidth,
+		clipped: node.scrollWidth > node.clientWidth,
+		rowWidth: node.closest("button")?.getBoundingClientRect().width ?? 0,
+		listWidth: document.querySelector<HTMLElement>('ul[aria-label="消息"]')?.getBoundingClientRect().width ?? 0,
 	}));
-	expect(dutyWidth.full).toBeLessThanOrEqual(dutyWidth.available);
+	expect(dutyWidth.clipped).toBe(true);
+	expect(dutyWidth.rowWidth).toBeLessThanOrEqual(dutyWidth.listWidth);
 	expect(await overflows(ownRow.locator("[data-bot-display-name]"))).toBe(true);
 	expect(await overflows(ownRow.locator("[data-bot-duty]"))).toBe(true);
 	// At phone width the primary Bot has its own tab, while ordinary and visiting Bots stay in Messages.
