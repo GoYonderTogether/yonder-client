@@ -16,7 +16,7 @@ export type {
  * dependencies, no import from any other workspace package.
  */
 
-export type { AgentMessage, AgentToolCall, AgentToolDefinition } from "./agent/tools.ts";
+export type { AgentImageRef, AgentMessage, AgentToolCall, AgentToolDefinition } from "./agent/tools.ts";
 export type {
 	ChangePhoneRequest,
 	DeleteAccountRequest,
