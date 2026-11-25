@@ -2,7 +2,7 @@
 
 本文件描述公开客户端仓库**当前代码**的形状和强制规则；代码变了就改这里。2026-11-18 按 main 核对过一次。
 
-- 产品原则和设计稿由维护者单独管理；本文记录公开客户端的实现与分层约束。
+- 产品判断在私有服务端仓库的 `docs/product/`；和界面直接相关的原则在 [interface-principles.md](interface-principles.md)。本文记录公开客户端的实现与分层约束。
 
 ## 两个仓库
 
@@ -148,13 +148,15 @@ macOS / Windows 的托盘面板是固定尺寸的独立 Webview，不启动主�
 
 ## 文档放哪里
 
-| 位置                    | 放什么                                       |
-| ----------------------- | -------------------------------------------- |
-| `docs/architecture.md`  | 本文件                                       |
-| `docs/design-system.md` | tokens、组件目录、页面骨架和界面规则         |
-| `docs/contracts/`       | 长期有效的行为约定（技能、语音输入、小程序） |
-| `docs/operations/`      | 发版和缓存发布手册                           |
-| `docs/third-party/`     | 第三方素材与许可登记                         |
+| 位置                           | 放什么                                       |
+| ------------------------------ | -------------------------------------------- |
+| `docs/architecture.md`         | 本文件                                       |
+| `docs/interface-principles.md` | 判断一个界面对不对的原则                     |
+| `docs/design-system.md`        | tokens、组件目录、页面骨架和界面规则         |
+| `docs/contracts/`              | 长期有效的行为约定（技能、语音输入、小程序） |
+| `docs/operations/`             | 发版和缓存发布手册                           |
+| `docs/third-party/`            | 第三方素材与许可登记                         |
+| `docs/history/`                | 被替代的文档，原文不动                       |
 
 一次性的评审和验收报告放在公开仓库之外。
 

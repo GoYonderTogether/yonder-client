@@ -4,7 +4,7 @@
 			"**",
 			"!**/dist",
 			"!**/node_modules",
-			"!docs/design",
+			"!docs/history",
 			"!packages/ui/components/src/ambient/vendor",
 			"!test-results",
 			"!e2e/report",
