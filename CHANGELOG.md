@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112509] - 2026-11-25
+
+### Added
+
+- notifications：ask for permission, subscribe to Web Push, report presence
+- models：four upstream protocols, per-model effort and a slot table
+
 ## [0.3.26112506] - 2026-11-25
 
 ### Added
