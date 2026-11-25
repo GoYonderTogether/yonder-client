@@ -315,14 +315,14 @@ static NSData *encodePhotoJPEG(YonderOSImage *image) API_AVAILABLE(macos(10.15),
     return encoded ? result : nil;
 }
 
-static void imagePhoto(NSString *identifier, void *context, YonderAppleReply reply)
+static void imagePhoto(NSString *identifier, CGFloat edge, void *context, YonderAppleReply reply)
     API_AVAILABLE(macos(10.15), ios(13.0)) {
     PHAsset *asset = [PHAsset fetchAssetsWithLocalIdentifiers:@[identifier] options:nil].firstObject;
     if (!visiblePhoto(asset)) {
         reply(context, AppleNotFound, nullptr, 0);
         return;
     }
-    YonderApplePhotoFetch fetched = YonderApplePhotoImage(asset, YonderPhotoReadEdge);
+    YonderApplePhotoFetch fetched = YonderApplePhotoImage(asset, edge);
     if (fetched.image == nil) {
         reply(context, fetched.status == AppleOK ? AppleUnavailable : fetched.status, nullptr, 0);
         return;
@@ -366,7 +366,13 @@ extern "C" void yonder_apple_photos_image(const char *argsJSON, void *context, Y
             reply(context, ApplePermissionDenied, nullptr, 0);
             return;
         }
-        if (@available(macOS 10.15, iOS 13.0, *)) imagePhoto(args[@"id"], context, reply);
+        if (@available(macOS 10.15, iOS 13.0, *)) {
+            // The server names the edge (512 for a batch, 1280 for one photo); anything else is this
+            // build's own read edge, which is the same 1280.
+            NSNumber *requested = args[@"edge"];
+            CGFloat edge = [requested isKindOfClass:NSNumber.class] ? (CGFloat)requested.doubleValue : YonderPhotoReadEdge;
+            imagePhoto(args[@"id"], edge > 0 ? edge : YonderPhotoReadEdge, context, reply);
+        }
         else reply(context, AppleUnavailable, nullptr, 0);
     });
 }

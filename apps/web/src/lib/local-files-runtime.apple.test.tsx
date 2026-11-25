@@ -113,3 +113,83 @@ test("uploads Apple audio under its command and only submits the server attachme
 	expect(setup.data.api.uploadConnectorAttachment).toHaveBeenCalledWith(command.id, audio, expect.any(AbortSignal));
 	unmount();
 });
+
+test("a photo picture is encoded on the device, uploaded under its command, and only the receipt is reported", async () => {
+	const apple = {
+		id: "con_photos",
+		deviceId: "dev_a",
+		connectorId: "apple-photos",
+		scope: "device",
+		capabilities: { fileTools: false },
+		revision: 2,
+	} as const;
+	setup.connections.set([apple]);
+	setup.invoke.mockResolvedValue(undefined);
+	const jpeg = new File(["jpeg"], "asset-a.jpg", { type: "image/jpeg" });
+	const attachment = { id: "attachment-p", kind: "image", name: "asset-a.jpg", mimeType: "image/jpeg", size: 4 };
+	setup.readyApple.mockImplementation(async (_context, connections) => connections);
+	setup.executeAppleFile.mockResolvedValueOnce(jpeg);
+	setup.data.api.uploadConnectorAttachment.mockResolvedValueOnce(attachment);
+	const { unmount } = render(<LocalFilesRuntime apple />);
+	await waitFor(() =>
+		expect(setup.realtime.send).toHaveBeenLastCalledWith({
+			type: "connector.ready",
+			connections: [{ id: apple.id, revision: apple.revision }],
+		}),
+	);
+	const command = {
+		...apple,
+		id: "cmd_photo",
+		connectionId: apple.id,
+		operation: "apple_photos_image",
+		path: "",
+		args: { id: "asset-a", edge: 512 },
+		expiresAt: new Date(Date.now() + 15000).toISOString(),
+	} as const;
+	act(() => setup.event({ type: "connector.command", eventId: command.id, at: new Date().toISOString(), command }));
+	await waitFor(() =>
+		expect(setup.submit).toHaveBeenCalledWith(command.id, {
+			ok: true,
+			result: { kind: "apple_photos_image", id: command.args.id, attachment },
+		}),
+	);
+	// The edge the server named travels to the device untouched.
+	expect(setup.executeAppleFile).toHaveBeenCalledWith(
+		expect.anything(),
+		expect.objectContaining({ args: command.args }),
+	);
+	unmount();
+});
+
+test("an iCloud-only photo reports its real code instead of a generic read failure", async () => {
+	const apple = {
+		id: "con_photos2",
+		deviceId: "dev_a",
+		connectorId: "apple-photos",
+		scope: "device",
+		capabilities: { fileTools: false },
+		revision: 1,
+	} as const;
+	setup.connections.set([apple]);
+	setup.readyApple.mockImplementation(async (_context, connections) => connections);
+	setup.executeApple.mockRejectedValueOnce(new Error("icloud_only"));
+	const { unmount } = render(<LocalFilesRuntime apple />);
+	await waitFor(() =>
+		expect(setup.realtime.send).toHaveBeenLastCalledWith({
+			type: "connector.ready",
+			connections: [{ id: apple.id, revision: apple.revision }],
+		}),
+	);
+	const command = {
+		...apple,
+		id: "cmd_read_photo",
+		connectionId: apple.id,
+		operation: "apple_photos_read",
+		path: "",
+		args: { id: "asset-b" },
+		expiresAt: new Date(Date.now() + 15000).toISOString(),
+	} as const;
+	act(() => setup.event({ type: "connector.command", eventId: command.id, at: new Date().toISOString(), command }));
+	await waitFor(() => expect(setup.submit).toHaveBeenCalledWith(command.id, { ok: false, error: "icloud_only" }));
+	unmount();
+});

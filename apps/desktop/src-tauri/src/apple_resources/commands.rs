@@ -114,6 +114,11 @@ fn valid_args(source: Source, operation: Operation, args: &Value) -> bool {
                     .get("offset")
                     .and_then(Value::as_u64)
                     .is_some_and(|offset| offset <= 5000),
+                // A picture names the edge the server wants; 512 (a batch) to 1280 (one photo).
+                (Source::ApplePhotos, Operation::Image) if args.len() == 2 => args
+                    .get("edge")
+                    .and_then(Value::as_u64)
+                    .is_some_and(|edge| (512..=1280).contains(&edge)),
                 _ => args.len() == 1,
             };
     }
@@ -423,5 +428,39 @@ mod tests {
             Operation::Read,
             &json!({"id":"note", "offset":5001})
         ));
+    }
+
+    #[test]
+    fn a_photo_picture_is_an_image_command_with_an_edge() {
+        // The server asks for a picture, not a text read, and names the size it wants.
+        let image = operation_kind(Source::ApplePhotos, "apple_photos_image").unwrap();
+        assert_eq!(image, Operation::Image);
+        assert!(image.binary());
+        assert!(valid_args(
+            Source::ApplePhotos,
+            image,
+            &json!({"id": "asset-a", "edge": 512})
+        ));
+        assert!(!valid_args(Source::ApplePhotos, image, &json!({"edge": 512})));
+        assert!(!valid_args(
+            Source::ApplePhotos,
+            image,
+            &json!({"id": "asset-a", "path": "/elsewhere"})
+        ));
+        // A read is still a text read: the picture operation cannot be reached through it.
+        assert_ne!(
+            operation_kind(Source::ApplePhotos, "apple_photos_read").unwrap(),
+            Operation::Image
+        );
+    }
+
+    #[test]
+    fn native_statuses_name_the_real_reason_a_photo_is_missing() {
+        // 7 is AppleICloudOnly and 5 is AppleUnavailable: both must reach the server as themselves.
+        assert_eq!(native_error(7), "icloud_only");
+        assert_eq!(native_error(5), "unavailable");
+        assert_eq!(native_error(1), "permission_denied");
+        assert_eq!(native_error(3), "not_found");
+        assert_eq!(native_error(9), "read_failed");
     }
 }
