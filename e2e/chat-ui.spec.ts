@@ -396,9 +396,7 @@ test("desktop blocks the IME Enter and sends the committed message on the next E
 	await input.dispatchEvent("keydown", { key: "Enter", keyCode: 229, bubbles: true });
 	await input.dispatchEvent("keyup", { key: "Enter", bubbles: true });
 	expect(api.sent).toHaveLength(0);
-	// The composer ignores Enter for 500ms after composition ends; the confirming Enter itself must
-	// not send, and the next one after the window does.
-	await page.waitForTimeout(510);
+	// Only the confirming key is suppressed: the very next Enter sends, with no post-composition wait.
 	await page.keyboard.press("Enter");
 	await expect.poll(() => api.sent.length).toBe(1);
 	expect(api.sent[0]).toMatchObject({ body: "中文已确认", type: "text" });

@@ -32,10 +32,7 @@ export default function Chat() {
 	const draftKey = `yonder.mini.draft.${chat.memberId ?? ""}.${id}`;
 	const draftKeyRef = useRef(draftKey);
 	draftKeyRef.current = draftKey;
-	const [draft, setDraft] = useState(() => ({
-		scope: draftKey,
-		value: String(Taro.getStorageSync(draftKey) || ""),
-	}));
+	const [draft, setDraft] = useState(() => ({ scope: draftKey, value: String(Taro.getStorageSync(draftKey) || "") }));
 	const text = draft.scope === draftKey ? draft.value : "";
 	const updateText = (value: string | ((current: string) => string)) => {
 		setDraft((current) => {
@@ -205,14 +202,15 @@ export default function Chat() {
 		const files = uploads.uploads.flatMap((file) => (file.attachment ? [file.attachment] : []));
 		const uploadKeys = uploads.uploads.filter((file) => file.attachment).map((file) => file.key);
 		const skillIds = [...selected];
+		// The pending bubble is on screen before the request leaves, so the field empties with it rather
+		// than after the round trip; when nothing was sent, the same text goes back.
+		setDraft((current) => (current.scope === scope && current.value === body ? { ...current, value: "" } : current));
 		try {
-			const result = await chat.send(body, files, skillIds);
-			if (result !== undefined && scope === draftKeyRef.current) {
-				uploads.clearSentUploads(uploadKeys);
-				setDraft((current) =>
-					current.scope === scope && current.value === body ? { ...current, value: "" } : current,
-				);
-			}
+			const sent = await chat.send(body, files, skillIds);
+			if (!sent) throw new Error("not_sent");
+			if (scope === draftKeyRef.current) uploads.clearSentUploads(uploadKeys);
+		} catch {
+			setDraft((current) => (current.scope === scope && !current.value ? { ...current, value: body } : current));
 		} finally {
 			sending.current = false;
 		}
