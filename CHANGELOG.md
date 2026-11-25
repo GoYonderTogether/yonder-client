@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112506] - 2026-11-25
+
+### Added
+
+- meetings：a recording's card opens its transcript and write-up files
+- protocol：a recording reports the two memory files it keeps
+
 ## [0.3.26112505] - 2026-11-25
 
 ### Added
