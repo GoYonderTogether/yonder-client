@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112508] - 2026-11-25
+
+### Added
+
+- protocol：a message can name the one it answers, and a new Bot can be given its role
+- updates：check on launch and return, and never restart into a stale build
+
 ## [0.3.26112507] - 2026-11-25
 
 ### Added
