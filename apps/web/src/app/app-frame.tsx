@@ -37,7 +37,7 @@ import { useReconnectNotice } from "./app-notice.tsx";
 import { AskMainBotProvider } from "./ask-main-bot.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { CompactStatus } from "./completion/compact-status.tsx";
-import { completionItems } from "./completion/items.ts";
+import { composerCompletionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemoryList, MemoryPage, SettingsRoutePage, TaskPage, TasksList } from "./lazy-tabs.ts";
@@ -371,11 +371,12 @@ export function AppFrame() {
 			disconnected={disconnected}
 			sendOnEnter={desktop}
 			streaming={chat.streaming}
-			completionItems={completionItems(
-				chat.hasBot ? (skills.data?.items ?? []) : [],
+			completionItems={composerCompletionItems(
+				chat,
+				skills.data?.items ?? [],
 				contacts.data?.items ?? [],
-				chat.target?.members ?? [],
 				bot,
+				person?.id,
 				chat.target ? t("skills.compact") : undefined,
 			)}
 			selectedSkillIds={draft.skillIds}
