@@ -1,6 +1,6 @@
 import type { MemoryEntry, MemoryFileSummary } from "@yonder/protocol";
 import { ListGroup, ListRow } from "@yonder/ui-components";
-import { useMemoryDays, useMemoryFile, useMemoryFiles } from "@yonder/ui-data";
+import { useMemoryDays, useMemoryFile, useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
 import { CalendarRange, FolderOpen, Globe, History, LockKeyhole, NotebookPen } from "lucide-react";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,7 +9,15 @@ import { documentPreview } from "../message-preview.ts";
 import { ArchivedGroup } from "./memory-archive.tsx";
 import { dayName, daysAgo, memoryFormat, useMinute } from "./memory-format.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
-import { ABOUT_PATHS, fileGroup, MEMORY_ABOUT_PATH, memoryGroupRoute } from "./memory-view.ts";
+import {
+	ABOUT_PATHS,
+	fileGroup,
+	groupFolderPath,
+	MEMORY_ABOUT_PATH,
+	memoryFolderNames,
+	memoryGroupRoute,
+	pathLastSegment,
+} from "./memory-view.ts";
 
 const RECENT = 5;
 const ORDER = ["notes", "sources", "digests", "public"];
@@ -37,20 +45,20 @@ export function summarizeGroups(files: readonly MemoryFileSummary[]): MemoryGrou
 	return [...groups.values()].sort((a, b) => rank(a.group) - rank(b.group) || a.group.localeCompare(b.group));
 }
 
+/**
+ * A group's name, as the server names its folder (D1, README 2026-11-25 第 6.2 节): `notes` is the
+ * name of `/notes`, `sources:会议` the name of that connector's folder, and so on. Nothing here writes
+ * a folder's name down, so a system folder reads in the owner's language and a renamed one keeps the
+ * owner's word. Before the folders load, or for a folder the server has not named, the path's last
+ * segment stands in.
+ */
 export function useGroupName() {
-	const { t } = useTranslation();
-	return (group: string) =>
-		group.startsWith("sources:")
-			? group.slice("sources:".length)
-			: t(
-					group === "notes"
-						? "memory.notesFolder"
-						: group === "digests"
-							? "memory.digestsFolder"
-							: group === "archived"
-								? "memory.archivedFolder"
-								: "memory.publicFolder",
-				);
+	const folders = useMemoryFolders();
+	const name = memoryFolderNames(folders.data?.items ?? []);
+	return (group: string) => {
+		const path = groupFolderPath(group);
+		return path ? name(path) : pathLastSegment(group);
+	};
 }
 
 export function GroupIcon({ group, size = 18 }: { group: string; size?: number }) {

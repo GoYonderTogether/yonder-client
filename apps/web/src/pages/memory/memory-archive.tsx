@@ -1,12 +1,12 @@
 import { ListGroup, ListRow } from "@yonder/ui-components";
-import { useMemoryFiles } from "@yonder/ui-data";
+import { useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useMinute } from "./memory-format.ts";
 import { useOpenMemoryFile } from "./memory-navigation.ts";
-import { archivedEntries, archivedFolderName, memoryFolderRoute } from "./memory-view.ts";
+import { archivedEntries, archivedFolderName, memoryFolderNames, memoryFolderRoute } from "./memory-view.ts";
 import { relativeTime } from "./memory-who.ts";
 
 /**
@@ -21,6 +21,8 @@ export function ArchivedGroup() {
 	const navigate = useNavigate();
 	const openFile = useOpenMemoryFile();
 	const query = useMemoryFiles();
+	const folders = useMemoryFolders();
+	const folderName = memoryFolderNames(folders.data?.items ?? []);
 	const [open, setOpen] = useState(false);
 	const entries = archivedEntries(query.data?.items ?? []);
 	const locale = i18n.resolvedLanguage ?? i18n.language;
@@ -39,14 +41,14 @@ export function ArchivedGroup() {
 					) : (
 						<ChevronRight size={16} strokeWidth={1.75} aria-hidden />
 					)}
-					{t("memory.archivedFolder")}
+					{folderName("/archive")}
 				</button>
 			</li>
 			{open
 				? entries.folders.map((folder) => (
 						<ListRow
 							key={`folder:${folder}`}
-							title={archivedFolderName(folder, t)}
+							title={archivedFolderName(folder, folderName)}
 							leading={<Folder size={18} aria-hidden />}
 							chevron
 							onClick={() => navigate(memoryFolderRoute("archived", folder))}

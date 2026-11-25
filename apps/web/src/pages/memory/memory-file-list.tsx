@@ -1,11 +1,11 @@
 import type { MemoryFileSummary } from "@yonder/protocol";
 import { EmptyState, ListGroup, ListRow } from "@yonder/ui-components";
-import { useMemoryFiles } from "@yonder/ui-data";
+import { useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
 import { Folder } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMinute } from "./memory-format.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
-import { archivedFolderName, groupPrefix, isArchivedMemoryFile } from "./memory-view.ts";
+import { archivedFolderName, groupPrefix, isArchivedMemoryFile, memoryFolderNames } from "./memory-view.ts";
 import { VisibilityMark } from "./memory-visibility.tsx";
 import { relativeTime } from "./memory-who.ts";
 
@@ -30,7 +30,11 @@ interface Group {
  * archived files last. Archived files keep their original path under `/archive/`, so they are in
  * none of the four groups and their folders mirror what they were archived from.
  */
-export function groupFiles(files: readonly MemoryFileSummary[], t: (key: string) => string): Group[] {
+export function groupFiles(
+	files: readonly MemoryFileSummary[],
+	t: (key: string) => string,
+	folderName: (path: string) => string = (path) => path.slice(path.lastIndexOf("/") + 1) || path,
+): Group[] {
 	const newest = (items: MemoryFileSummary[]) => items.toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 	const live = files.filter((file) => !isArchivedMemoryFile(file.path));
 	const under = (prefix: string) => live.filter((file) => file.path.startsWith(prefix));
@@ -44,22 +48,27 @@ export function groupFiles(files: readonly MemoryFileSummary[], t: (key: string)
 	};
 	const result: Group[] = [];
 	const notes = under("/notes/");
-	if (notes.length) result.push({ key: "notes", heading: t("memory.notesFolder"), files: newest(notes) });
+	if (notes.length) result.push({ key: "notes", heading: folderName("/notes"), files: newest(notes) });
 	for (const [name, items] of split("/sources/"))
-		result.push({ key: `sources:${name}`, heading: t("memory.sourcesFolder"), title: name, files: newest(items) });
+		result.push({
+			key: `sources:${name}`,
+			heading: folderName("/sources"),
+			title: folderName(`/sources/${name}`),
+			files: newest(items),
+		});
 	const digests = split("/digests/");
 	for (const period of Object.keys(DIGEST_GROUPS)) {
 		const items = digests.get(period);
 		if (items?.length)
 			result.push({
 				key: `digests:${period}`,
-				heading: t("memory.digestsFolder"),
-				title: t(DIGEST_GROUPS[period] as string),
+				heading: folderName("/digests"),
+				title: folderName(`/digests/${period}`),
 				files: newest(items),
 			});
 	}
 	const published = under("/public/");
-	if (published.length) result.push({ key: "public", heading: t("memory.publicFolder"), files: newest(published) });
+	if (published.length) result.push({ key: "public", heading: folderName("/public"), files: newest(published) });
 	const archived = files.filter((file) => isArchivedMemoryFile(file.path));
 	if (archived.length) result.push({ key: "archived", heading: t("memory.archivedFolder"), files: newest(archived) });
 	return result;
@@ -82,6 +91,8 @@ export function MemoryFileList({
 	const { t, i18n } = useTranslation();
 	const now = useMinute();
 	const query = useMemoryFiles();
+	const folders = useMemoryFolders();
+	const folderName = memoryFolderNames(folders.data?.items ?? []);
 	const locale = i18n.resolvedLanguage ?? i18n.language;
 	if (query.error) return <MemoryError error={query.error} retry={() => void query.refetch()} />;
 	if (query.isPending) return <MemoryLoading />;
@@ -118,7 +129,13 @@ export function MemoryFileList({
 						{folders.map((folder) => (
 							<ListRow
 								key={`folder:${folder}`}
-								title={group === "archived" && !directory ? archivedFolderName(folder, t) : folder}
+								title={
+									group === "archived" && !directory
+										? archivedFolderName(folder, folderName)
+										: group === "archived"
+											? archivedFolderName(folder, folderName)
+											: folderName(`${prefix}${directory ? `${directory}/` : ""}${folder}`) || folder
+								}
 								leading={<Folder size={18} aria-hidden />}
 								chevron
 								onClick={() => onFolder(directory ? `${directory}/${folder}` : folder)}

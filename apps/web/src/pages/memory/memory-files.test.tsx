@@ -5,10 +5,13 @@ import { groupFiles } from "./memory-file-list.tsx";
 import { summarizeGroups } from "./memory-home.tsx";
 import {
 	archivedEntries,
+	archivedFolderName,
 	archivedOriginalPath,
 	fileGroup,
+	groupFolderPath,
 	memoryFileParent,
 	memoryFileRoute,
+	memoryFolderNames,
 	readMemoryView,
 } from "./memory-view.ts";
 import { measure, relativeTime } from "./memory-who.ts";
@@ -29,10 +32,10 @@ describe("the file list", () => {
 	test("groups by what files are, newest first, and leaves the card's /me files out", () => {
 		const groups = groupFiles(
 			[
-				summary("/me/印象.md"),
+				summary("/me/impression.md"),
 				summary("/notes/小林.md", "2026-11-17T00:00:00Z"),
 				summary("/notes/项目.md", "2026-11-18T00:00:00Z"),
-				summary("/sources/会议/2026-11-18-周会.md"),
+				summary("/sources/recordings/2026-11/18-周会.md"),
 				summary("/digests/week/2026-W47.md"),
 				summary("/digests/day/2026-11-18.md"),
 				summary("/public/资料.md"),
@@ -41,22 +44,53 @@ describe("the file list", () => {
 		);
 		expect(groups.map((group) => group.key)).toEqual([
 			"notes",
-			"sources:会议",
+			"sources:recordings",
 			"digests:day",
 			"digests:week",
 			"public",
 		]);
 		expect(groups[0]?.files.map((file) => file.path)).toEqual(["/notes/项目.md", "/notes/小林.md"]);
-		expect(groups[1]?.title).toBe("会议");
+		expect(groups[1]?.title).toBe("recordings");
+	});
+});
+
+describe("folder names come from the server", () => {
+	test("each group names its own folder, and the server's name wins over the path", () => {
+		expect(groupFolderPath("notes")).toBe("/notes");
+		expect(groupFolderPath("sources:引入")).toBe("/sources/引入");
+		expect(groupFolderPath("digests:day")).toBe("/digests/day");
+		expect(groupFolderPath("archived")).toBe("/archive");
+		expect(groupFolderPath("unknown")).toBeNull();
+
+		// The server holds the system folders' names per language and the owner's own labels.
+		const name = memoryFolderNames([
+			{ path: "/notes", displayName: "Notes" },
+			{ path: "/people", displayName: "People" },
+			{ path: "/projects/", displayName: "手上的事" },
+			{ path: "/sources", displayName: "Sources" },
+			{ path: "/sources/引入", displayName: "引入" },
+		]);
+		expect(name("/notes")).toBe("Notes");
+		expect(name("/projects/")).toBe("手上的事");
+		// A folder the server has not named yet still reads by its last segment.
+		expect(name("/notes/项目")).toBe("项目");
+
+		// A group's files keep the server's headings rather than a key the app used to translate.
+		const groups = groupFiles([summary("/notes/a.md"), summary("/sources/引入/b.md")], (key) => key, name);
+		expect(groups.map((group) => group.heading)).toEqual(["Notes", "Sources"]);
+		expect(groups[1]?.title).toBe("引入");
+
+		// An archived folder is named by the live folder it came from.
+		expect(archivedFolderName("notes", name)).toBe("Notes");
 	});
 });
 
 describe("routes", () => {
 	test("every file has its own page; back goes to its group, AI profile files back to the private overview", () => {
 		expect(memoryFileRoute("/notes/a b.md")).toBe(`/memory/files/${encodeURIComponent("/notes/a b.md")}`);
-		expect(memoryFileParent("/sources/会议/x.md")).toBe(`/memory/g/${encodeURIComponent("sources:会议")}`);
-		expect(memoryFileParent("/me/近期.md")).toBe("/memory/about");
-		expect(fileGroup("/me/印象.md")).toBeNull();
+		expect(memoryFileParent("/sources/recordings/x.md")).toBe(`/memory/g/${encodeURIComponent("sources:recordings")}`);
+		expect(memoryFileParent("/me/recent.md")).toBe("/memory/about");
+		expect(fileGroup("/me/impression.md")).toBeNull();
 	});
 
 	test("the URL names the view", () => {
@@ -73,16 +107,16 @@ describe("the home's groups", () => {
 		const draft = { ...summary("/public/草稿.md"), draft: true };
 		expect(
 			summarizeGroups([
-				summary("/me/印象.md"),
+				summary("/me/impression.md"),
 				summary("/public/资料.md"),
 				draft,
-				summary("/sources/会议/a.md"),
+				summary("/sources/recordings/a.md"),
 				summary("/notes/a.md"),
 				summary("/digests/day/2026-11-18.md"),
 			]),
 		).toEqual([
 			{ group: "notes", files: 1, drafts: 0 },
-			{ group: "sources:会议", files: 1, drafts: 0 },
+			{ group: "sources:recordings", files: 1, drafts: 0 },
 			{ group: "digests", files: 1, drafts: 0 },
 			{ group: "public", files: 2, drafts: 1 },
 		]);
@@ -95,7 +129,7 @@ describe("archived files", () => {
 			[
 				summary("/notes/活着的.md"),
 				summary("/archive/notes/旧笔记.md"),
-				summary("/archive/sources/会议/旧会议.md"),
+				summary("/archive/sources/recordings/旧会议.md"),
 				summary("/archive/public/旧资料.md"),
 			],
 			(key) => key,
@@ -104,7 +138,7 @@ describe("archived files", () => {
 		expect(groups[0]?.files.map((file) => file.path)).toEqual(["/notes/活着的.md"]);
 		expect(groups[1]?.files.map((file) => file.path)).toEqual([
 			"/archive/notes/旧笔记.md",
-			"/archive/sources/会议/旧会议.md",
+			"/archive/sources/recordings/旧会议.md",
 			"/archive/public/旧资料.md",
 		]);
 	});
@@ -113,14 +147,14 @@ describe("archived files", () => {
 		expect(fileGroup("/archive/notes/a.md")).toBe("archived");
 		expect(archivedOriginalPath("/archive/notes/a.md")).toBe("/notes/a.md");
 		expect(archivedOriginalPath("/notes/a.md")).toBeNull();
-		expect(memoryFileParent("/archive/notes/项目/a.md")).toBe(`/memory/g/${encodeURIComponent("archived/notes/项目")}`);
+		expect(memoryFileParent("/archive/projects/a.md")).toBe(`/memory/g/${encodeURIComponent("archived/projects")}`);
 	});
 
 	test("the folded list shows the folders it came from and the files archived from the root", () => {
 		expect(
 			archivedEntries([
 				summary("/archive/notes/a.md"),
-				summary("/archive/sources/会议/b.md"),
+				summary("/archive/sources/recordings/b.md"),
 				summary("/archive/notes/c.md", "2026-11-19T00:00:00Z"),
 				summary("/archive/根文件.md"),
 				summary("/notes/live.md"),

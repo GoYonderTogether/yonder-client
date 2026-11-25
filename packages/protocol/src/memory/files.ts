@@ -55,9 +55,35 @@ export interface MemoryFileLimit {
 	unit: "characters" | "bytes";
 }
 
+/**
+ * One folder in the file space, as the list names it (D1, README 2026-11-25 第 6.2 节): the path a
+ * tool takes and the name the owner reads. The server decides the name — a system folder's own
+ * name in the owner's language, or the name the owner gave it — so the app never writes one down.
+ */
+export interface MemoryFolderSummary {
+	/** The folder path without a trailing slash, e.g. `/people` or `/notes/photos/2026-11`. */
+	path: string;
+	/** The name to show: an owner label, a system name in the owner's language, or the last segment. */
+	displayName: string;
+}
+
 /** GET /v1/memory/files */
 export interface MemoryFileList {
 	items: MemoryFileSummary[];
+	/**
+	 * Every folder the items sit in, with its display name. A folder under `/archive` keeps its
+	 * original path's name, so the archived list reads the way the live one did.
+	 */
+	folders: MemoryFolderSummary[];
+}
+
+/**
+ * GET /v1/memory/folders — every folder the account knows, live and archived, for a client that
+ * shows a folder before a file in it exists. A client with the file list already has the same
+ * names for the folders its files sit in.
+ */
+export interface MemoryFolderList {
+	items: MemoryFolderSummary[];
 }
 
 /** GET /v1/memory/files/content */

@@ -1,5 +1,5 @@
 import { EmptyState } from "@yonder/ui-components";
-import { usePerson } from "@yonder/ui-data";
+import { useMemoryFolders, usePerson } from "@yonder/ui-data";
 import { ListFrame, PageFrame, useShellChrome } from "@yonder/ui-shell";
 import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -11,9 +11,11 @@ import { MemoryColumn, MemoryHome, useGroupName } from "./memory/memory-home.tsx
 import { MemoryTimeline } from "./memory/memory-timeline.tsx";
 import {
 	archivedFolderName,
+	groupPrefix,
 	type MemoryView,
 	memoryFileParent,
 	memoryFileRoute,
+	memoryFolderNames,
 	memoryFolderRoute,
 } from "./memory/memory-view.ts";
 import "./memory/memory.css";
@@ -25,13 +27,18 @@ import "./memory/memory-overlay.css";
 function groupTitle(
 	group: string,
 	directory: string | undefined,
-	t: (key: string) => string,
 	groupName: (group: string) => string,
+	folderName: (path: string) => string,
 ) {
 	if (!directory) return groupName(group);
-	const [top, ...rest] = directory.split("/");
-	const label = group === "archived" ? archivedFolderName(top ?? "", t) : (top ?? "");
-	return rest.length ? (rest.at(-1) ?? label) : label;
+	// Each level's name comes from the server, so a system folder reads in the owner's language and a
+	// renamed one keeps their word; the archived group is named by the folder it came from.
+	const prefix = groupPrefix(group) ?? "";
+	const names = directory.split("/").map((_, index, parts) => {
+		const path = `${prefix}${parts.slice(0, index + 1).join("/")}`;
+		return group === "archived" ? archivedFolderName(parts[index] ?? "", folderName) : folderName(path);
+	});
+	return names.at(-1) ?? "";
 }
 
 /**
@@ -58,6 +65,8 @@ export function MemoryPage({ view }: { view: MemoryView }) {
 	const navigate = useNavigate();
 	const person = usePerson();
 	const groupName = useGroupName();
+	const folders = useMemoryFolders();
+	const folderName = memoryFolderNames(folders.data?.items ?? []);
 	if (view.kind === "about") return <MemoryAbout key={person?.id} />;
 	if (view.kind === "file")
 		return (
@@ -71,7 +80,7 @@ export function MemoryPage({ view }: { view: MemoryView }) {
 		);
 	if (view.kind === "group")
 		return (
-			<PageFrame title={groupTitle(view.group, view.directory, t, groupName)}>
+			<PageFrame title={groupTitle(view.group, view.directory, groupName, folderName)}>
 				<MemoryFileList
 					key={`${person?.id}:${view.group}/${view.directory ?? ""}`}
 					group={view.group}

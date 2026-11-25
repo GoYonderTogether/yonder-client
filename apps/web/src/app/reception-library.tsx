@@ -17,10 +17,10 @@ import {
 import { ReceptionDragProvider, receptionDropHighlight, useReceptionDrag } from "./reception-library-drag.tsx";
 import { type Editor, ReceptionLibraryEditor, ReceptionRemoveButton } from "./reception-library-editor.tsx";
 import {
-	receptionFolderLabel,
 	receptionFolderPath,
 	receptionFolderTrail,
 	receptionWritablePath,
+	useReceptionFolderName,
 } from "./reception-library-paths.ts";
 import { ReceptionOrganization } from "./reception-organization.tsx";
 import { ReceptionSetting } from "./reception-setting.tsx";
@@ -76,6 +76,7 @@ function ReceptionLibrary({
 	const { mode } = useShellChrome();
 	const wide = mode === "wide";
 	const library = useSocialLibrary();
+	const folderName = useReceptionFolderName();
 	const folderId =
 		view.kind === "folder"
 			? view.id
@@ -91,7 +92,7 @@ function ReceptionLibrary({
 			: view.kind === "all"
 				? t("members.social.library.allDocuments")
 				: folder
-					? receptionFolderLabel(folder, t)
+					? folderName(folder)
 					: t("members.social.infoTitle");
 
 	return (
@@ -102,7 +103,14 @@ function ReceptionLibrary({
 					<p role="status">{t("app.loading")}</p>
 				) : library.data ? (
 					<ReceptionDragProvider library={library.data}>
-						<ReceptionLibraryBody library={library.data} view={view} wide={wide} onOpen={onOpen} onBack={onBack} />
+						<ReceptionLibraryBody
+							library={library.data}
+							view={view}
+							wide={wide}
+							folderName={folderName}
+							onOpen={onOpen}
+							onBack={onBack}
+						/>
 					</ReceptionDragProvider>
 				) : (
 					<div className="flex flex-wrap items-center gap-[var(--spacing-2)]">
@@ -123,12 +131,14 @@ function ReceptionLibraryBody({
 	library,
 	view,
 	wide,
+	folderName,
 	onOpen,
 	onBack,
 }: {
 	library: SocialLibrary;
 	view: LibraryView;
 	wide: boolean;
+	folderName: (folder: SocialLibraryFolder) => string;
 	onOpen: (path: string) => void;
 	onBack: (path: string) => void;
 }) {
@@ -194,9 +204,7 @@ function ReceptionLibraryBody({
 					<div className="flex flex-col gap-[var(--spacing-3)]">
 						<div className="flex flex-wrap items-center justify-between gap-[var(--spacing-2)]">
 							{wide ? (
-								<h3 className="min-w-0 text-h3 font-semibold [overflow-wrap:anywhere]">
-									{receptionFolderLabel(folder, t)}
-								</h3>
+								<h3 className="min-w-0 text-h3 font-semibold [overflow-wrap:anywhere]">{folderName(folder)}</h3>
 							) : null}
 							{receptionWritablePath(folder.path) ? (
 								<div className="flex flex-wrap gap-[var(--spacing-2)]">
@@ -213,9 +221,7 @@ function ReceptionLibraryBody({
 												{t("members.social.library.renameFolder")}
 											</Button>
 											<ReceptionRemoveButton
-												folderParent={
-													parentFolder ? receptionFolderLabel(parentFolder, t) : t("members.social.library.root")
-												}
+												folderParent={parentFolder ? folderName(parentFolder) : t("members.social.library.root")}
 												id={folder.id}
 												title={folder.name}
 												onRemoved={backFromFolder}
@@ -240,7 +246,7 @@ function ReceptionLibraryBody({
 						documentFolder ? (
 							<div className="flex flex-col gap-[var(--spacing-2)]">
 								<h3 className="px-[var(--spacing-2)] text-caption font-medium text-[var(--color-text-tertiary)] [overflow-wrap:anywhere]">
-									{receptionFolderLabel(documentFolder, t)}
+									{folderName(documentFolder)}
 								</h3>
 								<ReceptionFolderContents
 									library={library}
@@ -306,7 +312,12 @@ function ReceptionLibraryBody({
 				</header>
 			) : null}
 			{folderTrail.length ? (
-				<ReceptionBreadcrumbs trail={folderTrail} currentFolder={view.kind === "folder"} onOpen={onOpen} />
+				<ReceptionBreadcrumbs
+					trail={folderTrail}
+					currentFolder={view.kind === "folder"}
+					folderName={folderName}
+					onOpen={onOpen}
+				/>
 			) : null}
 			{content}
 			{editor ? (
@@ -335,10 +346,12 @@ function ReceptionOrganizationEntry({ onOpen }: { onOpen: () => void }) {
 function ReceptionBreadcrumbs({
 	trail,
 	currentFolder,
+	folderName,
 	onOpen,
 }: {
 	trail: readonly SocialLibraryFolder[];
 	currentFolder: boolean;
+	folderName: (folder: SocialLibraryFolder) => string;
 	onOpen: (path: string) => void;
 }) {
 	const { t } = useTranslation();
@@ -366,7 +379,7 @@ function ReceptionBreadcrumbs({
 							className={`break-all text-[var(--color-text-tertiary)] ${receptionDropHighlight}`}
 							{...drag?.target(folder)}
 						>
-							{receptionFolderLabel(folder, t)}
+							{folderName(folder)}
 						</span>
 					) : (
 						<button
@@ -375,7 +388,7 @@ function ReceptionBreadcrumbs({
 							onClick={() => onOpen(receptionFolderPath(trail.slice(0, index + 1)))}
 							{...drag?.target(folder)}
 						>
-							{receptionFolderLabel(folder, t)}
+							{folderName(folder)}
 						</button>
 					)}
 				</span>

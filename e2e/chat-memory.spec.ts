@@ -2,7 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import type { MemoryFileRevision, RevertMemoryFileRequest } from "@yonder/protocol";
 import { conversation, isolateChat, message } from "./chat-fixture.ts";
 
-const path = "/me/近期.md";
+const path = "/me/recent.md";
 const revision = (version: number, content: string): MemoryFileRevision => ({
 	version,
 	content,

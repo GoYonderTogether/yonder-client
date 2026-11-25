@@ -6,7 +6,7 @@ import { ConfirmDialog, Overlay, useShellChrome } from "@yonder/ui-shell";
 import { Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { receptionFolderLabel, receptionFolderTrail, receptionWritablePath } from "./reception-library-paths.ts";
+import { receptionFolderTrail, receptionWritablePath, useReceptionFolderName } from "./reception-library-paths.ts";
 
 type Folder = SocialLibrary["folders"][number];
 type Document = SocialLibrary["documents"][number];
@@ -143,13 +143,14 @@ export function ReceptionFolderField({
 	disabled: boolean;
 }) {
 	const { t } = useTranslation();
+	const folderName = useReceptionFolderName();
 	const options = folders
 		.filter((folder) => receptionWritablePath(folder.path))
 		.flatMap((folder) => {
 			const trail = receptionFolderTrail(folders, folder.id);
 			return excludedFolder && trail.some((item) => item.id === excludedFolder)
 				? []
-				: [{ value: folder.id, label: trail.map((item) => receptionFolderLabel(item, t)).join(" › ") }];
+				: [{ value: folder.id, label: trail.map((item) => folderName(item)).join(" › ") }];
 		});
 	return (
 		<SelectField

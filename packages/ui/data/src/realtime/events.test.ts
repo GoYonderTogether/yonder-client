@@ -108,7 +108,7 @@ describe("applyServerEvent", () => {
 			keys.memory.files(""),
 			keys.memory.files("/notes/"),
 		];
-		const unrelated = [keys.memory.file("/me/印象.md"), keys.memory.files("/digests/"), keys.memory.days()];
+		const unrelated = [keys.memory.file("/me/impression.md"), keys.memory.files("/digests/"), keys.memory.days()];
 		for (const key of [...related, ...unrelated]) queryClient.setQueryData(key, {});
 		const event = { type: "memory.changed", eventId: "file-1", at: "2026-11-16T00:00:00Z" } as const;
 		applyServerEvent(queryClient, { ...event, paths: [path] });

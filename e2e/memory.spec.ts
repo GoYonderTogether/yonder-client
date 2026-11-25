@@ -4,9 +4,9 @@ import { memoryFileRoute } from "../apps/web/src/pages/memory/memory-view.ts";
 import { isolateChat } from "./chat-fixture.ts";
 
 const at = "2026-11-18T09:30:00Z";
-const notePath = "/sources/会议/周会.md";
-const impressionPath = "/me/印象.md";
-const recentPath = "/me/近期.md";
+const notePath = "/sources/recordings/周会.md";
+const impressionPath = "/me/impression.md";
+const recentPath = "/me/recent.md";
 
 const timeline: MemoryDayPage = {
 	items: [

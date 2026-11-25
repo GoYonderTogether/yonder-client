@@ -36,8 +36,8 @@ function MemorySections() {
 				<Timeline />
 			) : (
 				<>
-					<MemoryFile path="/me/印象.md" label={t("印象", "Impression")} />
-					<MemoryFile path="/me/近期.md" label={t("近期", "Recent")} />
+					<MemoryFile path="/me/impression.md" label={t("印象", "Impression")} />
+					<MemoryFile path="/me/recent.md" label={t("近期", "Recent")} />
 				</>
 			)}
 		</>

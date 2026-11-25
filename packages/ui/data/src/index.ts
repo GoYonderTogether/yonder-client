@@ -87,6 +87,7 @@ export {
 	useMemoryFileActions,
 	useMemoryFileRevisions,
 	useMemoryFiles,
+	useMemoryFolders,
 } from "./hooks/memory.ts";
 export type { ModelChoice } from "./hooks/model-choices.ts";
 export { defaultChoiceId, modelChoices } from "./hooks/model-choices.ts";

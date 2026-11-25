@@ -5,6 +5,8 @@ import { keys } from "./keys.ts";
 export function invalidateMemoryFiles(client: QueryClient, paths: string[], { deleted = false } = {}) {
 	return Promise.all([
 		client.invalidateQueries({ queryKey: keys.socialLibrary() }),
+		// A file can bring a new folder with it, or a move can empty one.
+		client.invalidateQueries({ queryKey: keys.memory.folders() }),
 		client.invalidateQueries({
 			queryKey: keys.memory.fileLists(),
 			predicate: ({ queryKey }) => {

@@ -50,14 +50,14 @@ describe("group lifecycle sentences", () => {
 it("renders a memory update as a system message in both languages", () => {
 	const one: SystemEvent = {
 		event: "memory_updated",
-		changes: [{ path: "/me/近期.md", title: "近期", version: 2, previousVersion: 1 }],
+		changes: [{ path: "/me/recent.md", title: "近期", version: 2, previousVersion: 1 }],
 	};
 	expect(systemSentence(one, "zh-CN")).toBe("记忆已更新 · 近期");
 	expect(systemSentence(one, "en")).toBe("Memory updated · 近期");
 	const two: SystemEvent = {
 		event: "memory_updated",
 		changes: [
-			{ path: "/me/近期.md", title: "近期", version: 2, previousVersion: 1 },
+			{ path: "/me/recent.md", title: "近期", version: 2, previousVersion: 1 },
 			{ path: "/notes/小林.md", title: "小林", version: 1, previousVersion: 0 },
 		],
 	};

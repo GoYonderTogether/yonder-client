@@ -22,5 +22,7 @@ test("authors are named, never by internal words (23 §18)", () => {
 	expect(author({ updatedBy: "checkpoint:run-1", updatedByName: null })).toBe("小助手");
 	expect(author({ updatedBy: "digest:run-2", updatedByName: "小助手" })).toBe("小助手");
 	expect(author({ updatedBy: "router", updatedByName: "会议" })).toBe("会议");
-	expect(author({ updatedBy: "router", updatedByName: null, path: "/sources/会议/周会.md" })).toBe("会议");
+	expect(author({ updatedBy: "router", updatedByName: null, path: "/sources/recordings/2026-11/25-周会.md" })).toBe(
+		"recordings",
+	);
 });

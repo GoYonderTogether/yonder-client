@@ -1,4 +1,4 @@
-import type { MemoryFileSummary } from "@yonder/protocol";
+import type { MemoryFileSummary, MemoryFolderSummary } from "@yonder/protocol";
 
 /**
  * What the memory tab shows, read from the URL (24 第二节, 11-19 layout): the home (private profile entry, recent,
@@ -12,7 +12,7 @@ export type MemoryView =
 	| { kind: "group"; group: string; directory?: string }
 	| { kind: "file"; path: string };
 
-export const ABOUT_PATHS = ["/me/印象.md", "/me/近期.md", "/me/画像.md"] as const;
+export const ABOUT_PATHS = ["/me/impression.md", "/me/recent.md", "/me/profile.md"] as const;
 export const MEMORY_ABOUT_PATH = "/memory/about";
 
 export function isAboutMemoryFile(path: string): boolean {
@@ -67,13 +67,9 @@ export function archivedOriginalPath(path: string): string | null {
 	return original === "/" ? null : original;
 }
 
-/** How an archived folder is named: the group it came from keeps the name it has elsewhere. */
-export function archivedFolderName(folder: string, t: (key: string) => string): string {
-	if (folder === "notes") return t("memory.notesFolder");
-	if (folder === "sources") return t("memory.sourcesFolder");
-	if (folder === "digests") return t("memory.digestsFolder");
-	if (folder === "public") return t("memory.publicFolder");
-	return folder;
+/** How an archived folder is named: the live folder it came from keeps the name it has elsewhere. */
+export function archivedFolderName(folder: string, folderName: (path: string) => string): string {
+	return folderName(`/${folder}`);
 }
 
 /**
@@ -117,4 +113,31 @@ export function memoryDetailParent([selection, value]: readonly string[]): strin
 	if (selection === "files" && value) return memoryFileParent(value);
 	const separator = selection === "g" && value ? value.lastIndexOf("/") : -1;
 	return separator >= 0 && value ? memoryGroupRoute(value.slice(0, separator)) : "/memory";
+}
+
+/**
+ * The folder a group's files live in (D1, README 2026-11-25 第 6.2 节). A group names a folder and
+ * its name comes from the server, never from a string here: `notes` is `/notes`, `sources:meeting`
+ * is `/sources/meeting`, `digests:day` is `/digests/day`.
+ */
+export function groupFolderPath(group: string): string | null {
+	if (group === "archived") return MEMORY_ARCHIVE_PREFIX.replace(/\/$/u, "");
+	if (group === "notes" || group === "digests" || group === "public") return `/${group}`;
+	if (group.startsWith("digests:")) return `/digests/${group.slice("digests:".length)}`;
+	return group.startsWith("sources:") ? `/sources/${group.slice("sources:".length)}` : null;
+}
+
+/** A path's own last segment, for a folder the server has not named (it always names its system ones). */
+export function pathLastSegment(path: string): string {
+	const trimmed = path.replace(/\/+$/u, "");
+	return trimmed.slice(trimmed.lastIndexOf("/") + 1) || "/";
+}
+
+/**
+ * The names the server gave each folder, as a lookup: the memory page reads every heading from it so
+ * a system folder reads in the owner's language and a renamed one keeps their word.
+ */
+export function memoryFolderNames(folders: readonly MemoryFolderSummary[]): (path: string) => string {
+	const names = new Map(folders.map(({ path, displayName }) => [path.replace(/\/+$/u, "") || "/", displayName]));
+	return (path) => names.get(path.replace(/\/+$/u, "") || "/") ?? pathLastSegment(path);
 }

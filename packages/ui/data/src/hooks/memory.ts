@@ -45,6 +45,12 @@ export function useMemoryFiles(prefix = "") {
 	return useQuery({ queryKey: keys.memory.files(prefix), queryFn: () => api.memoryFiles(prefix || undefined) });
 }
 
+/** Every folder the account has, each with the name the server gives it (D1, README 11-25 6.2). */
+export function useMemoryFolders() {
+	const api = useApi();
+	return useQuery({ queryKey: keys.memory.folders(), queryFn: () => api.memoryFolders(), staleTime: 60_000 });
+}
+
 export function useMemoryFile(path?: string) {
 	const api = useApi();
 	return useQuery({ queryKey: keys.memory.file(path ?? ""), queryFn: path ? () => api.memoryFile(path) : skipToken });

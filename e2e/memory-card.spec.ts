@@ -99,7 +99,7 @@ async function setup(page: Page, dark = false) {
 	const files = [
 		summary("/notes/合作方.md", "合作方"),
 		summary("/notes/内测反馈.md", "内测反馈"),
-		summary("/sources/会议/周会.md", "周会纪要"),
+		summary("/sources/recordings/周会.md", "周会纪要"),
 		summary("/digests/day/2026-11-18.md", "11 月 18 日"),
 		summary("/public/草稿.md", "我在找什么", { draft: true }),
 	];
@@ -187,7 +187,7 @@ for (const layout of ["mobile", "desktop"] as const) {
 					(node) => node.clientHeight === Number.parseFloat(getComputedStyle(node).lineHeight) * 3,
 				),
 			).toBe(true);
-			expect(fileRequests).toEqual(["/me/印象.md"]);
+			expect(fileRequests).toEqual(["/me/impression.md"]);
 			await expect(page.getByRole("heading", { name: "全部" })).toBeVisible();
 			await expect(page.getByRole("region", { name: "我的名片" })).toHaveCount(0);
 			await screenshot(page, `memory-private-landing-${layout}`);

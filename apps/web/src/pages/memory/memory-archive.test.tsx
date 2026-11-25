@@ -32,13 +32,32 @@ const content = (file: MemoryFileSummary, body = "正文"): MemoryFileContent =>
 	links: [],
 });
 
-/** A tiny server: the file list, each file's content, `/me`, and whichever answer a move gets. */
+/**
+ * The folder names the server gives (D1): system folders in the reader's language, and a folder the
+ * owner made under its own name. The app never writes these down; it reads them from here.
+ */
+const FOLDER_NAMES: Record<string, string> = {
+	"/notes": "Notes",
+	"/sources": "Sources",
+	"/sources/会议": "会议",
+	"/digests": "Summaries",
+	"/public": "Public",
+	"/archive": "Archived",
+	"/people": "People",
+	"/projects": "Projects",
+};
+
+/** A tiny server: the file list, each file's content, the folder names, `/me`, and a move's answer. */
 function serve(files: MemoryFileSummary[], options: { move?: (body: unknown) => Response } = {}) {
 	return vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
 		const target = new URL(url);
 		if (target.pathname === "/v1/auth/refresh") return Response.json({ accessToken: "archived-memory-test" });
 		if (target.pathname === "/v1/me") return Response.json({ member: { id: "person" }, bot: { id: "bot" } });
-		if (target.pathname === "/v1/memory/files") return Response.json({ items: files });
+		if (target.pathname === "/v1/memory/files") return Response.json({ items: files, folders: [] });
+		if (target.pathname === "/v1/memory/folders")
+			return Response.json({
+				items: Object.entries(FOLDER_NAMES).map(([path, displayName]) => ({ path, displayName })),
+			});
 		if (target.pathname === "/v1/memory/files/move" && init.method === "POST") {
 			return options.move ? options.move(JSON.parse(String(init.body))) : Response.json({ ok: true });
 		}

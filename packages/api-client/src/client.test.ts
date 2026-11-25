@@ -98,7 +98,7 @@ describe("errors", () => {
 	test("an unavailable memory file route exposes the response's real reason", async () => {
 		const fetchImpl = async () => errorResponse("not_found", 404, { message: "Memory file endpoint is unavailable" });
 		const api = createEndpoints(client(fetchImpl));
-		await expect(api.memoryFile("/me/印象.md")).rejects.toMatchObject({
+		await expect(api.memoryFile("/me/impression.md")).rejects.toMatchObject({
 			status: 404,
 			code: "not_found",
 			message: "Memory file endpoint is unavailable",
@@ -141,8 +141,8 @@ describe("errors", () => {
 test("memory routes use the specified HTTP methods, query parameters and bodies", async () => {
 	const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ ok: true }));
 	const api = createEndpoints(client(fetchImpl));
-	const path = "/sources/会议/文 档?#.md";
-	const prefix = "/sources/会议/";
+	const path = "/sources/recordings/文 档?#.md";
+	const prefix = "/sources/recordings/";
 	const edit = { path, content: "# Notes", expectedVersion: 2 };
 	const visibility = { path, visibility: "public" } as const;
 	const revert = { path, version: 1 };

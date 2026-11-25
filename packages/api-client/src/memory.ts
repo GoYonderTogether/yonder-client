@@ -4,6 +4,7 @@ import type {
 	MemoryFileContent,
 	MemoryFileList,
 	MemoryFileRevisionList,
+	MemoryFolderList,
 	MemoryOrganizationResponse,
 	MoveMemoryFileRequest,
 	OwnerUnderstandingResponse,
@@ -43,6 +44,10 @@ export function memoryEndpoints(client: ApiClient) {
 		},
 		memoryFiles(prefix?: string): Promise<MemoryFileList> {
 			return client.request(prefix ? `${filesPath}?prefix=${encodeURIComponent(prefix)}` : filesPath);
+		},
+		/** Every folder the account has, with the name the owner reads (D1, README 2026-11-25 6.2). */
+		memoryFolders(): Promise<MemoryFolderList> {
+			return client.request("/v1/memory/folders");
 		},
 		memoryOrganization(): Promise<MemoryOrganizationResponse> {
 			return client.request(organizationPath);
