@@ -55,10 +55,12 @@ export interface ItemStep {
  * E). The page and the Bot read the same record, so a progress claim is never an impression.
  */
 export interface ItemProgress {
-	/** A whole percent of the work done; the recording's own meaning of it, null when the source has no percentage. */
+	/** What `done` counts, so a reader never mistakes rows read for a fraction finished. */
+	unit: "batches" | "rows" | "steps";
+	/** A whole percent of the work done; null when the source has no total to measure against. */
 	percent: number | null;
-	/** Units the source counts in, e.g. completed and total batches of a recording or steps of a task. */
-	done: number | null;
+	done: number;
+	/** The count the work ends at; null when the source does not know it in advance. */
 	total: number | null;
 }
 
