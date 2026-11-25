@@ -104,7 +104,11 @@ test("transcript expands from its source only; elsewhere the live timer and end 
 		"Last line.",
 	]);
 	// The same `[mm:ss]` the reader and the write-up use.
-	expect([...log.querySelectorAll("time")].map((entry) => entry.textContent)).toEqual(["[00:00]", "[00:01]", "[00:12]"]);
+	expect([...log.querySelectorAll("time")].map((entry) => entry.textContent)).toEqual([
+		"[00:00]",
+		"[00:01]",
+		"[00:12]",
+	]);
 	expect(
 		[...log.querySelectorAll("[data-transcript-start-ms]")].map((span) =>
 			span.getAttribute("data-transcript-start-ms"),
