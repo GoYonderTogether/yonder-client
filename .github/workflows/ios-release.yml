@@ -301,6 +301,24 @@ jobs:
           xcrun altool --upload-app -f dist-ios/yonder-ios.ipa -t ios \
             --api-key "$KEY_ID" --api-issuer "$ISSUER_ID"
 
+      # altool 只证明"传上去了"。二十多个构建传成功却全部停在 Ready to Submit（能提交审核、但没
+      # 开放给测试员），没人能装，流水线一路绿灯。这一步问 Apple 要构建的真实状态：处理完没有、
+      # 在不在至少一个测试组里。不在就红，而不是继续报成功。
+      - name: 确认构建可以测试
+        env:
+          KEY_BASE64: ${{ secrets.ASC_API_PRIVATE_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          BUNDLE_ID: net.yonderbot.app
+        run: |
+          set -eu
+          keydir="$RUNNER_TEMP/asc"
+          mkdir -p "$keydir"
+          printf '%s' "$KEY_BASE64" | base64 --decode > "$keydir/AuthKey_$KEY_ID.p8"
+          chmod 600 "$keydir/AuthKey_$KEY_ID.p8"
+          KEY_PATH="$keydir/AuthKey_$KEY_ID.p8" BUILD_NUMBER="$BUILD_NUMBER" \
+            node scripts/release/testflight-ready.mjs
+
       - name: 上传 GitHub Release 资产
         if: ${{ !inputs.testflight_internal }}
         env:
