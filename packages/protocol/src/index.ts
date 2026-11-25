@@ -173,6 +173,7 @@ export type {
 	RetryMeetingRequest,
 	StartLiveMeetingRequest,
 } from "./meetings/meetings.ts";
+export { meetingProgress } from "./meetings/progress.ts";
 export type {
 	MeetingTranscriptLookup,
 	MeetingTranscriptParagraph,
