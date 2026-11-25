@@ -1,9 +1,15 @@
+import { readFileSync } from "node:fs";
 import { devices, expect, type Locator, type Page, test } from "@playwright/test";
 import type { ConnectorRequestView } from "@yonder/protocol";
 import { isolateChat, message } from "./chat-fixture.ts";
 
 type Shell = "web" | "windows" | "android" | "ios";
-const version = "0.3.26112499";
+const { version: currentVersion } = JSON.parse(
+	readFileSync(new URL("../apps/web/package.json", import.meta.url), "utf8"),
+) as { version: string };
+const [major, minor, patch] = currentVersion.split(".").map(Number);
+const versionCode = patch + 1;
+const version = `${major}.${minor}.${versionCode}`;
 const sha = "a".repeat(64);
 const testFlight = "https://testflight.apple.com/join/Abcd1234";
 const { defaultBrowserType: _android, ...android } = devices["Pixel 7"];
@@ -53,7 +59,7 @@ async function prepare(page: Page, platform: Shell, absent = false, holdStage = 
 	});
 	if (platform !== "web")
 		await page.addInitScript(
-			({ platform, version, sha, holdStage }) => {
+			({ platform, currentVersion, version, versionCode, sha, holdStage }) => {
 				const updateCommands: string[] = [];
 				let releaseUpdateStage: () => void = () => {};
 				const staging = holdStage
@@ -73,7 +79,7 @@ async function prepare(page: Page, platform: Shell, absent = false, holdStage = 
 								case "get_desktop_refresh_token":
 									return "isolated-fixture";
 								case "plugin:updater|check":
-									return { rid: 8, version, currentVersion: "0.3.26112408" };
+									return { rid: 8, version, currentVersion };
 								case "plugin:updater|download":
 									await staging;
 									return 9;
@@ -81,11 +87,11 @@ async function prepare(page: Page, platform: Shell, absent = false, holdStage = 
 									await staging;
 									return null;
 								case "plugin:android-update|versionCode":
-									return { versionCode: 26112408 };
+									return { versionCode: versionCode - 1 };
 								case "plugin:android-update|latest":
 									return {
 										version,
-										versionCode: 26112499,
+										versionCode,
 										sha256: sha,
 										url: "https://dl.zethai.cn/android/yonder.apk",
 									};
@@ -106,7 +112,7 @@ async function prepare(page: Page, platform: Shell, absent = false, holdStage = 
 					},
 				});
 			},
-			{ platform, version, sha, holdStage },
+			{ platform, currentVersion, version, versionCode, sha, holdStage },
 		);
 	const post: unknown[] = [];
 	const get: string[] = [];
