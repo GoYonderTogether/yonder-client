@@ -146,6 +146,12 @@ export interface ConnectorCommandArgs {
 	offset?: number;
 	/** The page size for file read (1 to 2000), grep (1 to 200), or an Apple list operation. */
 	limit?: number;
+	/**
+	 * `apple_photos_image`: the long edge the device encodes a picture to. 1280 is what a model keeps
+	 * of a single photo; 512 is the batch size it decodes at (D3/D4), and sending it saves the
+	 * owner's uplink on a run of twenty.
+	 */
+	edge?: number;
 	/** `edit`: exact text to replace. It must occur exactly once unless `replaceAll` is true. */
 	oldString?: string;
 	/** `edit`: the text written in place of `oldString`. */
