@@ -139,6 +139,11 @@ export interface ConnectorCommandArgs {
 	/** OS-local resource id, never a filesystem path or a script. */
 	id?: string;
 	attachmentId?: string;
+	/**
+	 * `apple_voice_memos_transcribe`: where the two-minute transcription window starts, in
+	 * milliseconds from the recording's beginning. Absent is 0; a longer memo is read window by window.
+	 */
+	startMs?: number;
 	/** YYYY-MM-DD in the device's local calendar, inclusive. */
 	dateFrom?: string;
 	dateTo?: string;

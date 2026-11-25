@@ -167,7 +167,13 @@ static NSString *recordingFilename(NSString *path, NSString *directory) {
     return [file isEqualToString:path] ? file : nil;
 }
 
-static NSData *transcriptionWave(NSData *contents, NSString *extension, int32_t *status) {
+/**
+ * One window of a recording, as 16 kHz mono PCM WAV. `startSeconds` positions the window: a memo longer
+ * than the provider's two-minute request is converted in windows, so the whole recording is transcribed
+ * instead of its opening (PLAN.md 4.2-G). The server requests one window per call; the device never
+ * refuses a long memo for its length alone.
+ */
+static NSData *transcriptionWave(NSData *contents, NSString *extension, double startSeconds, int32_t *status) {
     *status = AppleReadFailed;
     YonderTemporaryAttachmentDirectory temporary;
     if (!temporary.url) return nil;
@@ -177,9 +183,20 @@ static NSData *transcriptionWave(NSData *contents, NSString *extension, int32_t 
     AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:nil];
     double rate = file.processingFormat.sampleRate;
     if (!file || !std::isfinite(rate) || rate <= 0 || file.length <= 0) return nil;
-    if ((double)file.length / rate > 120) { *status = AppleTooLarge; return nil; }
-
+    if (!std::isfinite(startSeconds) || startSeconds < 0) return nil;
     constexpr AVAudioFrameCount maximumFrames = 16000 * 120;
+    AVAudioFramePosition firstFrame = (AVAudioFramePosition)llround(startSeconds * rate);
+    if (firstFrame >= file.length) { *status = AppleInvalidInput; return nil; }
+    // The window is the request: start at its first frame and convert at most two minutes of it.
+    // AVAudioFile has no seek; reading the skipped frames into a discarded buffer positions the file.
+    AVAudioFramePosition skipped = firstFrame;
+    while (skipped > 0) {
+        AVAudioFrameCount count = (AVAudioFrameCount)MIN(skipped, (AVAudioFramePosition)4096);
+        AVAudioPCMBuffer *scratch = [[AVAudioPCMBuffer alloc] initWithPCMFormat:file.processingFormat frameCapacity:count];
+        if (!scratch || ![file readIntoBuffer:scratch frameCount:count error:nil]) return nil;
+        skipped -= count;
+    }
+
     AVAudioFormat *target = [[AVAudioFormat alloc] initWithCommonFormat:AVAudioPCMFormatInt16
         sampleRate:16000 channels:1 interleaved:YES];
     AVAudioConverter *converter = [[AVAudioConverter alloc] initFromFormat:file.processingFormat toFormat:target];
@@ -192,6 +209,7 @@ static NSData *transcriptionWave(NSData *contents, NSString *extension, int32_t 
         withInputFromBlock:^AVAudioBuffer *(AVAudioPacketCount requested, AVAudioConverterInputStatus *next) {
             AVAudioFramePosition remaining = file.length - file.framePosition;
             if (remaining <= 0) { *next = AVAudioConverterInputStatus_EndOfStream; return nil; }
+            // The request asks for at most a two-minute window; the seek above is where it starts.
             AVAudioFrameCount count = (AVAudioFrameCount)MIN(remaining, MIN(requested, block.frameCapacity));
             if (![file readIntoBuffer:block frameCount:count error:nil]) failed = true;
             if (failed || block.frameLength == 0) { *next = AVAudioConverterInputStatus_EndOfStream; return nil; }
@@ -227,7 +245,7 @@ static NSString *activeRecordingFilename(sqlite3 *database, NSString *directory,
 }
 
 static void readRecording(sqlite3 *database, NSString *directory, NSString *identifier,
-                          bool transcribe, void *context, YonderAppleReply reply) {
+                          bool transcribe, double startSeconds, void *context, YonderAppleReply reply) {
     NSString *name = activeRecordingFilename(database, directory, identifier);
     if (!name) {
         reply(context, AppleNotFound, nullptr, 0);
@@ -242,7 +260,7 @@ static void readRecording(sqlite3 *database, NSString *directory, NSString *iden
     NSData *contents = YonderReadAttachment(fd, name, &status);
     close(fd);
     NSString *extension = name.pathExtension.lowercaseString;
-    if (contents && transcribe) contents = transcriptionWave(contents, extension, &status);
+    if (contents && transcribe) contents = transcriptionWave(contents, extension, startSeconds, &status);
     if (contents && ![name isEqualToString:activeRecordingFilename(database, directory, identifier)]) {
         contents = nil;
         status = AppleNotFound;
@@ -265,7 +283,8 @@ extern "C" void yonder_voice_memos_execute(int32_t operation, const char *argume
             if (database.status == ApplePermissionDenied) permission.store(AppleDenied);
             reply(context, database.status, nullptr, 0);
         } else if (operation == 1 || operation == 2) {
-            readRecording(database.connection, directory, args[@"id"], operation == 2, context, reply);
+            readRecording(database.connection, directory, args[@"id"], operation == 2,
+                          [args[@"startMs"] doubleValue] / 1000.0, context, reply);
         } else if (operation == 0) listRecordings(database.connection, directory, args, context, reply);
         else reply(context, AppleInvalidInput, nullptr, 0);
     }

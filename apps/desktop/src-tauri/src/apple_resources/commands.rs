@@ -119,6 +119,12 @@ fn valid_args(source: Source, operation: Operation, args: &Value) -> bool {
                     .get("edge")
                     .and_then(Value::as_u64)
                     .is_some_and(|edge| (512..=1280).contains(&edge)),
+                // A voice memo's transcription window: the start of the window in milliseconds, so a
+                // memo longer than the provider's request is read piece by piece (PLAN.md 4.2-G).
+                (Source::AppleVoiceMemos, Operation::Transcribe) if args.len() == 2 => args
+                    .get("startMs")
+                    .and_then(Value::as_u64)
+                    .is_some_and(|start| start <= 24 * 60 * 60 * 1000),
                 _ => args.len() == 1,
             };
     }
@@ -427,6 +433,23 @@ mod tests {
             Source::AppleNotes,
             Operation::Read,
             &json!({"id":"note", "offset":5001})
+        ));
+        // A long voice memo transcribes one two-minute window at a time, positioned by startMs.
+        let transcribe = operation_kind(Source::AppleVoiceMemos, "apple_voice_memos_transcribe").unwrap();
+        assert!(valid_args(
+            Source::AppleVoiceMemos,
+            transcribe,
+            &json!({"id":"memo", "startMs": 600_000})
+        ));
+        assert!(!valid_args(
+            Source::AppleVoiceMemos,
+            transcribe,
+            &json!({"id":"memo", "startMs": 86_400_001})
+        ));
+        assert!(!valid_args(
+            Source::AppleVoiceMemos,
+            transcribe,
+            &json!({"id":"memo", "startMs": 0, "path": "/elsewhere"})
         ));
     }
 
