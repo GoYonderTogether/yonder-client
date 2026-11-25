@@ -89,6 +89,11 @@ export interface ItemDetail extends ItemSummary {
 	activity?: ItemActivity | null;
 	/** Files the item's end named as its output, as memory paths (from `item_end`, PLAN.md 3-C). */
 	files?: string[];
+	/**
+	 * While an item is paused, why and when it is tried again: an import whose device went away names
+	 * the device's own reason, so the page and the Bot read the same word (PLAN.md 4.2-G, 4.4-H).
+	 */
+	pause?: { reason: string; retryAt: string | null };
 	/** True only for a subtask: it is the source whose lifecycle the user may drive from here. */
 	cancellable: boolean;
 	pausable: boolean;
