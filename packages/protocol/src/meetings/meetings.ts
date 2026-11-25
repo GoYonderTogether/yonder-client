@@ -79,6 +79,12 @@ export interface MeetingRecord {
 	/** Batch coverage, in batches and in recognized duration. */
 	progress: MeetingProgress;
 	summary: string | null;
+	/**
+	 * The two memory files this recording keeps, once the system has written them: its transcript
+	 * under /sources/recordings and its write-up under /notes/meetings (PLAN.md 4.2-F). Absent while
+	 * the recording has neither; a file the owner moved or archived reports its current path.
+	 */
+	memoryFiles?: { role: "transcript" | "minutes"; path: string }[];
 	summaryRunId: string | null;
 	resultMessageId: string | null;
 	failedStage: MeetingStage | null;
