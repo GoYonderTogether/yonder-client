@@ -1,5 +1,6 @@
 import { Image, Switch, Text, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
+import { botRoleProblem } from "@yonder/chat-model";
 import type { Member } from "@yonder/protocol";
 import { useEffect, useState } from "react";
 import { FriendRequestCard } from "../../components/friend-request-card";
@@ -24,6 +25,7 @@ export default function Contacts() {
 	const [query, setQuery] = useState("");
 	const [results, setResults] = useState<Member[]>([]);
 	const [name, setName] = useState("");
+	const [role, setRole] = useState("");
 	const [selected, setSelected] = useState<string[]>([]);
 	const open = (id: string) => go(`/pages/chat/index?id=${encodeURIComponent(id)}`);
 	return (
@@ -101,10 +103,25 @@ export default function Contacts() {
 			</View>
 			<View className="mini-card">
 				<Field label={t("名称", "Name")} value={name} onInput={setName} />
+				<Field
+					label={t("职责备注（仅自己可见）", "Responsibility note (only visible to you)")}
+					value={role}
+					onInput={setRole}
+					maxlength={24}
+				/>
 				<Button
-					disabled={!name.trim()}
+					disabled={!name.trim() || Boolean(botRoleProblem(role))}
 					onClick={() =>
-						void action(async () => open((await api.createBot({ displayName: name.trim() })).conversation.id))
+						void action(async () =>
+							open(
+								(
+									await api.createBot({
+										displayName: name.trim(),
+										...(role.trim() ? { botRoleLabel: role.trim() } : {}),
+									})
+								).conversation.id,
+							),
+						)
 					}
 				>
 					{t("创建 BOT", "Create bot")}

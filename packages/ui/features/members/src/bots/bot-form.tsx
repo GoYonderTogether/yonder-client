@@ -77,6 +77,12 @@ export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage,
 				: null;
 	const canAddNickname = Boolean(nickname && !nicknameError && nicknames.length < NICKNAME_LIMIT);
 	const settings = mode === "edit" && Boolean(settingsPage);
+	/**
+	 * The duty note belongs to naming a Bot, not only to its settings page: the create flow offers it
+	 * too, so a new Bot starts with the same note its settings would hold. A bare edit (the setup
+	 * page, not the settings page) still hides it — that screen is changing a name, not a profile.
+	 */
+	const showRole = mode === "create" || settings;
 	const storedRole = bot?.botRoleLabel ?? "";
 	const roleInput = roleDraft ?? storedRole;
 	const role = roleInput.trim();
@@ -134,7 +140,11 @@ export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage,
 		let step: "save" | "upload" = "save";
 		try {
 			if (mode === "create") {
-				const created = await createBot.mutateAsync({ displayName: trimmed, avatarColor: color });
+				const created = await createBot.mutateAsync({
+					displayName: trimmed,
+					avatarColor: color,
+					...(role ? { botRoleLabel: role } : {}),
+				});
 				if (file) {
 					step = "upload";
 					await upload.mutateAsync({ id: created.bot.id, file });
@@ -287,7 +297,7 @@ export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage,
 						) : null}
 					</div>
 				) : null}
-				{settings ? (
+				{showRole ? (
 					<TextField
 						label={t("bots.roleLabel")}
 						hint={t("bots.rolePrivate")}
@@ -315,7 +325,13 @@ export function BotForm({ mode, bot, onCreated, onSaved, settings: settingsPage,
 					</Button>
 				</FormFooter>
 			) : (
-				<Button type="submit" variant="primary" block loading={saving} disabled={!valid || Boolean(nicknameError)}>
+				<Button
+					type="submit"
+					variant="primary"
+					block
+					loading={saving}
+					disabled={!valid || Boolean(nicknameError || roleError)}
+				>
 					{t(mode === "create" ? "bots.create" : "bots.save")}
 				</Button>
 			)}

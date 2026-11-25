@@ -110,6 +110,28 @@ test("creating reads the name from the field, counts characters and sends the ch
 	expect(api.createBot).toHaveBeenCalledWith({ displayName: "研究员", avatarColor: "5" });
 });
 
+test("a new Bot can be created with its duty note, and the note over the limit blocks creation", async () => {
+	api.createBot.mockResolvedValue({ bot: bot(), conversation: direct });
+	const onCreated = vi.fn();
+	render(localised(<BotForm mode="create" onCreated={onCreated} />));
+	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "研究员" } });
+	const role = screen.getByRole("textbox", { name: "Responsibility note" });
+	fireEvent.change(role, { target: { value: "  负责选题  " } });
+	fireEvent.click(screen.getByRole("button", { name: "Create" }));
+	await waitFor(() => expect(onCreated).toHaveBeenCalledWith("cnv_a"));
+	expect(api.createBot).toHaveBeenCalledWith({ displayName: "研究员", avatarColor: "1", botRoleLabel: "负责选题" });
+});
+
+test("a duty note over twenty-four characters stops a new Bot from being created", () => {
+	render(localised(<BotForm mode="create" />));
+	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "研究员" } });
+	fireEvent.change(screen.getByRole("textbox", { name: "Responsibility note" }), {
+		target: { value: "🧪".repeat(25) },
+	});
+	expect(screen.getByText("Use no more than 24 characters.")).toBeInTheDocument();
+	expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+});
+
 test("a name over forty characters cannot be submitted and says why", () => {
 	render(localised(<BotForm mode="create" />));
 	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "字".repeat(41) } });
