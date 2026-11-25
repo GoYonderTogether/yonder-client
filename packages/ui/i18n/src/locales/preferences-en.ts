@@ -2,7 +2,6 @@ export const preferenceMessagesEn = {
 	timezone: {
 		title: "Time zone",
 		follow: "Follow this device (now: {{zone}} {{offset}})",
-		followShort: "This device",
 		manual: "Choose a time zone…",
 		locked: "Locked: {{name}} {{offset}}",
 		following: "Following this device: {{zone}} {{offset}}",
@@ -15,8 +14,7 @@ export const preferenceMessagesEn = {
 		beijing: "Beijing time",
 		noMatch: "No zone matches that search.",
 		saveFailed: "Not saved: {{reason}}",
-		unknownZone: "that zone is not recognised",
-		storageRefused: "this device refused the local write",
+		saveUnknown: "the server did not say why",
 	},
 	languageChoice: {
 		follow: "Follow this device (now: {{locale}})",
