@@ -296,10 +296,12 @@ test.describe("「通用」· 时区与语言", () => {
 		await page.goto("/messages/chat-route-check");
 		await expect(page.locator("time").first()).toContainText("19:58");
 
-		// The other device locks the account to New York; this window reads `me` again on its next
-		// load and follows it, with nothing restarted.
+		// The other device locks the account to New York. This window re-reads `me` on refocus and
+		// follows it, with nothing restarted — the same answer a reload would fetch.
 		zone = "America/New_York";
-		await page.reload();
+		// Query's focus manager listens on the window for `visibilitychange` and checks that the
+		// document is visible; both are true for a window the person has just come back to.
+		await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
 		await expect(page.locator("time").first()).toContainText("06:58");
 		void harness;
 	});

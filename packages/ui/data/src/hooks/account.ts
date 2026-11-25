@@ -13,14 +13,26 @@ import { prepareAvatarImage } from "../image-encoding.ts";
 import { keys } from "../query/keys.ts";
 import { useApi, useData, useDataQueryClient } from "../query/provider.tsx";
 
-/** The person and their Bot. Restored from the persisted cache before the network answers. */
+/**
+ * The person and their Bot. Restored from the persisted cache before the network answers.
+ *
+ * The account's time zone and language live in this answer, so a change made on another device must
+ * arrive here without a restart: the query re-reads on every window refocus (the global client turns
+ * that off for the rest) and on every realtime (re)connect, which is where the other device's write
+ * lands. It also refetches at least every ten minutes while open, so a device left alone long enough
+ * still agrees. `staleTime: 0` is what makes those refetches happen; the cache still paints first.
+ */
 export function useMe(options: { enabled?: boolean } = {}) {
 	const api = useApi();
 	return useQuery({
 		queryKey: keys.me(),
 		queryFn: () => api.me(),
 		enabled: options.enabled ?? true,
-		staleTime: 5 * 60_000,
+		staleTime: 0,
+		refetchOnWindowFocus: "always",
+		refetchOnReconnect: "always",
+		refetchInterval: 10 * 60_000,
+		refetchIntervalInBackground: false,
 	});
 }
 
