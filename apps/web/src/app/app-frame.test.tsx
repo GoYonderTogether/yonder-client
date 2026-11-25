@@ -33,6 +33,7 @@ vi.mock("@yonder/ui-data", () => {
 		readChatCache: async () => undefined,
 		writeChatCache: async () => {},
 		useData: () => ({ realtime, storage }),
+		usePresenceReport: () => {},
 		useDataQueryClient: () => queryClient,
 		keys: { contacts: () => ["contacts"], conversations: { list: () => ["conversations", "list"] } },
 		usePerson: () => ({ id: "person", displayName: "Person" }),

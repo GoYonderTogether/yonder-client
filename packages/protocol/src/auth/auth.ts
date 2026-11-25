@@ -41,9 +41,12 @@ export interface DeviceInfo {
 }
 
 export interface PushTokenRegistration {
-	provider: "apns" | "fcm";
+	provider: "apns" | "fcm" | "webpush";
+	/** The APNs/FCM token, or a Web Push endpoint URL. */
 	token: string;
 	environment?: "sandbox" | "production";
+	/** Web Push only: the subscription's two keys, base64url as the browser reports them. */
+	keys?: { p256dh: string; auth: string };
 }
 
 /**

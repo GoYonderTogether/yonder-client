@@ -9,6 +9,7 @@ import type {
 	GoalChange,
 	InviteResponse,
 	MeResponse,
+	NotificationPreferences,
 	OnboardingStep,
 	PhoneChangeCodeRequest,
 	ProactivePreferences,
@@ -17,6 +18,7 @@ import type {
 	SetPasswordRequest,
 	UpdateDeviceRemarkRequest,
 	UpdateMeRequest,
+	UpdateNotificationPreferencesRequest,
 	UpdateProactivePreferencesRequest,
 } from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
@@ -128,6 +130,19 @@ export function accountEndpoints(client: ApiClient) {
 
 		unregisterPushToken(): Promise<{ ok: true }> {
 			return client.request("/v1/devices/push-token", { method: "DELETE" });
+		},
+
+		notificationPreferences(signal: AbortSignal): Promise<NotificationPreferences> {
+			return client.request("/v1/me/notifications", { signal });
+		},
+
+		updateNotificationPreferences(body: UpdateNotificationPreferencesRequest): Promise<NotificationPreferences> {
+			return client.request("/v1/me/notifications", { method: "PATCH", body });
+		},
+
+		/** The VAPID public key a browser needs to subscribe; null when the server has Web Push off. */
+		pushKey(): Promise<{ publicKey: string | null }> {
+			return client.request("/v1/push/key");
 		},
 
 		revokeSession(id: string): Promise<{ ok: true }> {

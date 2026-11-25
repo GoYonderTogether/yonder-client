@@ -38,13 +38,15 @@ test("foreground never presents an alert and the background presents each new no
 			eventId: id,
 			notification: {
 				id,
+				kind: "message",
 				conversationId: "cnv_chat",
 				messageId: "msg_chat",
 				senderName: "Friend",
 				senderKind: "person",
+				body: "See you at nine.",
 			},
 		});
-	const view = render(<MessageNotifications personId="mem_owner" onOpen={vi.fn()} />);
+	const view = render(<MessageNotifications personId="mem_owner" conversationId={null} onOpen={vi.fn()} />);
 	await act(async () => send("foreground"));
 	expect(view.container.childElementCount).toBe(0);
 	expect(desktop.show).not.toHaveBeenCalled();
@@ -61,6 +63,6 @@ test("foreground never presents an alert and the background presents each new no
 		messageId: "msg_chat",
 		recipientMemberId: "mem_owner",
 		title: "Friend",
-		body: "messages.newMessage",
+		body: "See you at nine.",
 	});
 });

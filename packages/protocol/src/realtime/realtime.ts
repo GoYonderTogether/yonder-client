@@ -16,11 +16,18 @@ import type {
 	DeviceModelError,
 	DeviceModelRequest,
 } from "../models/device-provider.ts";
+import type { MessageNotification } from "../notifications/notifications.ts";
 import type { QuotaResponse } from "../quota/quota.ts";
 
 export type ClientEvent =
 	| { type: "ping"; at: string }
 	| { type: "ack"; lastEventId: string }
+	/**
+	 * Where this device is: whether its window is in front of the person, and which conversation it
+	 * shows. The server uses it to skip a push for a message this device is already displaying
+	 * (`yonder/docs/notifications.md` 第二节). A socket that never reports is treated as background.
+	 */
+	| { type: "presence"; foreground: boolean; conversationId?: string }
 	/** A device advertising the device-model wire reports its endpoints here. */
 	| { type: "device_model.ready"; endpoints: DeviceModelEndpoint[] }
 	| { type: "connector.ready"; connectionIds: string[] }
@@ -34,15 +41,6 @@ export type ClientEvent =
 	| { type: "provider.relay.head"; mode: "device-local"; relayId: string; status: number; contentType?: string }
 	| { type: "provider.relay.chunk"; mode: "device-local"; relayId: string; seq: number; part: string }
 	| { type: "provider.relay.end"; mode: "device-local"; relayId: string; nextSeq: number; error?: DeviceModelError };
-
-export interface MessageNotification {
-	id: string;
-	conversationId: string;
-	messageId: string;
-	senderName: string;
-	conversationTitle?: string;
-	senderKind: "person" | "bot";
-}
 
 /** Events this slice actually sends. A member change is what makes a second tab update. */
 export type ServerEvent =

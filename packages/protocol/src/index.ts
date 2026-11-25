@@ -296,6 +296,15 @@ export type {
 	SaveProviderRequest,
 } from "./models/provider.ts";
 export type {
+	MessageNotification,
+	NotificationContent,
+	NotificationKind,
+	NotificationOutcome,
+	NotificationPreferences,
+	UpdateNotificationPreferencesRequest,
+} from "./notifications/notifications.ts";
+export { NOTIFICATION_BODY_MAX } from "./notifications/notifications.ts";
+export type {
 	InviteResponse,
 	LedgerEntry,
 	QuotaConfigResponse,
@@ -317,7 +326,7 @@ export type {
 	UsageRunPage,
 	UsageTotals,
 } from "./quota/quota.ts";
-export type { ClientEvent, MessageNotification, ServerEvent, ServerEventType } from "./realtime/realtime.ts";
+export type { ClientEvent, ServerEvent, ServerEventType } from "./realtime/realtime.ts";
 export {
 	REALTIME_CLOSE_SESSION_REVOKED,
 	REALTIME_CLOSE_UNAUTHORIZED,

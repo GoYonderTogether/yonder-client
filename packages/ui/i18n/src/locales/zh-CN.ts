@@ -15,6 +15,7 @@ import { membersMessagesZhCN } from "./members-zh-CN.ts";
 import { memoryMessagesZhCN } from "./memory-zh-CN.ts";
 import { messagesZhCN } from "./messages.ts";
 import { modelMessagesZhCN } from "./models-zh-CN.ts";
+import { notificationsZhCN } from "./notifications.ts";
 import { photoArchiveZhCN } from "./photo-archive-zh-CN.ts";
 import { pricingMessagesZhCN } from "./pricing-zh-CN.ts";
 import { questionCardsZhCN } from "./question-cards.ts";
@@ -118,6 +119,8 @@ export const zhCN: Messages = {
 		resizeList: "拖动调整列表宽度",
 		tabs: "主导航",
 	},
+
+	notifications: notificationsZhCN,
 
 	messages: messagesZhCN,
 

@@ -9,12 +9,23 @@ import {
 	listenNativeNotificationOpen,
 	showDesktopNotification,
 } from "../lib/native-notifications.ts";
+import { listenWebPushOpen, webPushSupported } from "../lib/web-push.ts";
 
+/**
+ * Presents a notification the server pushed over the socket (docs/notifications.md 第二节).
+ *
+ * The server already decided what may be shown; this only decides whether *this* screen should
+ * show it. A phone is quiet about the chat it is showing and speaks up about any other; a desk is
+ * quiet whenever its window is in front, because the badge is enough there.
+ */
 export function MessageNotifications({
 	personId,
+	conversationId,
 	onOpen,
 }: {
 	personId: string | undefined;
+	/** The conversation on screen, when the person is in a chat. */
+	conversationId: string | null;
 	onOpen: (conversationId: string) => void;
 }) {
 	const { t } = useTranslation();
@@ -22,6 +33,10 @@ export function MessageNotifications({
 	const active = useRef(false);
 	const seen = useRef(new Set<string>());
 	const browserNotices = useRef(new Set<Notification>());
+	const current = useRef(conversationId);
+	useEffect(() => {
+		current.current = conversationId;
+	}, [conversationId]);
 	const receive = useEffectEvent((notification: MessageNotification) => {
 		if (!personId || seen.current.has(notification.id)) return;
 		seen.current.add(notification.id);
@@ -29,24 +44,31 @@ export function MessageNotifications({
 			const first = seen.current.values().next().value;
 			if (first) seen.current.delete(first);
 		}
-		if (isForeground()) return;
-		const title = notification.senderName;
+		const phone = isNativeMobileNotifications();
+		// A phone showing this very conversation needs nothing; a desk in front needs nothing either.
+		if (phone) {
+			if (isForeground() && notification.conversationId === current.current) return;
+		} else if (isForeground()) return;
+		const title =
+			notification.conversationTitle && notification.senderKind !== "bot"
+				? `${notification.senderName} · ${notification.conversationTitle}`
+				: notification.senderName;
 		const body =
-			notification.conversationTitle ??
-			t(notification.senderKind === "bot" ? "messages.botReply" : "messages.newMessage");
+			notification.body || t(notification.kind === "bot_reply" ? "messages.botReply" : "messages.newMessage");
+		const target = {
+			notificationId: notification.id,
+			conversationId: notification.conversationId ?? "",
+			messageId: notification.messageId ?? "",
+			recipientMemberId: personId,
+		};
 		if (isTauri()) {
-			// A native mobile background event is presented by APNs or FCM.
-			if (!isNativeMobileNotifications())
-				void showDesktopNotification({
-					title,
-					body,
-					notificationId: notification.id,
-					conversationId: notification.conversationId,
-					messageId: notification.messageId,
-					recipientMemberId: personId,
-				}).catch(() => {});
+			// A native mobile background event is presented by APNs or FCM; the desktop draws its own.
+			if (!phone) void showDesktopNotification({ title, body, ...target }).catch(() => {});
 			return;
 		}
+		// A browser that subscribed to Web Push lets the service worker present it, so a closed tab
+		// still hears; presenting it here too would show the same message twice.
+		if (webPushSupported() && navigator.serviceWorker?.controller) return;
 		if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
 		const show = () => {
 			if (!active.current || isForeground() || Notification.permission !== "granted") return;
@@ -56,7 +78,7 @@ export function MessageNotifications({
 				notice.onclose = () => browserNotices.current.delete(notice);
 				notice.onclick = () => {
 					window.focus();
-					onOpen(notification.conversationId);
+					onOpen(notification.conversationId ?? "");
 					notice.close();
 				};
 			} catch {
@@ -73,9 +95,9 @@ export function MessageNotifications({
 			show();
 		}
 	});
-	const openFromSystem = useEffectEvent((conversationId: string, recipientMemberId?: string) => {
+	const openFromSystem = useEffectEvent((target: string, recipientMemberId?: string) => {
 		if (!personId || recipientMemberId !== personId) return;
-		onOpen(conversationId);
+		onOpen(target);
 	});
 
 	useEffect(() => {
@@ -98,8 +120,8 @@ export function MessageNotifications({
 		if (!personId || !isTauri()) return;
 		let active = true;
 		let unlisten: (() => void) | undefined;
-		void listenNativeNotificationOpen(({ conversationId, recipientMemberId }) => {
-			if (active) openFromSystem(conversationId, recipientMemberId);
+		void listenNativeNotificationOpen(({ conversationId }) => {
+			if (active) openFromSystem(conversationId);
 		})
 			.then((dispose) => {
 				if (active) unlisten = dispose;
@@ -110,6 +132,11 @@ export function MessageNotifications({
 			active = false;
 			unlisten?.();
 		};
+	}, [personId]);
+	// A tap on a Web Push notification, forwarded by the service worker.
+	useEffect(() => {
+		if (!personId || isTauri()) return;
+		return listenWebPushOpen((id: string) => openFromSystem(id));
 	}, [personId]);
 
 	return null;

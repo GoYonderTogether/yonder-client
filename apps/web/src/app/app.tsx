@@ -36,6 +36,7 @@ import { ConnectorContinuationNotices } from "./connector-continuation-notices.t
 import { MacPermissionsGate } from "./mac-permissions.tsx";
 import { NativePushRegistration } from "./native-push-registration.tsx";
 import { AppRouter } from "./router.tsx";
+import { WebPushRegistration } from "./web-push-registration.tsx";
 
 /**
  * Assembly only: providers, then the router. This file may import every layer; nothing else in the
@@ -113,6 +114,7 @@ function Localised() {
 			<AppNoticeProvider scope={signedIn ? personId : undefined}>
 				{signedIn && personId && !isContactWindow() ? <ConnectorContinuationNotices key={personId} /> : null}
 				{registration.isSuccess && isNativeMobileNotifications() ? <NativePushRegistration /> : null}
+				{registration.isSuccess && signedIn && !isNativeMobileNotifications() ? <WebPushRegistration /> : null}
 				{localFilesSupported() ? <DeviceModelRuntime /> : null}
 				{localFilesSupported() ? <DeviceModelWireRuntime /> : null}
 				{localFilesSupported() || appleResourcesSupported() ? (

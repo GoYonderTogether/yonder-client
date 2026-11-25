@@ -43,6 +43,7 @@ import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemoryList, MemoryPage, SettingsRoutePage, TaskPage, TasksList } from "./lazy-tabs.ts";
 import { eligibleMeetingTarget, openMeetingSource, useMeetingRecordingSurface } from "./meeting-recording-surface.tsx";
 import { MessageNotifications } from "./message-notifications.tsx";
+import { PresenceReporter } from "./presence-reporter.tsx";
 import { settingsPagePaths } from "./settings-navigation.ts";
 import { useFrameLayers, useSideStack } from "./side-panel.tsx";
 import { BotPresetOverlay } from "./task-bot-drawer.tsx";
@@ -484,9 +485,11 @@ export function AppFrame() {
 				/>
 				{recordingSurface.dialog}
 				{discardDialog}
+				<PresenceReporter conversationId={tab === "messages" && conversation ? conversation.id : null} />
 				<MessageNotifications
 					key={person?.id}
 					personId={person?.id}
+					conversationId={tab === "messages" && conversation ? conversation.id : null}
 					onOpen={(id) => tabs.go(id === primary?.id ? MAIN_BOT_PATH : `/messages/${encodeURIComponent(id)}`)}
 				/>
 			</SidePanelProvider>

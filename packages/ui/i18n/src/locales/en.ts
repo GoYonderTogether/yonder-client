@@ -14,6 +14,7 @@ import { membersMessagesEn } from "./members-en.ts";
 import { memoryMessagesEn } from "./memory-en.ts";
 import { messagesEn } from "./messages.ts";
 import { modelMessagesEn } from "./models-en.ts";
+import { notificationsEn } from "./notifications.ts";
 import { photoArchiveEn } from "./photo-archive-en.ts";
 import { pricingMessagesEn } from "./pricing-en.ts";
 import { questionCardsEn } from "./question-cards.ts";
@@ -114,6 +115,7 @@ export const en = {
 		tabs: "Main navigation",
 	},
 
+	notifications: notificationsEn,
 	messages: messagesEn,
 
 	friendRequests: friendRequestsEn,

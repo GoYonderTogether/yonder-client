@@ -91,6 +91,7 @@ export {
 } from "./hooks/memory.ts";
 export type { ModelChoice } from "./hooks/model-choices.ts";
 export { defaultChoiceId, modelChoices } from "./hooks/model-choices.ts";
+export { useNotificationPreferences, useUpdateNotificationPreferences } from "./hooks/notifications.ts";
 export { usePrivacy, useUpdatePrivacy } from "./hooks/privacy.ts";
 export { useProviderActions, useProviderDeviceEndpoints, useProviders } from "./hooks/providers.ts";
 export { useQuestionCardAction } from "./hooks/question-cards.ts";
@@ -147,6 +148,8 @@ export { DataProvider, useApi, useData, useDataQueryClient } from "./query/provi
 export type { ConnectionStatus, RealtimeHandlers, RealtimeOptions } from "./realtime/connection.ts";
 export { RealtimeConnection, websocketUrl } from "./realtime/connection.ts";
 export { applyServerEvent } from "./realtime/events.ts";
+export type { PresenceReporter } from "./realtime/presence.ts";
+export { usePresenceReport } from "./realtime/presence.ts";
 export { useRealtimeSync } from "./realtime/use-realtime-sync.ts";
 export {
 	attachmentCacheKey,

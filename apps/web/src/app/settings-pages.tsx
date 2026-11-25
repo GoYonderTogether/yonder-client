@@ -26,6 +26,7 @@ import { ConnectDeviceDownloads } from "./connect-device-downloads.tsx";
 import { DesktopCloseBehavior } from "./desktop-close-behavior.tsx";
 import { InternalErrorConsent } from "./internal-error-consent.tsx";
 import { renderMacPermissionManagement } from "./mac-permissions.tsx";
+import { NotificationSettings } from "./notification-settings.tsx";
 import { ReceptionLibraryPage } from "./reception-library.tsx";
 import { botSettingsPath, channelsSettingsPath } from "./settings-navigation.ts";
 import { SocialPersona } from "./social-settings.tsx";
@@ -133,6 +134,7 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 					aboutUpdate={<UpdateControls />}
 					generalExtra={
 						<>
+							<NotificationSettings />
 							<DesktopCloseBehavior />
 							<InternalErrorConsent />
 						</>

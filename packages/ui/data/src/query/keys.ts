@@ -4,6 +4,7 @@
  */
 export const keys = {
 	me: () => ["me"] as const,
+	notifications: () => ["notifications"] as const,
 	goals: () => ["goals"] as const,
 	sessions: () => ["sessions"] as const,
 	devices: () => ["devices"] as const,
@@ -125,4 +126,5 @@ export const ALL_ROOT_KEYS: readonly string[] = [
 	"reception",
 	"social-persona",
 	"items",
+	"notifications",
 ];
