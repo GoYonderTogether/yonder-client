@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112501] - 2026-11-25
+
+### Fixed
+
+- queue passive notifications in the top overlay
+
 ## [0.3.26112414] - 2026-11-24
 
 ### Added
