@@ -1,10 +1,10 @@
-import type { DeviceSummary, Provider, ProviderModelMetadata } from "@yonder/protocol";
+import type { DeviceSummary, Provider, ProviderModelMetadata, ProviderProtocol } from "@yonder/protocol";
 import { Button, Field, PasswordField, SelectField, TextField } from "@yonder/ui-components";
-import { useProviderActions } from "@yonder/ui-data";
 import { DiscardChangesDialog } from "@yonder/ui-shell";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useDeviceBinding } from "./provider-device-binding.ts";
 import {
 	CLOUD_PROVIDER,
 	isHttpsAddress,
@@ -13,14 +13,56 @@ import {
 	localProviderBinding,
 	type NativeProviderBinding,
 	NEW_ENDPOINT,
-	normaliseUrl,
 	type ProviderAddFailure,
-	type ProviderPreset,
 	providerDeviceLabel,
-	type RegisteredLocalProviderEndpoint,
 	type RegisterLocalProviderEndpoint,
 } from "./provider-location.ts";
-import { ProviderModelPicker } from "./provider-model-picker.tsx";
+import {
+	type ModelSlot,
+	newSlot,
+	PROTOCOL_EXAMPLES,
+	PROTOCOL_OPTIONS,
+	slotsFromProvider,
+} from "./provider-model-slots.ts";
+import { ProviderModelSlots } from "./provider-model-slots.tsx";
+import { useProviderSubmit } from "./provider-submit.ts";
+
+export interface ProviderPreset {
+	id: string;
+	name: string;
+	baseUrl: string;
+	models: string;
+	keyUrl: string | null;
+	protocol?: ProviderProtocol | "openai" | "anthropic";
+	target?: NativeProviderBinding | undefined;
+	note?: string | null;
+	website?: string | null;
+}
+
+/** A preset predating the four-protocol release may name a wire by its old name. */
+export function presetProtocol(
+	value: ProviderProtocol | "openai" | "anthropic" | undefined,
+): ProviderProtocol | undefined {
+	if (!value) return undefined;
+	if (value === "openai") return "openai-chat" as const;
+	if (value === "anthropic") return "anthropic-messages" as const;
+	return value;
+}
+
+/** Display names from the metadata map, so a slot can show one without the rest of the row. */
+function normalise(value: string): string {
+	return value.trim().replace(/\/+$/, "");
+}
+
+function namesFrom(metadata: Record<string, ProviderModelMetadata> | undefined): Record<string, string> | undefined {
+	if (!metadata) return undefined;
+	const names = Object.fromEntries(
+		Object.entries(metadata)
+			.filter(([, item]) => item.name)
+			.map(([id, item]) => [id, item.name as string]),
+	);
+	return Object.keys(names).length ? names : undefined;
+}
 
 export function ProviderEditor({
 	provider,
@@ -42,29 +84,67 @@ export function ProviderEditor({
 	registerEndpoint?: RegisterLocalProviderEndpoint | undefined;
 }) {
 	const { t, i18n } = useTranslation();
-	const actions = useProviderActions();
 	const currentTarget = localProviderBinding(provider);
 	const initialTarget = currentTarget ?? preset?.target;
 	const [deviceId, setDeviceId] = useState(initialTarget?.deviceId ?? CLOUD_PROVIDER);
 	const [endpointId, setEndpointId] = useState(initialTarget?.endpointId ?? "");
 	const [localUrl, setLocalUrl] = useState("");
 	const [localKey, setLocalKey] = useState("");
-	const [protocol, setProtocol] = useState<Provider["protocol"]>(provider?.protocol ?? preset?.protocol ?? "openai");
-	const registered = useRef<RegisteredLocalProviderEndpoint | null>(null);
+	const [protocol, setProtocol] = useState<ProviderProtocol>(
+		presetProtocol(provider?.protocol) ?? presetProtocol(preset?.protocol) ?? "openai-chat",
+	);
+	const [name, setName] = useState(provider?.name ?? preset?.name ?? "");
+	const [note, setNote] = useState(provider?.note ?? preset?.note ?? "");
+	const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? preset?.baseUrl ?? "");
+	const [slots, setSlots] = useState<ModelSlot[]>(() => {
+		if (provider) return slotsFromProvider(provider.models, provider.metadata, namesFrom(provider.metadata));
+		const ids = (preset?.models ?? "")
+			.split(",")
+			.map((id) => id.trim())
+			.filter(Boolean);
+		return ids.length ? slotsFromProvider(ids, undefined, undefined) : [newSlot()];
+	});
+	const [apiKey, setApiKey] = useState("");
+	const [replacing, setReplacing] = useState(!provider?.keyConfigured);
+	const [error, setError] = useState<string | null>(null);
+	const [available, setAvailable] = useState<string[]>([]);
+	const [metadata, setMetadata] = useState<Record<string, ProviderModelMetadata>>({});
+	const [confirmPreset, setConfirmPreset] = useState(false);
+	const version = useRef(0);
+	const nextVersion = () => ++version.current;
+
 	const onDevice = deviceId !== CLOUD_PROVIDER;
 	const device = onDevice ? devices.find(({ id }) => id === deviceId) : undefined;
 	const supportsDesktop = (candidate: DeviceSummary) => ["macos", "windows", "linux"].includes(candidate.platform);
 	const canRegister = !!(registerEndpoint && device?.current && supportsDesktop(device));
-	const fixedDeviceProtocol = currentTarget ? provider?.protocol : undefined;
+	const fixedDeviceProtocol = currentTarget ? presetProtocol(provider?.protocol) : undefined;
+	/**
+	 * When editing a device provider its endpoint's wire is fixed. When adding one, the device wire is
+	 * the wire form's own choice: the device gateway records which of its two wires the endpoint serves.
+	 */
+	const deviceProtocol: ProviderProtocol = fixedDeviceProtocol ?? protocol;
+	const binding = useDeviceBinding({
+		deviceId,
+		device,
+		endpointId,
+		localUrl,
+		localKey,
+		deviceProtocol,
+		canRegister,
+		canSetLocalKey: canRegister,
+		registerEndpoint,
+		version: version.current,
+	});
+	const { endpoint, addEndpoint } = binding;
 	const known = device?.modelEndpoints ?? [];
-	const endpoint = known.find((candidate) => candidate.endpointId === endpointId);
-	const addEndpoint =
-		!currentTarget && canRegister && (endpointId === NEW_ENDPOINT || (!endpointId && known.length === 0));
-	const canSetLocalKey = canRegister && (addEndpoint || !!endpoint);
-	const deviceProtocol = fixedDeviceProtocol ?? endpoint?.protocol ?? protocol;
-	const targetReady = Boolean(
-		(endpoint && endpoint.protocol === deviceProtocol) || (addEndpoint && isLocalProviderAddress(localUrl)),
+	// Changing the destination invalidates the stored key: it was entered for another address or wire.
+	const destinationChanged = Boolean(
+		provider && (normalise(baseUrl) !== normalise(provider.baseUrl) || protocol !== provider.protocol),
 	);
+	const needsKey = !onDevice && (replacing || destinationChanged || Boolean(currentTarget));
+	const canSetLocalKey = canRegister && (addEndpoint || Boolean(endpoint));
+	const targetReady = Boolean(endpoint || (addEndpoint && isLocalProviderAddress(localUrl)));
+
 	const locationOptions = [
 		{ value: CLOUD_PROVIDER, label: t("models.cloud") },
 		...devices
@@ -79,118 +159,68 @@ export function ProviderEditor({
 			})),
 		...(onDevice && !device ? [{ value: deviceId, label: t("models.deviceUnavailable") }] : []),
 	];
-	const [name, setName] = useState(provider?.name ?? preset?.name ?? "");
-	const [note, setNote] = useState(provider?.note ?? preset?.note ?? "");
-	const [website, setWebsite] = useState(provider?.website ?? preset?.website ?? "");
-	const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? preset?.baseUrl ?? "");
-	const [models, setModels] = useState(provider?.models.join(", ") ?? preset?.models ?? "");
-	const [apiKey, setApiKey] = useState("");
-	const [replacing, setReplacing] = useState(!provider?.keyConfigured);
-	const destinationChanged = Boolean(
-		provider && (normaliseUrl(baseUrl) !== normaliseUrl(provider.baseUrl) || protocol !== provider.protocol),
-	);
-	const needsKey = !onDevice && (replacing || destinationChanged || Boolean(currentTarget));
-	const [confirmPreset, setConfirmPreset] = useState(false);
-	const [saving, setSaving] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const [available, setAvailable] = useState<string[]>([]);
-	const [metadata, setMetadata] = useState<Record<string, ProviderModelMetadata>>({});
-	const [fetching, setFetching] = useState(false);
-	const discoveryVersion = useRef(0);
-	const writing = useRef(false);
-	const original = useRef(
-		JSON.stringify({ name, note, website, baseUrl, protocol, models, replacing, deviceId, endpointId, localUrl }),
-	);
+
+	const original = useRef(JSON.stringify({ name, note, baseUrl, protocol, deviceId, endpointId, localUrl, slots }));
 	const dirty =
 		Boolean(apiKey || localKey) ||
-		JSON.stringify({ name, note, website, baseUrl, protocol, models, replacing, deviceId, endpointId, localUrl }) !==
-			original.current;
-	const selected = models
-		.split(",")
-		.map((id) => id.trim())
-		.filter(Boolean);
+		JSON.stringify({ name, note, baseUrl, protocol, deviceId, endpointId, localUrl, slots }) !== original.current;
 	useEffect(() => {
 		onDirtyChange?.(dirty);
 	}, [dirty, onDirtyChange]);
 	useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
-	useEffect(
-		() => () => {
-			discoveryVersion.current += 1;
-		},
-		[],
-	);
+
+	const [results, setResults] = useState<Record<string, { ok: boolean; message: string }>>({});
+	const [testing, setTesting] = useState<string | null>(null);
+	const { discover, save, test, fetching, saving } = useProviderSubmit({
+		provider,
+		baseUrl,
+		deviceProtocol,
+		slots,
+		onAddFailure,
+		onDone,
+		setError,
+		setAvailable,
+		setMetadata,
+		version,
+		nextVersion,
+	});
+
+	// Discovery's answer fills the rows it names; a row the person is still typing is kept as it is.
 	useEffect(() => {
-		if (!needsKey) setApiKey("");
-	}, [needsKey]);
+		if (!available.length) return;
+		setSlots((current) => {
+			const named = new Set(available);
+			const kept = current.filter((slot) => !slot.id.trim() || !named.has(slot.id.trim()));
+			const fresh = slotsFromProvider(available, metadata, undefined).map((slot) => ({
+				...slot,
+				name: metadata[slot.id]?.name ?? "",
+			}));
+			return fresh.length || kept.length ? [...fresh, ...kept] : current;
+		});
+	}, [available, metadata]);
+
 	function resetDiscovery() {
-		discoveryVersion.current += 1;
+		nextVersion();
 		setAvailable([]);
 		setMetadata({});
-		setFetching(false);
-	}
-	async function resolveTarget(version: number): Promise<NativeProviderBinding> {
-		const key = canSetLocalKey ? localKey.trim() : "";
-		if (endpoint && !key) return { deviceId, endpointId: endpoint.endpointId };
-		if (!registerEndpoint || !canRegister || (!endpoint && (!addEndpoint || !isLocalProviderAddress(localUrl))))
-			throw new Error("Unapproved local endpoint");
-		const address = normaliseUrl(localUrl);
-		const previous = registered.current;
-		let target =
-			!endpoint &&
-			previous?.baseUrl === address &&
-			previous.protocol === deviceProtocol &&
-			previous.target.deviceId === deviceId
-				? previous.target
-				: undefined;
-		let revision = target ? previous?.revision : undefined;
-		if (!target || key) {
-			const local = { deviceId, baseUrl: address, protocol: deviceProtocol, label: t("models.localEndpoint") };
-			const result = await registerEndpoint(
-				endpoint
-					? { deviceId, endpointId: endpoint.endpointId, apiKey: key }
-					: { ...local, ...(key ? { apiKey: key } : {}) },
-			);
-			if ((endpoint && result.endpointId !== endpoint.endpointId) || (result.protocol ?? "openai") !== deviceProtocol)
-				throw new Error("Unexpected endpoint");
-			target = { deviceId, endpointId: result.endpointId };
-			revision = result.revision;
-			if (version === discoveryVersion.current) {
-				if (!endpoint) registered.current = { baseUrl: address, protocol: deviceProtocol, target, revision };
-				if (key) setLocalKey("");
-			}
-		}
-		// Native registration emits readiness; only a fresh matching cloud acknowledgement can
-		// send discovery or save to this ID. Never fall back to a different endpoint.
-		for (const delay of [0, 150, 350, 750]) {
-			if (delay) await new Promise<void>((resolve) => setTimeout(resolve, delay));
-			if (version !== discoveryVersion.current) throw new Error("Selection changed");
-			const { items } = await actions.readDevices();
-			if (
-				items
-					.find((item) => item.id === deviceId)
-					?.modelEndpoints?.some(
-						(item) =>
-							item.endpointId === target?.endpointId && item.revision === revision && item.protocol === deviceProtocol,
-					)
-			)
-				return target;
-		}
-		throw new Error("Device endpoint not ready");
-	}
-	function chooseLocation(next: string) {
-		setDeviceId(next);
-		setLocalKey("");
-		setEndpointId("");
-		if (next !== CLOUD_PROVIDER && isLoopbackProviderAddress(baseUrl)) {
-			setLocalUrl(baseUrl);
-			setBaseUrl("");
-		}
 		setError(null);
+		binding.reset();
+	}
+	/**
+	 * A device change starts a new destination. An address the person typed on the cloud form carries
+	 * over when it is a loopback address, because that is exactly the local gateway they meant.
+	 */
+	function chooseLocation(value: string) {
+		const carried = isLocalProviderAddress(baseUrl) ? baseUrl : "";
+		setDeviceId(value);
+		setEndpointId("");
+		setLocalKey("");
+		setLocalUrl(carried);
+		setBaseUrl(value === CLOUD_PROVIDER ? carried : "");
 		resetDiscovery();
 	}
 
-	async function discover() {
-		if (writing.current) return;
+	async function startDiscover() {
 		if (onDevice ? !targetReady || device?.status !== "online" : !isHttpsAddress(baseUrl)) {
 			setError(
 				t(
@@ -203,96 +233,38 @@ export function ProviderEditor({
 			);
 			return;
 		}
-		const startedAt = onAddFailure ? performance.now() : 0;
-		writing.current = true;
-		setFetching(true);
-		setError(null);
-		const version = ++discoveryVersion.current;
-		try {
-			const target = onDevice ? await resolveTarget(version) : null;
-			if (version !== discoveryVersion.current) return;
-			const result = await actions.discoverModels(
-				target
-					? { origin: "device", ...target, protocol: deviceProtocol }
-					: {
-							baseUrl: baseUrl.trim(),
-							protocol,
-							...(needsKey ? { apiKey } : provider ? { providerId: provider.id } : {}),
-						},
-			);
-			if (version !== discoveryVersion.current) return;
-			setAvailable(result.models);
-			setMetadata(result.metadata ?? {});
-			if (!result.models.length) setError(t("models.fetchFailed"));
-		} catch (cause) {
-			if (version === discoveryVersion.current) {
-				setError(t("models.fetchFailed"));
-				onAddFailure?.("discover", cause, startedAt);
-			}
-		} finally {
-			writing.current = false;
-			if (version === discoveryVersion.current) setFetching(false);
-		}
+		const target = onDevice ? await binding.resolveTarget(version.current).catch(() => null) : null;
+		await discover(target, onDevice ? "" : apiKey.trim());
 	}
-	async function save(event: React.FormEvent) {
+
+	async function startSave(event: React.FormEvent) {
 		event.preventDefault();
-		if (writing.current) return;
 		if (!onDevice && isLoopbackProviderAddress(baseUrl)) {
 			setError(t("models.chooseDevice"));
+			return;
+		}
+		if (!name.trim()) {
+			setError(t("models.invalid"));
 			return;
 		}
 		if (onDevice && !targetReady) {
 			setError(t("models.deviceUnavailable"));
 			return;
 		}
-		if ((!onDevice && !isHttpsAddress(baseUrl)) || (website.trim() && !isHttpsAddress(website))) {
+		if (!onDevice && !isHttpsAddress(baseUrl)) {
 			setError(t("models.invalidUrl"));
 			return;
 		}
-		const modelIds = models
-			.split(",")
-			.map((id) => id.trim())
-			.filter(Boolean);
-		if (!name.trim() || !modelIds.length || (needsKey && !apiKey.trim())) {
+		if (needsKey && !apiKey.trim()) {
 			setError(t("models.invalid"));
 			return;
 		}
-		const startedAt = onAddFailure ? performance.now() : 0;
-		let saved = false;
-		writing.current = true;
-		setSaving(true);
-		setError(null);
-		const version = ++discoveryVersion.current;
-		setFetching(false);
-		try {
-			const target = onDevice ? await resolveTarget(version) : null;
-			if (version !== discoveryVersion.current) return;
-			const selectedMetadata = Object.fromEntries(
-				modelIds.filter((id) => metadata[id]).map((id) => [id, metadata[id] as ProviderModelMetadata]),
-			);
-			await actions.save(provider?.id, {
-				name: name.trim(),
-				note: note.trim() || null,
-				website: website.trim() || null,
-				models: modelIds,
-				...(Object.keys(selectedMetadata).length ? { metadata: selectedMetadata } : {}),
-				...(target
-					? { origin: "device", ...target, protocol: deviceProtocol }
-					: { baseUrl: normaliseUrl(baseUrl), protocol, ...(needsKey ? { apiKey } : {}) }),
-			});
-			saved = true;
-			setApiKey("");
-			onDone();
-		} catch (cause) {
-			setError(t("models.saveFailed"));
-			if (!saved && version === discoveryVersion.current) onAddFailure?.("save", cause, startedAt);
-		} finally {
-			writing.current = false;
-			setSaving(false);
-		}
+		const target = onDevice ? await binding.resolveTarget(version.current).catch(() => null) : null;
+		await save(target, apiKey.trim(), { name, note, protocol });
 	}
+
 	return (
-		<form noValidate onSubmit={(event) => void save(event)} className="flex flex-col gap-[var(--spacing-4)]">
+		<form noValidate onSubmit={(event) => void startSave(event)} className="flex flex-col gap-[var(--spacing-4)]">
 			{preset ? (
 				<div className="flex items-center justify-between gap-[var(--spacing-2)] text-body">
 					<span>{preset.name || t("models.custom")}</span>
@@ -310,111 +282,109 @@ export function ProviderEditor({
 					) : null}
 				</div>
 			) : null}
-			<TextField
-				label={t("models.name")}
-				value={name}
-				onChange={(event) => setName(event.target.value)}
-				required
-				requiredMark
-				disabled={saving}
-			/>
-			{locationOptions.length > 1 || isLoopbackProviderAddress(baseUrl) ? (
-				<SelectField
-					label={t("models.location")}
-					value={deviceId}
-					options={locationOptions}
-					onChange={chooseLocation}
-					disabled={saving || !!provider}
-					requiredMark={!onDevice && isLoopbackProviderAddress(baseUrl)}
-				/>
-			) : null}
-			<TextField label={t("models.note")} value={note} onChange={(event) => setNote(event.target.value)} />
-			<TextField
-				label={t("models.website")}
-				type="url"
-				value={website}
-				onChange={(event) => setWebsite(event.target.value)}
-			/>
-			{onDevice ? (
-				<>
-					{known.length || !canRegister ? (
-						<SelectField
-							label={t("models.baseUrl")}
-							requiredMark
-							disabled={saving || !!currentTarget}
-							value={endpointId || ""}
-							onChange={(value) => {
-								setEndpointId(value);
-								setLocalKey("");
-								setError(null);
-								resetDiscovery();
-							}}
-							options={[
-								{ value: "", label: t("models.chooseEndpoint") },
-								...known.map((entry) => ({ value: entry.endpointId, label: entry.label })),
-								...(canRegister && !currentTarget ? [{ value: NEW_ENDPOINT, label: t("models.newEndpoint") }] : []),
-								...(endpointId && endpointId !== NEW_ENDPOINT && !endpoint
-									? [{ value: endpointId, label: t("models.deviceUnavailable") }]
-									: []),
-							]}
-						/>
-					) : null}
-					{addEndpoint ? (
-						<TextField
-							label={t("models.baseUrl")}
-							type="url"
-							value={localUrl}
-							onChange={(event) => {
-								setLocalUrl(event.target.value);
-								setLocalKey("");
-								setError(null);
-								resetDiscovery();
-							}}
-							required
-							requiredMark
-							disabled={saving}
-						/>
-					) : null}
-				</>
-			) : (
+
+			{/* Name and note read as one line: both describe the provider, neither is an address. */}
+			<div className="grid gap-[var(--spacing-2)] sm:grid-cols-2">
 				<TextField
-					label={t("models.baseUrl")}
-					type="url"
-					value={baseUrl}
-					onChange={(event) => {
-						setBaseUrl(event.target.value);
-						resetDiscovery();
-					}}
+					label={t("models.name")}
+					value={name}
+					onChange={(event) => setName(event.target.value)}
 					required
 					requiredMark
 					disabled={saving}
 				/>
-			)}
-			{!onDevice || addEndpoint || endpoint ? (
-				<SelectField
-					label={t("models.protocol")}
-					value={onDevice ? deviceProtocol : protocol}
-					disabled={saving || (onDevice && (!!endpoint || !!fixedDeviceProtocol))}
-					onChange={(value) => {
-						setProtocol(value as Provider["protocol"]);
-						setLocalKey("");
-						setError(null);
-						resetDiscovery();
-					}}
-					options={[
-						{ value: "openai", label: t("models.openaiProtocol") },
-						{ value: "anthropic", label: t("models.anthropicProtocol") },
-					]}
+				<TextField
+					label={t("models.note")}
+					value={note}
+					onChange={(event) => setNote(event.target.value)}
+					placeholder={t("models.noteHint")}
+					disabled={saving}
 				/>
-			) : null}
-			<TextField
-				label={t("models.modelIds")}
-				value={models}
-				onChange={(event) => setModels(event.target.value)}
-				required
-				requiredMark
-				disabled={saving}
+			</div>
+
+			{/* Where the call runs and where it is sent belong together: one address, two origins. */}
+			<div className="grid gap-[var(--spacing-2)] sm:grid-cols-2">
+				{locationOptions.length > 1 || isLoopbackProviderAddress(baseUrl) ? (
+					<SelectField
+						label={t("models.location")}
+						value={deviceId}
+						options={locationOptions}
+						onChange={chooseLocation}
+						disabled={saving || !!provider}
+						requiredMark={!onDevice && isLoopbackProviderAddress(baseUrl)}
+					/>
+				) : null}
+				{onDevice ? (
+					<>
+						{known.length || !canRegister ? (
+							<SelectField
+								label={t("models.baseUrl")}
+								requiredMark
+								disabled={saving || !!currentTarget}
+								value={endpointId || ""}
+								onChange={(value) => {
+									setEndpointId(value);
+									setLocalKey("");
+									resetDiscovery();
+								}}
+								options={[
+									{ value: "", label: t("models.chooseEndpoint") },
+									...known.map((entry) => ({ value: entry.endpointId, label: entry.label })),
+									...(canRegister && !currentTarget ? [{ value: NEW_ENDPOINT, label: t("models.newEndpoint") }] : []),
+									...(endpointId && endpointId !== NEW_ENDPOINT && !endpoint
+										? [{ value: endpointId, label: t("models.deviceUnavailable") }]
+										: []),
+								]}
+							/>
+						) : null}
+						{addEndpoint ? (
+							<TextField
+								label={t("models.baseUrl")}
+								type="url"
+								value={localUrl}
+								onChange={(event) => {
+									setLocalUrl(event.target.value);
+									setLocalKey("");
+									resetDiscovery();
+								}}
+								placeholder={PROTOCOL_EXAMPLES[deviceProtocol].placeholder}
+								required
+								requiredMark
+								disabled={saving}
+							/>
+						) : null}
+					</>
+				) : (
+					<TextField
+						label={t("models.baseUrl")}
+						type="url"
+						value={baseUrl}
+						onChange={(event) => {
+							setBaseUrl(event.target.value);
+							resetDiscovery();
+						}}
+						placeholder={PROTOCOL_EXAMPLES[protocol].placeholder}
+						hint={t("models.baseUrlHint", { path: PROTOCOL_EXAMPLES[protocol].path })}
+						required
+						requiredMark
+						disabled={saving}
+					/>
+				)}
+			</div>
+
+			<SelectField
+				label={t("models.protocol")}
+				value={onDevice ? deviceProtocol : protocol}
+				disabled={saving || (onDevice && (Boolean(endpoint) || Boolean(fixedDeviceProtocol)))}
+				onChange={(value) => {
+					setProtocol(value as ProviderProtocol);
+					setLocalKey("");
+					resetDiscovery();
+				}}
+				hint={onDevice ? t("models.deviceProtocolHint") : t("models.protocolHint")}
+				options={PROTOCOL_OPTIONS.map((value) => ({ value, label: t(`models.protocolName.${value}`) }))}
 			/>
+
 			{canSetLocalKey || needsKey ? (
 				<Field
 					label={t("models.apiKey")}
@@ -460,22 +430,49 @@ export function ProviderEditor({
 					</Button>
 				</div>
 			) : null}
-			<Button
-				type="button"
-				onClick={() => void discover()}
-				loading={fetching}
-				disabled={
-					saving ||
-					(onDevice
-						? !targetReady || device?.status !== "online"
-						: !baseUrl.trim() || (needsKey && !apiKey.trim() && !isLoopbackProviderAddress(baseUrl)))
-				}
-			>
-				{t("models.fetchModels")}
-			</Button>
-			{available.length ? (
-				<ProviderModelPicker available={available} selected={selected} onChange={(ids) => setModels(ids.join(", "))} />
-			) : null}
+
+			<div className="flex flex-col gap-[var(--spacing-2)]">
+				<div className="flex items-center justify-between gap-[var(--spacing-2)]">
+					<span className="text-caption text-[var(--color-text-secondary)]">{t("models.modelsTitle")}</span>
+					{/* Discovery is a small action beside the table, not the form's main step. */}
+					<Button
+						type="button"
+						variant="link"
+						size="sm"
+						onClick={() => void startDiscover()}
+						loading={fetching}
+						disabled={
+							saving ||
+							(onDevice
+								? !targetReady || device?.status !== "online"
+								: !baseUrl.trim() || (needsKey && !apiKey.trim() && !isLoopbackProviderAddress(baseUrl)))
+						}
+					>
+						{t("models.fetchModels")}
+					</Button>
+				</div>
+				<ProviderModelSlots
+					slots={slots}
+					available={available}
+					disabled={saving}
+					testing={testing}
+					errorOf={(key) => results[key]}
+					onChange={(next) => {
+						setSlots(next);
+						nextVersion();
+					}}
+					onTest={(slot) => {
+						const model = slot.id.trim();
+						if (!model) return;
+						setTesting(slot.key);
+						void test(model).then((result) => {
+							setResults((current) => ({ ...current, [slot.key]: result }));
+							setTesting(null);
+						});
+					}}
+				/>
+			</div>
+
 			{error ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
 					{error}

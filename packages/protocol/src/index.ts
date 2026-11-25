@@ -67,6 +67,7 @@ export type {
 	MemoryUpdatedSystemEvent,
 	Message,
 	MessagePage,
+	ModelFallbackSystemEvent,
 	PhotoArchivePlanSystemEvent,
 	PhotoArchiveSystemEvent,
 	ResetConversationResponse,
@@ -291,6 +292,7 @@ export type {
 	Provider,
 	ProviderList,
 	ProviderModelMetadata,
+	ProviderProtocol,
 	SaveProviderRequest,
 } from "./models/provider.ts";
 export type {

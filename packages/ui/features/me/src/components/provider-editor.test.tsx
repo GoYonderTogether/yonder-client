@@ -24,7 +24,7 @@ const provider: Provider = {
 	origin: "cloud",
 	name: "Provider",
 	baseUrl: "https://example.org",
-	protocol: "openai",
+	protocol: "openai-chat",
 	models: ["m1"],
 	keyConfigured: true,
 	enabled: true,
@@ -43,16 +43,19 @@ test("editing never displays a stored key and discovery reuses it only by provid
 	await waitFor(() =>
 		expect(actions.discoverModels).toHaveBeenCalledWith({
 			baseUrl: "https://example.org",
-			protocol: "openai",
+			protocol: "openai-chat",
 			providerId: "p1",
 		}),
 	);
-	expect(await screen.findByRole("checkbox", { name: "m2" })).not.toBeChecked();
+	// A discovered model becomes its own row, named by the id it was discovered under.
+	expect(await screen.findAllByDisplayValue("m2")).toHaveLength(1);
 	fireEvent.change(screen.getByRole("textbox", { name: "Request URL" }), {
 		target: { value: "https://other.example.org" },
 	});
-	expect(screen.getByLabelText("API key")).toHaveValue("");
-	expect(screen.getByLabelText("API key")).toHaveAttribute("type", "password");
+	// Changing the address makes the stored key unusable, so the form asks for it again.
+	const key = screen.getByLabelText("API key");
+	expect(key).toHaveValue("");
+	expect(key).toHaveAttribute("type", "password");
 	expect(screen.queryByText("Enter the key again after changing the address or protocol.")).toBeNull();
 	expect(screen.getByRole("button", { name: "Get models" })).toBeDisabled();
 });
@@ -69,7 +72,8 @@ test("empty name or models cannot be saved with an existing key", () => {
 	fireEvent.click(screen.getByRole("button", { name: "Save" }));
 	expect(screen.getByRole("alert")).toHaveTextContent("Enter a name, a valid URL, a key and at least one model.");
 	fireEvent.change(name, { target: { value: "Provider" } });
-	fireEvent.change(screen.getByRole("textbox", { name: "Models (comma-separated)" }), { target: { value: " , " } });
+	// Blanking the only row's request model leaves nothing to save.
+	fireEvent.change(screen.getByRole("textbox", { name: "Request model" }), { target: { value: " " } });
 	fireEvent.click(screen.getByRole("button", { name: "Save" }));
 	expect(screen.getByRole("alert")).toHaveTextContent("Enter a name, a valid URL, a key and at least one model.");
 	expect(actions.save).not.toHaveBeenCalled();
@@ -133,12 +137,13 @@ test("cloud cannot send localhost, and native registers a single exact address b
 	fireEvent.click(screen.getByRole("button", { name: "Get models" }));
 	await waitFor(() =>
 		expect(actions.discoverModels).toHaveBeenCalledWith({
-			protocol: "openai",
+			protocol: "openai-chat",
 			origin: "device",
 			deviceId: myDevice.id,
 			endpointId: nativeEndpoint.endpointId,
 		}),
 	);
+	// The native registration speaks the device wire's own names, not the upstream's four.
 	expect(invoke).toHaveBeenCalledExactlyOnceWith({
 		deviceId: myDevice.id,
 		baseUrl: "http://localhost:11434/v1",
@@ -146,15 +151,18 @@ test("cloud cannot send localhost, and native registers a single exact address b
 		protocol: "openai",
 	});
 	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Local" } });
-	fireEvent.change(screen.getByRole("textbox", { name: "Models (comma-separated)" }), { target: { value: "m1" } });
+	// Discovery added a row; the first one is the one this test fills.
+	fireEvent.change(screen.getAllByRole("textbox", { name: "Request model" })[0] as HTMLElement, {
+		target: { value: "m1" },
+	});
 	fireEvent.click(screen.getByRole("button", { name: "Save" }));
 	await waitFor(() =>
 		expect(actions.save).toHaveBeenCalledWith(undefined, {
 			name: "Local",
 			note: null,
-			website: null,
-			models: ["m1"],
-			protocol: "openai",
+			models: ["m1", "m2"],
+			metadata: { m1: {}, m2: {} },
+			protocol: "openai-chat",
 			origin: "device",
 			deviceId: myDevice.id,
 			endpointId: nativeEndpoint.endpointId,
@@ -173,7 +181,7 @@ test("Web shows only advertised exact endpoints and never accepts an address or 
 	fireEvent.click(screen.getByRole("button", { name: "Get models" }));
 	await waitFor(() =>
 		expect(actions.discoverModels).toHaveBeenCalledWith({
-			protocol: "openai",
+			protocol: "openai-chat",
 			origin: "device",
 			deviceId: remote.id,
 			endpointId: remoteEndpoint.endpointId,
@@ -222,13 +230,14 @@ test("changing protocol at the same local URL requires a separately approved end
 	fireEvent.click(screen.getByRole("button", { name: "Get models" }));
 	await waitFor(() =>
 		expect(actions.discoverModels).toHaveBeenLastCalledWith({
-			protocol: "anthropic",
+			protocol: "anthropic-messages",
 			origin: "device",
 			deviceId: myDevice.id,
 			endpointId: anthropic.endpointId,
 		}),
 	);
 	expect(invoke).toHaveBeenCalledTimes(2);
+	// The native registration speaks the device wire's name for the same wire.
 	expect(invoke).toHaveBeenLastCalledWith({
 		deviceId: myDevice.id,
 		baseUrl: "http://127.0.0.1:8788/v1",

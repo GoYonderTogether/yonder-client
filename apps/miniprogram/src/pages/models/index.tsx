@@ -22,7 +22,7 @@ export default function Models() {
 		setBaseUrl(provider?.baseUrl || "");
 		setModels(provider?.models.join(", ") || "");
 		setApiKey("");
-		setAnthropic(provider?.protocol === "anthropic");
+		setAnthropic(provider?.protocol === "anthropic-messages");
 		setForm(true);
 	};
 	return (
@@ -112,7 +112,7 @@ export default function Models() {
 							void action(async () => {
 								const result = await api.discoverModels({
 									baseUrl,
-									protocol: anthropic ? "anthropic" : "openai",
+									protocol: anthropic ? "anthropic-messages" : "openai-chat",
 									...(apiKey ? { apiKey } : {}),
 									...(editing ? { providerId: editing.id } : {}),
 								});
@@ -129,7 +129,7 @@ export default function Models() {
 								const body = {
 									name: name.trim(),
 									baseUrl: baseUrl.trim(),
-									protocol: anthropic ? ("anthropic" as const) : ("openai" as const),
+									protocol: anthropic ? ("anthropic-messages" as const) : ("openai-chat" as const),
 									models: models
 										.split(",")
 										.map((item) => item.trim())

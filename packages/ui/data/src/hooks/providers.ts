@@ -41,6 +41,6 @@ export function useProviderActions() {
 		},
 		remove: useMutation({ mutationFn: (id: string) => api.deleteProvider(id), onSuccess: refresh }),
 		setDefault: useMutation({ mutationFn: (id: string) => api.setDefaultProvider(id), onSuccess: refresh }),
-		test: useMutation({ mutationFn: (id: string) => api.testProvider(id) }),
+		test: useMutation({ mutationFn: ({ id, model }: { id: string; model?: string }) => api.testProvider(id, model) }),
 	};
 }

@@ -28,6 +28,14 @@ export function systemSentence(event: SystemEvent, locale: Locale): string {
 		const count = event.changes.length;
 		return pair(locale, `记忆已更新 · ${count} 处`, `Memory updated · ${count} files`);
 	}
+	if (event.event === "model_fallback") {
+		// The owner's own provider could not answer; the account is on the platform model until `until`.
+		return pair(
+			locale,
+			`${event.providerName} 的 ${event.model} 不可用，模型已切换至 ${event.fallbackModel}`,
+			`${event.providerName} ${event.model} is unavailable; the model switched to ${event.fallbackModel}`,
+		);
+	}
 	if (event.event === "photo_archive_plan") {
 		const { paused, months, until } = event.plan;
 		if (paused) return pair(locale, "相册整理已暂停。", "Photo organizing is paused.");

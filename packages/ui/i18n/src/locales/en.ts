@@ -328,6 +328,7 @@ export const en = {
 		memoryUpdated: "Memory updated",
 		photoArchive: photoArchiveEn,
 		connectorIntake: connectorIntakeEn,
+		modelFallback: "{{provider}} {{model}} is unavailable; the model switched to {{fallback}}",
 		memoryUpdatedOne: "Memory updated · {{title}}",
 		memoryUpdatedMany: "Memory updated · {{count}} files",
 		memoryRevisionUnavailable: "This change isn't in the file's history",

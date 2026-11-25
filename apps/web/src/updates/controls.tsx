@@ -81,7 +81,7 @@ function UpdateControlsViewContent({ updater, onRestart }: { updater: Updater; o
 					)}
 					onClick={() => {
 						if (updater.platform === "desktop") onRestart();
-						else void updater.prepare(state.version ?? "").then((ok) => ok && updater.install(state.version));
+						else void updater.install();
 					}}
 				/>
 			) : null}

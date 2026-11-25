@@ -33,8 +33,6 @@ test("ready shortcut requires explicit restart consent and supports installation
 	fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "取消" }));
 	expect(install).not.toHaveBeenCalled();
 	await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-	// The dialog re-reads the feed on confirmation before it installs anything, so each click
-	// needs its own settle rather than a synchronous install.
 	fireEvent.click(button);
 	fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "重启并安装" }));
 	await waitFor(() => expect(updater.getSnapshot().status).toBe("error"));

@@ -107,25 +107,6 @@ opens Android's package installer; the user may need to allow installs from this
 settings and must confirm installation. Android refuses to replace an app signed with a different
 certificate. The web and iOS apps have no in-app updater.
 
-### When a client looks for a release
-
-The server watches the same feeds and pushes `device.update.available` over the socket, so a
-release reaches an open client within about a minute. The client also checks on its own: five
-seconds after launch, when the window returns to the foreground (throttled to once every 30
-minutes), and every six hours while it stays open. The launch and foreground checks are what cover
-a socket that was never opened or was dropped while the app was in the background.
-
-`apps/web/src/updates/schedule.ts` holds those numbers. Each check is safe to repeat: a check
-already running is waited for, a desktop package already downloading or ready for the same version
-is not downloaded again, and a repeated failure is not reported as a new one.
-
-Releases land faster than a user restarts, so a build that is downloaded but not installed does not
-stay current by itself. The top notice and the restart dialog both re-read the feed: if a newer
-build was published, the older package is closed, the newer one is staged in its place, and the
-version shown in the notice and on the restart button moves to it. The restart then installs
-exactly the version on screen — `install(version)` refuses any other — so a fast release cadence
-never leaves a user restarting into a build that is already two releases behind.
-
 ## Rebuilding a release that failed
 
 A signed Android APK that already exists on GitHub can be published to OSS without building or

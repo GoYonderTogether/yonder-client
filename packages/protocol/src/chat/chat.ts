@@ -84,11 +84,30 @@ export interface ConnectorIntakeCard {
 	window: { pastDays: number; futureDays: number };
 }
 
+/**
+ * The owner's own provider could not answer, so the run used the platform's model instead. It states
+ * a fact the owner needs — their Bot is not on the model they chose — and stays for as long as the
+ * fallback does, so it is a system line and never the Bot's own words.
+ */
+export interface ModelFallbackSystemEvent {
+	event: "model_fallback";
+	/** What the owner had chosen, and could not answer. */
+	providerName: string;
+	model: string;
+	/** What answered instead. */
+	fallbackProviderName: string;
+	fallbackModel: string;
+	reason: string;
+	/** When the fallback ends by itself; until then the account stays on the platform model. */
+	until: string;
+}
+
 export type SystemEvent =
 	| GroupSystemEvent
 	| MemoryUpdatedSystemEvent
 	| PhotoArchiveSystemEvent
-	| PhotoArchivePlanSystemEvent;
+	| PhotoArchivePlanSystemEvent
+	| ModelFallbackSystemEvent;
 export type SystemEventKind = SystemEvent["event"];
 
 /**
@@ -275,11 +294,6 @@ export interface SendMessageRequest {
 	clientNonce: string;
 	skillIds?: string[];
 	mentionedMemberIds?: string[];
-	/**
-	 * The message this one answers, in the same conversation. In a group, replying to a Bot's message
-	 * addresses that Bot the way an `@` does, so the sender does not have to type its name.
-	 */
-	replyToId?: string;
 }
 
 export interface SendMessageResponse {
@@ -290,8 +304,6 @@ export interface SendMessageResponse {
 export interface CreateBotRequest {
 	displayName: string;
 	avatarColor?: string;
-	/** What the Bot is for, the same label the Bot's settings edit; empty is the same as absent. */
-	botRoleLabel?: string;
 }
 
 /** `POST /v1/visits`: open (or find) the chat with another person's Bot by its public handle. */

@@ -258,8 +258,6 @@ export const accountMessagesEn = {
 		update: {
 			restartConfirm:
 				"Restart to install the update? This closes the client. A recording in progress is saved first and continues after restart; uploads resume afterwards. Other local tasks may be interrupted, so finish or save your work first. Local changes may already have taken effect without a receipt; do not automatically retry them. Task recovery is not guaranteed.",
-			restartChecking:
-				"Checking for the newest version and downloading it; the restart then installs that version. A recording in progress is saved first and continues after restart. Other local tasks may be interrupted, so finish or save your work first.",
 			check: "Check for updates",
 			checking: "Checking for updates…",
 			upToDate: "You're up to date",
@@ -279,14 +277,12 @@ export const accountMessagesEn = {
 			androidInstallSettingsUnavailable:
 				"Could not open Yonder’s install permission page. In Android settings, search for Install unknown apps, select Yonder, and then try again.",
 			notice: "New version",
-			noticeVersion: "New version {{version}}",
 			noticeDownload: "Download & update",
 			noticeRestart: "Restart to update",
 			noticeReload: "Refresh now",
 			noticeTestFlight: "Open TestFlight",
 			noticeLater: "Later",
 			restart: "Restart and install",
-			restartVersion: "Restart and install {{version}}",
 			download: "Download and install",
 		},
 	},

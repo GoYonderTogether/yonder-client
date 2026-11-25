@@ -28,6 +28,14 @@ export function systemEventText(event: SystemEvent, t: Translate): string {
 			? t("chat.memoryUpdatedOne", { title: only.title || only.path })
 			: t("chat.memoryUpdatedMany", { count: event.changes.length });
 	}
+	if (event.event === "model_fallback") {
+		// The owner's own provider could not answer; the account is on the platform model until `until`.
+		return t("chat.modelFallback", {
+			provider: event.providerName,
+			model: event.model,
+			fallback: event.fallbackModel,
+		});
+	}
 	if (event.event === "photo_archive_plan") {
 		const { paused, months, until } = event.plan;
 		if (paused) return t("chat.photoArchive.paused");

@@ -3,8 +3,8 @@ import type { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "./device-display-name.ts";
 
 export type RegisterLocalProviderEndpoint = (
-	input:
-		| { deviceId: string; baseUrl: string; protocol?: Provider["protocol"]; label?: string; apiKey?: string }
+	input: // A device endpoint advertises one of the two device wires, not the four upstream names.
+		| { deviceId: string; baseUrl: string; protocol?: DeviceModelProtocol; label?: string; apiKey?: string }
 		| { deviceId: string; endpointId: string; protocol?: DeviceModelProtocol; apiKey: string },
 ) => Promise<Omit<DeviceModelEndpoint, "protocol"> & { protocol?: DeviceModelProtocol }>;
 
@@ -19,7 +19,8 @@ export interface ProviderPreset {
 	baseUrl: string;
 	models: string;
 	keyUrl: string | null;
-	protocol?: Provider["protocol"];
+	/** The four wire names, or a preset predating them naming `openai`/`anthropic`. */
+	protocol?: Provider["protocol"] | "openai" | "anthropic";
 	target?: NativeProviderBinding | undefined;
 	note?: string | null;
 	website?: string | null;
@@ -39,7 +40,7 @@ export function isLegacyDeviceProvider(provider: Provider) {
 
 export interface RegisteredLocalProviderEndpoint {
 	baseUrl: string;
-	protocol: Provider["protocol"];
+	protocol: DeviceModelProtocol;
 	target: NativeProviderBinding;
 	revision: number;
 }

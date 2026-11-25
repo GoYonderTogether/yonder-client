@@ -7,7 +7,7 @@ const own = (overrides: Partial<Provider>): Provider => ({
 	scope: "user",
 	name: "Mine",
 	baseUrl: "https://example.org",
-	protocol: "openai",
+	protocol: "openai-chat",
 	models: ["m"],
 	keyConfigured: true,
 	enabled: true,

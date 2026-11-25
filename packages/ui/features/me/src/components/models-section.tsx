@@ -188,10 +188,13 @@ export function ModelsSection({
 							onDuplicate={isLegacyDeviceProvider(provider) ? undefined : () => onOpenPage(`duplicate-${provider.id}`)}
 							onTest={() => {
 								setNotice(null);
-								actions.test.mutate(provider.id, {
-									onSuccess: (result) => setNotice({ id: provider.id, ok: result.ok }),
-									onError: () => setNotice({ id: provider.id, ok: false }),
-								});
+								actions.test.mutate(
+									{ id: provider.id },
+									{
+										onSuccess: (result) => setNotice({ id: provider.id, ok: result.ok }),
+										onError: () => setNotice({ id: provider.id, ok: false }),
+									},
+								);
 							}}
 							onDelete={() => {
 								if (window.confirm(t("models.deleteConfirm", { name: provider.name })))

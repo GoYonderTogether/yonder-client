@@ -332,6 +332,7 @@ export const zhCN: Messages = {
 		memoryUpdated: "记忆已更新",
 		photoArchive: photoArchiveZhCN,
 		connectorIntake: connectorIntakeZhCN,
+		modelFallback: "{{provider}} 的 {{model}} 不可用，模型已切换至 {{fallback}}",
 		memoryUpdatedOne: "记忆已更新 · {{title}}",
 		memoryUpdatedMany: "记忆已更新 · {{count}} 处",
 		memoryRevisionUnavailable: "文件历史里找不到这次改动",

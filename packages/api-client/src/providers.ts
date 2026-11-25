@@ -37,8 +37,11 @@ export function providerEndpoints(client: ApiClient) {
 			return client.request(`/v1/providers/${encodeURIComponent(id)}`, { method: "DELETE" });
 		},
 
-		testProvider(id: string): Promise<{ ok: boolean }> {
-			return client.request(`/v1/providers/${encodeURIComponent(id)}/test`, { body: {} });
+		/** `model` names one slot; without it the provider's default model is the one checked. */
+		testProvider(id: string, model?: string): Promise<{ ok: boolean }> {
+			return client.request(`/v1/providers/${encodeURIComponent(id)}/test`, {
+				body: model ? { model } : {},
+			});
 		},
 
 		setDefaultProvider(id: string): Promise<{ ok: true }> {

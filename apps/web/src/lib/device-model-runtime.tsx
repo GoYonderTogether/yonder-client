@@ -1,4 +1,10 @@
-import type { ClientEvent, DeviceModelEndpoint, DeviceModelProtocol, ServerEvent } from "@yonder/protocol";
+import type {
+	ClientEvent,
+	DeviceModelEndpoint,
+	DeviceModelProtocol,
+	ProviderProtocol,
+	ServerEvent,
+} from "@yonder/protocol";
 import { useData, useProviders } from "@yonder/ui-data";
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -52,6 +58,11 @@ function openAiTerminal(protocol: DeviceModelProtocol, body: unknown): string | 
  * point this device at an address the owner did not approve. Only the main window of a desktop
  * device runs this.
  */
+/** The two wire names a device endpoint can advertise, from the provider's own protocol name. */
+export function deviceWire(protocol: ProviderProtocol | "openai" | "anthropic"): DeviceModelProtocol {
+	return protocol === "anthropic-messages" || protocol === "anthropic" ? "anthropic" : "openai";
+}
+
 export function DeviceModelRuntime() {
 	const context = useLocalFilesContext();
 	const { realtime } = useData();
@@ -64,7 +75,9 @@ export function DeviceModelRuntime() {
 		() =>
 			(providers.data?.items ?? [])
 				.filter((provider) => provider.target?.deviceId === context?.deviceId)
-				.map((provider) => [provider.target?.endpointId ?? "", provider.protocol] as const)
+				// A device endpoint is announced on one of the two device wires; the upstream's four
+				// names are the server's business, not this relay's.
+				.map((provider) => [provider.target?.endpointId ?? "", deviceWire(provider.protocol)] as const)
 				.filter(([endpointId]) => endpointId)
 				.sort(),
 		[providers.data, context?.deviceId],
