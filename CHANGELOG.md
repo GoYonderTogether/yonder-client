@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112505] - 2026-11-25
+
+### Added
+
+- voice-memos：a long memo is read one two-minute window at a time
+- intake：the connector import card shows what will be imported and opens its session
+
 ## [0.3.26112504] - 2026-11-25
 
 ### Fixed
