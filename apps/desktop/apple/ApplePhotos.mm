@@ -82,8 +82,10 @@ static YonderApplePhotoFetch YonderApplePhotoImage(PHAsset *asset, CGFloat edge)
                 if (keys[PHImageCancelledKey] != nil) { failure = AppleReadFailed; return; }
                 NSError *error = keys[PHImageErrorKey];
                 if (error != nil) {
-                    if (error.domain == PHPhotosErrorDomain &&
-                        error.code == PHPhotosErrorNetworkAccessRequired) inCloud = YES;
+                    // 3164 is PHPhotosErrorNetworkAccessRequired. It exists from macOS 11 / iOS 14 and
+                    // this file still builds for older deployment targets, where the symbol would be
+                    // an availability problem; the code is the same on every OS that can report it.
+                    if (error.domain == PHPhotosErrorDomain && error.code == 3164) inCloud = YES;
                     else failure = AppleReadFailed;
                     return;
                 }
