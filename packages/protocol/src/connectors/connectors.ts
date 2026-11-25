@@ -120,6 +120,7 @@ export type AppleConnectorOperation =
 	| "apple_calendar_read"
 	| "apple_photos_list"
 	| "apple_photos_read"
+	| "apple_photos_image"
 	| "apple_notes_list"
 	| "apple_notes_read"
 	| "apple_notes_attachment_read"
@@ -268,7 +269,17 @@ export type AppleConnectorResult =
 			}[];
 			more: boolean;
 	  }
-	| { kind: "apple_photos_read"; id: string; text: string; truncated?: boolean; labels?: string[] }
+	| {
+			kind: "apple_photos_read";
+			id: string;
+			text: string;
+			truncated?: boolean;
+			labels?: string[];
+			/** Which local copy the text came from: the original on the device, or the system thumbnail. */
+			source?: "local" | "thumbnail";
+	  }
+	/** `view` asked for one photo's picture; carries the normalized copy, never the original. */
+	| { kind: "apple_photos_image"; id: string; attachment: Attachment }
 	| {
 			kind: "apple_notes_list";
 			notes: { id: string; title: string; modifiedAt: string | null; sourceIdentity?: AppleSourceIdentity }[];
@@ -317,6 +328,13 @@ export type ConnectorExecutionError =
 	| "already_exists"
 	| "no_match"
 	| "multiple_matches"
+	/**
+	 * The library has the photo but not its pixels: only iCloud holds the original and the device
+	 * did not fetch it. A real state the model is told, not a generic read failure.
+	 */
+	| "icloud_only"
+	/** The asset itself is absent or the system's copy is unreadable (deleted, still uploading). */
+	| "unavailable"
 	| "operation_failed";
 export type ConnectorCommandResult =
 	| { ok: true; result: ConnectorResult }

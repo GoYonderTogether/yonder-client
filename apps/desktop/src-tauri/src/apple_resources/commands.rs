@@ -40,6 +40,12 @@ extern "C" {
         context: *mut c_void,
         reply: Reply,
     );
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    fn yonder_apple_photos_image(
+        args: *const c_char,
+        context: *mut c_void,
+        reply: Reply,
+    );
     #[cfg(target_os = "macos")]
     fn yonder_voice_memos_execute(
         operation: i32,
@@ -60,13 +66,14 @@ extern "C" {
 enum Operation {
     List,
     Read,
+    Image,
     Attachment,
     Transcribe,
 }
 
 impl Operation {
     fn binary(self) -> bool {
-        matches!(self, Self::Attachment | Self::Transcribe)
+        matches!(self, Self::Image | Self::Attachment | Self::Transcribe)
     }
 }
 
@@ -80,6 +87,7 @@ fn operation_kind(source: Source, operation: &str) -> Result<Operation, String> 
         (AppleCalendar, "apple_calendar_read")
         | (ApplePhotos, "apple_photos_read")
         | (AppleNotes, "apple_notes_read") => Ok(Operation::Read),
+        (ApplePhotos, "apple_photos_image") => Ok(Operation::Image),
         (AppleNotes, "apple_notes_attachment_read")
         | (AppleVoiceMemos, "apple_voice_memos_read") => Ok(Operation::Attachment),
         (AppleVoiceMemos, "apple_voice_memos_transcribe") => Ok(Operation::Transcribe),
@@ -149,6 +157,11 @@ fn native_error(status: i32) -> &'static str {
         3 => "not_found",
         4 => "operation_failed",
         6 => "too_large",
+        // 7 is the native `YonderAppleResult::AppleICloudOnly`: the asset exists, its pixels do not
+        // exist locally. The read fallback and the server both need it as its own code.
+        7 => "icloud_only",
+        // The library has the asset but nothing readable could be produced for it.
+        5 => "unavailable",
         _ => "read_failed",
     }
 }
@@ -201,8 +214,10 @@ async fn execute_source(
     receiver.recv().await.ok_or("read_failed")?
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 fn export_source(source: Source, operation: Operation, args: Value) -> Result<Vec<u8>, String> {
+    #[cfg(not(target_os = "macos"))]
+    let _ = operation;
     let mut result: Result<Vec<u8>, String> = Err("read_failed".into());
     let context = (&mut result as *mut Result<Vec<u8>, String>).cast();
     extern "C" fn copy(context: *mut c_void, status: i32, bytes: *const u8, length: usize) {
@@ -214,26 +229,41 @@ fn export_source(source: Source, operation: Operation, args: Value) -> Result<Ve
         };
         unsafe { *context.cast::<Result<Vec<u8>, String>>() = result };
     }
-    if source == Source::AppleNotes {
-        let note = CString::new(args["id"].as_str().ok_or("operation_failed")?)
-            .map_err(|_| "operation_failed")?;
-        let attachment = CString::new(args["attachmentId"].as_str().ok_or("operation_failed")?)
-            .map_err(|_| "operation_failed")?;
-        unsafe { yonder_notes_attachment(note.as_ptr(), attachment.as_ptr(), context, copy) };
-    } else {
+    if source == Source::ApplePhotos {
+        // One photo, encoded at the read edge: the picture side travels the same attachment channel
+        // as a note's file or a voice memo, so it gets the same staging, quota and receipt checks.
         let args = CString::new(args.to_string()).map_err(|_| "operation_failed")?;
-        unsafe {
-            yonder_voice_memos_execute(
-                if operation == Operation::Transcribe {
-                    2
-                } else {
-                    1
-                },
-                args.as_ptr(),
-                context,
-                copy,
-            )
-        };
+        unsafe { yonder_apple_photos_image(args.as_ptr(), context, copy) };
+        return result;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        if source == Source::AppleNotes {
+            let note = CString::new(args["id"].as_str().ok_or("operation_failed")?)
+                .map_err(|_| "operation_failed")?;
+            let attachment = CString::new(args["attachmentId"].as_str().ok_or("operation_failed")?)
+                .map_err(|_| "operation_failed")?;
+            unsafe { yonder_notes_attachment(note.as_ptr(), attachment.as_ptr(), context, copy) };
+        } else {
+            let args = CString::new(args.to_string()).map_err(|_| "operation_failed")?;
+            unsafe {
+                yonder_voice_memos_execute(
+                    if operation == Operation::Transcribe {
+                        2
+                    } else {
+                        1
+                    },
+                    args.as_ptr(),
+                    context,
+                    copy,
+                )
+            };
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = operation;
+        return Err("unsupported_file".into());
     }
     result
 }
@@ -312,17 +342,13 @@ pub(super) async fn execute_attachment<R: Runtime>(
     context: Context,
     command: Command,
 ) -> Result<Response, String> {
-    #[cfg(target_os = "macos")]
+    // A picture and an audio file travel the same channel: a staged upload, then a receipt the
+    // server binds to this command. macOS and iOS prompts both run the photo reader.
     return perform(app, context, command, true, |source, operation, args| {
         blocking(move || export_source(source, operation, args))
     })
     .await
     .map(Response::new);
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = (app, context, command);
-        Err("unsupported_file".into())
-    }
 }
 
 #[tauri::command]

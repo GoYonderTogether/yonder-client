@@ -6,6 +6,8 @@ enum YonderApplePermission : int32_t {
 };
 enum YonderAppleResult : int32_t {
     AppleOK, ApplePermissionDenied, AppleReadFailed, AppleNotFound, AppleInvalidInput, AppleUnavailable, AppleTooLarge,
+    // The asset exists but its pixels are only in iCloud; the device deliberately did not download them.
+    AppleICloudOnly,
 };
 typedef void (*YonderAppleReply)(void *, int32_t, const void *, size_t);
 typedef void (*YonderApplePermissionReply)(void *, int32_t);

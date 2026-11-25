@@ -13,6 +13,14 @@ use tauri::{async_runtime, plugin::TauriPlugin, AppHandle, Manager, Runtime};
 
 mod commands;
 
+/**
+ * The Apple-resource argument set this build executes. The server reads it from each `connector.ready`
+ * entry to decide whether to offer operations this build does not have; a build that names none is
+ * read as the first version. 2 added nothing to the wire; 3 added `apple_photos_image`, the picture
+ * side of a photo the server shows a model.
+ */
+const TOOLS_VERSION: u64 = 3;
+
 #[derive(Default)]
 struct AppleResources {
     store: Mutex<Store>,
@@ -49,7 +57,7 @@ impl AppleResources {
             .collect();
         let current = ready
             .iter()
-            .map(|grant| json!({"id": grant.connection_id, "revision": grant.revision}))
+            .map(|grant| json!({"id": grant.connection_id, "revision": grant.revision, "toolsVersion": TOOLS_VERSION}))
             .collect();
         let allowed = ready
             .iter()

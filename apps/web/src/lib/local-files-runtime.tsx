@@ -44,6 +44,10 @@ const ERRORS = new Set([
 	"conflict",
 	"already_exists",
 	"operation_failed",
+	// A photo whose pixels are only in iCloud, and an asset with no readable local copy: the real
+	// states the server and the model need, never collapsed into a generic read failure.
+	"icloud_only",
+	"unavailable",
 ]);
 
 /** A native refusal is the real error code; anything else is a write that did not finish. */
@@ -297,6 +301,24 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 											: { kind: "apple_voice_memos_read", id, attachment },
 								};
 							}
+						} else if (operation === "apple_photos_image") {
+							// `view` asked for a photo's picture: encode at the read edge on the device,
+							// stage it under this command, and hand the receipt back; the server marks it
+							// ready and resolves the model's copy itself.
+							const { id } = args ?? {};
+							if (!id) throw new Error("path_invalid");
+							const file = await executeAppleResourceFile(context, native);
+							if (
+								!active ||
+								state.cancelled ||
+								realtime.status !== "open" ||
+								!eligibleApple(command) ||
+								expiresAtMs <= Date.now()
+							)
+								throw new Error("cancelled");
+							state.upload = new AbortController();
+							const attachment = await api.uploadConnectorAttachment(command.id, file, state.upload.signal);
+							result = { ok: true, result: { kind: "apple_photos_image", id, attachment } };
 						} else {
 							result = { ok: true, result: await executeAppleResource(context, native) };
 						}

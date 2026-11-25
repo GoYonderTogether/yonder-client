@@ -5,6 +5,9 @@
 #import "ApplePhotoDeltaState.h"
 #include <atomic>
 #endif
+#import <ImageIO/ImageIO.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "AppleResourceAttachment.h"
 
 #if TARGET_OS_OSX
 #import <AppKit/AppKit.h>
@@ -39,6 +42,68 @@ static BOOL hasPhotoAccess() {
 
 static BOOL visiblePhoto(PHAsset *asset) {
     return asset != nil && asset.mediaType == PHAssetMediaTypeImage && !asset.isHidden;
+}
+
+// The long edge a picture is fetched at when it is read or shown to a model: the size at which a
+// provider stops losing anything (see `readPhoto`). Kept here so the device sends what the model
+// would keep anyway, never a multi-megabyte original over a 3 Mbps uplink it will discard.
+static constexpr CGFloat YonderPhotoReadEdge = 1280;
+
+struct YonderApplePhotoFetch {
+    YonderOSImage *image;
+    // AppleOK when an image came back; AppleICloudOnly when the pixels are only in iCloud;
+    // otherwise the real failure the caller is told.
+    int32_t status;
+    // True when only a degraded local copy could be had (the original is in iCloud): OCR and
+    // labels still work on it, and the reader says so instead of pretending it saw the original.
+    BOOL thumbnail;
+};
+
+// One opportunistic request, three times at most, because a single callback can be a degraded
+// thumbnail delivered before the exact one. Network is never touched: the result says iCloud, and
+// the caller decides. A library that has the asset but only in iCloud is a fact, not an error.
+static YonderApplePhotoFetch YonderApplePhotoImage(PHAsset *asset, CGFloat edge)
+    API_AVAILABLE(macos(10.15), ios(13.0)) {
+    PHImageRequestOptions *options = [PHImageRequestOptions new];
+    options.synchronous = YES;
+    options.deliveryMode = PHImageRequestOptionsDeliveryModeOpportunistic;
+    options.resizeMode = PHImageRequestOptionsResizeModeFast;
+    options.networkAccessAllowed = NO;
+    options.version = PHImageRequestOptionsVersionCurrent;
+    __block YonderOSImage *image = nil;
+    __block BOOL inCloud = NO;
+    __block int32_t failure = 0;
+    __block NSInteger highQuality = 0;
+    for (NSInteger attempt = 0; attempt < 3; attempt++) {
+        [[PHImageManager defaultManager] requestImageForAsset:asset targetSize:CGSizeMake(edge, edge)
+            contentMode:PHImageContentModeAspectFit options:options
+            resultHandler:^(YonderOSImage *candidate, NSDictionary *info) {
+                NSDictionary *keys = info;
+                if (keys[PHImageCancelledKey] != nil) { failure = AppleReadFailed; return; }
+                NSError *error = keys[PHImageErrorKey];
+                if (error != nil) {
+                    if (error.domain == PHPhotosErrorDomain &&
+                        error.code == PHPhotosErrorNetworkAccessRequired) inCloud = YES;
+                    else failure = AppleReadFailed;
+                    return;
+                }
+                if ([keys[PHImageResultIsInCloudKey] isKindOfClass:NSNumber.class] &&
+                    [keys[PHImageResultIsInCloudKey] boolValue] && candidate == nil) {
+                    inCloud = YES;
+                    return;
+                }
+                if (candidate == nil) return;
+                image = candidate;
+                id degradedFlag = keys[PHImageResultIsDegradedKey];
+                BOOL degraded = [degradedFlag isKindOfClass:NSNumber.class] && [degradedFlag boolValue];
+                if (!degraded) highQuality = 1;
+            }];
+        if (image != nil && highQuality) break;
+        if (image == nil && (inCloud || failure)) break;
+    }
+    if (image == nil && inCloud) return {nil, AppleICloudOnly, NO};
+    if (image == nil) return {nil, failure ? failure : AppleUnavailable, NO};
+    return {image, AppleOK, highQuality == 0};
 }
 
 extern "C" void yonder_apple_photos_request(void *context, YonderApplePermissionReply reply) {
@@ -162,16 +227,19 @@ static void readPhoto(NSString *identifier, void *context, YonderAppleReply repl
         reply(context, AppleNotFound, nullptr, 0);
         return;
     }
-    PHImageRequestOptions *options = [PHImageRequestOptions new];
-    options.synchronous = YES;
-    options.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
-    options.resizeMode = PHImageRequestOptionsResizeModeExact;
-    options.networkAccessAllowed = NO;
-    __block YonderOSImage *image = nil;
-    [[PHImageManager defaultManager] requestImageForAsset:asset targetSize:CGSizeMake(2048, 2048)
-        contentMode:PHImageContentModeAspectFit options:options
-        resultHandler:^(YonderOSImage *candidate, NSDictionary *) { image = candidate; }];
-    VNImageRequestHandler *handler = image == nil ? nil : imageRequest(image);
+    // What one picture is read for, and why it is 1280: the model's own reading of a large image
+    // loses nothing above that long edge (DeepSeek re-reads everything past ~1300×1300 down to it),
+    // and a smaller copy is what makes a library of thousands cheap to look at. The original is
+    // never downloaded here: iCloud would spend the owner's 3 Mbps uplink for pixels the model
+    // discards. When the local copy is only a thumbnail, that is still enough for OCR and labels.
+    YonderApplePhotoFetch fetched = YonderApplePhotoImage(asset, YonderPhotoReadEdge);
+    if (fetched.image == nil) {
+        // A library that has the asset but no local pixels is not a failure: it is a fact the caller
+        // is told, so it can decide to fetch the original from iCloud instead of reporting an error.
+        reply(context, fetched.status == AppleOK ? AppleUnavailable : fetched.status, nullptr, 0);
+        return;
+    }
+    VNImageRequestHandler *handler = imageRequest(fetched.image);
     if (handler == nil) {
         reply(context, AppleUnavailable, nullptr, 0);
         return;
@@ -218,7 +286,57 @@ static void readPhoto(NSString *identifier, void *context, YonderAppleReply repl
     YonderReplyJSON(context, reply, @{
         @"kind": @"apple_photos_read", @"id": identifier, @"text": YonderText(text, 8000),
         @"truncated": @(text.length > 8000), @"labels": labels,
+        // Thumbnail-only is a fact the caller is told, not a failure: the text is real but a small
+        // copy's details may be missing, so the result says which copy was read.
+        @"source": fetched.thumbnail ? @"thumbnail" : @"local",
     });
+}
+
+// Encodes the fetched image at the read edge as JPEG for a model to look at (D3). Uses ImageIO so
+// the encode happens without decoding the full original again; orientation is applied by the
+// thumbnail transform, and EXIF (including where the photo was taken) never travels.
+static NSData *encodePhotoJPEG(YonderOSImage *image) API_AVAILABLE(macos(10.15), ios(13.0)) {
+#if TARGET_OS_OSX
+    CGImageRef pixels = [image CGImageForProposedRect:nullptr context:nil hints:nil];
+#else
+    // The UIImage from PhotoKit is already at the requested edge.
+    CGImageRef pixels = image.CGImage;
+#endif
+    if (pixels == nullptr) return nil;
+    NSMutableData *result = [NSMutableData data];
+    CGImageDestinationRef target = CGImageDestinationCreateWithData((__bridge CFMutableDataRef)result,
+        (__bridge CFStringRef)UTTypeJPEG.identifier, 1, nullptr);
+    if (target == nullptr) return nil;
+    CGImageDestinationAddImage(target, pixels, (__bridge CFDictionaryRef)@{
+        (__bridge NSString *)kCGImageDestinationLossyCompressionQuality: @0.82,
+    });
+    BOOL encoded = CGImageDestinationFinalize(target);
+    CFRelease(target);
+    return encoded ? result : nil;
+}
+
+static void imagePhoto(NSString *identifier, void *context, YonderAppleReply reply)
+    API_AVAILABLE(macos(10.15), ios(13.0)) {
+    PHAsset *asset = [PHAsset fetchAssetsWithLocalIdentifiers:@[identifier] options:nil].firstObject;
+    if (!visiblePhoto(asset)) {
+        reply(context, AppleNotFound, nullptr, 0);
+        return;
+    }
+    YonderApplePhotoFetch fetched = YonderApplePhotoImage(asset, YonderPhotoReadEdge);
+    if (fetched.image == nil) {
+        reply(context, fetched.status == AppleOK ? AppleUnavailable : fetched.status, nullptr, 0);
+        return;
+    }
+    NSData *jpeg = encodePhotoJPEG(fetched.image);
+    if (jpeg.length == 0) {
+        reply(context, AppleReadFailed, nullptr, 0);
+        return;
+    }
+    if (!hasPhotoAccess() || !visiblePhoto([PHAsset fetchAssetsWithLocalIdentifiers:@[identifier] options:nil].firstObject)) {
+        reply(context, AppleNotFound, nullptr, 0);
+        return;
+    }
+    YonderReplyAttachment(context, reply, YonderText([identifier lastPathComponent], 200), @"image/jpeg", jpeg);
 }
 
 extern "C" void yonder_apple_photos_execute(bool read, const char *argsJSON, void *context, YonderAppleReply reply) {
@@ -235,6 +353,21 @@ extern "C" void yonder_apple_photos_execute(bool read, const char *argsJSON, voi
         } else {
             reply(context, AppleUnavailable, nullptr, 0);
         }
+    });
+}
+
+// The picture side of `apple_photos_image`: the same fetch as `readPhoto`, handed back as a JPEG
+// through the attachment reply so it can travel on the device's existing file-upload channel.
+extern "C" void yonder_apple_photos_image(const char *argsJSON, void *context, YonderAppleReply reply) {
+    NSData *bytes = [NSData dataWithBytes:argsJSON length:strlen(argsJSON)];
+    NSDictionary *args = [NSJSONSerialization JSONObjectWithData:bytes options:0 error:nil];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        if (!hasPhotoAccess()) {
+            reply(context, ApplePermissionDenied, nullptr, 0);
+            return;
+        }
+        if (@available(macOS 10.15, iOS 13.0, *)) imagePhoto(args[@"id"], context, reply);
+        else reply(context, AppleUnavailable, nullptr, 0);
     });
 }
 
