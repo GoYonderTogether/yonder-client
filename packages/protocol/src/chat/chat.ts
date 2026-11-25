@@ -69,6 +69,21 @@ export interface PhotoArchivePlanSystemEvent {
 	plan: { paused: boolean; months: string[] | null; until: string | null };
 }
 
+/**
+ * The first message of a connector's import session (PLAN.md 4.2-G): a system card, drawn like the
+ * recording card, that states what the import covers. `connectorId` chooses the name and icon; the
+ * device and the range are facts the server read from the grant, never the Bot's words.
+ */
+export interface ConnectorIntakeCard {
+	connectorId: string;
+	/** The catalog's display name at the time of the grant; the client prefers its own label. */
+	name: string;
+	deviceId: string;
+	deviceName: string;
+	/** How far back the first pass reads, in days, and how far ahead for a calendar. */
+	window: { pastDays: number; futureDays: number };
+}
+
 export type SystemEvent =
 	| GroupSystemEvent
 	| MemoryUpdatedSystemEvent
@@ -231,6 +246,11 @@ export interface Message {
 	};
 	/** Server-owned entry to an existing private item conversation. */
 	taskSession?: { id: string; title: string };
+	/**
+	 * The head card of a connector's import session (PLAN.md 4.2-G): what is being imported, from
+	 * which device, over what range. A visible system card, never the Bot's own words.
+	 */
+	connectorIntake?: ConnectorIntakeCard;
 	/** Present on a `task_notice`: which subtask it is about. */
 	taskNotice?: { id: string; title: string; status: string };
 	/** Present when a scheduled run could not happen: the plan and the real reason, shown as an error. */

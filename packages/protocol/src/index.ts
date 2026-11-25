@@ -55,6 +55,7 @@ export type {
 	Attachment,
 	AttachmentTextPreview,
 	ChatHistoryCutoff,
+	ConnectorIntakeCard,
 	Conversation,
 	ConversationMember,
 	ConversationVisit,

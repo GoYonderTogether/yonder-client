@@ -4,6 +4,7 @@ import { channelsZhCN } from "./channels.ts";
 import { commerceZhCN } from "./commerce.ts";
 import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
 import { composerInputZhCN } from "./composer-input.ts";
+import { connectorIntakeZhCN } from "./connector-intake-zh-CN.ts";
 import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
 import type { Messages } from "./en.ts";
 import { friendQrZhCN, friendRequestsZhCN } from "./friend-qr-zh-CN.ts";
@@ -330,6 +331,7 @@ export const zhCN: Messages = {
 		retryEarlier: "重试加载更早的消息",
 		memoryUpdated: "记忆已更新",
 		photoArchive: photoArchiveZhCN,
+		connectorIntake: connectorIntakeZhCN,
 		memoryUpdatedOne: "记忆已更新 · {{title}}",
 		memoryUpdatedMany: "记忆已更新 · {{count}} 处",
 		memoryRevisionUnavailable: "文件历史里找不到这次改动",

@@ -4,6 +4,7 @@ import { channelsEn } from "./channels.ts";
 import { commerceEn } from "./commerce.ts";
 import { composerAttachmentsEn } from "./composer-attachments-en.ts";
 import { composerInputEn } from "./composer-input.ts";
+import { connectorIntakeEn } from "./connector-intake-en.ts";
 import { connectorMessagesEn } from "./connectors-en.ts";
 import { friendQrEn, friendRequestsEn } from "./friend-qr-en.ts";
 import { inviteExperienceEn } from "./invite-experience-en.ts";
@@ -326,6 +327,7 @@ export const en = {
 		retryEarlier: "Retry loading earlier messages",
 		memoryUpdated: "Memory updated",
 		photoArchive: photoArchiveEn,
+		connectorIntake: connectorIntakeEn,
 		memoryUpdatedOne: "Memory updated · {{title}}",
 		memoryUpdatedMany: "Memory updated · {{count}} files",
 		memoryRevisionUnavailable: "This change isn't in the file's history",

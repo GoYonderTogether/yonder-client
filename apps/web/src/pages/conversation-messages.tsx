@@ -21,6 +21,7 @@ import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentCardMessage } from "./agent-card-message.tsx";
+import { ConnectorIntakeMessageCard } from "./connector-intake-card.tsx";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
 import { FriendRequestCard } from "./friend-request-card.tsx";
 import { MeetingMessageCard } from "./meeting-message-card.tsx";
@@ -374,8 +375,16 @@ function MessageEntry({
 			{message.connectorRequestId ? <ConnectorRequestCard id={message.connectorRequestId} /> : null}
 			{message.cardId ? <AgentCardMessage id={message.cardId} disconnected={disconnected} /> : null}
 			{meeting && onOpenMeeting ? <MeetingMessageCard meeting={meeting} onOpen={onOpenMeeting} /> : null}
-			{message.taskSession && onOpenMeeting ? (
+			{message.taskSession && onOpenMeeting && !message.connectorIntake ? (
 				<MeetingMessageCard meeting={message.taskSession} task onOpen={onOpenMeeting} />
+			) : null}
+			{/* A connector's entry is one card: the import's own facts, which also open the session. */}
+			{message.connectorIntake ? (
+				<ConnectorIntakeMessageCard
+					intake={message.connectorIntake}
+					{...(message.taskSession ? { sessionId: message.taskSession.id } : {})}
+					{...(onOpenMeeting ? { onOpen: onOpenMeeting } : {})}
+				/>
 			) : null}
 			{message.pending ? (
 				<span className="text-caption text-[var(--color-text-secondary)]">{t("chat.sending")}</span>

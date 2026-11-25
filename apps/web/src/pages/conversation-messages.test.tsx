@@ -402,3 +402,32 @@ test("a connector intake card is owner-side without reassigning the Bot or neigh
 	fireEvent.click(getByRole("button", { name: /Apple Calendar/ }));
 	expect(onOpenMeeting).toHaveBeenCalledWith("calendar");
 });
+
+test("the connector import card states the device and range, and opens its own session", () => {
+	const onOpenMeeting = vi.fn();
+	const { container, getByRole, getByText } = render(
+		view(
+			[
+				message("import-card", bot.id, {
+					senderKind: "bot",
+					body: "",
+					taskSession: { id: "cnv_import", title: "Apple Voice Memos" },
+					connectorIntake: {
+						connectorId: "apple-voice-memos",
+						name: "Apple Voice Memos",
+						deviceId: "dev_1",
+						deviceName: "Studio Mac",
+						window: { pastDays: 90, futureDays: 0 },
+					},
+				}),
+			],
+			{ onOpenMeeting },
+		),
+	);
+	expect(getByText("正在导入 Apple 语音备忘录")).toBeTruthy();
+	expect(getByText("Studio Mac · 近 90 天")).toBeTruthy();
+	const card = container.querySelector("[data-connector-intake-card]");
+	expect(card?.tagName).toBe("BUTTON");
+	fireEvent.click(getByRole("button", { name: /Studio Mac/ }));
+	expect(onOpenMeeting).toHaveBeenCalledWith("cnv_import");
+});
