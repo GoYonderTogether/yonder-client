@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.3.26112507] - 2026-11-25
+
+### Added
+
+- protocol：an item says why it is paused and when it is retried
+- protocol：item progress names its unit
+- protocol：item detail carries progress, activity and output files
+
+### Changed
+
+- protocol：one meetingProgress for every reader of a recording
+
 ## [0.3.26112506] - 2026-11-25
 
 ### Added
