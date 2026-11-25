@@ -1,5 +1,6 @@
 import { Button } from "@yonder/ui-components";
-import { useChannelConversations, useChannelMessages, useChannels } from "@yonder/ui-data";
+import { useAccountTimeZone, useChannelConversations, useChannelMessages, useChannels } from "@yonder/ui-data";
+import { formatInstant } from "@yonder/ui-time";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -29,6 +30,7 @@ export function FeishuExternalConversations({ botId }: { botId: string }) {
 
 function ExternalConversationList({ connectionId }: { connectionId: string }) {
 	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
 	const { list, change } = useChannelConversations(connectionId);
 	const [selection, select] = useState<string>();
 	const items = list.data?.items ?? [];
@@ -45,9 +47,12 @@ function ExternalConversationList({ connectionId }: { connectionId: string }) {
 					onClick={() => select(selection === item.id ? undefined : item.id)}
 				>
 					{t(`channels.chat_${item.kind}`)} · {t(`channels.chat_${item.state}`)} ·{" "}
-					{new Intl.DateTimeFormat(i18n.resolvedLanguage, { dateStyle: "short", timeStyle: "short" }).format(
-						new Date(item.lastMessageAt),
-					)}
+					{formatInstant(item.lastMessageAt, {
+						zone,
+						locale: i18n.resolvedLanguage ?? i18n.language,
+						style: "dateTime",
+						width: "short",
+					})}
 				</Button>
 			))}
 			{current && (

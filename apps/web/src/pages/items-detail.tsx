@@ -1,8 +1,9 @@
 import { MessageBubble, MessageRun, SystemNotice } from "@yonder/chat-presentation";
 import type { ItemDetail } from "@yonder/protocol";
 import { Button, EmptyState } from "@yonder/ui-components";
-import { ApiError, useItem, useItemActions, type useItemSession } from "@yonder/ui-data";
+import { ApiError, useAccountTimeZone, useItem, useItemActions, type useItemSession } from "@yonder/ui-data";
 import { PageFrame } from "@yonder/ui-shell";
+import { formatInstant } from "@yonder/ui-time";
 import { Ellipsis, ListChecks } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ItemMeetingCard } from "./item-meeting-card.tsx";
@@ -40,6 +41,7 @@ export function ItemDetailPage({
 	const actions = useItemActions();
 	const item = query.data;
 	const locale = i18n.resolvedLanguage ?? i18n.language;
+	const zone = useAccountTimeZone();
 	if (!item)
 		return (
 			<PageFrame title={t("tasks.itemHeading")}>
@@ -66,7 +68,7 @@ export function ItemDetailPage({
 		);
 
 	const canRename = Boolean(session.data) && (item.source === "meeting" || item.source === "conversation");
-	const title = <ItemHeader item={item} locale={locale} t={t} canRename={canRename && !disconnected} />;
+	const title = <ItemHeader item={item} locale={locale} zone={zone} t={t} canRename={canRename && !disconnected} />;
 	const allowed = itemActions(item);
 	const busy = actions.cancel.isPending;
 	/**
@@ -144,23 +146,26 @@ export function ItemDetailPage({
 function ItemHeader({
 	item,
 	locale,
+	zone,
 	t,
 	canRename,
 }: {
 	item: ItemDetail;
 	locale: string;
+	/** The account's zone: the header's clock and its day are both read in it. */
+	zone: string;
 	t: ReturnType<typeof useTranslation>["t"];
 	canRename: boolean;
 }) {
-	const dates = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" });
+	const date = (iso: string) => formatInstant(iso, { zone, locale, style: "date", width: "long", year: "always" });
 	const start = new Date(item.startedAt);
 	const end = item.endedAt ? new Date(item.endedAt) : null;
-	const group = itemGroup(item.startedAt, new Date());
+	const group = itemGroup(item.startedAt, new Date(), zone);
 	const day =
-		group === "earlier" ? dates.format(start) : t(group === "today" ? "tasks.itemsToday" : "tasks.itemsYesterday");
-	const started = itemTimeLabel(item.startedAt, locale);
-	const ended = item.endedAt ? itemTimeLabel(item.endedAt, locale) : null;
-	const endDay = end && localDay(end) !== localDay(start) ? dates.format(end) : null;
+		group === "earlier" ? date(item.startedAt) : t(group === "today" ? "tasks.itemsToday" : "tasks.itemsYesterday");
+	const started = itemTimeLabel(item.startedAt, locale, zone);
+	const ended = item.endedAt ? itemTimeLabel(item.endedAt, locale, zone) : null;
+	const endDay = end && localDay(end, zone) !== localDay(start, zone) ? date(item.endedAt as string) : null;
 	const word = itemTrailingKey(item);
 	// The same mark the list uses (2026-11-26), so one item reads the same in both places. The
 	// header writes the state out in words, so the mark itself is decorative here.
@@ -191,13 +196,19 @@ function ItemHeader({
 				<span className="min-w-0 truncate">
 					{reason ? <span>{reason}</span> : null}
 					{reason ? <span aria-hidden="true"> · </span> : null}
-					<time dateTime={item.startedAt} title={t("tasks.itemStartedAt", { at: `${dates.format(start)} ${started}` })}>
+					<time
+						dateTime={item.startedAt}
+						title={t("tasks.itemStartedAt", { at: `${date(item.startedAt)} ${started}` })}
+					>
 						{day} {started}
 					</time>
 					{item.endedAt && end && ended ? (
 						<>
 							<span aria-hidden="true"> – </span>
-							<time dateTime={item.endedAt} title={t("tasks.itemEndedAt", { at: `${dates.format(end)} ${ended}` })}>
+							<time
+								dateTime={item.endedAt}
+								title={t("tasks.itemEndedAt", { at: `${date(item.endedAt as string)} ${ended}` })}
+							>
 								{endDay ? `${endDay} ` : ""}
 								{ended}
 							</time>

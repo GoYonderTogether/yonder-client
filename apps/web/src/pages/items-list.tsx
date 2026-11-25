@@ -1,6 +1,14 @@
 import type { Member } from "@yonder/protocol";
 import { Button, EmptyState, ListGroup, ListRow, type RowAction } from "@yonder/ui-components";
-import { ApiError, useArchivedItems, useContacts, useItemListAction, useItems, useSchedules } from "@yonder/ui-data";
+import {
+	ApiError,
+	useAccountTimeZone,
+	useArchivedItems,
+	useContacts,
+	useItemListAction,
+	useItems,
+	useSchedules,
+} from "@yonder/ui-data";
 import { Archive, ChevronDown, ChevronRight, ListChecks, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -37,9 +45,10 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 		[archivedQuery.data],
 	);
 	// The list's clock, so a running row's elapsed time keeps up without a timer per row.
-	const now = useMinute();
+	const zone = useAccountTimeZone();
+	const now = useMinute(zone);
 	const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
-	const groups = useMemo(() => sectionItems(items, now, deviceZone()), [items, now]);
+	const groups = useMemo(() => sectionItems(items, now, zone), [items, now, zone]);
 	const names = useMemo(() => botNames(contacts.data?.items), [contacts.data]);
 	const upcoming = upcomingOneOffs(schedules.data?.items ?? []);
 	const locale = i18n.resolvedLanguage ?? i18n.language;
@@ -152,6 +161,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 								actions={rowActions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}
 								locale={i18n.language}
+								zone={zone}
 								now={now}
 							/>
 						))}
@@ -213,6 +223,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 								actions={rowActions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}
 								locale={i18n.language}
+								zone={zone}
 								now={now}
 							/>
 						))
@@ -269,12 +280,3 @@ function botNames(members: readonly Member[] | undefined) {
 
 /** How many 更早 items are visible before the group is expanded. */
 const EARLIER_PREVIEW = 5;
-
-/** The device's zone, so "today" is the reader's today rather than the server's. */
-function deviceZone(): string | undefined {
-	try {
-		return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
-	} catch {
-		return undefined;
-	}
-}

@@ -1,5 +1,7 @@
 import { recordingDuration } from "@yonder/feature-meetings";
 import type { Message } from "@yonder/protocol";
+import { useAccountTimeZone } from "@yonder/ui-data";
+import { formatInstant, localDay, zonedParts } from "@yonder/ui-time";
 import { ChevronRight, ListTodo } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,9 +20,10 @@ export function MeetingMessageCard({
 	onOpen: (id: string) => void;
 }) {
 	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
 	const detailsId = useId();
 	const title = task ? meeting.title : meeting.title.trim() || t("meetingRecorder.defaultTitle");
-	const date = task ? null : recordingNoteDate(meeting.startedAt, i18n.resolvedLanguage);
+	const date = task ? null : recordingNoteDate(meeting.startedAt, i18n.resolvedLanguage, zone);
 	const duration = task ? null : recordingNoteDuration(meeting.durationMs);
 	const details = [date, duration ? t(`meetingRecorder.card${duration.unit}`, duration) : null]
 		.filter(Boolean)
@@ -69,9 +72,10 @@ export function MeetingMetadata({
 	photoCount?: number | undefined;
 }) {
 	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
 	const start = startedAt != null && startedAt > 0 && startedAt <= 8.64e15 ? new Date(startedAt) : null;
 	const end = endedAt != null && endedAt > 0 && endedAt <= 8.64e15 ? new Date(endedAt) : null;
-	const range = start ? meetingRange(start, end, i18n.resolvedLanguage) : null;
+	const range = start ? meetingRange(start, end, i18n.resolvedLanguage, zone) : null;
 	const fields = [
 		range,
 		typeof durationMs === "number" && Number.isFinite(durationMs) ? recordingDuration(durationMs) : null,
@@ -84,15 +88,17 @@ export function MeetingMetadata({
 	) : null;
 }
 
-function meetingRange(start: Date, end: Date | null, locale: string | undefined) {
-	const sameDay = start.toDateString() === end?.toDateString();
-	const withSeconds = sameDay && start.getHours() === end?.getHours() && start.getMinutes() === end.getMinutes();
-	const time = new Intl.DateTimeFormat(locale, {
-		hour: "2-digit",
-		minute: "2-digit",
-		...(withSeconds ? { second: "2-digit" } : {}),
-	});
-	const date = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
-	const from = `${date.format(start)} ${time.format(start)}`;
-	return end ? `${from} – ${sameDay ? "" : `${date.format(end)} `}${time.format(end)}` : from;
+/** A recording's span, read in the account's zone (2026-11-25), so both ends agree everywhere. */
+function meetingRange(start: Date, end: Date | null, locale: string | undefined, zone: string) {
+	const lang = locale ?? "en";
+	const sameDay = localDay(start, zone) === localDay(end ?? start, zone);
+	const startParts = zonedParts(zone, start);
+	const endParts = end ? zonedParts(zone, end) : null;
+	const withSeconds = Boolean(
+		endParts && sameDay && startParts.hour === endParts.hour && startParts.minute === endParts.minute,
+	);
+	const time = (at: Date) => formatInstant(at, { zone, locale: lang, style: "time", seconds: withSeconds });
+	const date = (at: Date) => formatInstant(at, { zone, locale: lang, style: "monthDay" });
+	const from = `${date(start)} ${time(start)}`;
+	return end ? `${from} – ${sameDay ? "" : `${date(end)} `}${time(end)}` : from;
 }

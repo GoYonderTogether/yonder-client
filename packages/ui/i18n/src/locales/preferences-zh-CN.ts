@@ -1,0 +1,26 @@
+export const preferenceMessagesZhCN = {
+	timezone: {
+		title: "时区",
+		follow: "跟随系统（当前：{{zone}} {{offset}}）",
+		followShort: "跟随系统",
+		manual: "手动选择",
+		locked: "已锁定：{{name}} {{offset}}",
+		following: "跟随系统：{{zone}} {{offset}}",
+		thisDevice: "此设备是 {{zone}} {{offset}}",
+		pickerTitle: "时区",
+		pickerIntro: "平台内所有时间（消息、任务、笔记）都按这个时区显示，多端一致。",
+		search: "搜索城市或时区",
+		currentDevice: "当前设备时区",
+		beijing: "北京时间",
+		noMatch: "没有匹配的时区。",
+		saveFailed: "没有保存：{{reason}}",
+		unknownZone: "无法识别这个时区",
+		storageRefused: "这台设备不允许写入本地存储",
+	},
+	languageChoice: {
+		follow: "跟随系统（当前：{{locale}}）",
+		locked: "已锁定：{{locale}}",
+		following: "跟随系统：{{locale}}",
+		saveFailed: "没有保存：{{reason}}",
+	},
+};

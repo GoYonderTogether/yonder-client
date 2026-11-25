@@ -12,6 +12,7 @@ export {
 export { ChannelSettings, FeishuAttemptCard } from "./channels/feishu-channel.tsx";
 export { FeishuExternalConversations } from "./channels/feishu-external.tsx";
 export { AboutSection } from "./components/about-section.tsx";
+export { LanguageSection, TimeZonePicker, TimeZoneSection } from "./components/account-preferences-sections.tsx";
 export { AccountSection } from "./components/account-section.tsx";
 export { DevicesSection } from "./components/devices-section.tsx";
 export { GeneralSection } from "./components/empty-sections.tsx";

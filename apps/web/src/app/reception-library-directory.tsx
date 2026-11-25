@@ -1,5 +1,7 @@
 import type { SocialLibrary, SocialLibraryFolder } from "@yonder/protocol";
 import { EmptyState, IconTile, ListGroup, ListRow, SearchInput } from "@yonder/ui-components";
+import { useAccountTimeZone } from "@yonder/ui-data";
+import { formatInstant } from "@yonder/ui-time";
 import { FileClock, Files, FileText, Folder, Search } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -24,9 +26,12 @@ export function receptionDraftTitle(draft: Draft, fallback: string) {
 	return Array.from(line).slice(0, 50).join("") || fallback;
 }
 
+/** A document's date on the account's calendar, so an edit reads the same day everywhere. */
 export function useReceptionDate() {
 	const { i18n } = useTranslation();
-	return new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, { dateStyle: "medium" });
+	const zone = useAccountTimeZone();
+	const locale = i18n.resolvedLanguage ?? i18n.language;
+	return (iso: string | undefined) => (iso ? formatInstant(iso, { zone, locale, style: "date", width: "medium" }) : "");
 }
 
 function newestFirst(documents: readonly Document[]) {
@@ -295,7 +300,7 @@ function ReceptionDocumentRows({
 						subtitle={
 							kind
 								? trail.map((folder) => folderName(folder)).join(" › ") || t("members.social.library.root")
-								: date.format(new Date(document.updatedAt))
+								: date(document.updatedAt)
 						}
 						selected={selected === document.id}
 						chevron
@@ -335,7 +340,7 @@ export function ReceptionDraftList({
 							</IconTile>
 						}
 						title={receptionDraftTitle(draft, t("members.social.library.untitledDraft"))}
-						subtitle={date.format(new Date(draft.createdAt))}
+						subtitle={date(draft.createdAt)}
 						selected={selected === draft.id}
 						chevron
 						onClick={() => onOpen(receptionSettingsPath("drafts", draft.id))}

@@ -148,9 +148,10 @@ describe("what an item says", () => {
 		expect(itemWaitingText(item(), "整理账单", "en")).toBe("Waiting for your reply");
 	});
 
-	test("a time is the reader's hour format", () => {
-		expect(itemTimeLabel("2026-11-17T02:05:00.000Z", "en-GB")).toMatch(/^\d{2}:\d{2}$/);
-		expect(itemTimeLabel("not-an-instant", "en-GB")).toBe("not-an-instant");
+	test("a time is on the account's clock, read in its zone", () => {
+		expect(itemTimeLabel("2026-11-17T02:05:00.000Z", "en-GB", "Asia/Shanghai")).toBe("10:05");
+		expect(itemTimeLabel("2026-11-17T02:05:00.000Z", "en-GB", "America/New_York")).toBe("21:05");
+		expect(itemTimeLabel("not-an-instant", "en-GB", "UTC")).toBe("not-an-instant");
 	});
 
 	test("how long a run has been going reads in whole units", () => {

@@ -1,5 +1,6 @@
 import type { DeviceSummary, Provider, ProviderModelMetadata, ProviderProtocol } from "@yonder/protocol";
 import { Button, Field, PasswordField, SelectField, TextField } from "@yonder/ui-components";
+import { useAccountTimeZone, useProviderActions } from "@yonder/ui-data";
 import { DiscardChangesDialog } from "@yonder/ui-shell";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -84,6 +85,8 @@ export function ProviderEditor({
 	registerEndpoint?: RegisterLocalProviderEndpoint | undefined;
 }) {
 	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
+	const actions = useProviderActions();
 	const currentTarget = localProviderBinding(provider);
 	const initialTarget = currentTarget ?? preset?.target;
 	const [deviceId, setDeviceId] = useState(initialTarget?.deviceId ?? CLOUD_PROVIDER);
@@ -155,7 +158,7 @@ export function ProviderEditor({
 			)
 			.map((candidate) => ({
 				value: candidate.id,
-				label: providerDeviceLabel(candidate, t, i18n.resolvedLanguage ?? i18n.language),
+				label: providerDeviceLabel(candidate, t, i18n.resolvedLanguage ?? i18n.language, zone),
 			})),
 		...(onDevice && !device ? [{ value: deviceId, label: t("models.deviceUnavailable") }] : []),
 	];

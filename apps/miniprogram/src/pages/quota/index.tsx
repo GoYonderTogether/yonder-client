@@ -1,10 +1,12 @@
 import { Text, View } from "@tarojs/components";
 import type { QuotaLedgerPage, UsagePage } from "@yonder/protocol";
+import { formatInstant } from "@yonder/ui-time";
 import { useState } from "react";
 import { action, Button, Page, Row, State } from "../../components/ui";
 import { useResource } from "../../components/use-resource";
-import { t } from "../../lib/i18n";
+import { currentLocale, t } from "../../lib/i18n";
 import { api } from "../../lib/runtime";
+import { accountTimeZone } from "../../lib/time";
 
 export default function Quota() {
 	const { data, loading, error, reload } = useResource(async () => ({
@@ -51,7 +53,7 @@ export default function Quota() {
 							<Row
 								key={entry.id}
 								title={`${entry.amount > 0 ? "+" : ""}${entry.amount}`}
-								detail={`${new Date(entry.at).toLocaleString()} · ${entry.note || entry.kind}`}
+								detail={`${formatInstant(entry.at, { zone: accountTimeZone(), locale: currentLocale(), style: "dateTime", width: "short", year: "always" })} · ${entry.note || entry.kind}`}
 							/>
 						))}
 						{entries?.hasMore && (
@@ -74,7 +76,7 @@ export default function Quota() {
 							<Row
 								key={call.id}
 								title={`${call.model} · ${call.pool}`}
-								detail={`${new Date(call.at).toLocaleString()} · ${call.inputTokens ?? "—"} / ${call.outputTokens ?? "—"} · ${call.cost}`}
+								detail={`${formatInstant(call.at, { zone: accountTimeZone(), locale: currentLocale(), style: "dateTime", width: "short", year: "always" })} · ${call.inputTokens ?? "—"} / ${call.outputTokens ?? "—"} · ${call.cost}`}
 							/>
 						))}
 						{calls?.hasMore && (

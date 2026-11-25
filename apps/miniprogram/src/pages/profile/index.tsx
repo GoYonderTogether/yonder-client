@@ -1,11 +1,18 @@
 import { Image, View } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { ApiError } from "@yonder/api-client";
+import { formatInstant } from "@yonder/ui-time";
 import { useEffect, useRef, useState } from "react";
 import { action, Button, errorText, Field, Page } from "../../components/ui";
-import { t } from "../../lib/i18n";
+import { currentLocale, t } from "../../lib/i18n";
 import { api, client, uploadAvatar, useSession } from "../../lib/runtime";
+import { accountTimeZone } from "../../lib/time";
 import { signInDestination } from "../sign-in/destination";
+
+/** A date on the account's calendar. */
+function formatDay(at: Date): string {
+	return formatInstant(at, { zone: accountTimeZone(), locale: currentLocale(), style: "date", width: "short" });
+}
 
 /** The sentence for a refused handle change; the server's `message` is for developers. */
 function handleProblem(error: unknown): string {
@@ -15,7 +22,7 @@ function handleProblem(error: unknown): string {
 		if (error.code === "handle_cooldown") {
 			const next = typeof error.details?.nextChangeAt === "string" ? new Date(error.details.nextChangeAt) : null;
 			return next
-				? t(`${next.toLocaleDateString()} 之后才能再改`, `You can change it again after ${next.toLocaleDateString()}`)
+				? t(`${formatDay(next)} 之后才能再改`, `You can change it again after ${formatDay(next)}`)
 				: t("最近刚改过，稍后再改", "You changed it recently. Try again later");
 		}
 		if (error.code === "invalid_request" && error.details?.field === "handle") {
@@ -101,8 +108,8 @@ export default function Profile() {
 					{handleChange && !handleChange.canChange ? (
 						<View>
 							{t(
-								`${new Date(handleChange.nextChangeAt ?? "").toLocaleDateString()} 之后才能再改`,
-								`You can change it again after ${new Date(handleChange.nextChangeAt ?? "").toLocaleDateString()}`,
+								`${formatDay(new Date(handleChange.nextChangeAt ?? ""))} 之后才能再改`,
+								`You can change it again after ${formatDay(new Date(handleChange.nextChangeAt ?? ""))}`,
 							)}
 						</View>
 					) : null}

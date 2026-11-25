@@ -1,20 +1,32 @@
 import { ListGroup } from "@yonder/ui-components";
-import { useLocalePreference, useTheme } from "@yonder/ui-data";
-import type { Locale } from "@yonder/ui-i18n";
+import { useTheme } from "@yonder/ui-data";
 import { STYLE_CHOICES, THEME_CHOICES, UI_SIZE_CHOICES } from "@yonder/ui-tokens";
 import { Check } from "lucide-react";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
+import { LanguageSection, TimeZoneDeviceNote, TimeZoneSection } from "./account-preferences-sections.tsx";
 
-/** 通用: language, appearance and interface size, as checkmark lists — the iOS pattern for "pick one". */
-export function GeneralSection({ children }: { children?: ReactNode }) {
+/**
+ * 通用: the account's zone and language, then appearance and interface size — grouped lists with a
+ * check mark on the choice in force, the iOS pattern for "pick one". The zone and language rows are
+ * account-wide (2026-11-25); the others are this device's look.
+ */
+export function GeneralSection({ children, onOpenTimeZone }: { children?: ReactNode; onOpenTimeZone: () => void }) {
 	const { t } = useTranslation();
 	const theme = useTheme();
-	const locale = useLocalePreference();
 	const id = useId();
 
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)]">
+			<div className="flex min-w-0 flex-col gap-[var(--spacing-2)]">
+				<fieldset aria-label={t("common.timezone.title")} className="min-w-0">
+					<TimeZoneSection onOpenPicker={onOpenTimeZone} />
+				</fieldset>
+				<TimeZoneDeviceNote />
+			</div>
+			<fieldset aria-label={t("common.language")} className="min-w-0">
+				<LanguageSection />
+			</fieldset>
 			<fieldset aria-label={t("common.appearance")} className="min-w-0">
 				<ListGroup title={t("common.appearance")}>
 					{THEME_CHOICES.map((option) => (
@@ -50,19 +62,6 @@ export function GeneralSection({ children }: { children?: ReactNode }) {
 							selected={theme.size === option}
 							onSelect={() => theme.setSize(option)}
 							label={t(`common.uiSize.${option}`)}
-						/>
-					))}
-				</ListGroup>
-			</fieldset>
-			<fieldset aria-label={t("common.language")} className="min-w-0">
-				<ListGroup title={t("common.language")}>
-					{(["zh-CN", "en"] as const).map((option) => (
-						<Choice
-							key={option}
-							group={`${id}-locale`}
-							selected={locale.locale === option}
-							onSelect={() => locale.setLocale(option as Locale)}
-							label={option === "zh-CN" ? t("common.locale.zhCN") : t("common.locale.en")}
 						/>
 					))}
 				</ListGroup>

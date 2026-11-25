@@ -1,12 +1,13 @@
 import type { GoalAction } from "@yonder/protocol";
 import { Button, IconButton, ListGroup, ListValue, Menu } from "@yonder/ui-components";
-import { ApiError, useChangeGoal, useGoals, useRemoveGoal, useSchedules } from "@yonder/ui-data";
+import { ApiError, useAccountTimeZone, useChangeGoal, useGoals, useRemoveGoal, useSchedules } from "@yonder/ui-data";
 import { ConfirmDialog, useSidePanel } from "@yonder/ui-shell";
+import { formatInstant as formatAccountInstant } from "@yonder/ui-time";
 import { Ellipsis } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAskMainBot } from "../app/ask-main-bot.tsx";
-import { describePlan, formatInstant, resultWord } from "./schedule-format.ts";
+import { describePlan, formatInstant as formatPlanInstant, resultWord } from "./schedule-format.ts";
 
 /**
  * One goal, opened from the goals tab: what it is for, where it stands, and the recurring check that
@@ -17,6 +18,7 @@ import { describePlan, formatInstant, resultWord } from "./schedule-format.ts";
 export function GoalPanel({ goalId }: { goalId: string }) {
 	const { t, i18n } = useTranslation();
 	const locale = i18n.resolvedLanguage ?? i18n.language;
+	const zone = useAccountTimeZone();
 	const side = useSidePanel();
 	const ask = useAskMainBot();
 	const goals = useGoals();
@@ -79,7 +81,7 @@ export function GoalPanel({ goalId }: { goalId: string }) {
 					<p className="text-caption text-[var(--color-text-secondary)]">
 						{describePlan(check, t)}
 						{check.nextRunAt
-							? ` · ${t("tasks.nextCheck", { at: formatInstant(check.timezone, check.nextRunAt, locale) })}`
+							? ` · ${t("tasks.nextCheck", { at: formatPlanInstant(check.timezone, check.nextRunAt, locale) })}`
 							: ""}
 					</p>
 					{check.recentRuns.length ? (
@@ -87,7 +89,7 @@ export function GoalPanel({ goalId }: { goalId: string }) {
 							{check.recentRuns.slice(0, 5).map((run) => (
 								<ListValue
 									key={run.id}
-									title={formatInstant(check.timezone, run.scheduledFor, locale)}
+									title={formatPlanInstant(check.timezone, run.scheduledFor, locale)}
 									value={run.result ? resultWord(run.result, t) : ""}
 								/>
 							))}
@@ -97,7 +99,8 @@ export function GoalPanel({ goalId }: { goalId: string }) {
 			) : null}
 			{goal.transfers?.map((transfer) => (
 				<p key={transfer.at} className="text-caption text-[var(--color-text-secondary)]">
-					{t("tasks.handoffHistory", transfer)} · {new Date(transfer.at).toLocaleString(locale)}
+					{t("tasks.handoffHistory", transfer)} ·{" "}
+					{formatAccountInstant(transfer.at, { zone, locale, style: "dateTime", width: "medium", year: "auto" })}
 				</p>
 			))}
 			{failure ? (

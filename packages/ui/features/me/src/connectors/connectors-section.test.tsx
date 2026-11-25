@@ -16,6 +16,8 @@ const state = vi.hoisted(() => ({
 	remove: vi.fn(),
 }));
 vi.mock("@yonder/ui-data", () => ({
+	// The account zone is the device's in these unit tests; nothing they check depends on it.
+	useAccountTimeZone: () => "Asia/Shanghai",
 	useConnectorCatalog: () => ({
 		data: {
 			items: ["local-files", "computer-control"].map((id) => ({

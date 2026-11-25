@@ -15,7 +15,7 @@ import { FeishuAttemptCard } from "@yonder/feature-me";
 import { BotName, systemEventText } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button } from "@yonder/ui-components";
-import type { CachedMessage } from "@yonder/ui-data";
+import { type CachedMessage, useAccountTimeZone } from "@yonder/ui-data";
 import { resolveLocale } from "@yonder/ui-i18n";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { Fragment } from "react";
@@ -71,6 +71,7 @@ export function ConversationMessages({
 }) {
 	const { t, i18n } = useTranslation();
 	const locale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
+	const zone = useAccountTimeZone();
 	const visitRole = conversation.visit?.role;
 	const showAvatars = !isTwoPartyAgentChat(conversation, person?.id);
 	const optionCards = optionCardState(items, person?.id);
@@ -104,12 +105,13 @@ export function ConversationMessages({
 		));
 	const visibleItems = delivered.size ? items.filter((item) => !delivered.has(item.id)) : items;
 	const grouping = { agentCards: true, connectorIntakeOwnerLayout: true };
-	return groupMessages(visibleItems, hasFullHistory, grouping).map((block) => {
+	return groupMessages(visibleItems, hasFullHistory, grouping, zone).map((block) => {
 		if ("time" in block)
 			return (
 				<MessageTime
 					key={`time-${block.messageId}`}
 					at={block.time}
+					zone={zone}
 					locale={locale}
 					atStart={block.atStart}
 					render={(text) => (

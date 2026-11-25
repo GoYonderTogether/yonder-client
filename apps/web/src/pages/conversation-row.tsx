@@ -2,6 +2,7 @@ import { conversationBotOwner, ownedBotFor } from "@yonder/chat-model";
 import { BotName, type Translate } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import { ConversationRow, type RowAction } from "@yonder/ui-components";
+import { formatInstant } from "@yonder/ui-time";
 import { BellOff } from "lucide-react";
 import { ConversationAvatar, conversationPeer, conversationTitle } from "./conversation-presentation.tsx";
 import { rowPreview } from "./message-preview.ts";
@@ -22,6 +23,7 @@ export function ConversationEntry({
 	contacts,
 	mobile,
 	locale,
+	zone,
 	actions,
 	onOpen,
 	t,
@@ -36,6 +38,8 @@ export function ConversationEntry({
 	contacts: readonly Member[] | undefined;
 	mobile: boolean;
 	locale: string;
+	/** The account's zone: the row's time is read in it on every device. */
+	zone: string;
 	actions: readonly RowAction[];
 	t: Translate;
 	onOpen: () => void;
@@ -65,9 +69,7 @@ export function ConversationEntry({
 			preview={rowPreview(conversation, t)}
 			meta={
 				conversation.lastMessage?.createdAt
-					? new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(
-							new Date(conversation.lastMessage.createdAt),
-						)
+					? formatInstant(conversation.lastMessage.createdAt, { zone, locale, style: "time" })
 					: undefined
 			}
 			badge={

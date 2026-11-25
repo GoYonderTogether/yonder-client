@@ -1,5 +1,6 @@
 import { Button, ListGroup } from "@yonder/ui-components";
-import { useQuotaLedger } from "@yonder/ui-data";
+import { useAccountTimeZone, useQuotaLedger } from "@yonder/ui-data";
+import { formatInstant } from "@yonder/ui-time";
 import { useTranslation } from "react-i18next";
 import { QuotaNumber } from "./quota-number.tsx";
 
@@ -8,6 +9,7 @@ export function QuotaLedger() {
 	const { t, i18n } = useTranslation();
 	const ledger = useQuotaLedger();
 	const locale = i18n.resolvedLanguage ?? i18n.language;
+	const zone = useAccountTimeZone();
 	const entries = ledger.data?.pages.flatMap((page) => page.items) ?? [];
 	return (
 		<>
@@ -23,9 +25,7 @@ export function QuotaLedger() {
 								{entry.pool === "legacy" ? "" : ` · ${t(`me.quota.pools.${entry.pool}`)}`}
 							</p>
 							<time dateTime={entry.at} className="text-caption text-[var(--color-text-tertiary)]">
-								{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(
-									new Date(entry.at),
-								)}
+								{formatInstant(entry.at, { zone, locale, style: "dateTime", width: "medium", year: "always" })}
 							</time>
 						</div>
 						<span className="shrink-0 text-body text-[var(--color-text-primary)]">

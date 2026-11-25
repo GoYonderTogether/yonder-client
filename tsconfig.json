@@ -17,6 +17,9 @@
 			"path": "packages/ui/chat-model"
 		},
 		{
+			"path": "packages/ui/time"
+		},
+		{
 			"path": "packages/ui/chat-presentation"
 		},
 		{

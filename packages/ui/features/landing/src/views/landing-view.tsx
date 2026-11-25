@@ -116,7 +116,7 @@ export function LandingView({ version, iosUrl, appPath }: PublicViewProps & { ap
 					</div>
 					<div className="lp-footer-base">
 						<span>
-							© {new Date().getFullYear()} {t("app.name")}
+							© {copyrightYear()} {t("app.name")}
 						</span>
 						{window.location.hostname === "yonderbot.net" ? (
 							<a className="underline" href="https://beian.miit.gov.cn/">
@@ -129,4 +129,13 @@ export function LandingView({ version, iosUrl, appPath }: PublicViewProps & { ap
 			</footer>
 		</div>
 	);
+}
+
+/**
+ * The year the copyright line names. It is the product's year, not a person's calendar, so it is
+ * read from the device clock on purpose — `time:device-clock`.
+ */
+export function copyrightYear(): number {
+	// time:device-clock — the site's copyright is the build's year, not the account's.
+	return new Date().getFullYear();
 }

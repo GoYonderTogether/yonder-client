@@ -7,6 +7,7 @@
 		".": "./src/index.tsx"
 	},
 	"dependencies": {
+		"@yonder/ui-time": "0.3.26112510",
 		"markdown-to-jsx": "9.10.6"
 	},
 	"peerDependencies": {

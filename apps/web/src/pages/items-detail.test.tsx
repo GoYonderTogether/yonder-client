@@ -9,6 +9,8 @@ import { ItemDetailPage } from "./items-detail.tsx";
 
 const state = vi.hoisted(() => ({ item: undefined as ItemDetail | undefined }));
 vi.mock("@yonder/ui-data", () => ({
+	// The account zone is the device's in these unit tests; nothing they check depends on it.
+	useAccountTimeZone: () => "Asia/Shanghai",
 	useItem: () => ({ data: state.item }),
 	useItemActions: () => ({ cancel: { isPending: false, isError: false } }),
 }));

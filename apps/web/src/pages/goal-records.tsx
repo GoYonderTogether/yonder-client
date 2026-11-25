@@ -1,6 +1,6 @@
 import type { Goal, Schedule } from "@yonder/protocol";
 import { Button, EmptyState, ListGroup, ListRow } from "@yonder/ui-components";
-import { ApiError, useGoals, useSchedules } from "@yonder/ui-data";
+import { ApiError, useAccountTimeZone, useGoals, useSchedules } from "@yonder/ui-data";
 import { useSidePanel } from "@yonder/ui-shell";
 import { Target } from "lucide-react";
 import { useState } from "react";
@@ -114,8 +114,9 @@ function GoalRow({
 }) {
 	const { t, i18n } = useTranslation();
 	const locale = i18n.resolvedLanguage ?? i18n.language;
-	const now = useMinute();
-	const ago = (iso: string) => relativeTime(iso, now, locale, t("memory.justNow"));
+	const zone = useAccountTimeZone();
+	const now = useMinute(zone);
+	const ago = (iso: string) => relativeTime(iso, now, locale, t("memory.justNow"), zone);
 	const check = schedules.find((plan) => plan.goalId === goal.id && plan.kind !== "once");
 	let subtitle: string;
 	if (check) {

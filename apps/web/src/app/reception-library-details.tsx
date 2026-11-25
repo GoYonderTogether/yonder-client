@@ -34,7 +34,7 @@ export function ReceptionDocumentDetail({
 					<span className="rounded-[var(--radius-control-sm)] bg-[var(--color-accent-subtle)] px-[var(--spacing-2)] py-[var(--spacing-1)] text-[var(--color-accent-text)]">
 						{t("members.social.library.published")}
 					</span>
-					<time dateTime={document.updatedAt}>{date.format(new Date(document.updatedAt))}</time>
+					<time dateTime={document.updatedAt}>{date(document.updatedAt)}</time>
 				</div>
 			</header>
 			<MessageContent body={document.content} />
@@ -113,7 +113,7 @@ export function ReceptionDraftDetail({
 					{originalTitle}
 				</h2>
 				<time className="text-caption text-[var(--color-text-tertiary)]" dateTime={draft.createdAt}>
-					{date.format(new Date(draft.createdAt))}
+					{date(draft.createdAt)}
 				</time>
 			</header>
 			<MessageContent body={draft.content} />

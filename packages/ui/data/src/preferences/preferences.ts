@@ -7,9 +7,11 @@ import type { Locale } from "@yonder/ui-i18n";
 import { isLocale, resolveLocale } from "@yonder/ui-i18n";
 import type { StyleChoice, ThemeChoice, UISizeChoice } from "@yonder/ui-tokens";
 import { DEFAULT_UI_SIZE, isStyleChoice, isThemeChoice, isUISizeChoice, resolveTheme } from "@yonder/ui-tokens";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useData } from "../query/provider.tsx";
 import type { Storage } from "../storage/index.ts";
+import { effectiveLocale, readLocalePreference } from "./account-preferences.ts";
+import { notifyPreferences, usePreferencesVersion } from "./store.ts";
 
 /** The system preference, watched live. */
 export function useSystemPrefersDark(): boolean {
@@ -45,6 +47,8 @@ export interface ThemeControl {
  */
 const THEME_KEY = "theme";
 const LOCALE_KEY = "locale";
+/** Kept beside account-preferences.ts's own constant; the first-paint script reads both. */
+const LOCALE_MODE_KEY = "locale-mode";
 const STYLE_KEY = "style";
 const UI_SIZE_KEY = "ui-size";
 
@@ -73,24 +77,16 @@ export function readLocale(storage: Pick<Storage, "get">): Locale {
 
 /*
  * One value per storage, shared by every component that asks. A component-local copy would mean
- * that changing the language in 「通用」 updates that screen and nothing else.
+ * that changing the language in 「通用」 updates that screen and nothing else. The listener set and
+ * version are shared with the account preferences, so one write wakes every reader.
  */
-type Listener = () => void;
-const listeners = new Set<Listener>();
-const subscribe = (listener: Listener) => {
-	listeners.add(listener);
-	return () => listeners.delete(listener);
-};
-const notify = () => {
-	for (const listener of listeners) listener();
-};
+const notify = notifyPreferences;
 
+/** A value derived from storage, recomputed when any preference is written. */
 function usePreference<T>(storage: Storage, read: (storage: Pick<Storage, "get">) => T): T {
-	return useSyncExternalStore(
-		subscribe,
-		() => read(storage),
-		() => read(storage),
-	);
+	const version = usePreferencesVersion();
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `version` is the change signal; the read function is stable in meaning.
+	return useMemo(() => read(storage), [storage, version]);
 }
 
 /**
@@ -143,9 +139,16 @@ export interface LocaleControl {
 	setLocale: (locale: Locale) => void;
 }
 
+/**
+ * The language the app speaks. `auto` follows this device; `manual` is the account's lock, which the
+ * 「通用」 page and the server (stage 2) both write. `setLocale` locks the account, because that is
+ * what a choice made here means (a person picking English wants English on their other devices too).
+ */
 export function useLocalePreference(): LocaleControl {
 	const { storage } = useData();
-	const locale = usePreference(storage, readLocale);
+	const preference = usePreference(storage, readLocalePreference);
+	const device = usePreference(storage, () => readLocale(storage));
+	const locale = effectiveLocale(preference, device);
 
 	useEffect(() => {
 		document.documentElement.lang = locale;
@@ -154,6 +157,7 @@ export function useLocalePreference(): LocaleControl {
 	const setLocale = useCallback(
 		(next: Locale) => {
 			storage.set(LOCALE_KEY, next);
+			storage.set(LOCALE_MODE_KEY, "manual");
 			notify();
 		},
 		[storage],

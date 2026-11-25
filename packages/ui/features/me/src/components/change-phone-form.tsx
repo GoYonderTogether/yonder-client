@@ -1,5 +1,5 @@
 import { Button, CodeField, Field, TextInput } from "@yonder/ui-components";
-import { useMe, usePhoneChange } from "@yonder/ui-data";
+import { useAccountTimeZone, useMe, usePhoneChange } from "@yonder/ui-data";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Translate } from "./account-failure.ts";
@@ -15,7 +15,9 @@ export interface ChangePhoneFormProps {
  * everywhere else a number is typed.
  */
 export function ChangePhoneForm({ onDone }: ChangePhoneFormProps) {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
+	const locale = i18n.resolvedLanguage ?? i18n.language;
 	const me = useMe();
 	const { sendCode, change } = usePhoneChange();
 	const sms = me.data?.signInMethods.find((method) => method.channel === "sms");
@@ -26,7 +28,8 @@ export function ChangePhoneForm({ onDone }: ChangePhoneFormProps) {
 	const [currentCode, setCurrentCode] = useState("");
 	const [newCode, setNewCode] = useState("");
 	const [error, setError] = useState<{ text: string; field?: string } | null>(null);
-	const fail = (failure: unknown) => setError(describeAccountFailure(failure, t as unknown as Translate));
+	const fail = (failure: unknown) =>
+		setError(describeAccountFailure(failure, t as unknown as Translate, { locale, zone }));
 
 	return (
 		<form

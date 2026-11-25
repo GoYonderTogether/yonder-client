@@ -113,8 +113,16 @@ export function renderMessageBlock(
 		showMessageAvatars,
 		showSenderNames,
 		locale,
+		zone,
 		contacts,
-	}: { showMessageAvatars: boolean; showSenderNames: boolean; locale: Locale; contacts: readonly Member[] },
+	}: {
+		showMessageAvatars: boolean;
+		showSenderNames: boolean;
+		locale: Locale;
+		/** The account's zone: the run's time label is read in it on every device. */
+		zone: string;
+		contacts: readonly Member[];
+	},
 	followAfterLayout: () => void,
 	optionCards: ReturnType<typeof optionCardState<ChatMessage>>,
 ) {
@@ -123,6 +131,7 @@ export function renderMessageBlock(
 			<MessageTime
 				key={`time-${block.messageId}`}
 				at={block.time}
+				zone={zone}
 				locale={locale}
 				atStart={block.atStart}
 				render={(text) => (

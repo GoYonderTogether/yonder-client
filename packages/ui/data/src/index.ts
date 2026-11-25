@@ -80,7 +80,6 @@ export {
 export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
 export { useMemberProfile, usePublicMemberProfile } from "./hooks/members.ts";
 export {
-	deviceTimeZone,
 	useMemoryActions,
 	useMemoryDays,
 	useMemoryFile,
@@ -125,6 +124,26 @@ export {
 	imageSize,
 	preserveImage,
 } from "./image-encoding.ts";
+export type {
+	AccountPreferences,
+	LocalePreference,
+	PreferenceMode,
+	PreferencesPatch,
+	SavePreferencesResult,
+	TimeZonePreference,
+} from "./preferences/account-preferences.ts";
+export {
+	deviceLocale,
+	deviceZone,
+	effectiveLocale,
+	effectiveTimeZone,
+	readLocalePreference,
+	readTimeZonePreference,
+	useAccountLocale,
+	useAccountPreferences,
+	useAccountTimeZone,
+	useSavePreferences,
+} from "./preferences/account-preferences.ts";
 export type { LocaleControl, ThemeControl } from "./preferences/preferences.ts";
 export {
 	readLocale,

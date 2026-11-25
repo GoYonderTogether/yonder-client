@@ -214,6 +214,15 @@ function SessionBootstrapper({
 	return null;
 }
 
+/**
+ * The context's value, or `null` when a component is rendered outside the provider — a unit test
+ * of one row, for instance. Only preferences use this: they have an honest device-level default,
+ * while server data does not.
+ */
+export function useDataOrNull(): DataContextValue | null {
+	return useContext(DataContext);
+}
+
 export function useData(): DataContextValue {
 	const value = useContext(DataContext);
 	if (!value) throw new Error("useData must be used inside <DataProvider>");

@@ -17,6 +17,7 @@ import { messagesZhCN } from "./messages.ts";
 import { modelMessagesZhCN } from "./models-zh-CN.ts";
 import { notificationsZhCN } from "./notifications.ts";
 import { photoArchiveZhCN } from "./photo-archive-zh-CN.ts";
+import { preferenceMessagesZhCN } from "./preferences-zh-CN.ts";
 import { pricingMessagesZhCN } from "./pricing-zh-CN.ts";
 import { questionCardsZhCN } from "./question-cards.ts";
 import { setupMessagesZhCN } from "./setup-zh-CN.ts";
@@ -197,6 +198,7 @@ export const zhCN: Messages = {
 			zhCN: "中文",
 			en: "English",
 		},
+		...preferenceMessagesZhCN,
 	},
 
 	dev: {

@@ -168,7 +168,7 @@ export function MeetingCamera({
 			return;
 		}
 		const current = previous.current?.deviceId;
-		const next = deviceIds[(deviceIds.findIndex((id) => id === current) + 1) % deviceIds.length];
+		const next = current ? deviceIds[(deviceIds.indexOf(current) + 1) % deviceIds.length] : deviceIds[0];
 		if (next && next !== current) {
 			setReady(false);
 			setRequested({ deviceId: next });

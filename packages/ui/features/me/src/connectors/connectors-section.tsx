@@ -1,6 +1,7 @@
 import type { ConnectorDefinition, DeviceSummary } from "@yonder/protocol";
 import { ListGroup, ListRow } from "@yonder/ui-components";
-import { useConnectorCatalog, useConnectors, useDevices } from "@yonder/ui-data";
+import { useAccountTimeZone, useConnectorCatalog, useConnectors, useDevices } from "@yonder/ui-data";
+import { formatInstant } from "@yonder/ui-time";
 import { Laptop, Smartphone } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,6 +19,7 @@ export interface ConnectorsSectionProps {
 
 export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTryConnector }: ConnectorsSectionProps) {
 	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
 	const catalog = useConnectorCatalog(true);
 	const connections = useConnectors({ apple: true });
 	const devices = useDevices();
@@ -125,7 +127,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 		const displayName = deviceDisplayName(item);
 		const name = item.current ? `${displayName} · ${t("me.account.sessionCurrent")}` : displayName;
 		if (!isDuplicate(item)) return name;
-		return `${name} · ${t(`me.devices.platforms.${item.platform}`)} · ${new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, { dateStyle: "short", timeStyle: "medium" }).format(new Date(item.lastSeenAt))}`;
+		return `${name} · ${t(`me.devices.platforms.${item.platform}`)} · ${formatInstant(item.lastSeenAt, { zone, locale: i18n.resolvedLanguage ?? i18n.language, style: "dateTime", width: "short", seconds: true })}`;
 	}
 	function isDuplicate(item: DeviceSummary) {
 		return groups.some(({ device }) => device.id !== item.id && deviceDisplayName(device) === deviceDisplayName(item));
@@ -229,7 +231,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 									{name !== device.name ? `${device.name} · ` : ""}
 									{t(`me.devices.platforms.${device.platform}`)} · {t(`me.devices.${device.status}`)}
 									{duplicate
-										? ` · ${new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, { dateStyle: "short", timeStyle: "medium" }).format(new Date(device.lastSeenAt))}`
+										? ` · ${formatInstant(device.lastSeenAt, { zone, locale: i18n.resolvedLanguage ?? i18n.language, style: "dateTime", width: "short", seconds: true })}`
 										: ""}
 								</p>
 							</header>

@@ -1,5 +1,5 @@
 import { ListGroup, ListRow } from "@yonder/ui-components";
-import { useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
+import { useAccountTimeZone, useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,7 +17,8 @@ import { relativeTime } from "./memory-who.ts";
  */
 export function ArchivedGroup() {
 	const { t, i18n } = useTranslation();
-	const now = useMinute();
+	const zone = useAccountTimeZone();
+	const now = useMinute(zone);
 	const navigate = useNavigate();
 	const openFile = useOpenMemoryFile();
 	const query = useMemoryFiles();
@@ -60,7 +61,7 @@ export function ArchivedGroup() {
 						<ListRow
 							key={file.path}
 							title={file.title || file.path.split("/").at(-1)}
-							subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
+							subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"), zone)}
 							onClick={() => openFile(file.path)}
 						/>
 					))

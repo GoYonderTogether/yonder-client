@@ -1,6 +1,6 @@
 import type { MemoryFileSummary } from "@yonder/protocol";
 import { EmptyState, ListGroup, ListRow } from "@yonder/ui-components";
-import { useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
+import { useAccountTimeZone, useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
 import { Folder } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMinute } from "./memory-format.ts";
@@ -89,7 +89,8 @@ export function MemoryFileList({
 	onFolder: (path: string) => void;
 }) {
 	const { t, i18n } = useTranslation();
-	const now = useMinute();
+	const zone = useAccountTimeZone();
+	const now = useMinute(zone);
 	const query = useMemoryFiles();
 	const folders = useMemoryFolders();
 	const folderName = memoryFolderNames(folders.data?.items ?? []);
@@ -145,7 +146,7 @@ export function MemoryFileList({
 							<ListRow
 								key={file.path}
 								title={file.title || file.path.split("/").at(-1)}
-								subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
+								subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"), zone)}
 								trailing={
 									<span className="flex items-center gap-[var(--spacing-2)]">
 										{file.draft ? <span className="text-[var(--color-warning)]">{t("memory.pending")}</span> : null}

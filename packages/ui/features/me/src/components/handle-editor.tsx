@@ -1,11 +1,10 @@
 import { Button, Field, TextInput } from "@yonder/ui-components";
-import { useChangeHandle, useMe } from "@yonder/ui-data";
+import { useAccountTimeZone, useChangeHandle, useMe } from "@yonder/ui-data";
+import { formatInstant } from "@yonder/ui-time";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Translate } from "./account-failure.ts";
 import { describeAccountFailure } from "./account-failure.ts";
-
-const date = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString() : "");
 
 /**
  * The public handle, in 账号与安全. The first change has no waiting time and later ones wait 30
@@ -13,7 +12,11 @@ const date = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDa
  * server says is allowed and never counts days itself.
  */
 export function HandleEditor() {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
+	const locale = i18n.resolvedLanguage ?? i18n.language;
+	const dateInZone = (iso: string | null | undefined) =>
+		iso ? formatInstant(iso, { zone, locale, style: "date", width: "short" }) : "";
 	const me = useMe();
 	const change = useChangeHandle();
 	const [editing, setEditing] = useState(false);
@@ -49,7 +52,7 @@ export function HandleEditor() {
 				</div>
 				{handleChange && !handleChange.canChange ? (
 					<p className="text-caption text-[var(--color-text-tertiary)]">
-						{t("me.handle.nextChange", { date: date(handleChange.nextChangeAt) })}
+						{t("me.handle.nextChange", { date: dateInZone(handleChange.nextChangeAt) })}
 					</p>
 				) : null}
 				{saved ? <p className="text-caption text-[var(--color-text-tertiary)]">{saved}</p> : null}
@@ -70,11 +73,12 @@ export function HandleEditor() {
 							t("me.handle.saved", {
 								handle: result.me.member.handle,
 								old: result.oldHandle,
-								date: date(result.oldHandleRedirectUntil),
+								date: dateInZone(result.oldHandleRedirectUntil),
 							}),
 						);
 					},
-					onError: (failure) => setError(describeAccountFailure(failure, t as unknown as Translate).text),
+					onError: (failure) =>
+						setError(describeAccountFailure(failure, t as unknown as Translate, { locale, zone }).text),
 				});
 			}}
 		>

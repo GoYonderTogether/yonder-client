@@ -6,6 +6,7 @@ import "./interaction-card.css";
 export { InteractionCard, InteractionCardActions, useQuestionCountdown } from "./interaction-card.tsx";
 export { type ChatTextHost, StreamingText } from "./streaming-text.tsx";
 
+import { addDays, formatInstant, localDay, startOfDayInZone } from "@yonder/ui-time";
 import { type MarkdownToJSX, parser } from "markdown-to-jsx";
 import { type ComponentType, type JSX, type ReactNode, type Ref, useEffect, useReducer } from "react";
 
@@ -13,16 +14,25 @@ export type ChatHost = ComponentType<{ className?: string; children?: ReactNode;
 type Props = { as: ChatHost; children: ReactNode };
 
 const MINUTE_MS = 60_000;
-const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+/**
+ * The label above a run of messages, read in the account's zone (migration 2026-11-25): a message
+ * sent at 11:58 UTC says 今天 19:58 in Shanghai on every device of that account, whichever zone the
+ * device is in. 「今天」 is the account zone's calendar day, not a 24-hour count, and the label
+ * switches at that zone's midnight.
+ *
+ * The relative labels (刚刚, 5 分钟前) are elapsed time, which no zone changes.
+ */
 export function MessageTime({
 	at,
+	zone,
 	locale,
 	atStart,
 	render,
 }: {
 	at: Date;
+	/** The account's zone; every caller passes `useAccountTimeZone()`. */
+	zone: string;
 	locale: "zh-CN" | "en";
 	atStart: boolean;
 	render: (text: string) => JSX.Element;
@@ -31,13 +41,14 @@ export function MessageTime({
 	const now = new Date();
 	const minutesAgo = Math.floor((now.getTime() - at.getTime()) / MINUTE_MS);
 	const isRecent = minutesAgo >= -2 && minutesAgo < 10;
-	const isToday = at.toDateString() === now.toDateString();
+	const today = localDay(now, zone);
+	const isToday = localDay(at, zone) === today;
 	const waitingForStart = atStart && minutesAgo < 5;
 	const nextChange =
 		waitingForStart || isRecent
 			? at.getTime() + Math.max(atStart ? 5 : 2, minutesAgo + 1) * MINUTE_MS
 			: isToday
-				? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime()
+				? startOfDayInZone(addDays(today, 1), zone).getTime()
 				: null;
 	useEffect(() => {
 		if (nextChange === null) return;
@@ -49,13 +60,11 @@ export function MessageTime({
 		if (minutesAgo < 2) return render(locale === "zh-CN" ? "刚刚" : "Just now");
 		return render(locale === "zh-CN" ? `${minutesAgo} 分钟前` : `${minutesAgo} minutes ago`);
 	}
-	const hours = String(at.getHours()).padStart(2, "0");
-	const minutes = String(at.getMinutes()).padStart(2, "0");
-	const time = `${hours}:${minutes}`;
+	const time = formatInstant(at, { zone, locale, style: "time" });
 	if (isToday) return render(`${locale === "zh-CN" ? "今天" : "Today"} ${time}`);
-	if (locale === "zh-CN")
-		return render(`${at.getMonth() + 1}月${at.getDate()}日 周${"日一二三四五六"[at.getDay()]} ${time}`);
-	return render(`${WEEKDAYS_EN[at.getDay()]}, ${MONTHS_EN[at.getMonth()]} ${at.getDate()} ${time}`);
+	const day = formatInstant(at, { zone, locale, style: "monthDay", width: "short" });
+	const weekday = formatInstant(at, { zone, locale, style: "weekday", width: "short" });
+	return locale === "zh-CN" ? render(`${day} ${weekday} ${time}`) : render(`${weekday}, ${day} ${time}`);
 }
 
 export function MessageRun({

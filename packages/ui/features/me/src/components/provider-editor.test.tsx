@@ -12,6 +12,8 @@ const actions = vi.hoisted(() => ({
 	discoverModels: vi.fn().mockResolvedValue({ models: ["m1", "m2"] }),
 }));
 vi.mock("@yonder/ui-data", () => ({
+	// The account zone is the device's in these unit tests; nothing they check depends on it.
+	useAccountTimeZone: () => "Asia/Shanghai",
 	useProviderActions: () => actions,
 	useDevices: () => ({ data: { items: [] }, isLoading: false, isError: false }),
 }));

@@ -2,10 +2,12 @@ import { Image, Input, Text, View } from "@tarojs/components";
 import Taro, { useDidShow, usePullDownRefresh } from "@tarojs/taro";
 import { conversationBotOwner, conversationPeer, ownedBotFor } from "@yonder/chat-model";
 import type { Conversation } from "@yonder/protocol";
+import { formatInstant } from "@yonder/ui-time";
 import { useCallback, useEffect, useState } from "react";
 import { MiniBotName } from "../../components/bot-name";
 import { Button, go, Page, State } from "../../components/ui";
 import { t, useLocale } from "../../lib/i18n";
+import { accountTimeZone } from "../../lib/time";
 import "./style.scss";
 import { patchConversations, removeConversation, removeMemberFromConversations } from "../../lib/member-cache";
 import { api, client, subscribeEvents, useCachedBots, useRealtimeRevision, useSession } from "../../lib/runtime";
@@ -16,7 +18,7 @@ export default function Conversations() {
 	const { status, me } = useSession();
 	const cachedBots = useCachedBots();
 	const { locale } = useLocale();
-	const timeFormat = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" });
+	const zone = accountTimeZone();
 	const revision = useRealtimeRevision();
 	const [items, setItems] = useState<Conversation[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -134,7 +136,7 @@ export default function Conversations() {
 									)}
 									{item.lastMessage?.createdAt ? (
 										<Text className="mini-conversation-time">
-											{timeFormat.format(new Date(item.lastMessage.createdAt))}
+											{formatInstant(item.lastMessage.createdAt, { zone, locale, style: "time" })}
 										</Text>
 									) : null}
 								</View>

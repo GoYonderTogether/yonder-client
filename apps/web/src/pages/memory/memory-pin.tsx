@@ -1,4 +1,5 @@
 import { Button, cn } from "@yonder/ui-components";
+import { useAccountTimeZone } from "@yonder/ui-data";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { dayName, memoryFormat } from "./memory-format.ts";
@@ -25,6 +26,7 @@ export function MemoryPinBar({
 	onToday: () => void;
 }) {
 	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
 	const bar = useRef<HTMLDivElement>(null);
 	const inner = useRef<HTMLDivElement>(null);
 	const [date, setDate] = useState("");
@@ -75,7 +77,7 @@ export function MemoryPinBar({
 			easing: "cubic-bezier(0.05, 0.7, 0.1, 1)",
 		});
 	}, [date]);
-	const day = date ? dayName(date, now, t, i18n.language) : null;
+	const day = date ? dayName(date, now, t, i18n.language, zone) : null;
 	const isToday = date === today;
 	return (
 		<div ref={bar} className={cn("memory-pin", day && "memory-pin-shown")} aria-hidden={!day}>
@@ -88,7 +90,7 @@ export function MemoryPinBar({
 						</span>
 						{isToday ? (
 							<span className="memory-pin-side">
-								{t("memory.now", { time: memoryFormat.time(now, i18n.language) })}
+								{t("memory.now", { time: memoryFormat.time(now, i18n.language, zone) })}
 							</span>
 						) : (
 							<Button size="sm" variant="link" className="memory-pin-side" onClick={onToday}>

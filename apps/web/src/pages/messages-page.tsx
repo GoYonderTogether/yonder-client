@@ -12,6 +12,7 @@ import type { Conversation, Member } from "@yonder/protocol";
 import { Avatar, Button, ConversationList, EmptyState, IconButton, Spinner } from "@yonder/ui-components";
 import {
 	type CachedMessage,
+	useAccountTimeZone,
 	useActiveBotSubtasks,
 	useBot,
 	useConversationListActions,
@@ -54,6 +55,7 @@ export function MessagesList({
 	onOpenMeetings?: () => void;
 }) {
 	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
 	const { mode } = useShellChrome();
 	const bot = useBot();
 	const conversations = useConversations();
@@ -104,6 +106,7 @@ export function MessagesList({
 							contacts={contacts}
 							mobile={mode === "mobile"}
 							locale={i18n.resolvedLanguage ?? i18n.language}
+							zone={zone}
 							t={t}
 							actions={[
 								{

@@ -201,3 +201,23 @@ test("a different reason, a message between, or a reply that said something brea
 	expect(runs[0]?.repeats?.get("msg_1")).toBeUndefined();
 	expect(runs[2]?.repeats).toBeUndefined();
 });
+
+test("a time label breaks a run at the account's midnight, not the device's", () => {
+	// 15:59Z is 23:59 on the 24th in Shanghai; 16:01Z is 00:01 on the 25th. Two minutes apart, so
+	// only the calendar day can break the run.
+	const earlier = { ...said("msg_1", "2026-11-24T15:59:00.000Z") };
+	const justAfter = { ...said("msg_2", "2026-11-24T16:01:00.000Z") };
+	// `hasFullHistory` puts the label on the first message too, as the top of a loaded history does.
+	expect(
+		groupMessages([earlier, justAfter], true, {}, "Asia/Shanghai").filter((block) => "time" in block),
+	).toHaveLength(2);
+	expect(
+		groupMessages([earlier, justAfter], true, {}, "America/New_York").filter((block) => "time" in block),
+	).toHaveLength(1);
+	// The same pair two minutes apart: one day in New York, two days in Shanghai.
+	const close = { ...said("msg_2", "2026-11-24T16:00:00.000Z") };
+	expect(groupMessages([earlier, close], true, {}, "Asia/Shanghai").filter((block) => "time" in block)).toHaveLength(2);
+	expect(groupMessages([earlier, close], true, {}, "America/New_York").filter((block) => "time" in block)).toHaveLength(
+		1,
+	);
+});

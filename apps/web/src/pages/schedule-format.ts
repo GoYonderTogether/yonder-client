@@ -1,4 +1,5 @@
 import type { Schedule, ScheduleRunResult } from "@yonder/protocol";
+import { formatInstant as formatInZone, zonedParts as partsInZone } from "@yonder/ui-time";
 
 /**
  * How a plan reads on screen. A recurring plan is a wall-clock time in a named zone, so the text is
@@ -20,28 +21,13 @@ export function planStatusKey(status: Schedule["status"]): string | null {
 	return null;
 }
 
-/** The local wall clock of `instant` in `timeZone`, as plain numbers. */
+/** The wall clock of `instant` in `timeZone`, as the plan lines read it. */
 export function zonedParts(
 	timeZone: string,
 	instant: Date,
 ): { year: number; month: number; day: number; hour: number; minute: number } {
-	const parts = new Intl.DateTimeFormat("en-US", {
-		timeZone,
-		hourCycle: "h23",
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-	}).formatToParts(instant);
-	const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-	return {
-		year: Number(value("year")),
-		month: Number(value("month")),
-		day: Number(value("day")),
-		hour: Number(value("hour")),
-		minute: Number(value("minute")),
-	};
+	const { year, month, day, hour, minute } = partsInZone(timeZone, instant);
+	return { year, month, day, hour, minute };
 }
 
 /**
@@ -76,13 +62,11 @@ export function resultWord(result: ScheduleRunResult, t: Translate): string {
 				: t("tasks.resultMissed");
 }
 
-/** An absolute instant in the plan's own zone, so "next run" never shows a different hour. */
+/**
+ * An absolute instant in the plan's own zone, so "next run" never shows a different hour. A plan is
+ * a wall-clock time the owner set in one zone (2026-11-25: `schedule.timezone`), so this one keeps
+ * that zone rather than the account's.
+ */
 export function formatInstant(timeZone: string, iso: string, locale: string): string {
-	const instant = new Date(iso);
-	if (Number.isNaN(instant.getTime())) return iso;
-	return new Intl.DateTimeFormat(locale, {
-		timeZone,
-		dateStyle: "medium",
-		timeStyle: "short",
-	}).format(instant);
+	return formatInZone(iso, { zone: timeZone, locale, style: "dateTime", width: "medium", year: "always" });
 }

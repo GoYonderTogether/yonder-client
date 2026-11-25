@@ -1,5 +1,6 @@
 import type { MemoryEntry as Entry } from "@yonder/protocol";
 import { Avatar, cn } from "@yonder/ui-components";
+import { useAccountTimeZone } from "@yonder/ui-data";
 import { Clock, Images, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { EntryActions } from "./memory-actions.ts";
@@ -26,6 +27,7 @@ export function MemoryNode({ entry }: { entry: Entry }) {
  */
 export function MemoryEntry({ entry, upcoming, actions }: { entry: Entry; upcoming: boolean; actions: EntryActions }) {
 	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
 	const open = actions.open === entry.id;
 	const hasMore = Boolean(
 		entry.media.length ||
@@ -37,7 +39,7 @@ export function MemoryEntry({ entry, upcoming, actions }: { entry: Entry; upcomi
 			entry.deletable ||
 			(entry.text && entry.size !== "note"),
 	);
-	const time = <time dateTime={entry.at}>{memoryFormat.time(entry.at, i18n.language)}</time>;
+	const time = <time dateTime={entry.at}>{memoryFormat.time(entry.at, i18n.language, zone)}</time>;
 	const kinds = [...new Set(entry.sources.map((source) => t(SOURCE_LABELS[source.kind])))];
 	const sources = kinds.length ? t("memory.fromSources", { sources: kinds.join(" / ") }) : "";
 	const marked = entry.visibility === "public" || entry.visibility === "secret";
@@ -91,6 +93,7 @@ export function MemoryEntry({ entry, upcoming, actions }: { entry: Entry; upcomi
 
 function EntryBody({ entry, time }: { entry: Entry; time: React.ReactNode }) {
 	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
 	const shown = entry.media.slice(0, 4);
 	const extra = Math.max(0, entry.mediaCount - shown.length);
 	if (entry.size === "line") {
@@ -139,10 +142,10 @@ function EntryBody({ entry, time }: { entry: Entry; time: React.ReactNode }) {
 						<Clock aria-hidden />
 						{entry.endsAt
 							? t("memory.span", {
-									from: memoryFormat.time(entry.at, i18n.language),
-									to: memoryFormat.time(entry.endsAt, i18n.language),
+									from: memoryFormat.time(entry.at, i18n.language, zone),
+									to: memoryFormat.time(entry.endsAt, i18n.language, zone),
 								})
-							: memoryFormat.time(entry.at, i18n.language)}
+							: memoryFormat.time(entry.at, i18n.language, zone)}
 					</span>
 					{entry.mediaCount ? (
 						<span>

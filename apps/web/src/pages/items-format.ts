@@ -7,6 +7,7 @@
  */
 import { type FailureTone, runFailureText } from "@yonder/chat-model";
 import type { ItemSource, ItemSummary, Schedule } from "@yonder/protocol";
+import { addDays, formatInstant, localDay as zonedLocalDay } from "@yonder/ui-time";
 
 export type ItemGroup = "today" | "yesterday" | "earlier";
 
@@ -125,24 +126,20 @@ export function isPlaceholderTitle(title: string): boolean {
 	);
 }
 
-/** The local calendar day of an instant, as `YYYY-MM-DD` in the device's zone. */
-export function localDay(instant: Date, timeZone?: string): string {
-	return new Intl.DateTimeFormat("en-CA", {
-		...(timeZone ? { timeZone } : {}),
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-	}).format(instant);
+/**
+ * The calendar day of an instant, as `YYYY-MM-DD`, in the account's zone (2026-11-25: the zone is
+ * the account's, never the device's). Kept as a re-export so a page imports one module.
+ */
+export function localDay(instant: Date, zone: string): string {
+	return zonedLocalDay(instant, zone);
 }
 
-/** Which of the page's three day groups an instant falls in; `now` is the device's clock. */
-export function itemGroup(startsAt: string, now: Date, timeZone?: string): ItemGroup {
-	const day = localDay(new Date(startsAt), timeZone);
-	const today = localDay(now, timeZone);
+/** Which of the page's three day groups an instant falls in; `now` is the clock, read in the zone. */
+export function itemGroup(startsAt: string, now: Date, zone: string): ItemGroup {
+	const day = localDay(new Date(startsAt), zone);
+	const today = localDay(now, zone);
 	if (day === today) return "today";
-	const yesterday = new Date(now.getTime());
-	yesterday.setDate(yesterday.getDate() - 1);
-	return day === localDay(yesterday, timeZone) ? "yesterday" : "earlier";
+	return day === addDays(today, -1) ? "yesterday" : "earlier";
 }
 
 /** Newest first; ids break a tie so the order never depends on the source query. */
@@ -156,14 +153,14 @@ function newestFirst(left: ItemSummary, right: ItemSummary): number {
  * point of the page — what is waiting for the owner and what is running — so they come first and are
  * left out when empty; everything that has ended falls into its day. Each keeps newest first.
  */
-export function sectionItems(items: readonly ItemSummary[], now: Date, timeZone?: string): ItemSection[] {
+export function sectionItems(items: readonly ItemSummary[], now: Date, zone: string): ItemSection[] {
 	const waiting = items.filter((item) => item.state === "waiting_user").sort(newestFirst);
 	const running = items.filter((item) => item.state === "running").sort(newestFirst);
 	const ended = items.filter((item) => item.state !== "waiting_user" && item.state !== "running");
 	const sections: ItemSection[] = [];
 	if (waiting.length > 0) sections.push({ group: "needs", items: waiting });
 	if (running.length > 0) sections.push({ group: "active", items: running });
-	sections.push(...groupItems(ended, now, timeZone));
+	sections.push(...groupItems(ended, now, zone));
 	return sections;
 }
 
@@ -171,11 +168,11 @@ export function sectionItems(items: readonly ItemSummary[], now: Date, timeZone?
  * The list as 今天 / 昨天 / 更早, each newest first, with empty groups left out. The server already
  * sends newest first; grouping preserves that order inside each section.
  */
-export function groupItems(items: readonly ItemSummary[], now: Date, timeZone?: string): ItemGroupSection[] {
+export function groupItems(items: readonly ItemSummary[], now: Date, zone: string): ItemGroupSection[] {
 	const order: ItemGroup[] = ["today", "yesterday", "earlier"];
 	const buckets = new Map<ItemGroup, ItemSummary[]>();
 	for (const item of items) {
-		const group = itemGroup(item.startedAt, now, timeZone);
+		const group = itemGroup(item.startedAt, now, zone);
 		const bucket = buckets.get(group) ?? [];
 		bucket.push(item);
 		buckets.set(group, bucket);
@@ -201,11 +198,9 @@ export function itemActions(item: ItemSummary): { cancel: boolean } {
 	return { cancel: item.source === "subtask" && live };
 }
 
-/** When an item started, in the reader's own hour format; the day heading says which day. */
-export function itemTimeLabel(startsAt: string, locale: string): string {
-	const at = new Date(startsAt);
-	if (Number.isNaN(at.getTime())) return startsAt;
-	return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(at);
+/** When an item started, on the account's clock; the day heading says which day. */
+export function itemTimeLabel(startsAt: string, locale: string, zone: string): string {
+	return formatInstant(startsAt, { zone, locale, style: "time" });
 }
 
 /**

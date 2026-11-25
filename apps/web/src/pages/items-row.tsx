@@ -29,6 +29,7 @@ export function ItemRow({
 	botName,
 	onOpen,
 	locale,
+	zone,
 	now,
 	actions,
 }: {
@@ -36,6 +37,8 @@ export function ItemRow({
 	botName: string | null;
 	onOpen: () => void;
 	locale: string;
+	/** The account's zone: the row's clock is read in it on every device. */
+	zone: string;
 	/** The list's clock, refreshed once a minute, so an elapsed time never goes stale. */
 	now: Date;
 	actions: readonly RowAction[];
@@ -45,7 +48,7 @@ export function ItemRow({
 	const placeholder = isPlaceholderTitle(item.title);
 	const source = t(itemSourceKey(item.source));
 	const clockAt = item.endedAt ?? item.startedAt;
-	const clock = itemTimeLabel(clockAt, locale);
+	const clock = itemTimeLabel(clockAt, locale, zone);
 
 	const detail =
 		kind === "failed" && item.failureReason
@@ -58,7 +61,6 @@ export function ItemRow({
 						? t("tasks.itemRunningFor", { duration: itemElapsed(item.startedAt, now, locale) })
 						: null;
 	const time = detail ? null : placeholder ? t("tasks.itemEndedClock", { time: clock }) : clock;
-
 	return (
 		<ListRow
 			actions={actions}

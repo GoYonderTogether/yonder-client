@@ -42,6 +42,7 @@ jobs:
       - run: node tools/check-file-length.mjs
       - run: node tools/check-tailwind-sources.mjs
       - run: node tools/check-ui-raw-values.mjs
+      - run: node tools/check-local-time.mjs
       - run: node scripts/release/changelog.mjs --check
       - run: npm run build
       - uses: actions/upload-artifact@v4

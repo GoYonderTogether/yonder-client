@@ -193,6 +193,7 @@ function CacheSection() {
 							</div>
 							<div className="dev-panel-query-meta">
 								<span>
+									{/* time:device-clock — the dev panel reports this machine's clock, not the account's. */}
 									Updated: {query.state.dataUpdatedAt ? new Date(query.state.dataUpdatedAt).toLocaleString() : "—"}
 								</span>
 								<button

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, go, Page, State } from "../../components/ui";
 import { t, useLocale } from "../../lib/i18n";
 import { api, useCachedBots } from "../../lib/runtime";
+import { accountTimeZone } from "../../lib/time";
 import { AgentTitle } from "./agent-title";
 import { ChatAvatar } from "./avatar";
 import { chatBotId } from "./bot-entry";
@@ -112,11 +113,12 @@ export default function Chat() {
 					? t("系统通知", "System notifications")
 					: conversationTitle(chat.conversation.members, chat.me?.member.id, chat.conversation.title)))) ||
 		t("聊天", "Chat");
+	const zone = accountTimeZone();
 	const blocks = useMemo(
-		() => groupMessages(chat.messages, chat.hasFullHistory, { agentCards: true }),
-		[chat.messages, chat.hasFullHistory],
+		() => groupMessages(chat.messages, chat.hasFullHistory, { agentCards: true }, zone),
+		[chat.messages, chat.hasFullHistory, zone],
 	);
-	const presentation = { showMessageAvatars, showSenderNames: isGroup, locale, contacts: useCachedBots() };
+	const presentation = { showMessageAvatars, showSenderNames: isGroup, locale, zone, contacts: useCachedBots() };
 	const optionCards = optionCardState(chat.messages, chat.me?.member.id);
 	const hasActiveRun = chat.messages.some(
 		(message) =>
@@ -130,16 +132,14 @@ export default function Chat() {
 		Boolean(text.trim() || uploads.uploads.length) &&
 		uploads.uploads.every((file) => file.attachment && !file.uploading);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a different conversation drops the pending older-page anchor, which is keyed by the draft scope.
 	useEffect(() => {
 		pendingOlderAnchor.current = null;
-		setDraft({ scope: draftKey, value: String(Taro.getStorageSync(draftKey) || "") });
 	}, [draftKey]);
-	useEffect(() => {
-		if (chat.memberId && draft.scope === draftKey) Taro.setStorageSync(draftKey, draft.value);
-	}, [draft, draftKey, chat.memberId]);
 	useEffect(() => {
 		if (follow && lastMessage && layoutSignature) followAfterLayout();
 	}, [lastMessage, layoutSignature, follow, followAfterLayout]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the ref holds the scope of the latest conversation, read inside the async callback.
 	useEffect(() => {
 		const pending = pendingOlderAnchor.current;
 		if (!pending || pending.scope !== draftKey || !pending.ready || anchorRevision < pending.revision) return;

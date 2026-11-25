@@ -1,5 +1,5 @@
 import { Button, CodeField, Field, TextInput } from "@yonder/ui-components";
-import { useDeleteAccount, useMe } from "@yonder/ui-data";
+import { useAccountTimeZone, useDeleteAccount, useMe } from "@yonder/ui-data";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Translate } from "./account-failure.ts";
@@ -19,7 +19,9 @@ export interface DeleteAccountFlowProps {
  * last thing between the person and the request, not a delay before they have read anything.
  */
 export function DeleteAccountFlow({ onCancel }: DeleteAccountFlowProps) {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const zone = useAccountTimeZone();
+	const locale = i18n.resolvedLanguage ?? i18n.language;
 	const me = useMe();
 	const { sendCode, confirm } = useDeleteAccount();
 	const handle = me.data?.member.handle ?? "";
@@ -45,7 +47,8 @@ export function DeleteAccountFlow({ onCancel }: DeleteAccountFlowProps) {
 		return () => clearInterval(timer);
 	}, [ready]);
 
-	const fail = (failure: unknown) => setError(describeAccountFailure(failure, t as unknown as Translate));
+	const fail = (failure: unknown) =>
+		setError(describeAccountFailure(failure, t as unknown as Translate, { locale, zone }));
 
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] p-[var(--spacing-4)]">
