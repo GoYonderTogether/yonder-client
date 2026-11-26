@@ -11,6 +11,10 @@ on:
         description: Exact iOS build number (CFBundleVersion)
         required: true
         type: string
+      submit_26112604:
+        description: Retry Beta App Review submission for Yonder iOS build 26112604
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -18,6 +22,9 @@ permissions:
 jobs:
   report:
     runs-on: ubuntu-latest
+    concurrency:
+      group: testflight-status-${{ inputs.submit_26112604 }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,6 +37,7 @@ jobs:
           ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           BUNDLE_ID: ${{ inputs.bundle_id }}
           BUILD_NUMBER: ${{ inputs.build_number }}
+          SUBMIT_26112604: ${{ inputs.submit_26112604 }}
         run: |
           set -eu
           key_path=$(mktemp "$RUNNER_TEMP/asc-testflight.XXXXXX")
