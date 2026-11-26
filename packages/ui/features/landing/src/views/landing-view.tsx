@@ -1,5 +1,7 @@
-import { AmbientField, Logo } from "@yonder/ui-components";
+import { AmbientField, IconButton, Logo, Menu } from "@yonder/ui-components";
 import { useLocalePreference } from "@yonder/ui-data";
+import { ICON_SIZE } from "@yonder/ui-tokens";
+import { Globe } from "lucide-react";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { BotsSection } from "./landing-bots.tsx";
@@ -16,10 +18,10 @@ const SECTIONS = ["chores", "control", "bots", "card", "events"] as const;
 
 export function LandingView({ version, iosUrl, appPath }: PublicViewProps & { appPath: string | null }) {
 	const { t } = useTranslation();
-	const { locale, setLocale } = useLocalePreference();
+	const { setLocale } = useLocalePreference();
 	const root = useRef<HTMLDivElement>(null);
 	useLandingMotion(root);
-	const other = locale === "zh-CN" ? "en" : "zh-CN";
+	const language = t("common.language");
 
 	return (
 		<div className="lp" ref={root}>
@@ -44,9 +46,21 @@ export function LandingView({ version, iosUrl, appPath }: PublicViewProps & { ap
 						</ul>
 					</nav>
 					<div className="lp-nav-tools">
-						<button type="button" lang={other} onClick={() => setLocale(other)}>
-							{other === "en" ? t("common.locale.en") : t("common.locale.zhCN")}
-						</button>
+						<Menu
+							label={language}
+							items={[
+								{ id: "zh-CN", label: t("common.locale.zhCN") },
+								{ id: "en", label: t("common.locale.en") },
+							]}
+							onSelect={(id) => {
+								if (id === "zh-CN" || id === "en") setLocale(id);
+							}}
+							trigger={(props) => (
+								<IconButton {...props} aria-label={language} size="sm">
+									<Globe className="text-[var(--lp-ink-2)]" size={ICON_SIZE.md} aria-hidden="true" />
+								</IconButton>
+							)}
+						/>
 						<a
 							className={appPath ? "lp-action lp-action-primary lp-action-small" : "lp-nav-signin"}
 							href={appPath ?? "/sign-in"}
