@@ -64,8 +64,10 @@ function fixture(t) {
 		BUILD_NUMBER: "26112399",
 		INPUT_VERSION: "0.3.26112399",
 		GITHUB_REF: "refs/heads/main",
+		GITHUB_EVENT_NAME: "workflow_dispatch",
 		HEAD_SHA: "a".repeat(40),
 		EXPECTED_COMMIT: "a".repeat(40),
+		YONDER_IOS_PUSH: "1",
 		KEY_BASE64: Buffer.from("synthetic upload key placeholder").toString("base64"),
 		KEY_ID: "synthetic",
 		ISSUER_ID: "synthetic",
@@ -106,7 +108,7 @@ function fixture(t) {
 				row("CFBundleIdentifier", bundle) +
 					row("CFBundleShortVersionString", version) +
 					row("CFBundleVersion", build) +
-					row("YonderPushEnvironment", marker),
+					(marker ? row("YonderPushEnvironment", marker) : ""),
 			),
 		);
 		writeFileSync(
@@ -127,7 +129,7 @@ function fixture(t) {
 const mac = { skip: process.platform !== "darwin" };
 const assertOk = (result) => assert.equal(result.status, 0, result.stdout + result.stderr);
 
-test("both dispatch kinds pick a production App Store profile by eligibility and always turn APNs on", mac, (t) => {
+test("both dispatch kinds pick a production App Store profile by eligibility", mac, (t) => {
 	const cases = [
 		{
 			mode: "true",
@@ -163,7 +165,7 @@ test("both dispatch kinds pick a production App Store profile by eligibility and
 				INTERNAL_PUSH_PROFILE_BASE64: internal,
 			}),
 		);
-		assert.ok(readFileSync(env.GITHUB_ENV, "utf8").includes(`IOS_PROFILE_NAME=${picked}\nYONDER_IOS_PUSH=1\n`));
+		assert.ok(readFileSync(env.GITHUB_ENV, "utf8").includes(`IOS_PROFILE_NAME=${picked}\n`));
 	}
 });
 
@@ -234,6 +236,7 @@ test(
 		const { step, env } = fixture(t);
 		assertOk(step(verify, { RELEASE_TAG: "v0.3.26112399", GITHUB_REF: "refs/tags/v0.3.26112399" }));
 		assert.match(readFileSync(env.GITHUB_ENV, "utf8"), /MARKETING_VERSION=0\.3\.26112399/);
+		assert.match(readFileSync(env.GITHUB_ENV, "utf8"), /YONDER_IOS_PUSH=1/);
 		assertOk(step(verify, { INPUT_MARKETING_VERSION: "1.0.0" }));
 		assert.match(
 			readFileSync(env.GITHUB_ENV, "utf8"),
@@ -252,3 +255,33 @@ test(
 		}
 	},
 );
+
+test("the no-APNs control requires a verified manual dispatch and an IPA with both push keys absent", mac, (t) => {
+	const verify = "核对 tag → 提交并确定版本";
+	const control = { TESTFLIGHT_WITHOUT_PUSH: "true" };
+	const { step, env } = fixture(t);
+	assertOk(step(verify, control));
+	assert.match(readFileSync(env.GITHUB_ENV, "utf8"), /YONDER_IOS_PUSH=0/);
+	for (const invalid of [
+		{ EXPECTED_COMMIT: "" },
+		{ TESTFLIGHT_INTERNAL: "true" },
+		{ GITHUB_REF: "refs/tags/v0.3.26112399" },
+		{ GITHUB_EVENT_NAME: "release" },
+	]) {
+		assert.notEqual(step(verify, { ...control, ...invalid }).status, 0);
+	}
+	for (const [marker, aps] of [
+		[null, null],
+		["production", null],
+		[null, "production"],
+	]) {
+		const candidate = fixture(t);
+		candidate.ipa({ marker, aps });
+		const result = candidate.step("导出 IPA", { YONDER_IOS_PUSH: "0" });
+		if (!marker && !aps) assertOk(result);
+		else {
+			assert.notEqual(result.status, 0);
+			assert.match(result.stdout, /control still includes APNs configuration/);
+		}
+	}
+});
