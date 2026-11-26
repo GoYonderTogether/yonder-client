@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.3.26112605] - 2026-11-26
+
+### Fixed
+
+- chat：fold incoming Bot visits and relay from the composer
+- ios：read public group from build relationships
+- ios：make TestFlight status exact and redact private data
+- notifications：show content setting when supported by the server
+- ios：open system settings to change notification permission
+- ios：verify TestFlight availability and signed build identity
+
 ## [0.3.26112603] - 2026-11-26
 
 ### Added
