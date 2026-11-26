@@ -5,6 +5,7 @@ import { NotificationSettings } from "./notification-settings.tsx";
 
 const native = vi.hoisted(() => ({
 	permission: "default" as NotificationPermission,
+	preferences: undefined as { content: "full"; version: number } | undefined,
 	request: vi.fn(async () => false),
 	openSettings: vi.fn(async () => true),
 	unregister: vi.fn(),
@@ -13,7 +14,7 @@ const native = vi.hoisted(() => ({
 vi.mock("@yonder/ui-data", () => ({
 	useData: () => ({ api: { unregisterPushToken: native.unregister } }),
 	usePerson: () => ({ id: "member" }),
-	useNotificationPreferences: () => ({}),
+	useNotificationPreferences: () => ({ data: native.preferences }),
 	useUpdateNotificationPreferences: () => ({}),
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
@@ -32,7 +33,7 @@ test("iOS requests once and uses Settings for later permission changes", async (
 		return false;
 	});
 
-	render(<NotificationSettings />);
+	const view = render(<NotificationSettings />);
 	const toggle = screen.getByRole<HTMLInputElement>("switch", { name: /notifications\.enable/ });
 	await waitFor(() => expect(toggle.disabled).toBe(false));
 	fireEvent.click(toggle);
@@ -43,6 +44,10 @@ test("iOS requests once and uses Settings for later permission changes", async (
 
 	native.permission = "granted";
 	await act(async () => window.dispatchEvent(new Event("focus")));
+	expect(screen.getByText("notifications.allowed")).toBeDefined();
+	expect(screen.queryByRole("switch", { name: /notifications\.showContent/ })).toBeNull();
+	native.preferences = { content: "full", version: 1 };
+	view.rerender(<NotificationSettings />);
 	expect(screen.getByRole("switch", { name: /notifications\.showContent/ })).toBeDefined();
 	await act(async () => fireEvent.click(settings));
 	expect(native.openSettings).toHaveBeenCalledTimes(2);
