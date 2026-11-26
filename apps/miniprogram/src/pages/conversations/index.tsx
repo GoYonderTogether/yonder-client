@@ -1,4 +1,4 @@
-import { Image, Input, Button as NativeButton, Text, View } from "@tarojs/components";
+import { Image, Input, Text, View } from "@tarojs/components";
 import Taro, { useDidShow, usePullDownRefresh } from "@tarojs/taro";
 import { conversationBotOwner, ownedBotFor, visitAvatarOverlay, visitBot } from "@yonder/chat-model";
 import type { Conversation } from "@yonder/protocol";
@@ -82,20 +82,23 @@ export default function Conversations({ visitsOnly = false }: { visitsOnly?: boo
 	const visits = visitsOnly ? [] : visible.filter((item) => item.visit?.role === "host");
 	const folderTitle = t("Bot 来访", "Bot visits");
 	const avatarSource = (url: string | null | undefined) => (url?.startsWith("/") ? `${client.baseUrl}${url}` : url);
-	const row = (item: Conversation) => {
-		const inbound = item.visit?.role === "host";
-		const other = chatPartner(item, me?.member.id);
-		const overlay = visitAvatarOverlay(item, me?.member.id);
-		const name = title(item);
-		const visitedBot = inbound ? (visitBot(item)?.displayName ?? "Bot") : "";
+	const row = (item?: Conversation) => {
+		const inbound = item?.visit?.role === "host";
+		const other = item && chatPartner(item, me?.member.id);
+		const overlay = item && visitAvatarOverlay(item, me?.member.id);
+		const name = item ? title(item) : folderTitle;
+		const visitedBot = item && inbound ? (visitBot(item)?.displayName ?? "Bot") : "";
+		const unreadCount = item?.unreadCount ?? Number(visits.some((visit) => visit.unreadCount > 0));
+		const url = item ? `/pages/chat/index?id=${encodeURIComponent(item.id)}` : "/pages/bot-visits/index";
 		return (
 			<View
-				key={item.id}
-				className={item.pinned ? "card row mini-conversation-pinned" : "card row"}
-				onClick={() => void Taro.navigateTo({ url: `/pages/chat/index?id=${encodeURIComponent(item.id)}` })}
+				key={item?.id ?? url}
+				className={item?.pinned ? "card row mini-conversation-pinned" : "card row"}
+				ariaRole={item ? undefined : "button"}
+				onClick={() => void Taro.navigateTo({ url })}
 			>
 				<View className="mini-conversation-avatar">
-					{item.visit && other ? (
+					{item?.visit && other ? (
 						<ChatAvatar name={name} kind={other.kind} src={avatarSource(other.avatarUrl)} size={40} />
 					) : other?.avatarUrl ? (
 						<Image className="mini-avatar" src={avatarSource(other.avatarUrl) ?? ""} />
@@ -115,7 +118,7 @@ export default function Conversations({ visitsOnly = false }: { visitsOnly?: boo
 				</View>
 				<View className="mini-conversation-copy">
 					<View className="mini-conversation-line">
-						{other?.kind === "bot" && item.kind === "direct" ? (
+						{other?.kind === "bot" && item?.kind === "direct" ? (
 							<MiniBotName
 								name={name}
 								ownedBot={ownedBotFor(other.memberId, me?.member.id, me?.bot, cachedBots)}
@@ -125,27 +128,29 @@ export default function Conversations({ visitsOnly = false }: { visitsOnly?: boo
 						) : (
 							<Text className="mini-conversation-title">{name}</Text>
 						)}
-						{item.lastMessage?.createdAt ? (
+						{item?.lastMessage?.createdAt ? (
 							<Text className="mini-conversation-time">{timeFormat.format(new Date(item.lastMessage.createdAt))}</Text>
 						) : null}
 					</View>
 					<View className="mini-conversation-line">
 						<Text className="muted mini-preview">
-							{inbound
-								? t(`找你的 ${visitedBot}`, `Visited your ${visitedBot}`)
-								: conversationPreview(item, locale, {
-										group: t("群聊", "Group"),
-										direct: t("开始对话", "Start a conversation"),
-									})}
+							{!item
+								? t("免打扰", "Muted")
+								: inbound
+									? t(`找你的 ${visitedBot}`, `Visited your ${visitedBot}`)
+									: conversationPreview(item, locale, {
+											group: t("群聊", "Group"),
+											direct: t("开始对话", "Start a conversation"),
+										})}
 						</Text>
-						{item.unreadCount > 0 ? (
-							inbound ? (
+						{unreadCount > 0 ? (
+							!item || inbound ? (
 								<View className="mini-visit-unread" ariaLabel={t("未读来访", "Unread visit")} />
 							) : (
-								<Text className="mini-badge">{item.unreadCount}</Text>
+								<Text className="mini-badge">{unreadCount}</Text>
 							)
 						) : null}
-						{item.muted && !inbound ? <Text className="mini-muted">{t("免打扰", "Muted")}</Text> : null}
+						{item?.muted && !inbound ? <Text className="mini-muted">{t("免打扰", "Muted")}</Text> : null}
 					</View>
 				</View>
 			</View>
@@ -180,19 +185,7 @@ export default function Conversations({ visitsOnly = false }: { visitsOnly?: boo
 					retry={() => void load()}
 				/>
 				{rows.map(row)}
-				{visits.length ? (
-					<NativeButton
-						className="card row mini-visit-entry"
-						onClick={() => void Taro.navigateTo({ url: "/pages/bot-visits/index" })}
-					>
-						<Text className="mini-conversation-title">{folderTitle}</Text>
-						<Text className="mini-muted">{t("免打扰", "Muted")}</Text>
-						{visits.some((visit) => visit.unreadCount > 0) ? (
-							<View className="mini-visit-unread" ariaLabel={t("有新的 Bot 来访", "New Bot visits")} />
-						) : null}
-						<Text ariaHidden>›</Text>
-					</NativeButton>
-				) : null}
+				{visits.length ? row() : null}
 			</View>
 		</Page>
 	);
