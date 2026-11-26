@@ -49,10 +49,19 @@ show(
 	}),
 );
 
-// 3. whatToTest text is required for outside testers
-if (
-	!(locs.body.data ?? []).some((l) => l.attributes.locale?.startsWith("zh") || l.attributes.locale?.startsWith("en"))
-) {
+// 3. Outside testers need a "what to test" text per locale. The zh-Hans record already exists
+// with whatsNew = null, so patch it rather than creating a duplicate.
+const zh = (locs.body.data ?? []).find((l) => l.attributes.locale === "zh-Hans");
+const whatsNew = "测试版本：Bot 聊天、消息通知、录音笔记。请重点测试消息推送能否收到。";
+if (zh) {
+	show(
+		"localize zh",
+		await api(`/v1/betaBuildLocalizations/${zh.id}`, {
+			method: "PATCH",
+			body: JSON.stringify({ data: { type: "betaBuildLocalizations", id: zh.id, attributes: { whatsNew } } }),
+		}),
+	);
+} else {
 	show(
 		"localize zh",
 		await api(`/v1/betaBuildLocalizations`, {
@@ -60,7 +69,7 @@ if (
 			body: JSON.stringify({
 				data: {
 					type: "betaBuildLocalizations",
-					attributes: { locale: "zh-Hans", whatsNew: "测试版本：聊天、Bot 消息通知、录音笔记。" },
+					attributes: { locale: "zh-Hans", whatsNew },
 					relationships: { build: { data: { type: "builds", id: build.id } } },
 				},
 			}),
