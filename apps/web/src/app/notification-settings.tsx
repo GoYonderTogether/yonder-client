@@ -23,7 +23,7 @@ export function NotificationSettings() {
 	const { t } = useTranslation();
 	const { api } = useData();
 	const personId = usePerson()?.id;
-	const preferences = useNotificationPreferences();
+	const { data: preferences } = useNotificationPreferences();
 	const update = useUpdateNotificationPreferences();
 	const [state, setState] = useState<NotificationPermissionState | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -43,9 +43,7 @@ export function NotificationSettings() {
 		};
 	}, [refresh]);
 
-	const content = update.isPending
-		? (update.variables?.content ?? preferences.data?.content)
-		: preferences.data?.content;
+	const content = update.isPending ? (update.variables?.content ?? preferences?.content) : preferences?.content;
 
 	async function turnOn() {
 		if (busy) return;
@@ -125,17 +123,14 @@ export function NotificationSettings() {
 					/>
 				)}
 			</ListGroup>
-			{on ? (
+			{on && preferences ? (
 				<ListGroup title={t("notifications.contentTitle")} footer={t("notifications.contentFooter")}>
 					<ListSwitch
 						title={t("notifications.showContent")}
 						subtitle={t("notifications.showContentDescription")}
 						checked={content !== "hidden"}
 						busy={update.isPending}
-						onChange={(next) =>
-							preferences.data &&
-							update.mutate({ content: next ? "full" : "hidden", version: preferences.data.version })
-						}
+						onChange={(next) => update.mutate({ content: next ? "full" : "hidden", version: preferences.version })}
 						error={update.isError ? t("notifications.contentFailed") : undefined}
 					/>
 				</ListGroup>
