@@ -1,14 +1,17 @@
 /**
  * Web Push for the browser app (docs/notifications.md 第二节). A browser gets a push only while the
  * tab is closed or in the background; an open, focused tab already has the message on its socket.
- *
- * The service worker is registered only once the person turns notifications on, so a browser that
- * never opts in downloads nothing extra and keeps no worker running.
+ * The same registration serves the installed web app, independently of notification permission.
  */
 import type { PushTokenRegistration } from "@yonder/protocol";
 
 const SCOPE = "/";
 const WORKER = "/push-sw.js";
+
+export function registerWebAppWorker(): Promise<ServiceWorkerRegistration> {
+	// Always request the current worker. Returning visitors can have an older worker at this scope.
+	return navigator.serviceWorker.register(WORKER, { scope: SCOPE });
+}
 
 /** Whether this browser can receive Web Push at all (a secure context with the Push API). */
 export function webPushSupported(): boolean {
@@ -40,18 +43,13 @@ function decodeBase64url(value: string): ArrayBuffer {
 	return bytes.buffer;
 }
 
-async function worker(): Promise<ServiceWorkerRegistration> {
-	const existing = await navigator.serviceWorker.getRegistration(SCOPE);
-	return existing ?? (await navigator.serviceWorker.register(WORKER, { scope: SCOPE }));
-}
-
 /**
  * The browser's subscription, as the server stores it. Returns null when the browser cannot
  * subscribe (no permission, no Push API, or a push service that refused).
  */
 export async function subscribeWebPush(publicKey: string): Promise<PushTokenRegistration | null> {
 	if (!webPushSupported() || Notification.permission !== "granted") return null;
-	const registration = await worker();
+	const registration = await registerWebAppWorker();
 	await navigator.serviceWorker.ready;
 	const existing = await registration.pushManager.getSubscription();
 	const subscription =
@@ -67,13 +65,12 @@ export async function subscribeWebPush(publicKey: string): Promise<PushTokenRegi
 	return { provider: "webpush", token: subscription.endpoint, keys: { p256dh, auth } };
 }
 
-/** Drop the subscription and the worker; the server's registration is removed by the caller. */
+/** Drop the subscription. The caller removes the server row, and the web app keeps its worker. */
 export async function unsubscribeWebPush(): Promise<void> {
 	if (!webPushSupported()) return;
 	const registration = await navigator.serviceWorker.getRegistration(SCOPE);
 	const subscription = await registration?.pushManager.getSubscription();
 	await subscription?.unsubscribe().catch(() => {});
-	await registration?.unregister().catch(() => {});
 }
 
 /** A tap on a pushed notification, forwarded by the worker to the open window. */

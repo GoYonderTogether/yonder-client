@@ -57,6 +57,12 @@ packages/api-client ─▶ packages/protocol（不依赖任何包）
 | `apps/miniprogram`         | Taro 小程序，独立依赖和 lockfile，不在 npm workspaces 里；登录复用 `auth-presentation`，聊天复用 `chat-presentation` 与 `chat-model`，键盘/滚动/文件与预览由宿主适配                                                         |
 | `plugins/meeting-recorder` | 录音笔记 Tauri 插件（Rust 桌面采集、iOS、Android），4 秒分段 WAV、异常恢复；桌面原生持久上传队列不依赖 WebView，手机在 WebView 可运行时自动提交；界面在 `features/meetings`                                                  |
 
+### 可安装的 Web 应用
+
+PWA 和浏览器标签页使用同一份 `apps/web` 构建、同源 API、响应式布局和登录流程。安装入口由浏览器提供，`site.webmanifest` 定义应用标识、图标、独立窗口和启动页 `/messages/main`。有效会话直接恢复主 Bot。iOS 和 iPadOS 主屏幕应用首次打开时在应用内登录一次，取得独立会话，避免与浏览器轮换同一枚刷新凭据。Tauri 继续通过自己的壳提供系统钥匙串和本机连接器能力。
+
+生产 Web 复用根作用域的 `push-sw.js`。它接收 Web 推送，并在页面导航遇到网络错误时提供可重试的断网页。关闭推送只取消订阅。正常导航继续检查最新 HTML，带哈希的构建资源走 HTTP 缓存，查询快照和草稿仍由 `ui/data` 管理。API、附件与业务数据请求继续直连原有服务。
+
 ### 桌面托盘
 
 macOS / Windows 的托盘面板是固定尺寸的独立 Webview，不启动主窗口的数据层或会话。面板收到仅含刷新信号的本地 DOM 事件后，再通过原生按窗口标签授权的命令读取当前快照。主窗口仅发布已发送到本机执行的连接器命令；凭后端发来的会话和 Bot ID 与已认证的本地会话缓存精确匹配，未匹配时只显示本机任务状态不可归属，不猜测当前对话，也不并入云端任务。结束、取消、断线或换账号时不保留旧任务。

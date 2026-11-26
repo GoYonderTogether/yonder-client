@@ -29,6 +29,7 @@ import { appleResourcesSupported, localFilesSupported, resetLocalFiles } from ".
 import { LocalFilesRuntime } from "../lib/local-files-runtime.tsx";
 import { resetMeetingRecorder } from "../lib/meeting-recorder.ts";
 import { isNativeMobileNotifications } from "../lib/native-notifications.ts";
+import { isIosHomeScreenWebApp } from "../lib/platform.ts";
 import { ProviderRelayRuntime, providerRelaySupported } from "../lib/provider-relay-runtime.tsx";
 import { UpdateOfferProvider, UpdateProvider } from "../updates/provider.tsx";
 import { AppNoticeProvider } from "./app-notice.tsx";
@@ -67,6 +68,8 @@ export function App() {
 			baseUrl={apiBaseUrl({ shell: isTauri(), dev: import.meta.env.DEV })}
 			appVersion={BUILD_VERSION}
 			clientKind={isTauri() ? "shell" : "web"}
+			// iOS copies the browser's cookies into a new Home Screen app. Sign in there to get its own session.
+			restoreUnmarkedWebSession={!isIosHomeScreenWebApp()}
 			{...(shell ? { refreshTokenStorage: shell.keychain } : {})}
 			{...(isContactWindow() ? { refreshAccessToken: requestMainAccessToken } : {})}
 			{...(contactStorage ? { storage: contactStorage } : { onSessionChange: changeSession })}
