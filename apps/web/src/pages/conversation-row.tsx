@@ -1,9 +1,8 @@
 import { conversationBotOwner, ownedBotFor, visitBot } from "@yonder/chat-model";
 import { BotName, type Translate } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
-import { ConversationList, ConversationRow, UnreadBadge as CountBadge, type RowAction } from "@yonder/ui-components";
-import { BellOff, ChevronDown, ChevronRight, Inbox } from "lucide-react";
-import { type ReactNode, useId, useState } from "react";
+import { ConversationRow, UnreadBadge as CountBadge, type RowAction } from "@yonder/ui-components";
+import { BellOff, ChevronRight, Inbox } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConversationAvatar, conversationPeer, conversationTitle } from "./conversation-presentation.tsx";
 import { rowPreview } from "./message-preview.ts";
@@ -50,6 +49,7 @@ export function ConversationEntry({
 	const inbound = conversation.visit?.role === "host";
 	const visiting = inbound && conversation.visit?.state === "pending";
 	const muted = inbound || Boolean(conversation.muted);
+	const preview = rowPreview(conversation, t);
 	return (
 		<ConversationRow
 			actions={actions}
@@ -67,9 +67,14 @@ export function ConversationEntry({
 				)
 			}
 			preview={
-				inbound
-					? t("visits.incomingFor", { name: visitBot(conversation)?.displayName ?? "Bot" })
-					: rowPreview(conversation, t)
+				inbound ? (
+					<>
+						{t("visits.incomingFor", { name: visitBot(conversation)?.displayName ?? "Bot" })}
+						{conversation.lastMessage && preview ? <> · {preview}</> : null}
+					</>
+				) : (
+					preview
+				)
 			}
 			meta={
 				conversation.lastMessage?.createdAt
@@ -99,34 +104,33 @@ export function ConversationEntry({
 	);
 }
 
-export function IncomingVisits({ unread, children }: { unread: boolean; children: ReactNode }) {
+export function IncomingVisits({
+	unread,
+	selected,
+	onOpen,
+}: {
+	unread: boolean;
+	selected: boolean;
+	onOpen: () => void;
+}) {
 	const { t } = useTranslation();
-	const [open, setOpen] = useState(false);
-	const id = useId();
-	const Chevron = open ? ChevronDown : ChevronRight;
 	return (
-		<>
-			<ConversationRow
-				leading={
-					<span className="grid size-[var(--spacing-10)] place-items-center rounded-[var(--radius-control)] bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)]">
-						<Inbox className="icon-scaled" aria-hidden="true" />
-					</span>
-				}
-				title={t("visits.incoming")}
-				preview={t("messages.muted")}
-				badge={
-					<span className="flex items-center gap-[var(--spacing-2)]">
-						<CountBadge count={Number(unread)} muted label={t("visits.incomingUnread")} />
-						<Chevron className="icon-scaled" aria-hidden="true" />
-					</span>
-				}
-				aria-controls={id}
-				aria-expanded={open}
-				onClick={() => setOpen(!open)}
-			/>
-			<li id={id} hidden={!open} className="ms-[var(--spacing-3)]">
-				{open ? <ConversationList label={t("visits.incoming")}>{children}</ConversationList> : null}
-			</li>
-		</>
+		<ConversationRow
+			leading={
+				<span className="grid size-[var(--spacing-10)] place-items-center rounded-[var(--radius-control)] bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)]">
+					<Inbox className="icon-scaled" aria-hidden="true" />
+				</span>
+			}
+			title={t("visits.incoming")}
+			preview={t("messages.muted")}
+			badge={
+				<span className="flex items-center gap-[var(--spacing-2)]">
+					<CountBadge count={Number(unread)} muted label={t("visits.incomingUnread")} />
+					<ChevronRight className="icon-scaled" aria-hidden="true" />
+				</span>
+			}
+			selected={selected}
+			onClick={onOpen}
+		/>
 	);
 }

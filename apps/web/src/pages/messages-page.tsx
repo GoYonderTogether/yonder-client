@@ -46,11 +46,17 @@ export function MessagesList({
 	current,
 	contacts,
 	onOpen,
+	onOpenVisits,
+	incoming = false,
+	visitsSelected = false,
 	onOpenMeetings,
 }: {
 	current: string | null;
 	contacts?: readonly Member[] | undefined;
 	onOpen: (id: string) => void;
+	onOpenVisits?: () => void;
+	incoming?: boolean;
+	visitsSelected?: boolean;
 	onOpenMeetings?: () => void;
 }) {
 	const { t, i18n } = useTranslation();
@@ -73,6 +79,7 @@ export function MessagesList({
 	const [deleting, setDeleting] = useState<{ id: string; title: string } | null>(null);
 	const busy = pin.isPending || remove.isPending;
 	const visits = visible?.filter((conversation) => conversation.visit?.role === "host");
+	const label = t(incoming ? "visits.incoming" : "nav.messages");
 	const showEntry = (conversation: Conversation) => (
 		<ConversationEntry
 			key={conversation.id}
@@ -112,8 +119,8 @@ export function MessagesList({
 	);
 	return (
 		<ListFrame
-			title={mode === "mobile" ? "" : t("nav.messages")}
-			action={<ChatActions onOpen={onOpen} {...(onOpenMeetings ? { onOpenMeetings } : {})} />}
+			title={!incoming && mode === "mobile" ? "" : label}
+			action={incoming ? null : <ChatActions onOpen={onOpen} {...(onOpenMeetings ? { onOpenMeetings } : {})} />}
 		>
 			{conversations.isError ? (
 				<Button variant="link" onClick={() => void conversations.refetch()}>
@@ -125,12 +132,19 @@ export function MessagesList({
 					{t("messages.pinFailed")}
 				</p>
 			) : null}
-			<ConversationList label={t("nav.messages")}>
-				{visible?.filter((conversation) => conversation.visit?.role !== "host").map(showEntry)}
-				{visits?.length ? (
-					<IncomingVisits unread={visits.some((visit) => visit.unreadCount > 0)}>
-						{visits.map(showEntry)}
-					</IncomingVisits>
+			<ConversationList label={label}>
+				{incoming
+					? visits?.map(showEntry)
+					: visible?.filter((conversation) => conversation.visit?.role !== "host").map(showEntry)}
+				{incoming && visits?.length === 0 ? (
+					<EmptyState as="li" variant="inline" title={t("visits.incomingEmpty")} />
+				) : null}
+				{!incoming && visits?.length && onOpenVisits ? (
+					<IncomingVisits
+						unread={visits.some((visit) => visit.unreadCount > 0)}
+						selected={visitsSelected}
+						onOpen={onOpenVisits}
+					/>
 				) : null}
 			</ConversationList>
 			{deleting ? (

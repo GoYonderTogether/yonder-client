@@ -43,6 +43,8 @@ export const visitsMessagesZhCN: VisitsMessages = {
 	startFailed: "没能开始这个聊天。",
 	waitingForYou: "待批准",
 	incoming: "Bot 来访",
+	incomingEmpty: "还没有 Bot 来访",
+	incomingBack: "返回 Bot 来访",
 	incomingUnread: "有新的 Bot 来访",
 	incomingFor: "找你的 {{name}}",
 	selfPayQuota: "你自己的额度已用完，发消息不会有回复。",

@@ -57,3 +57,17 @@ test("a visit chat names the visitor to its host and the Bot to its visitor", ()
 	expect(conversationPeer(asVisitor, visitor.memberId)?.displayName).toBe("Someone's BOT");
 	expect(conversationTitle(asVisitor, visitor.memberId)).toBe("Someone's BOT");
 });
+
+test("the visits route accepts only inbound conversation IDs", () => {
+	const inbound = {
+		...newer,
+		id: "inbound",
+		visit: { id: "visit", role: "host", state: "pending", trialSent: 3, trialLimit: 3, botId: "bot" },
+	} satisfies Conversation;
+	const outbound: Conversation = { ...inbound, id: "outbound", visit: { ...inbound.visit, role: "visitor" } };
+	const items = [primary, newer, inbound, outbound];
+	expect(selectedConversation(items, "inbound", "bot", true)).toBe(inbound);
+	for (const id of ["main", "original", "newer", "outbound", "missing"])
+		expect(selectedConversation(items, id, "bot", true)).toBeUndefined();
+	expect(selectedConversation(items, "outbound", "bot")).toBe(outbound);
+});

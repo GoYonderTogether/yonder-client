@@ -54,6 +54,7 @@ export interface AppShellProps {
 	desktop?: boolean;
 	onBack: () => void;
 	backLabel: string;
+	showContentBack?: boolean;
 	mobileShowList?: boolean;
 	list: ReactNode | null;
 	content: ReactNode;
@@ -82,6 +83,7 @@ export function AppShell({
 	desktop = false,
 	onBack,
 	backLabel,
+	showContentBack,
 	list,
 	content,
 	detailOpen,
@@ -169,7 +171,7 @@ export function AppShell({
 	const contentChrome = {
 		mode,
 		desktop,
-		left: mainBotOpen ? avatar(false) : !wide ? backButton : null,
+		left: mainBotOpen ? avatar(false) : !wide || showContentBack ? backButton : null,
 		meOpen: false,
 	};
 	return (

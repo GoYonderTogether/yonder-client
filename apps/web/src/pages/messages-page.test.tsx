@@ -72,13 +72,19 @@ const visitRow = (state: "pending" | "open"): Conversation => ({
 });
 const localised = (child: ReactNode) => <I18nextProvider i18n={createI18n("en")}>{child}</I18nextProvider>;
 
-test("an incoming visit is folded by default and names the visitor and Bot when expanded", () => {
+test("the Messages list opens the visits page without displaying any of its rows", () => {
 	data.items = [visitRow("pending")];
-	render(localised(<MessagesList current={null} onOpen={vi.fn()} />));
+	const onOpenVisits = vi.fn();
+	render(localised(<MessagesList current={null} onOpen={vi.fn()} onOpenVisits={onOpenVisits} />));
 	const folder = screen.getByRole("button", { name: /Bot visits/ });
-	expect(folder).toHaveAttribute("aria-expanded", "false");
-	expect(screen.queryByRole("button", { name: /Stranger/ })).not.toBeInTheDocument();
 	fireEvent.click(folder);
+	expect(onOpenVisits).toHaveBeenCalledOnce();
+	expect(screen.queryByRole("button", { name: /Stranger/ })).not.toBeInTheDocument();
+});
+
+test("the visits page names the visitor and Bot and marks requests waiting on the owner", () => {
+	data.items = [visitRow("pending")];
+	render(localised(<MessagesList incoming current={null} onOpen={vi.fn()} />));
 	const row = screen.getByRole("button", { name: /Stranger/ });
 	expect(row).toHaveTextContent("Waiting for you");
 	expect(row).toHaveTextContent("Visited your Someone's BOT");
@@ -86,8 +92,7 @@ test("an incoming visit is folded by default and names the visitor and Bot when 
 
 test("a visit the owner already decided carries no marker", () => {
 	data.items = [visitRow("open")];
-	render(localised(<MessagesList current={null} onOpen={vi.fn()} />));
-	fireEvent.click(screen.getByRole("button", { name: /Bot visits/ }));
+	render(localised(<MessagesList incoming current={null} onOpen={vi.fn()} />));
 	expect(screen.getByRole("button", { name: /Stranger/ })).not.toHaveTextContent("Waiting for you");
 });
 
@@ -97,9 +102,8 @@ test("row actions unpin and require confirmation before deleting from Messages",
 		{ ...visitRow("open"), id: "hidden", title: "Hidden conversation", hiddenFromMessages: true },
 	];
 	const onOpen = vi.fn();
-	render(localised(<MessagesList current={null} onOpen={onOpen} />));
+	render(localised(<MessagesList incoming current={null} onOpen={onOpen} />));
 	expect(screen.queryByText("Hidden conversation")).toBeNull();
-	fireEvent.click(screen.getByRole("button", { name: /Bot visits/ }));
 	const row = screen.getByRole("button", { name: /Stranger/ });
 	fireEvent.contextMenu(row);
 	fireEvent.click(screen.getByRole("button", { name: "Unpin conversation" }));

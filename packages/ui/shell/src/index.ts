@@ -26,7 +26,17 @@ export { setShellHaptics, shellHaptic } from "./navigation/feedback.ts";
 export type { GesturePanelProps } from "./navigation/gesture-panel.tsx";
 export { GesturePanel } from "./navigation/gesture-panel.tsx";
 export type { Layer, RouteEntry, TabId, TabSpec } from "./navigation/routes.ts";
-export { isTab, locate, MAIN_CONVERSATION, ROUTES, TAB_SPECS, TABS, tabPath } from "./navigation/routes.ts";
+export {
+	BOT_VISITS,
+	BOT_VISITS_PATH,
+	isTab,
+	locate,
+	MAIN_CONVERSATION,
+	ROUTES,
+	TAB_SPECS,
+	TABS,
+	tabPath,
+} from "./navigation/routes.ts";
 export { backAction, leaveApp, listenForSystemBack } from "./navigation/system-back.ts";
 export type { SwipeHandlers } from "./navigation/use-dismiss.ts";
 export { dismissTopLayer, hasOpenLayer, swipeToDismiss, topLayer, useDismiss } from "./navigation/use-dismiss.ts";

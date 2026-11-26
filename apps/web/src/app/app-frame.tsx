@@ -12,9 +12,17 @@ import {
 	useSkills,
 } from "@yonder/ui-data";
 import type { LayoutMode, TabId } from "@yonder/ui-shell";
-import { AppShell, locate, MAIN_CONVERSATION, SidePanelProvider, tabPath } from "@yonder/ui-shell";
+import {
+	AppShell,
+	BOT_VISITS,
+	BOT_VISITS_PATH,
+	locate,
+	MAIN_CONVERSATION,
+	SidePanelProvider,
+	tabPath,
+} from "@yonder/ui-shell";
 import type { ReactNode } from "react";
-import { Suspense, useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { listenForContactAdded } from "../lib/contact-window.ts";
@@ -28,7 +36,7 @@ import {
 	primaryConversation,
 	selectedConversation,
 } from "../pages/conversation-presentation.tsx";
-import { memoryDetailParent, readMemoryView } from "../pages/memory/memory-view.ts";
+import { readMemoryView } from "../pages/memory/memory-view.ts";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { BotTabAvatar } from "../pages/unread-badge.tsx";
@@ -48,6 +56,7 @@ import { PresenceReporter } from "./presence-reporter.tsx";
 import { settingsPagePaths } from "./settings-navigation.ts";
 import { useFrameLayers, useSideStack } from "./side-panel.tsx";
 import { BotPresetOverlay } from "./task-bot-drawer.tsx";
+import { useFrameBack } from "./use-frame-back.ts";
 import { useFrameChat } from "./use-frame-chat.ts";
 import { useFrameMeeting } from "./use-frame-meeting.ts";
 import { useMeEntry } from "./use-me-entry.ts";
@@ -98,7 +107,11 @@ export function AppFrame() {
 	const base = meOpen ? locate(tabLocation.split(/[?#]/)[0] ?? "/messages") : located;
 	const tab = base?.tab ?? "messages";
 	const [openedDetail = null, subSelection = null] = base?.detail ?? [];
-	const selection = openedDetail ?? (desktop && layoutMode === "wide" && tab === "messages" ? MAIN_CONVERSATION : null);
+	const visitsRoute = tab === "messages" && openedDetail === BOT_VISITS;
+	const visitFolder = visitsRoute && !subSelection;
+	const selection =
+		(visitsRoute ? (subSelection ?? BOT_VISITS) : openedDetail) ??
+		(desktop && layoutMode === "wide" && tab === "messages" ? MAIN_CONVERSATION : null);
 	const settingsDetail = meOpen ? located.detail : [];
 	const [first = null] = settingsDetail;
 	const section = first && isMeSection(first) ? first : null;
@@ -129,7 +142,8 @@ export function AppFrame() {
 		};
 	}, []);
 	const messageSelection = tab === "messages" ? selection : null;
-	const conversation = selectedConversation(conversations.data?.items, messageSelection, bot?.id);
+	const conversation = selectedConversation(conversations.data?.items, messageSelection, bot?.id, visitsRoute);
+	const watchingVisit = conversation?.visit?.role === "host";
 	const taskSelection = tab === "tasks" && selection !== "scheduled" ? selection : null;
 	const chat = useFrameChat({
 		personId: person?.id,
@@ -142,7 +156,7 @@ export function AppFrame() {
 	const { draft, compact } = chat;
 	const primary = primaryConversation(conversations.data?.items, bot?.id);
 	const unreadCount = messageListUnread(conversations.data?.items, primary?.id, phone);
-	const mainBot = tab === "messages" && (selection === MAIN_CONVERSATION || selection === primary?.id);
+	const mainBot = tab === "messages" && !visitsRoute && (selection === MAIN_CONVERSATION || selection === primary?.id);
 	const mobileBot = phone && mainBot;
 	const tabs = usePhoneTabs(navigation, phone, mobileBot);
 	const recordingConversation = eligibleMeetingTarget(
@@ -213,30 +227,7 @@ export function AppFrame() {
 	const memoryView = readMemoryView(tab === "memory" ? selection : null, subSelection);
 	const segmentRoot = tab === "tasks" && selection === "scheduled";
 	const detailOpen = selection !== null && !segmentRoot;
-	/**
-	 * Back, Escape and a swipe are one exit, and a layer that is animating out still holds the props
-	 * it had when the route left it. The exit therefore reads the route the frame is on now, not the
-	 * captured render: two quick Escapes must step back twice, not ask the screen that is already
-	 * leaving to leave again.
-	 */
-	const currentBack = () => {
-		const live = locate(navigation.current());
-		const liveMeOpen = live !== null && live.tab === null;
-		if (!liveMeOpen && tabs.backToMainBot()) return;
-		if (live?.tab === "memory") return navigation.back(memoryDetailParent(live.detail));
-		if (!liveMeOpen) return navigation.back(tabPath(live?.tab ?? tab));
-		const state = navigation.currentState();
-		const parent = settingsPagePaths(live.detail, state?.channelOriginBotId).at(-2);
-		if (parent === "/me/channels")
-			return navigation.back(state?.channelParentPath ?? `${parent}${location.search}`, state ?? undefined);
-		if (parent?.startsWith("/me/channels/")) return navigation.back(`${parent}${location.search}`, state ?? undefined);
-		if (parent) return navigation.back(parent);
-		if (live.detail.length && !splitMe) return navigation.back("/me");
-		return navigation.back(tabLocation);
-	};
-	const backRef = useRef(currentBack);
-	backRef.current = currentBack;
-	const back = useCallback(() => backRef.current(), []);
+	const back = useFrameBack({ navigation, tabs, tab, tabLocation, splitMe, search: location.search });
 	const { list, content } = base ? screensFor() : { list: null, content: <NotFoundPage /> };
 	const me = meOpen
 		? {
@@ -278,20 +269,28 @@ export function AppFrame() {
 	}
 	function screensFor(): { list: ReactNode | null; content: ReactNode } {
 		switch (tab) {
-			case "messages":
+			case "messages": {
+				const messageList = (incoming = false) => (
+					<MessagesList
+						current={selection}
+						contacts={contacts.data?.items}
+						incoming={incoming}
+						visitsSelected={visitsRoute || watchingVisit}
+						onOpenVisits={() => (visitsRoute ? !visitFolder && back() : tabs.go(BOT_VISITS_PATH))}
+						onOpen={(id) => {
+							setChatOpen((previous) => previous + 1);
+							tabs.go(`${incoming ? BOT_VISITS_PATH : "/messages"}/${encodeURIComponent(id)}`);
+						}}
+						onOpenMeetings={() => recordingSurface.start(primary)}
+					/>
+				);
 				return {
-					list: mobileBot ? null : (
-						<MessagesList
-							current={selection}
-							contacts={contacts.data?.items}
-							onOpen={(id) => {
-								setChatOpen((previous) => previous + 1);
-								tabs.go(`/messages/${encodeURIComponent(id)}`);
-							}}
-							onOpenMeetings={() => recordingSurface.start(primary)}
-						/>
-					),
-					content: (
+					list: mobileBot ? null : messageList(),
+					content: visitFolder ? (
+						messageList(true)
+					) : visitsRoute && !conversation && conversations.data ? (
+						<NotFoundPage />
+					) : (
 						<ConversationPage
 							key={`${selection ? (conversation?.id ?? "") : ""}:${chatOpen}`}
 							conversationId={selection ? (conversation?.id ?? null) : null}
@@ -305,6 +304,7 @@ export function AppFrame() {
 						/>
 					),
 				};
+			}
 			case "tasks":
 				return {
 					list: (
@@ -394,12 +394,11 @@ export function AppFrame() {
 		memory: t("nav.memory"),
 		contacts: t("chatActions.contacts"),
 	};
-	// Visits and closed groups are read-only (§19.2.3/19.3.2).
-	const watchingVisit = conversation?.visit?.role === "host";
 	const closed = Boolean(conversation?.closedReason);
 	const dock = taskSelection ? (
 		composer
-	) : tab !== "messages" || watchingVisit || conversation?.kind === "system" ? null : closed && conversation ? (
+	) : tab !== "messages" || visitsRoute || watchingVisit || conversation?.kind === "system" ? null : closed &&
+		conversation ? (
 		<ClosedGroupNotice conversation={conversation} />
 	) : (
 		composer
@@ -440,7 +439,8 @@ export function AppFrame() {
 					me={me}
 					side={side}
 					onBack={back}
-					backLabel={t("app.back")}
+					backLabel={t(visitsRoute && !visitFolder ? "visits.incomingBack" : "app.back")}
+					showContentBack={visitsRoute && !visitFolder}
 					mobileShowList={!detailOpen}
 					list={list ? deferred(list) : null}
 					content={

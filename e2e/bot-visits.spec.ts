@@ -22,6 +22,7 @@ const incoming = {
 	...friend,
 	id: "visit-incoming",
 	members: [...conversation.members, visitor],
+	lastMessage: { body: "周五的场地需要今天确认。", senderKind: "person", createdAt: "2026-11-15T08:30:00Z" },
 	unreadCount: 5,
 	visit: { id: "visit-host", role: "host", state: "open", trialSent: 0, trialLimit: 3, botId: bot.id },
 } satisfies Conversation;
@@ -40,7 +41,9 @@ const outgoing: Conversation = {
 };
 
 for (const phone of [false, true]) {
-	test(`incoming visits fold and the composer relays on ${phone ? "mobile" : "desktop"}`, async ({ page }, info) => {
+	test(`Bot visits open as a dedicated list and the composer relays on ${phone ? "mobile" : "desktop"}`, async ({
+		page,
+	}, info) => {
 		await page.setViewportSize({ width: phone ? 390 : 1440, height: 844 });
 		if (phone)
 			await page.addInitScript(() => {
@@ -65,22 +68,38 @@ for (const phone of [false, true]) {
 		const list = page.getByRole("list", { name: "消息", exact: true });
 		const folder = list.getByRole("button", { name: /^Bot 来访/ });
 		const visitorRow = list.getByRole("button", { name: /^Zoran/ });
-		await expect(folder).toHaveAttribute("aria-expanded", "false");
 		await expect(folder.getByRole("img", { name: "有新的 Bot 来访" })).toBeVisible();
 		await expect(visitorRow).toHaveCount(1);
 		await expect(page.getByRole("button", { name: "消息", exact: true })).toHaveAccessibleDescription("2 条未读消息");
-		await page.screenshot({ path: info.outputPath("bot-visits-collapsed.png"), animations: "disabled" });
 
 		await folder.click();
-		const incomingRow = list.getByRole("button", { name: /找你的 界面验收 BOT/ });
-		await expect(folder).toHaveAttribute("aria-expanded", "true");
-		await expect(visitorRow).toHaveCount(2);
+		await expect(page).toHaveURL(/\/messages\/bot-visits$/);
+		const detail = page.locator("main");
+		const incomingList = detail.getByRole("list", { name: "Bot 来访" });
+		const incomingRow = incomingList.getByRole("button", { name: /找你的 界面验收 BOT/ });
+		await expect(detail.getByRole("heading", { name: "Bot 来访" })).toBeVisible();
+		await expect(incomingRow).toContainText("周五的场地需要今天确认。");
 		await expect(incomingRow.locator("[data-visit-avatar-overlay]")).toBeVisible();
-		await page.screenshot({ path: info.outputPath("bot-visits-expanded.png"), animations: "disabled" });
+		await expect(detail.locator("textarea")).toHaveCount(0);
+		if (phone) {
+			await expect.poll(async () => Math.round((await detail.boundingBox())?.x ?? -1)).toBe(0);
+		} else {
+			await expect(folder).toHaveAttribute("aria-current", "true");
+			await expect(visitorRow).toHaveCount(1);
+			await expect(list.getByRole("button", { name: /找你的/ })).toHaveCount(0);
+		}
+		await page.screenshot({ path: info.outputPath("bot-visits-list.png"), animations: "disabled" });
 		await incomingRow.click();
-		await expect(page).toHaveURL(/\/messages\/visit-incoming$/);
+		await expect(page).toHaveURL(/\/messages\/bot-visits\/visit-incoming$/);
+		if (!phone) await expect(folder).toHaveAttribute("aria-current", "true");
 		await expect(page.getByRole("button", { name: "请 Bot 转达" })).toHaveCount(0);
-		if (phone) await page.goto("/messages");
+		await detail.getByRole("button", { name: "返回 Bot 来访" }).click();
+		await expect(page).toHaveURL(/\/messages\/bot-visits$/);
+		await expect(incomingRow).toBeVisible();
+		if (phone) {
+			await detail.getByRole("button", { name: "返回", exact: true }).click();
+			await expect(page).toHaveURL(/\/messages$/);
+		}
 
 		const externalRow = list.getByRole("button", { name: /Yonder.*佳佳/ });
 		await expect(externalRow.locator("[data-visit-avatar-overlay]")).toBeVisible();

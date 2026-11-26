@@ -28,7 +28,9 @@ export function selectedConversation(
 	items: Conversation[] | undefined,
 	selection: string | null,
 	botId: string | undefined,
+	incomingOnly = false,
 ) {
+	if (incomingOnly) return items?.find((item) => item.id === selection && item.visit?.role === "host");
 	return selection && selection !== MAIN_CONVERSATION
 		? items?.find((item) => item.id === selection)
 		: primaryConversation(items, botId);
