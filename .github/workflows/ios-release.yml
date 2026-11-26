@@ -272,8 +272,9 @@ jobs:
           #!/bin/sh
           if [ "${1:-}" = build ]; then
             shift
-            : > "${0%/*}/used"
-            echo 'Xcode control: SwiftPM native build' >&2
+            if [ "${1:-}" = --sdk ]; then
+              printf 'SwiftPM --build-system native, SDK %s\n' "$2" >> "${0%/*}/used"
+            fi
             exec /usr/bin/swift build --build-system native "$@"
           fi
           exec /usr/bin/swift "$@"
@@ -300,6 +301,11 @@ jobs:
           set -eu
           cd apps/desktop
           if [ "${TESTFLIGHT_XCODE_27_2:-false}" = true ]; then
+            # Tauri snapshots this outer PATH and restores it before the nested Cargo build.
+            shim="$RUNNER_TEMP/yonder-xcode-control"
+            export PATH="$shim:$PATH"
+            [ "$(command -v swift)" = "$shim/swift" ] || { echo "::error::SwiftPM control shim is missing"; exit 1; }
+            echo "Outer Tauri CLI Swift shim: $shim/swift"
             # Rust 同样通过 Xcode 的 SDKROOT 编译；读取生成工程的有效设置。
             settings="$(env -u DEVELOPER_DIR /usr/bin/xcodebuild -project src-tauri/gen/apple/yonder-desktop.xcodeproj \
               -scheme yonder-desktop_iOS -configuration release -destination 'generic/platform=iOS' -sdk iphoneos -showBuildSettings)"
@@ -315,11 +321,27 @@ jobs:
           # （CFBundleVersion 上限 18 字符）。这里直接用 bundle.iOS.bundleVersion 把
           # CFBundleVersion 钉成 YYMMDDNN，与安卓 versionCode 同量纲。
           config="{\"identifier\":\"$BUNDLE_ID\",\"version\":\"$MARKETING_VERSION\",\"bundle\":{\"iOS\":{\"bundleVersion\":\"$BUILD_NUMBER\"}}}"
-          npx --no-install tauri ios build --target aarch64 --archive-only --config "$config"
-          if [ "${TESTFLIGHT_XCODE_27_2:-false}" = true ] && [ ! -f "$RUNNER_TEMP/yonder-xcode-control/used" ]; then
-            echo "::error::nested archive build did not use the SwiftPM native shim"
-            exit 1
+          archive_status=0
+          npx --no-install tauri ios build --target aarch64 --archive-only --config "$config" || archive_status=$?
+          if [ "${TESTFLIGHT_XCODE_27_2:-false}" = true ]; then
+            if [ -s "$shim/used" ]; then sort -u "$shim/used"; else
+              echo "::error::nested archive build did not use the SwiftPM native shim"
+              exit 1
+            fi
+            swift_status=0
+            for plugin in meeting-recorder opener; do
+              symbol="_init_plugin_${plugin//-/_}"
+              lib="$(find src-tauri/target/aarch64-apple-ios/release/build -type f -name "libtauri-plugin-$plugin.a" -print -quit 2>/dev/null || true)"
+              if [ -n "$lib" ] && /usr/bin/nm -gU "$lib" | awk -v symbol="$symbol" '$NF == symbol && $(NF-1) == "T" { found = 1 } END { exit !found }'; then
+                echo "Verified global Swift symbol $symbol in $lib"
+              else
+                echo "::error::missing global Swift symbol $symbol in ${lib:-the Cargo Swift package archive}"
+                swift_status=1
+              fi
+            done
+            [ "$swift_status" = 0 ] || exit "$swift_status"
           fi
+          [ "$archive_status" = 0 ] || exit "$archive_status"
           archive="$(find "$PWD/src-tauri/gen/apple/build" -maxdepth 1 -name '*.xcarchive' | head -1)"
           [ -n "$archive" ] || { echo "::error::no xcarchive was produced"; exit 1; }
           app="$(find "$archive/Products/Applications" -maxdepth 1 -name '*.app' | head -1)"
