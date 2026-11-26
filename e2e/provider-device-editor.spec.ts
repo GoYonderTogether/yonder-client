@@ -320,8 +320,32 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 		},
 	]);
 	await expect(keyField).toHaveValue("");
+	const effort = page.getByRole("button", { name: "思考档位", exact: true }).first();
+	await effort.click();
+	const menu = page.getByRole("menu", { name: "思考档位" });
+	await expect(menu.getByRole("menuitemcheckbox")).toHaveText(["off", "low", "medium", "high", "max"]);
+	await menu.getByRole("menuitemcheckbox", { name: "low", exact: true }).click();
+	await menu.getByRole("menuitemcheckbox", { name: "high", exact: true }).click();
+	await expect(menu.getByRole("menuitemcheckbox", { name: "low", exact: true })).toHaveAttribute(
+		"aria-checked",
+		"true",
+	);
+	await expect(menu.getByRole("menuitemcheckbox", { name: "high", exact: true })).toHaveAttribute(
+		"aria-checked",
+		"true",
+	);
+	await capture(page, "provider-raw-effort-menu-zh");
+	await page.keyboard.press("Escape");
+	await expect(effort).toContainText("low");
+	await expect(effort).toContainText("high");
 	await page.getByRole("button", { name: "保存", exact: true }).click();
-	await expect.poll(() => requests.saves.at(-1)).toMatchObject({ ...target, protocol: "anthropic-messages" });
+	await expect
+		.poll(() => requests.saves.at(-1))
+		.toMatchObject({
+			...target,
+			protocol: "anthropic-messages",
+			metadata: { "fixture-model": { name: "fixture-model", contextLength: 4096, efforts: ["low", "high"] } },
+		});
 	expect(requests.saves.at(-1)).not.toHaveProperty("baseUrl");
 	expect(requests.saves.at(-1)).not.toHaveProperty("apiKey");
 	await expect(page.getByRole("button", { name: "编辑供应商", exact: true })).toBeVisible();
@@ -334,10 +358,14 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await expect(protocol).toHaveText("Anthropic Messages");
 	await expect(url(page)).toHaveCount(0);
 	await expect(keyField).toHaveValue("");
+	await expect(effort).toContainText("low");
+	await expect(effort).toContainText("high");
 	await capture(page, "provider-canonical-desktop-bound-edit");
 	await discover(page).click();
 	await expect(discoveredModel(page)).toHaveValue("fixture-model");
 	await expect.poll(() => requests.discovery).toHaveLength(2);
+	await expect(effort).toContainText("low");
+	await expect(effort).toContainText("high");
 	expect(registrations).toHaveLength(1);
 	await keyField.fill("synthetic-replacement-key");
 	await discover(page).click();
@@ -366,7 +394,7 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 				name: "桌面本地模型",
 				note: null,
 				models: ["fixture-model"],
-				metadata: { "fixture-model": { name: "fixture-model", contextLength: 4096 } },
+				metadata: { "fixture-model": { name: "fixture-model", contextLength: 4096, efforts: ["low", "high"] } },
 			},
 		]);
 	expect(registrations).toHaveLength(2);

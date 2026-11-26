@@ -31,35 +31,43 @@ function TestSlots() {
 	);
 }
 
-test("choices stay open and scoped to their row, preserve order and omit empty effort metadata", () => {
+test.each([
+	["en", "Reasoning levels"],
+	["zh-CN", "思考档位"],
+] as const)("raw effort codes in %s stay scoped to their row and preserve the saved values", (locale, label) => {
 	render(
-		<I18nextProvider i18n={createI18n("en")}>
+		<I18nextProvider i18n={createI18n(locale)}>
 			<TestSlots />
 		</I18nextProvider>,
 	);
-	const [first, second] = screen.getAllByRole("button", { name: "Reasoning levels" });
+	const [first, second] = screen.getAllByRole("button", { name: label });
 	if (!first || !second) throw new Error("Two model slots expected");
-	expect(first).toHaveTextContent("Medium");
+	expect(first).toHaveTextContent("medium");
 	fireEvent.keyDown(first, { key: "ArrowDown" });
-	const menu = screen.getByRole("menu", { name: "Reasoning levels" });
+	const menu = screen.getByRole("menu", { name: label });
 	const option = (level: string) => within(menu).getByRole("menuitemcheckbox", { name: level });
-	expect(option("Off")).toHaveFocus();
-	fireEvent.keyDown(option("Off"), { key: "ArrowDown" });
-	expect(option("Low")).toHaveFocus();
-	fireEvent.click(option("Low"));
-	fireEvent.click(option("Max"));
-	expect(option("Low")).toHaveAttribute("aria-checked", "true");
-	expect(option("Max")).toHaveAttribute("aria-checked", "true");
+	expect(
+		within(menu)
+			.getAllByRole("menuitemcheckbox")
+			.map((item) => item.textContent),
+	).toEqual(["off", "low", "medium", "high", "max"]);
+	expect(option("off")).toHaveFocus();
+	fireEvent.keyDown(option("off"), { key: "ArrowDown" });
+	expect(option("low")).toHaveFocus();
+	fireEvent.click(option("low"));
+	fireEvent.click(option("max"));
+	expect(option("low")).toHaveAttribute("aria-checked", "true");
+	expect(option("max")).toHaveAttribute("aria-checked", "true");
 	expect(first).toHaveAttribute("aria-expanded", "true");
-	expect(second).not.toHaveTextContent("Low");
+	expect(second).not.toHaveTextContent("low");
 	const metadata = () => JSON.parse(screen.getByLabelText("metadata").textContent ?? "{}");
 	expect(metadata()).toEqual({
 		m1: { name: "First", contextLength: 4096, efforts: ["low", "medium", "max"] },
 		m2: { name: "Second", contextLength: 8192 },
 	});
-	for (const level of ["Low", "Medium", "Max"]) fireEvent.click(option(level));
+	for (const level of ["low", "medium", "max"]) fireEvent.click(option(level));
 	expect(metadata().m1).toEqual({ name: "First", contextLength: 4096 });
-	fireEvent.keyDown(option("Low"), { key: "Escape" });
+	fireEvent.keyDown(option("low"), { key: "Escape" });
 	expect(first).toHaveFocus();
 	expect(screen.queryByRole("menu")).toBeNull();
 	fireEvent.click(second);

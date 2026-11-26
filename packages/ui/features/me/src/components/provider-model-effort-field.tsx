@@ -115,7 +115,7 @@ export function EffortField({
 										key={level}
 										className="rounded-[var(--radius-control-sm)] bg-[var(--color-bg-selected)] px-[var(--spacing-2)] py-[var(--spacing-1)] text-caption"
 									>
-										{t(`models.effort.${level}`)}
+										{level}
 									</span>
 								))
 							) : (
@@ -156,7 +156,7 @@ export function EffortField({
 									<span aria-hidden="true" className="grid shrink-0 place-items-center">
 										<Check size={16} className={checked ? "" : "invisible"} />
 									</span>
-									<span className="min-w-0 flex-1">{t(`models.effort.${level}`)}</span>
+									<span className="min-w-0 flex-1">{level}</span>
 								</button>
 							);
 						})}
