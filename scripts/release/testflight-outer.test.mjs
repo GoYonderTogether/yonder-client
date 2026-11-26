@@ -25,10 +25,14 @@ test("probe filters for the exact iOS build and reports only sanitized public gr
 			case "/v1/builds":
 				assert.equal(searchParams.get("filter[version]"), buildNumber);
 				assert.equal(searchParams.get("filter[preReleaseVersion.platform]"), "IOS");
+				assert.equal(searchParams.get("include"), "betaGroups");
+				assert.ok(searchParams.get("fields[builds]").split(",").includes("betaGroups"));
+				assert.equal(searchParams.get("fields[betaGroups]"), "name");
 				return Response.json({
 					data: [
 						{
 							id: "exact-build",
+							relationships: { betaGroups: { data: [{ type: "betaGroups", id: group.id }] } },
 							attributes: {
 								version: buildNumber,
 								processingState: "VALID",
@@ -43,7 +47,7 @@ test("probe filters for the exact iOS build and reports only sanitized public gr
 				assert.equal(searchParams.get("filter[name]"), "公测");
 				assert.equal(searchParams.get("filter[isInternalGroup]"), "false");
 				assert.doesNotMatch(searchParams.get("fields[betaGroups]"), /publicLink,|publicLinkId|betaTesters/);
-				assert([null, "exact-build"].includes(searchParams.get("filter[builds]")));
+				assert.equal(searchParams.get("filter[builds]"), null);
 				return Response.json({
 					data: [{ ...group, attributes: { ...group.attributes, publicLink: "sensitive-link" } }],
 				});

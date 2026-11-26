@@ -66,7 +66,8 @@ export async function testFlightStatus(get, { bundleId, buildNumber }) {
 		get(
 			"Find exact iOS build",
 			`/v1/builds?filter[app]=${appId}&filter[version]=${buildNumber}&filter[preReleaseVersion.platform]=IOS` +
-				"&fields[builds]=version,processingState,expired,buildAudienceType,usesNonExemptEncryption&limit=2",
+				"&include=betaGroups&fields[betaGroups]=name" +
+				"&fields[builds]=version,processingState,expired,buildAudienceType,usesNonExemptEncryption,betaGroups&limit=2",
 		),
 		get("Find external group", groupQuery),
 	]);
@@ -76,16 +77,26 @@ export async function testFlightStatus(get, { bundleId, buildNumber }) {
 	const group = matchingGroups.length === 1 ? matchingGroups[0] : undefined;
 	const build = builds.length === 1 && builds[0].attributes.version === buildNumber ? builds[0] : undefined;
 	const buildId = build ? encodeURIComponent(build.id) : null;
-	const [detail, review, assignment] = buildId
+	const assigned = async () => {
+		if (!build || !group) return null;
+		const buildGroups = build.relationships?.betaGroups?.data;
+		if (buildGroups) return buildGroups.some((entry) => entry.id === group.id);
+		const { data, links } = await get(
+			"Read public group builds",
+			`/v1/betaGroups/${encodeURIComponent(group.id)}/builds?fields[builds]=version&limit=200`,
+		);
+		return data.some((entry) => entry.id === build.id) || (links?.next ? null : false);
+	};
+	const [detail, review, isAssigned] = buildId
 		? await Promise.all([
 				get("Read beta build state", `/v1/builds/${buildId}/buildBetaDetail`, true),
 				get(
 					"Read beta review status",
 					`/v1/betaAppReviewSubmissions?filter[build]=${buildId}&fields[betaAppReviewSubmissions]=betaReviewState&limit=2`,
 				),
-				group ? get("Read group assignment", `${groupQuery}&filter[builds]=${buildId}`) : {},
+				assigned(),
 			])
-		: [{}, {}, {}];
+		: [{}, {}, null];
 	const attributes = build?.attributes;
 	const beta = detail.data?.attributes;
 	const submissions = review.data;
@@ -107,7 +118,7 @@ export async function testFlightStatus(get, { bundleId, buildNumber }) {
 					: null,
 		group: groupName,
 		groupMatches: matchingGroups.length,
-		assigned: assignment.data?.some((entry) => entry.id === group.id) ?? null,
+		assigned: isAssigned,
 		publicLinkEnabled: group ? group.attributes.publicLinkEnabled === true : null,
 		publicLinkLimit:
 			group?.attributes.publicLinkLimitEnabled === true && Number.isInteger(linkLimit) ? linkLimit : null,
