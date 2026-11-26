@@ -13,7 +13,7 @@ import { ChatAvatar } from "../chat/avatar";
 import { chatPartner, isObserver } from "../chat/model";
 import { conversationPreview } from "./preview";
 
-export default function Conversations() {
+export default function Conversations({ visitsOnly = false }: { visitsOnly?: boolean }) {
 	const { status, me } = useSession();
 	const cachedBots = useCachedBots();
 	const { locale } = useLocale();
@@ -23,7 +23,6 @@ export default function Conversations() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [search, setSearch] = useState("");
-	const [visitsOpen, setVisitsOpen] = useState(false);
 	const load = useCallback(async () => {
 		if (status !== "signed-in") return;
 		setError("");
@@ -79,7 +78,9 @@ export default function Conversations() {
 		.sort(
 			(a, b) => Number(b.pinned) - Number(a.pinned) || (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""),
 		);
-	const visits = visible.filter((item) => item.visit?.role === "host");
+	const rows = visible.filter((item) => (item.visit?.role === "host") === visitsOnly);
+	const visits = visitsOnly ? [] : visible.filter((item) => item.visit?.role === "host");
+	const folderTitle = t("Bot 来访", "Bot visits");
 	const avatarSource = (url: string | null | undefined) => (url?.startsWith("/") ? `${client.baseUrl}${url}` : url);
 	const row = (item: Conversation) => {
 		const inbound = item.visit?.role === "host";
@@ -151,19 +152,21 @@ export default function Conversations() {
 		);
 	};
 	return (
-		<Page back={false} title={t("消息", "Messages")}>
+		<Page back={visitsOnly} title={visitsOnly ? folderTitle : t("消息", "Messages")}>
 			<View className="stack">
-				<View className="actions">
-					<Button secondary onClick={() => void Taro.navigateTo({ url: "/pages/contacts/index" })}>
-						{t("联系人 / 新建", "Contacts / New")}
-					</Button>
-					<Button secondary onClick={() => go("memory")}>
-						{t("记忆", "Memory")}
-					</Button>
-					<Button secondary onClick={() => void Taro.navigateTo({ url: "/pages/me/index" })}>
-						{t("我", "Me")}
-					</Button>
-				</View>
+				{!visitsOnly ? (
+					<View className="actions">
+						<Button secondary onClick={() => void Taro.navigateTo({ url: "/pages/contacts/index" })}>
+							{t("联系人 / 新建", "Contacts / New")}
+						</Button>
+						<Button secondary onClick={() => go("memory")}>
+							{t("记忆", "Memory")}
+						</Button>
+						<Button secondary onClick={() => void Taro.navigateTo({ url: "/pages/me/index" })}>
+							{t("我", "Me")}
+						</Button>
+					</View>
+				) : null}
 				<Input
 					className="mini-input"
 					value={search}
@@ -173,28 +176,22 @@ export default function Conversations() {
 				<State
 					loading={loading}
 					error={error}
-					empty={!loading && !visible.length ? t("暂无会话", "No conversations") : undefined}
+					empty={!loading && !rows.length && !visits.length ? t("暂无会话", "No conversations") : undefined}
 					retry={() => void load()}
 				/>
-				{visible.filter((item) => item.visit?.role !== "host").map(row)}
+				{rows.map(row)}
 				{visits.length ? (
-					<>
-						<NativeButton
-							className="card row mini-visit-toggle"
-							ariaLabel={
-								visitsOpen ? t("折叠 Bot 来访", "Collapse Bot visits") : t("展开 Bot 来访", "Expand Bot visits")
-							}
-							onClick={() => setVisitsOpen(!visitsOpen)}
-						>
-							<Text className="mini-conversation-title">{t("Bot 来访", "Bot visits")}</Text>
-							<Text className="mini-muted">{t("免打扰", "Muted")}</Text>
-							{visits.some((visit) => visit.unreadCount > 0) ? (
-								<View className="mini-visit-unread" ariaLabel={t("有新的 Bot 来访", "New Bot visits")} />
-							) : null}
-							<Text ariaHidden>{visitsOpen ? "⌄" : "›"}</Text>
-						</NativeButton>
-						{visitsOpen ? <View className="stack mini-visit-items">{visits.map(row)}</View> : null}
-					</>
+					<NativeButton
+						className="card row mini-visit-entry"
+						onClick={() => void Taro.navigateTo({ url: "/pages/bot-visits/index" })}
+					>
+						<Text className="mini-conversation-title">{folderTitle}</Text>
+						<Text className="mini-muted">{t("免打扰", "Muted")}</Text>
+						{visits.some((visit) => visit.unreadCount > 0) ? (
+							<View className="mini-visit-unread" ariaLabel={t("有新的 Bot 来访", "New Bot visits")} />
+						) : null}
+						<Text ariaHidden>›</Text>
+					</NativeButton>
 				) : null}
 			</View>
 		</Page>
