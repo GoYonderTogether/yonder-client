@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [0.3.26112601] - 2026-11-26
+
+### Fixed
+
+- ios：ship the release build to TestFlight's internal testers
+- models,e2e：a queued discovery runs, and two fixtures name their language
+- preferences：an older server keeps the account's language, and public pages sync
+- preferences：the failure line has the sentence it asks for
+- models：a device endpoint keeps its own wire, and discovery never sticks
+- preferences：a change on one device arrives on the next refocus
+- composer：Enter sends once, the field clears with the bubble, and the field grows without field-sizing
+- ios：read a build's beta groups the way the API allows
+
+### Added
+
+- preferences：the zone picker's shortcut rows carry a globe
+- preferences：the account owns its time zone and language, from the server
+- chat：both-side avatars, one profile hit area, @ entry and a message menu
+- time：every instant reads the account's zone, and 通用 sets the zone and language
+- chat：drop a reply row the server withdrew
+- composer：draft Markdown matches the bubble, and copying a bubble keeps its source
+
 ## [0.3.26112510] - 2026-11-25
 
 ### Added
