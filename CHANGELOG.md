@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112608] - 2026-11-26
+
+### Fixed
+
+- chat：use a standard row for Bot visits
+- miniprogram：use message list row for Bot visits
+
 ## [0.3.26112607] - 2026-11-26
 
 ### Added
