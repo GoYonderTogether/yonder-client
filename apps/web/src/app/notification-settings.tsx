@@ -1,8 +1,9 @@
-import { ListGroup, ListSwitch } from "@yonder/ui-components";
+import { ListGroup, ListRow, ListSwitch } from "@yonder/ui-components";
 import { useData, useNotificationPreferences, usePerson, useUpdateNotificationPreferences } from "@yonder/ui-data";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isTauri } from "../lib/keychain.ts";
+import { isNativeIosNotifications, openIosNotificationSettings } from "../lib/native-notifications.ts";
 import {
 	disableNotifications,
 	enableNotifications,
@@ -77,26 +78,52 @@ export function NotificationSettings() {
 		}
 	}
 
+	async function openSystemSettings() {
+		setBusy(true);
+		setFailed(false);
+		try {
+			setFailed(!(await openIosNotificationSettings()));
+		} catch {
+			setFailed(true);
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	if (!personId) return null;
 	const on = state === "granted";
+	const useIosSettings = isNativeIosNotifications() && (on || state === "denied");
 	return (
 		<div className="flex flex-col gap-[var(--spacing-3)]">
-			<ListGroup title={t("notifications.title")}>
-				<ListSwitch
-					title={t("notifications.enable")}
-					subtitle={
-						state === "unsupported"
-							? t("notifications.unsupported")
-							: state === "denied"
-								? t("notifications.denied")
-								: t("notifications.enableDescription")
-					}
-					checked={on}
-					busy={busy}
-					disabled={state === "unsupported" || (state === "denied" && isTauri())}
-					onChange={(next) => void (next ? turnOn() : turnOff())}
-					error={failed ? t("notifications.failed") : undefined}
-				/>
+			<ListGroup
+				title={t("notifications.title")}
+				footer={useIosSettings && failed ? <span role="alert">{t("notifications.failed")}</span> : undefined}
+			>
+				{useIosSettings ? (
+					<ListRow
+						title={t("messages.openNotificationSettings")}
+						subtitle={t(on ? "notifications.allowed" : "notifications.denied")}
+						chevron
+						disabled={busy}
+						onClick={() => void openSystemSettings()}
+					/>
+				) : (
+					<ListSwitch
+						title={t("notifications.enable")}
+						subtitle={
+							state === "unsupported"
+								? t("notifications.unsupported")
+								: state === "denied"
+									? t("notifications.denied")
+									: t("notifications.enableDescription")
+						}
+						checked={on}
+						busy={busy}
+						disabled={state === null || state === "unsupported" || (state === "denied" && isTauri())}
+						onChange={(next) => void (next ? turnOn() : turnOff())}
+						error={failed ? t("notifications.failed") : undefined}
+					/>
+				)}
 			</ListGroup>
 			{on ? (
 				<ListGroup title={t("notifications.contentTitle")} footer={t("notifications.contentFooter")}>
