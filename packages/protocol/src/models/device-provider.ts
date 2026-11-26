@@ -1,5 +1,11 @@
-/** Explicitly approved protocol for a model profile stored on the owner's device. */
-export type DeviceModelProtocol = "openai" | "anthropic";
+import type { ProviderProtocol } from "./provider.ts";
+
+/**
+ * The wire a device endpoint speaks. A device endpoint is a local model node, and a node serves the
+ * same four wires a cloud provider does: the two OpenAI shapes and Gemini's differ in request body
+ * and stream, so a node cannot pretend one is another.
+ */
+export type DeviceModelProtocol = ProviderProtocol;
 
 export interface DeviceProviderTarget {
 	kind: "device";
@@ -67,8 +73,10 @@ export interface DeviceAnthropicModelInput {
  */
 export type DeviceLocalRelayInput =
 	| { operation: "discover"; protocol: DeviceModelProtocol }
-	| { operation: "chat"; protocol: "openai"; body: DeviceModelInput }
-	| { operation: "chat"; protocol: "anthropic"; body: DeviceAnthropicModelInput };
+	| { operation: "chat"; protocol: "openai-chat" | "openai-responses"; body: DeviceModelInput }
+	| { operation: "chat"; protocol: "anthropic-messages"; body: DeviceAnthropicModelInput }
+	// Gemini's own body shape: `contents` rather than `messages`. The node forwards it unchanged.
+	| { operation: "chat"; protocol: "gemini-native"; body: Record<string, unknown> };
 
 export type DeviceLocalRelayRequest = DeviceLocalRelayInput & {
 	mode: "device-local";
