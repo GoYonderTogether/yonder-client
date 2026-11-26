@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.26112609] - 2026-11-26
+
+### Fixed
+
+- providers：show raw lowercase reasoning levels
+- providers：restore local URL and compact reasoning level selection
+- providers：preserve native endpoint editing and local key handoff
+
 ## [0.3.26112608] - 2026-11-26
 
 ### Fixed
