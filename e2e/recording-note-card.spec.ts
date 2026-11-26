@@ -40,7 +40,9 @@ for (const mobile of [false, true]) {
 
 		test("history cards show the recording title and compact local date and duration", async ({ page }, info) => {
 			const items = fixtures.map(([title, date, duration], index) => meetingMessage(index, title, date, duration));
-			await isolateChat(page, { items });
+			// The account speaks Chinese and sits in New York — the zone these 今天/昨天 labels were
+			// written against — rather than leaving either to this browser.
+			await isolateChat(page, { items, locale: "zh-CN", timezone: "America/New_York" });
 			await page.route("**/v1/conversations", (route) =>
 				route.fulfill({
 					json: {

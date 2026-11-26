@@ -11,7 +11,8 @@ for (const mobile of [false, true]) {
 			await page.addInitScript(() =>
 				Object.defineProperty(navigator, "userAgent", { get: () => "Mozilla/5.0 (Linux; Android 14) Mobile" }),
 			);
-		await isolateChat(page);
+		// The assertions below are English copy; the account's own answer says so.
+		await isolateChat(page, { locale: "en" });
 		let request: FriendRequest = {
 			id: "request-1",
 			sender: { ...person, id: "friend", displayName: "Alice", handle: "alice" },

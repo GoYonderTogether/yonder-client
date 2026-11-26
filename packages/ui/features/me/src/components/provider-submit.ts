@@ -33,40 +33,54 @@ export function useProviderSubmit(options: {
 	const [saving, setSaving] = useState(false);
 	const writing = { current: false };
 
-	/** Discover needs only the address and key, not the model rows: it is how those rows are filled. */
-	async function discover(target: NativeProviderBinding | null, key: string) {
-		if (writing.current) return;
-		writing.current = true;
-		setFetching(true);
-		setError(null);
-		const startedAt = performance.now();
-		const version = options.nextVersion();
-		try {
-			const result = await actions.discoverModels(
-				target
-					? { origin: "device", ...target, protocol: options.deviceProtocol }
-					: {
-							baseUrl: normalizeWallet(options.baseUrl),
-							protocol: options.deviceProtocol,
-							...(key ? { apiKey: key } : options.provider ? { providerId: options.provider.id } : {}),
-						},
-			);
-			if (version !== options.version.current) return;
-			options.setAvailable(result.models);
-			options.setMetadata(result.metadata ?? {});
-			if (!result.models.length) setError(t("models.fetchFailed"));
-		} catch (cause) {
-			if (version === options.version.current) {
-				setError(t("models.fetchFailed"));
-				options.onAddFailure?.("discover", cause, startedAt);
-			}
-		} finally {
-			writing.current = false;
-			// The loading flag is cleared whatever happened: a run overtaken by a newer one must not
-			// leave the button disabled for good, which is what a guarded clear did when the person
-			// typed in the key field while the request was in flight (2026-11-26).
-			setFetching(false);
+	/**
+	 * Discover needs only the address and key, not the model rows: it is how those rows are filled.
+	 *
+	 * A second pass while one is in flight runs after it rather than being dropped: the person may
+	 * have just corrected the key, and the form's answer must be for what is on screen now.
+	 */
+	let queued: Promise<void> | undefined;
+
+	async function discover(target: NativeProviderBinding | null, key: string): Promise<void> {
+		if (writing.current) {
+			await queued;
+			return discover(target, key);
 		}
+		writing.current = true;
+		const run = (async () => {
+			setFetching(true);
+			setError(null);
+			const startedAt = performance.now();
+			const version = options.nextVersion();
+			try {
+				const result = await actions.discoverModels(
+					target
+						? { origin: "device", ...target, protocol: options.deviceProtocol }
+						: {
+								baseUrl: normalizeWallet(options.baseUrl),
+								protocol: options.deviceProtocol,
+								...(key ? { apiKey: key } : options.provider ? { providerId: options.provider.id } : {}),
+							},
+				);
+				if (version !== options.version.current) return;
+				options.setAvailable(result.models);
+				options.setMetadata(result.metadata ?? {});
+				if (!result.models.length) setError(t("models.fetchFailed"));
+			} catch (cause) {
+				if (version === options.version.current) {
+					setError(t("models.fetchFailed"));
+					options.onAddFailure?.("discover", cause, startedAt);
+				}
+			} finally {
+				// The loading flag is cleared whatever happened: a run overtaken by a newer one must not
+				// leave the button disabled for good, which is what a guarded clear did when the person
+				// typed in the key field while the request was in flight (2026-11-26).
+				setFetching(false);
+			}
+		})();
+		queued = run;
+		await run;
+		writing.current = false;
 	}
 
 	async function save(
