@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112607] - 2026-11-26
+
+### Added
+
+- connectors：align device cards and restore Apple setup entries
+
 ## [0.3.26112606] - 2026-11-26
 
 ### Fixed
