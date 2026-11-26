@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
 	isLocalProviderAddress,
 	type NativeProviderBinding,
+	NEW_ENDPOINT,
 	normaliseUrl,
 	type RegisteredLocalProviderEndpoint,
 	type RegisterLocalProviderEndpoint,
@@ -45,7 +46,7 @@ export function useDeviceBinding(options: {
 	 * has to show the address field before there is anything to validate. `resolveTarget` is where
 	 * the address is actually checked, so an empty one fails there rather than hiding the field.
 	 */
-	const addEndpoint = Boolean(options.canRegister && !options.endpointId);
+	const addEndpoint = Boolean(options.canRegister && (!options.endpointId || options.endpointId === NEW_ENDPOINT));
 	// The caller bumps its discovery version on every change; a resolution started before it is stale.
 	const versionRef = useRef(options.version);
 	versionRef.current = options.version;

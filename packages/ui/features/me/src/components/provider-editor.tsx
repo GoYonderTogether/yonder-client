@@ -119,11 +119,10 @@ export function ProviderEditor({
 	const supportsDesktop = (candidate: DeviceSummary) => ["macos", "windows", "linux"].includes(candidate.platform);
 	const canRegister = !!(registerEndpoint && device?.current && supportsDesktop(device));
 	const fixedDeviceProtocol = currentTarget ? presetProtocol(provider?.protocol) : undefined;
-	/**
-	 * When editing a device provider its endpoint's wire is fixed. When adding one, the device wire is
-	 * the wire form's own choice: the device gateway records which of its two wires the endpoint serves.
-	 */
-	const deviceProtocol: ProviderProtocol = fixedDeviceProtocol ?? protocol;
+	const known = device?.modelEndpoints ?? [];
+	const selectedProtocol = presetProtocol(known.find((item) => item.endpointId === endpointId)?.protocol);
+	// An approved address speaks its registered wire; only a new address takes the form's choice.
+	const deviceProtocol: ProviderProtocol = fixedDeviceProtocol ?? selectedProtocol ?? protocol;
 	const binding = useDeviceBinding({
 		deviceId,
 		device,
@@ -137,7 +136,6 @@ export function ProviderEditor({
 		version: version.current,
 	});
 	const { endpoint, addEndpoint } = binding;
-	const known = device?.modelEndpoints ?? [];
 	// Changing the destination invalidates the stored key: it was entered for another address or wire.
 	const destinationChanged = Boolean(
 		provider && (normalise(baseUrl) !== normalise(provider.baseUrl) || protocol !== provider.protocol),
@@ -233,7 +231,10 @@ export function ProviderEditor({
 			);
 			return;
 		}
-		const target = onDevice ? await binding.resolveTarget(version.current).catch(() => null) : null;
+		const requestedVersion = version.current;
+		const target = onDevice ? await binding.resolveTarget(requestedVersion).catch(() => null) : null;
+		if (version.current !== requestedVersion) return;
+		if (target && localKey) setLocalKey("");
 		await discover(target, onDevice ? "" : apiKey.trim());
 	}
 
