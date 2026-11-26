@@ -1,11 +1,11 @@
 import type { ConnectorDefinition, DeviceSummary } from "@yonder/protocol";
-import { ListGroup, ListRow } from "@yonder/ui-components";
+import { IconButton, ListGroup, ListRow } from "@yonder/ui-components";
 import { useConnectorCatalog, useConnectors, useDevices } from "@yonder/ui-data";
-import { Laptop, Smartphone } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
-import { ConnectorCard } from "./connector-card.tsx";
+import { ConnectorCard, ConnectorDeviceIcon } from "./connector-card.tsx";
 import { ConnectorPanel } from "./connector-panel.tsx";
 import { canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
 
@@ -150,8 +150,10 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 				/>
 			</ListGroup>
 		);
+	const platforms = [...new Set(catalog.data?.items.flatMap((definition) => definition.platforms))];
+	const known = new Set(devices.data?.items.map((item) => item.platform));
+	const missing = platforms.filter((platform) => !known.has(platform));
 	if (!groups.length) {
-		const platforms = catalog.data?.items.flatMap((definition) => definition.platforms) ?? [];
 		const addDevice = platforms.length && onAddDevice ? () => onAddDevice(platforms) : undefined;
 		const onClick = addDevice ?? onOpenDevices;
 		return (
@@ -174,14 +176,13 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 					className="sticky top-0 z-10 flex min-w-0 max-w-full shrink-0 gap-[var(--spacing-2)] overflow-x-auto bg-[var(--color-bg-base)] py-[var(--spacing-2)]"
 				>
 					{groups.map(({ device: item, target }) => {
-						const Icon = item.platform === "ios" || item.platform === "android" ? Smartphone : Laptop;
 						return (
 							<a
 								key={item.id}
 								href={`#${target}`}
 								aria-label={label(item)}
 								aria-current={activeTarget === target || undefined}
-								className="inline-flex shrink-0 items-center gap-[var(--spacing-2)] rounded-[var(--radius-md)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] aria-[current=true]:bg-[var(--color-bg-selected)] aria-[current=true]:text-[var(--color-text-primary)]"
+								className="inline-flex shrink-0 items-center gap-[var(--spacing-2)] rounded-[var(--radius-full)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] aria-[current=true]:bg-[var(--color-text-primary)] aria-[current=true]:text-[var(--color-bg-base)] aria-[current=true]:[&_span]:text-inherit"
 								onClick={(event) => {
 									event.preventDefault();
 									const group = Array.from(nav.current?.parentElement?.children ?? []).find(
@@ -195,7 +196,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 									setScrolledTarget(target);
 								}}
 							>
-								<Icon size={18} strokeWidth={1.7} className="shrink-0" aria-hidden />
+								<ConnectorDeviceIcon platform={item.platform} />
 								<span className="max-w-[calc(var(--spacing-16)*2)] truncate">{deviceDisplayName(item)}</span>
 								{item.current ? (
 									<span className="text-micro text-[var(--color-accent-text)]">{t("me.account.sessionCurrent")}</span>
@@ -203,6 +204,18 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 							</a>
 						);
 					})}
+					{onAddDevice && missing.length ? (
+						<IconButton
+							variant="ghost"
+							size="sm"
+							aria-label={t("me.devices.add")}
+							title={t("me.devices.add")}
+							className="sticky right-0 ms-auto shrink-0 rounded-[var(--radius-full)]! bg-[var(--color-bg-base)]"
+							onClick={() => onAddDevice(missing)}
+						>
+							<Plus size={18} aria-hidden />
+						</IconButton>
+					) : null}
 				</nav>
 				{groups.map(({ device, definitions, target }) => {
 					const instances = connections.data?.items.filter((item) => item.deviceId === device.id) ?? [];

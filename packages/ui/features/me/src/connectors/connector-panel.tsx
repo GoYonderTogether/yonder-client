@@ -2,11 +2,11 @@ import type { ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yon
 import { Button } from "@yonder/ui-components";
 import { useConnectorActions, useConnectors } from "@yonder/ui-data";
 import { Overlay, useShellChrome } from "@yonder/ui-shell";
-import { Check, Laptop, Smartphone } from "lucide-react";
+import { Check } from "lucide-react";
 import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
-import { connectorPresentation } from "./connector-card.tsx";
+import { ConnectorArtwork, ConnectorDeviceIcon, connectorPresentation } from "./connector-card.tsx";
 import { canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
 
 export interface ConnectorPanelProps {
@@ -62,12 +62,16 @@ export function ConnectorPanel({
 		<Overlay
 			open
 			title={t(`connectors.${key}.name`)}
+			hideTitle
 			mode={mode}
 			mobilePresentation="large-sheet"
 			closeLabel={t("app.close")}
 			onClose={close}
 		>
-			<div className="flex flex-col gap-[var(--spacing-5)] p-[var(--spacing-4)]">
+			<div
+				data-surface="chrome"
+				className="flex min-h-full flex-col gap-[var(--spacing-5)] bg-[var(--color-bg-chrome)] p-[var(--spacing-4)]"
+			>
 				<ConnectorHero
 					key={target.id}
 					definition={definition}
@@ -96,7 +100,6 @@ export function ConnectorPanel({
 							permission !== "restricted" &&
 							permission !== "unavailable" &&
 							permission !== "unsupported";
-						const Icon = choice.platform === "ios" || choice.platform === "android" ? Smartphone : Laptop;
 						return (
 							<label key={choice.id} className="cursor-pointer">
 								<input
@@ -110,7 +113,7 @@ export function ConnectorPanel({
 									}}
 								/>
 								<span className="flex items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] px-[var(--spacing-4)] py-[var(--spacing-3)] peer-checked:bg-[var(--color-bg-selected)] peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--color-accent)]">
-									<Icon size={18} aria-hidden className="shrink-0 text-[var(--color-text-secondary)]" />
+									<ConnectorDeviceIcon platform={choice.platform} />
 									<span className="min-w-0 flex-1">
 										<span className="block truncate text-body font-medium">{deviceDisplayName(choice)}</span>
 										<span className="block text-caption text-[var(--color-text-secondary)]">
@@ -175,7 +178,7 @@ function ConnectorHero({
 	const control = definition.id === "computer-control";
 	const apple = definition.id.startsWith("apple-");
 	const legacy = instance?.scope === "folder";
-	const { key, Icon } = connectorPresentation[definition.id];
+	const { key } = connectorPresentation[definition.id];
 	const canConfigure = canConfigureConnector(device, definition, localFiles);
 	const changed = !instance || legacy || instance.capabilities.fileTools !== control;
 	const permission = apple && device.current ? localFiles?.permissionStatus?.(definition.id) : undefined;
@@ -292,30 +295,31 @@ function ConnectorHero({
 		}
 	}
 
-	const status = systemUnavailable
-		? t("connectors.unavailable")
-		: needsSettings
-			? t(error === "connectors.openSystemSettingsFailed" ? error : "connectors.sheet.permissionNeeded")
-			: error
-				? t(error)
-				: authorized
-					? t(
-							!ready
-								? "connectors.sheet.pending"
-								: permission === "limited"
-									? "connectors.sheet.limited"
-									: "connectors.sheet.authorized",
-						)
-					: !canConfigure
-						? t("connectors.onDevice", { device: deviceDisplayName(device) })
-						: undefined;
+	const status =
+		device.status === "offline"
+			? t("connectors.requestDeviceOffline")
+			: systemUnavailable
+				? t("connectors.unavailable")
+				: needsSettings
+					? t(error === "connectors.openSystemSettingsFailed" ? error : "connectors.sheet.permissionNeeded")
+					: error
+						? t(error)
+						: authorized
+							? t(
+									!ready
+										? "connectors.sheet.pending"
+										: permission === "limited"
+											? "connectors.sheet.limited"
+											: "connectors.sheet.authorized",
+								)
+							: !canConfigure
+								? t("connectors.onDevice", { device: deviceDisplayName(device) })
+								: undefined;
 
 	const trial = ready && onTry;
 	return (
-		<section className="flex flex-col items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-[var(--spacing-5)] py-[var(--spacing-6)] text-center">
-			<span className="grid size-[var(--spacing-12)] place-items-center rounded-[var(--radius-md)] bg-[var(--color-bg-subtle)]">
-				<Icon size={26} aria-hidden className="text-[var(--color-text-secondary)]" />
-			</span>
+		<section className="flex flex-col items-center gap-[var(--spacing-2)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] px-[var(--spacing-5)] py-[var(--spacing-6)] text-center">
+			<ConnectorArtwork id={definition.id} hero />
 			<h3 className="text-h2 font-semibold">{t(`connectors.${key}.name`)}</h3>
 			<p className="text-body text-[var(--color-text-secondary)]">{t(`connectors.${key}.description`)}</p>
 			{status ? (
@@ -323,7 +327,7 @@ function ConnectorHero({
 					{status}
 				</p>
 			) : null}
-			{!ready || trial ? (
+			{trial || (canConfigure && device.status === "online" && (!ready || busy) && !systemUnavailable) ? (
 				<Button
 					variant="primary"
 					size="lg"
@@ -334,7 +338,15 @@ function ConnectorHero({
 						trial ? trial(t(`connectors.${key}.trial`, { device: deviceDisplayName(device) })) : void authorize()
 					}
 				>
-					{t(trial ? "connectors.sheet.try" : "connectors.connect")}
+					{t(
+						trial
+							? "connectors.sheet.try"
+							: needsSettings
+								? "connectors.openSystemSettings"
+								: error
+									? "connectors.retryConnect"
+									: "connectors.connect",
+					)}
 				</Button>
 			) : null}
 		</section>

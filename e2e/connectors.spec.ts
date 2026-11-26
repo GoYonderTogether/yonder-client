@@ -342,6 +342,7 @@ for (const { platform, dark } of [
 		}
 		if (isMac) {
 			expect((await dialog.boundingBox())?.width).toBeLessThan(1100);
+			await page.screenshot({ path: info.outputPath("09-mac-dialog.png"), animations: "disabled" });
 		}
 		if (!isMac) {
 			const bounds = await dialog.boundingBox();
@@ -351,7 +352,9 @@ for (const { platform, dark } of [
 			await page.screenshot({ path: info.outputPath("02-connect-hero.png"), animations: "disabled" });
 			await chooseMac();
 			await expect(dialog.getByRole("radio", { name: /Studio Mac/ })).toBeChecked();
-			await expect(authorize).toBeDisabled();
+			await expect(authorize).toHaveCount(0);
+			await expect(dialog.getByRole("status")).toContainText("不在线");
+			await page.screenshot({ path: info.outputPath("08-device-offline.png"), animations: "disabled" });
 			await expect(trial).toHaveCount(0);
 			expect(await actions()).toEqual([]);
 			expect(created).toBe(0);
@@ -364,7 +367,7 @@ for (const { platform, dark } of [
 		expect(created).toBe(0);
 		await permission(false);
 		await expect(dialog.getByRole("status")).toHaveText("请在系统设置中允许访问。");
-		const settings = authorize;
+		const settings = dialog.getByRole("button", { name: "打开系统设置" });
 		await expect(settings).toBeVisible();
 		await expect(dialog.getByRole("button")).toHaveCount(2);
 		expect(created).toBe(0);
@@ -447,6 +450,24 @@ for (const { platform, dark } of [
 			await expect(composer).toHaveValue("保留我没有发送的内容。");
 			expect(chat.sent).toEqual([]);
 			expect(await actions()).toEqual(["request_permission", "open_settings", "authorize", "execute"]);
+			await page.goto("/setup/connect");
+			await expect(page.getByRole("heading", { name: "让它能替你办事" })).toBeVisible();
+			await expect(page.getByText("Apple 日历", { exact: true })).toBeVisible();
+			await expect(page.getByText("Apple 相册", { exact: true })).toBeVisible();
+			await expect(page.getByText("Apple 备忘录", { exact: true })).toHaveCount(0);
+			await page.screenshot({ path: info.outputPath("12-ios-setup.png"), animations: "disabled" });
 		}
 	});
 }
+
+test("Windows connectors and add-device entry use the same settings shell", async ({ page }, info) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.emulateMedia({ reducedMotion: "reduce" });
+	await openConnectors(page, [browser, work]);
+	await expect(page.getByRole("region", { name: work.name })).toBeVisible();
+	await expect(page.getByRole("button", { name: /读取文件/ }).first()).toBeVisible();
+	await page.screenshot({ path: info.outputPath("10-windows-list.png") });
+	await page.getByRole("button", { name: "连接其他设备", exact: true }).click();
+	await expect(page.getByText("macOS", { exact: true }).first()).toBeVisible();
+	await page.screenshot({ path: info.outputPath("11-add-device.png") });
+});

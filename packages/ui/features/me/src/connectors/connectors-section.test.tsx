@@ -217,7 +217,7 @@ test("web only guides to the native device and never creates a grant", () => {
 	state.devices[0] = { ...firstDevice, current: false };
 	show();
 	openRead();
-	expect(screen.getByRole("button", { name: /^Connect$/ })).toBeDisabled();
+	expect(screen.queryByRole("button", { name: /^Connect$/ })).toBeNull();
 	expect(screen.queryByRole("button", { name: "View devices" })).toBeNull();
 	expect(state.create).not.toHaveBeenCalled();
 });
@@ -251,7 +251,7 @@ test("same-name devices keep independent connected state by id, including offlin
 	expect(within(group("dev_b")).queryByRole("button", { name: "Connect · Read files" })).toBeNull();
 	fireEvent.click(screen.getByRole("button", { name: "Connected · Device offline · Modify files" }));
 	expect(screen.queryByRole("button", { name: "Disconnect" })).toBeNull();
-	expect(screen.getByRole("status")).toHaveTextContent("Authorized · waiting to connect");
+	expect(screen.getByRole("status")).toHaveTextContent(/device is offline/i);
 	expect(state.remove).not.toHaveBeenCalled();
 	expect(native.revoke).not.toHaveBeenCalled();
 });
@@ -264,7 +264,7 @@ test("a remote device never receives a fake local grant even when this adapter i
 	expect(within(group("dev_b")).getByRole("heading", { name: "Studio computer" })).toBeVisible();
 	openRead("dev_b");
 	expect(screen.getByText("Continue in Yonder on Studio computer to enable this connector.")).toBeVisible();
-	expect(screen.getByRole("button", { name: /^Connect$/ })).toBeDisabled();
+	expect(screen.queryByRole("button", { name: /^Connect$/ })).toBeNull();
 	expect(state.create).not.toHaveBeenCalled();
 	expect(native.authorize).not.toHaveBeenCalled();
 });
@@ -335,7 +335,7 @@ test("a supported current platform with no native adapter offers guidance withou
 	show();
 	openRead();
 	expect(screen.getByText("Continue in Yonder on Windows PC to enable this connector.")).toBeVisible();
-	expect(screen.getByRole("button", { name: /^Connect$/ })).toBeDisabled();
+	expect(screen.queryByRole("button", { name: /^Connect$/ })).toBeNull();
 	expect(state.create).not.toHaveBeenCalled();
 });
 

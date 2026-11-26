@@ -14,15 +14,20 @@ export interface ConnectorSetupProps {
  * device's platform. First-run setup uses it to offer only what is really connectable here; on a
  * device that can connect nothing `definitions` is empty and the caller drops the step.
  */
-export function useSetupConnectors() {
-	const catalog = useConnectorCatalog();
-	const connections = useConnectors();
+export function useSetupConnectors(localFiles?: LocalFilesAdapter) {
+	const catalog = useConnectorCatalog(true);
+	const connections = useConnectors({ apple: true });
 	const devices = useDevices();
 	const device = devices.data?.items.find((item) => item.current);
-	const definitions = device
-		? (catalog.data?.items.filter((item) => item.platforms.includes(device.platform)) ?? [])
-		: [];
 	const instances = device ? (connections.data?.items.filter((item) => item.deviceId === device.id) ?? []) : [];
+	const definitions = device
+		? (catalog.data?.items.filter(
+				(item) =>
+					item.platforms.includes(device.platform) &&
+					(canConfigureConnector(device, item, localFiles) ||
+						instances.some((instance) => instance.connectorId === item.id)),
+			) ?? [])
+		: [];
 	return {
 		device,
 		definitions,
@@ -33,7 +38,7 @@ export function useSetupConnectors() {
 
 /** The same cards the connectors page draws, opened in the same panel. */
 export function ConnectorSetup({ localFiles }: ConnectorSetupProps) {
-	const { device, definitions, instances } = useSetupConnectors();
+	const { device, definitions, instances } = useSetupConnectors(localFiles);
 	const [selected, setSelected] = useState<{ definition: ConnectorDefinition; instanceId?: string } | null>(null);
 	if (!device || definitions.length === 0) return null;
 	const instance = instances.find((item) => item.id === selected?.instanceId);

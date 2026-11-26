@@ -15,6 +15,7 @@ export interface OverlayProps {
 	open: boolean;
 	onClose: () => void;
 	title: string;
+	hideTitle?: boolean;
 	mode: LayoutMode;
 	children: ReactNode;
 	footer?: ReactNode;
@@ -35,6 +36,7 @@ export function Overlay({
 	open,
 	onClose,
 	title,
+	hideTitle = false,
 	mode,
 	children,
 	footer,
@@ -159,7 +161,12 @@ export function Overlay({
 								<div
 									ref={header}
 									data-frame-header={nativeFrame || undefined}
-									className="relative flex shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] px-[var(--spacing-5)] py-[var(--spacing-4)]"
+									className={cn(
+										"relative flex shrink-0 items-center justify-between px-[var(--spacing-5)]",
+										hideTitle
+											? "py-[var(--spacing-2)]"
+											: "border-b border-[var(--color-border-subtle)] py-[var(--spacing-4)]",
+									)}
 									style={
 										centered || sheet
 											? undefined
@@ -169,6 +176,7 @@ export function Overlay({
 									<h2
 										className={cn(
 											"min-w-0 text-h3 text-[var(--color-text-primary)] [overflow-wrap:anywhere]",
+											hideTitle && "sr-only",
 											!centered && mobileBackLabel && "w-full px-[var(--spacing-8)] text-center",
 										)}
 									>
@@ -180,6 +188,7 @@ export function Overlay({
 										aria-label={!centered && mobileBackLabel ? mobileBackLabel : closeLabel}
 										className={cn(
 											"shrink-0 rounded-[var(--radius-sm)] p-[var(--spacing-1)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]",
+											hideTitle && "ms-auto rounded-[var(--radius-full)] bg-[var(--color-bg-subtle)]",
 											!centered &&
 												mobileBackLabel &&
 												"absolute left-[max(var(--spacing-4),var(--safe-area-left,0px))] inline-flex size-[var(--control-md)] items-center justify-center",

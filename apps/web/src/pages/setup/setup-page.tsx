@@ -35,7 +35,8 @@ export function SetupPage() {
 	const client = useDataQueryClient();
 	const [completion, setCompletion] = useState<"idle" | "pending" | "error">("idle");
 	const [skippedSteps, setSkippedSteps] = useState<SetupStep[]>([]);
-	const connectable = useSetupConnectors();
+	const localFiles = useLocalFilesAdapter();
+	const connectable = useSetupConnectors(localFiles);
 	const canConnect = !supportsMacPermissions() && (connectable.loading || connectable.definitions.length > 0);
 	if (!isSetupStep(step)) return <Navigate to={setupPath(SETUP_STEPS[0])} replace />;
 	// A device that cannot connect anything never lands on that step, even from an old address.
@@ -100,7 +101,9 @@ export function SetupPage() {
 				<fieldset disabled={completion === "pending"} className="flex min-w-0 flex-col gap-[var(--spacing-6)]">
 					{step === "you" ? <YouStep onDone={forward} /> : null}
 					{step === "bot" ? <BotStep onDone={forward} /> : null}
-					{step === "connect" ? <ConnectStep onDone={forward} /> : null}
+					{step === "connect" ? (
+						<ConnectStep onDone={forward} localFiles={localFiles} hasConnections={connectable.instances.length > 0} />
+					) : null}
 					{completion === "error" ? (
 						<div role="alert">
 							<p>{t("setup.finishFailed")}</p>
@@ -150,11 +153,17 @@ function BotStep({ onDone }: { onDone: (skipped: boolean) => void }) {
 }
 
 /** What this device can connect, as the connectors page's own cards; the last step opens the app. */
-function ConnectStep({ onDone }: { onDone: (skipped: boolean) => void }) {
+function ConnectStep({
+	onDone,
+	localFiles,
+	hasConnections,
+}: {
+	onDone: (skipped: boolean) => void;
+	localFiles: ReturnType<typeof useLocalFilesAdapter>;
+	hasConnections: boolean;
+}) {
 	const { t } = useTranslation();
 	const chrome = useShellChrome();
-	const localFiles = useLocalFilesAdapter();
-	const { instances } = useSetupConnectors();
 	return (
 		<>
 			<h1 className="text-h1 text-[var(--color-text-primary)]">{t("setup.connectTitle")}</h1>
@@ -163,12 +172,12 @@ function ConnectStep({ onDone }: { onDone: (skipped: boolean) => void }) {
 			</ShellProvider>
 			<Button
 				type="button"
-				variant={instances.length > 0 ? "primary" : "secondary"}
+				variant={hasConnections ? "primary" : "secondary"}
 				size="lg"
 				block
-				onClick={() => onDone(instances.length === 0)}
+				onClick={() => onDone(!hasConnections)}
 			>
-				{instances.length > 0 ? t("setup.start") : t("app.skip")}
+				{hasConnections ? t("setup.start") : t("app.skip")}
 			</Button>
 		</>
 	);
