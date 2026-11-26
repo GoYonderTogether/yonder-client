@@ -102,6 +102,8 @@ function fixture(t) {
 		signedTeam = team,
 		version = env.MARKETING_VERSION,
 		build = env.BUILD_NUMBER,
+		sdk,
+		xcodeBuild,
 	} = {}) {
 		const path = join(root, "Payload/Yonder.app");
 		mkdirSync(path, { recursive: true });
@@ -111,7 +113,9 @@ function fixture(t) {
 				row("CFBundleIdentifier", app) +
 					row("CFBundleShortVersionString", version) +
 					row("CFBundleVersion", build) +
-					row("YonderPushEnvironment", marker),
+					row("YonderPushEnvironment", marker) +
+					(sdk ? row("DTSDKName", sdk) : "") +
+					(xcodeBuild ? row("DTXcodeBuild", xcodeBuild) : ""),
 			),
 		);
 		writeFileSync(
@@ -310,4 +314,39 @@ test("the new iOS app uses a verified manual dispatch, scoped profile, and match
 	const rejected = wrong.step("导出 IPA", next);
 	assert.notEqual(rejected.status, 0);
 	assert.match(rejected.stdout, /invalid CFBundleIdentifier/);
+});
+
+test("the Xcode control is scoped to the original app and checks the exported IPA toolchain", mac, (t) => {
+	const verify = "核对 tag → 提交并确定版本";
+	const control = {
+		TESTFLIGHT_XCODE_27_2: "true",
+		INPUT_VERSION: "0.3.26112692",
+		INPUT_MARKETING_VERSION: "0.3.26112608",
+	};
+	const { step } = fixture(t);
+	assertOk(step(verify, control));
+	for (const rejected of [
+		{ IOS_APP: "next", BUNDLE_ID: nextBundle },
+		{ GITHUB_EVENT_NAME: "release" },
+		{ GITHUB_REF: "refs/tags/v0.3.26112692" },
+		{ EXPECTED_COMMIT: "" },
+		{ TESTFLIGHT_INTERNAL: "true" },
+		{ INPUT_VERSION: "0.3.26112693" },
+		{ INPUT_MARKETING_VERSION: "0.3.26112609" },
+	]) {
+		assert.notEqual(step(verify, { ...control, ...rejected }).status, 0);
+	}
+	for (const [sdk, xcodeBuild, badKey] of [
+		["iphoneos27.2", "27B52", null],
+		["iphoneos26.5", "27B52", "DTSDKName"],
+		["iphoneos27.2", "27B51", "DTXcodeBuild"],
+	]) {
+		const candidate = fixture(t);
+		candidate.ipa({ sdk, xcodeBuild });
+		const result = candidate.step("导出 IPA", control);
+		if (badKey) {
+			assert.notEqual(result.status, 0);
+			assert.ok(result.stdout.includes(badKey));
+		} else assertOk(result);
+	}
 });

@@ -51,6 +51,10 @@ on:
         required: false
         default: false
         type: boolean
+      testflight_xcode_27_2:
+        description: 临时 Xcode 27.2 对照包（旧 App 0.3.26112608 / 26112692）
+        default: false
+        type: boolean
   release:
     types: [published]
 
@@ -64,10 +68,11 @@ concurrency:
 jobs:
   testflight:
     name: iOS TestFlight upload
-    runs-on: macos-latest
+    runs-on: ${{ inputs.testflight_xcode_27_2 && 'xcode-27' || 'macos-latest' }}
     timeout-minutes: 90
     env:
       BUNDLE_ID: ${{ inputs.ios_app == 'next' && 'net.yonderbot.ios' || 'net.yonderbot.app' }}
+      TESTFLIGHT_XCODE_27_2: ${{ inputs.testflight_xcode_27_2 }}
     steps:
       # 手工派发固定到事件的提交，避免 runner 启动前 main 前进而选错源码。
       - uses: actions/checkout@v4
@@ -122,6 +127,14 @@ jobs:
               exit 1
             fi
           fi
+          if [ "${TESTFLIGHT_XCODE_27_2:-false}" = true ]; then
+            if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$GITHUB_REF" != refs/heads/main ] ||
+              [ "$BUNDLE_ID" != net.yonderbot.app ] || [ "${TESTFLIGHT_INTERNAL:-false}" = true ] ||
+              [ -z "$EXPECTED_COMMIT" ] || [ "$version/$marketing_version" != 0.3.26112692/0.3.26112608 ]; then
+              echo "::error::the Xcode 27.2 control requires legacy app 0.3.26112608 (26112692) and a verified manual App Store eligible dispatch from main"
+              exit 1
+            fi
+          fi
           if [ -n "$EXPECTED_COMMIT" ]; then
             [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::expected_commit must be a 40-char SHA"; exit 1; }
             [ "$head_sha" = "$EXPECTED_COMMIT" ] || {
@@ -136,6 +149,22 @@ jobs:
           echo "BUILD_NUMBER=${version##*.}" >> "$GITHUB_ENV"
           echo "app $BUNDLE_ID, version $version, tag $tag, commit $head_sha"
 
+      - name: 固定对照包的 Xcode 27.2
+        if: ${{ inputs.testflight_xcode_27_2 }}
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+        run: |
+          set -eu
+          arch="$(uname -m)"
+          xcode="$(xcodebuild -version)"
+          sdk="$(xcrun --sdk iphoneos --show-sdk-version)"
+          printf '%s\n%s\niPhoneOS SDK %s\n' "$arch" "$xcode" "$sdk"
+          if [ "$arch" != arm64 ] || [ "$xcode" != "$(printf 'Xcode 27.2\nBuild version 27B52')" ] || [ "$sdk" != 27.2 ]; then
+            echo "::error::the control requires arm64, Xcode 27.2 (27B52), and iPhoneOS SDK 27.2"
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -144,6 +173,7 @@ jobs:
         with:
           targets: aarch64-apple-ios
       - uses: Swatinem/rust-cache@v2
+        if: ${{ !inputs.testflight_xcode_27_2 }}
         with:
           workspaces: apps/desktop/src-tauri
 
@@ -301,6 +331,11 @@ jobs:
           expect_value "$check/entitlements.plist" 'com\.apple\.developer\.team-identifier' "$TEAM_ID"
           expect_value "$app/Info.plist" CFBundleShortVersionString "$MARKETING_VERSION"
           expect_value "$app/Info.plist" CFBundleVersion "$BUILD_NUMBER"
+          if [ "${TESTFLIGHT_XCODE_27_2:-false}" = true ]; then
+            expect_value "$app/Info.plist" DTSDKName iphoneos27.2
+            expect_value "$app/Info.plist" DTXcodeBuild 27B52
+            echo "Verified exported control IPA uses Xcode 27.2 (27B52) and iPhoneOS SDK 27.2"
+          fi
           ls -l dist-ios/yonder-ios.ipa
 
       - name: 上传 TestFlight
