@@ -1,13 +1,13 @@
 {
 	"name": "@yonder/api-client",
 	"private": true,
-	"version": "0.3.26112601",
+	"version": "0.3.26112602",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/protocol": "0.3.26112601"
+		"@yonder/protocol": "0.3.26112602"
 	},
 	"scripts": {
 		"typecheck": "tsc -b"

@@ -1,7 +1,7 @@
 {
 	"name": "@yonder/protocol",
 	"private": true,
-	"version": "0.3.26112601",
+	"version": "0.3.26112602",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112602] - 2026-11-26
+
+### Added
+
+- models：the model table reads as a table, and a failure says why
+
 ## [0.3.26112601] - 2026-11-26
 
 ### Fixed
