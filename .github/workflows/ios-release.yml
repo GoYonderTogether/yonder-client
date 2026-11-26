@@ -51,10 +51,6 @@ on:
         required: false
         default: false
         type: boolean
-      testflight_xcode_27_2:
-        description: 临时 Xcode 27.2 对照包（旧 App 0.3.26112608 / 26112692）
-        default: false
-        type: boolean
   release:
     types: [published]
 
@@ -68,17 +64,15 @@ concurrency:
 jobs:
   testflight:
     name: iOS TestFlight upload
-    runs-on: ${{ inputs.testflight_xcode_27_2 && 'xcode-27' || 'macos-latest' }}
+    runs-on: macos-latest
     timeout-minutes: 90
     env:
       BUNDLE_ID: ${{ inputs.ios_app == 'next' && 'net.yonderbot.ios' || 'net.yonderbot.app' }}
-      TESTFLIGHT_XCODE_27_2: ${{ inputs.testflight_xcode_27_2 }}
-      CONTROL_SOURCE_SHA: 0548c7ef8e69cef548d020d2a9eac15e6e436fb3
     steps:
-      # 对照包始终用原始源码。其余手工派发固定到事件提交。
+      # 手工派发固定到事件的提交，避免 runner 启动前 main 前进而选错源码。
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.testflight_xcode_27_2 && env.CONTROL_SOURCE_SHA || github.event.release.tag_name || github.sha }}
+          ref: ${{ github.event.release.tag_name || github.sha }}
           fetch-depth: 1
 
       # 版本只在这里确定：apps/desktop 不在 npm workspaces，bump-versions.mjs 不改它的
@@ -104,7 +98,6 @@ jobs:
             exit 1
           }
           head_sha="$(git rev-parse HEAD)"
-          dispatch_sha="$head_sha"
           if [ "${IOS_APP:-legacy}" = next ]; then
             if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$GITHUB_REF" != refs/heads/main ] ||
               [ -z "$EXPECTED_COMMIT" ] || [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
@@ -129,24 +122,10 @@ jobs:
               exit 1
             fi
           fi
-          if [ "${TESTFLIGHT_XCODE_27_2:-false}" = true ]; then
-            if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$GITHUB_REF" != refs/heads/main ] ||
-              [ "$BUNDLE_ID" != net.yonderbot.app ] || [ "${TESTFLIGHT_INTERNAL:-false}" = true ] ||
-              [ -z "$EXPECTED_COMMIT" ] || [ "$version/$marketing_version" != 0.3.26112692/0.3.26112608 ]; then
-              echo "::error::the Xcode 27.2 control requires legacy app 0.3.26112608 (26112692) and a verified manual App Store eligible dispatch from main"
-              exit 1
-            fi
-            [ "$head_sha" = "$CONTROL_SOURCE_SHA" ] || {
-              echo "::error::expected the original control source $CONTROL_SOURCE_SHA, got $head_sha"
-              exit 1
-            }
-            dispatch_sha="$GITHUB_SHA"
-            echo "Xcode 27.2 control workflow $dispatch_sha, original source $head_sha"
-          fi
           if [ -n "$EXPECTED_COMMIT" ]; then
             [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::expected_commit must be a 40-char SHA"; exit 1; }
-            [ "$dispatch_sha" = "$EXPECTED_COMMIT" ] || {
-              echo "::error::expected dispatch commit $EXPECTED_COMMIT, got $dispatch_sha"
+            [ "$head_sha" = "$EXPECTED_COMMIT" ] || {
+              echo "::error::$tag points at $head_sha, not $EXPECTED_COMMIT"
               exit 1
             }
           fi
@@ -157,26 +136,6 @@ jobs:
           echo "BUILD_NUMBER=${version##*.}" >> "$GITHUB_ENV"
           echo "app $BUNDLE_ID, version $version, tag $tag, commit $head_sha"
 
-      - name: 固定对照包的 Xcode 27.2
-        if: ${{ inputs.testflight_xcode_27_2 }}
-        env:
-          DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-        run: |
-          set -eu
-          # Tauri's Xcode subprocess used the runner's system default despite DEVELOPER_DIR.
-          sudo /usr/bin/xcode-select --switch "$DEVELOPER_DIR"
-          selected="$(env -u DEVELOPER_DIR /usr/bin/xcode-select --print-path)"
-          arch="$(uname -m)"
-          xcode="$(env -u DEVELOPER_DIR /usr/bin/xcodebuild -version)"
-          sdk="$(env -u DEVELOPER_DIR /usr/bin/xcrun --sdk iphoneos --show-sdk-version)"
-          printf '%s\n%s\n%s\niPhoneOS SDK %s\n' "$selected" "$arch" "$xcode" "$sdk"
-          if [ "$selected" != "$DEVELOPER_DIR" ] || [ "$arch" != arm64 ] ||
-            [ "$xcode" != "$(printf 'Xcode 27.2\nBuild version 27B52')" ] || [ "$sdk" != 27.2 ]; then
-            echo "::error::the control requires arm64, Xcode 27.2 (27B52), and iPhoneOS SDK 27.2"
-            exit 1
-          fi
-          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -185,7 +144,6 @@ jobs:
         with:
           targets: aarch64-apple-ios
       - uses: Swatinem/rust-cache@v2
-        if: ${{ !inputs.testflight_xcode_27_2 }}
         with:
           workspaces: apps/desktop/src-tauri
 
@@ -265,83 +223,17 @@ jobs:
           cd apps/desktop
           npx --no-install tauri ios init --ci --config "{\"identifier\":\"$BUNDLE_ID\"}"
           node prepare-ios.mjs
-          if [ "${TESTFLIGHT_XCODE_27_2:-false}" = true ]; then
-            # Swift Build localizes these plugins' C entry points; SwiftPM native preserves them.
-            mkdir -p "$RUNNER_TEMP/yonder-xcode-control"
-            cat > "$RUNNER_TEMP/yonder-xcode-control/swift" <<'SH'
-          #!/bin/sh
-          if [ "${1:-}" = build ]; then
-            shift
-            if [ "${1:-}" = --sdk ]; then
-              printf 'SwiftPM --build-system native, SDK %s\n' "$2" >> "${0%/*}/used"
-            fi
-            exec /usr/bin/swift build --build-system native "$@"
-          fi
-          exec /usr/bin/swift "$@"
-          SH
-            chmod +x "$RUNNER_TEMP/yonder-xcode-control/swift"
-            # Xcode prepends its toolchain bin directories to PATH. Pin the generated Rust phase itself.
-            node --input-type=module <<'JS'
-          import { readFileSync, writeFileSync } from 'node:fs';
-          const path = 'src-tauri/gen/apple/yonder-desktop.xcodeproj/project.pbxproj';
-          const project = readFileSync(path, 'utf8');
-          const phase = /shellScript = "(?=[^\n]*tauri ios xcode-script)/;
-          if (!phase.test(project)) throw new Error('Tauri Xcode Rust phase not found');
-          const shim = `${process.env.RUNNER_TEMP}/yonder-xcode-control`;
-          const sdk = `${process.env.DEVELOPER_DIR}/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS27.2.sdk`;
-          const prefix = `export PATH="${shim}:$PATH"\n` +
-            `printf 'Tauri Rust phase SDK %s, Swift shim %s\\n' "$SDKROOT" "$(command -v swift)"\n` +
-            `[ "$SDKROOT" = "${sdk}" ] && [ "$(command -v swift)" = "${shim}/swift" ] || exit 1\n`;
-          writeFileSync(path, project.replace(phase, (entry) => entry + JSON.stringify(prefix).slice(1, -1)));
-          JS
-          fi
 
       - name: 归档
         run: |
           set -eu
           cd apps/desktop
-          if [ "${TESTFLIGHT_XCODE_27_2:-false}" = true ]; then
-            # Tauri snapshots this outer PATH and restores it before the nested Cargo build.
-            shim="$RUNNER_TEMP/yonder-xcode-control"
-            export PATH="$shim:$PATH"
-            [ "$(command -v swift)" = "$shim/swift" ] || { echo "::error::SwiftPM control shim is missing"; exit 1; }
-            echo "Outer Tauri CLI Swift shim: $shim/swift"
-            # Rust 同样通过 Xcode 的 SDKROOT 编译；读取生成工程的有效设置。
-            settings="$(env -u DEVELOPER_DIR /usr/bin/xcodebuild -project src-tauri/gen/apple/yonder-desktop.xcodeproj \
-              -scheme yonder-desktop_iOS -configuration release -destination 'generic/platform=iOS' -sdk iphoneos -showBuildSettings)"
-            sdk_root="$(printf '%s\n' "$settings" | awk '$1 == "SDKROOT" && $3 ~ /^\// { print $3; exit }')"
-            [ "$sdk_root" = "$DEVELOPER_DIR/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS27.2.sdk" ] || {
-              echo "::error::Xcode project resolved unexpected iPhoneOS SDK: $sdk_root"
-              exit 1
-            }
-            echo "Xcode project uses $sdk_root"
-          fi
           # 不用 `--build-number`：它把参数追加在 app version 后面，0.3.26111301 会变成
           # CFBundleVersion 0.3.26111301.26111301（21 字符），TestFlight 以 90059 拒绝
           # （CFBundleVersion 上限 18 字符）。这里直接用 bundle.iOS.bundleVersion 把
           # CFBundleVersion 钉成 YYMMDDNN，与安卓 versionCode 同量纲。
           config="{\"identifier\":\"$BUNDLE_ID\",\"version\":\"$MARKETING_VERSION\",\"bundle\":{\"iOS\":{\"bundleVersion\":\"$BUILD_NUMBER\"}}}"
-          archive_status=0
-          npx --no-install tauri ios build --target aarch64 --archive-only --config "$config" || archive_status=$?
-          if [ "${TESTFLIGHT_XCODE_27_2:-false}" = true ]; then
-            if [ -s "$shim/used" ]; then sort -u "$shim/used"; else
-              echo "::error::nested archive build did not use the SwiftPM native shim"
-              exit 1
-            fi
-            swift_status=0
-            for plugin in meeting-recorder opener; do
-              symbol="_init_plugin_${plugin//-/_}"
-              lib="$(find src-tauri/target/aarch64-apple-ios/release/build -type f -name "libtauri-plugin-$plugin.a" -print -quit 2>/dev/null || true)"
-              if [ -n "$lib" ] && /usr/bin/nm -gU "$lib" | awk -v symbol="$symbol" '$NF == symbol && $(NF-1) == "T" { found = 1 } END { exit !found }'; then
-                echo "Verified global Swift symbol $symbol in $lib"
-              else
-                echo "::error::missing global Swift symbol $symbol in ${lib:-the Cargo Swift package archive}"
-                swift_status=1
-              fi
-            done
-            [ "$swift_status" = 0 ] || exit "$swift_status"
-          fi
-          [ "$archive_status" = 0 ] || exit "$archive_status"
+          npx --no-install tauri ios build --target aarch64 --archive-only --config "$config"
           archive="$(find "$PWD/src-tauri/gen/apple/build" -maxdepth 1 -name '*.xcarchive' | head -1)"
           [ -n "$archive" ] || { echo "::error::no xcarchive was produced"; exit 1; }
           app="$(find "$archive/Products/Applications" -maxdepth 1 -name '*.app' | head -1)"
@@ -409,11 +301,6 @@ jobs:
           expect_value "$check/entitlements.plist" 'com\.apple\.developer\.team-identifier' "$TEAM_ID"
           expect_value "$app/Info.plist" CFBundleShortVersionString "$MARKETING_VERSION"
           expect_value "$app/Info.plist" CFBundleVersion "$BUILD_NUMBER"
-          if [ "${TESTFLIGHT_XCODE_27_2:-false}" = true ]; then
-            expect_value "$app/Info.plist" DTSDKName iphoneos27.2
-            expect_value "$app/Info.plist" DTXcodeBuild 27B52
-            echo "Verified exported control IPA uses Xcode 27.2 (27B52) and iPhoneOS SDK 27.2"
-          fi
           ls -l dist-ios/yonder-ios.ipa
 
       - name: 上传 TestFlight
