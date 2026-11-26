@@ -72,17 +72,22 @@ const visitRow = (state: "pending" | "open"): Conversation => ({
 });
 const localised = (child: ReactNode) => <I18nextProvider i18n={createI18n("en")}>{child}</I18nextProvider>;
 
-test("a visit waiting on its owner is marked on the row and named after the visitor", () => {
+test("an incoming visit is folded by default and names the visitor and Bot when expanded", () => {
 	data.items = [visitRow("pending")];
 	render(localised(<MessagesList current={null} onOpen={vi.fn()} />));
+	const folder = screen.getByRole("button", { name: /Bot visits/ });
+	expect(folder).toHaveAttribute("aria-expanded", "false");
+	expect(screen.queryByRole("button", { name: /Stranger/ })).not.toBeInTheDocument();
+	fireEvent.click(folder);
 	const row = screen.getByRole("button", { name: /Stranger/ });
 	expect(row).toHaveTextContent("Waiting for you");
-	expect(screen.queryByText("Someone's BOT")).toBeNull();
+	expect(row).toHaveTextContent("Visited your Someone's BOT");
 });
 
 test("a visit the owner already decided carries no marker", () => {
 	data.items = [visitRow("open")];
 	render(localised(<MessagesList current={null} onOpen={vi.fn()} />));
+	fireEvent.click(screen.getByRole("button", { name: /Bot visits/ }));
 	expect(screen.getByRole("button", { name: /Stranger/ })).not.toHaveTextContent("Waiting for you");
 });
 
@@ -94,6 +99,7 @@ test("row actions unpin and require confirmation before deleting from Messages",
 	const onOpen = vi.fn();
 	render(localised(<MessagesList current={null} onOpen={onOpen} />));
 	expect(screen.queryByText("Hidden conversation")).toBeNull();
+	fireEvent.click(screen.getByRole("button", { name: /Bot visits/ }));
 	const row = screen.getByRole("button", { name: /Stranger/ });
 	fireEvent.contextMenu(row);
 	fireEvent.click(screen.getByRole("button", { name: "Unpin conversation" }));
@@ -110,8 +116,8 @@ test("row actions unpin and require confirmation before deleting from Messages",
 
 test("mobile Messages omits only the primary Bot row; desktop retains it", () => {
 	data.items = [
-		{ ...visitRow("open"), id: "primary", title: "Primary Bot", isPrimary: true },
-		{ ...visitRow("open"), id: "other", title: "Other Bot", isPrimary: false },
+		{ ...visitRow("open"), id: "primary", title: "Primary Bot", isPrimary: true, visit: null },
+		{ ...visitRow("open"), id: "other", title: "Other Bot", isPrimary: false, visit: null },
 	];
 	data.mode = "mobile";
 	const props = { current: null, onOpen: vi.fn() };

@@ -12,13 +12,14 @@ import { ChatAvatar } from "./avatar";
 import { chatBotId } from "./bot-entry";
 import { ChatView } from "./host";
 import { renderMessageBlock } from "./messages";
-import { conversationTitle, directPartner } from "./model";
+import { chatPartner, conversationTitle } from "./model";
 import { measureScrollAnchor, type ScrollAnchorMetrics } from "./scroll-anchor";
 import { closureText } from "./sentences";
 import { useChat } from "./use-chat";
 import { useChatUploads } from "./use-uploads";
 import { useChatViewport } from "./use-viewport";
 import { useVisibleRead } from "./use-visible-read";
+import { VisitRelay } from "./visit-relay";
 import { visitSentence } from "./visits";
 import { VoiceInput } from "./voice";
 import "./style.scss";
@@ -83,18 +84,9 @@ export default function Chat() {
 	// host never writes, so the composer is gone; the title and the details sheet follow the visit,
 	// because "the first member who is not me" is the wrong side in a three-member chat.
 	const visit = chat.conversation?.visit ?? null;
-	const visitor = visit
-		? chat.conversation?.members.find((member) => member.kind === "person" && member.memberId !== chat.me?.member.id)
-		: undefined;
-	const visitLine = visit ? visitSentence(visit, visitor?.displayName ?? "", locale) : null;
 	const watching = visit?.role === "host" || chat.conversation?.kind === "system";
-	const partner = visit
-		? visit.role === "host"
-			? visitor
-			: chat.conversation?.members.find((member) => member.memberId === visit.botId)
-		: chat.conversation
-			? directPartner(chat.conversation.members, chat.me?.member.id)
-			: undefined;
+	const partner = chat.conversation && chatPartner(chat.conversation, chat.me?.member.id);
+	const visitLine = visit ? visitSentence(visit, partner?.displayName ?? "", locale) : null;
 	// In a one-to-one chat the settings action and the Bot's avatar open the Bot page this account owns
 	// (15-Bot生命周期 四 ①); a visit is handled by the visit flow instead.
 	const botId = chatBotId(chat.conversation);
@@ -372,6 +364,7 @@ export default function Chat() {
 					</View>
 				) : watching ? null : (
 					<ComposerFrame as={ChatView}>
+						{visit?.role === "visitor" && visit.state !== "denied" ? <VisitRelay key={id} chat={chat} /> : null}
 						{uploads.uploads.length ? (
 							<View className="composer-files">
 								{uploads.uploads.map((file) => (

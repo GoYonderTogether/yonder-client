@@ -7,7 +7,7 @@ export interface ConversationMember {
 	displayName: string;
 	avatarUrl: string | null;
 	avatarColor?: string | null;
-	botOwner?: { handle: string; displayName: string } | null;
+	botOwner?: { handle: string; displayName: string; avatarUrl?: string | null } | null;
 	/** A group's owner is the one who created it (19 第三节); absent in a direct chat. */
 	role?: "owner" | "member";
 }

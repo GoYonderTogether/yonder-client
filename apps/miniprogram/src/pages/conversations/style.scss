@@ -37,3 +37,41 @@
 	border-radius: var(--radius-full);
 	padding: 0 var(--spacing-2);
 }
+
+.mini-conversation-avatar {
+	position: relative;
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.mini-conversation-avatar-overlay {
+	position: absolute;
+	inset: auto calc(-1 * var(--spacing-hair)) calc(-1 * var(--spacing-hair)) auto;
+	padding: var(--spacing-hair);
+	background: var(--color-bg-card);
+	border-radius: var(--radius-full);
+}
+
+.mini-visit-toggle {
+	width: 100%;
+	margin: 0;
+	color: var(--color-text-primary);
+	text-align: start;
+}
+
+.mini-visit-toggle::after {
+	border: 0;
+}
+
+.mini-visit-items {
+	margin-inline-start: var(--spacing-3);
+}
+
+.mini-visit-unread {
+	flex-shrink: 0;
+	width: var(--spacing-2);
+	height: var(--spacing-2);
+	border-radius: var(--radius-full);
+	background: var(--color-text-tertiary);
+}

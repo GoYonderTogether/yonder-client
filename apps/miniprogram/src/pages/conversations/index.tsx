@@ -1,6 +1,6 @@
-import { Image, Input, Text, View } from "@tarojs/components";
+import { Image, Input, Button as NativeButton, Text, View } from "@tarojs/components";
 import Taro, { useDidShow, usePullDownRefresh } from "@tarojs/taro";
-import { conversationBotOwner, conversationPeer, ownedBotFor } from "@yonder/chat-model";
+import { conversationBotOwner, ownedBotFor, visitAvatarOverlay, visitBot } from "@yonder/chat-model";
 import type { Conversation } from "@yonder/protocol";
 import { useCallback, useEffect, useState } from "react";
 import { MiniBotName } from "../../components/bot-name";
@@ -9,7 +9,8 @@ import { t, useLocale } from "../../lib/i18n";
 import "./style.scss";
 import { patchConversations, removeConversation, removeMemberFromConversations } from "../../lib/member-cache";
 import { api, client, subscribeEvents, useCachedBots, useRealtimeRevision, useSession } from "../../lib/runtime";
-import { directPartner, isObserver } from "../chat/model";
+import { ChatAvatar } from "../chat/avatar";
+import { chatPartner, isObserver } from "../chat/model";
 import { conversationPreview } from "./preview";
 
 export default function Conversations() {
@@ -22,6 +23,7 @@ export default function Conversations() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [search, setSearch] = useState("");
+	const [visitsOpen, setVisitsOpen] = useState(false);
 	const load = useCallback(async () => {
 		if (status !== "signed-in") return;
 		setError("");
@@ -66,7 +68,7 @@ export default function Conversations() {
 	}, [load]);
 	const title = (item: Conversation) =>
 		(item.kind === "system" ? t("系统通知", "System notifications") : item.title) ||
-		(item.kind === "direct" ? conversationPeer(item, me?.member.id)?.displayName : undefined) ||
+		(item.kind === "direct" ? chatPartner(item, me?.member.id)?.displayName : undefined) ||
 		item.members
 			.filter((member) => member.memberId !== me?.member.id && !isObserver(member))
 			.map((member) => member.displayName)
@@ -77,6 +79,77 @@ export default function Conversations() {
 		.sort(
 			(a, b) => Number(b.pinned) - Number(a.pinned) || (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""),
 		);
+	const visits = visible.filter((item) => item.visit?.role === "host");
+	const avatarSource = (url: string | null | undefined) => (url?.startsWith("/") ? `${client.baseUrl}${url}` : url);
+	const row = (item: Conversation) => {
+		const inbound = item.visit?.role === "host";
+		const other = chatPartner(item, me?.member.id);
+		const overlay = visitAvatarOverlay(item, me?.member.id);
+		const name = title(item);
+		const visitedBot = inbound ? (visitBot(item)?.displayName ?? "Bot") : "";
+		return (
+			<View
+				key={item.id}
+				className={item.pinned ? "card row mini-conversation-pinned" : "card row"}
+				onClick={() => void Taro.navigateTo({ url: `/pages/chat/index?id=${encodeURIComponent(item.id)}` })}
+			>
+				<View className="mini-conversation-avatar">
+					{item.visit && other ? (
+						<ChatAvatar name={name} kind={other.kind} src={avatarSource(other.avatarUrl)} size={40} />
+					) : other?.avatarUrl ? (
+						<Image className="mini-avatar" src={avatarSource(other.avatarUrl) ?? ""} />
+					) : (
+						<View className="mini-avatar">{name.slice(0, 1)}</View>
+					)}
+					{overlay ? (
+						<View className="mini-conversation-avatar-overlay">
+							<ChatAvatar
+								name={overlay.displayName}
+								kind={overlay.kind}
+								src={avatarSource(overlay.avatarUrl)}
+								size={16}
+							/>
+						</View>
+					) : null}
+				</View>
+				<View className="mini-conversation-copy">
+					<View className="mini-conversation-line">
+						{other?.kind === "bot" && item.kind === "direct" ? (
+							<MiniBotName
+								name={name}
+								ownedBot={ownedBotFor(other.memberId, me?.member.id, me?.bot, cachedBots)}
+								owner={conversationBotOwner(other, item)}
+								compact="list"
+							/>
+						) : (
+							<Text className="mini-conversation-title">{name}</Text>
+						)}
+						{item.lastMessage?.createdAt ? (
+							<Text className="mini-conversation-time">{timeFormat.format(new Date(item.lastMessage.createdAt))}</Text>
+						) : null}
+					</View>
+					<View className="mini-conversation-line">
+						<Text className="muted mini-preview">
+							{inbound
+								? t(`找你的 ${visitedBot}`, `Visited your ${visitedBot}`)
+								: conversationPreview(item, locale, {
+										group: t("群聊", "Group"),
+										direct: t("开始对话", "Start a conversation"),
+									})}
+						</Text>
+						{item.unreadCount > 0 ? (
+							inbound ? (
+								<View className="mini-visit-unread" ariaLabel={t("未读来访", "Unread visit")} />
+							) : (
+								<Text className="mini-badge">{item.unreadCount}</Text>
+							)
+						) : null}
+						{item.muted && !inbound ? <Text className="mini-muted">{t("免打扰", "Muted")}</Text> : null}
+					</View>
+				</View>
+			</View>
+		);
+	};
 	return (
 		<Page back={false} title={t("消息", "Messages")}>
 			<View className="stack">
@@ -103,55 +176,26 @@ export default function Conversations() {
 					empty={!loading && !visible.length ? t("暂无会话", "No conversations") : undefined}
 					retry={() => void load()}
 				/>
-				{visible.map((item) => {
-					const other =
-						item.kind === "direct" ? conversationPeer(item, me?.member.id) : directPartner(item.members, me?.member.id);
-					return (
-						<View
-							key={item.id}
-							className={item.pinned ? "card row mini-conversation-pinned" : "card row"}
-							onClick={() => void Taro.navigateTo({ url: `/pages/chat/index?id=${encodeURIComponent(item.id)}` })}
+				{visible.filter((item) => item.visit?.role !== "host").map(row)}
+				{visits.length ? (
+					<>
+						<NativeButton
+							className="card row mini-visit-toggle"
+							ariaLabel={
+								visitsOpen ? t("折叠 Bot 来访", "Collapse Bot visits") : t("展开 Bot 来访", "Expand Bot visits")
+							}
+							onClick={() => setVisitsOpen(!visitsOpen)}
 						>
-							{other?.avatarUrl ? (
-								<Image
-									className="mini-avatar"
-									src={other.avatarUrl.startsWith("/") ? `${client.baseUrl}${other.avatarUrl}` : other.avatarUrl}
-								/>
-							) : (
-								<View className="mini-avatar">{title(item).slice(0, 1)}</View>
-							)}
-							<View className="mini-conversation-copy">
-								<View className="mini-conversation-line">
-									{other?.kind === "bot" && item.kind === "direct" ? (
-										<MiniBotName
-											name={title(item)}
-											ownedBot={ownedBotFor(other.memberId, me?.member.id, me?.bot, cachedBots)}
-											owner={conversationBotOwner(other, item)}
-											compact="list"
-										/>
-									) : (
-										<Text className="mini-conversation-title">{title(item)}</Text>
-									)}
-									{item.lastMessage?.createdAt ? (
-										<Text className="mini-conversation-time">
-											{timeFormat.format(new Date(item.lastMessage.createdAt))}
-										</Text>
-									) : null}
-								</View>
-								<View className="mini-conversation-line">
-									<Text className="muted mini-preview">
-										{conversationPreview(item, locale, {
-											group: t("群聊", "Group"),
-											direct: t("开始对话", "Start a conversation"),
-										})}
-									</Text>
-									{item.unreadCount > 0 && <Text className="mini-badge">{item.unreadCount}</Text>}
-									{item.muted ? <Text className="mini-muted">{t("免打扰", "Muted")}</Text> : null}
-								</View>
-							</View>
-						</View>
-					);
-				})}
+							<Text className="mini-conversation-title">{t("Bot 来访", "Bot visits")}</Text>
+							<Text className="mini-muted">{t("免打扰", "Muted")}</Text>
+							{visits.some((visit) => visit.unreadCount > 0) ? (
+								<View className="mini-visit-unread" ariaLabel={t("有新的 Bot 来访", "New Bot visits")} />
+							) : null}
+							<Text ariaHidden>{visitsOpen ? "⌄" : "›"}</Text>
+						</NativeButton>
+						{visitsOpen ? <View className="stack mini-visit-items">{visits.map(row)}</View> : null}
+					</>
+				) : null}
 			</View>
 		</Page>
 	);

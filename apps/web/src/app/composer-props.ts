@@ -31,6 +31,7 @@ export interface ComposerProps {
 	onAcceptCompletion?: (text: string, marker: CompletionMarker, edit: TextEditRange) => void;
 	onCompact?: () => void;
 	commandStatus?: ReactNode;
+	visitRelay?: { conversationId: string; messageId: string | undefined; pending: boolean } | undefined;
 	files?: DraftFile[];
 	onFiles?: (files: File[]) => void;
 	pickedFiles?:

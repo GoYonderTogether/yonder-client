@@ -1,3 +1,4 @@
+import { visitRelayTarget } from "@yonder/chat-model";
 import type { Attachment, Conversation, SendMessageRequest } from "@yonder/protocol";
 import {
 	outboxCacheKey,
@@ -107,6 +108,13 @@ export function useFrameChat({
 		knownVoiceNonce,
 		compact,
 		directAttachments,
+		visitRelay:
+			target?.visit?.role === "visitor" && target.visit.state !== "denied"
+				? {
+						conversationId: target.id,
+						...visitRelayTarget(history.data?.pages.toReversed().flatMap((page) => page.items) ?? [], personId),
+					}
+				: undefined,
 		streaming: Boolean(streaming),
 		blocked:
 			(!target && !creating) ||

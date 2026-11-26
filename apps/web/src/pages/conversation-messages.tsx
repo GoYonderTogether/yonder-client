@@ -30,7 +30,7 @@ import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
 import { MessageOptions } from "./message-options.tsx";
 import { MessageSources } from "./message-sources.tsx";
-import { AskOwner, OutwardRequestCard } from "./outward-request-card.tsx";
+import { OutwardRequestCard } from "./outward-request-card.tsx";
 import { QuestionCard } from "./question-card.tsx";
 import { VoiceMessage } from "./voice-message.tsx";
 
@@ -74,8 +74,6 @@ export function ConversationMessages({
 	const visitRole = conversation.visit?.role;
 	const showAvatars = !isTwoPartyAgentChat(conversation, person?.id);
 	const optionCards = optionCardState(items, person?.id);
-	const asks = new Set(items.filter((item) => item.outwardRequest && item.replyToId).map((item) => item.replyToId));
-	const hasOpen = items.some((item) => item.outwardRequest?.state === "open");
 	const delivered = new Set(items.filter((item) => item.outwardRequest?.result).map((item) => item.replyToId));
 	const drafts = new Map<string, string>();
 	for (const item of items) {
@@ -88,10 +86,6 @@ export function ConversationMessages({
 		)
 			drafts.set(item.replyToId, item.body);
 	}
-	const askable =
-		visitRole === "visitor" && conversation.visit?.state !== "denied"
-			? items.findLast((item) => item.senderId === person?.id && !item.pending && !item.sendFailed && item.body?.trim())
-			: null;
 	if (conversation.kind === "system")
 		return items.map((message) => (
 			<div key={message.id} data-message-id={message.id}>
@@ -173,23 +167,16 @@ export function ConversationMessages({
 					</div>
 				);
 			}
-			if (message.id !== askable?.id || asks.has(message.id) || hasOpen)
-				return (
-					<MessageEntry
-						key={message.id}
-						message={message}
-						self={self}
-						{...actions}
-						personId={person?.id}
-						onChooseOption={message.id === optionCards.openId ? actions.onChooseOption : undefined}
-						optionReply={optionCards.replies.get(message.id)}
-					/>
-				);
 			return (
-				<div key={message.id} className={self ? "flex flex-col items-end" : "min-w-0"}>
-					<MessageEntry message={message} self={self} {...actions} personId={person?.id} />
-					<AskOwner messageId={message.id} conversationId={conversation.id} disabled={actions.disconnected} />
-				</div>
+				<MessageEntry
+					key={message.id}
+					message={message}
+					self={self}
+					{...actions}
+					personId={person?.id}
+					onChooseOption={message.id === optionCards.openId ? actions.onChooseOption : undefined}
+					optionReply={optionCards.replies.get(message.id)}
+				/>
 			);
 		});
 		if (!spoken.length) return <Fragment key={first.id}>{notices}</Fragment>;

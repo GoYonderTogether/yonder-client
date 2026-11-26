@@ -26,6 +26,7 @@ import "./composer-voice.css";
 import type { ChatVoice } from "../lib/chat-voice.ts";
 import { useFilePicker } from "./composer-file-picker.ts";
 import type { ComposerProps } from "./composer-props.ts";
+import { VisitRelay } from "./visit-relay.tsx";
 
 /**
  * The one composer (11 第七节第 3 条). It is mounted once by the frame and stays mounted across tabs,
@@ -50,6 +51,7 @@ export function Composer({
 	onAcceptCompletion,
 	onCompact,
 	commandStatus,
+	visitRelay,
 	files = [],
 	onFiles,
 	pickedFiles,
@@ -262,6 +264,7 @@ export function Composer({
 				importing={iosAttachments.importing}
 				disabled={disabled || streaming}
 			/>
+			{visitRelay ? <VisitRelay key={visitRelay.conversationId} {...visitRelay} disabled={disconnected} /> : null}
 			<fieldset
 				aria-label={t("chat.attach")}
 				className={iosAttachments.iphone ? "min-w-0" : undefined}

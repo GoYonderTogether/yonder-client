@@ -32,6 +32,7 @@ export {
 	scheduleFailureText,
 } from "./run-failure.ts";
 export { runSources } from "./run-sources.ts";
+export { visitAvatarOverlay, visitBot, visitRelayTarget } from "./visit-presentation.ts";
 
 import type { Message } from "@yonder/protocol";
 import { runSources } from "./run-sources.ts";
