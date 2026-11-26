@@ -53,19 +53,15 @@
 	border-radius: var(--radius-full);
 }
 
-.mini-visit-toggle {
+.mini-visit-entry {
 	width: 100%;
 	margin: 0;
 	color: var(--color-text-primary);
 	text-align: start;
 }
 
-.mini-visit-toggle::after {
+.mini-visit-entry::after {
 	border: 0;
-}
-
-.mini-visit-items {
-	margin-inline-start: var(--spacing-3);
 }
 
 .mini-visit-unread {
