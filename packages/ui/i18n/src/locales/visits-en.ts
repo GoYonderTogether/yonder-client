@@ -50,6 +50,8 @@ export const visitsMessagesEn = {
 	startFailed: "Could not start this chat.",
 	waitingForYou: "Waiting for you",
 	incoming: "Bot visits",
+	incomingEmpty: "No Bot visits yet",
+	incomingBack: "Back to Bot visits",
 	incomingUnread: "New Bot visits",
 	incomingFor: "Visited your {{name}}",
 	selfPayQuota: "Your own quota is used up. Sending a message will not start a reply.",

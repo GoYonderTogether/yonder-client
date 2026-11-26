@@ -21,6 +21,8 @@ export const TAB_SPECS: Record<TabId, TabSpec> = {
 
 /** The pinned conversation with the person's Bot. */
 export const MAIN_CONVERSATION = "main";
+export const BOT_VISITS = "bot-visits";
+export const BOT_VISITS_PATH = `/messages/${BOT_VISITS}`;
 
 export interface RouteEntry {
 	path: string;
@@ -36,6 +38,8 @@ export const ROUTES: readonly RouteEntry[] = [
 	{ path: "/pricing", layer: "tab", public: true },
 	{ path: "/setup/:step", layer: "tab" },
 	{ path: "/messages", layer: "tab", tab: "messages" },
+	{ path: BOT_VISITS_PATH, layer: "detail", tab: "messages" },
+	{ path: `${BOT_VISITS_PATH}/:conversationId`, layer: "detail", tab: "messages" },
 	{ path: "/messages/:conversationId", layer: "detail", tab: "messages" },
 	{ path: "/tasks", layer: "tab", tab: "tasks" },
 	{ path: "/tasks/scheduled", layer: "tab", tab: "tasks" },
