@@ -89,6 +89,59 @@ function readEfforts(value: unknown): EffortLevel[] {
 	return EFFORT_LEVELS.filter((level) => set.has(level));
 }
 
+/**
+ * What a newly discovered model starts with, before the person touches it.
+ *
+ * A form full of empty fields is a form the person has to fill twice: once to get the model list,
+ * once to say what each model is. These are the defaults CC Switch uses for the same job — the
+ * display name starts as the model id, and the window and the levels come from the id itself, since
+ * the family is usually readable from it. Anything the endpoint declared wins over the guess, and a
+ * person's own value always wins over both.
+ *
+ * The window is only ever a starting number for the *display*; the model row stores what the form
+ * says, and a model whose window nobody states is compressed by the provider's own limit.
+ */
+export function defaultsFor(id: string, declared: ProviderModelMetadata | undefined): Partial<ModelSlot> {
+	const lower = id.toLowerCase();
+	return {
+		name: declared?.name ?? id,
+		contextLength: declared?.contextLength ? String(declared.contextLength) : String(knownWindow(lower) ?? ""),
+		efforts: readEfforts(declared?.efforts).length ? readEfforts(declared?.efforts) : knownEfforts(lower),
+	};
+}
+
+/**
+ * The window the model family is published with. Kept deliberately short: only families whose
+ * documentation states one number, and only so the field starts somewhere sensible.
+ */
+function knownWindow(id: string): number | null {
+	if (/claude-(opus|sonnet|haiku)-5|claude-fable-5/.test(id)) return 1_000_000;
+	if (/gpt-6|gpt-5\.6/.test(id)) return 1_050_000;
+	if (/deepseek/.test(id)) return 1_000_000;
+	if (/glm-5|glm-4\.6/.test(id)) return 200_000;
+	if (/kimi-k3|kimi-k2/.test(id)) return 256_000;
+	if (/gemini-3|gemini-2\.5/.test(id)) return 1_000_000;
+	if (/qwen3/.test(id)) return 256_000;
+	return null;
+}
+
+/**
+ * The levels the family takes. `off` is included only for families that accept a "stop thinking"
+ * switch; a family that has no such switch would answer a 400 for it.
+ */
+function knownEfforts(id: string): EffortLevel[] {
+	if (/claude-(opus|sonnet|haiku)-5|claude-fable-5/.test(id)) return ["low", "medium", "high", "max"];
+	if (/gpt-6|gpt-5\.6/.test(id)) return ["low", "medium", "high"];
+	if (/deepseek|glm|kimi|qwen/.test(id)) return ["off", "low", "medium", "high"];
+	if (/gemini-3|gemini-2\.5/.test(id)) return ["off", "low", "medium", "high", "max"];
+	return [];
+}
+
+/** A slot the person has just discovered, filled with the family's defaults. */
+export function discoveredSlot(id: string, declared: ProviderModelMetadata | undefined): ModelSlot {
+	return newSlot({ id, ...defaultsFor(id, declared) });
+}
+
 /** A slot is only real once it names a model; a half-filled new row is dropped rather than saved. */
 export function completeSlots(slots: readonly ModelSlot[]): ModelSlot[] {
 	const seen = new Set<string>();
@@ -111,7 +164,8 @@ export function saveMetadata(slots: readonly ModelSlot[]): Record<string, Provid
 		if (!id) continue;
 		const contextLength = Number(slot.contextLength);
 		metadata[id] = {
-			...(slot.name.trim() ? { name: slot.name.trim() } : {}),
+			// A display name identical to the id is not worth storing: the list already shows the id.
+			...(slot.name.trim() && slot.name.trim() !== id ? { name: slot.name.trim() } : {}),
 			...(Number.isSafeInteger(contextLength) && contextLength > 0 ? { contextLength } : {}),
 			...(slot.efforts.length ? { efforts: [...slot.efforts] } : {}),
 		};

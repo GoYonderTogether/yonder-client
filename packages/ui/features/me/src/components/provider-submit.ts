@@ -65,10 +65,12 @@ export function useProviderSubmit(options: {
 				if (version !== options.version.current) return;
 				options.setAvailable(result.models);
 				options.setMetadata(result.metadata ?? {});
-				if (!result.models.length) setError(t("models.fetchFailed"));
+				if (!result.models.length) setError(t("models.fetchEmpty"));
 			} catch (cause) {
 				if (version === options.version.current) {
-					setError(t("models.fetchFailed"));
+					// The server's own words: "protocol is invalid" and "401" lead to different fixes, and a
+					// generic "could not fetch" hides which one it is.
+					setError(t("models.fetchFailed", { reason: describe(cause) }));
 					options.onAddFailure?.("discover", cause, startedAt);
 				}
 			} finally {
@@ -141,6 +143,22 @@ export function useProviderSubmit(options: {
 	}
 
 	return { discover, save, test, fetching, saving };
+}
+
+/**
+ * The sentence a failed call is shown with. An `ApiError` carries the server's message and status,
+ * which is what tells a wrong key from a server that does not know this protocol yet.
+ */
+export function describe(cause: unknown): string {
+	if (cause && typeof cause === "object") {
+		const error = cause as { message?: unknown; status?: unknown };
+		const message = typeof error.message === "string" ? error.message : "";
+		const status = typeof error.status === "number" ? error.status : null;
+		if (message && status) return `${status} · ${message}`;
+		if (message) return message;
+		if (status) return String(status);
+	}
+	return cause instanceof Error ? cause.message : String(cause);
 }
 
 /**

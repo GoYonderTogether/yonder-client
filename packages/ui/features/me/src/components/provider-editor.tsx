@@ -19,6 +19,7 @@ import {
 	type RegisterLocalProviderEndpoint,
 } from "./provider-location.ts";
 import {
+	discoveredSlot,
 	displayNamesFrom,
 	endpointWire,
 	type ModelSlot,
@@ -183,10 +184,9 @@ export function ProviderEditor({
 		setSlots((current) => {
 			const named = new Set(available);
 			const kept = current.filter((slot) => !slot.id.trim() || !named.has(slot.id.trim()));
-			const fresh = slotsFromProvider(available, metadata, undefined).map((slot) => ({
-				...slot,
-				name: metadata[slot.id]?.name ?? "",
-			}));
+			// Each discovered model starts filled in: display name, window and levels from its family,
+			// with whatever the endpoint declared taking precedence.
+			const fresh = available.map((id) => discoveredSlot(id, metadata[id]));
 			return fresh.length || kept.length ? [...fresh, ...kept] : current;
 		});
 	}, [available, metadata]);
@@ -443,6 +443,11 @@ export function ProviderEditor({
 						{t("models.fetchModels")}
 					</Button>
 				</div>
+				{error ? (
+					<p role="alert" className="text-caption text-[var(--color-danger)]">
+						{error}
+					</p>
+				) : null}
 				<ProviderModelSlots
 					slots={slots}
 					available={available}
@@ -465,11 +470,6 @@ export function ProviderEditor({
 				/>
 			</div>
 
-			{error ? (
-				<p role="alert" className="text-caption text-[var(--color-danger)]">
-					{error}
-				</p>
-			) : null}
 			<Button type="submit" variant="primary" disabled={fetching} loading={saving}>
 				{t("app.save")}
 			</Button>

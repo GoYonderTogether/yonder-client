@@ -49,8 +49,9 @@ test("editing never displays a stored key and discovery reuses it only by provid
 			providerId: "p1",
 		}),
 	);
-	// A discovered model becomes its own row, named by the id it was discovered under.
-	expect(await screen.findAllByDisplayValue("m2")).toHaveLength(1);
+	// A discovered model becomes its own row, with the id filled in as both its display name and the
+	// model the endpoint is sent, so the row is complete before the person edits anything.
+	expect(await screen.findAllByDisplayValue("m2")).toHaveLength(2);
 	fireEvent.change(screen.getByRole("textbox", { name: "Request URL" }), {
 		target: { value: "https://other.example.org" },
 	});
