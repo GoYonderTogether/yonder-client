@@ -37,8 +37,12 @@ for (const androidOnly of ["true", "false"]) {
 		)
 			.trim()
 			.split("\n");
+		// iOS ships as a TestFlight internal build, so its dispatch carries the audience flag;
+		// without it Apple marks the build APP_STORE_ELIGIBLE and no tester can install it.
 		const dispatch = (platform) =>
-			`workflow run ${platform}-release.yml --ref v${version} -f version=${version} -f expected_commit=${sha}`;
+			`workflow run ${platform}-release.yml --ref v${version} -f version=${version} -f expected_commit=${sha}${
+				platform === "ios" ? " -f testflight_internal=true" : ""
+			}`;
 		assert.deepEqual(
 			calls,
 			androidOnly === "true"
