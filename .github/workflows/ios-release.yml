@@ -45,10 +45,6 @@ on:
         required: false
         default: false
         type: boolean
-      testflight_without_push:
-        description: 临时 TestFlight 下载对照包，关闭 APNs
-        default: false
-        type: boolean
   release:
     types: [published]
 
@@ -80,7 +76,6 @@ jobs:
           INPUT_MARKETING_VERSION: ${{ inputs.marketing_version }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           TESTFLIGHT_INTERNAL: ${{ inputs.testflight_internal }}
-          TESTFLIGHT_WITHOUT_PUSH: ${{ inputs.testflight_without_push }}
         run: |
           set -eu
           if [ -n "${RELEASE_TAG:-}" ]; then
@@ -111,15 +106,6 @@ jobs:
               exit 1
             fi
           fi
-          push=1
-          if [ "${TESTFLIGHT_WITHOUT_PUSH:-false}" = true ]; then
-            if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$GITHUB_REF" != refs/heads/main ] ||
-              [ "${TESTFLIGHT_INTERNAL:-false}" = true ] || [ -z "$EXPECTED_COMMIT" ]; then
-              echo "::error::the no-push TestFlight control requires a manual App Store eligible dispatch from main with a verified commit SHA"
-              exit 1
-            fi
-            push=0
-          fi
           if [ -n "$EXPECTED_COMMIT" ]; then
             [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::expected_commit must be a 40-char SHA"; exit 1; }
             [ "$head_sha" = "$EXPECTED_COMMIT" ] || {
@@ -132,7 +118,6 @@ jobs:
           echo "MARKETING_VERSION=$marketing_version" >> "$GITHUB_ENV"
           echo "TAG=$tag" >> "$GITHUB_ENV"
           echo "BUILD_NUMBER=${version##*.}" >> "$GITHUB_ENV"
-          echo "YONDER_IOS_PUSH=$push" >> "$GITHUB_ENV"
           echo "version $version, tag $tag, commit $head_sha"
 
       - uses: actions/setup-node@v4
@@ -212,6 +197,7 @@ jobs:
           cp "$dir/yonder.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$(uuidgen).mobileprovision"
           echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
           echo "IOS_PROFILE_NAME=$profile_name" >> "$GITHUB_ENV"
+          echo "YONDER_IOS_PUSH=1" >> "$GITHUB_ENV"
           security find-identity -v -p codesigning "$keychain"
 
       - name: 初始化 iOS 工程并重放图标与签名设置
@@ -296,17 +282,8 @@ jobs:
             }
           }
           expect_value "$app/Info.plist" CFBundleIdentifier net.yonderbot.app
-          if [ "$YONDER_IOS_PUSH" = 0 ]; then
-            if plutil -extract YonderPushEnvironment xml1 -o /dev/null "$app/Info.plist" 2>/dev/null ||
-              plutil -extract aps-environment xml1 -o /dev/null "$check/entitlements.plist" 2>/dev/null; then
-              echo "::error::the no-push TestFlight control still includes APNs configuration"
-              exit 1
-            fi
-            echo "Verified exported control IPA has no APNs entitlement or registration marker"
-          else
-            expect_value "$app/Info.plist" YonderPushEnvironment production
-            expect_value "$check/entitlements.plist" aps-environment production
-          fi
+          expect_value "$app/Info.plist" YonderPushEnvironment production
+          expect_value "$check/entitlements.plist" aps-environment production
           expect_value "$check/entitlements.plist" application-identifier "$TEAM_ID.net.yonderbot.app"
           expect_value "$check/entitlements.plist" 'com\.apple\.developer\.team-identifier' "$TEAM_ID"
           expect_value "$app/Info.plist" CFBundleShortVersionString "$MARKETING_VERSION"
