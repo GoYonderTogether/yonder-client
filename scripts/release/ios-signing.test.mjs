@@ -6,8 +6,10 @@ import { join } from "node:path";
 import test from "node:test";
 
 const workflow = readFileSync(new URL("../../.github/workflows/ios-release.yml", import.meta.url), "utf8");
+const statusWorkflow = readFileSync(new URL("../../.github/workflows/testflight-status.yml", import.meta.url), "utf8");
 const team = "TESTTEAM42";
 const bundle = "net.yonderbot.app";
+const nextBundle = "net.yonderbot.ios";
 const plist = (xml) => `<?xml version="1.0"?><plist version="1.0"><dict>${xml}</dict></plist>`;
 const row = (key, value) => `<key>${key}</key><string>${value}</string>`;
 
@@ -56,6 +58,7 @@ function fixture(t) {
 		RUNNER_TEMP: run,
 		GITHUB_ENV: join(run, "env"),
 		TEAM_ID: team,
+		BUNDLE_ID: bundle,
 		CERT_BASE64: Buffer.from("synthetic certificate placeholder").toString("base64"),
 		CERT_PASSWORD: "synthetic password",
 		IOS_PROFILE_NAME: "Synthetic selected profile",
@@ -64,6 +67,7 @@ function fixture(t) {
 		BUILD_NUMBER: "26112399",
 		INPUT_VERSION: "0.3.26112399",
 		GITHUB_REF: "refs/heads/main",
+		GITHUB_EVENT_NAME: "workflow_dispatch",
 		HEAD_SHA: "a".repeat(40),
 		EXPECTED_COMMIT: "a".repeat(40),
 		KEY_BASE64: Buffer.from("synthetic upload key placeholder").toString("base64"),
@@ -94,6 +98,7 @@ function fixture(t) {
 	function ipa({
 		marker = "production",
 		aps = "production",
+		app = bundle,
 		signedTeam = team,
 		version = env.MARKETING_VERSION,
 		build = env.BUILD_NUMBER,
@@ -103,7 +108,7 @@ function fixture(t) {
 		writeFileSync(
 			join(path, "Info.plist"),
 			plist(
-				row("CFBundleIdentifier", bundle) +
+				row("CFBundleIdentifier", app) +
 					row("CFBundleShortVersionString", version) +
 					row("CFBundleVersion", build) +
 					row("YonderPushEnvironment", marker),
@@ -112,7 +117,7 @@ function fixture(t) {
 		writeFileSync(
 			join(path, "fake-signed-entitlements.plist"),
 			plist(
-				row("application-identifier", `${signedTeam}.${bundle}`) +
+				row("application-identifier", `${signedTeam}.${app}`) +
 					row("com.apple.developer.team-identifier", signedTeam) +
 					(aps ? row("aps-environment", aps) : ""),
 			),
@@ -252,3 +257,57 @@ test(
 		}
 	},
 );
+
+test("each iOS app selects its own credential names before reading secrets", () => {
+	for (const suffix of [
+		"DISTRIBUTION_CERT_P12_BASE64",
+		"DISTRIBUTION_CERT_PASSWORD",
+		"PROVISIONING_PROFILE_BASE64",
+		"TEAM_ID",
+	]) {
+		assert.ok(workflow.includes(`secrets[inputs.ios_app == 'next' && 'IOS_NEXT_${suffix}' || 'IOS_${suffix}']`));
+	}
+	for (const suffix of ["KEY_ID", "ISSUER_ID", "PRIVATE_KEY_BASE64"]) {
+		assert.ok(
+			workflow.includes(`secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_${suffix}' || 'ASC_API_${suffix}']`),
+		);
+		assert.ok(
+			statusWorkflow.includes(
+				`secrets[inputs.bundle_id == '${nextBundle}' && 'ASC_IOS_NEXT_API_${suffix}' || 'ASC_API_${suffix}']`,
+			),
+		);
+	}
+	assert.ok(workflow.includes("inputs.ios_app != 'next' && secrets.IOS_TESTFLIGHT_PUSH_PROFILE_BASE64 || ''"));
+});
+
+test("the new iOS app uses a verified manual dispatch, scoped profile, and matching exported IPA", mac, (t) => {
+	const verify = "核对 tag → 提交并确定版本";
+	const next = { BUNDLE_ID: nextBundle, IOS_APP: "next" };
+	const { step, env } = fixture(t);
+	assertOk(step(verify, next));
+	for (const override of [
+		{ GITHUB_EVENT_NAME: "release" },
+		{ GITHUB_REF: "refs/tags/v0.3.26112399" },
+		{ TESTFLIGHT_INTERNAL: "true" },
+		{ EXPECTED_COMMIT: "" },
+	]) {
+		assert.notEqual(step(verify, { ...next, ...override }).status, 0);
+	}
+	assert.notEqual(step("还原签名材料", { ...next, PROFILE_BASE64: profile() }).status, 0);
+	assertOk(step("还原签名材料", { ...next, PROFILE_BASE64: profile({ app: nextBundle }) }));
+	assert.match(readFileSync(env.GITHUB_ENV, "utf8"), /TEAM_ID=TESTTEAM42\nIOS_TEAM_ID=TESTTEAM42/);
+	const good = fixture(t);
+	good.ipa({ app: nextBundle });
+	assertOk(good.step("导出 IPA", next));
+	const exported = JSON.parse(
+		execFileSync("/usr/bin/plutil", ["-convert", "json", "-o", "-", join(good.run, "ExportOptions.plist")], {
+			encoding: "utf8",
+		}),
+	);
+	assert.deepEqual(exported.provisioningProfiles, { [nextBundle]: env.IOS_PROFILE_NAME });
+	const wrong = fixture(t);
+	wrong.ipa();
+	const rejected = wrong.step("导出 IPA", next);
+	assert.notEqual(rejected.status, 0);
+	assert.match(rejected.stdout, /invalid CFBundleIdentifier/);
+});

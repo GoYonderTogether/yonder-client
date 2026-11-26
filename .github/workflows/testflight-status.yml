@@ -25,13 +25,17 @@ jobs:
           node-version: "22"
       - name: Check TestFlight distribution
         env:
-          KEY_BASE64: ${{ secrets.ASC_API_PRIVATE_KEY_BASE64 }}
-          KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-          ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          KEY_BASE64: ${{ secrets[inputs.bundle_id == 'net.yonderbot.ios' && 'ASC_IOS_NEXT_API_PRIVATE_KEY_BASE64' || 'ASC_API_PRIVATE_KEY_BASE64'] }}
+          KEY_ID: ${{ secrets[inputs.bundle_id == 'net.yonderbot.ios' && 'ASC_IOS_NEXT_API_KEY_ID' || 'ASC_API_KEY_ID'] }}
+          ISSUER_ID: ${{ secrets[inputs.bundle_id == 'net.yonderbot.ios' && 'ASC_IOS_NEXT_API_ISSUER_ID' || 'ASC_API_ISSUER_ID'] }}
           BUNDLE_ID: ${{ inputs.bundle_id }}
           BUILD_NUMBER: ${{ inputs.build_number }}
         run: |
           set -eu
+          [ -n "$KEY_BASE64" ] && [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] || {
+            echo "::error::missing App Store Connect credentials for the selected bundle"
+            exit 1
+          }
           key_path=$(mktemp "$RUNNER_TEMP/asc-testflight.XXXXXX")
           trap 'rm -f "$key_path"' EXIT
           printf '%s' "$KEY_BASE64" | base64 --decode > "$key_path"

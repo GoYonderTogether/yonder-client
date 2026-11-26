@@ -13,6 +13,7 @@
 #   IOS_TEAM_ID                       团队 ID（D4UZU32UN9）
 #   ASC_API_KEY_ID / ASC_API_ISSUER_ID / ASC_API_PRIVATE_KEY_BASE64
 #                                     App Store Connect API Key，用于上传 TestFlight
+# 新 App 只允许从 main 手工派发 ios_app=next；签名用 IOS_NEXT_*，上传用 ASC_IOS_NEXT_API_*，不回退旧密钥。
 #
 # 导出用 xcodebuild -exportArchive 而不是 tauri 的导出步骤：后者生成的 ExportOptions 不带
 # provisioningProfiles 映射，实测报 `exportArchive requires a provisioning profile`。
@@ -40,6 +41,11 @@ on:
         required: false
         default: ""
         type: string
+      ios_app:
+        description: iOS App 记录（next 为 net.yonderbot.ios）
+        default: legacy
+        type: choice
+        options: [legacy, next]
       testflight_internal:
         description: 仅允许内部 TestFlight 分发
         required: false
@@ -52,7 +58,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: ios-release-${{ inputs.version || github.event.release.tag_name }}
+  group: ios-release${{ inputs.ios_app == 'next' && '-next' || '' }}-${{ inputs.version || github.event.release.tag_name }}
   cancel-in-progress: false
 
 jobs:
@@ -60,6 +66,8 @@ jobs:
     name: iOS TestFlight upload
     runs-on: macos-latest
     timeout-minutes: 90
+    env:
+      BUNDLE_ID: ${{ inputs.ios_app == 'next' && 'net.yonderbot.ios' || 'net.yonderbot.app' }}
     steps:
       # 手工派发固定到事件的提交，避免 runner 启动前 main 前进而选错源码。
       - uses: actions/checkout@v4
@@ -75,6 +83,7 @@ jobs:
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
           INPUT_MARKETING_VERSION: ${{ inputs.marketing_version }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+          IOS_APP: ${{ inputs.ios_app }}
           TESTFLIGHT_INTERNAL: ${{ inputs.testflight_internal }}
         run: |
           set -eu
@@ -89,6 +98,13 @@ jobs:
             exit 1
           }
           head_sha="$(git rev-parse HEAD)"
+          if [ "${IOS_APP:-legacy}" = next ]; then
+            if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$GITHUB_REF" != refs/heads/main ] ||
+              [ -z "$EXPECTED_COMMIT" ] || [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
+              echo "::error::the new iOS app requires a manual App Store eligible dispatch from main with a verified commit SHA"
+              exit 1
+            fi
+          fi
           marketing_version="${INPUT_MARKETING_VERSION:-$version}"
           if [ -n "${INPUT_MARKETING_VERSION:-}" ]; then
             if [ "$GITHUB_REF" != refs/heads/main ] || [ "${TESTFLIGHT_INTERNAL:-false}" = true ] || [ -z "$EXPECTED_COMMIT" ]; then
@@ -118,7 +134,7 @@ jobs:
           echo "MARKETING_VERSION=$marketing_version" >> "$GITHUB_ENV"
           echo "TAG=$tag" >> "$GITHUB_ENV"
           echo "BUILD_NUMBER=${version##*.}" >> "$GITHUB_ENV"
-          echo "version $version, tag $tag, commit $head_sha"
+          echo "app $BUNDLE_ID, version $version, tag $tag, commit $head_sha"
 
       - uses: actions/setup-node@v4
         with:
@@ -143,17 +159,17 @@ jobs:
 
       - name: 还原签名材料
         env:
-          CERT_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERT_P12_BASE64 }}
-          CERT_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
-          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-          INTERNAL_PUSH_PROFILE_BASE64: ${{ secrets.IOS_TESTFLIGHT_PUSH_PROFILE_BASE64 }}
-          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          CERT_BASE64: ${{ secrets[inputs.ios_app == 'next' && 'IOS_NEXT_DISTRIBUTION_CERT_P12_BASE64' || 'IOS_DISTRIBUTION_CERT_P12_BASE64'] }}
+          CERT_PASSWORD: ${{ secrets[inputs.ios_app == 'next' && 'IOS_NEXT_DISTRIBUTION_CERT_PASSWORD' || 'IOS_DISTRIBUTION_CERT_PASSWORD'] }}
+          PROFILE_BASE64: ${{ secrets[inputs.ios_app == 'next' && 'IOS_NEXT_PROVISIONING_PROFILE_BASE64' || 'IOS_PROVISIONING_PROFILE_BASE64'] }}
+          INTERNAL_PUSH_PROFILE_BASE64: ${{ inputs.ios_app != 'next' && secrets.IOS_TESTFLIGHT_PUSH_PROFILE_BASE64 || '' }}
+          TEAM_ID: ${{ secrets[inputs.ios_app == 'next' && 'IOS_NEXT_TEAM_ID' || 'IOS_TEAM_ID'] }}
           TESTFLIGHT_INTERNAL: ${{ inputs.testflight_internal }}
         run: |
           set -eu
-          [ -n "${CERT_BASE64:-}" ] || { echo "::error::missing secret IOS_DISTRIBUTION_CERT_P12_BASE64"; exit 1; }
-          [ -n "${CERT_PASSWORD:-}" ] || { echo "::error::missing secret IOS_DISTRIBUTION_CERT_PASSWORD"; exit 1; }
-          [ -n "${TEAM_ID:-}" ] || { echo "::error::missing secret IOS_TEAM_ID"; exit 1; }
+          [ -n "${CERT_BASE64:-}" ] || { echo "::error::missing distribution certificate for $BUNDLE_ID"; exit 1; }
+          [ -n "${CERT_PASSWORD:-}" ] || { echo "::error::missing distribution certificate password for $BUNDLE_ID"; exit 1; }
+          [ -n "${TEAM_ID:-}" ] || { echo "::error::missing signing team for $BUNDLE_ID"; exit 1; }
           dir="$RUNNER_TEMP/yonder-signing"
           mkdir -p "$dir" "$HOME/Library/MobileDevice/Provisioning Profiles"
           keychain="$dir/yonder.keychain-db"
@@ -166,7 +182,7 @@ jobs:
             printf '%s' "$1" | base64 --decode > "$dir/yonder.mobileprovision" 2>/dev/null || return 1
             security cms -D -k "$keychain" -i "$dir/yonder.mobileprovision" > "$dir/profile.plist" 2>/dev/null || return 1
             read_profile() { plutil -extract "$1" raw "$dir/profile.plist" 2>/dev/null; }
-            [ "$(read_profile Entitlements.application-identifier)" = "$TEAM_ID.net.yonderbot.app" ] || return 1
+            [ "$(read_profile Entitlements.application-identifier)" = "$TEAM_ID.$BUNDLE_ID" ] || return 1
             [ "$(read_profile TeamIdentifier.0)" = "$TEAM_ID" ] || return 1
             [ "$(read_profile 'Entitlements.com\.apple\.developer\.team-identifier')" = "$TEAM_ID" ] || return 1
             [ "$(read_profile Entitlements.aps-environment)" = production ] || return 1
@@ -185,7 +201,7 @@ jobs:
             primary="${PROFILE_BASE64:-}"; fallback="${INTERNAL_PUSH_PROFILE_BASE64:-}"
           fi
           profile_for "$primary" || profile_for "$fallback" || {
-            echo "::error::IOS_PROVISIONING_PROFILE_BASE64 or IOS_TESTFLIGHT_PUSH_PROFILE_BASE64 must contain an unexpired App Store profile with production APNs for this team and net.yonderbot.app"
+            echo "::error::expected an unexpired App Store profile with production APNs for this team and $BUNDLE_ID"
             exit 1
           }
           printf '%s' "$CERT_BASE64" | base64 --decode > "$dir/dist.p12"
@@ -196,22 +212,19 @@ jobs:
           security list-keychains -d user -s "$keychain" login.keychain-db
           cp "$dir/yonder.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$(uuidgen).mobileprovision"
           echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
+          echo "IOS_TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
           echo "IOS_PROFILE_NAME=$profile_name" >> "$GITHUB_ENV"
           echo "YONDER_IOS_PUSH=1" >> "$GITHUB_ENV"
           security find-identity -v -p codesigning "$keychain"
 
       - name: 初始化 iOS 工程并重放图标与签名设置
-        env:
-          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
         run: |
           set -eu
           cd apps/desktop
-          npx --no-install tauri ios init --ci
+          npx --no-install tauri ios init --ci --config "{\"identifier\":\"$BUNDLE_ID\"}"
           node prepare-ios.mjs
 
       - name: 归档
-        env:
-          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
         run: |
           set -eu
           cd apps/desktop
@@ -219,7 +232,7 @@ jobs:
           # CFBundleVersion 0.3.26111301.26111301（21 字符），TestFlight 以 90059 拒绝
           # （CFBundleVersion 上限 18 字符）。这里直接用 bundle.iOS.bundleVersion 把
           # CFBundleVersion 钉成 YYMMDDNN，与安卓 versionCode 同量纲。
-          config="{\"version\":\"$MARKETING_VERSION\",\"bundle\":{\"iOS\":{\"bundleVersion\":\"$BUILD_NUMBER\"}}}"
+          config="{\"identifier\":\"$BUNDLE_ID\",\"version\":\"$MARKETING_VERSION\",\"bundle\":{\"iOS\":{\"bundleVersion\":\"$BUILD_NUMBER\"}}}"
           npx --no-install tauri ios build --target aarch64 --archive-only --config "$config"
           archive="$(find "$PWD/src-tauri/gen/apple/build" -maxdepth 1 -name '*.xcarchive' | head -1)"
           [ -n "$archive" ] || { echo "::error::no xcarchive was produced"; exit 1; }
@@ -259,7 +272,7 @@ jobs:
           </dict>
           </plist>
           PLIST
-          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:net.yonderbot.app string $IOS_PROFILE_NAME" \
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:$BUNDLE_ID string $IOS_PROFILE_NAME" \
             "$RUNNER_TEMP/ExportOptions.plist"
           if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
             plutil -insert testFlightInternalTestingOnly -bool true "$RUNNER_TEMP/ExportOptions.plist"
@@ -281,10 +294,10 @@ jobs:
               exit 1
             }
           }
-          expect_value "$app/Info.plist" CFBundleIdentifier net.yonderbot.app
+          expect_value "$app/Info.plist" CFBundleIdentifier "$BUNDLE_ID"
           expect_value "$app/Info.plist" YonderPushEnvironment production
           expect_value "$check/entitlements.plist" aps-environment production
-          expect_value "$check/entitlements.plist" application-identifier "$TEAM_ID.net.yonderbot.app"
+          expect_value "$check/entitlements.plist" application-identifier "$TEAM_ID.$BUNDLE_ID"
           expect_value "$check/entitlements.plist" 'com\.apple\.developer\.team-identifier' "$TEAM_ID"
           expect_value "$app/Info.plist" CFBundleShortVersionString "$MARKETING_VERSION"
           expect_value "$app/Info.plist" CFBundleVersion "$BUILD_NUMBER"
@@ -292,14 +305,14 @@ jobs:
 
       - name: 上传 TestFlight
         env:
-          KEY_BASE64: ${{ secrets.ASC_API_PRIVATE_KEY_BASE64 }}
-          KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-          ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          KEY_BASE64: ${{ secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_PRIVATE_KEY_BASE64' || 'ASC_API_PRIVATE_KEY_BASE64'] }}
+          KEY_ID: ${{ secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_KEY_ID' || 'ASC_API_KEY_ID'] }}
+          ISSUER_ID: ${{ secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_ISSUER_ID' || 'ASC_API_ISSUER_ID'] }}
         run: |
           set -eu
-          [ -n "${KEY_BASE64:-}" ] || { echo "::error::missing secret ASC_API_PRIVATE_KEY_BASE64"; exit 1; }
-          [ -n "${KEY_ID:-}" ] || { echo "::error::missing secret ASC_API_KEY_ID"; exit 1; }
-          [ -n "${ISSUER_ID:-}" ] || { echo "::error::missing secret ASC_API_ISSUER_ID"; exit 1; }
+          [ -n "${KEY_BASE64:-}" ] || { echo "::error::missing App Store Connect private key for $BUNDLE_ID"; exit 1; }
+          [ -n "${KEY_ID:-}" ] || { echo "::error::missing App Store Connect key ID for $BUNDLE_ID"; exit 1; }
+          [ -n "${ISSUER_ID:-}" ] || { echo "::error::missing App Store Connect issuer ID for $BUNDLE_ID"; exit 1; }
           # altool 只在自己固定的几处目录里找 AuthKey_<id>.p8，--api-key-path 给目录也要是它认得的那种；
           # 本地实测把它放到 ~/.appstoreconnect/private_keys 最稳（--api-key-path 传文件本身仍然报 -43）。
           keydir="$HOME/.appstoreconnect/private_keys"
@@ -312,10 +325,9 @@ jobs:
       # Apple 处理完成后，核对内部测试组和构建的实际内测状态。
       - name: 交给内部测试组并确认可以测试
         env:
-          KEY_BASE64: ${{ secrets.ASC_API_PRIVATE_KEY_BASE64 }}
-          KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-          ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
-          BUNDLE_ID: net.yonderbot.app
+          KEY_BASE64: ${{ secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_PRIVATE_KEY_BASE64' || 'ASC_API_PRIVATE_KEY_BASE64'] }}
+          KEY_ID: ${{ secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_KEY_ID' || 'ASC_API_KEY_ID'] }}
+          ISSUER_ID: ${{ secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_ISSUER_ID' || 'ASC_API_ISSUER_ID'] }}
         run: |
           set -eu
           keydir="$RUNNER_TEMP/asc"
