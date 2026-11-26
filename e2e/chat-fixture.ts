@@ -93,6 +93,39 @@ export async function isolateChat(
 	);
 	await page.route("**/v1/**", async (route) => {
 		const path = new URL(route.request().url()).pathname;
+		// The account's preferences: a save answers the refreshed `me`, a device report says ok.
+		if (path === "/v1/me/preferences") {
+			const patch = route.request().postDataJSON() as {
+				timezone?: { mode: "auto" } | { mode: "manual"; zone: string };
+				locale?: { mode: "auto" } | { mode: "manual"; value: "zh-CN" | "en" };
+			};
+			const zone = patch.timezone?.mode === "manual" ? patch.timezone.zone : (options.timezone ?? "Asia/Shanghai");
+			const locale = patch.locale?.mode === "manual" ? patch.locale.value : (options.locale ?? "zh-CN");
+			await route.fulfill({
+				json: {
+					member: person,
+					bot,
+					hasPassword: true,
+					signInMethods: [],
+					settings: { locale, theme: options.dark ? "dark" : "light" },
+					timezone: {
+						mode: patch.timezone?.mode ?? "auto",
+						zone,
+						manual: patch.timezone?.mode === "manual" ? zone : null,
+						device: options.timezone ?? "Asia/Shanghai",
+					},
+					locale: {
+						mode: patch.locale?.mode ?? "auto",
+						value: locale,
+						manual: patch.locale?.mode === "manual" ? locale : null,
+						device: options.locale ?? "zh-CN",
+					},
+				},
+			});
+			return;
+		}
+		if (path === "/v1/me/device-timezone" || path === "/v1/me/device-locale")
+			return route.fulfill({ json: { ok: true } });
 		if (path.endsWith("/messages") && route.request().method() === "POST") {
 			const payload = route.request().postDataJSON();
 			sent.push(payload);

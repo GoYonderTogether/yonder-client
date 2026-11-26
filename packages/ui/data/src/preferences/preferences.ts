@@ -7,7 +7,7 @@ import type { Locale } from "@yonder/ui-i18n";
 import { isLocale, resolveLocale } from "@yonder/ui-i18n";
 import type { StyleChoice, ThemeChoice, UISizeChoice } from "@yonder/ui-tokens";
 import { DEFAULT_UI_SIZE, isStyleChoice, isThemeChoice, isUISizeChoice, resolveTheme } from "@yonder/ui-tokens";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionStore } from "../auth/session-store.ts";
 import { useData } from "../query/provider.tsx";
 import type { Storage } from "../storage/index.ts";
@@ -149,9 +149,14 @@ export interface LocaleControl {
 export function useLocalePreference(): LocaleControl {
 	const { storage } = useData();
 	const status = useSessionStore((state) => state.status);
+	const preference = usePreference(storage, readLocale);
 	const { localeValue } = useAccountPreferences();
 	const save = useSavePreferences();
-	const locale = localeValue;
+	// A signed-in screen speaks the account's language; the landing and sign-in screens have no
+	// account, so they speak the one stored here (the first paint reads the same key).
+	const locale = status === "signed-in" ? localeValue : preference;
+	const accountLocale = useRef<Locale | null>(null);
+	accountLocale.current = status === "signed-in" ? localeValue : null;
 
 	useEffect(() => {
 		document.documentElement.lang = locale;
@@ -159,13 +164,13 @@ export function useLocalePreference(): LocaleControl {
 
 	const setLocale = useCallback(
 		(next: Locale) => {
-			if (status === "signed-in") {
-				void save.save({ locale: { mode: "manual", value: next } });
-				return;
-			}
-			// No account yet: remember it on this device, and make it the first paint's language.
+			// Stored at once: the language button on a public page must change that page immediately,
+			// and the mirror is also what the first paint and the sign-in screen read.
 			storage.set("locale", next);
 			storage.set("locale-mode", "manual");
+			// Signed in there is an account to hold the same choice, so every other device follows.
+			if (status === "signed-in" && accountLocale.current !== next)
+				void save.save({ locale: { mode: "manual", value: next } });
 			notify();
 		},
 		[save, status, storage],

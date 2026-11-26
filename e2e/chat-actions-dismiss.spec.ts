@@ -4,8 +4,8 @@ import { bodies, isolateChat } from "./chat-fixture.ts";
 for (const width of [1440, 900, 600]) {
 	test(`chat action dialogs close and reopen at viewport width ${width}`, async ({ page }) => {
 		await page.setViewportSize({ width, height: 1000 });
-		await isolateChat(page);
-		await page.addInitScript(() => localStorage.setItem("yonder.locale", "en"));
+		// The account's language is what the app speaks (me.locale); the fixture's `en` is the answer.
+		await isolateChat(page, { locale: "en" });
 		await page.goto("/messages");
 		for (const action of ["Add contacts", "Start group chat", "Create BOT"]) {
 			const dialog = page.getByRole("dialog", { name: action, exact: true });
@@ -66,9 +66,8 @@ for (const mobile of [false, true]) {
 	});
 }
 test("desktop add-contact route keeps ID search and QR without opening the camera", async ({ page }) => {
-	await isolateChat(page);
+	await isolateChat(page, { locale: "en" });
 	await page.addInitScript(() => {
-		localStorage.setItem("yonder.locale", "en");
 		Object.defineProperty(navigator, "mediaDevices", {
 			value: {
 				getUserMedia: () => {

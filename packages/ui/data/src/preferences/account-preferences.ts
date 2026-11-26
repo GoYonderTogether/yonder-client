@@ -127,7 +127,15 @@ export interface AccountPreferences {
 const ACCOUNT_AUTO_TIMEZONE: TimezonePreference = { mode: "auto", zone: "UTC", manual: null, device: null };
 const ACCOUNT_AUTO_LOCALE: LocaleSetting = { mode: "auto", value: "en", manual: null, device: null };
 
-let account: { timezone: TimezonePreference; locale: LocaleSetting } | null = null;
+/** What `me` answered; older servers leave `locale` out, so it is optional here. */
+export interface AccountAnswer {
+	timezone?: TimezonePreference | null;
+	locale?: LocaleSetting | null;
+	/** The pre-127 place for the account's language. */
+	settings?: { locale?: InterfaceLocale } | null;
+}
+
+let account: AccountAnswer | null = null;
 const accountListeners = new Set<() => void>();
 
 function subscribeAccount(listener: () => void): () => void {
@@ -135,7 +143,7 @@ function subscribeAccount(listener: () => void): () => void {
 	return () => accountListeners.delete(listener);
 }
 
-function accountSnapshot(): { timezone: TimezonePreference; locale: LocaleSetting } | null {
+function accountSnapshot(): AccountAnswer | null {
 	return account;
 }
 
@@ -145,14 +153,18 @@ function accountSnapshot(): { timezone: TimezonePreference; locale: LocaleSettin
  * every screen from here.
  */
 export function syncAccountPreferences(me: MeResponse | null | undefined): void {
-	account = me ? { timezone: me.timezone, locale: me.locale } : null;
+	// Kept whole: an older server answers without `timezone`/`locale`, and its `settings.locale` is
+	// where the language then lives.
+	account = me ? { ...me } : null;
 	for (const listener of [...accountListeners]) listener();
 }
 
 /** The pure shape for one answer; the hook and the tests share it. */
 export function preferencesFor(
-	answer: { timezone: TimezonePreference; locale: LocaleSetting } | null,
+	answer: AccountAnswer | null,
 	device = { zone: deviceZone(), locale: deviceLocale() },
+	/** The stored mirror's language, for an answer that predates the field. */
+	stored = device.locale,
 ): AccountPreferences {
 	if (!answer) {
 		return {
@@ -165,15 +177,32 @@ export function preferencesFor(
 			fromAccount: false,
 		};
 	}
+	// A server from before migration 127 answers `me` without `locale`; its `settings.locale` is the
+	// old place for the language. Falling straight to the device there would switch a person who had
+	// chosen 简体中文 to the browser's language just by upgrading the client.
+	const legacy = !answer.locale;
+	const locale = answer.locale ?? legacyLocale(answer, stored, device.locale);
 	return {
-		timezone: answer.timezone,
-		locale: answer.locale,
+		timezone: answer.timezone ?? fallbackTimezone(device.zone),
+		locale,
 		zone: effectiveTimeZone(answer.timezone, device.zone),
-		localeValue: effectiveLocale(answer.locale, device.locale),
+		// A legacy answer's language is already resolved above; a current one carries its own value.
+		localeValue: legacy ? locale.value : effectiveLocale(locale, device.locale),
 		deviceZone: device.zone,
 		deviceLocale: device.locale,
 		fromAccount: true,
 	};
+}
+
+/** The language for an answer that predates the field: the old setting, the mirror, then the device. */
+function legacyLocale(answer: AccountAnswer, stored: InterfaceLocale, device: InterfaceLocale): LocaleSetting {
+	const value = answer.settings?.locale ?? stored ?? device;
+	return { mode: "manual", value, manual: value, device };
+}
+
+/** The zone for an answer that predates the field: the device's own, which is what it followed. */
+function fallbackTimezone(zone: string): TimezonePreference {
+	return { mode: "auto", zone, manual: null, device: zone };
 }
 
 /**
@@ -190,14 +219,16 @@ export function useAccountPreferences(): AccountPreferences {
 	const storedLocal = storage ? readLocalePreference(storage) : null;
 	// `version` is the change signal for this device and for a save; `answer` is the account's own.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `version` is the change signal; the device readers take no arguments.
-	return useMemo(
-		() =>
-			preferencesFor(answer, {
-				zone: deviceZone(),
-				locale: !answer && storedLocal?.mode === "manual" && storedLocal.locale ? storedLocal.locale : deviceLocale(),
-			}),
-		[answer, storedLocal, version],
-	);
+	return useMemo(() => {
+		const device = { zone: deviceZone(), locale: deviceLocale() };
+		// Signed out, the stored choice is this device's own; signed in it is only the legacy fallback.
+		const storedLang = storedLocal?.mode === "manual" && storedLocal.locale ? storedLocal.locale : device.locale;
+		return preferencesFor(
+			answer,
+			!answer && storedLocal?.mode === "manual" && storedLocal.locale ? { ...device, locale: storedLang } : device,
+			storedLang,
+		);
+	}, [answer, storedLocal, version]);
 }
 
 /**

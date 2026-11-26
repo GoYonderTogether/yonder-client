@@ -130,6 +130,15 @@ describe("the resolved values", () => {
 		expect(preferences.fromAccount).toBe(false);
 	});
 
+	test("a server from before the preference fields keeps the language that account had chosen", () => {
+		// A pre-migration `me`: `settings.locale` is the old place, and there is no `timezone`.
+		syncAccountPreferences({ settings: { locale: "zh-CN" } } as never);
+		const { result } = renderHook(() => useAccountPreferences(), { wrapper });
+		expect(result.current.localeValue).toBe("zh-CN");
+		expect(result.current.zone).toBe("Asia/Singapore");
+		expect(result.current.fromAccount).toBe(true);
+	});
+
 	test("an unknown effective zone still reads as the device's, the one honest fallback", () => {
 		expect(effectiveTimeZone({ mode: "auto", zone: "", manual: null, device: null }, "Asia/Singapore")).toBe(
 			"Asia/Singapore",
