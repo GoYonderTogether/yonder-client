@@ -12,7 +12,6 @@ import {
 	isLoopbackProviderAddress,
 	localProviderBinding,
 	type NativeProviderBinding,
-	NEW_ENDPOINT,
 	type ProviderAddFailure,
 	providerDeviceLabel,
 	type RegisterLocalProviderEndpoint,
@@ -120,13 +119,15 @@ export function ProviderEditor({
 	const canRegister = !!(registerEndpoint && device?.current && supportsDesktop(device));
 	const fixedDeviceProtocol = currentTarget ? presetProtocol(provider?.protocol) : undefined;
 	const known = device?.modelEndpoints ?? [];
-	const selectedProtocol = presetProtocol(known.find((item) => item.endpointId === endpointId)?.protocol);
+	// New providers on this desktop take a new local address, never a saved endpoint choice.
+	const selectedEndpointId = canRegister && !currentTarget ? "" : endpointId;
+	const selectedProtocol = presetProtocol(known.find((item) => item.endpointId === selectedEndpointId)?.protocol);
 	// An approved address speaks its registered wire; only a new address takes the form's choice.
 	const deviceProtocol: ProviderProtocol = fixedDeviceProtocol ?? selectedProtocol ?? protocol;
 	const binding = useDeviceBinding({
 		deviceId,
 		device,
-		endpointId,
+		endpointId: selectedEndpointId,
 		localUrl,
 		localKey,
 		deviceProtocol,
@@ -189,10 +190,15 @@ export function ProviderEditor({
 		if (!available.length) return;
 		setSlots((current) => {
 			const named = new Set(available);
+			const previous = new Map(current.map((slot) => [slot.id.trim(), slot]));
 			const kept = current.filter((slot) => !slot.id.trim() || !named.has(slot.id.trim()));
 			// Each discovered model arrives filled in: display name, window and levels from its family,
 			// with whatever the endpoint declared taking precedence.
-			const fresh = available.map((id) => discoveredSlot(id, metadata[id]));
+			const fresh = available.map((id) => {
+				const next = discoveredSlot(id, metadata[id]);
+				const existing = previous.get(id);
+				return existing ? { ...next, key: existing.key, efforts: existing.efforts } : next;
+			});
 			return fresh.length || kept.length ? [...fresh, ...kept] : current;
 		});
 	}, [available, metadata]);
@@ -234,6 +240,10 @@ export function ProviderEditor({
 		const requestedVersion = version.current;
 		const target = onDevice ? await binding.resolveTarget(requestedVersion).catch(() => null) : null;
 		if (version.current !== requestedVersion) return;
+		if (onDevice && !target) {
+			setError(t("models.deviceUnavailable"));
+			return;
+		}
 		if (target && localKey) setLocalKey("");
 		await discover(target, onDevice ? "" : apiKey.trim());
 	}
@@ -260,7 +270,13 @@ export function ProviderEditor({
 			setError(t("models.invalid"));
 			return;
 		}
-		const target = onDevice ? await binding.resolveTarget(version.current).catch(() => null) : null;
+		const requestedVersion = version.current;
+		const target = onDevice ? await binding.resolveTarget(requestedVersion).catch(() => null) : null;
+		if (version.current !== requestedVersion) return;
+		if (onDevice && !target) {
+			setError(t("models.deviceUnavailable"));
+			return;
+		}
 		await save(target, apiKey.trim(), { name, note, protocol });
 	}
 
@@ -315,57 +331,39 @@ export function ProviderEditor({
 						requiredMark={!onDevice && isLoopbackProviderAddress(baseUrl)}
 					/>
 				) : null}
-				{onDevice ? (
-					<>
-						{known.length || !canRegister ? (
-							<SelectField
-								label={t("models.baseUrl")}
-								requiredMark
-								disabled={saving || !!currentTarget}
-								value={endpointId || ""}
-								onChange={(value) => {
-									setEndpointId(value);
-									setLocalKey("");
-									resetDiscovery();
-								}}
-								options={[
-									{ value: "", label: t("models.chooseEndpoint") },
-									...known.map((entry) => ({ value: entry.endpointId, label: entry.label })),
-									...(canRegister && !currentTarget ? [{ value: NEW_ENDPOINT, label: t("models.newEndpoint") }] : []),
-									...(endpointId && endpointId !== NEW_ENDPOINT && !endpoint
-										? [{ value: endpointId, label: t("models.deviceUnavailable") }]
-										: []),
-								]}
-							/>
-						) : null}
-						{addEndpoint ? (
-							<TextField
-								label={t("models.baseUrl")}
-								type="url"
-								value={localUrl}
-								onChange={(event) => {
-									setLocalUrl(event.target.value);
-									setLocalKey("");
-									resetDiscovery();
-								}}
-								placeholder={PROTOCOL_EXAMPLES[deviceProtocol].placeholder}
-								required
-								requiredMark
-								disabled={saving}
-							/>
-						) : null}
-					</>
+				{onDevice && !addEndpoint ? (
+					<SelectField
+						label={t("models.baseUrl")}
+						requiredMark
+						disabled={saving || !!currentTarget}
+						value={selectedEndpointId}
+						onChange={(value) => {
+							setEndpointId(value);
+							setLocalKey("");
+							resetDiscovery();
+						}}
+						options={[
+							{ value: "", label: t("models.chooseEndpoint") },
+							...known.map((entry) => ({ value: entry.endpointId, label: entry.label })),
+							...(selectedEndpointId && !endpoint
+								? [{ value: selectedEndpointId, label: t("models.deviceUnavailable") }]
+								: []),
+						]}
+					/>
 				) : (
 					<TextField
 						label={t("models.baseUrl")}
 						type="url"
-						value={baseUrl}
+						value={onDevice ? localUrl : baseUrl}
 						onChange={(event) => {
-							setBaseUrl(event.target.value);
+							if (onDevice) {
+								setLocalUrl(event.target.value);
+								setLocalKey("");
+							} else setBaseUrl(event.target.value);
 							resetDiscovery();
 						}}
-						placeholder={PROTOCOL_EXAMPLES[protocol].placeholder}
-						hint={t("models.baseUrlHint", { path: PROTOCOL_EXAMPLES[protocol].path })}
+						placeholder={PROTOCOL_EXAMPLES[onDevice ? deviceProtocol : protocol].placeholder}
+						hint={onDevice ? undefined : t("models.baseUrlHint", { path: PROTOCOL_EXAMPLES[protocol].path })}
 						required
 						requiredMark
 						disabled={saving}
@@ -382,7 +380,7 @@ export function ProviderEditor({
 					setLocalKey("");
 					resetDiscovery();
 				}}
-				hint={onDevice ? t("models.deviceProtocolHint") : t("models.protocolHint")}
+				hint={onDevice ? undefined : t("models.protocolHint")}
 				options={PROTOCOL_OPTIONS.map((value) => ({ value, label: t(`models.protocolName.${value}`) }))}
 			/>
 

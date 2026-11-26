@@ -199,6 +199,8 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await page.setViewportSize({ width: 1280, height: 1080 });
 	const registrations: unknown[] = [];
 	await page.exposeFunction("recordProviderRegistration", (record: unknown) => registrations.push(record));
+	let rejectedRegistrations = 0;
+	await page.exposeFunction("recordProviderRejection", () => ++rejectedRegistrations);
 	await page.addInitScript(() => {
 		Object.defineProperty(navigator, "userAgent", { value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0)" });
 		localStorage.setItem("dev.yonder.desktop.refresh-token", "browser-fixture");
@@ -211,6 +213,10 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 				invoke: async (command: string, args: unknown) => {
 					if (command === "get_desktop_refresh_token") return "browser-fixture";
 					if (command === "device_model_register" || command === "device_model_set_key") {
+						if ((args as { baseUrl?: string }).baseUrl === "http://127.0.0.1:9999/v1") {
+							await (window as Window & { recordProviderRejection: () => Promise<void> }).recordProviderRejection();
+							throw new Error("Synthetic local endpoint registration failed");
+						}
 						await (
 							window as Window & {
 								recordProviderRegistration: (record: unknown) => Promise<void>;
@@ -267,13 +273,25 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await expect(location(page)).toHaveText("云端");
 	await location(page).click();
 	await page.getByRole("option", { name: /工作 Mac.*在线/ }).click();
-	await page.getByRole("button", { name: /^请求地址:/ }).click();
-	await page.getByRole("option", { name: "输入新地址" }).click();
+	await expect(page.getByRole("button", { name: /^请求地址:/ })).toHaveCount(0);
+	await expect(url(page)).toHaveCount(1);
 	await expect(url(page)).toBeEditable();
+	await expect(url(page)).toHaveAttribute("required", "");
 	await expect(url(page)).toHaveValue("");
 	await expect(discoveredModel(page)).toHaveValue("");
 	expect(registrations).toEqual([]);
+	await capture(page, "provider-desktop-local-address-empty");
 	await name(page).fill("桌面本地模型");
+	await url(page).fill("http://127.0.0.1:9999/v1");
+	await discover(page).click();
+	await expect.poll(() => rejectedRegistrations).toBe(1);
+	await expect(page.getByRole("alert")).toHaveText("设备或地址不可用。");
+	await discoveredModel(page).fill("fixture-model");
+	await page.getByRole("button", { name: "保存", exact: true }).click();
+	await expect.poll(() => rejectedRegistrations).toBe(2);
+	await expect(page.getByRole("alert")).toHaveText("设备或地址不可用。");
+	expect(requests).toEqual({ discovery: [], saves: [] });
+	await discoveredModel(page).fill("");
 	await url(page).fill("http://127.0.0.1:8788/v1");
 	const protocol = page.getByRole("button", { name: /^协议:/ });
 	await protocol.click();

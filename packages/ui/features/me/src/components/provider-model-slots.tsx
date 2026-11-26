@@ -1,17 +1,117 @@
-import { Button, Checkbox, IconButton, SelectField, TextField } from "@yonder/ui-components";
+import { Button, IconButton, SelectField, TextField } from "@yonder/ui-components";
 import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { EFFORT_LEVELS, type EffortLevel, type ModelSlot, newSlot } from "./provider-model-slots.ts";
+import { EffortField } from "./provider-model-effort-field.tsx";
+import { type ModelSlot, newSlot } from "./provider-model-slots.ts";
 
-/**
- * The model table: one row per model, each with what a person sees, what the endpoint is sent, the
- * window it declares and the reasoning levels its upstream really accepts.
- *
- * A row exists for every model the provider serves. The levels are per model because the upstreams
- * disagree about them: one endpoint's models may each take a different vocabulary, and sending one
- * a model does not know is a 400. A row with no level ticked is never sent a thinking field, which
- * is the correct default for an endpoint that has not been checked.
- */
+type SlotResult = { ok: boolean; message: string } | undefined;
+
+function ModelSlotRow({
+	slot,
+	index,
+	available,
+	disabled,
+	removable,
+	busy,
+	loading,
+	result,
+	onChange,
+	onRemove,
+	onTest,
+}: {
+	slot: ModelSlot;
+	index: number;
+	available: readonly string[];
+	disabled: boolean;
+	removable: boolean;
+	busy: boolean;
+	loading: boolean;
+	result: SlotResult;
+	onChange: (patch: Partial<ModelSlot>) => void;
+	onRemove: () => void;
+	onTest: () => void;
+}) {
+	const { t } = useTranslation();
+	return (
+		<div className="@container flex min-w-0 flex-col gap-[var(--spacing-3)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] p-[var(--spacing-3)]">
+			<div className="flex items-center justify-between gap-[var(--spacing-2)]">
+				<span className="text-caption text-[var(--color-text-tertiary)] tabular-nums">{index + 1}</span>
+				<div className="flex items-center gap-[var(--spacing-1)]">
+					<Button
+						type="button"
+						size="sm"
+						variant="ghost"
+						loading={loading}
+						disabled={disabled || busy || !slot.id.trim()}
+						onClick={onTest}
+					>
+						{t("models.testSlot")}
+					</Button>
+					<IconButton
+						size="sm"
+						aria-label={t("models.removeSlot")}
+						title={t("models.removeSlot")}
+						disabled={disabled || !removable}
+						onClick={onRemove}
+					>
+						<Trash2 size={16} aria-hidden="true" />
+					</IconButton>
+				</div>
+			</div>
+			<div className="grid min-w-0 gap-[var(--spacing-3)] @md:grid-cols-2">
+				<TextField
+					label={t("models.slotName")}
+					value={slot.name}
+					onChange={(event) => onChange({ name: event.target.value })}
+					placeholder={t("models.slotNameHint")}
+					disabled={disabled}
+				/>
+				{available.includes(slot.id.trim()) || !available.length ? (
+					<TextField
+						label={t("models.slotModelId")}
+						value={slot.id}
+						onChange={(event) => onChange({ id: event.target.value })}
+						placeholder={t("models.slotModelIdHint")}
+						disabled={disabled}
+						required
+						requiredMark
+					/>
+				) : (
+					<SelectField
+						label={t("models.slotModelId")}
+						value={slot.id}
+						onChange={(id) => onChange({ id })}
+						options={[
+							{ value: "", label: t("models.slotModelIdHint") },
+							...available.map((id) => ({ value: id, label: id })),
+						]}
+						disabled={disabled}
+					/>
+				)}
+				<TextField
+					label={t("models.slotContext")}
+					type="number"
+					inputMode="numeric"
+					value={slot.contextLength}
+					onChange={(event) => onChange({ contextLength: event.target.value })}
+					placeholder={t("models.slotContextHint")}
+					disabled={disabled}
+				/>
+				<EffortField selected={slot.efforts} disabled={disabled} onChange={(efforts) => onChange({ efforts })} />
+			</div>
+			{result ? (
+				<span
+					role="status"
+					className={`min-w-0 break-words text-caption ${result.ok ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}`}
+				>
+					{result.ok ? t("models.testPassed") : result.message || t("models.testFailed")}
+				</span>
+			) : null}
+		</div>
+	);
+}
+
+/** One row per upstream model; an empty effort selection never sends a thinking field. */
 export function ProviderModelSlots({
 	slots,
 	available,
@@ -22,133 +122,36 @@ export function ProviderModelSlots({
 	testing,
 }: {
 	slots: readonly ModelSlot[];
-	/** Model ids the endpoint reported; a row whose id is one of these offers a picker. */
 	available: readonly string[];
 	disabled: boolean;
-	/** The last test result per slot key, when one was run. */
-	errorOf: (key: string) => { ok: boolean; message: string } | undefined;
+	errorOf: (key: string) => SlotResult;
 	onChange: (slots: ModelSlot[]) => void;
 	onTest: (slot: ModelSlot) => void;
 	testing: string | null;
 }) {
 	const { t } = useTranslation();
-	const update = (key: string, patch: Partial<ModelSlot>) =>
-		onChange(slots.map((slot) => (slot.key === key ? { ...slot, ...patch } : slot)));
-	const toggleEffort = (slot: ModelSlot, level: EffortLevel, on: boolean) =>
-		update(slot.key, {
-			efforts: on
-				? EFFORT_LEVELS.filter((each) => each === level || slot.efforts.includes(each))
-				: slot.efforts.filter((each) => each !== level),
-		});
-	const known = (slot: ModelSlot) => available.includes(slot.id.trim());
 	return (
-		<div className="flex flex-col gap-[var(--spacing-3)]">
-			{slots.map((slot, index) => {
-				const result = errorOf(slot.key);
-				return (
-					<div
-						key={slot.key}
-						className="flex flex-col gap-[var(--spacing-2)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] p-[var(--spacing-3)]"
-					>
-						<div className="flex items-start gap-[var(--spacing-2)]">
-							<span className="mt-[var(--spacing-2)] text-caption text-[var(--color-text-tertiary)] tabular-nums">
-								{index + 1}
-							</span>
-							<div className="grid min-w-0 flex-1 gap-[var(--spacing-2)] sm:grid-cols-2">
-								<TextField
-									label={t("models.slotName")}
-									value={slot.name}
-									onChange={(event) => update(slot.key, { name: event.target.value })}
-									placeholder={t("models.slotNameHint")}
-									disabled={disabled}
-								/>
-								{known(slot) || !available.length ? (
-									<TextField
-										label={t("models.slotModelId")}
-										value={slot.id}
-										onChange={(event) => update(slot.key, { id: event.target.value })}
-										placeholder={t("models.slotModelIdHint")}
-										disabled={disabled}
-										required
-										requiredMark
-									/>
-								) : (
-									<SelectField
-										label={t("models.slotModelId")}
-										value={slot.id}
-										onChange={(value) => update(slot.key, { id: value })}
-										options={[
-											{ value: "", label: t("models.slotModelIdHint") },
-											...available.map((id) => ({ value: id, label: id })),
-										]}
-										disabled={disabled}
-									/>
-								)}
-							</div>
-							<IconButton
-								size="sm"
-								aria-label={t("models.removeSlot")}
-								title={t("models.removeSlot")}
-								disabled={disabled || slots.length === 1}
-								onClick={() => onChange(slots.filter((each) => each.key !== slot.key))}
-							>
-								<Trash2 size={16} aria-hidden="true" />
-							</IconButton>
-						</div>
-						<div className="grid gap-[var(--spacing-2)] sm:grid-cols-2">
-							<TextField
-								label={t("models.slotContext")}
-								type="number"
-								inputMode="numeric"
-								value={slot.contextLength}
-								onChange={(event) => update(slot.key, { contextLength: event.target.value })}
-								placeholder={t("models.slotContextHint")}
-								disabled={disabled}
-							/>
-							<div className="flex flex-col gap-[var(--spacing-1)]">
-								<span className="text-caption text-[var(--color-text-secondary)]">{t("models.slotEfforts")}</span>
-								<div className="flex flex-wrap gap-[var(--spacing-3)]">
-									{EFFORT_LEVELS.map((level) => (
-										<Checkbox
-											key={level}
-											checked={slot.efforts.includes(level)}
-											disabled={disabled}
-											onChange={(event) => toggleEffort(slot, level, event.target.checked)}
-										>
-											{t(`models.effort.${level}`)}
-										</Checkbox>
-									))}
-								</div>
-								<span className="text-caption text-[var(--color-text-tertiary)]">{t("models.slotEffortsHint")}</span>
-							</div>
-						</div>
-						<div className="flex flex-wrap items-center gap-[var(--spacing-2)]">
-							<Button
-								type="button"
-								size="sm"
-								variant="ghost"
-								loading={testing === slot.key}
-								disabled={disabled || testing !== null || !slot.id.trim()}
-								onClick={() => onTest(slot)}
-							>
-								{t("models.testSlot")}
-							</Button>
-							{result ? (
-								<span
-									role="status"
-									className={`text-caption ${result.ok ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}`}
-								>
-									{result.ok ? t("models.testPassed") : result.message || t("models.testFailed")}
-								</span>
-							) : null}
-						</div>
-					</div>
-				);
-			})}
+		<div className="flex min-w-0 flex-col gap-[var(--spacing-3)]">
+			{slots.map((slot, index) => (
+				<ModelSlotRow
+					key={slot.key}
+					slot={slot}
+					index={index}
+					available={available}
+					disabled={disabled}
+					removable={slots.length > 1}
+					busy={testing !== null}
+					loading={testing === slot.key}
+					result={errorOf(slot.key)}
+					onChange={(patch) => onChange(slots.map((each) => (each.key === slot.key ? { ...each, ...patch } : each)))}
+					onRemove={() => onChange(slots.filter((each) => each.key !== slot.key))}
+					onTest={() => onTest(slot)}
+				/>
+			))}
 			<Button
 				type="button"
-				variant="ghost"
 				size="sm"
+				variant="ghost"
 				disabled={disabled}
 				onClick={() => onChange([...slots, newSlot()])}
 			>
