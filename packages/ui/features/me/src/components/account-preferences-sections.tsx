@@ -8,10 +8,11 @@
  * whose answer is the refreshed `me`; a failure shows the server's own reason.
  */
 
-import { ListGroup, ListOption, ListRow, SearchInput } from "@yonder/ui-components";
+import { IconTile, ListGroup, ListOption, ListRow, SearchInput } from "@yonder/ui-components";
 import { ApiError, NetworkError, useAccountPreferences, useSavePreferences } from "@yonder/ui-data";
 import type { Locale } from "@yonder/ui-i18n";
 import { timeZoneChoices, timeZoneCityLabel, timeZoneFriendlyName, zoneOffsetLabel } from "@yonder/ui-time";
+import { Globe } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -156,6 +157,11 @@ export function TimeZonePicker({ onDone }: { onDone: () => void }) {
 					choice ? (
 						<ListRow
 							key={choice.zone}
+							leading={
+								<IconTile>
+									<Globe size={18} aria-hidden="true" />
+								</IconTile>
+							}
 							title={
 								choice.zone === "Asia/Shanghai" ? t("common.timezone.beijing") : t("common.timezone.currentDevice")
 							}
