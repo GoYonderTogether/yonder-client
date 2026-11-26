@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112603] - 2026-11-26
+
+### Added
+
+- models：a device endpoint serves the same four wires a cloud one does
+
 ## [0.3.26112509] - 2026-11-25
 
 ### Added
