@@ -17,7 +17,6 @@ import { messagesZhCN } from "./messages.ts";
 import { modelMessagesZhCN } from "./models-zh-CN.ts";
 import { notificationsZhCN } from "./notifications.ts";
 import { photoArchiveZhCN } from "./photo-archive-zh-CN.ts";
-import { preferenceMessagesZhCN } from "./preferences-zh-CN.ts";
 import { pricingMessagesZhCN } from "./pricing-zh-CN.ts";
 import { questionCardsZhCN } from "./question-cards.ts";
 import { setupMessagesZhCN } from "./setup-zh-CN.ts";
@@ -198,7 +197,6 @@ export const zhCN: Messages = {
 			zhCN: "中文",
 			en: "English",
 		},
-		...preferenceMessagesZhCN,
 	},
 
 	dev: {
@@ -389,21 +387,11 @@ export const zhCN: Messages = {
 		itemTranscript: "转写全文",
 		itemRecordingSummary: "录音摘要",
 		itemUpcoming: "即将执行",
-		itemGroupWaiting: "需要你",
-		itemGroupActive: "进行中",
-		itemSourceSubtask: "Bot 派的任务",
-		itemSourceConversation: "对话",
-		itemSourceMeeting: "录音整理",
-		itemSourceSchedule: "定时任务",
-		itemSourceVisit: "来访请求",
-		itemRunningFor: "已运行 {{duration}}",
-		itemEndedClock: "{{time}} 结束",
 		itemStateRunning: "进行中",
 		itemStateWaitingUser: "等你",
 		itemStatePaused: "已暂停",
 		itemStateFailed: "失败",
 		itemStateCancelled: "已取消",
-		itemStateCompleted: "已完成",
 		itemStartedAt: "开始于 {{at}}",
 		itemEndedAt: "结束于 {{at}}",
 		itemNoResult: "还没有结果",
@@ -466,7 +454,6 @@ export const zhCN: Messages = {
 		session_revoked: "你在别的设备上退出了登录。",
 		refresh_reused: "为了安全，登录已结束。请重新登录。",
 		upload_invalid: "这个文件不能做头像。",
-		invalid_timezone: "无法识别这个时区。",
 		rate_limited: "试得太多次了，稍后再试。",
 		internal: "我们这边出了问题。",
 		sms_not_configured: "这台服务器还不能发短信。",

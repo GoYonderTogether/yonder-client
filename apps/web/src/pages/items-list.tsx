@@ -1,30 +1,19 @@
 import type { Member } from "@yonder/protocol";
 import { Button, EmptyState, ListGroup, ListRow, type RowAction } from "@yonder/ui-components";
-import {
-	ApiError,
-	useAccountTimeZone,
-	useArchivedItems,
-	useContacts,
-	useItemListAction,
-	useItems,
-	useSchedules,
-} from "@yonder/ui-data";
+import { ApiError, useArchivedItems, useContacts, useItemListAction, useItems, useSchedules } from "@yonder/ui-data";
 import { Archive, ChevronDown, ChevronRight, ListChecks, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ItemActionDialog } from "./item-action-dialog.tsx";
-import { itemSectionKey, sectionItems, upcomingOneOffs } from "./items-format.ts";
+import { groupItems, itemGroupKey, upcomingOneOffs } from "./items-format.ts";
 import { ItemRow } from "./items-row.tsx";
-import { useMinute } from "./memory/memory-format.ts";
 import { formatInstant } from "./schedule-format.ts";
 
 type ItemTarget = { id: string; title: string; upcoming: boolean };
 
 /**
- * The 事项 tab (16-3 第八节; 2026-11-26): what is waiting for the owner and what is running come
- * first, then the rest by day. Nearly every item is made by the system, so the page is the owner's
- * window into the background rather than a to-do list; 更早 starts collapsed because the last few
- * days are what a person checks.
+ * The 事项 tab (16-3 第八节): every item the Bot has worked on, newest first, grouped by day. 更早
+ * starts collapsed, because the last few days are what a person checks; the rest is one tap away.
  *
  * Meta Muse is the reference (2026-11-24): a row offers 改名 and 删除 only. Archiving is the nightly
  * tidy's job, and an upcoming plan is a scheduled task, which the app can only delete. The folded
@@ -44,11 +33,9 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 		() => archivedQuery.data?.pages.flatMap((page) => page.items) ?? [],
 		[archivedQuery.data],
 	);
-	// The list's clock, so a running row's elapsed time keeps up without a timer per row.
-	const zone = useAccountTimeZone();
-	const now = useMinute(zone);
+	const [now] = useState(() => new Date());
 	const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
-	const groups = useMemo(() => sectionItems(items, now, zone), [items, now, zone]);
+	const groups = useMemo(() => groupItems(items, now, deviceZone()), [items, now]);
 	const names = useMemo(() => botNames(contacts.data?.items), [contacts.data]);
 	const upcoming = upcomingOneOffs(schedules.data?.items ?? []);
 	const locale = i18n.resolvedLanguage ?? i18n.language;
@@ -152,7 +139,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 				const earlier = section.group === "earlier";
 				const shown = earlier && !showEarlier ? section.items.slice(0, EARLIER_PREVIEW) : section.items;
 				return (
-					<ListGroup key={section.group} title={t(itemSectionKey(section.group))}>
+					<ListGroup key={section.group} title={t(itemGroupKey(section.group))}>
 						{shown.map((item) => (
 							<ItemRow
 								key={item.id}
@@ -161,8 +148,6 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 								actions={rowActions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}
 								locale={i18n.language}
-								zone={zone}
-								now={now}
 							/>
 						))}
 						{earlier && !showEarlier && section.items.length > EARLIER_PREVIEW ? (
@@ -223,8 +208,6 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 								actions={rowActions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}
 								locale={i18n.language}
-								zone={zone}
-								now={now}
 							/>
 						))
 					: null}
@@ -280,3 +263,12 @@ function botNames(members: readonly Member[] | undefined) {
 
 /** How many 更早 items are visible before the group is expanded. */
 const EARLIER_PREVIEW = 5;
+
+/** The device's zone, so "today" is the reader's today rather than the server's. */
+function deviceZone(): string | undefined {
+	try {
+		return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+	} catch {
+		return undefined;
+	}
+}

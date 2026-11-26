@@ -1,6 +1,6 @@
 import type { MemoryDay, MemoryLink } from "@yonder/protocol";
 import { Button } from "@yonder/ui-components";
-import { useAccountTimeZone, useMemoryActions, useMemoryDays } from "@yonder/ui-data";
+import { useMemoryActions, useMemoryDays } from "@yonder/ui-data";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -22,8 +22,7 @@ import { MemoryError, useErrorText } from "./memory-status.tsx";
  */
 export function MemoryTimeline() {
 	const { t, i18n } = useTranslation();
-	const zone = useAccountTimeZone();
-	const now = useMinute(zone);
+	const now = useMinute();
 	const query = useMemoryDays();
 	const { remove } = useMemoryActions();
 	const onSource = useSourceNavigation().target;
@@ -36,7 +35,7 @@ export function MemoryTimeline() {
 	const scroller = timeline?.closest<HTMLElement>("[data-frame-scroll]") ?? null;
 	const frame = scroller?.parentElement ?? null;
 	const box = useOverlayBox(timeline, scroller);
-	const today = localDay(now, zone);
+	const today = localDay(now);
 	const days = useMemo(
 		() => timelineDays(query.data?.pages.flatMap((page) => page.items) ?? [], today),
 		[query.data, today],
@@ -106,7 +105,7 @@ export function MemoryTimeline() {
 		deleteError: remove.error ? { id: remove.variables ?? "", error: remove.error } : null,
 	};
 	const railDays: RailDay[] = days.map((day, i) => {
-		const { name, sub } = dayName(day.date, now, t, i18n.language, zone);
+		const { name, sub } = dayName(day.date, now, t, i18n.language);
 		const entries = day.blocks.flatMap((block) => (block.type === "entry" ? [block.entry] : block.stay.entries));
 		const lead = [...entries].sort((a, b) => rank(b.size) - rank(a.size))[0];
 		return {

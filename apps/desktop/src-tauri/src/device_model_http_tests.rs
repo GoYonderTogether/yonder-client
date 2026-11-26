@@ -63,11 +63,11 @@ fn synthetic_upstream(response: &'static str, protocol: Protocol, expected_key: 
                     content_length = value.trim().parse().unwrap();
                 }
                 if name.eq_ignore_ascii_case("authorization") {
-                    assert!(protocol == Protocol::Openai && !authorization_seen);
+                    assert!(matches!(protocol, Protocol::OpenaiChat | Protocol::OpenaiResponses) && !authorization_seen);
                     assert_eq!(value.trim().strip_prefix("Bearer "), expected_key);
                     authorization_seen = true;
                 } else if name.eq_ignore_ascii_case("x-api-key") {
-                    assert!(protocol == Protocol::Anthropic && !authorization_seen);
+                    assert!(protocol == Protocol::AnthropicMessages && !authorization_seen);
                     assert_eq!(Some(value.trim()), expected_key);
                     authorization_seen = true;
                 } else if name.eq_ignore_ascii_case("anthropic-version") {
@@ -77,7 +77,7 @@ fn synthetic_upstream(response: &'static str, protocol: Protocol, expected_key: 
             }
         }
         assert_eq!(authorization_seen, expected_key.is_some());
-        assert_eq!(anthropic_version_seen, protocol == Protocol::Anthropic);
+        assert_eq!(anthropic_version_seen, protocol == Protocol::AnthropicMessages);
         let mut body = vec![0; content_length];
         std::io::Read::read_exact(&mut stream, &mut body).unwrap();
         stream.get_mut().write_all(response.as_bytes()).unwrap();
@@ -91,22 +91,22 @@ fn real_http_on_isolated_loopback_uses_only_the_expected_routes() {
     const FIXTURE_KEY: &str = "synthetic-test-key";
     let (base, worker) = synthetic_upstream(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"data\":[{\"id\":\"my-local-model\"}]}",
-        Protocol::Openai,
+        Protocol::OpenaiChat,
         Some(FIXTURE_KEY),
     );
-    let models = tauri::async_runtime::block_on(discover(base, Duration::from_secs(3), Protocol::Openai, Some(FIXTURE_KEY))).unwrap();
+    let models = tauri::async_runtime::block_on(discover(base, Duration::from_secs(3), Protocol::OpenaiChat, Some(FIXTURE_KEY))).unwrap();
     assert_eq!(models.as_slice(), ["my-local-model"]);
     assert_eq!(worker.join().unwrap(), "GET /v1/models HTTP/1.1\r\n");
 
     let (base, worker) = synthetic_upstream(
         "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: {\"choices\":[]}\n\ndata: [DONE]\n\n",
-        Protocol::Openai,
+        Protocol::OpenaiChat,
         Some(FIXTURE_KEY),
     );
     let mut data = vec![];
     let body = serde_json::json!({"model":"my-local-model","messages":[{"role":"user","content":"sample"}],
         "stream":true,"max_tokens":128});
-    tauri::async_runtime::block_on(chat(base, Duration::from_secs(3), Protocol::Openai, Some(FIXTURE_KEY), body, |frame| {
+    tauri::async_runtime::block_on(chat(base, Duration::from_secs(3), Protocol::OpenaiChat, Some(FIXTURE_KEY), body, |frame| {
         data.push(frame);
         Ok(())
     })).unwrap();
@@ -118,10 +118,10 @@ fn real_http_on_isolated_loopback_uses_only_the_expected_routes() {
 fn no_key_does_not_send_an_authorization_header() {
     let (base, worker) = synthetic_upstream(
         concat!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n", r#"{"data":[]}"#),
-        Protocol::Openai,
+        Protocol::OpenaiChat,
         None,
     );
-    let models = tauri::async_runtime::block_on(discover(base, Duration::from_secs(3), Protocol::Openai, None)).unwrap();
+    let models = tauri::async_runtime::block_on(discover(base, Duration::from_secs(3), Protocol::OpenaiChat, None)).unwrap();
     assert!(models.is_empty());
     assert_eq!(worker.join().unwrap(), "GET /v1/models HTTP/1.1\r\n");
 }
@@ -131,10 +131,10 @@ fn redirects_are_refused_instead_of_followed() {
     const FIXTURE_KEY: &str = "synthetic-test-key";
     let (base, worker) = synthetic_upstream(
         "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9/v1/models\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-        Protocol::Openai,
+        Protocol::OpenaiChat,
         Some(FIXTURE_KEY),
     );
-    assert_eq!(tauri::async_runtime::block_on(discover(base, Duration::from_secs(3), Protocol::Openai, Some(FIXTURE_KEY))), Err("upstream_rejected"));
+    assert_eq!(tauri::async_runtime::block_on(discover(base, Duration::from_secs(3), Protocol::OpenaiChat, Some(FIXTURE_KEY))), Err("upstream_rejected"));
     assert_eq!(worker.join().unwrap(), "GET /v1/models HTTP/1.1\r\n");
 }
 
@@ -161,21 +161,21 @@ fn native_anthropic_uses_exact_routes_and_credential_scheme() {
     let (base, worker) = synthetic_upstream(
         concat!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n",
             r#"{"data":[{"id":"local-claude"}]}"#),
-        Protocol::Anthropic, Some(KEY),
+        Protocol::AnthropicMessages, Some(KEY),
     );
-    let models = tauri::async_runtime::block_on(discover(base, Duration::from_secs(3), Protocol::Anthropic, Some(KEY))).unwrap();
+    let models = tauri::async_runtime::block_on(discover(base, Duration::from_secs(3), Protocol::AnthropicMessages, Some(KEY))).unwrap();
     assert_eq!(models.as_slice(), ["local-claude"]);
     assert_eq!(worker.join().unwrap(), "GET /v1/models HTTP/1.1\r\n");
 
     let (base, worker) = synthetic_upstream(
         concat!("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
             "event: ping\ndata: {\"type\":\"ping\"}\n\n", "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"),
-        Protocol::Anthropic, Some(KEY),
+        Protocol::AnthropicMessages, Some(KEY),
     );
     let body = serde_json::json!({"model":"local-claude","system":"","max_tokens":32,"stream":true,
         "messages":[{"role":"user","content":[{"type":"text","text":"sample"}]}]});
     let mut seen = Vec::new();
-    tauri::async_runtime::block_on(chat(base, Duration::from_secs(3), Protocol::Anthropic, Some(KEY), body.clone(), |frame| {
+    tauri::async_runtime::block_on(chat(base, Duration::from_secs(3), Protocol::AnthropicMessages, Some(KEY), body.clone(), |frame| {
         seen.push(frame);
         Ok(())
     })).unwrap();

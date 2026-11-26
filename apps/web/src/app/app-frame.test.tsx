@@ -119,7 +119,7 @@ vi.mock("@yonder/feature-me", () => ({
 			<AccountPage onOpen={() => onOpenPage("password")} />
 		),
 }));
-vi.mock("../pages/conversation-page.tsx", () => ({
+vi.mock("../pages/messages-page.tsx", () => ({
 	MessagesList: () => <div>Chat list</div>,
 	ConversationPage: ({ conversationId }: { conversationId: string | null }) => <ChatPage id={conversationId} />,
 }));

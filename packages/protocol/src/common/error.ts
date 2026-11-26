@@ -50,8 +50,6 @@ export const ERROR_CODES = [
 	"memory_too_long",
 	/** A memory write that looked like a password, credential or verification code (23 第九节). */
 	"memory_secret_refused",
-	/** A preference the client sent was not a value the server accepts, e.g. an unknown IANA zone. */
-	"invalid_timezone",
 	/** A Bot tried to replace a file the owner edited; it may only append (23 7.5). */
 	"memory_user_edited",
 	/** A connector request could be authorized on several devices; the user picks one. */

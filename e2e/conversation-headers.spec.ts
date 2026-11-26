@@ -194,8 +194,7 @@ for (const viewport of ["desktop", "phone"] as const) {
 					const botSettings = heading.getByRole("button", { name: "Bot 设置", exact: true });
 					if (mobileBotHome) await expect(botSettings.locator("[data-avatar-fallback]")).toBeVisible();
 					else await expect(botSettings).toHaveCount(0);
-					// The owner's own Bot chat shows both faces; the name above the column stays a group rule.
-					await expect(avatars).toHaveCount(2);
+					await expect(avatars).toHaveCount(0);
 					await expect(senderNames).toHaveCount(0);
 					const name = heading.locator("[data-chat-agent-name]");
 					const status = heading.getByRole("status");

@@ -1,8 +1,4 @@
 export const composerInputEn = {
-	mention: "Mention {{name}}",
-	mentionTa: "Mention",
-	mentionAvatar: "Hold the avatar to mention {{name}}",
-	messageMenu: "Message menu",
 	voiceInput: "Voice input",
 	textInput: "Text input",
 	expandComposer: "Expand composer",
@@ -37,10 +33,6 @@ export const composerInputEn = {
 };
 
 export const composerInputZhCN: typeof composerInputEn = {
-	mention: "@{{name}}",
-	mentionTa: "@Ta",
-	mentionAvatar: "长按头像 @{{name}}",
-	messageMenu: "消息菜单",
 	voiceInput: "语音输入",
 	textInput: "文字输入",
 	expandComposer: "展开输入框",

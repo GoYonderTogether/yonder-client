@@ -114,20 +114,7 @@ export function MessageContent({
 		return linkRule ? linkRule(next, node, renderChildren, state) : next();
 	};
 	return (
-		<Markdown
-			className="message-content"
-			options={options}
-			// Copying a rendered bubble should hand back the Markdown source, not the stripped text, so a
-			// paste elsewhere keeps the author's formatting. Copying a selection of the message keeps the
-			// plain selection; only a whole-content copy is replaced.
-			onCopy={(event) => {
-				const selection = event.currentTarget.ownerDocument.getSelection();
-				if (!selection?.toString()) return;
-				if (selection.toString() !== event.currentTarget.textContent) return;
-				event.clipboardData?.setData("text/plain", body);
-				event.preventDefault();
-			}}
-		>
+		<Markdown className="message-content" options={options}>
 			{body}
 		</Markdown>
 	);

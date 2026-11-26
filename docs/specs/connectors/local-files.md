@@ -1,8 +1,6 @@
 # 读取文件（`local-files`）与修改文件（`computer-control`）
 
-> 状态：已上线（桌面端，2026-11-16）；工具 V2 的服务端契约见服务端实现；桌面端实现已补充，实际设备验收尚未完成，约定见 `reviews/20261120-connector-authorization-interaction/TOOLS-V2.md`。按 [01-连接器开发规范](../01-连接器开发规范.md) 编写。完整的任务和验收记录见 `history/features/connectors-tasks.md`（C01–C07）。
-
-> 两个仓库各存一份，内容必须一致：改一处，同一提交里改另一处。
+> 状态：已上线（桌面端，2026-11-16）；工具 V2 的服务端契约见服务端实现；桌面端实现已补充，实际设备验收尚未完成，约定见 `reviews/20261120-connector-authorization-interaction/TOOLS-V2.md`。按 [01-连接器开发规范](../01-连接器开发规范.md) 编写。完整的任务和验收记录见 `features/connectors-tasks.md`（C01–C07）。
 
 ## 一、用户故事
 
@@ -16,7 +14,7 @@
 | 执行位置 | 桌面客户端的 Rust 原生代码，云端只下发命令                                          | 源码：`yonder-client/apps/desktop/src-tauri/src/local_files*.rs` |
 | 范围     | 当前系统账号本来就能访问的范围；不提权，不在接入时自动扫描整盘                      | 现状                                                             |
 | 平台     | 清单写了 macOS、Windows、Linux；**发布流程只出 macOS 和 Windows**，Linux 属于半接线 | `manifests/local-files.ts`；`desktop-release.yml`                |
-| 原生 IPC | Rust 实际文件操作已验证；Tauri/WKWebView 原生 IPC、系统权限弹窗和物理设备没有实测   | `history/features/connectors-tasks.md`                           |
+| 原生 IPC | Rust 实际文件操作已验证；Tauri/WKWebView 原生 IPC、系统权限弹窗和物理设备没有实测   | `features/connectors-tasks.md`                                   |
 | 搜索实现 | V2 内容搜索使用 `ignore` 和 `regex`，不支持反向引用和环视；Windows 实机待验证       | TOOLS-V2 §3                                                      |
 
 ## 三、清单
@@ -82,4 +80,4 @@ V2 扫描必须限制访问或读取量、队列内存、每设备并发和工�
 
 ## 八、验收
 
-见 `history/features/connectors-tasks.md` 的验收记录，以及 `reviews/connector-review-20261116/`；V2 的验收证据放在 `reviews/20261120-connector-authorization-interaction/`。
+见 `features/connectors-tasks.md` 的验收记录，以及 `reviews/connector-review-20261116/`；V2 的验收证据放在 `reviews/20261120-connector-authorization-interaction/`。

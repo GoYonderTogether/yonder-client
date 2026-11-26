@@ -10,7 +10,7 @@ import { keys } from "../query/keys.ts";
 import { invalidateMemoryFiles } from "../query/memory-files.ts";
 import { writeFriendRequest } from "./friend-request-cache.ts";
 import { removeConversation, removeMember, writeConversation, writeMember } from "./member-cache.ts";
-import { applyChatHistoryClear, removeMessage, updateMessage, updateRun } from "./message-cache.ts";
+import { applyChatHistoryClear, updateMessage, updateRun } from "./message-cache.ts";
 
 export interface EventHandlers {
 	onSessionLost?: () => void;
@@ -148,10 +148,6 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 				void queryClient.invalidateQueries({ queryKey: keys.messages.latest(event.message.conversationId) });
 			if (event.type === "message.created" && event.message.outwardRequest?.result)
 				void queryClient.invalidateQueries({ queryKey: keys.conversations.list() });
-			break;
-		}
-		case "message.removed": {
-			removeMessage(queryClient, event.conversationId, event.messageId);
 			break;
 		}
 		case "run.updated": {

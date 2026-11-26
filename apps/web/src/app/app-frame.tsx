@@ -37,7 +37,7 @@ import { useReconnectNotice } from "./app-notice.tsx";
 import { AskMainBotProvider } from "./ask-main-bot.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { CompactStatus } from "./completion/compact-status.tsx";
-import { composerCompletionItems } from "./completion/items.ts";
+import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemoryList, MemoryPage, SettingsRoutePage, TaskPage, TasksList } from "./lazy-tabs.ts";
@@ -172,7 +172,10 @@ export function AppFrame() {
 					: null;
 		if (entry) (stacked ? layers.push : layers.open)(entry);
 	});
-	/** A deleted Bot's chat leaves the socket; if it is on screen the frame returns to the list. */
+	/**
+	 * A deleted Bot's chat leaves the list over the socket; if it is the one on screen, the frame
+	 * goes back to the message list rather than showing an empty page (17 3.1).
+	 */
 	const removedConversation = useEffectEvent((conversationId: string) => {
 		layers.clear();
 		const open = locate(navigation.current());
@@ -300,7 +303,6 @@ export function AppFrame() {
 							disconnected={disconnected}
 							mainBotHome={mainBot}
 							contacts={contacts.data?.items}
-							draft={draft}
 							readActive={!meOpen && !side.pages.length && !preset.drawerOpen}
 							onOpenMeeting={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
 							onOpenMember={openMember}
@@ -369,12 +371,11 @@ export function AppFrame() {
 			disconnected={disconnected}
 			sendOnEnter={desktop}
 			streaming={chat.streaming}
-			completionItems={composerCompletionItems(
-				chat,
-				skills.data?.items ?? [],
+			completionItems={completionItems(
+				chat.hasBot ? (skills.data?.items ?? []) : [],
 				contacts.data?.items ?? [],
+				chat.target?.members ?? [],
 				bot,
-				person?.id,
 				chat.target ? t("skills.compact") : undefined,
 			)}
 			selectedSkillIds={draft.skillIds}

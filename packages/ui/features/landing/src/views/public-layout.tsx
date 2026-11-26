@@ -35,17 +35,8 @@ export function PublicLayout({ children, homeLink = false }: { children: ReactNo
 			</header>
 			{children}
 			<footer className="public-footer">
-				© {copyrightYear()} {t("app.name")}
+				© {new Date().getFullYear()} {t("app.name")}
 			</footer>
 		</div>
 	);
-}
-
-/**
- * The year the copyright line names. It is the product's year, not a person's calendar, so it is
- * read from the device clock on purpose — `time:device-clock`.
- */
-export function copyrightYear(): number {
-	// time:device-clock — the site's copyright is the build's year, not the account's.
-	return new Date().getFullYear();
 }

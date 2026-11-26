@@ -1,13 +1,4 @@
-import { formatCalendarDay, formatCalendarWeekday } from "@yonder/ui-time";
 import { useState } from "react";
-
-/**
- * The quota cycle is billed in Beijing time (2026-11-25), so every date that belongs to the cycle —
- * a reset, a daily bucket — is read and written in this zone and says so. It does not follow the
- * account's own zone: "on the 1st the monthly grant returns" is a billing fact, and a person in
- * New York must still know which midnight it means.
- */
-export const BILLING_TIME_ZONE = "Asia/Shanghai";
 
 export function formatExact(value: number, locale: string, signed = false): string {
 	return new Intl.NumberFormat(locale, signed ? { signDisplay: "exceptZero" } : {}).format(value);
@@ -40,14 +31,14 @@ export function formatTokens(value: number, locale: string): string {
 	return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value / 1_000_000)}M`;
 }
 
-/**
- * A billed `YYYY-MM-DD` day as the reader writes a date. The day is the billing calendar's own, so
- * it is written in UTC (a device zone could move it) — not in the account's zone, which would show
- * a New York reader the previous date for a Beijing reset.
- */
+/** An Asia/Shanghai day (`YYYY-MM-DD`) as the reader writes a date, without a year. */
 export function formatDay(date: string, locale: string, weekday = false): string {
-	const day = formatCalendarDay(date, { locale, width: "numeric" });
-	return weekday ? `${day} ${formatCalendarWeekday(date, locale)}` : day;
+	return new Intl.DateTimeFormat(locale, {
+		month: "numeric",
+		day: "numeric",
+		...(weekday ? { weekday: "short" } : {}),
+		timeZone: "Asia/Shanghai",
+	}).format(new Date(`${date}T12:00:00+08:00`));
 }
 
 /** A quota figure in millions; hover or tap shows the exact number behind it. */

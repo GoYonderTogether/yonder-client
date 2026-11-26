@@ -17,7 +17,4 @@ test("tokens use the same unit once it helps, and days are Beijing days", () => 
 	expect(formatTokens(1_250_000, "en")).toBe("1.25M");
 	expect(formatDay("2026-11-19", "en")).toBe("11/19");
 	expect(formatDay("2026-11-19", "zh-CN")).toBe("11/19");
-	// A billing day carries its own weekday, written the same way on every device.
-	expect(formatDay("2026-11-19", "en", true)).toBe("11/19 Thu");
-	expect(formatDay("2026-11-19", "zh-CN", true)).toBe("11/19 周四");
 });

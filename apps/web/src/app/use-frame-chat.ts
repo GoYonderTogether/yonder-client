@@ -101,8 +101,6 @@ export function useFrameChat({
 		scope,
 		target,
 		hasBot,
-		/** The same loaded history the timeline reads; a mention list leads with who spoke here lately. */
-		messages: history.data?.pages.flatMap((page) => page.items),
 		itemSession,
 		submit,
 		submitVoice,

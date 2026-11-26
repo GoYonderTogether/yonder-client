@@ -1,8 +1,7 @@
 import type { Conversation, UsageRun } from "@yonder/protocol";
 import { Button, ListGroup } from "@yonder/ui-components";
 import type { UsageRunFilter } from "@yonder/ui-data";
-import { useAccountTimeZone, useConversations, usePerson, useUsageRunCalls, useUsageRuns } from "@yonder/ui-data";
-import { formatInstant } from "@yonder/ui-time";
+import { useConversations, usePerson, useUsageRunCalls, useUsageRuns } from "@yonder/ui-data";
 import type { TFunction } from "i18next";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
@@ -87,8 +86,12 @@ function RunRow({
 }) {
 	const { t, i18n } = useTranslation();
 	const locale = i18n.resolvedLanguage ?? i18n.language;
-	const zone = useAccountTimeZone();
-	const time = formatInstant(run.at, { zone, locale, style: "dateTime", width: "medium", year: "auto" });
+	const time = new Intl.DateTimeFormat(locale, {
+		month: "numeric",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(new Date(run.at));
 	const details = [
 		t(`me.quota.pools.${run.pool}`),
 		run.overflowRate !== null ? t("me.quota.callOverflow", { rate: run.overflowRate }) : null,

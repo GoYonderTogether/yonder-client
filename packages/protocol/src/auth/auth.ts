@@ -38,13 +38,6 @@ export interface DeviceInfo {
 	appVersion: string;
 	/** Stable within this client installation; separate from its rotating login session. */
 	installationId?: string;
-	/**
-	 * The device's own IANA zone and system language, reported with the device so a new account
-	 * starts in its real zone and an `auto` account follows the device. A `manual` account ignores
-	 * these for its effective value and only remembers them for the hint (migration 127).
-	 */
-	timezone?: string;
-	locale?: "zh-CN" | "en";
 }
 
 export interface PushTokenRegistration {

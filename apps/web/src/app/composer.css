@@ -44,38 +44,17 @@
 [data-highlighted]:has(.composer-text[data-composing]) .composer-highlight {
 	visibility: hidden;
 }
-/* Draft Markdown is paint-only. Bold, italic, a larger heading or a monospace code span would each
-   change a glyph's advance and slide the overlay off the textarea's per-character grid (the bug
-   b82571c fixed), so meaning is carried by colour, background and underline — never by weight,
-   size, family or padding. Every rule here is metric-neutral; the alignment spec proves it. */
+.composer-draft-heading,
+.composer-draft-strong {
+	/* Paint only: changing font weight or size would move the caret away from the text. */
+	text-shadow: 0.026em 0 currentColor;
+}
+.composer-draft-heading {
+	text-shadow: 0.038em 0 currentColor;
+}
 .composer-draft-syntax {
 	color: var(--color-text-tertiary);
-}
-.composer-draft-strong {
-	color: var(--color-text-primary);
-}
-.composer-draft-em {
-	color: var(--color-text-primary);
-	text-decoration: underline;
-	text-decoration-color: var(--color-text-tertiary);
-	text-decoration-style: dotted;
-}
-.composer-draft-link {
-	color: var(--color-accent-text);
-	text-decoration: underline;
-}
-.composer-draft-code {
-	border-radius: var(--radius-control-sm);
-	background: var(--color-bg-subtle);
-	color: var(--color-text-primary);
-}
-.composer-draft-strike {
-	color: var(--color-text-tertiary);
-	text-decoration: line-through;
-}
-/* A heading line reads as one emphasised block: accent colour for the whole line, marker still grey. */
-.composer-draft-heading {
-	color: var(--color-accent-text);
+	text-shadow: none;
 }
 [data-highlighted] .composer-completion-mark {
 	color: var(--color-accent);

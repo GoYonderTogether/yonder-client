@@ -1,5 +1,4 @@
 import type { DeviceModelEndpoint, DeviceModelProtocol, DeviceSummary, Provider } from "@yonder/protocol";
-import { formatInstant } from "@yonder/ui-time";
 import type { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "./device-display-name.ts";
 
@@ -75,14 +74,11 @@ export function isLocalProviderAddress(address: string) {
 	}
 }
 
-export function providerDeviceLabel(
-	device: DeviceSummary,
-	t: ReturnType<typeof useTranslation>["t"],
-	locale: string,
-	/** The account's zone, so "last seen" reads the same on every device of the account. */
-	zone: string,
-) {
-	const at = formatInstant(device.lastSeenAt, { zone, locale, style: "dateTime", width: "short" });
+export function providerDeviceLabel(device: DeviceSummary, t: ReturnType<typeof useTranslation>["t"], locale: string) {
+	const when = new Date(device.lastSeenAt);
+	const at = Number.isNaN(when.getTime())
+		? ""
+		: new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(when);
 	const status =
 		device.status === "online"
 			? t("models.deviceOnline")

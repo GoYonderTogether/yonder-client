@@ -16,7 +16,6 @@ import { messagesEn } from "./messages.ts";
 import { modelMessagesEn } from "./models-en.ts";
 import { notificationsEn } from "./notifications.ts";
 import { photoArchiveEn } from "./photo-archive-en.ts";
-import { preferenceMessagesEn } from "./preferences-en.ts";
 import { pricingMessagesEn } from "./pricing-en.ts";
 import { questionCardsEn } from "./question-cards.ts";
 import { setupMessagesEn } from "./setup-en.ts";
@@ -192,7 +191,6 @@ export const en = {
 			zhCN: "中文",
 			en: "English",
 		},
-		...preferenceMessagesEn,
 	},
 
 	dev: {
@@ -384,21 +382,11 @@ export const en = {
 		itemTranscript: "Transcript",
 		itemRecordingSummary: "Recording summary",
 		itemUpcoming: "Coming up",
-		itemGroupWaiting: "Needs you",
-		itemGroupActive: "Active",
-		itemSourceSubtask: "Bot task",
-		itemSourceConversation: "Chat",
-		itemSourceMeeting: "Recording",
-		itemSourceSchedule: "Scheduled task",
-		itemSourceVisit: "Visitor request",
-		itemRunningFor: "Running for {{duration}}",
-		itemEndedClock: "Ended {{time}}",
 		itemStateRunning: "Running",
 		itemStateWaitingUser: "Waiting for you",
 		itemStatePaused: "Paused",
 		itemStateFailed: "Failed",
 		itemStateCancelled: "Cancelled",
-		itemStateCompleted: "Completed",
 		itemStartedAt: "Started {{at}}",
 		itemEndedAt: "Ended {{at}}",
 		itemNoResult: "No result yet",
@@ -467,7 +455,6 @@ export const en = {
 		session_revoked: "You were signed out on another device.",
 		refresh_reused: "Your session ended for security. Please sign in again.",
 		upload_invalid: "That file cannot be used as an avatar.",
-		invalid_timezone: "That time zone is not recognised.",
 		rate_limited: "Too many attempts. Try again later.",
 		internal: "Something went wrong on our side.",
 		sms_not_configured: "This server cannot send SMS yet.",

@@ -1,6 +1,5 @@
 import type { MemoryFileLimit, MemoryFileSummary } from "@yonder/protocol";
 import { useBot, useContacts } from "@yonder/ui-data";
-import { formatInstant } from "@yonder/ui-time";
 import { useTranslation } from "react-i18next";
 
 export type MemoryAuthor = Pick<MemoryFileSummary, "updatedBy" | "updatedByName"> & { path?: string };
@@ -27,11 +26,8 @@ export function useAuthorName() {
 	};
 }
 
-/**
- * 「刚刚」「5 分钟前」「3 天前」; a date once it is more than a week old. Elapsed counts need no zone;
- * the date past a week is read on the account's calendar, so both devices agree which day it was.
- */
-export function relativeTime(iso: string, now: Date, locale: string, justNow: string, zone: string): string {
+/** 「刚刚」「5 分钟前」「3 天前」; a date once it is more than a week old. */
+export function relativeTime(iso: string, now: Date, locale: string, justNow: string): string {
 	const seconds = Math.round((Date.parse(iso) - now.getTime()) / 1000);
 	if (Math.abs(seconds) < 60) return justNow;
 	const format = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
@@ -41,7 +37,7 @@ export function relativeTime(iso: string, now: Date, locale: string, justNow: st
 	if (Math.abs(hours) < 24) return format.format(hours, "hour");
 	const days = Math.round(hours / 24);
 	if (Math.abs(days) < 7) return format.format(days, "day");
-	return formatInstant(iso, { zone, locale, style: "monthDay", width: "short" });
+	return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(new Date(iso));
 }
 
 /** Measured the way the server measures it (23 7.5): code points for the `/me` files, UTF-8 bytes else. */

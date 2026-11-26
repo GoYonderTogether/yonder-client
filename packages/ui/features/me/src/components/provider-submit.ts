@@ -33,56 +33,37 @@ export function useProviderSubmit(options: {
 	const [saving, setSaving] = useState(false);
 	const writing = { current: false };
 
-	/**
-	 * Discover needs only the address and key, not the model rows: it is how those rows are filled.
-	 *
-	 * A second pass while one is in flight runs after it rather than being dropped: the person may
-	 * have just corrected the key, and the form's answer must be for what is on screen now.
-	 */
-	let queued: Promise<void> | undefined;
-
-	async function discover(target: NativeProviderBinding | null, key: string): Promise<void> {
-		if (writing.current) {
-			await queued;
-			return discover(target, key);
-		}
+	/** Discover needs only the address and key, not the model rows: it is how those rows are filled. */
+	async function discover(target: NativeProviderBinding | null, key: string) {
+		if (writing.current) return;
 		writing.current = true;
-		const run = (async () => {
-			setFetching(true);
-			setError(null);
-			const startedAt = performance.now();
-			const version = options.nextVersion();
-			try {
-				const result = await actions.discoverModels(
-					target
-						? { origin: "device", ...target, protocol: options.deviceProtocol }
-						: {
-								baseUrl: normalizeWallet(options.baseUrl),
-								protocol: options.deviceProtocol,
-								...(key ? { apiKey: key } : options.provider ? { providerId: options.provider.id } : {}),
-							},
-				);
-				if (version !== options.version.current) return;
-				options.setAvailable(result.models);
-				options.setMetadata(result.metadata ?? {});
-				if (!result.models.length) setError(t("models.fetchEmpty"));
-			} catch (cause) {
-				if (version === options.version.current) {
-					// The server's own words: "protocol is invalid" and "401" lead to different fixes, and a
-					// generic "could not fetch" hides which one it is.
-					setError(t("models.fetchFailed", { reason: describe(cause) }));
-					options.onAddFailure?.("discover", cause, startedAt);
-				}
-			} finally {
-				// The loading flag is cleared whatever happened: a run overtaken by a newer one must not
-				// leave the button disabled for good, which is what a guarded clear did when the person
-				// typed in the key field while the request was in flight (2026-11-26).
-				setFetching(false);
+		setFetching(true);
+		setError(null);
+		const startedAt = performance.now();
+		const version = options.nextVersion();
+		try {
+			const result = await actions.discoverModels(
+				target
+					? { origin: "device", ...target, protocol: options.deviceProtocol }
+					: {
+							baseUrl: normalizeWallet(options.baseUrl),
+							protocol: options.deviceProtocol,
+							...(key ? { apiKey: key } : options.provider ? { providerId: options.provider.id } : {}),
+						},
+			);
+			if (version !== options.version.current) return;
+			options.setAvailable(result.models);
+			options.setMetadata(result.metadata ?? {});
+			if (!result.models.length) setError(t("models.fetchFailed"));
+		} catch (cause) {
+			if (version === options.version.current) {
+				setError(t("models.fetchFailed"));
+				options.onAddFailure?.("discover", cause, startedAt);
 			}
-		})();
-		queued = run;
-		await run;
-		writing.current = false;
+		} finally {
+			writing.current = false;
+			if (version === options.version.current) setFetching(false);
+		}
 	}
 
 	async function save(
@@ -143,22 +124,6 @@ export function useProviderSubmit(options: {
 	}
 
 	return { discover, save, test, fetching, saving };
-}
-
-/**
- * The sentence a failed call is shown with. An `ApiError` carries the server's message and status,
- * which is what tells a wrong key from a server that does not know this protocol yet.
- */
-export function describe(cause: unknown): string {
-	if (cause && typeof cause === "object") {
-		const error = cause as { message?: unknown; status?: unknown };
-		const message = typeof error.message === "string" ? error.message : "";
-		const status = typeof error.status === "number" ? error.status : null;
-		if (message && status) return `${status} · ${message}`;
-		if (message) return message;
-		if (status) return String(status);
-	}
-	return cause instanceof Error ? cause.message : String(cause);
 }
 
 /**

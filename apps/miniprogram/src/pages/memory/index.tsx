@@ -1,12 +1,10 @@
 import { Button as NativeButton, Text, View } from "@tarojs/components";
 import type { MemoryBlock, MemoryDay, MemoryEntry, MemoryVisibility } from "@yonder/protocol";
-import { formatInstant, localDay, msUntilNextMinute } from "@yonder/ui-time";
 import { useEffect, useRef, useState } from "react";
 import { Button, Page, State } from "../../components/ui";
 import { useResource } from "../../components/use-resource";
-import { currentLocale, t, useLocale } from "../../lib/i18n";
+import { t, useLocale } from "../../lib/i18n";
 import { api, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
-import { accountTimeZone } from "../../lib/time";
 import { MessageBody } from "../chat/markdown";
 import { affectsMemory } from "./realtime";
 import "./style.scss";
@@ -106,6 +104,14 @@ function Timeline() {
 	);
 }
 
+function deviceTimeZone(): string | undefined {
+	try {
+		return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function TimelinePage({
 	cursor,
 	onNewer,
@@ -115,12 +121,10 @@ function TimelinePage({
 	onNewer: (() => void) | undefined;
 	onOlder: (cursor: string) => void;
 }) {
-	const zone = accountTimeZone(useSession().me);
-	const { data, loading, error, reload } = useMemoryResource(() => api.memoryDays(cursor, zone));
+	const { data, loading, error, reload } = useMemoryResource(() => api.memoryDays(cursor, deviceTimeZone()));
 	const [now, setNow] = useState(() => new Date());
-	// The account's zone decides which calendar day this is (2026-11-25), not this phone's.
-	const today = localDay(now, zone);
-	const clock = formatInstant(now, { zone, locale: currentLocale(), style: "time" });
+	const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString();
+	const today = local.slice(0, 10);
 	const previousDay = useRef(today);
 	useEffect(() => {
 		if (cursor) return;
@@ -128,11 +132,11 @@ function TimelinePage({
 		const tick = () => {
 			const current = new Date();
 			setNow(current);
-			timer = setTimeout(tick, msUntilNextMinute(current, zone));
+			timer = setTimeout(tick, 60_000 - (current.getTime() % 60_000));
 		};
 		tick();
 		return () => clearTimeout(timer);
-	}, [cursor, zone]);
+	}, [cursor]);
 	useEffect(() => {
 		if (previousDay.current === today) return;
 		previousDay.current = today;
@@ -167,8 +171,12 @@ function TimelinePage({
 				const isToday = day.date === today;
 				return (
 					<View key={day.date}>
-						<Text className="mini-subtitle">{isToday ? t(`今天 ${today}`, `Today ${today}`) : day.date}</Text>
-						{isToday ? <Text className="mini-muted">{t(`现在 ${clock}`, `Now ${clock}`)}</Text> : null}
+						<Text className="mini-subtitle">
+							{isToday ? t(`今天 ${now.getMonth() + 1}月${now.getDate()}日`, `Today ${today}`) : day.date}
+						</Text>
+						{isToday ? (
+							<Text className="mini-muted">{t(`现在 ${local.slice(11, 16)}`, `Now ${local.slice(11, 16)}`)}</Text>
+						) : null}
 						{day.failure ? <Text className="mini-error">{day.failure}</Text> : null}
 						{day.state === "organizing" ? <Text className="mini-muted">{t("正在整理…", "Organizing…")}</Text> : null}
 						{day.blocks

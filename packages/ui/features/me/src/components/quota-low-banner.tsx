@@ -1,9 +1,7 @@
 import type { QuotaPool, QuotaResponse } from "@yonder/protocol";
 import { Button } from "@yonder/ui-components";
-import { formatInstant } from "@yonder/ui-time";
 import { ChartColumn, Gift } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { BILLING_TIME_ZONE } from "./quota-number.tsx";
 
 export interface QuotaLowBannerProps {
 	quota: QuotaResponse;
@@ -42,14 +40,7 @@ export function QuotaLowBanner({ quota, onOpenInvite, onOpenUsage }: QuotaLowBan
 	const locale = i18n.resolvedLanguage ?? i18n.language;
 	const pools = exhaustedPools(quota);
 	if (pools.length === 0) return null;
-	// The billing cycle is Beijing's, so its reset date is read in that zone on every device.
-	const reset = formatInstant(quota.cycle.resetsAt, {
-		zone: BILLING_TIME_ZONE,
-		locale,
-		style: "date",
-		width: "medium",
-		year: "always",
-	});
+	const reset = new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(quota.cycle.resetsAt));
 	const labels = new Intl.ListFormat(locale, { type: "conjunction" }).format(
 		pools.map((pool) => t(`me.quota.pools.${pool}`)),
 	);

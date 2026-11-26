@@ -1,6 +1,5 @@
 import type { MemoryEntry as Entry, MemoryDay, MemoryStay } from "@yonder/protocol";
 import { cn } from "@yonder/ui-components";
-import { useAccountTimeZone } from "@yonder/ui-data";
 import { ChevronRight, Footprints, Images, MapPin } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,9 +19,8 @@ export type DayActions = EntryActions;
  */
 export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: Date; actions: DayActions }) {
 	const { t, i18n } = useTranslation();
-	const zone = useAccountTimeZone();
-	const ago = daysAgo(day.date, now, zone);
-	const { name, sub } = dayName(day.date, now, t, i18n.language, zone);
+	const ago = daysAgo(day.date, now);
+	const { name, sub } = dayName(day.date, now, t, i18n.language);
 	const isToday = ago === 0;
 	const nowAt = now.getTime();
 	const blocks = day.blocks.slice().reverse();
@@ -93,9 +91,7 @@ export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: D
 				) : null}
 				{isToday ? (
 					<li className="memory-now">
-						<time dateTime={now.toISOString()}>
-							{t("memory.now", { time: memoryFormat.time(now, i18n.language, zone) })}
-						</time>
+						<time dateTime={now.toISOString()}>{t("memory.now", { time: memoryFormat.time(now, i18n.language) })}</time>
 					</li>
 				) : null}
 				{shown.map((block) =>
@@ -118,10 +114,9 @@ export function MemoryDaySection({ day, now, actions }: { day: MemoryDay; now: D
 /** A stay opens with a place marker; the spine stays green until the owner leaves. */
 function Stay({ stay, render }: { stay: MemoryStay; render: (entry: Entry) => React.ReactNode }) {
 	const { t, i18n } = useTranslation();
-	const zone = useAccountTimeZone();
-	const from = memoryFormat.time(stay.startsAt, i18n.language, zone);
+	const from = memoryFormat.time(stay.startsAt, i18n.language);
 	const span = stay.endsAt
-		? t("memory.span", { from, to: memoryFormat.time(stay.endsAt, i18n.language, zone) })
+		? t("memory.span", { from, to: memoryFormat.time(stay.endsAt, i18n.language) })
 		: t("memory.stillHere", { from });
 	return (
 		<li className="memory-stay memory-kind-place">

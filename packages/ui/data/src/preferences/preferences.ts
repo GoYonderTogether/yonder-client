@@ -7,12 +7,9 @@ import type { Locale } from "@yonder/ui-i18n";
 import { isLocale, resolveLocale } from "@yonder/ui-i18n";
 import type { StyleChoice, ThemeChoice, UISizeChoice } from "@yonder/ui-tokens";
 import { DEFAULT_UI_SIZE, isStyleChoice, isThemeChoice, isUISizeChoice, resolveTheme } from "@yonder/ui-tokens";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSessionStore } from "../auth/session-store.ts";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useData } from "../query/provider.tsx";
 import type { Storage } from "../storage/index.ts";
-import { useAccountPreferences, useSavePreferences } from "./account-preferences.ts";
-import { notifyPreferences, usePreferencesVersion } from "./store.ts";
 
 /** The system preference, watched live. */
 export function useSystemPrefersDark(): boolean {
@@ -76,16 +73,24 @@ export function readLocale(storage: Pick<Storage, "get">): Locale {
 
 /*
  * One value per storage, shared by every component that asks. A component-local copy would mean
- * that changing the language in 「通用」 updates that screen and nothing else. The listener set and
- * version are shared with the account preferences, so one write wakes every reader.
+ * that changing the language in 「通用」 updates that screen and nothing else.
  */
-const notify = notifyPreferences;
+type Listener = () => void;
+const listeners = new Set<Listener>();
+const subscribe = (listener: Listener) => {
+	listeners.add(listener);
+	return () => listeners.delete(listener);
+};
+const notify = () => {
+	for (const listener of listeners) listener();
+};
 
-/** A value derived from storage, recomputed when any preference is written. */
 function usePreference<T>(storage: Storage, read: (storage: Pick<Storage, "get">) => T): T {
-	const version = usePreferencesVersion();
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `version` is the change signal; the read function is stable in meaning.
-	return useMemo(() => read(storage), [storage, version]);
+	return useSyncExternalStore(
+		subscribe,
+		() => read(storage),
+		() => read(storage),
+	);
 }
 
 /**
@@ -138,25 +143,9 @@ export interface LocaleControl {
 	setLocale: (locale: Locale) => void;
 }
 
-/**
- * The language the app speaks: the account's resolved `me.locale` once signed in, this device's
- * before that. `setLocale` follows the same rule — signed in, the pick locks the account (a person
- * choosing English wants English on their other devices too), through the same save adapter as
- * 「通用」, so a refusal is reported rather than silently undone; signed out, there is no account to
- * hold it, so it is this device's own choice, which is what the landing and sign-in screens have
- * always meant by their language button.
- */
 export function useLocalePreference(): LocaleControl {
 	const { storage } = useData();
-	const status = useSessionStore((state) => state.status);
-	const preference = usePreference(storage, readLocale);
-	const { localeValue } = useAccountPreferences();
-	const save = useSavePreferences();
-	// A signed-in screen speaks the account's language; the landing and sign-in screens have no
-	// account, so they speak the one stored here (the first paint reads the same key).
-	const locale = status === "signed-in" ? localeValue : preference;
-	const accountLocale = useRef<Locale | null>(null);
-	accountLocale.current = status === "signed-in" ? localeValue : null;
+	const locale = usePreference(storage, readLocale);
 
 	useEffect(() => {
 		document.documentElement.lang = locale;
@@ -164,16 +153,10 @@ export function useLocalePreference(): LocaleControl {
 
 	const setLocale = useCallback(
 		(next: Locale) => {
-			// Stored at once: the language button on a public page must change that page immediately,
-			// and the mirror is also what the first paint and the sign-in screen read.
-			storage.set("locale", next);
-			storage.set("locale-mode", "manual");
-			// Signed in there is an account to hold the same choice, so every other device follows.
-			if (status === "signed-in" && accountLocale.current !== next)
-				void save.save({ locale: { mode: "manual", value: next } });
+			storage.set(LOCALE_KEY, next);
 			notify();
 		},
-		[save, status, storage],
+		[storage],
 	);
 
 	return { locale, setLocale };

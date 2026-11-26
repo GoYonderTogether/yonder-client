@@ -5,7 +5,6 @@
  * `errors.<code>` sentence the server's own code selects.
  */
 import { ApiError, NetworkError } from "@yonder/ui-data";
-import { formatInstant } from "@yonder/ui-time";
 
 export type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -14,22 +13,13 @@ export interface AccountFailure {
 	field?: "handle" | "target" | "confirmHandle";
 }
 
-/**
- * A date inside a failure sentence, read on the account's calendar so a cooldown ends on the same
- * day on every device. `context.zone` comes from the caller's `useAccountTimeZone()`.
- */
-function readableDate(iso: unknown, locale: string, zone: string): string {
+function readableDate(iso: unknown): string {
 	if (typeof iso !== "string") return "";
-	return formatInstant(iso, { zone, locale, style: "date", width: "short" });
+	const date = new Date(iso);
+	return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString();
 }
 
-/** The language the sentence and its date are written in, and the account's zone. */
-export interface FailureContext {
-	locale: string;
-	zone: string;
-}
-
-export function describeAccountFailure(error: unknown, t: Translate, context: FailureContext): AccountFailure {
+export function describeAccountFailure(error: unknown, t: Translate): AccountFailure {
 	if (error instanceof NetworkError) return { text: t("auth.errors.network") };
 	if (!(error instanceof ApiError)) return { text: t("auth.errors.unknown") };
 	switch (error.code) {
@@ -39,9 +29,7 @@ export function describeAccountFailure(error: unknown, t: Translate, context: Fa
 			return { text: t("me.handle.errors.reserved"), field: "handle" };
 		case "handle_cooldown":
 			return {
-				text: t("me.handle.errors.cooldown", {
-					date: readableDate(error.details?.nextChangeAt, context.locale, context.zone),
-				}),
+				text: t("me.handle.errors.cooldown", { date: readableDate(error.details?.nextChangeAt) }),
 				field: "handle",
 			};
 		case "phone_taken":

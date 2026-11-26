@@ -3,6 +3,7 @@ import { quota } from "./fixtures/quota.ts";
 
 async function isolate(page: Page) {
 	await page.emulateMedia({ reducedMotion: "reduce" });
+	await page.addInitScript(() => localStorage.setItem("yonder.locale", "zh-CN"));
 	const member = {
 		id: "settings-person",
 		kind: "person",

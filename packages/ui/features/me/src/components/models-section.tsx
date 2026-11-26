@@ -1,5 +1,5 @@
 import { Button, ListGroup, ListRow, SearchInput } from "@yonder/ui-components";
-import { useAccountTimeZone, useDevices, useProviderActions, useProviders } from "@yonder/ui-data";
+import { useDevices, useProviderActions, useProviders } from "@yonder/ui-data";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -41,7 +41,6 @@ export function ModelsSection({
 	onAddFailure?: ProviderAddFailure | undefined;
 }) {
 	const { t, i18n } = useTranslation();
-	const zone = useAccountTimeZone();
 	const devices = useDevices();
 	const location = { devices: devices.data?.items, registerEndpoint };
 	const providers = useProviders();
@@ -180,7 +179,7 @@ export function ModelsSection({
 								if (provider.origin !== "device") return undefined;
 								const device = devices.data?.items.find(({ id }) => id === provider.deviceId);
 								return device
-									? providerDeviceLabel(device, t, i18n.resolvedLanguage ?? i18n.language, zone)
+									? providerDeviceLabel(device, t, i18n.resolvedLanguage ?? i18n.language)
 									: (provider.deviceName ?? t("models.deviceUnavailable"));
 							})()}
 							notice={notice?.id === provider.id ? notice.ok : null}

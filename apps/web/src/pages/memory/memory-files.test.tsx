@@ -16,9 +16,6 @@ import {
 } from "./memory-view.ts";
 import { measure, relativeTime } from "./memory-who.ts";
 
-/** The account zone these tests pin; a date past a week is read on this calendar. */
-const ZONE = "Asia/Shanghai";
-
 const summary = (path: string, updatedAt = "2026-11-18T00:00:00Z"): MemoryFileSummary => ({
 	path,
 	title: path.split("/").at(-1) ?? path,
@@ -191,9 +188,9 @@ describe("the diff", () => {
 describe("relative time", () => {
 	const now = new Date("2026-11-18T12:00:00Z");
 	test("says just now, then minutes, hours and days, then a date", () => {
-		expect(relativeTime("2026-11-18T11:59:30Z", now, "en", "just now", ZONE)).toBe("just now");
-		expect(relativeTime("2026-11-18T11:55:00Z", now, "en", "just now", ZONE)).toBe("5 minutes ago");
-		expect(relativeTime("2026-11-15T12:00:00Z", now, "en", "just now", ZONE)).toBe("3 days ago");
-		expect(relativeTime("2026-11-01T12:00:00Z", now, "en", "just now", ZONE)).toBe("Nov 1");
+		expect(relativeTime("2026-11-18T11:59:30Z", now, "en", "just now")).toBe("just now");
+		expect(relativeTime("2026-11-18T11:55:00Z", now, "en", "just now")).toBe("5 minutes ago");
+		expect(relativeTime("2026-11-15T12:00:00Z", now, "en", "just now")).toBe("3 days ago");
+		expect(relativeTime("2026-11-01T12:00:00Z", now, "en", "just now")).toBe("Nov 1");
 	});
 });

@@ -1,6 +1,6 @@
 import type { MemoryEntry, MemoryFileSummary } from "@yonder/protocol";
 import { ListGroup, ListRow } from "@yonder/ui-components";
-import { useAccountTimeZone, useMemoryDays, useMemoryFile, useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
+import { useMemoryDays, useMemoryFile, useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
 import { CalendarRange, FolderOpen, Globe, History, LockKeyhole, NotebookPen } from "lucide-react";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
@@ -68,10 +68,10 @@ export function GroupIcon({ group, size = 18 }: { group: string; size?: number }
 }
 
 /** The newest entries that have happened, newest first, each with the day it belongs to. */
-function recentEntries(days: { date: string; blocks: { type: string }[] }[], now: Date, zone: string) {
+function recentEntries(days: { date: string; blocks: { type: string }[] }[], now: Date) {
 	const out: { date: string; entry: MemoryEntry }[] = [];
 	for (const day of days) {
-		if (daysAgo(day.date, now, zone) < 0) continue;
+		if (daysAgo(day.date, now) < 0) continue;
 		const entries = (
 			day.blocks as ({ type: "entry"; entry: MemoryEntry } | { type: "stay"; stay: { entries: MemoryEntry[] } })[]
 		)
@@ -100,8 +100,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Recent() {
 	const { t, i18n } = useTranslation();
 	const navigate = useNavigate();
-	const zone = useAccountTimeZone();
-	const now = useMinute(zone);
+	const now = useMinute();
 	const locale = i18n.resolvedLanguage ?? i18n.language;
 	const query = useMemoryDays();
 	if (query.isError && !query.data)
@@ -110,7 +109,6 @@ function Recent() {
 	const recent = recentEntries(
 		query.data.pages.flatMap((page) => page.items),
 		now,
-		zone,
 	);
 	const open = () => navigate("/memory/timeline");
 	return (
@@ -120,7 +118,7 @@ function Recent() {
 					<li key={entry.id} className="border-b border-dashed border-[var(--color-border)]">
 						{recent[index - 1]?.date !== date ? (
 							<p className="px-[var(--spacing-4)] pt-[var(--spacing-3)] text-caption text-[var(--color-text-tertiary)]">
-								{dayName(date, now, t, locale, zone).name}
+								{dayName(date, now, t, locale).name}
 							</p>
 						) : null}
 						<button
@@ -132,7 +130,7 @@ function Recent() {
 								dateTime={entry.at}
 								className="w-[3em] shrink-0 text-caption tabular-nums text-[var(--color-text-tertiary)]"
 							>
-								{memoryFormat.time(entry.at, locale, zone)}
+								{memoryFormat.time(entry.at, locale)}
 							</time>
 							<span className="min-w-0 flex-1 truncate text-body text-[var(--color-text-primary)]">{entry.title}</span>
 						</button>

@@ -9,8 +9,6 @@ import { expect, test, vi } from "vitest";
 const setDefault = vi.hoisted(() => vi.fn());
 vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@yonder/ui-data")>()),
-	// These rows read the account's zone for "last seen"; one zone is enough for the list itself.
-	useAccountTimeZone: () => "Asia/Shanghai",
 	useProviders: () => ({
 		data: {
 			// A stale response from an older server must not expose platform details either.
@@ -20,7 +18,7 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 					scope: "platform",
 					name: "RightCode",
 					baseUrl: "https://upstream.example.org",
-					protocol: "openai",
+					protocol: "openai-chat",
 					note: "private platform note",
 					website: "https://vendor.example.org",
 					models: ["glm-5.3-flash", "another-model"],
@@ -34,7 +32,7 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 					scope: "user",
 					name: "Personal provider",
 					baseUrl: "https://personal.example.net",
-					protocol: "openai",
+					protocol: "openai-chat",
 					models: ["personal-model"],
 					enabled: true,
 					keyConfigured: true,

@@ -16,10 +16,8 @@ import {
 	IosComposerAttachmentPanel,
 	useIosComposerAttachments,
 } from "./composer-ios-attachments.tsx";
-import { handleComposerKey } from "./composer-keys.ts";
 import { isFileDrag } from "./file-drop-zone.tsx";
 import { HoldToTalk } from "./hold-to-talk.tsx";
-import { useAutosize } from "./use-autosize.ts";
 import { CHAT_ATTACHMENT_LIMIT } from "./use-chat-draft.ts";
 import { useComposerVoice } from "./use-composer-voice.ts";
 import { VoiceControl } from "./voice-control.tsx";
@@ -95,8 +93,7 @@ export function Composer({
 	const [dragging, setDragging] = useState(false);
 	const dragDepth = useRef(0);
 	const composing = useRef(false);
-	// Firefox and older WebViews have no `field-sizing`, so the field would stay one row and scroll.
-	useAutosize(input, draft, !mobilePicker);
+	const compositionEndedAt = useRef(Number.NEGATIVE_INFINITY);
 	const consumeEdit = useTextareaEdit(input, scope);
 	const completion = useComposerCompletion({
 		input,
@@ -409,29 +406,33 @@ export function Composer({
 								}}
 								onCompositionEnd={(event) => {
 									composing.current = false;
+									compositionEndedAt.current = performance.now();
 									delete event.currentTarget.dataset.composing;
 									completion.sync(event.currentTarget);
 								}}
-								onKeyDown={(event) =>
-									handleComposerKey(
-										{
-											key: event.key,
-											shiftKey: event.shiftKey,
-											isComposing: event.nativeEvent.isComposing,
-											keyCode: event.nativeEvent.keyCode,
-											repeat: event.repeat,
-											preventDefault: () => event.preventDefault(),
-										},
-										{
-											// Some engines clear `isComposing` before the confirming keydown arrives, so the
-											// compositionstart/end record counts too.
-											composing: composing.current,
-											sendOnEnter,
-											completionOpen: completion.matches.length > 0,
-										},
-										{ acceptCompletion: () => completion.keyDown(event), send, interrupt },
-									)
-								}
+								onKeyDown={(event) => {
+									// Legacy WebKit can fire compositionend before the confirming keydown, which still has keyCode 229.
+									if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+										interrupt();
+										return;
+									}
+									const enter = event.key === "Enter" && !event.shiftKey;
+									if (
+										enter &&
+										(sendOnEnter || completion.matches.length > 0) &&
+										(event.repeat || performance.now() - compositionEndedAt.current < 500)
+									) {
+										event.preventDefault();
+										return;
+									}
+									if (completion.keyDown(event)) return;
+									if (!enter || !sendOnEnter) {
+										interrupt();
+										return;
+									}
+									event.preventDefault();
+									send();
+								}}
 								data-empty={mobilePicker && !draft ? true : undefined}
 								className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-row-height)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
 							/>

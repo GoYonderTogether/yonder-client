@@ -182,6 +182,7 @@ test.skip("memory cards switch, expand, edit with taps and navigate year month w
 test("invitation share actions remain opaque with English copy, a long name and dark mode", async ({ page }) => {
 	await mkdir(previewDir, { recursive: true });
 	await isolateChat(page, { dark: true });
+	await page.addInitScript(() => localStorage.setItem("yonder.locale", "en"));
 	await page.route("**/v1/me", (route) =>
 		route.fulfill({
 			json: {

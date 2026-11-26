@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import {
 	isLocalProviderAddress,
 	type NativeProviderBinding,
-	NEW_ENDPOINT,
 	normaliseUrl,
 	type RegisteredLocalProviderEndpoint,
 	type RegisterLocalProviderEndpoint,
@@ -24,8 +23,6 @@ export type ResolvedTarget = { target: NativeProviderBinding } | { error: "devic
  */
 export function useDeviceBinding(options: {
 	deviceId: string;
-	/** The field cleared once a typed local key has been registered: it lives in the device now. */
-	onKeyRegistered?: (() => void) | undefined;
 	device: DeviceSummary | undefined;
 	endpointId: string;
 	localUrl: string;
@@ -47,25 +44,16 @@ export function useDeviceBinding(options: {
 	 * A new local address the person has not typed yet is still the endpoint being created: the form
 	 * has to show the address field before there is anything to validate. `resolveTarget` is where
 	 * the address is actually checked, so an empty one fails there rather than hiding the field.
-	 *
-	 * The picker's explicit "a new address" option counts too. It sets `endpointId` to a sentinel
-	 * rather than to "", so a form that only tested for an empty id hid the address field — the one
-	 * control the person had just asked for (2026-11-26).
 	 */
-	const addEndpoint = Boolean(options.canRegister && (!options.endpointId || options.endpointId === NEW_ENDPOINT));
+	const addEndpoint = Boolean(options.canRegister && !options.endpointId);
 	// The caller bumps its discovery version on every change; a resolution started before it is stale.
 	const versionRef = useRef(options.version);
 	versionRef.current = options.version;
 
 	async function resolveTarget(version: number): Promise<NativeProviderBinding> {
 		const { deviceId, endpointId, canRegister, registerEndpoint } = options;
-		// The device gateway records its endpoint as one of two wire names; a four-protocol name is
-		// registered as the device wire it most resembles (see deviceWire on the server). The
-		// readiness check below compares against this same device wire — comparing it with the
-		// four-protocol name would never match, and the form would wait for a ready announcement
-		// that had already arrived (2026-11-26).
-		const deviceProtocol: DeviceModelProtocol =
-			options.deviceProtocol === "anthropic-messages" ? "anthropic" : "openai";
+		// A device endpoint speaks the provider's own wire, so the four names travel unchanged.
+		const deviceProtocol: DeviceModelProtocol = options.deviceProtocol;
 		const key = options.canSetLocalKey ? options.localKey.trim() : "";
 		const current = options.device?.modelEndpoints?.find((item) => item.endpointId === endpointId);
 		if (current && !key) return { deviceId, endpointId: current.endpointId };
@@ -74,12 +62,7 @@ export function useDeviceBinding(options: {
 		const address = normaliseUrl(options.localUrl);
 		const previous = registered.current;
 		let target =
-			!current &&
-			previous?.baseUrl === address &&
-			previous.target.deviceId === deviceId &&
-			previous.target.deviceId === deviceId
-				? previous.target
-				: undefined;
+			!current && previous?.baseUrl === address && previous.target.deviceId === deviceId ? previous.target : undefined;
 		let revision = target ? previous?.revision : undefined;
 		if (!target || key) {
 			const local = { deviceId, baseUrl: address, protocol: deviceProtocol, label: t("models.localEndpoint") } as const;
@@ -88,14 +71,16 @@ export function useDeviceBinding(options: {
 					? { deviceId, endpointId: current.endpointId, apiKey: key }
 					: { ...local, ...(key ? { apiKey: key } : {}) },
 			);
-			if ((current && result.endpointId !== current.endpointId) || (result.protocol ?? "openai") !== deviceProtocol)
+			// The shell always names the wire it stored; the old fallback to "openai" would reject every
+			// endpoint once the four names replaced the two.
+			if (
+				(current && result.endpointId !== current.endpointId) ||
+				(result.protocol ?? "openai-chat") !== deviceProtocol
+			)
 				throw new Error("Unexpected endpoint");
 			target = { deviceId, endpointId: result.endpointId };
 			revision = result.revision;
 			if (!current) registered.current = { baseUrl: address, protocol: deviceProtocol, target, revision };
-			// The key now lives in the device's keychain; keeping it in the form would leave a copy
-			// in the web view and let the next save resend it for no reason.
-			if (key) options.onKeyRegistered?.();
 		}
 		// The ready announcement is the acknowledgement the server can route to this endpoint; only a
 		// fresh matching one may be used. Never fall back to a different endpoint.

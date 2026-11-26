@@ -1,7 +1,7 @@
 import { Overlay, ShellProvider } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ConversationPage } from "../pages/conversation-page.tsx";
+import { ConversationPage } from "../pages/messages-page.tsx";
 import type { useTaskPreset } from "./use-task-preset.ts";
 
 export function BotPresetOverlay({

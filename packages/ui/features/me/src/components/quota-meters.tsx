@@ -1,10 +1,9 @@
 import type { QuotaPool, QuotaResponse } from "@yonder/protocol";
 import { useQuotaConfig, useQuotaRates } from "@yonder/ui-data";
-import { formatInstant } from "@yonder/ui-time";
 import type { TFunction } from "i18next";
 import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { BILLING_TIME_ZONE, formatQuota, formatTokens } from "./quota-number.tsx";
+import { formatQuota, formatTokens } from "./quota-number.tsx";
 
 export const POOL_ORDER: readonly QuotaPool[] = ["main", "background", "coding", "external", "tools"];
 
@@ -56,13 +55,9 @@ export function QuotaMeters({ quota, onOpenPool }: { quota: QuotaResponse; onOpe
 	const main = quota.pools.main;
 	const floor = mainFloor(quota);
 	const floorAt = floor !== null && main.granted > 0 ? Math.min(100, (floor / main.granted) * 100) : null;
-	// The billing cycle is Beijing's, so its reset date is read in that zone on every device.
-	const reset = formatInstant(quota.cycle.resetsAt, {
-		zone: BILLING_TIME_ZONE,
-		locale,
-		style: "monthDay",
-		width: "long",
-	});
+	const reset = new Intl.DateTimeFormat(locale, { month: "long", day: "numeric" }).format(
+		new Date(quota.cycle.resetsAt),
+	);
 	const monthly = config.data?.monthly.main;
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)]">

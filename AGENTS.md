@@ -2,26 +2,11 @@
 
 这是公开客户端仓库，负责 Web、macOS、Windows、Android、iOS。
 
-## 开工前读
-
-| 要做什么                   | 先读                                                         |
-| -------------------------- | ------------------------------------------------------------ |
-| 做任何界面或交互           | [docs/interface-principles.md](docs/interface-principles.md) |
-| 用 tokens、组件、页面骨架  | [docs/design-system.md](docs/design-system.md)               |
-| 做设置页或表单             | [docs/settings-forms.md](docs/settings-forms.md)             |
-| 改代码结构、分层、页面模型 | [docs/architecture.md](docs/architecture.md)                 |
-| 发版                       | [docs/operations/release.md](docs/operations/release.md)     |
-
-产品判断（做什么、为什么）在私有服务端仓库的 `docs/product/`；本仓库只放和界面直接相关的部分。
-
-## 仓库规则
-
 - 当前唯一主线是 `main`；不从旧 worktree 或 `~/Archive` 复制实现。
 - 前端交互、页面细节、下载、更新和四端壳都在这里改。
-- 云端业务、数据库、模型密钥、生产环境配置在私有服务端仓库，不要移入本仓库。
-- 遵守 `docs/architecture.md`；分层、入口导入和文件长度检查必须通过。一次性评审和验收报告不放进 `docs/`，放在仓库外。被替代的文档原样移进 `docs/history/`，第一行加一条归档横幅。
-- 能在主 Bot 聊天中完成的功能，不新增页面、表单或设置。
-- 页面不放不能交互的解释性文字，不放示例用户、示例消息、假模型或假数据；不写死以 Bot 名义说的话。
+- 云端业务、数据库、模型密钥、生产环境配置在私有 `~/Documents/yonder/yonder`，不要移入本仓库。
+- 遵守 `docs/architecture.md`；分层、入口导入和文件长度检查必须通过。一次性评审和验收报告不放进 `docs/`，放在仓库外 `~/Documents/yonder/reviews/`。
+- 页面不放不能交互的解释性文字，不放示例用户、示例消息、假模型或假数据。
 - 每个用户可见文案都有 `zh-CN` 与 `en`，颜色、尺寸、圆角只用 tokens，图标使用 `lucide-react`。
 - 不操作用户屏幕做验证；用单元测试、浏览器自动化、adb、隔离原生测试和 GitHub Actions。
 - 发版前读取最新 `origin/main` 并快进同步，保留他人的并行修改。
@@ -40,8 +25,8 @@
 ## 发版与测试（2026-11-24 起）
 
 - 当前使用正式版号发出的都是开发测试版，不代表生产验收。先发版，完整 CI 在发布后异步反馈；开发迭代目标 3–5 分钟，不以各端分发完成为前提。
-- 发版 Agent 触发后交给发布值守，不重复盯构建、部署或 CI。发布值守核验每个开发版的实际可用状态并通知维护者；iOS 只有确认该准确版本已能在 TestFlight 更新才通知，不把上传成功当作可更新。
-- 发布值守用最小改动修复 CI 和产品回归，不删减功能、不顺手重构。严重产品或功能冲突、需要设计取舍的问题交给维护者；Mac 上的 Claude/Codex Agent 负责新功能。
+- 发版 Agent 触发后交给 Dot，不重复盯构建、部署或 CI。Dot 核验每个开发版的实际可用状态并通知 Zoran；iOS 只有确认该准确版本已能在 TestFlight 更新才通知，不把上传成功当作可更新。
+- Dot 负责用最小改动修复 CI 和产品回归，不删减功能、不顺手重构。严重产品或功能冲突、需要设计取舍的问题交给 Zoran；Mac 上的 Claude/Codex Agent 负责新功能。
 - 发版前在本机跑的测试最多 3 分钟（`npm run check` 这一类）。端到端测试、原生测试等更长的测试不在本机跑、不挡发版，交给 GitHub 的常规 CI 在发版后异步跑，CI 红了按 bug 修。
 - 发版直接执行 `gh workflow run release.yml -R GoYonderTogether/yonder-client -f ref=main`，不加 `require_ci`，不等 CI。
 

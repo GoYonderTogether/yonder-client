@@ -24,8 +24,6 @@ const me: MeResponse = {
 	handleChange: { canChange: true, nextChangeAt: null },
 	hasPassword: false,
 	settings: { locale: "en", theme: "system" },
-	timezone: { mode: "auto", zone: "Asia/Shanghai", manual: null, device: null },
-	locale: { mode: "auto", value: "en", manual: null, device: null },
 };
 
 describe("applyServerEvent", () => {

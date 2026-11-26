@@ -64,8 +64,6 @@ function setup() {
 		handleChange: { canChange: true, nextChangeAt: null },
 		hasPassword: false,
 		settings: { locale: "en", theme: "system" },
-		timezone: { mode: "auto", zone: "Asia/Shanghai", manual: null, device: null },
-		locale: { mode: "auto", value: "en", manual: null, device: null },
 	});
 	client.setQueryData(keys.contacts(), { items: [person, bot] });
 	client.setQueryData(keys.conversations.list(), { items: [direct] });

@@ -1,6 +1,6 @@
 import { recordingDuration } from "@yonder/feature-meetings";
 import { Button } from "@yonder/ui-components";
-import { useAccountTimeZone, useMeeting } from "@yonder/ui-data";
+import { useMeeting } from "@yonder/ui-data";
 import { ChevronRight } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,7 +17,6 @@ import { memoryFileRoute } from "./memory/memory-view.ts";
 
 export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 	const { t, i18n } = useTranslation();
-	const zone = useAccountTimeZone();
 	const detailsId = useId();
 	const query = useMeeting(id);
 	const meeting = query.data;
@@ -47,12 +46,12 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 	// The two files the recording keeps in memory: its transcript and its write-up, both openable.
 	const files = meeting?.memoryFiles ?? [];
 	const topic = title.trim() || meeting?.topic?.trim() || meeting?.title.trim() || t("meetingRecorder.defaultTitle");
-	const date = recordingNoteDate(meeting?.startedAt, i18n.resolvedLanguage, zone);
+	const date = recordingNoteDate(meeting?.startedAt, i18n.resolvedLanguage);
 	const duration = recordingNoteDuration(meeting?.durationMs);
 	const details = [date, duration ? t(`meetingRecorder.card${duration.unit}`, duration) : null]
 		.filter(Boolean)
 		.join(" · ");
-	const time = recordingNoteTimeRange(meeting?.startedAt, meeting?.endedAt, i18n.resolvedLanguage, zone);
+	const time = recordingNoteTimeRange(meeting?.startedAt, meeting?.endedAt, i18n.resolvedLanguage);
 	const brief = meeting?.brief?.trim();
 	// While the transcript is still being recognized, the card states how far it has got — the same
 	// batches and percentage the Bot reads, so neither side can claim a progress the other lacks.

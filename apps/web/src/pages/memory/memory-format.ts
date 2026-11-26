@@ -1,12 +1,4 @@
 import type { MemoryActivity, MemoryBlock, MemoryEntry, MemoryKind } from "@yonder/protocol";
-import {
-	daysAgo as calendarDaysAgo,
-	formatCalendarDay,
-	formatCalendarWeekday,
-	formatInstant,
-	msUntilNextMinute,
-	yearInZone,
-} from "@yonder/ui-time";
 import type { LucideIcon } from "lucide-react";
 import {
 	Bike,
@@ -67,15 +59,16 @@ export const entryIcon = (entry: MemoryEntry) =>
 export const blockAt = (block: MemoryBlock) =>
 	Date.parse(block.type === "entry" ? block.entry.at : block.stay.startsAt);
 
-/** `YYYY-MM-DD` as a calendar date at noon UTC: a day has no instants of its own. */
+/** `YYYY-MM-DD` as a local calendar date. */
 export function parseDay(date: string) {
 	const [year, month, day] = date.split("-").map(Number);
-	return new Date(Date.UTC(year as number, (month as number) - 1, day as number, 12));
+	return new Date(year as number, (month as number) - 1, day as number);
 }
 
-/** Whole calendar days from `date` to `now`'s day in the account's zone; positive means the past. */
-export function daysAgo(date: string, now: Date, zone: string) {
-	return calendarDaysAgo(date, now, zone);
+/** Whole calendar days from `date` to `now`; positive means the past. */
+export function daysAgo(date: string, now: Date) {
+	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	return Math.round((today.getTime() - parseDay(date).getTime()) / 86_400_000);
 }
 
 export const RELATIVE_DAY: Record<number, string> = {
@@ -85,32 +78,35 @@ export const RELATIVE_DAY: Record<number, string> = {
 	[-1]: "memory.tomorrow",
 };
 
-/**
- * The current minute, so "now" markers move without re-rendering on every tick. Each tick lands on
- * the account zone's next whole minute, which is the boundary every clock label changes on.
- */
-export function useMinute(zone: string) {
+/** The current minute, so "now" markers move without re-rendering on every tick. */
+export function useMinute() {
 	const [now, setNow] = useState(() => new Date());
 	useEffect(() => {
 		let timer: ReturnType<typeof setTimeout>;
 		const tick = () => {
 			const current = new Date();
 			setNow(current);
-			timer = setTimeout(tick, msUntilNextMinute(current, zone));
+			timer = setTimeout(tick, 60_000 - (current.getTime() % 60_000));
 		};
 		tick();
 		return () => clearTimeout(timer);
-	}, [zone]);
+	}, []);
 	return now;
 }
 
 export const memoryFormat = {
-	/** An instant on the account's clock. */
-	time: (iso: string | Date, locale: string, zone: string) => formatInstant(iso, { zone, locale, style: "time" }),
-	/** A stored `YYYY-MM-DD` day, written out; the zone does not apply to a day. */
+	time: (iso: string | Date, locale: string) =>
+		new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(
+			typeof iso === "string" ? new Date(iso) : iso,
+		),
 	date: (date: string, locale: string, withYear: boolean) =>
-		formatCalendarDay(date, { locale, width: "long", year: withYear ? "always" : "never" }),
-	weekday: (date: string, locale: string) => formatCalendarWeekday(date, locale),
+		new Intl.DateTimeFormat(locale, {
+			month: "long",
+			day: "numeric",
+			...(withYear ? { year: "numeric" } : {}),
+		}).format(parseDay(date)),
+	weekday: (date: string, locale: string) =>
+		new Intl.DateTimeFormat(locale, { weekday: "short" }).format(parseDay(date)),
 	number: (value: number, locale: string) => new Intl.NumberFormat(locale).format(value),
 	duration: (ms: number) => {
 		const seconds = Math.round(ms / 1000);
@@ -119,10 +115,10 @@ export const memoryFormat = {
 };
 
 /** The day's name as the reader says it: today, yesterday, or the date. */
-export function dayName(date: string, now: Date, t: (key: string) => string, locale: string, zone: string) {
-	const ago = daysAgo(date, now, zone);
+export function dayName(date: string, now: Date, t: (key: string) => string, locale: string) {
+	const ago = daysAgo(date, now);
 	const relative = RELATIVE_DAY[ago];
-	const withYear = Number(date.slice(0, 4)) !== yearInZone(now, zone);
+	const withYear = parseDay(date).getFullYear() !== now.getFullYear();
 	return {
 		name: relative ? t(relative) : memoryFormat.date(date, locale, withYear),
 		sub: relative

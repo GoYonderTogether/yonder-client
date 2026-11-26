@@ -2,19 +2,12 @@ import type { ItemSummary } from "@yonder/protocol";
 import { describe, expect, test } from "vitest";
 import {
 	groupItems,
-	isPlaceholderTitle,
 	itemActions,
-	itemElapsed,
 	itemFailure,
 	itemGroup,
-	itemPause,
-	itemSectionKey,
-	itemSourceKey,
-	itemStateKind,
+	itemSummaryLine,
 	itemTimeLabel,
 	itemTrailingKey,
-	itemWaitingText,
-	sectionItems,
 	upcomingOneOffs,
 } from "./items-format.ts";
 
@@ -63,114 +56,33 @@ describe("the day groups", () => {
 	});
 });
 
-describe("the fixed sections above the days", () => {
-	test("需要你 comes first, then 进行中, then the day groups; each is newest first", () => {
-		const sections = sectionItems(
-			[
-				item({ id: "done", state: "completed", startedAt: "2026-11-17T08:00:00.000Z" }),
-				item({ id: "wait-old", state: "waiting_user", startedAt: "2026-11-16T08:00:00.000Z" }),
-				item({ id: "running", state: "running", startedAt: "2026-11-17T09:00:00.000Z" }),
-				item({ id: "wait-new", state: "waiting_user", startedAt: "2026-11-17T10:00:00.000Z" }),
-				item({ id: "failed", state: "failed", startedAt: "2026-11-17T07:00:00.000Z" }),
-			],
-			NOON,
-			"UTC",
-		);
-		expect(sections.map((section) => section.group)).toEqual(["needs", "active", "today"]);
-		expect(sections[0]?.items.map((entry) => entry.id)).toEqual(["wait-new", "wait-old"]);
-		expect(sections[1]?.items.map((entry) => entry.id)).toEqual(["running"]);
-		// Everything that has ended — completed, failed, paused, cancelled — belongs to its day.
-		expect(sections[2]?.items.map((entry) => entry.id)).toEqual(["done", "failed"]);
-	});
-
-	test("an empty 需要你 or 进行中 group is left out entirely", () => {
-		const sections = sectionItems([item({ id: "done", state: "completed" })], NOON, "UTC");
-		expect(sections.map((section) => section.group)).toEqual(["today"]);
-		expect(sectionItems([], NOON, "UTC")).toEqual([]);
-	});
-
-	test("a paused item is a day group, not a live section: no control drives it from here", () => {
-		const sections = sectionItems([item({ id: "paused", state: "paused" })], NOON, "UTC");
-		expect(sections.map((section) => section.group)).toEqual(["today"]);
-	});
-
-	test("the headings read 需要你 / 进行中 / 今天", () => {
-		expect(itemSectionKey("needs")).toBe("tasks.itemGroupWaiting");
-		expect(itemSectionKey("active")).toBe("tasks.itemGroupActive");
-		expect(itemSectionKey("today")).toBe("tasks.itemsToday");
-	});
-});
-
-describe("the state a row marks", () => {
-	test("each state maps to one of the five marks; cancelled reads as finished", () => {
-		expect(itemStateKind(item({ state: "running" }))).toBe("running");
-		expect(itemStateKind(item({ state: "waiting_user" }))).toBe("waiting");
-		expect(itemStateKind(item({ state: "failed" }))).toBe("failed");
-		expect(itemStateKind(item({ state: "paused" }))).toBe("paused");
-		expect(itemStateKind(item({ state: "completed" }))).toBe("done");
-		expect(itemStateKind(item({ state: "cancelled" }))).toBe("done");
-	});
-});
-
-describe("how a row says where it came from", () => {
-	test("each source has its own word", () => {
-		expect(itemSourceKey("meeting")).toBe("tasks.itemSourceMeeting");
-		expect(itemSourceKey("conversation")).toBe("tasks.itemSourceConversation");
-		expect(itemSourceKey("subtask")).toBe("tasks.itemSourceSubtask");
-		expect(itemSourceKey("schedule_run")).toBe("tasks.itemSourceSchedule");
-		expect(itemSourceKey("visit")).toBe("tasks.itemSourceVisit");
-	});
-});
-
 describe("what an item says", () => {
+	test("a result, a failure reason and nothing are three different lines", () => {
+		expect(itemSummaryLine(item({ result: "做完了", state: "completed" }))).toEqual({
+			kind: "result",
+			text: "做完了",
+		});
+		// A failure's reason wins over any result the source also recorded.
+		expect(itemSummaryLine(item({ state: "failed", result: "半截", failureReason: "run_error" }))).toEqual({
+			kind: "failure",
+			text: "run_error",
+		});
+		expect(itemSummaryLine(item())).toEqual({ kind: "none", text: null });
+	});
+
 	test("a reason code reads as a sentence, and an unknown one is the quiet failure", () => {
 		expect(itemFailure("background_quota_exhausted", "zh-CN")).toEqual({ text: "后台额度已用完", tone: "action" });
 		expect(itemFailure("idle_timeout", "zh-CN")).toEqual({ text: "Bot 长时间没有进展，已停下", tone: "quiet" });
 		expect(itemFailure("cancelled_by_bot", "zh-CN")).toEqual({ text: "已取消", tone: "quiet" });
-		expect(itemFailure("schedule_missed", "zh-CN")).toEqual({ text: "错过了执行时间", tone: "quiet" });
 		// Our own machinery never shows its code, in either language.
 		expect(itemFailure("reply_protocol", "zh-CN")).toEqual({ text: "这次没有回复", tone: "quiet" });
 		expect(itemFailure("what_is_this", "en")).toEqual({ text: "No reply this time", tone: "quiet" });
 		expect(itemFailure(null, "en")).toEqual({ text: "No reply this time", tone: "quiet" });
 	});
 
-	test("a pause names the device's reason in words, never its code", () => {
-		expect(itemPause("device_offline", "zh-CN")).toBe("设备不在线，稍后会自动继续");
-		expect(itemPause("device_offline", "en")).toBe("Device offline; resumes by itself");
-		expect(itemPause(null, "zh-CN")).toBe("Bot 暂停了这件事");
-	});
-
-	test("a wait says what it waits for, without repeating a title that is already the question", () => {
-		expect(itemWaitingText(item({ waitingReason: "等你确认预算" }), "整理账单", "zh-CN")).toBe("等你确认预算");
-		expect(itemWaitingText(item({ waitingReason: "周四有空吗" }), "小王 · 周四有空吗", "zh-CN")).toBe(
-			"在等你回复或确认",
-		);
-		expect(itemWaitingText(item(), "整理账单", "en")).toBe("Waiting for your reply");
-	});
-
-	test("a time is on the account's clock, read in its zone", () => {
-		expect(itemTimeLabel("2026-11-17T02:05:00.000Z", "en-GB", "Asia/Shanghai")).toBe("10:05");
-		expect(itemTimeLabel("2026-11-17T02:05:00.000Z", "en-GB", "America/New_York")).toBe("21:05");
-		expect(itemTimeLabel("not-an-instant", "en-GB", "UTC")).toBe("not-an-instant");
-	});
-
-	test("how long a run has been going reads in whole units", () => {
-		expect(itemElapsed("2026-11-17T11:59:40.000Z", NOON, "zh-CN")).toBe("刚刚");
-		expect(itemElapsed("2026-11-17T11:55:00.000Z", NOON, "zh-CN")).toBe("5分钟");
-		expect(itemElapsed("2026-11-17T08:00:00.000Z", NOON, "en")).toBe("4 hours");
-		expect(itemElapsed("2026-11-15T12:00:00.000Z", NOON, "en")).toBe("2 days");
-	});
-});
-
-describe("a placeholder title", () => {
-	test("the recording pipeline's defaults are recognised, with or without their detail", () => {
-		expect(isPlaceholderTitle("录音笔记")).toBe(true);
-		expect(isPlaceholderTitle("会议录音")).toBe(true);
-		expect(isPlaceholderTitle("录音笔记：东湖")).toBe(true);
-		expect(isPlaceholderTitle("Recording notes")).toBe(true);
-		expect(isPlaceholderTitle("Meeting recording: East Lake")).toBe(true);
-		expect(isPlaceholderTitle("与林远的融资沟通")).toBe(false);
-		expect(isPlaceholderTitle("录音笔记整理工具")).toBe(false);
+	test("a time is the reader's hour format", () => {
+		expect(itemTimeLabel("2026-11-17T02:05:00.000Z", "en-GB")).toMatch(/^\d{2}:\d{2}$/);
+		expect(itemTimeLabel("not-an-instant", "en-GB")).toBe("not-an-instant");
 	});
 });
 

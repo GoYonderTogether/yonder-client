@@ -1,7 +1,6 @@
 import Taro from "@tarojs/taro";
 import { ApiClient, createEndpoints } from "@yonder/api-client";
 import type { Attachment, DeviceInfo, Member, MeResponse } from "@yonder/protocol";
-import { deviceTimeZone } from "@yonder/ui-time";
 import { useSyncExternalStore } from "react";
 import { setLocale } from "./i18n";
 import { type ChosenImage, readAvatar } from "./local-image";
@@ -171,10 +170,6 @@ export function deviceInfo(): DeviceInfo & { installationId: string } {
 		name: model && model.length <= 128 ? model : "WeChat",
 		platform: "miniprogram",
 		appVersion,
-		// This phone's own zone and system language, so a new account starts where its owner is;
-		// a `manual` account keeps them only as the hint (migration 127).
-		timezone: deviceTimeZone(),
-		locale: /^zh\b|^zh-/iu.test(Taro.getSystemInfoSync().language ?? "en") ? "zh-CN" : "en",
 	};
 }
 

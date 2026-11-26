@@ -88,8 +88,6 @@ const props = {
 	onResend: vi.fn(),
 	onRetry: vi.fn(),
 	onOpenMeeting: vi.fn(),
-	onOpenMember: vi.fn(),
-	onMention: vi.fn(),
 	retrying: false,
 };
 function view(items: CachedMessage[], overrides: Partial<typeof props> = {}) {
@@ -365,61 +363,16 @@ test("group names show a private responsibility for the viewer's Bot and AI for 
 	expect([...container.querySelectorAll("[data-bot-duty]")].map((node) => node.textContent)).toEqual(["安排日程"]);
 });
 
-test("a sender's avatar and their name open the same card, as in QQ and WeChat", () => {
+test("a sender's avatar opens their card, as in QQ and WeChat", () => {
 	const onOpenMember = vi.fn();
 	const view = render(
 		<I18nextProvider i18n={createI18n("zh-CN")}>
 			<ConversationMessages {...props} items={[message("m1", "alice")]} onOpenMember={onOpenMember} />
 		</I18nextProvider>,
 	);
-	const openers = view.getAllByRole("button", { name: "打开 真实成员甲 的资料" });
-	// The avatar and the name are the same hit area, so both carry the one label.
-	expect(openers).toHaveLength(2);
-	for (const opener of openers) {
-		onOpenMember.mockClear();
-		fireEvent.click(opener);
-		expect(onOpenMember).toHaveBeenCalledWith("alice");
-	}
+	fireEvent.click(view.getByRole("button", { name: "打开 真实成员甲 的资料" }));
+	expect(onOpenMember).toHaveBeenCalledWith("alice");
 	view.unmount();
-});
-
-test("both sides carry an avatar, even in the owner's own Bot chat", () => {
-	const { container } = render(
-		view([message("m1", "self"), message("m2", "alice"), message("m3", "alice")], {
-			conversation: { ...conversation, kind: "direct" },
-		}),
-	);
-	const runs = [...container.querySelectorAll("[data-message-run]")];
-	expect(runs.map((run) => run.getAttribute("data-run-sender"))).toEqual(["self", "other"]);
-	for (const run of runs) expect(run.querySelectorAll("[data-message-sender-avatar]")).toHaveLength(1);
-	// The owner's own face is the account's, not the Bot's, and it sits on the far side.
-	expect(
-		container.querySelector('[data-message-run="self"] [data-message-sender-avatar] img')?.getAttribute("src"),
-	).toBe(person.avatarUrl);
-});
-
-test("a group sender's @ control sits beside the name and asks for that member, never opening the profile", () => {
-	const onOpenMember = vi.fn();
-	const onMention = vi.fn();
-	const { container } = render(view([message("m1", "alice"), message("m2", "self")], { onOpenMember, onMention }));
-	const mention = container.querySelector("[data-message-mention]");
-	expect(mention).toBeTruthy();
-	expect(mention?.getAttribute("data-message-mention")).toBe("alice");
-	expect(container.querySelector('[data-message-run="self"] [data-message-mention]')).toBeNull();
-	fireEvent.click(mention as HTMLElement);
-	expect(onMention).toHaveBeenCalledWith("alice", "真实成员甲");
-	expect(onOpenMember).not.toHaveBeenCalled();
-});
-
-test("the @ control stays out of a one-to-one chat", () => {
-	const { container } = render(
-		view([message("m1", "alice")], {
-			conversation: { ...conversation, kind: "direct" },
-			onOpenMember: vi.fn(),
-			onMention: vi.fn(),
-		}),
-	);
-	expect(container.querySelector("[data-message-mention]")).toBeNull();
 });
 
 test("a connector intake card is owner-side without reassigning the Bot or neighboring replies", () => {

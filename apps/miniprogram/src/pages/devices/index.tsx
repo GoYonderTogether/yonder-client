@@ -1,17 +1,14 @@
 import { Text, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import type { DeviceSummary } from "@yonder/protocol";
-import { formatInstant } from "@yonder/ui-time";
 import { useState } from "react";
 import { action, Button, Field, Page, Row, State } from "../../components/ui";
 import { useResource } from "../../components/use-resource";
-import { currentLocale, t } from "../../lib/i18n";
+import { t } from "../../lib/i18n";
 import { api, useSession } from "../../lib/runtime";
-import { accountTimeZone } from "../../lib/time";
 
 export default function Devices() {
-	const { signOut, me } = useSession();
-	const zone = accountTimeZone(me);
+	const { signOut } = useSession();
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const { data, loading, error, reload } = useResource(async () => ({
 		devices: await api.devices(),
@@ -47,7 +44,7 @@ export default function Devices() {
 						<View key={session.id}>
 							<Row
 								title={device?.remark?.trim() || device?.name || session.deviceName}
-								detail={`${session.platform} · ${formatInstant(session.lastSeenAt, { zone, locale: currentLocale(), style: "dateTime", width: "short", year: "always" })}`}
+								detail={`${session.platform} · ${new Date(session.lastSeenAt).toLocaleString()}`}
 							/>
 							<Button
 								secondary

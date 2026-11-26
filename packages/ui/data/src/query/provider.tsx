@@ -3,7 +3,7 @@
  * realtime connection and the sign-out sweep, so a feature calls `useMe()` and trusts the rest.
  */
 
-import { type QueryClient, useIsRestoring, useQueryClient } from "@tanstack/react-query";
+import { useIsRestoring, useQueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import type { Endpoints } from "@yonder/api-client";
 import { ApiClient, createEndpoints } from "@yonder/api-client";
@@ -44,9 +44,6 @@ export interface DataProviderProps {
 
 export interface DataContextValue {
 	client: ApiClient;
-	/** The one query cache, for the preferences hook's own answer (the me query). */
-	queryClient: QueryClient;
-	queryClientForPreferences: QueryClient;
 	api: Endpoints;
 	realtime: RealtimeConnection;
 	storage: Storage;
@@ -118,8 +115,6 @@ export function DataProvider({
 		() => ({
 			...clientParts,
 			api,
-			queryClient,
-			queryClientForPreferences: queryClient,
 			storage,
 			async startSession(session) {
 				await onSessionChange?.();
@@ -219,15 +214,6 @@ function SessionBootstrapper({
 	return null;
 }
 
-/**
- * The context's value, or `null` when a component is rendered outside the provider — a unit test
- * of one row, for instance. Only preferences use this: they have an honest device-level default,
- * while server data does not.
- */
-export function useDataOrNull(): DataContextValue | null {
-	return useContext(DataContext);
-}
-
 export function useData(): DataContextValue {
 	const value = useContext(DataContext);
 	if (!value) throw new Error("useData must be used inside <DataProvider>");
@@ -236,11 +222,6 @@ export function useData(): DataContextValue {
 
 export function useApi(): Endpoints {
 	return useData().api;
-}
-
-/** The API, or `null` outside the provider: a preference row still renders on its own. */
-export function useApiOrNull(): Endpoints | null {
-	return useDataOrNull()?.api ?? null;
 }
 
 /** The query cache, for the rare caller that needs to invalidate directly. */

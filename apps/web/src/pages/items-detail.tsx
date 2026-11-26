@@ -1,26 +1,15 @@
 import { MessageBubble, MessageRun, SystemNotice } from "@yonder/chat-presentation";
 import type { ItemDetail } from "@yonder/protocol";
 import { Button, EmptyState } from "@yonder/ui-components";
-import { ApiError, useAccountTimeZone, useItem, useItemActions, type useItemSession } from "@yonder/ui-data";
+import { ApiError, useItem, useItemActions, type useItemSession } from "@yonder/ui-data";
 import { PageFrame } from "@yonder/ui-shell";
-import { formatInstant } from "@yonder/ui-time";
-import { Ellipsis, ListChecks } from "lucide-react";
+import { CircleCheck, CircleX, Clock3, Ellipsis, ListChecks } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { ConversationPage } from "./conversation-page.tsx";
 import { ItemMeetingCard } from "./item-meeting-card.tsx";
 import { ItemSessionTitle } from "./item-session-title.tsx";
-import {
-	itemActions,
-	itemFailure,
-	itemGroup,
-	itemPause,
-	itemTimeLabel,
-	itemTrailingKey,
-	itemWaitingText,
-	localDay,
-} from "./items-format.ts";
-import { ItemStatusIcon } from "./items-status.tsx";
+import { itemActions, itemFailure, itemGroup, itemTimeLabel, itemTrailingKey, localDay } from "./items-format.ts";
 import { MessageContent } from "./message-content.tsx";
+import { ConversationPage } from "./messages-page.tsx";
 import { OutwardRequestCard } from "./outward-request-card.tsx";
 
 export function ItemDetailPage({
@@ -41,7 +30,6 @@ export function ItemDetailPage({
 	const actions = useItemActions();
 	const item = query.data;
 	const locale = i18n.resolvedLanguage ?? i18n.language;
-	const zone = useAccountTimeZone();
 	if (!item)
 		return (
 			<PageFrame title={t("tasks.itemHeading")}>
@@ -68,7 +56,7 @@ export function ItemDetailPage({
 		);
 
 	const canRename = Boolean(session.data) && (item.source === "meeting" || item.source === "conversation");
-	const title = <ItemHeader item={item} locale={locale} zone={zone} t={t} canRename={canRename && !disconnected} />;
+	const title = <ItemHeader item={item} locale={locale} t={t} canRename={canRename && !disconnected} />;
 	const allowed = itemActions(item);
 	const busy = actions.cancel.isPending;
 	/**
@@ -146,69 +134,45 @@ export function ItemDetailPage({
 function ItemHeader({
 	item,
 	locale,
-	zone,
 	t,
 	canRename,
 }: {
 	item: ItemDetail;
 	locale: string;
-	/** The account's zone: the header's clock and its day are both read in it. */
-	zone: string;
 	t: ReturnType<typeof useTranslation>["t"];
 	canRename: boolean;
 }) {
-	const date = (iso: string) => formatInstant(iso, { zone, locale, style: "date", width: "long", year: "always" });
+	const Status =
+		item.state === "completed" ? CircleCheck : item.state === "failed" || item.state === "cancelled" ? CircleX : Clock3;
+	const dates = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" });
 	const start = new Date(item.startedAt);
 	const end = item.endedAt ? new Date(item.endedAt) : null;
-	const group = itemGroup(item.startedAt, new Date(), zone);
+	const group = itemGroup(item.startedAt, new Date());
 	const day =
-		group === "earlier" ? date(item.startedAt) : t(group === "today" ? "tasks.itemsToday" : "tasks.itemsYesterday");
-	const started = itemTimeLabel(item.startedAt, locale, zone);
-	const ended = item.endedAt ? itemTimeLabel(item.endedAt, locale, zone) : null;
-	const endDay = end && localDay(end, zone) !== localDay(start, zone) ? date(item.endedAt as string) : null;
+		group === "earlier" ? dates.format(start) : t(group === "today" ? "tasks.itemsToday" : "tasks.itemsYesterday");
+	const started = itemTimeLabel(item.startedAt, locale);
+	const ended = item.endedAt ? itemTimeLabel(item.endedAt, locale) : null;
+	const endDay = end && localDay(end) !== localDay(start) ? dates.format(end) : null;
 	const word = itemTrailingKey(item);
-	// The same mark the list uses (2026-11-26), so one item reads the same in both places. The
-	// header writes the state out in words, so the mark itself is decorative here.
-	const status = (
-		<span className="shrink-0">
-			<ItemStatusIcon item={item} size={14} named={false} />
-		</span>
-	);
-	const reason =
-		item.state === "failed" && item.failureReason
-			? itemFailure(item.failureReason, locale).text
-			: item.state === "paused"
-				? itemPause(item.failureReason, locale)
-				: item.state === "waiting_user"
-					? itemWaitingText(item, item.title, locale)
-					: null;
 	return (
 		<div className="flex min-w-0 flex-col gap-[calc(var(--spacing-1)/2)]">
 			<ItemSessionTitle key={item.id} id={item.id} title={item.title} canRename={canRename} />
 			<div className="flex min-w-0 items-center gap-[var(--spacing-1)] text-caption font-normal text-[var(--color-text-secondary)]">
-				{status}
+				<Status size={14} aria-hidden="true" className="shrink-0" />
 				{word ? (
 					<>
 						<span className="shrink-0">{t(word)}</span>
 						<span aria-hidden="true">·</span>
 					</>
 				) : null}
-				<span className="min-w-0 truncate">
-					{reason ? <span>{reason}</span> : null}
-					{reason ? <span aria-hidden="true"> · </span> : null}
-					<time
-						dateTime={item.startedAt}
-						title={t("tasks.itemStartedAt", { at: `${date(item.startedAt)} ${started}` })}
-					>
+				<span className="truncate">
+					<time dateTime={item.startedAt} title={t("tasks.itemStartedAt", { at: `${dates.format(start)} ${started}` })}>
 						{day} {started}
 					</time>
 					{item.endedAt && end && ended ? (
 						<>
 							<span aria-hidden="true"> – </span>
-							<time
-								dateTime={item.endedAt}
-								title={t("tasks.itemEndedAt", { at: `${date(item.endedAt as string)} ${ended}` })}
-							>
+							<time dateTime={item.endedAt} title={t("tasks.itemEndedAt", { at: `${dates.format(end)} ${ended}` })}>
 								{endDay ? `${endDay} ` : ""}
 								{ended}
 							</time>

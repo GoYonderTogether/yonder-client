@@ -242,13 +242,7 @@ export function useChat(id: string) {
 			}
 		});
 	}, [id, status, load, refresh, acceptConversation, acceptMessage]);
-	const send = async (
-		body: string,
-		attachments: Attachment[],
-		skillIds: string[],
-		retryNonce?: string,
-		mentionedMemberIds?: string[],
-	) => {
+	const send = async (body: string, attachments: Attachment[], skillIds: string[], retryNonce?: string) => {
 		if (sendLock.current || !id || !memberId || messagesOwner.current !== outboxKey) return;
 		sendLock.current = true;
 		const ticket = epoch.current;
@@ -259,7 +253,6 @@ export function useChat(id: string) {
 			attachmentIds: attachments.map((file) => file.id),
 			clientNonce: nonce,
 			...(skillIds.length ? { skillIds } : {}),
-			...(mentionedMemberIds?.length ? { mentionedMemberIds } : {}),
 		};
 		requests.current.set(nonce, request);
 		setSending(true);

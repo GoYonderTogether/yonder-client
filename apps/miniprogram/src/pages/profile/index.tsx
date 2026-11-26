@@ -1,29 +1,21 @@
 import { Image, View } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { ApiError } from "@yonder/api-client";
-import type { MeResponse } from "@yonder/protocol";
-import { formatInstant } from "@yonder/ui-time";
 import { useEffect, useRef, useState } from "react";
 import { action, Button, errorText, Field, Page } from "../../components/ui";
-import { currentLocale, t } from "../../lib/i18n";
+import { t } from "../../lib/i18n";
 import { api, client, uploadAvatar, useSession } from "../../lib/runtime";
-import { accountTimeZone } from "../../lib/time";
 import { signInDestination } from "../sign-in/destination";
 
-/** A date on the account's calendar; `me` is the signed-in answer at the call site. */
-function formatDay(at: Date, me: MeResponse | null | undefined): string {
-	return formatInstant(at, { zone: accountTimeZone(me), locale: currentLocale(), style: "date", width: "short" });
-}
-
 /** The sentence for a refused handle change; the server's `message` is for developers. */
-function handleProblem(error: unknown, me: MeResponse | null | undefined): string {
+function handleProblem(error: unknown): string {
 	if (error instanceof ApiError) {
 		if (error.code === "handle_taken") return t("这个 ID 已经有人用了", "That ID is already taken");
 		if (error.code === "handle_reserved") return t("这个 ID 是保留词，换一个", "That ID is reserved");
 		if (error.code === "handle_cooldown") {
 			const next = typeof error.details?.nextChangeAt === "string" ? new Date(error.details.nextChangeAt) : null;
 			return next
-				? t(`${formatDay(next, me)} 之后才能再改`, `You can change it again after ${formatDay(next, me)}`)
+				? t(`${next.toLocaleDateString()} 之后才能再改`, `You can change it again after ${next.toLocaleDateString()}`)
 				: t("最近刚改过，稍后再改", "You changed it recently. Try again later");
 		}
 		if (error.code === "invalid_request" && error.details?.field === "handle") {
@@ -109,8 +101,8 @@ export default function Profile() {
 					{handleChange && !handleChange.canChange ? (
 						<View>
 							{t(
-								`${formatDay(new Date(handleChange.nextChangeAt ?? ""), me)} 之后才能再改`,
-								`You can change it again after ${formatDay(new Date(handleChange.nextChangeAt ?? ""), me)}`,
+								`${new Date(handleChange.nextChangeAt ?? "").toLocaleDateString()} 之后才能再改`,
+								`You can change it again after ${new Date(handleChange.nextChangeAt ?? "").toLocaleDateString()}`,
 							)}
 						</View>
 					) : null}
@@ -126,7 +118,7 @@ export default function Profile() {
 									setHandle("");
 									void Taro.showToast({ title: t("已保存", "Saved"), icon: "success" });
 								} catch (error) {
-									void Taro.showToast({ title: handleProblem(error, me), icon: "none" });
+									void Taro.showToast({ title: handleProblem(error), icon: "none" });
 								} finally {
 									setHandleBusy(false);
 								}

@@ -26,9 +26,8 @@ export function memoryEndpoints(client: ApiClient) {
 			return client.request("/v1/memory/understanding", signal ? { signal } : undefined);
 		},
 		/**
-		 * Newest days first; pass the previous page's `nextCursor` for older days. `timeZone` is kept
-		 * for older clients: the server now treats it as a device report (only an `auto` account
-		 * follows it; a `manual` one ignores it) and buckets the day by the account's own zone.
+		 * Newest days first; pass the previous page's `nextCursor` for older days. `timeZone` is the
+		 * device's IANA zone, which decides which calendar day an event belongs to.
 		 */
 		memoryDays(cursor?: string, timeZone?: string): Promise<MemoryDayPage> {
 			const query: string[] = [];

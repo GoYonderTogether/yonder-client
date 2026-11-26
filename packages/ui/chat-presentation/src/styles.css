@@ -112,15 +112,11 @@
 	margin-top: 0;
 }
 
-/* Both sides show a sender avatar (the founder's 11-25 rule). The percentage is taken on the messages
-   column, which already stops short of the avatar (32) and the run's gap (8); 90% of those 40 is 36,
-   so taking 4 more keeps the cap at "90% of the run's width, minus the avatar". A wrapped line still
-   fits its row and a multi-line bubble stays one whole rectangle. */
 .message-bubble {
 	position: relative;
 	box-sizing: border-box;
 	min-width: 0;
-	max-width: calc(var(--message-bubble-width) - var(--spacing-1));
+	max-width: var(--message-bubble-width);
 	border-radius: var(--radius-card);
 	padding: var(--spacing-3) var(--spacing-4);
 	color: var(--color-text-primary);
@@ -134,28 +130,6 @@
 .message-bubble-outgoing {
 	background: var(--color-accent-subtle);
 	border-bottom-right-radius: 0;
-}
-
-/* The @ control beside a group sender's name is a pointer affordance (Slack, Telegram): it appears
-   while the pointer or the keyboard is on that run, and on a touch screen it never appears, because
-   there a tap on the sender opens the profile and a long press on the avatar is the way to @. */
-.message-mention {
-	opacity: 0;
-	pointer-events: none;
-	transition: opacity var(--duration-fast) var(--ease-standard);
-}
-
-@media (hover: hover) and (pointer: fine) {
-	.message-run:hover .message-mention,
-	.message-run:focus-within .message-mention {
-		opacity: 1;
-		pointer-events: auto;
-	}
-}
-
-.message-mention:focus-visible {
-	opacity: 1;
-	pointer-events: auto;
 }
 
 .message-voice-button {

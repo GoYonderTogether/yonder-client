@@ -321,8 +321,7 @@ test("a group sender's avatar opens their card in the side panel", async ({ page
 		}),
 	);
 	await page.goto(`/messages/${conversation.id}`);
-	// The avatar and the name above the message are one hit area with one label; use the avatar's own.
-	await page.locator('[data-message-run="group-stranger"] [data-message-sender-avatar] button').click();
+	await page.getByRole("button", { name: "打开 群里的陌生人 的资料" }).click();
 	const panel = page.getByRole("complementary").or(page.getByRole("dialog")).filter({ hasText: "@stranger1" });
 	await expect(panel.getByRole("button", { name: "加为联系人" })).toBeVisible();
 	await expect(panel.getByRole("heading", { name: "TA 的 Bot" })).toBeVisible();

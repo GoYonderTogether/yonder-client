@@ -1,6 +1,6 @@
 import type { MemoryFileContent } from "@yonder/protocol";
 import { Button, InlineError } from "@yonder/ui-components";
-import { ApiError, useAccountTimeZone, useMemoryFile, useMemoryFileActions } from "@yonder/ui-data";
+import { ApiError, useMemoryFile, useMemoryFileActions } from "@yonder/ui-data";
 import { ArchiveRestore, ListChecks, MessageCircle, Mic, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -49,8 +49,7 @@ export function MemoryFilePage({ path, onDeleted }: { path: string; onDeleted: (
 
 function FileBody({ file, onDeleted }: { file: MemoryFileContent; onDeleted: () => void }) {
 	const { t, i18n } = useTranslation();
-	const zone = useAccountTimeZone();
-	const now = useMinute(zone);
+	const now = useMinute();
 	const author = useAuthorName();
 	const openFile = useOpenMemoryFile();
 	const actions = useMemoryFileActions();
@@ -82,7 +81,7 @@ function FileBody({ file, onDeleted }: { file: MemoryFileContent; onDeleted: () 
 				<p className="text-caption text-[var(--color-text-tertiary)]">
 					{t("memory.updatedByline", {
 						who: author(file),
-						when: relativeTime(file.updatedAt, now, i18n.resolvedLanguage ?? i18n.language, t("memory.justNow"), zone),
+						when: relativeTime(file.updatedAt, now, i18n.resolvedLanguage ?? i18n.language, t("memory.justNow")),
 					})}
 				</p>
 				{privateProfile ? (

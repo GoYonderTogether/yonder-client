@@ -50,7 +50,7 @@ const bot: Member = {
 	avatarUrl: null,
 	bio: null,
 	ownerId: "person_1",
-	isDefault: false,
+	isDefault: true,
 	createdAt: "2026-11-01T00:00:00Z",
 	version: 1,
 };
@@ -79,111 +79,54 @@ function show(items: ItemSummary[]) {
 	);
 }
 
-/** The section headings in the order they are drawn. */
-const headings = (container: HTMLElement) =>
-	[...container.querySelectorAll("h2")].map((heading) => heading.textContent);
-
-test("需要你 and 进行中 come first and only when they have rows; the rest is by day", () => {
+test("items are grouped into today, yesterday and earlier, with earlier collapsed", () => {
 	const now = new Date();
 	const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 	const older = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 	const { container } = show([
-		item({ id: "today", title: "今天的事", state: "completed", startedAt: now.toISOString() }),
+		item({ id: "today", title: "今天的事", startedAt: now.toISOString() }),
+		item({ id: "yesterday", title: "昨天的事", startedAt: yesterday }),
+		item({ id: "old", title: "很久以前的事", startedAt: older }),
+	]);
+	const headings = [...container.querySelectorAll("h2")].map((heading) => heading.textContent);
+	expect(headings).toEqual(["Today", "Yesterday", "Earlier"]);
+	expect(screen.getByText("今天的事")).toBeVisible();
+	expect(screen.getByText("昨天的事")).toBeVisible();
+	expect(screen.getByText("很久以前的事")).toBeVisible();
+});
+
+test("a row shows the title, the word the owner acts on, the Bot and one line of outcome", () => {
+	show([
+		item({ id: "done", title: "整理会议纪要", state: "completed", result: "纪要已发到对话里。" }),
 		item({ id: "waiting", title: "等你确认", state: "waiting_user" }),
-		item({ id: "running", title: "在跑的活" }),
-		item({ id: "yesterday", title: "昨天的事", state: "failed", failureReason: "idle_timeout", startedAt: yesterday }),
-		item({ id: "old", title: "很久以前的事", state: "completed", startedAt: older }),
 	]);
-	expect(headings(container)).toEqual(["Needs you", "Active", "Today", "Yesterday", "Earlier"]);
+	const done = screen.getByText("整理会议纪要").closest("li");
+	expect(done).not.toBeNull();
+	// A finished item adds no state word (2026-11-24); its result line says what it did.
+	expect(within(done as HTMLElement).queryByText("Completed")).toBeNull();
+	expect(within(done as HTMLElement).getByText("纪要已发到对话里。")).toBeVisible();
+	expect(within(done as HTMLElement).getByText(/我的 Bot/)).toBeVisible();
 
-	// The two live sections are gone entirely when nothing is in them.
-	const done = show([item({ id: "done", title: "做完的事", state: "completed" })]);
-	expect(headings(done.container)).toEqual(["Today"]);
-	// 进行中 without 需要你 leaves only the one live section, and a running row is not repeated by day.
-	const runningOnly = show([item({ id: "run", title: "在跑的活" })]);
-	expect(headings(runningOnly.container)).toEqual(["Active"]);
+	// A blocked item says it waits, and does not pretend to have a result.
+	const waiting = screen.getByText("等你确认").closest("li");
+	expect(within(waiting as HTMLElement).getByText("Waiting for you")).toBeVisible();
+	expect(within(waiting as HTMLElement).getByText("No result yet")).toBeVisible();
 });
 
-test("a row is a title and one caption: how it came to be, which Bot, and the time", () => {
+test("a failure shows the real reason the server recorded, never a made-up success", () => {
 	show([
-		item({ id: "meeting", source: "meeting", title: "周会纪要", state: "completed", endedAt: "2026-11-17T02:30:00Z" }),
-		item({ id: "chat", source: "conversation", title: "整理账单", state: "completed" }),
-		item({ id: "sub", title: "查报销规则", state: "completed" }),
-	]);
-	const row = screen.getByText("周会纪要").closest("li") as HTMLElement;
-	expect(row.textContent).toContain("Recording·我的 Bot");
-	expect(screen.getByText("整理账单").closest("li")?.textContent).toContain("Chat·我的 Bot");
-	expect(screen.getByText("查报销规则").closest("li")?.textContent).toContain("Bot task·我的 Bot");
-	// One line only: the outcome is not repeated in the list.
-	expect(screen.queryByText("纪要已发到对话里。")).toBeNull();
-});
-
-test("each state is a mark with its own word, and only the waiting row is highlighted", () => {
-	show([
-		item({ id: "running", title: "在跑的活" }),
-		item({ id: "waiting", title: "等你确认", state: "waiting_user" }),
-		item({ id: "failed", title: "没跑成的事", state: "failed" }),
-		item({ id: "paused", title: "暂停的事", state: "paused" }),
-		item({ id: "done", title: "做完的事", state: "completed" }),
-	]);
-	expect(screen.getByRole("img", { name: "Running" })).toBeVisible();
-	expect(screen.getByRole("img", { name: "Waiting for you" })).toBeVisible();
-	expect(screen.getByRole("img", { name: "Failed" })).toBeVisible();
-	expect(screen.getByRole("img", { name: "Paused" })).toBeVisible();
-	expect(screen.getByRole("img", { name: "Completed" })).toBeVisible();
-	const waiting = screen.getByText("等你确认").closest("button") as HTMLElement;
-	expect(waiting.className).toContain("bg-[var(--color-accent-subtle)]");
-	const failed = screen.getByText("没跑成的事").closest("button") as HTMLElement;
-	expect(failed.className).not.toContain("bg-[var(--color-accent-subtle)]");
-});
-
-test("a wait says what it waits for, in words", () => {
-	show([item({ id: "waiting", title: "整理账单", state: "waiting_user", waitingReason: "等你确认预算" })]);
-	expect(screen.getByText("等你确认预算")).toBeVisible();
-});
-
-test("a failure shows the real reason in words, never the server's code", () => {
-	show([
-		item({ id: "failed", title: "没跑成的事", state: "failed", failureReason: "background_quota_exhausted" }),
 		item({
-			id: "missed",
-			title: "错过的计划",
-			source: "schedule_run",
+			id: "failed",
+			title: "没跑成的事",
 			state: "failed",
-			failureReason: "schedule_missed",
+			failureReason: "background_quota_exhausted",
+			result: "半截",
 		}),
 	]);
-	expect(screen.getByText("Background quota is used up")).toBeVisible();
-	expect(screen.getByText("Missed its scheduled time")).toBeVisible();
-	expect(screen.queryByText("background_quota_exhausted")).toBeNull();
-	expect(screen.queryByText("schedule_missed")).toBeNull();
-});
-
-test("a pause says why it stopped, and a running row says how long", () => {
-	const halfHour = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-	show([
-		item({ id: "paused", title: "暂停的事", state: "paused", failureReason: "device_offline" }),
-		item({ id: "running", title: "在跑的活", startedAt: halfHour }),
-	]);
-	expect(screen.getByText("Device offline; resumes by itself")).toBeVisible();
-	expect(screen.getByText(/Running for 30 minutes/)).toBeVisible();
-});
-
-test("a placeholder recording title leans on its clock time instead of inventing a name", () => {
-	show([
-		item({ id: "ph", source: "meeting", title: "录音笔记", state: "completed", endedAt: "2026-11-17T02:30:00Z" }),
-		item({
-			id: "named",
-			source: "meeting",
-			title: "与林远的融资沟通",
-			state: "completed",
-			endedAt: "2026-11-17T02:30:00Z",
-		}),
-	]);
-	const placeholder = screen.getByText("录音笔记").closest("li") as HTMLElement;
-	expect(placeholder.textContent).toMatch(/Ended \d{2}:\d{2}/);
-	const named = screen.getByText("与林远的融资沟通").closest("li") as HTMLElement;
-	expect(named.textContent).not.toContain("Ended");
+	const row = screen.getByText("没跑成的事").closest("li") as HTMLElement;
+	expect(within(row).getByText("Failed")).toBeVisible();
+	expect(within(row).getByText("Background quota is used up")).toBeVisible();
+	expect(within(row).queryByText("半截")).toBeNull();
 });
 
 test("an empty account is told so", () => {
@@ -216,15 +159,7 @@ test("an opened archive with nothing in it says so", () => {
 
 test("a task row offers rename and delete only; the list no longer archives by hand", async () => {
 	state.change.mockClear();
-	show([
-		item({ id: "active", title: "Active task", startedAt: new Date().toISOString() }),
-		item({
-			id: "old",
-			title: "Old task",
-			archived: true,
-			startedAt: new Date(Date.now() - 60_000).toISOString(),
-		}),
-	]);
+	show([item({ id: "active", title: "Active task" }), item({ id: "old", title: "Old task", archived: true })]);
 	const row = () => screen.getAllByRole("button", { name: /Active task|Old task/ })[0] as HTMLElement;
 	fireEvent.contextMenu(row());
 	expect(screen.getByRole("button", { name: "Rename" })).toBeVisible();
@@ -252,23 +187,13 @@ test("a task row offers rename and delete only; the list no longer archives by h
 	);
 });
 
-test("every row is a button a keyboard can reach and Enter opens it", () => {
-	const opened = vi.fn();
-	state.items = [item({ id: "one", title: "第一件" }), item({ id: "two", title: "第二件" })];
-	state.contacts = [bot];
-	render(
-		<I18nextProvider i18n={createI18n("en")}>
-			<ItemsList onOpen={opened} />
-		</I18nextProvider>,
-	);
-	const rows = screen.getAllByRole("button", { name: /第一件|第二件/ });
-	expect(rows).toHaveLength(2);
-	for (const row of rows) {
-		expect(row.tagName).toBe("BUTTON");
-		row.focus();
-		expect(document.activeElement).toBe(row);
-		fireEvent.click(row);
-	}
-	expect(opened).toHaveBeenCalledWith("one");
-	expect(opened).toHaveBeenCalledWith("two");
+test("no completed or cancelled word is added to a row; a paused one is, with no control", () => {
+	show([
+		item({ id: "done", title: "做完的事", state: "completed" }),
+		item({ id: "cancelled", title: "取消的事", state: "cancelled" }),
+		item({ id: "paused", title: "暂停的事", state: "paused" }),
+	]);
+	expect(screen.queryByText("Completed")).toBeNull();
+	expect(screen.queryByText("Cancelled")).toBeNull();
+	expect(within(screen.getByText("暂停的事").closest("li") as HTMLElement).getByText("Paused")).toBeVisible();
 });

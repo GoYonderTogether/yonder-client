@@ -18,7 +18,7 @@ const request = {
 	mode: "device-local",
 	relayId: "relay-1",
 	operation: "chat",
-	protocol: "openai",
+	protocol: "openai-chat",
 	endpointId,
 	revision: 1,
 	expiresAt: "2026-11-22T12:01:00.000Z",
@@ -26,7 +26,7 @@ const request = {
 };
 
 test("only a device-local request reaches this runtime, never the URL-shaped relay", () => {
-	expect(deviceLocalRequest(request)).toMatchObject({ relayId: "relay-1", endpointId, protocol: "openai" });
+	expect(deviceLocalRequest(request)).toMatchObject({ relayId: "relay-1", endpointId, protocol: "openai-chat" });
 	// The legacy relay carries a URL and belongs to another runtime.
 	expect(
 		deviceLocalRequest({ type: "provider.relay.request", relayId: "r", url: "http://x", headers: {}, body: "" }),
@@ -53,17 +53,19 @@ test("a request the server could not have sent is refused rather than run", () =
 
 test("the announcement keeps only rows the server would accept", () => {
 	const rows = [
-		{ endpointId, revision: 1, label: "Local Claude", protocol: "anthropic" },
-		{ endpointId, revision: 2, label: "Duplicate", protocol: "openai" },
-		{ endpointId: "3d9a2c05-5123-4e7a-9091-023471317af3", revision: 1, label: "bad:label", protocol: "openai" },
+		{ endpointId, revision: 1, label: "Local Claude", protocol: "anthropic-messages" },
+		{ endpointId, revision: 2, label: "Duplicate", protocol: "openai-chat" },
+		{ endpointId: "3d9a2c05-5123-4e7a-9091-023471317af3", revision: 1, label: "bad:label", protocol: "openai-chat" },
 		{ endpointId: "3d9a2c05-5123-4e7a-9091-023471317af4", revision: 1, label: "No protocol" },
-		{ endpointId: "3d9a2c05-5123-4e7a-9091-023471317af5", revision: 0, label: "Bad revision", protocol: "openai" },
+		{ endpointId: "3d9a2c05-5123-4e7a-9091-023471317af5", revision: 0, label: "Bad revision", protocol: "openai-chat" },
 	];
-	expect(readyEndpoints(rows)).toEqual([{ endpointId, revision: 1, label: "Local Claude", protocol: "anthropic" }]);
+	expect(readyEndpoints(rows)).toEqual([
+		{ endpointId, revision: 1, label: "Local Claude", protocol: "anthropic-messages" },
+	]);
 	expect(readyEndpoints(["nonsense", null, 7])).toEqual([]);
-	expect(readyMessage([{ endpointId, revision: 1, label: "A", protocol: "openai" }])).toEqual({
+	expect(readyMessage([{ endpointId, revision: 1, label: "A", protocol: "openai-chat" }])).toEqual({
 		type: "provider.relay.ready",
-		endpoints: [{ endpointId, revision: 1, label: "A", protocol: "openai" }],
+		endpoints: [{ endpointId, revision: 1, label: "A", protocol: "openai-chat" }],
 	});
 });
 

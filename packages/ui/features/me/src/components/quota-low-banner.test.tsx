@@ -65,8 +65,8 @@ test("a healthy balance shows nothing at all", () => {
 });
 
 test.each([
-	["zh-CN", "已用完：主额度", "2026年12月1日（北京时间）", "邀请好友得额度", "查看用量"],
-	["en", "Used up: Main", "Dec 1, 2026 (Beijing time)", "Invite a friend for quota", "See usage"],
+	["zh-CN", "已用完：主额度", "2026年12月1日", "邀请好友得额度", "查看用量"],
+	["en", "Used up: Main", "Dec 1, 2026", "Invite a friend for quota", "See usage"],
 ] as const)(
 	"%s names the pool, the reset date and both exits, and offers nothing to buy",
 	(locale, used, reset, invite, usage) => {

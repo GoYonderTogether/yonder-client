@@ -4,7 +4,6 @@
  * reach the provider that renders the whole app, and it is stored under the key the first-paint
  * script in index.html reads.
  */
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
@@ -22,20 +21,11 @@ const storage = createBrowserStorage({
 	clear: () => raw.clear(),
 } as unknown as globalThis.Storage);
 
-vi.mock("../query/provider.tsx", () => ({
-	useData: () => ({ storage }),
-	useDataOrNull: () => ({ storage }),
-	useApi: () => ({ updatePreferences: async () => Promise.reject(new Error("no account in this suite")) }),
-	useApiOrNull: () => ({ updatePreferences: async () => Promise.reject(new Error("no account in this suite")) }),
-}));
-/** No account in this suite: the language follows the stored choice, as a signed-out screen does. */
-vi.mock("../hooks/account.ts", () => ({ useMe: () => ({ data: undefined }) }));
+vi.mock("../query/provider.tsx", () => ({ useData: () => ({ storage }) }));
 
 const { readStyleChoice, readUISizeChoice, useLocalePreference, useTheme } = await import("./preferences.ts");
 
-const wrapper = ({ children }: { children: ReactNode }) => (
-	<QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
-);
+const wrapper = ({ children }: { children: ReactNode }) => <>{children}</>;
 
 describe("preferences", () => {
 	test("style defaults safely and stays shared and persistent independently of light/dark", () => {
@@ -70,19 +60,22 @@ describe("preferences", () => {
 		expect(renderHook(() => useTheme(), { wrapper }).result.current.size).toBe("xlarge");
 	});
 
-	test("a language chosen while signed out is this device's own", () => {
+	test("a language chosen in one place is seen everywhere", () => {
 		const settings = renderHook(() => useLocalePreference(), { wrapper });
+		const app = renderHook(() => useLocalePreference(), { wrapper });
 		act(() => settings.result.current.setLocale("zh-CN"));
-		// No account to hold the choice yet, so it is stored here — and read back at once.
-		expect(raw.get("yonder.locale")).toBe("zh-CN");
-		expect(raw.get("yonder.locale-mode")).toBe("manual");
-		expect(settings.result.current.locale).toBe("zh-CN");
+		expect(app.result.current.locale).toBe("zh-CN");
+		act(() => settings.result.current.setLocale("en"));
+		expect(app.result.current.locale).toBe("en");
 	});
 
 	test("the stored keys are the ones the first-paint script reads", () => {
 		const theme = renderHook(() => useTheme(), { wrapper });
+		const locale = renderHook(() => useLocalePreference(), { wrapper });
 		act(() => theme.result.current.setChoice("dark"));
+		act(() => locale.result.current.setLocale("zh-CN"));
 		expect(raw.get("yonder.theme")).toBe("dark");
+		expect(raw.get("yonder.locale")).toBe("zh-CN");
 		expect([...raw.keys()].some((key) => key.startsWith("yonder.yonder."))).toBe(false);
 	});
 });

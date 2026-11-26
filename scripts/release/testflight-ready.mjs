@@ -1,13 +1,10 @@
-// Waits for the build Apple just accepted, hands it to the internal TestFlight group, and reports
-// the TestFlight state that decides whether a tester can install it.
+// Waits for the build Apple just accepted to reach a testable state, adds it to the internal
+// TestFlight group when it is not there, and prints the reason when it still cannot be installed.
 //
-// Two facts that cost a debugging session:
-//   * `UPLOAD SUCCEEDED` only means Apple accepted the bytes. Upload 0.3.26112410 onward and the
-//     build can sit in Ready to Submit — valid, but not opened to any tester, who then sees an
-//     invitation with nothing to install.
-//   * `GET /v1/builds/{id}/relationships/betaGroups` is refused (403, "Allowed operations are:
-//     CREATE, DELETE"). Reading it must go through the build's `betaGroups` include; a swallowed
-//     error there reports an empty list and invents a cause that is not real.
+// Why the assignment lives here: `UPLOAD SUCCEEDED` only means Apple accepted the bytes. Every
+// build from 0.3.26112410 on finished processing as VALID and then sat in Ready to Submit with
+// no beta group, so no tester could install anything while the pipeline stayed green. Uploading
+// is not distributing; the build has to be handed to a group.
 
 import { createSign } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -37,65 +34,62 @@ const app = apps.data?.[0];
 if (!app) throw new Error(`no app record for bundle ${BUNDLE_ID}`);
 console.log(`app ${app.id} ${app.attributes?.name}`);
 
-/** The build plus the beta groups it is actually in, read the one way the API allows. */
-const findBuild = () =>
-	api(`/v1/builds?filter[app]=${app.id}&filter[version]=${BUILD_NUMBER}&limit=1&include=betaGroups`);
-
 let build;
-let groups = [];
 for (let attempt = 0; attempt < 60; attempt++) {
-	const list = await findBuild();
+	const list = await api(`/v1/builds?filter[app]=${app.id}&filter[version]=${BUILD_NUMBER}&limit=1`);
 	build = list.data?.[0];
 	const state = build?.attributes?.processingState;
-	const included = (list.included ?? []).filter((item) => item.type === "betaGroups");
-	console.log(`attempt ${attempt + 1}: processingState=${state ?? "(no build yet)"} groups=${included.length}`);
-	if (build && state === "VALID") {
-		groups = included;
-		break;
-	}
+	console.log(`attempt ${attempt + 1}: processingState=${state ?? "(no build yet)"}`);
+	if (build && state === "VALID") break;
 	if (state === "FAILED" || state === "INVALID") {
 		throw new Error(`Apple rejected build ${BUILD_NUMBER}: ${JSON.stringify(build.attributes)}`);
 	}
 	await sleep(30_000);
 }
-if (build?.attributes?.processingState !== "VALID") throw new Error(`build ${BUILD_NUMBER} never finished processing`);
-console.log(
-	`build ${build.id} expired=${build.attributes.expired} usesNonExemptEncryption=${build.attributes.usesNonExemptEncryption}`,
-);
-if (build.attributes.expired) throw new Error(`build ${BUILD_NUMBER} is expired`);
+if (build?.attributes?.processingState !== "VALID") {
+	throw new Error(`build ${BUILD_NUMBER} never finished processing`);
+}
+console.log(`build ${build.id} expired=${build.attributes.expired}`);
 
 // Export compliance is the one attribute that silently keeps a valid build out of testing.
 if (build.attributes.usesNonExemptEncryption == null) {
 	console.log("::warning::export compliance is unanswered; the build cannot become Ready to Test");
 }
+if (build.attributes.expired) throw new Error(`build ${BUILD_NUMBER} is expired`);
 
-if (groups.length === 0) {
-	const internal = (await api(`/v1/betaGroups?filter[app]=${app.id}&limit=200`)).data.filter(
-		(group) => group.attributes.isInternalGroup,
-	);
-	// Guessing here would put the build in front of the wrong people; a wrong count is a setup
-	// fault the operator has to settle in App Store Connect.
-	if (internal.length !== 1) {
-		throw new Error(
-			`build ${BUILD_NUMBER} is in no group and the app has ${internal.length} internal groups; expected exactly one`,
-		);
+/** The internal group is the one every build belongs to; a missing one is a setup fault, not a skip. */
+async function internalGroup() {
+	const groups = await api(`/v1/betaGroups?filter[app]=${app.id}&limit=200`);
+	const internal = groups.data.filter((group) => group.attributes.isInternalGroup);
+	if (internal.length === 1) return internal[0];
+	if (internal.length > 1) {
+		throw new Error(`app has ${internal.length} internal TestFlight groups; refuse to guess which one gets the build`);
 	}
+	throw new Error(`app has no internal TestFlight group; create one in App Store Connect > TestFlight`);
+}
+
+const attached = async () => (await api(`/v1/builds/${build.id}/relationships/betaGroups?limit=50`)).data;
+
+let groups = await attached();
+if (groups.length === 0) {
+	const group = await internalGroup();
 	await api(`/v1/builds/${build.id}/relationships/betaGroups`, {
 		method: "POST",
-		body: JSON.stringify({ data: [{ type: "betaGroups", id: internal[0].id }] }),
+		body: JSON.stringify({ data: [{ type: "betaGroups", id: group.id }] }),
 	});
-	console.log(`attached build ${BUILD_NUMBER} to internal group ${internal[0].id} (${internal[0].attributes.name})`);
-	// The relationship is eventually consistent; read it back rather than trusting the POST.
-	for (let attempt = 0; attempt < 20 && groups.length === 0; attempt++) {
-		await sleep(9_000);
-		const list = await findBuild();
-		groups = (list.included ?? []).filter((item) => item.type === "betaGroups");
+	console.log(`attached build ${BUILD_NUMBER} to internal group ${group.id} (${group.attributes.name})`);
+	// Apple's relationship is eventually consistent; give it a moment before insisting.
+	for (let attempt = 0; attempt < 10 && groups.length === 0; attempt++) {
+		await sleep(6_000);
+		groups = await attached();
 	}
-	if (groups.length === 0) throw new Error(`build ${BUILD_NUMBER} is still in no TestFlight group after attaching`);
 } else {
 	console.log(`build ${BUILD_NUMBER} was already in ${groups.length} group(s)`);
 }
 
+if (groups.length === 0) {
+	throw new Error(`build ${BUILD_NUMBER} is still in no TestFlight group after attaching it to the internal one`);
+}
 const named = [];
 for (const group of groups) {
 	const g = await api(`/v1/betaGroups/${group.id}`);

@@ -1,6 +1,5 @@
 import type { DeviceSummary, Provider, ProviderModelMetadata, ProviderProtocol } from "@yonder/protocol";
 import { Button, Field, PasswordField, SelectField, TextField } from "@yonder/ui-components";
-import { useAccountTimeZone } from "@yonder/ui-data";
 import { DiscardChangesDialog } from "@yonder/ui-shell";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -20,14 +19,10 @@ import {
 } from "./provider-location.ts";
 import {
 	discoveredSlot,
-	displayNamesFrom,
-	endpointWire,
 	type ModelSlot,
 	newSlot,
-	normaliseAddress,
 	PROTOCOL_EXAMPLES,
 	PROTOCOL_OPTIONS,
-	presetWire,
 	slotsFromProvider,
 } from "./provider-model-slots.ts";
 import { ProviderModelSlots } from "./provider-model-slots.tsx";
@@ -45,8 +40,30 @@ export interface ProviderPreset {
 	website?: string | null;
 }
 
-/** A preset predating the four-protocol release may name a wire by its old name; see `presetWire`. */
-export const presetProtocol = presetWire;
+/** A preset predating the four-protocol release may name a wire by its old name. */
+export function presetProtocol(
+	value: ProviderProtocol | "openai" | "anthropic" | undefined,
+): ProviderProtocol | undefined {
+	if (!value) return undefined;
+	if (value === "openai") return "openai-chat" as const;
+	if (value === "anthropic") return "anthropic-messages" as const;
+	return value;
+}
+
+/** Display names from the metadata map, so a slot can show one without the rest of the row. */
+function normalise(value: string): string {
+	return value.trim().replace(/\/+$/, "");
+}
+
+function namesFrom(metadata: Record<string, ProviderModelMetadata> | undefined): Record<string, string> | undefined {
+	if (!metadata) return undefined;
+	const names = Object.fromEntries(
+		Object.entries(metadata)
+			.filter(([, item]) => item.name)
+			.map(([id, item]) => [id, item.name as string]),
+	);
+	return Object.keys(names).length ? names : undefined;
+}
 
 export function ProviderEditor({
 	provider,
@@ -68,7 +85,6 @@ export function ProviderEditor({
 	registerEndpoint?: RegisterLocalProviderEndpoint | undefined;
 }) {
 	const { t, i18n } = useTranslation();
-	const zone = useAccountTimeZone();
 	const currentTarget = localProviderBinding(provider);
 	const initialTarget = currentTarget ?? preset?.target;
 	const [deviceId, setDeviceId] = useState(initialTarget?.deviceId ?? CLOUD_PROVIDER);
@@ -82,7 +98,7 @@ export function ProviderEditor({
 	const [note, setNote] = useState(provider?.note ?? preset?.note ?? "");
 	const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? preset?.baseUrl ?? "");
 	const [slots, setSlots] = useState<ModelSlot[]>(() => {
-		if (provider) return slotsFromProvider(provider.models, provider.metadata, displayNamesFrom(provider.metadata));
+		if (provider) return slotsFromProvider(provider.models, provider.metadata, namesFrom(provider.metadata));
 		const ids = (preset?.models ?? "")
 			.split(",")
 			.map((id) => id.trim())
@@ -104,12 +120,10 @@ export function ProviderEditor({
 	const canRegister = !!(registerEndpoint && device?.current && supportsDesktop(device));
 	const fixedDeviceProtocol = currentTarget ? presetProtocol(provider?.protocol) : undefined;
 	/**
-	 * A device endpoint's wire is the endpoint's own, never the form's guess: the gateway recorded it
-	 * when the endpoint was approved, and discovery or a save must speak that wire. A new endpoint
-	 * (registered from this form) uses the wire chosen here. Only the cloud form lets a person pick.
+	 * When editing a device provider its endpoint's wire is fixed. When adding one, the device wire is
+	 * the wire form's own choice: the device gateway records which of its two wires the endpoint serves.
 	 */
-	const selectedProtocol = endpointWire(devices.find(({ id }) => id === deviceId)?.modelEndpoints, endpointId);
-	const deviceProtocol: ProviderProtocol = fixedDeviceProtocol ?? selectedProtocol ?? protocol;
+	const deviceProtocol: ProviderProtocol = fixedDeviceProtocol ?? protocol;
 	const binding = useDeviceBinding({
 		deviceId,
 		device,
@@ -121,18 +135,12 @@ export function ProviderEditor({
 		canSetLocalKey: canRegister,
 		registerEndpoint,
 		version: version.current,
-		onKeyRegistered: () => setLocalKey(""),
 	});
 	const { endpoint, addEndpoint } = binding;
 	const known = device?.modelEndpoints ?? [];
 	// Changing the destination invalidates the stored key: it was entered for another address or wire.
-	// The wire is compared in the four-protocol names, because a provider saved before them says
-	// `openai`, which is `openai-chat` — comparing the raw strings would always read as a change and
-	// would ask for a key that is already stored.
 	const destinationChanged = Boolean(
-		provider &&
-			(normaliseAddress(baseUrl) !== normaliseAddress(provider.baseUrl) ||
-				protocol !== presetProtocol(provider.protocol)),
+		provider && (normalise(baseUrl) !== normalise(provider.baseUrl) || protocol !== provider.protocol),
 	);
 	const needsKey = !onDevice && (replacing || destinationChanged || Boolean(currentTarget));
 	const canSetLocalKey = canRegister && (addEndpoint || Boolean(endpoint));
@@ -148,7 +156,7 @@ export function ProviderEditor({
 			)
 			.map((candidate) => ({
 				value: candidate.id,
-				label: providerDeviceLabel(candidate, t, i18n.resolvedLanguage ?? i18n.language, zone),
+				label: providerDeviceLabel(candidate, t, i18n.resolvedLanguage ?? i18n.language),
 			})),
 		...(onDevice && !device ? [{ value: deviceId, label: t("models.deviceUnavailable") }] : []),
 	];
@@ -184,7 +192,7 @@ export function ProviderEditor({
 		setSlots((current) => {
 			const named = new Set(available);
 			const kept = current.filter((slot) => !slot.id.trim() || !named.has(slot.id.trim()));
-			// Each discovered model starts filled in: display name, window and levels from its family,
+			// Each discovered model arrives filled in: display name, window and levels from its family,
 			// with whatever the endpoint declared taking precedence.
 			const fresh = available.map((id) => discoveredSlot(id, metadata[id]));
 			return fresh.length || kept.length ? [...fresh, ...kept] : current;
@@ -443,11 +451,6 @@ export function ProviderEditor({
 						{t("models.fetchModels")}
 					</Button>
 				</div>
-				{error ? (
-					<p role="alert" className="text-caption text-[var(--color-danger)]">
-						{error}
-					</p>
-				) : null}
 				<ProviderModelSlots
 					slots={slots}
 					available={available}
@@ -470,6 +473,11 @@ export function ProviderEditor({
 				/>
 			</div>
 
+			{error ? (
+				<p role="alert" className="text-caption text-[var(--color-danger)]">
+					{error}
+				</p>
+			) : null}
 			<Button type="submit" variant="primary" disabled={fetching} loading={saving}>
 				{t("app.save")}
 			</Button>

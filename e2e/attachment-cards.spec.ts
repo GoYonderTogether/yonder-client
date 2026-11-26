@@ -62,8 +62,7 @@ async function assertCards(page: Page) {
 	const log = page.getByRole("log");
 	await expect(log).toBeVisible();
 	await expect(log.locator("[data-message-run]")).toHaveCount(2);
-	// Both sides carry a face, so two runs mean two avatars (11-25).
-	await expect(log.locator("[data-message-sender-avatar]")).toHaveCount(2);
+	await expect(log.locator("[data-message-sender-avatar]")).toHaveCount(0);
 	await expect(log.locator("[data-message-sender-header]")).toHaveCount(0);
 	await expect(log.locator(".message-attachment pre")).toHaveCount(0);
 	await expect(log.getByRole("button", { name: /^下载 / })).toHaveCount(0);

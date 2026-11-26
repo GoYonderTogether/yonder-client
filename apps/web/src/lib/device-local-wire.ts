@@ -5,7 +5,13 @@
  *
  * Pure, so every rule below can be checked without a shell or a socket.
  */
-import type { ClientEvent, DeviceModelEndpoint, DeviceModelError, ServerEvent } from "@yonder/protocol";
+import type {
+	ClientEvent,
+	DeviceModelEndpoint,
+	DeviceModelError,
+	DeviceModelProtocol,
+	ServerEvent,
+} from "@yonder/protocol";
 
 type RelayRequest = Extract<ServerEvent, { type: "provider.relay.request" }>;
 export type DeviceLocalRequest = Extract<RelayRequest, { mode: "device-local" }>;
@@ -21,6 +27,9 @@ export const MAX_DISCOVER_BYTES = 1024 * 1024;
 export const MAX_PART_BYTES = 64 * 1024;
 /** The one frame the server holds back until it reads the end of an OpenAI-shaped answer. */
 export const OPENAI_TERMINAL = "data: [DONE]\n\n";
+
+/** The wires a device endpoint may advertise: the same four a cloud endpoint serves. */
+export const WIRES = new Set(["openai-chat", "openai-responses", "anthropic-messages", "gemini-native"]);
 
 const ERRORS = new Set<DeviceModelError>([
 	"endpoint_unavailable",
@@ -56,7 +65,7 @@ export function deviceLocalRequest(event: unknown): DeviceLocalRequest | null {
 		revision < 1 ||
 		!Number.isSafeInteger(expiresAtMs) ||
 		(operation !== "discover" && operation !== "chat") ||
-		(protocol !== "openai" && protocol !== "anthropic") ||
+		!WIRES.has(protocol as string) ||
 		(operation === "discover" ? body !== undefined : !body || typeof body !== "object" || Array.isArray(body))
 	)
 		return null;
@@ -84,10 +93,10 @@ export function readyEndpoints(value: readonly unknown[]): DeviceModelEndpoint[]
 			label.length > 60 ||
 			LABEL_FORBIDDEN.test(label) ||
 			[...label].some((character) => character.charCodeAt(0) < 32) ||
-			(protocol !== "openai" && protocol !== "anthropic")
+			!WIRES.has(protocol as string)
 		)
 			continue;
-		found.set(endpointId, { endpointId, revision, label: label.trim(), protocol });
+		found.set(endpointId, { endpointId, revision, label: label.trim(), protocol: protocol as DeviceModelProtocol });
 		if (found.size === MAX_ENDPOINTS) break;
 	}
 	return [...found.values()];

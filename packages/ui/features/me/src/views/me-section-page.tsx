@@ -4,7 +4,6 @@ import { PageFrame } from "@yonder/ui-shell";
 import { lazy, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AboutSection } from "../components/about-section.tsx";
-import { TimeZonePicker } from "../components/account-preferences-sections.tsx";
 import { AccountSection } from "../components/account-section.tsx";
 import { ChangePhoneForm } from "../components/change-phone-form.tsx";
 import { DevicesSection } from "../components/devices-section.tsx";
@@ -100,13 +99,6 @@ export function MeSectionPage({
 		return <PageFrame title={t("members.privacy.title")}>{privacy ?? null}</PageFrame>;
 	}
 
-	if (section === "general" && page === "timezone") {
-		return (
-			<PageFrame title={<h1 className="truncate">{t("common.timezone.pickerTitle")}</h1>}>
-				<TimeZonePicker onDone={() => onOpenPage(null)} />
-			</PageFrame>
-		);
-	}
 	if (section === "account" && page === "phone") {
 		return (
 			<PageFrame title={t("me.phoneChange.title")}>
@@ -197,7 +189,7 @@ export function MeSectionPage({
 			case "invite":
 				return <InviteSection />;
 			case "general":
-				return <GeneralSection onOpenTimeZone={() => onOpenPage("timezone")}>{generalExtra}</GeneralSection>;
+				return <GeneralSection>{generalExtra}</GeneralSection>;
 			case "about":
 				return <AboutSection appVersion={appVersion} onOpenLegal={onOpenLegal} update={aboutUpdate} />;
 		}

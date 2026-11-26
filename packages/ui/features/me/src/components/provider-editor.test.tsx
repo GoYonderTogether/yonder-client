@@ -12,8 +12,6 @@ const actions = vi.hoisted(() => ({
 	discoverModels: vi.fn().mockResolvedValue({ models: ["m1", "m2"] }),
 }));
 vi.mock("@yonder/ui-data", () => ({
-	// The account zone is the device's in these unit tests; nothing they check depends on it.
-	useAccountTimeZone: () => "Asia/Shanghai",
 	useProviderActions: () => actions,
 	useDevices: () => ({ data: { items: [] }, isLoading: false, isError: false }),
 }));
@@ -49,8 +47,8 @@ test("editing never displays a stored key and discovery reuses it only by provid
 			providerId: "p1",
 		}),
 	);
-	// A discovered model becomes its own row, with the id filled in as both its display name and the
-	// model the endpoint is sent, so the row is complete before the person edits anything.
+	// A discovered model becomes its own row, with the id as both its display name and the model the
+	// endpoint is sent, so the row is complete before the person edits anything.
 	expect(await screen.findAllByDisplayValue("m2")).toHaveLength(2);
 	fireEvent.change(screen.getByRole("textbox", { name: "Request URL" }), {
 		target: { value: "https://other.example.org" },
@@ -92,16 +90,16 @@ const myDevice: DeviceSummary = {
 	lastSeenAt: "2026-11-22T10:30:00.000Z",
 };
 const remote: DeviceSummary = { ...myDevice, id: "desktop-b", name: "Other desktop", current: false };
-const nativeEndpoint = { endpointId: "device-opaque-one", revision: 1, label: "Local model" };
+const nativeEndpoint = { endpointId: "device-opaque-one", revision: 1, label: "Local model", protocol: "openai-chat" };
 const remoteEndpoint = {
 	endpointId: "device-opaque-two",
 	revision: 1,
 	label: "Office Local",
-	protocol: "openai",
+	protocol: "openai-chat",
 } as const;
 const advertised = (endpoint = nativeEndpoint) => ({
 	...myDevice,
-	modelEndpoints: [{ protocol: "openai" as const, ...endpoint }],
+	modelEndpoints: [{ ...endpoint }],
 });
 function startLocal({ native = false }: { native?: boolean } = {}) {
 	actions.save.mockClear();
@@ -151,7 +149,7 @@ test("cloud cannot send localhost, and native registers a single exact address b
 		deviceId: myDevice.id,
 		baseUrl: "http://localhost:11434/v1",
 		label: "Local model",
-		protocol: "openai",
+		protocol: "openai-chat",
 	});
 	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Local" } });
 	// Discovery added a row; the first one is the one this test fills.
@@ -164,7 +162,8 @@ test("cloud cannot send localhost, and native registers a single exact address b
 			name: "Local",
 			note: null,
 			models: ["m1", "m2"],
-			metadata: { m1: {}, m2: {} },
+			// Each discovered row arrives with the id as its display name, so a save states it.
+			metadata: { m1: { name: "m1" }, m2: { name: "m2" } },
 			protocol: "openai-chat",
 			origin: "device",
 			deviceId: myDevice.id,
@@ -214,7 +213,7 @@ test("a local key is discarded when switching to a different address or to Cloud
 
 test("changing protocol at the same local URL requires a separately approved endpoint", async () => {
 	const invoke = startLocal({ native: true });
-	const anthropic = { ...nativeEndpoint, endpointId: "anthropic-opaque", protocol: "anthropic" } as const;
+	const anthropic = { ...nativeEndpoint, endpointId: "anthropic-opaque", protocol: "anthropic-messages" } as const;
 	invoke.mockResolvedValueOnce(nativeEndpoint).mockResolvedValueOnce(anthropic);
 	actions.readDevices.mockResolvedValue({
 		items: [{ ...myDevice, modelEndpoints: [advertised().modelEndpoints[0], anthropic] }],
@@ -245,7 +244,7 @@ test("changing protocol at the same local URL requires a separately approved end
 		deviceId: myDevice.id,
 		baseUrl: "http://127.0.0.1:8788/v1",
 		label: "Local model",
-		protocol: "anthropic",
+		protocol: "anthropic-messages",
 	});
 });
 

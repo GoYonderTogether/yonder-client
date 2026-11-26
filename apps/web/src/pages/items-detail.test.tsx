@@ -9,15 +9,13 @@ import { ItemDetailPage } from "./items-detail.tsx";
 
 const state = vi.hoisted(() => ({ item: undefined as ItemDetail | undefined }));
 vi.mock("@yonder/ui-data", () => ({
-	// The account zone is the device's in these unit tests; nothing they check depends on it.
-	useAccountTimeZone: () => "Asia/Shanghai",
 	useItem: () => ({ data: state.item }),
 	useItemActions: () => ({ cancel: { isPending: false, isError: false } }),
 }));
 vi.mock("./item-session-title.tsx", () => ({
 	ItemSessionTitle: ({ title }: { title: string }) => <span>{title}</span>,
 }));
-vi.mock("./conversation-page.tsx", () => ({
+vi.mock("./messages-page.tsx", () => ({
 	ConversationPage: ({ item }: { item: { intro: React.ReactNode } }) => <>{item.intro}</>,
 }));
 

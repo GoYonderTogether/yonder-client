@@ -1,5 +1,6 @@
 import type { Attachment, SendMessageRequest } from "@yonder/protocol";
 import {
+	ApiError,
 	attachmentCacheKey,
 	chatCacheGeneration,
 	readChatCache,
@@ -10,51 +11,100 @@ import {
 } from "@yonder/ui-data";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { pcm16WavDurationMs } from "../lib/browser-meeting-wav.ts";
-import { isImageFile, type PreparedImage, prepareImage } from "../lib/prepare-image.ts";
-import {
-	AttachmentTooLargeError,
-	CHAT_ATTACHMENT_LIMIT,
-	CHAT_ATTACHMENT_MAX_BYTES,
-	canAttachFile,
-	type Draft,
-	type DraftFile,
-	draftFile,
-	emptyDraft,
-	replaceFile,
-	selectedDraftFile,
-	sendErrorMessageKey,
-	withPresetFor,
-} from "./chat-draft-model.ts";
+import { canPrepareLargeImage, isImageFile, type PreparedImage, prepareImage } from "../lib/prepare-image.ts";
 import {
 	boundMemberIds,
 	boundSkillIds,
+	type CompletionBinding,
 	type CompletionMarker,
 	reconcileBindings,
 	type TextEditRange,
 } from "./completion/bindings.ts";
 import { completionHistory } from "./completion/history.ts";
+import { type PresetDraft, takePreset, withPreset } from "./draft-preset.ts";
 
-export {
-	AttachmentTooLargeError,
-	CHAT_ATTACHMENT_LIMIT,
-	CHAT_ATTACHMENT_MAX_BYTES,
-	canAttachFile,
-	type Draft,
-	type DraftFile,
-	draftFile,
-	emptyDraft,
-	replaceFile,
-	selectedDraftFile,
-	sendErrorMessageKey,
-	withPresetFor,
-} from "./chat-draft-model.ts";
+export interface DraftFile {
+	id: string;
+	name: string;
+	mimeType: string;
+	blob: Blob;
+	status: "ready" | "preparing" | "uploading" | "failed";
+	uploaded?: Attachment;
+	optimized?: PreparedImage | undefined;
+	imagePrepared?: boolean;
+	imageError?: boolean;
+	sendOriginal?: boolean;
+	/** Null while a recorded message for a Bot still needs transcription. */
+	voiceTranscript?: string | null;
+}
+
+/** A draft just loaded: a preset aimed at this chat applies now, if the draft is still empty. */
+function withPresetFor(key: string, draft: Draft): Draft {
+	const phrase = takePreset(key, draft as PresetDraft);
+	return phrase ? (withPreset(draft as PresetDraft, phrase) as Draft) : draft;
+}
+
+export function selectedDraftFile(file: DraftFile) {
+	if (file.optimized && !file.sendOriginal) return { ...file.optimized, original: false };
+	return { blob: file.blob, name: file.name, mimeType: file.mimeType, nonce: file.id, original: true };
+}
+
+/**
+ * The message key for a refused send. A visit refusal and a quota refusal are real answers from
+ * the server, so they replace the generic "your draft is preserved" line; anything else, including
+ * a network failure, keeps that line because the draft really is preserved.
+ */
+const SEND_REFUSAL_KEYS = new Set(["visit_limit", "visit_denied", "visit_cap"]);
+
+/**
+ * A dissolved group, or a chat the sender was removed from, refuses every send with one code: the
+ * composer says exactly that, in the members wording, instead of the generic "draft preserved" line
+ * (19 3.2). It is a real refusal from the server, never drawn as something the Bot said.
+ */
+const CONVERSATION_CLOSED_KEY = "members.errors.conversationClosed";
+
+export class AttachmentTooLargeError extends Error {}
+
+export function sendErrorMessageKey(error: unknown): string {
+	if (error instanceof AttachmentTooLargeError) return "chat.fileTooLarge";
+	if (!(error instanceof ApiError)) return "chat.sendPreserved";
+	if (error.code === "conversation_closed") return CONVERSATION_CLOSED_KEY;
+	return SEND_REFUSAL_KEYS.has(error.code) ? `errors.${error.code}` : "chat.sendPreserved";
+}
+interface Draft {
+	text: string;
+	files: DraftFile[];
+	clientNonce?: string | undefined;
+	revision: number;
+	bindings?: CompletionBinding[];
+}
+const empty = (): Draft => ({ text: "", files: [], revision: 0 });
+export const CHAT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+export const CHAT_ATTACHMENT_LIMIT = 10;
+
+export function canAttachFile(file: File, sendOriginal = false) {
+	return (
+		file.size <= CHAT_ATTACHMENT_MAX_BYTES || (!sendOriginal && canPrepareLargeImage(file.name, file.type, file.size))
+	);
+}
+
+export function draftFile(file: File, voiceTranscript?: string | null): DraftFile {
+	return {
+		id: crypto.randomUUID(),
+		name: file.name,
+		mimeType: file.type,
+		blob: file,
+		status: isImageFile(file.name, file.type) ? "preparing" : "ready",
+		...(voiceTranscript !== undefined ? { voiceTranscript } : {}),
+	};
+}
 
 export function useChatDraft(owner: string | undefined, conversation: string | undefined) {
 	const api = useApi();
 	const key = owner && conversation ? `draft:${owner}:${conversation}` : "";
 	const liveKey = useRef(key);
 	liveKey.current = key;
-	const current = useRef({ key, value: emptyDraft(), loaded: false });
+	const current = useRef({ key, value: empty(), loaded: false });
 	const [state, setState] = useState(current.current);
 	const [error, setError] = useState("");
 	const [sending, setSending] = useState(false);
@@ -75,7 +125,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 
 	useEffect(() => {
 		let active = true;
-		const initial = { key, value: emptyDraft(), loaded: !key };
+		const initial = { key, value: empty(), loaded: !key };
 		current.current = initial;
 		preparations.current.clear();
 		setState(initial);
@@ -92,14 +142,14 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 									status: file.status === "uploading" || file.status === "preparing" ? ("ready" as const) : file.status,
 								})),
 							}
-						: emptyDraft();
+						: empty();
 					current.current = { key, value: withPresetFor(key, loaded), loaded: true };
 					setState(current.current);
 					resumeImages(current.current.value.files, key);
 				})
 				.catch(() => {
 					if (!active) return;
-					current.current = { key, value: withPresetFor(key, emptyDraft()), loaded: true };
+					current.current = { key, value: withPresetFor(key, empty()), loaded: true };
 					setState(current.current);
 					setError("chat.cacheFailed");
 				});
@@ -162,7 +212,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			if (generation !== chatCacheGeneration()) return;
 			// A direct send has fixed bytes. Keep the same upload identity even if preparation ran again after restart.
 			if (!scope) return optimized && { ...optimized, nonce: file.id };
-			const apply = (draft = emptyDraft()): Draft => ({
+			const apply = (draft = empty()): Draft => ({
 				...draft,
 				files: draft.files.map((item) =>
 					item.id === file.id
@@ -188,29 +238,21 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		return operation;
 	}
 
-	/**
-	 * Upload one draft file. `scope` names the draft whose strip shows the progress; a send that has
-	 * already emptied the field passes `report` instead, so the progress lands on the copy it would
-	 * restore rather than on the empty field.
-	 */
-	async function upload(
-		file: DraftFile,
-		scope: string | undefined,
-		signal?: AbortSignal,
-		report?: (update: (files: DraftFile[]) => DraftFile[]) => void,
-	) {
+	async function upload(file: DraftFile, scope: string | undefined, signal?: AbortSignal) {
 		const cacheGeneration = chatCacheGeneration();
 		const optimized =
 			!file.sendOriginal && isImageFile(file.name, file.mimeType) ? await prepare(file, scope) : file.optimized;
 		if (signal?.aborted) throw new DOMException("Attachment upload canceled", "AbortError");
 		if (cacheGeneration !== chatCacheGeneration()) throw new Error("session_changed");
 		const selected = selectedDraftFile({ ...file, optimized });
-		const show = (patch: Partial<DraftFile>) => {
-			const update = (files: DraftFile[]) => replaceFile(files, file.id, patch);
-			if (report) report(update);
-			else if (scope) change((draft) => ({ ...draft, files: update(draft.files) }), scope);
-		};
-		show({ status: "uploading" });
+		if (scope)
+			change(
+				(draft) => ({
+					...draft,
+					files: draft.files.map((item) => (item.id === file.id ? { ...item, status: "uploading" } : item)),
+				}),
+				scope,
+			);
 		try {
 			if (selected.blob.size > CHAT_ATTACHMENT_MAX_BYTES) throw new AttachmentTooLargeError();
 			const attachment = await api.uploadAttachment(
@@ -222,12 +264,30 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			if (owner && scope)
 				void writeChatCache(attachmentCacheKey(owner, attachment.id), selected.blob, cacheGeneration).catch(() => {});
 			if (cacheGeneration !== chatCacheGeneration()) return { attachment, blob: selected.blob };
-			show({ status: "ready", uploaded: attachment });
+			if (scope)
+				change(
+					(draft) => ({
+						...draft,
+						files: draft.files.map((item) =>
+							item.id === file.id ? { ...item, status: "ready", uploaded: attachment } : item,
+						),
+					}),
+					scope,
+				);
 			return { attachment, blob: selected.blob };
 		} catch (error) {
 			if (cacheGeneration !== chatCacheGeneration()) throw error;
 			// A cancelled upload is not a failure: the file stays ready so the draft can be sent again.
-			show({ status: signal?.aborted ? "ready" : "failed" });
+			if (scope)
+				change(
+					(draft) => ({
+						...draft,
+						files: draft.files.map((item) =>
+							item.id === file.id ? { ...item, status: signal?.aborted ? "ready" : "failed" } : item,
+						),
+					}),
+					scope,
+				);
 			throw error;
 		}
 	}
@@ -265,28 +325,9 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		inFlightSend.current = pending;
 		setSending(true);
 		setError("");
-		const sentIds = new Set(draft.files.map((file) => file.id));
-		const sentBindings = new Set(
-			(draft.bindings ?? []).filter((binding) => binding.kind === "skill").map((binding) => binding.key),
-		);
-		// What a failed send puts back: the text, the files, the bindings and the nonce this attempt used,
-		// so a retry resends the same message rather than a second copy of it.
-		const snapshot: Draft = { ...draft, clientNonce: nonce };
-		// The bubble is already on screen: the send mutation inserts it optimistically. Empty the field in
-		// the same turn, so the draft, the attachment strip and its bindings leave with the bubble instead
-		// of waiting for the round trip. `clearedRevision` is what tells this submit's empty field apart
-		// from one the person has started filling again before the answer arrives.
-		const clearedRevision = draft.revision + 1;
-		if (current.current.key === scope) {
-			current.current = {
-				key: scope,
-				value: { text: "", files: [], bindings: [], revision: clearedRevision },
-				loaded: true,
-			};
-			setState(current.current);
-		}
-		let sent = false;
 		try {
+			// Old drafts and presets applied during load may still need their first nonce.
+			if (!draft.clientNonce) await change((value) => ({ ...value, clientNonce: nonce }), scope);
 			const attachments: Attachment[] = [];
 			const transcripts: string[] = [];
 			for (const file of draft.files) {
@@ -296,25 +337,23 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 					const audio = new File([file.blob], file.name, { type: file.mimeType });
 					const result = await api.transcribeAudio(audio, controller.signal);
 					if (cacheGeneration !== chatCacheGeneration()) return;
-					transcript = result.text.trim();
-					// Keep the transcript on the message a retry would resend, so it is transcribed once.
-					snapshot.files = replaceFile(snapshot.files, file.id, { voiceTranscript: transcript });
+					const recognized = result.text.trim();
+					transcript = recognized;
+					const saveTranscript = (value = empty()): Draft => ({
+						...value,
+						files: value.files.map((item) => (item.id === file.id ? { ...item, voiceTranscript: recognized } : item)),
+					});
+					if (current.current.key === scope) change(saveTranscript, scope);
+					else await updateChatCache<Draft>(scope, saveTranscript, cacheGeneration);
 				}
 				if (transcript) transcripts.push(transcript);
 				if (interrupted()) return;
-				// The field is already empty, so the upload reports its progress to the snapshot: the message
-				// a retry resends carries the server's attachment, or the failure to show.
-				const uploaded = (
-					await upload(file, scope, controller.signal, (update) => {
-						snapshot.files = update(snapshot.files);
-					})
-				).attachment;
-				attachments.push(uploaded);
+				attachments.push((await upload(file, scope, controller.signal)).attachment);
 			}
 			if (interrupted()) return;
-			const recording = snapshot.files[0];
+			const recording = draft.files[0];
 			const durationMs =
-				snapshot.files.length === 1 && !draft.text.trim() && recording?.voiceTranscript !== undefined
+				draft.files.length === 1 && !draft.text.trim() && recording?.voiceTranscript !== undefined
 					? pcm16WavDurationMs(recording.blob.size)
 					: 0;
 			pending.preparingVoiceKey = undefined;
@@ -330,11 +369,16 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				...(skillIds?.length ? { skillIds } : {}),
 				...(mentionedMemberIds.length ? { mentionedMemberIds } : {}),
 			});
-			sent = true;
-			// Storage keeps the sent draft until now, so a reload in the middle of a send still finds it.
-			// What someone typed after pressing send keeps its own text, files and bindings; only the sent
-			// revision is cleared.
-			const clearSent = (value = emptyDraft()): Draft => ({
+			const sentIds = new Set(draft.files.map((file) => file.id));
+			const sentBindings = new Set(
+				(draft.bindings ?? []).filter((binding) => binding.kind === "skill").map((binding) => binding.key),
+			);
+			for (const id of sentIds) preparations.current.delete(id);
+			// The server holds the bytes now, so the resend copy in the blob cache is no longer needed.
+			if (owner)
+				for (const attachment of attachments)
+					void removeChatCache(attachmentCacheKey(owner, attachment.id)).catch(() => {});
+			const clearSent = (value = empty()): Draft => ({
 				text: value.revision === draft.revision ? "" : value.text,
 				files: value.files.filter((file) => !sentIds.has(file.id)),
 				bindings:
@@ -346,45 +390,14 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			if (cacheGeneration !== chatCacheGeneration()) return;
 			if (current.current.key === scope) change(clearSent, scope);
 			else await updateChatCache<Draft>(scope, clearSent, cacheGeneration);
-			for (const id of sentIds) preparations.current.delete(id);
-			// The server holds the bytes now, so the resend copy in the blob cache is no longer needed.
-			if (owner)
-				for (const attachment of attachments)
-					void removeChatCache(attachmentCacheKey(owner, attachment.id)).catch(() => {});
 			return true;
 		} catch (error) {
 			// Cancelling keeps the draft silently; any other failure says it was preserved, and a refusal
 			// the server named says its real reason instead of the generic sentence.
 			if (current.current.key === scope && !controller.signal.aborted) setError(sendErrorMessageKey(error));
 		} finally {
-			// A send that failed or was cancelled puts the message back, but only into a field still holding
-			// this submit's empty draft: a person who has started the next message keeps it, and the failed
-			// bubble stays the copy that its retry resends.
-			if (!sent) restoreDraft(scope, clearedRevision, snapshot, cacheGeneration);
 			finishSend(controller);
 		}
-	}
-
-	/**
-	 * Put a failed or cancelled submit's message back. The field is rewritten only while it still holds
-	 * this submit's empty draft, and the stored entry (still the sent one, because storage is cleared
-	 * only after an answer) only while nobody has edited it, so a next message wins on both sides.
-	 */
-	function restoreDraft(scope: string, clearedRevision: number, snapshot: Draft, generation: number) {
-		if (generation !== chatCacheGeneration()) return;
-		const restored: Draft = { ...snapshot, revision: clearedRevision + 1 };
-		if (current.current.key === scope && current.current.loaded) {
-			const value = current.current.value;
-			if (value.revision === clearedRevision && !value.text && !value.files.length && !value.bindings?.length) {
-				current.current = { key: scope, value: restored, loaded: true };
-				setState(current.current);
-			}
-		}
-		void updateChatCache<Draft>(
-			scope,
-			(value) => (value?.revision === snapshot.revision ? restored : value),
-			generation,
-		).catch(() => {});
 	}
 
 	function cancelSend() {
@@ -408,7 +421,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			return false;
 		}
 	}
-	const value = state.key === key ? state.value : emptyDraft();
+	const value = state.key === key ? state.value : empty();
 	return {
 		...value,
 		skillIds: boundSkillIds(value.text, value.bindings ?? []),

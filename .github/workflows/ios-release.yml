@@ -83,16 +83,9 @@ jobs:
             exit 1
           }
           head_sha="$(git rev-parse HEAD)"
-          # 内部测试版由 release.yml 按 tag 派发，所以不能只认 main。两条路都要求一个已被核对的
-          # 提交：手工派发时 ref 是 main 且 expected_commit 必填；发版派发时 ref 是 tag，
-          # expected_commit 是 release.yml 从 main 读到的完整 SHA，下面那段比对保证 tag 与它一致。
           if [ "${TESTFLIGHT_INTERNAL:-false}" = true ]; then
-            if [ -z "$EXPECTED_COMMIT" ]; then
-              echo "::error::internal TestFlight requires the verified commit SHA"
-              exit 1
-            fi
-            if [ "$GITHUB_REF" != refs/heads/main ] && [ "$GITHUB_REF" != "refs/tags/v$version" ]; then
-              echo "::error::internal TestFlight requires main or the release tag for $version"
+            if [ "$GITHUB_REF" != refs/heads/main ] || [ -z "$EXPECTED_COMMIT" ]; then
+              echo "::error::internal TestFlight requires main and the verified commit SHA"
               exit 1
             fi
           fi

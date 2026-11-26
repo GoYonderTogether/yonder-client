@@ -1,23 +1,27 @@
 import { skipToken, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccountTimeZone } from "../preferences/account-preferences.ts";
 import { keys } from "../query/keys.ts";
 import { invalidateMemoryFiles } from "../query/memory-files.ts";
 import { useApi } from "../query/provider.tsx";
 
 /**
- * The memory timeline, newest day first; `fetchNextPage` loads older days.
- *
- * The server now cuts days by the account's own zone (stage 2, migration 127), so no `tz=` is sent:
- * in `manual` mode the server ignores it, and in `auto` it already has the device's report. The zone
- * stays in the key, so a change of zone refetches instead of showing days cut in the old one.
+ * The device's IANA zone. It decides which calendar day an event belongs to, and the server keeps
+ * it on the account, so every page request carries it.
  */
+export function deviceTimeZone(): string | undefined {
+	try {
+		return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/** The memory timeline, newest day first; `fetchNextPage` loads older days. */
 export function useMemoryDays() {
 	const api = useApi();
-	const zone = useAccountTimeZone();
 	return useInfiniteQuery({
-		queryKey: keys.memory.daysInZone(zone),
+		queryKey: keys.memory.days(),
 		initialPageParam: undefined as string | undefined,
-		queryFn: ({ pageParam }) => api.memoryDays(pageParam),
+		queryFn: ({ pageParam }) => api.memoryDays(pageParam, deviceTimeZone()),
 		getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
 		staleTime: 60_000,
 	});

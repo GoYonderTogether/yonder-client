@@ -1,5 +1,3 @@
-import { useAccountTimeZone } from "@yonder/ui-data";
-import { formatInstant } from "@yonder/ui-time";
 import { Globe, Laptop, Smartphone } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -24,19 +22,16 @@ export function DeviceRow({
 	children?: ReactNode;
 }) {
 	const { t, i18n } = useTranslation();
-	const zone = useAccountTimeZone();
 	const Icon = platform === "web" ? Globe : /ios|android/.test(platform) ? Smartphone : Laptop;
 	const detail = [
 		systemName,
 		showPlatform ? t(`me.devices.platforms.${platform}`, { defaultValue: platform }) : undefined,
 		status ? t(`me.devices.${status}`) : undefined,
 		lastSeenAt
-			? formatInstant(lastSeenAt, {
-					zone,
-					locale: i18n.resolvedLanguage ?? i18n.language,
-					style: "dateTime",
-					width: "medium",
-				})
+			? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, {
+					dateStyle: "medium",
+					timeStyle: "short",
+				}).format(new Date(lastSeenAt))
 			: undefined,
 	]
 		.filter(Boolean)

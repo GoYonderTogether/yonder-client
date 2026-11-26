@@ -1,8 +1,9 @@
 import type { ProviderModelMetadata, ProviderProtocol } from "@yonder/protocol";
+import { defaultsFor, type EffortLevel } from "./provider-model-defaults.ts";
 
 /** The levels a model slot may declare; the same list the server stores as `capabilities.efforts`. */
 export const EFFORT_LEVELS = ["off", "low", "medium", "high", "max"] as const;
-export type EffortLevel = (typeof EFFORT_LEVELS)[number];
+export type { EffortLevel };
 
 /**
  * One row of the model table. `id` is the model name the endpoint expects, `name` is what the app
@@ -17,45 +18,6 @@ export interface ModelSlot {
 	efforts: EffortLevel[];
 }
 
-/**
- * The wire a known device endpoint serves, as the four-protocol form names it. The gateway recorded
- * the endpoint's wire when it was approved, and discovery or a save must speak that wire rather than
- * whatever the form's own select happens to show (2026-11-26).
- */
-export function endpointWire(
-	endpoints: readonly { endpointId: string; protocol?: string }[] | undefined,
-	endpointId: string,
-): ProviderProtocol | undefined {
-	if (!endpointId) return undefined;
-	return presetWire(endpoints?.find((candidate) => candidate.endpointId === endpointId)?.protocol);
-}
-
-/** A pre-four-protocol name (`openai`, `anthropic`) as the wire the form trades in. */
-export function presetWire(value: string | undefined): ProviderProtocol | undefined {
-	if (!value) return undefined;
-	if (value === "openai") return "openai-chat";
-	if (value === "anthropic") return "anthropic-messages";
-	return value as ProviderProtocol;
-}
-
-/** A provider address without its trailing slashes, for comparing two spellings of one place. */
-export function normaliseAddress(value: string): string {
-	return value.trim().replace(/\/+$/, "");
-}
-
-/** Display names from the metadata map, so a slot can show one without the rest of the row. */
-export function displayNamesFrom(
-	metadata: Record<string, ProviderModelMetadata> | undefined,
-): Record<string, string> | undefined {
-	if (!metadata) return undefined;
-	const names = Object.fromEntries(
-		Object.entries(metadata)
-			.filter(([, item]) => item.name)
-			.map(([id, item]) => [id, item.name as string]),
-	);
-	return Object.keys(names).length ? names : undefined;
-}
-
 export function newSlot(partial: Partial<ModelSlot> = {}): ModelSlot {
 	return {
 		key: crypto.randomUUID(),
@@ -65,6 +27,21 @@ export function newSlot(partial: Partial<ModelSlot> = {}): ModelSlot {
 		efforts: [],
 		...partial,
 	};
+}
+
+/**
+ * A discovered model as a row that is already filled in: its display name starts as the id, and the
+ * window and levels come from its family (see provider-model-defaults.ts), with whatever the
+ * endpoint declared taking precedence.
+ */
+export function discoveredSlot(id: string, declared: ProviderModelMetadata | undefined): ModelSlot {
+	const defaults = defaultsFor(id, declared);
+	return newSlot({
+		id,
+		name: defaults.name ?? id,
+		contextLength: defaults.contextLength ? String(defaults.contextLength) : "",
+		efforts: defaults.efforts ?? [],
+	});
 }
 
 /** Slots from a saved provider: the stored metadata carries the display name and the levels. */
@@ -89,59 +66,6 @@ function readEfforts(value: unknown): EffortLevel[] {
 	return EFFORT_LEVELS.filter((level) => set.has(level));
 }
 
-/**
- * What a newly discovered model starts with, before the person touches it.
- *
- * A form full of empty fields is a form the person has to fill twice: once to get the model list,
- * once to say what each model is. These are the defaults CC Switch uses for the same job — the
- * display name starts as the model id, and the window and the levels come from the id itself, since
- * the family is usually readable from it. Anything the endpoint declared wins over the guess, and a
- * person's own value always wins over both.
- *
- * The window is only ever a starting number for the *display*; the model row stores what the form
- * says, and a model whose window nobody states is compressed by the provider's own limit.
- */
-export function defaultsFor(id: string, declared: ProviderModelMetadata | undefined): Partial<ModelSlot> {
-	const lower = id.toLowerCase();
-	return {
-		name: declared?.name ?? id,
-		contextLength: declared?.contextLength ? String(declared.contextLength) : String(knownWindow(lower) ?? ""),
-		efforts: readEfforts(declared?.efforts).length ? readEfforts(declared?.efforts) : knownEfforts(lower),
-	};
-}
-
-/**
- * The window the model family is published with. Kept deliberately short: only families whose
- * documentation states one number, and only so the field starts somewhere sensible.
- */
-function knownWindow(id: string): number | null {
-	if (/claude-(opus|sonnet|haiku)-5|claude-fable-5/.test(id)) return 1_000_000;
-	if (/gpt-6|gpt-5\.6/.test(id)) return 1_050_000;
-	if (/deepseek/.test(id)) return 1_000_000;
-	if (/glm-5|glm-4\.6/.test(id)) return 200_000;
-	if (/kimi-k3|kimi-k2/.test(id)) return 256_000;
-	if (/gemini-3|gemini-2\.5/.test(id)) return 1_000_000;
-	if (/qwen3/.test(id)) return 256_000;
-	return null;
-}
-
-/**
- * The levels the family takes. `off` is included only for families that accept a "stop thinking"
- * switch; a family that has no such switch would answer a 400 for it.
- */
-function knownEfforts(id: string): EffortLevel[] {
-	if (/claude-(opus|sonnet|haiku)-5|claude-fable-5/.test(id)) return ["low", "medium", "high", "max"];
-	if (/gpt-6|gpt-5\.6/.test(id)) return ["low", "medium", "high"];
-	if (/deepseek|glm|kimi|qwen/.test(id)) return ["off", "low", "medium", "high"];
-	if (/gemini-3|gemini-2\.5/.test(id)) return ["off", "low", "medium", "high", "max"];
-	return [];
-}
-
-/** A slot the person has just discovered, filled with the family's defaults. */
-export function discoveredSlot(id: string, declared: ProviderModelMetadata | undefined): ModelSlot {
-	return newSlot({ id, ...defaultsFor(id, declared) });
-}
-
 /** A slot is only real once it names a model; a half-filled new row is dropped rather than saved. */
 export function completeSlots(slots: readonly ModelSlot[]): ModelSlot[] {
 	const seen = new Set<string>();
@@ -164,8 +88,7 @@ export function saveMetadata(slots: readonly ModelSlot[]): Record<string, Provid
 		if (!id) continue;
 		const contextLength = Number(slot.contextLength);
 		metadata[id] = {
-			// A display name identical to the id is not worth storing: the list already shows the id.
-			...(slot.name.trim() && slot.name.trim() !== id ? { name: slot.name.trim() } : {}),
+			...(slot.name.trim() ? { name: slot.name.trim() } : {}),
 			...(Number.isSafeInteger(contextLength) && contextLength > 0 ? { contextLength } : {}),
 			...(slot.efforts.length ? { efforts: [...slot.efforts] } : {}),
 		};

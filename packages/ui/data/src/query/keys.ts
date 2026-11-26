@@ -17,10 +17,7 @@ export const keys = {
 	},
 	memory: {
 		all: () => ["memory"] as const,
-		/** Every day list, whatever zone it was cut in; the prefix an invalidation uses. */
 		days: () => ["memory", "days"] as const,
-		/** Days are cut in the account's zone, so the zone is part of the key. */
-		daysInZone: (zone: string) => ["memory", "days", zone] as const,
 		fileLists: () => ["memory", "file-list"] as const,
 		files: (prefix: string) => ["memory", "file-list", prefix] as const,
 		file: (path: string) => ["memory", "file", path] as const,

@@ -29,8 +29,6 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("@yonder/ui-data", () => ({
-	// The account zone is the device's in these unit tests; nothing they check depends on it.
-	useAccountTimeZone: () => "Asia/Shanghai",
 	ApiError: FakeApiError,
 	NetworkError: class NetworkError extends Error {},
 	useMe: () => ({ data: state.me }),

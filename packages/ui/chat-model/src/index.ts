@@ -34,7 +34,6 @@ export {
 export { runSources } from "./run-sources.ts";
 
 import type { Message } from "@yonder/protocol";
-import { localDay } from "@yonder/ui-time";
 import { runSources } from "./run-sources.ts";
 
 /** Preserve a newer server message and an already received run when a snapshot omits it. */
@@ -133,8 +132,6 @@ export function groupMessages<T extends Message>(
 	items: readonly T[],
 	hasFullHistory = false,
 	support: MessageCapabilities = {},
-	/** The account's zone, so a day break is the calendar day the reader is in (2026-11-25). */
-	zone = "UTC",
 ) {
 	const blocks: MessageBlock<T>[] = [];
 	let previous: Date | undefined;
@@ -146,8 +143,7 @@ export function groupMessages<T extends Message>(
 			const atStart = hasFullHistory && blocks.length === 0;
 			if (
 				atStart ||
-				(previous &&
-					(milliseconds - previous.getTime() >= 5 * 60_000 || localDay(at, zone) !== localDay(previous, zone)))
+				(previous && (milliseconds - previous.getTime() >= 5 * 60_000 || at.toDateString() !== previous.toDateString()))
 			) {
 				blocks.push({ time: at, messageId: item.id, atStart });
 			}

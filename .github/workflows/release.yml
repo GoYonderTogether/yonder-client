@@ -187,22 +187,16 @@ jobs:
         run: |
           sha="$(git rev-parse HEAD)"
           failed=""
-          dispatch() {
-            workflow="$1"
-            shift
+          set -- android-release.yml
+          if [ "$ANDROID_ONLY" != "true" ]; then
+            set -- "$@" desktop-release.yml ios-release.yml
+          fi
+          for workflow in "$@"; do
             if ! gh workflow run "$workflow" --ref "v$VERSION" \
-              -f "version=$VERSION" -f "expected_commit=$sha" "$@"; then
+              -f "version=$VERSION" -f "expected_commit=$sha"; then
               failed="$failed $workflow"
             fi
-          }
-          dispatch android-release.yml
-          if [ "$ANDROID_ONLY" != "true" ]; then
-            dispatch desktop-release.yml
-            # iOS 的产物是 TestFlight 内部测试版。不传这个开关，导出时不会写
-            # testFlightInternalTestingOnly，Apple 就把构建标成 APP_STORE_ELIGIBLE：
-            # 构建有效、也在内部组里，但测试员收不到，界面停在 Ready to Submit。
-            dispatch ios-release.yml -f testflight_internal=true
-          fi
+          done
           {
             echo "release=published"
             echo "tag=v$VERSION"
