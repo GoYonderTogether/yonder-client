@@ -1,5 +1,5 @@
-import { mergeMessage } from "@yonder/chat-model";
-import type { Message, Run } from "@yonder/protocol";
+import { conversationPeer, mergeMessage } from "@yonder/chat-model";
+import type { Conversation, Message, Run } from "@yonder/protocol";
 export type ChatMessage = Message & { sendFailed?: boolean; pending?: boolean; skillIds?: string[] };
 export function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
 	const rows = [...current];
@@ -48,4 +48,8 @@ export function directPartner<T extends { memberId: string; role?: string }>(
 	ownId?: string,
 ): T | undefined {
 	return members.find((member) => member.memberId !== ownId && !isObserver(member));
+}
+
+export function chatPartner(conversation: Conversation, ownId?: string) {
+	return conversation.visit ? conversationPeer(conversation, ownId) : directPartner(conversation.members, ownId);
 }

@@ -23,7 +23,7 @@ test("a visitor cancels a waiting request only after a second, inline confirmati
 	);
 	fireEvent.click(getByText("取消请求"));
 	expect(mutate).not.toHaveBeenCalled();
-	expect(getByText("取消后主人将看不到这个请求。")).toBeTruthy();
+	expect(getByText("确认取消这次转达？")).toBeTruthy();
 	fireEvent.click(getByText("保留"));
 	expect(queryByText("确认取消")).toBeNull();
 	fireEvent.click(getByText("取消请求"));

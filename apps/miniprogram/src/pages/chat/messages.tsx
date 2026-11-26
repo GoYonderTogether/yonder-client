@@ -311,11 +311,11 @@ export function renderMessageBlock(
 function outwardStatus(state: NonNullable<ChatMessage["outwardRequest"]>["state"]) {
 	switch (state) {
 		case "open":
-			return t("等待主人答复", "Waiting for the owner’s reply");
+			return t("已交给主 Bot", "Passed to the main Bot");
 		case "answered":
 			return t("主人已处理请求", "The owner responded");
 		case "declined":
-			return t("主人已拒绝请求", "The owner declined the request");
+			return t("转达请求已关闭", "This request was closed");
 		case "cancelled":
 			return t("请求已取消", "Request cancelled");
 		case "expired":

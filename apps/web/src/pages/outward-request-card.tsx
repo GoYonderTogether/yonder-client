@@ -4,43 +4,6 @@ import { ApiError, useOutwardActions } from "@yonder/ui-data";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-export function AskOwner({
-	conversationId,
-	messageId,
-	disabled,
-}: {
-	conversationId: string;
-	messageId: string;
-	disabled: boolean;
-}) {
-	const { t } = useTranslation();
-	const { ask } = useOutwardActions(conversationId);
-	return (
-		<>
-			<Button
-				size="sm"
-				variant="link"
-				disabled={disabled}
-				loading={ask.isPending}
-				onClick={() => ask.mutate(messageId)}
-			>
-				{t("visits.relayAsk")}
-			</Button>
-			{ask.error ? (
-				<p role="alert" className="text-caption text-[var(--color-danger)]">
-					{t(
-						ask.error instanceof ApiError && ask.error.code === "conflict_version"
-							? "visits.relayAlreadyOpen"
-							: ask.error instanceof ApiError
-								? ask.error.messageKey
-								: "app.loadFailed",
-					)}
-				</p>
-			) : null}
-		</>
-	);
-}
-
 export function OutwardRequestCard({
 	card,
 	conversationId,

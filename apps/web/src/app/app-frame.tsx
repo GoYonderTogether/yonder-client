@@ -24,6 +24,7 @@ import { ContactsPageList, ContactsPagePlaceholder } from "../pages/contacts-lis
 import {
 	conversationPeer,
 	conversationTitle,
+	messageListUnread,
 	primaryConversation,
 	selectedConversation,
 } from "../pages/conversation-presentation.tsx";
@@ -140,13 +141,7 @@ export function AppFrame() {
 	});
 	const { draft, compact } = chat;
 	const primary = primaryConversation(conversations.data?.items, bot?.id);
-	const unreadCount =
-		conversations.data?.items.reduce(
-			(total, item) =>
-				total +
-				(item.hiddenFromMessages || (phone && (item.id === primary?.id || item.muted)) ? 0 : (item.unreadCount ?? 0)),
-			0,
-		) ?? 0;
+	const unreadCount = messageListUnread(conversations.data?.items, primary?.id, phone);
 	const mainBot = tab === "messages" && (selection === MAIN_CONVERSATION || selection === primary?.id);
 	const mobileBot = phone && mainBot;
 	const tabs = usePhoneTabs(navigation, phone, mobileBot);
@@ -380,6 +375,7 @@ export function AppFrame() {
 			)}
 			selectedSkillIds={draft.skillIds}
 			bindings={draft.bindings ?? []}
+			visitRelay={tab === "messages" ? chat.visitRelay : undefined}
 			onAcceptCompletion={draft.acceptCompletion}
 			onCompact={compact.run}
 			commandStatus={<CompactStatus command={compact} />}

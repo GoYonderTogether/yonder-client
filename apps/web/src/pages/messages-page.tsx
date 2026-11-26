@@ -38,7 +38,7 @@ import {
 	conversationTitle,
 	primaryConversation,
 } from "./conversation-presentation.tsx";
-import { ConversationEntry } from "./conversation-row.tsx";
+import { ConversationEntry, IncomingVisits } from "./conversation-row.tsx";
 import { useMessageScroll } from "./use-message-scroll.ts";
 import { VisitBar } from "./visit-bar.tsx";
 
@@ -72,6 +72,44 @@ export function MessagesList({
 	const { pin, remove } = useConversationListActions();
 	const [deleting, setDeleting] = useState<{ id: string; title: string } | null>(null);
 	const busy = pin.isPending || remove.isPending;
+	const visits = visible?.filter((conversation) => conversation.visit?.role === "host");
+	const showEntry = (conversation: Conversation) => (
+		<ConversationEntry
+			key={conversation.id}
+			conversation={conversation}
+			current={current}
+			personId={person?.id}
+			bot={bot}
+			primary={primary?.id}
+			contacts={contacts}
+			mobile={mode === "mobile"}
+			locale={i18n.resolvedLanguage ?? i18n.language}
+			t={t}
+			actions={[
+				{
+					label: t(conversation.pinned ? "messages.unpin" : "messages.pin"),
+					icon: conversation.pinned ? <PinOff /> : <Pin />,
+					onSelect: () => pin.mutate({ id: conversation.id, pinned: !conversation.pinned }),
+					disabled: busy,
+				},
+				{
+					label: t("messages.delete"),
+					icon: <Trash2 />,
+					tone: "danger",
+					onSelect: () => {
+						remove.reset();
+						const title =
+							conversation.kind === "system"
+								? t("friendRequests.notifications")
+								: conversationTitle(conversation, person?.id);
+						setDeleting({ id: conversation.id, title });
+					},
+					disabled: busy,
+				},
+			]}
+			onOpen={() => onOpen(conversation.id === primary?.id ? MAIN_CONVERSATION : conversation.id)}
+		/>
+	);
 	return (
 		<ListFrame
 			title={mode === "mobile" ? "" : t("nav.messages")}
@@ -88,45 +126,12 @@ export function MessagesList({
 				</p>
 			) : null}
 			<ConversationList label={t("nav.messages")}>
-				{visible?.map((conversation) => {
-					const title =
-						conversation.kind === "system"
-							? t("friendRequests.notifications")
-							: conversationTitle(conversation, person?.id);
-					return (
-						<ConversationEntry
-							key={conversation.id}
-							conversation={conversation}
-							current={current}
-							personId={person?.id}
-							bot={bot}
-							primary={primary?.id}
-							contacts={contacts}
-							mobile={mode === "mobile"}
-							locale={i18n.resolvedLanguage ?? i18n.language}
-							t={t}
-							actions={[
-								{
-									label: t(conversation.pinned ? "messages.unpin" : "messages.pin"),
-									icon: conversation.pinned ? <PinOff /> : <Pin />,
-									onSelect: () => pin.mutate({ id: conversation.id, pinned: !conversation.pinned }),
-									disabled: busy,
-								},
-								{
-									label: t("messages.delete"),
-									icon: <Trash2 />,
-									tone: "danger",
-									onSelect: () => {
-										remove.reset();
-										setDeleting({ id: conversation.id, title });
-									},
-									disabled: busy,
-								},
-							]}
-							onOpen={() => onOpen(conversation.id === primary?.id ? MAIN_CONVERSATION : conversation.id)}
-						/>
-					);
-				})}
+				{visible?.filter((conversation) => conversation.visit?.role !== "host").map(showEntry)}
+				{visits?.length ? (
+					<IncomingVisits unread={visits.some((visit) => visit.unreadCount > 0)}>
+						{visits.map(showEntry)}
+					</IncomingVisits>
+				) : null}
 			</ConversationList>
 			{deleting ? (
 				<ConfirmDialog
