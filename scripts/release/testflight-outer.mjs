@@ -1,7 +1,7 @@
 import { createSign } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-const { KEY_ID, ISSUER_ID, KEY_PATH } = process.env;
+const { KEY_ID, ISSUER_ID, KEY_PATH, BUNDLE_ID, BUILD_NUMBER } = process.env;
 const key = readFileSync(KEY_PATH, "utf8");
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const token = () => {
@@ -16,31 +16,15 @@ const api = async (path) => {
 	const text = await res.text();
 	return { status: res.status, body: text ? JSON.parse(text) : {} };
 };
-
-const apps = await api(`/v1/apps?limit=50`);
-console.log(`APP RECORDS (${apps.body.data?.length ?? 0}):`);
-for (const a of apps.body.data ?? []) {
+const apps = await api(`/v1/apps?filter[bundleId]=${encodeURIComponent(BUNDLE_ID)}&limit=1`);
+const app = apps.body.data[0];
+const list = await api(`/v1/builds?filter[app]=${app.id}&limit=6&sort=-uploadedDate`);
+for (const b of list.body.data) {
+	const d = await api(`/v1/builds/${b.id}/buildBetaDetail`);
+	const a = d.body.data?.attributes ?? {};
 	console.log(
-		`  ${a.id} "${a.attributes.name}" bundle=${a.attributes.bundleId} sku=${a.attributes.sku} state=${a.attributes.appStoreState ?? "-"}`,
+		`build ${b.attributes.version} audience=${b.attributes.buildAudienceType}` +
+			` internal=${a.internalBuildState} external=${a.externalBuildState} autoNotify=${a.autoNotifyEnabled}`,
 	);
-}
-
-const ids = await api(`/v1/bundleIds?limit=50&include=bundleIdCapabilities`);
-console.log(`\nBUNDLE IDS (${ids.body.data?.length ?? 0}):`);
-for (const b of ids.body.data ?? []) {
-	const caps = (b.relationships?.bundleIdCapabilities?.data ?? []).map((c) => c.id);
-	console.log(
-		`  ${b.id} ${b.attributes.identifier} name=${b.attributes.name} platform=${b.attributes.platform} caps=${caps.length ? caps.join(",") : "NONE"}`,
-	);
-}
-for (const inc of ids.body.included ?? []) {
-	console.log(`  capability ${inc.id} ${JSON.stringify(inc.attributes)}`);
-}
-
-const profiles = await api(`/v1/profiles?limit=50&include=bundleId,certificates`);
-console.log(`\nPROFILES (${profiles.body.data?.length ?? 0}):`);
-for (const pr of profiles.body.data ?? []) {
-	console.log(
-		`  ${pr.id} "${pr.attributes.name}" state=${pr.attributes.profileState} type=${pr.attributes.profileType} expires=${pr.attributes.expirationDate}`,
-	);
+	if (d.status !== 200) console.log(`   detail ${d.status} ${JSON.stringify(d.body).slice(0, 200)}`);
 }
