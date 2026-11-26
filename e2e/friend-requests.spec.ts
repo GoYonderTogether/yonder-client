@@ -12,7 +12,6 @@ for (const mobile of [false, true]) {
 				Object.defineProperty(navigator, "userAgent", { get: () => "Mozilla/5.0 (Linux; Android 14) Mobile" }),
 			);
 		await isolateChat(page);
-		await page.addInitScript(() => localStorage.setItem("yonder.locale", "en"));
 		let request: FriendRequest = {
 			id: "request-1",
 			sender: { ...person, id: "friend", displayName: "Alice", handle: "alice" },

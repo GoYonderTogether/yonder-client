@@ -165,7 +165,7 @@ export default function Chat() {
 	useEffect(() => {
 		if (follow && lastMessage && layoutSignature) followAfterLayout();
 	}, [lastMessage, layoutSignature, follow, followAfterLayout]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the ref holds the scope of the latest conversation, read inside the async callback.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the ref holds the latest conversation's scope, read inside the async callback.
 	useEffect(() => {
 		const pending = pendingOlderAnchor.current;
 		if (!pending || pending.scope !== draftKey || !pending.ready || anchorRevision < pending.revision) return;

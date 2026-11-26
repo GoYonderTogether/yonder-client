@@ -27,7 +27,6 @@ const conversation = {
 };
 
 async function isolate(page: Page) {
-	await page.addInitScript(() => localStorage.setItem("yonder.locale", "en"));
 	await page.route("**/v1/**", async (route) => {
 		const path = new URL(route.request().url()).pathname;
 		if (path === "/v1/providers") return route.fulfill({ json: { items: [], platformModels: [] } });

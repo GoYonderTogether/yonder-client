@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import type { Conversation, ConversationMember, Member } from "@yonder/protocol";
-import { bot, conversation, isolateChat, message, person } from "./chat-fixture.ts";
+import { conversation, isolateChat, message, person } from "./chat-fixture.ts";
 
 /**
  * Who `@` may reach is a property of the conversation, and the row a person picks from answers one

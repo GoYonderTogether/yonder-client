@@ -10,8 +10,6 @@ import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
 import { createBrowserStorage } from "../storage/index.ts";
 
-const deviceLocale = () => (/^zh\b|^zh-/iu.test(globalThis.navigator?.language ?? "en") ? "zh-CN" : "en");
-
 const raw = new Map<string, string>();
 const storage = createBrowserStorage({
 	getItem: (key: string) => raw.get(key) ?? null,
