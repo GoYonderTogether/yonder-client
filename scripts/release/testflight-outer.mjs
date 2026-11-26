@@ -1,7 +1,7 @@
 import { createSign } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-const { KEY_ID, ISSUER_ID, KEY_PATH, BUNDLE_ID, BUILD_NUMBER } = process.env;
+const { KEY_ID, ISSUER_ID, KEY_PATH } = process.env;
 const key = readFileSync(KEY_PATH, "utf8");
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const token = () => {
@@ -16,28 +16,31 @@ const api = async (path) => {
 	const text = await res.text();
 	return { status: res.status, body: text ? JSON.parse(text) : {} };
 };
-const apps = await api(`/v1/apps?filter[bundleId]=${encodeURIComponent(BUNDLE_ID)}&limit=1`);
-const app = apps.body.data[0];
-const builds = await api(
-	`/v1/builds?filter[app]=${app.id}&filter[version]=${BUILD_NUMBER}&limit=1&include=buildBetaDetail,betaBuildMetrics`,
-);
-const b = builds.body.data[0];
-console.log(
-	`build ${b.attributes.version} audience=${b.attributes.buildAudienceType} state=${b.attributes.processingState}`,
-);
-for (const inc of builds.body.included ?? []) {
-	if (inc.type === "buildBetaDetails") {
-		console.log(`buildBetaDetail:`);
-		for (const [k, v] of Object.entries(inc.attributes ?? {})) console.log(`   ${k} = ${JSON.stringify(v)}`);
-	} else {
-		console.log(`${inc.type}: ${JSON.stringify(inc.attributes).slice(0, 300)}`);
-	}
+
+const apps = await api(`/v1/apps?limit=50`);
+console.log(`APP RECORDS (${apps.body.data?.length ?? 0}):`);
+for (const a of apps.body.data ?? []) {
+	console.log(
+		`  ${a.id} "${a.attributes.name}" bundle=${a.attributes.bundleId} sku=${a.attributes.sku} state=${a.attributes.appStoreState ?? "-"}`,
+	);
 }
-const detail = await api(`/v1/builds/${b.id}/buildBetaDetail`);
-console.log(`\ndirect buildBetaDetail: ${detail.status} ${JSON.stringify(detail.body).slice(0, 900)}`);
-// every localization for this build, and whether the app record's primary locale matches one
-const locs = await api(`/v1/builds/${b.id}/betaBuildLocalizations`);
-console.log(
-	`\nlocalizations: ${(locs.body.data ?? []).map((l) => `${l.attributes.locale}(whatsNew=${l.attributes.whatsNew ? "set" : "null"})`).join(", ")}`,
-);
-console.log(`app primaryLocale=${app.attributes.primaryLocale}`);
+
+const ids = await api(`/v1/bundleIds?limit=50&include=bundleIdCapabilities`);
+console.log(`\nBUNDLE IDS (${ids.body.data?.length ?? 0}):`);
+for (const b of ids.body.data ?? []) {
+	const caps = (b.relationships?.bundleIdCapabilities?.data ?? []).map((c) => c.id);
+	console.log(
+		`  ${b.id} ${b.attributes.identifier} name=${b.attributes.name} platform=${b.attributes.platform} caps=${caps.length ? caps.join(",") : "NONE"}`,
+	);
+}
+for (const inc of ids.body.included ?? []) {
+	console.log(`  capability ${inc.id} ${JSON.stringify(inc.attributes)}`);
+}
+
+const profiles = await api(`/v1/profiles?limit=50&include=bundleId,certificates`);
+console.log(`\nPROFILES (${profiles.body.data?.length ?? 0}):`);
+for (const pr of profiles.body.data ?? []) {
+	console.log(
+		`  ${pr.id} "${pr.attributes.name}" state=${pr.attributes.profileState} type=${pr.attributes.profileType} expires=${pr.attributes.expirationDate}`,
+	);
+}
