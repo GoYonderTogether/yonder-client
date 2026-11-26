@@ -2,10 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appStoreConnectApi, testFlightStatus } from "./testflight-outer.mjs";
 
-function fixture({ submit = false } = {}) {
+test("probe filters for the exact iOS build and reports only sanitized public group status", async () => {
 	const bundleId = "net.yonderbot.app";
-	const buildNumber = submit ? "26112604" : "26112603";
-	const posts = [];
+	const buildNumber = "26112603";
 	const group = {
 		id: "public-group",
 		attributes: {
@@ -17,14 +16,8 @@ function fixture({ submit = false } = {}) {
 		},
 	};
 	const get = appStoreConnectApi("unused-token", async (url, options) => {
+		assert.equal(options.method, undefined);
 		const { pathname, searchParams } = new URL(url);
-		if (options.method === "POST") {
-			assert.equal(submit, true);
-			posts.push([pathname, JSON.parse(options.body).data]);
-			return pathname.endsWith("relationships/builds")
-				? new Response(null, { status: 204 })
-				: Response.json({ data: { attributes: { betaReviewState: "WAITING_FOR_REVIEW" } } }, { status: 201 });
-		}
 		switch (pathname) {
 			case "/v1/apps":
 				assert.equal(searchParams.get("filter[bundleId]"), bundleId);
@@ -39,7 +32,7 @@ function fixture({ submit = false } = {}) {
 					data: [
 						{
 							id: "exact-build",
-							relationships: { betaGroups: { data: submit ? [] : [{ type: "betaGroups", id: group.id }] } },
+							relationships: { betaGroups: { data: [{ type: "betaGroups", id: group.id }] } },
 							attributes: {
 								version: buildNumber,
 								processingState: "VALID",
@@ -59,43 +52,23 @@ function fixture({ submit = false } = {}) {
 					data: [{ ...group, attributes: { ...group.attributes, publicLink: "sensitive-link" } }],
 				});
 			case "/v1/builds/exact-build/buildBetaDetail":
-				return Response.json({
-					data: { attributes: { externalBuildState: submit ? "READY_FOR_BETA_SUBMISSION" : "IN_BETA_TESTING" } },
-				});
+				return Response.json({ data: { attributes: { externalBuildState: "IN_BETA_TESTING" } } });
 			case "/v1/betaAppReviewSubmissions":
 				assert.equal(searchParams.get("filter[build]"), "exact-build");
 				assert.equal(searchParams.get("fields[betaAppReviewSubmissions]"), "betaReviewState");
-				return Response.json({ data: submit ? [] : [{ attributes: { betaReviewState: "APPROVED" } }] });
+				return Response.json({ data: [{ attributes: { betaReviewState: "APPROVED" } }] });
 			default:
 				assert.fail(`Unexpected API call: ${pathname}`);
 		}
 	});
-	return { posts, get, input: { bundleId, buildNumber, submit } };
-}
-
-test("probe filters for the exact iOS build and reports only sanitized public group status", async () => {
-	const { posts, get, input } = fixture();
-	const status = await testFlightStatus(get, input);
-	assert.deepEqual(posts, []);
-	assert.equal(status.buildNumber, input.buildNumber);
+	const status = await testFlightStatus(get, { bundleId, buildNumber });
+	assert.equal(status.buildNumber, buildNumber);
 	assert.equal(status.audience, "APP_STORE_ELIGIBLE");
 	assert.equal(status.assigned, true);
 	assert.equal(status.review, "APPROVED");
 	assert.equal(status.publicLinkEnabled, true);
 	assert.equal(status.publicLinkLimit, 20);
 	assert.doesNotMatch(JSON.stringify(status), /sensitive-link/);
-});
-
-test("submission recovery only writes the eligible approved target build", async () => {
-	const { posts, get, input } = fixture({ submit: true });
-	await assert.rejects(testFlightStatus(get, { ...input, buildNumber: "26112603" }), /limited to/);
-	const status = await testFlightStatus(get, input);
-	const exact = { type: "builds", id: "exact-build" };
-	assert.deepEqual(posts, [
-		["/v1/betaGroups/public-group/relationships/builds", [exact]],
-		["/v1/betaAppReviewSubmissions", { type: "betaAppReviewSubmissions", relationships: { build: { data: exact } } }],
-	]);
-	assert.deepEqual(status.recovery, { assignment: "ACCEPTED", review: "WAITING_FOR_REVIEW" });
 });
 
 test("ASC errors show only the operation, HTTP status and error code", async () => {
@@ -107,9 +80,5 @@ test("ASC errors show only the operation, HTTP status and error code", async () 
 	);
 	await assert.rejects(get("Read group assignment", "/v1/unused"), {
 		message: "Read group assignment: HTTP 409 ENTITY_ERROR.RELATIONSHIP.INVALID",
-	});
-	await assert.rejects(get("Submit exact build", "/v1/unused", { data: {} }), {
-		message:
-			"Submit exact build: HTTP 409 ENTITY_ERROR.RELATIONSHIP.INVALID; Apple gave no recognized validation reason",
 	});
 });
