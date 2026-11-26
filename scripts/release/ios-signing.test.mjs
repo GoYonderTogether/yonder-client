@@ -10,6 +10,7 @@ const statusWorkflow = readFileSync(new URL("../../.github/workflows/testflight-
 const team = "TESTTEAM42";
 const bundle = "net.yonderbot.app";
 const nextBundle = "net.yonderbot.ios";
+const controlSource = "0548c7ef8e69cef548d020d2a9eac15e6e436fb3";
 const plist = (xml) => `<?xml version="1.0"?><plist version="1.0"><dict>${xml}</dict></plist>`;
 const row = (key, value) => `<key>${key}</key><string>${value}</string>`;
 
@@ -68,6 +69,7 @@ function fixture(t) {
 		INPUT_VERSION: "0.3.26112399",
 		GITHUB_REF: "refs/heads/main",
 		GITHUB_EVENT_NAME: "workflow_dispatch",
+		GITHUB_SHA: "a".repeat(40),
 		HEAD_SHA: "a".repeat(40),
 		EXPECTED_COMMIT: "a".repeat(40),
 		KEY_BASE64: Buffer.from("synthetic upload key placeholder").toString("base64"),
@@ -322,6 +324,8 @@ test("the Xcode control is scoped to the original app and checks the exported IP
 		TESTFLIGHT_XCODE_27_2: "true",
 		INPUT_VERSION: "0.3.26112692",
 		INPUT_MARKETING_VERSION: "0.3.26112608",
+		CONTROL_SOURCE_SHA: controlSource,
+		HEAD_SHA: controlSource,
 	};
 	const { step } = fixture(t);
 	assertOk(step(verify, control));
@@ -330,6 +334,8 @@ test("the Xcode control is scoped to the original app and checks the exported IP
 		{ GITHUB_EVENT_NAME: "release" },
 		{ GITHUB_REF: "refs/tags/v0.3.26112692" },
 		{ EXPECTED_COMMIT: "" },
+		{ EXPECTED_COMMIT: controlSource },
+		{ HEAD_SHA: "a".repeat(40) },
 		{ TESTFLIGHT_INTERNAL: "true" },
 		{ INPUT_VERSION: "0.3.26112693" },
 		{ INPUT_MARKETING_VERSION: "0.3.26112609" },
