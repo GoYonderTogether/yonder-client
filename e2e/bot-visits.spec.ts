@@ -18,6 +18,7 @@ const friend: Conversation = {
 	unreadCount: 2,
 	pinned: false,
 };
+const system: Conversation = { ...friend, id: "system", kind: "system", members: [], unreadCount: 0 };
 const incoming = {
 	...friend,
 	id: "visit-incoming",
@@ -51,7 +52,7 @@ for (const phone of [false, true]) {
 			});
 		await isolateChat(page, { items: [] });
 		await page.route("**/v1/conversations", (route) =>
-			route.fulfill({ json: { items: [conversation, incoming, friend, outgoing] } }),
+			route.fulfill({ json: { items: [conversation, incoming, friend, outgoing, system] } }),
 		);
 		const body = "能帮我确认一下周五的场地吗？";
 		const saved = { ...message("message-01", body, true), conversationId: outgoing.id };
@@ -67,8 +68,15 @@ for (const phone of [false, true]) {
 
 		const list = page.getByRole("list", { name: "消息", exact: true });
 		const folder = list.getByRole("button", { name: /^Bot 来访/ });
+		const systemRow = list.getByRole("button", { name: /^系统通知/ });
 		const visitorRow = list.getByRole("button", { name: /^Zoran/ });
 		await expect(folder.getByRole("img", { name: "有新的 Bot 来访" })).toBeVisible();
+		await expect(folder.locator(".lucide-chevron-right, .lucide-chevron-down")).toHaveCount(0);
+		expect(await folder.getAttribute("aria-expanded")).toBeNull();
+		const avatarSlot = "[data-conversation-avatar-slot]";
+		await expect(folder.locator(avatarSlot)).toHaveClass(
+			(await systemRow.locator(avatarSlot).getAttribute("class")) ?? "",
+		);
 		await expect(visitorRow).toHaveCount(1);
 		await expect(page.getByRole("button", { name: "消息", exact: true })).toHaveAccessibleDescription("2 条未读消息");
 

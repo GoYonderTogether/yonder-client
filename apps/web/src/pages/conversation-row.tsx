@@ -1,9 +1,8 @@
 import { conversationBotOwner, ownedBotFor, visitBot } from "@yonder/chat-model";
 import { BotName, type Translate } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
-import { ConversationRow, UnreadBadge as CountBadge, type RowAction } from "@yonder/ui-components";
-import { BellOff, ChevronRight, Inbox } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { ConversationRow, type RowAction } from "@yonder/ui-components";
+import { BellOff } from "lucide-react";
 import { ConversationAvatar, conversationPeer, conversationTitle } from "./conversation-presentation.tsx";
 import { rowPreview } from "./message-preview.ts";
 import { UnreadBadge } from "./unread-badge.tsx";
@@ -98,37 +97,6 @@ export function ConversationEntry({
 			}
 			pinned={conversation.pinned}
 			aria-description={conversation.pinned ? t("messages.pinned") : undefined}
-			selected={selected}
-			onClick={onOpen}
-		/>
-	);
-}
-
-export function IncomingVisits({
-	unread,
-	selected,
-	onOpen,
-}: {
-	unread: boolean;
-	selected: boolean;
-	onOpen: () => void;
-}) {
-	const { t } = useTranslation();
-	return (
-		<ConversationRow
-			leading={
-				<span className="grid size-[var(--spacing-10)] place-items-center rounded-[var(--radius-control)] bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)]">
-					<Inbox className="icon-scaled" aria-hidden="true" />
-				</span>
-			}
-			title={t("visits.incoming")}
-			preview={t("messages.muted")}
-			badge={
-				<span className="flex items-center gap-[var(--spacing-2)]">
-					<CountBadge count={Number(unread)} muted label={t("visits.incomingUnread")} />
-					<ChevronRight className="icon-scaled" aria-hidden="true" />
-				</span>
-			}
 			selected={selected}
 			onClick={onOpen}
 		/>
