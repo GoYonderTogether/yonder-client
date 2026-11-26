@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112606] - 2026-11-26
+
+### Fixed
+
+- chat：open Bot visits in a dedicated message pane
+- miniprogram：open incoming Bot visits in a separate list
+
 ## [0.3.26112605] - 2026-11-26
 
 ### Fixed
