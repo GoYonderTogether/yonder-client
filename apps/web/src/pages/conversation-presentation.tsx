@@ -3,7 +3,7 @@ import { GroupAvatar } from "@yonder/feature-members";
 import type { Conversation } from "@yonder/protocol";
 import { Avatar } from "@yonder/ui-components";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
-import { Bell } from "lucide-react";
+import { Bell, Inbox } from "lucide-react";
 
 export { conversationPeer };
 
@@ -53,22 +53,23 @@ export function ConversationAvatar({
 	conversation,
 	personId,
 }: {
-	conversation: Conversation;
-	personId: string | undefined;
+	conversation: Conversation | "inbox";
+	personId?: string | undefined;
 }) {
-	const peer = conversationPeer(conversation, personId);
-	const overlay = visitAvatarOverlay(conversation, personId);
+	const peer = conversation === "inbox" ? undefined : conversationPeer(conversation, personId);
+	const overlay = conversation === "inbox" ? undefined : visitAvatarOverlay(conversation, personId);
+	const NoticeIcon = conversation === "inbox" ? Inbox : conversation.kind === "system" ? Bell : null;
 	return (
 		<span
 			data-conversation-avatar-slot
 			aria-hidden="true"
 			className="relative grid size-[var(--spacing-10)] shrink-0 place-items-center"
 		>
-			{conversation.kind === "system" ? (
+			{NoticeIcon ? (
 				<span className="grid size-full place-items-center rounded-[var(--radius-control)] bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)]">
-					<Bell size={24} />
+					<NoticeIcon size={24} />
 				</span>
-			) : conversation.kind === "group" ? (
+			) : conversation !== "inbox" && conversation.kind === "group" ? (
 				<GroupAvatar members={conversation.members} />
 			) : (
 				<Avatar

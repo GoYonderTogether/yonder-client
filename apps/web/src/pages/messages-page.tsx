@@ -9,7 +9,16 @@ import {
 import { exhaustedPools, QuotaLowBanner } from "@yonder/feature-me";
 import { BotName } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
-import { Avatar, Button, ConversationList, EmptyState, IconButton, Spinner } from "@yonder/ui-components";
+import {
+	Avatar,
+	Button,
+	ConversationList,
+	ConversationRow,
+	EmptyState,
+	IconButton,
+	Spinner,
+	UnreadBadge,
+} from "@yonder/ui-components";
 import {
 	type CachedMessage,
 	useActiveBotSubtasks,
@@ -38,7 +47,7 @@ import {
 	conversationTitle,
 	primaryConversation,
 } from "./conversation-presentation.tsx";
-import { ConversationEntry, IncomingVisits } from "./conversation-row.tsx";
+import { ConversationEntry } from "./conversation-row.tsx";
 import { useMessageScroll } from "./use-message-scroll.ts";
 import { VisitBar } from "./visit-bar.tsx";
 
@@ -79,6 +88,7 @@ export function MessagesList({
 	const [deleting, setDeleting] = useState<{ id: string; title: string } | null>(null);
 	const busy = pin.isPending || remove.isPending;
 	const visits = visible?.filter((conversation) => conversation.visit?.role === "host");
+	const visitUnread = visits?.some((visit) => visit.unreadCount > 0) ? 1 : 0;
 	const label = t(incoming ? "visits.incoming" : "nav.messages");
 	const showEntry = (conversation: Conversation) => (
 		<ConversationEntry
@@ -140,10 +150,13 @@ export function MessagesList({
 					<EmptyState as="li" variant="inline" title={t("visits.incomingEmpty")} />
 				) : null}
 				{!incoming && visits?.length && onOpenVisits ? (
-					<IncomingVisits
-						unread={visits.some((visit) => visit.unreadCount > 0)}
+					<ConversationRow
+						leading={<ConversationAvatar conversation="inbox" />}
+						title={t("visits.incoming")}
+						preview={t("messages.muted")}
+						badge={<UnreadBadge count={visitUnread} muted label={t("visits.incomingUnread")} />}
 						selected={visitsSelected}
-						onOpen={onOpenVisits}
+						onClick={onOpenVisits}
 					/>
 				) : null}
 			</ConversationList>
