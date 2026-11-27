@@ -1,9 +1,9 @@
 import { MessageBubble, MessageRun, SystemNotice } from "@yonder/chat-presentation";
 import type { ItemDetail } from "@yonder/protocol";
-import { Button, EmptyState } from "@yonder/ui-components";
+import { Button, EmptyState, TaskGlyph } from "@yonder/ui-components";
 import { ApiError, useItem, useItemActions, type useItemSession } from "@yonder/ui-data";
 import { PageFrame } from "@yonder/ui-shell";
-import { CircleCheck, CircleX, Clock3, Ellipsis, ListChecks } from "lucide-react";
+import { CircleCheck, CircleX, Clock3, Ellipsis } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ItemMeetingCard } from "./item-meeting-card.tsx";
 import { ItemSessionTitle } from "./item-session-title.tsx";
@@ -35,7 +35,7 @@ export function ItemDetailPage({
 			<PageFrame title={t("tasks.itemHeading")}>
 				{query.isError ? (
 					<EmptyState
-						icon={<ListChecks size={24} strokeWidth={1.6} />}
+						icon={<TaskGlyph size={24} />}
 						title={
 							query.error instanceof ApiError && query.error.code === "not_found"
 								? t("tasks.itemNotFound")
@@ -113,7 +113,7 @@ export function ItemDetailPage({
 				{intro}
 				{session.isError ? (
 					<EmptyState
-						icon={<ListChecks size={24} strokeWidth={1.6} />}
+						icon={<TaskGlyph size={24} />}
 						title={t("app.loadFailed")}
 						action={
 							<Button variant="secondary" onClick={() => void session.refetch()}>

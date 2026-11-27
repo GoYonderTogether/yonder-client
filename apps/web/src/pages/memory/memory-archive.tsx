@@ -1,6 +1,6 @@
-import { ListGroup, ListRow } from "@yonder/ui-components";
+import { FolderGlyph, ListGroup, ListRow } from "@yonder/ui-components";
 import { useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
-import { ChevronDown, ChevronRight, Folder } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -49,7 +49,7 @@ export function ArchivedGroup() {
 						<ListRow
 							key={`folder:${folder}`}
 							title={archivedFolderName(folder, folderName)}
-							leading={<Folder size={18} aria-hidden />}
+							leading={<FolderGlyph size={20} aria-hidden />}
 							chevron
 							onClick={() => navigate(memoryFolderRoute("archived", folder))}
 						/>

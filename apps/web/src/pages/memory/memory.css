@@ -22,34 +22,34 @@
 	--memory-card: var(--color-bg-card);
 }
 .memory-kind-place {
-	--memory-dot: var(--color-memory-place);
-	--memory-tint: var(--color-memory-place-bg);
-	--memory-ink: var(--color-memory-place-fg);
+	--memory-dot: var(--color-memory-other);
+	--memory-tint: var(--color-memory-other-bg);
+	--memory-ink: var(--color-memory-other-fg);
 }
 .memory-kind-photo {
-	--memory-dot: var(--color-memory-photo);
-	--memory-tint: var(--color-memory-photo-bg);
-	--memory-ink: var(--color-memory-photo-fg);
+	--memory-dot: var(--color-memory-other);
+	--memory-tint: var(--color-memory-other-bg);
+	--memory-ink: var(--color-memory-other-fg);
 }
 .memory-kind-doc {
-	--memory-dot: var(--color-memory-doc);
-	--memory-tint: var(--color-memory-doc-bg);
-	--memory-ink: var(--color-memory-doc-fg);
+	--memory-dot: var(--color-memory-other);
+	--memory-tint: var(--color-memory-other-bg);
+	--memory-ink: var(--color-memory-other-fg);
 }
 .memory-kind-voice {
-	--memory-dot: var(--color-memory-voice);
-	--memory-tint: var(--color-memory-voice-bg);
-	--memory-ink: var(--color-memory-voice-fg);
+	--memory-dot: var(--color-memory-other);
+	--memory-tint: var(--color-memory-other-bg);
+	--memory-ink: var(--color-memory-other-fg);
 }
 .memory-kind-chat {
-	--memory-dot: var(--color-memory-chat);
-	--memory-tint: var(--color-memory-chat-bg);
-	--memory-ink: var(--color-memory-chat-fg);
+	--memory-dot: var(--color-memory-other);
+	--memory-tint: var(--color-memory-other-bg);
+	--memory-ink: var(--color-memory-other-fg);
 }
 .memory-kind-ai {
-	--memory-dot: var(--color-memory-ai);
-	--memory-tint: var(--color-memory-ai-bg);
-	--memory-ink: var(--color-memory-ai-fg);
+	--memory-dot: var(--color-memory-other);
+	--memory-tint: var(--color-memory-other-bg);
+	--memory-ink: var(--color-memory-other-fg);
 }
 .memory-kind-other {
 	--memory-dot: var(--color-memory-other);
@@ -127,7 +127,7 @@
 	z-index: 1;
 	top: var(--spacing-3);
 	bottom: var(--spacing-2);
-	background: color-mix(in srgb, var(--color-memory-place) 45%, transparent);
+	background: color-mix(in srgb, var(--color-memory-other) 45%, transparent);
 }
 .memory-ahead::before {
 	z-index: 1;

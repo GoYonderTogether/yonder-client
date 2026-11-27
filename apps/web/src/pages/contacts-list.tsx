@@ -1,8 +1,7 @@
 import { MemberRow } from "@yonder/feature-members";
-import { Button, EmptyState } from "@yonder/ui-components";
+import { Button, ContactsGlyph, EmptyState } from "@yonder/ui-components";
 import { useContacts, useFriendRequests } from "@yonder/ui-data";
 import { ListFrame, PageFrame } from "@yonder/ui-shell";
-import { ContactRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { FriendRequestCard } from "./friend-request-card.tsx";
@@ -59,10 +58,7 @@ export function ContactsPagePlaceholder() {
 	return (
 		<PageFrame>
 			<div className="flex flex-1 items-center justify-center">
-				<EmptyState
-					icon={<ContactRound size={24} strokeWidth={1.6} aria-hidden="true" />}
-					title={t("chatActions.contactsSelect")}
-				/>
+				<EmptyState icon={<ContactsGlyph size={24} aria-hidden="true" />} title={t("chatActions.contactsSelect")} />
 			</div>
 		</PageFrame>
 	);

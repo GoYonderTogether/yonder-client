@@ -1,7 +1,7 @@
 import type { Member } from "@yonder/protocol";
-import { Button, EmptyState, ListGroup, ListRow, type RowAction } from "@yonder/ui-components";
+import { Button, EmptyState, ListGroup, ListRow, type RowAction, TaskGlyph } from "@yonder/ui-components";
 import { ApiError, useArchivedItems, useContacts, useItemListAction, useItems, useSchedules } from "@yonder/ui-data";
-import { Archive, ChevronDown, ChevronRight, ListChecks, Pencil, Trash2 } from "lucide-react";
+import { Archive, ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ItemActionDialog } from "./item-action-dialog.tsx";
@@ -139,7 +139,7 @@ export function ItemsList({
 				</ListGroup>
 			) : null}
 			{!query.isLoading && !query.isError && items.length === 0 && upcoming.length === 0 ? (
-				<EmptyState icon={<ListChecks size={24} strokeWidth={1.6} />} title={t("tasks.emptyTitle")} />
+				<EmptyState icon={<TaskGlyph size={24} />} title={t("tasks.emptyTitle")} />
 			) : null}
 			{groups.map((section) => {
 				const earlier = section.group === "earlier";

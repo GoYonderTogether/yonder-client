@@ -1,6 +1,6 @@
 import type { SocialLibrary, SocialLibraryFolder } from "@yonder/protocol";
-import { EmptyState, IconTile, ListGroup, ListRow, SearchInput } from "@yonder/ui-components";
-import { FileClock, Files, FileText, Folder, Search } from "lucide-react";
+import { EmptyState, FolderGlyph, IconTile, ListGroup, ListRow, SearchInput } from "@yonder/ui-components";
+import { FileClock, Files, FileText, Search } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { receptionDropHighlight, useReceptionDrag } from "./reception-library-drag.tsx";
@@ -188,7 +188,7 @@ function ReceptionFolderRows({
 					{...drag?.target(folder)}
 					leading={
 						<IconTile>
-							<Folder size={18} className="text-[var(--color-accent-text)]" />
+							<FolderGlyph size={20} />
 						</IconTile>
 					}
 					title={folderName(folder)}
@@ -220,7 +220,7 @@ export function ReceptionFolderContents({
 	const { t } = useTranslation();
 	const documents = newestFirst(library.documents.filter((document) => document.folderId === folder.id));
 	if (!documents.length && !library.folders.some((item) => item.parentFolderId === folder.id)) {
-		return <EmptyState icon={<Folder size={24} />} title={t("members.social.library.emptyFolder")} />;
+		return <EmptyState icon={<FolderGlyph size={24} />} title={t("members.social.library.emptyFolder")} />;
 	}
 	return (
 		<ListGroup>
