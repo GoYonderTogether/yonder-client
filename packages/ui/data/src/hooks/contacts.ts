@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Conversation, CreateBotRequest, CreateGroupRequest } from "@yonder/protocol";
+import type { Conversation, CreateBotRequest, CreateGroupRequest, Member } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 
@@ -30,7 +30,16 @@ export function useContactActions() {
 	return {
 		createBot: useMutation({
 			mutationFn: (body: CreateBotRequest) => api.createBot(body),
-			onSuccess: ({ conversation }) => save(conversation),
+			onSuccess: ({ bot, conversation }) => {
+				client.setQueryData<{ items: Member[] }>(keys.contacts(), (current) => {
+					const items = current?.items ?? [];
+					const existing = items.find((item) => item.id === bot.id);
+					if (!existing) return { items: [...items, bot] };
+					if (existing.version > bot.version) return current;
+					return { items: items.map((item) => (item.id === bot.id ? bot : item)) };
+				});
+				save(conversation);
+			},
 		}),
 		addContact: useMutation({
 			mutationFn: (memberId: string) => api.addContact(memberId),

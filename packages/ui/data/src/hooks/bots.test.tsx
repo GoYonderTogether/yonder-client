@@ -7,8 +7,10 @@ import { expect, test, vi } from "vitest";
 import { createQueryClient } from "../query/client.ts";
 import { keys } from "../query/keys.ts";
 import { ownedBots, useDeleteBot, useReception, useUpdateBot, useUploadBotAvatar } from "./bots.ts";
+import { useContactActions } from "./contacts.ts";
 
 const endpoints = vi.hoisted(() => ({
+	createBot: vi.fn(),
 	updateBot: vi.fn(),
 	uploadBotAvatar: vi.fn(),
 	deleteBot: vi.fn(),
@@ -69,6 +71,18 @@ function setup() {
 	client.setQueryData(keys.conversations.list(), { items: [direct] });
 	return { client, wrapper };
 }
+
+test("creating a Bot makes its responsibility note available to the chat list before contacts refetch", async () => {
+	const { client, wrapper } = setup();
+	client.setQueryData(keys.contacts(), { items: [person] });
+	const body = { displayName: "Alpha", botRoleLabel: "记录事件" };
+	const created = { ...bot, ...body };
+	endpoints.createBot.mockResolvedValue({ bot: created, conversation: direct });
+	const hook = renderHook(() => useContactActions(), { wrapper });
+	await hook.result.current.createBot.mutateAsync(body);
+	expect(client.getQueryData(keys.contacts())).toEqual({ items: [person, created] });
+	expect(client.getQueryData(keys.conversations.list())).toEqual({ items: [direct] });
+});
 
 test("a rename lands in contacts, the conversation row and me.bot", async () => {
 	const { client, wrapper } = setup();

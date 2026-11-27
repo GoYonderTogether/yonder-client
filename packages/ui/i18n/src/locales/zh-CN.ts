@@ -349,7 +349,7 @@ export const zhCN: Messages = {
 	},
 
 	tasks: {
-		title: "事项",
+		title: "任务",
 		scheduled: "目标",
 		goals: "目标",
 		emptyTitle: "还没有事项",

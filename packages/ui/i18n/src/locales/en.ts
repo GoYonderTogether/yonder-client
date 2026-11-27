@@ -344,7 +344,7 @@ export const en = {
 	},
 
 	tasks: {
-		title: "Items",
+		title: "Tasks",
 		scheduled: "Goals",
 		goals: "Goals",
 		emptyTitle: "No items yet",
