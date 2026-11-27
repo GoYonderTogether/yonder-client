@@ -18,6 +18,13 @@ export function describeFailure(error: unknown, t: Translate): FailureMessage {
 	if (!(error instanceof ApiError)) return { text: t("auth.errors.unknown") };
 
 	switch (error.code) {
+		case "invite_invalid":
+		case "invite_full":
+		case "invite_expired":
+		case "invite_disabled":
+		case "invite_ticket_expired":
+		case "invite_required":
+			return { text: t(`auth.inviteActivation.errors.${error.code}`) };
 		case "code_invalid": {
 			const remaining = Number(error.details?.remainingAttempts ?? 0);
 			return { text: t("auth.errors.codeInvalid", { remaining }), field: "code" };

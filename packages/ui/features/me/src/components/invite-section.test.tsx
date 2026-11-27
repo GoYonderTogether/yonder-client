@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
 		code: "real-code",
 		link: "https://yonder.example/i/real-code",
 		stats: { invitedCount: 3, grantedTotal: 15000 },
+		activation: undefined as { limit: number; used: number; remaining: number } | undefined,
 		rewardRule: { newUserGets: 10000, inviterGets: 5000, maxInvites: null as number | null },
 	},
 	save: vi.fn(async () => {}),
@@ -31,6 +32,7 @@ function show(locale: Locale = "zh-CN") {
 }
 
 beforeEach(() => {
+	state.data.activation = undefined;
 	state.data.rewardRule.maxInvites = null;
 	state.save.mockClear();
 	Object.defineProperty(window, "matchMedia", {
@@ -88,4 +90,24 @@ test("does not promise another reward after the server's invitation limit", () =
 	show();
 	expect(screen.getByText("邀请奖励已达上限")).toBeVisible();
 	expect(screen.queryByText(/再邀请/)).toBeNull();
+});
+
+test("an exhausted activation quota disables sharing even with reward capacity", async () => {
+	state.data.activation = { limit: 5, used: 5, remaining: 0 };
+	show();
+	expect(screen.getByText("5 个邀请名额已用完")).toBeVisible();
+	expect(screen.getByRole("button", { name: "立即分享" })).toBeDisabled();
+	expect(screen.getByRole("button", { name: "复制链接" })).toBeDisabled();
+	await userEvent.click(screen.getByRole("button", { name: "规则" }));
+	expect(screen.getByText("每个账号最多邀请 5 人，好友首次开通后占用一个名额。")).toBeVisible();
+});
+
+test("active beta invitations show people remaining without a larger reward cap", async () => {
+	state.data.activation = { limit: 5, used: 4, remaining: 1 };
+	state.data.rewardRule.maxInvites = 30;
+	show();
+	expect(screen.getByText("还可邀请 1 人")).toBeVisible();
+	expect(screen.queryByText(/还可获得.*次邀请奖励/)).toBeNull();
+	await userEvent.click(screen.getByRole("button", { name: "规则" }));
+	expect(screen.queryByText(/最多可获得.*次邀请奖励/)).toBeNull();
 });

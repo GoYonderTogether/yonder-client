@@ -1,5 +1,6 @@
 import { Image, Input, Button as NativeButton, Picker, Text, View } from "@tarojs/components";
 import { AuthActions, AuthConsent, AuthFrame, type AuthHost, AuthStack, AuthTitle } from "@yonder/auth-presentation";
+import type { PasswordSignInResponse, VerifySignInResponse } from "@yonder/protocol";
 import logo from "./logo.svg";
 import darkLogo from "./logo-dark.svg";
 import "./style.scss";
@@ -8,10 +9,10 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui";
 import { t, useLocale } from "../../lib/i18n";
 import { api, deviceInfo, uploadAvatar, useSession } from "../../lib/runtime";
-
 import { Consent } from "./consent";
 import { signInDestination } from "./destination";
 import { Field } from "./field";
+import { InviteActivation } from "./invite-activation";
 import { phoneGate, smsGate, wechatGate } from "./wechat";
 import { authFailure, wechatError } from "./wechat-error";
 
@@ -22,6 +23,7 @@ export default function SignIn() {
 	const [privacy, setPrivacy] = useState(false);
 	const [ticket, setTicket] = useState("");
 	const [ticketExpires, setTicketExpires] = useState(0);
+	const [inviteTicket, setInviteTicket] = useState("");
 	const [entry, setEntry] = useState<"wechat" | "phone" | "profile">("wechat");
 	const [avatar, setAvatar] = useState("");
 	const [nickname, setNickname] = useState("");
@@ -54,8 +56,9 @@ export default function SignIn() {
 		return () => clearInterval(timer);
 	}, [retryAt]);
 	useEffect(() => {
-		if (status === "signed-in" && !signingIn.current && entry !== "profile") void Taro.reLaunch({ url: next });
-	}, [status, next, entry]);
+		if (status === "signed-in" && !signingIn.current && entry !== "profile" && !inviteTicket)
+			void Taro.reLaunch({ url: next });
+	}, [status, next, entry, inviteTicket]);
 	const send = async () => {
 		const gate = smsGate(sendingRef.current || busy, agree, seconds, valid);
 		if (gate === "busy") return;
@@ -122,9 +125,10 @@ export default function SignIn() {
 							code,
 							agreeTerms: true,
 							device: deviceInfo(),
+							inviteFlow: true,
 							...(inviteCode.trim() ? { inviteCode: inviteCode.trim() } : {}),
 						});
-			await finish(result);
+			await verify(result);
 		} catch {
 			setError(authFailure(mode === "reset" ? "reset" : "sign-in"));
 		} finally {
@@ -134,9 +138,12 @@ export default function SignIn() {
 	};
 	const finish = async (result: { accessToken: string; refreshToken?: string; isNewAccount: boolean }) => {
 		await startSession(result);
+		setInviteTicket("");
 		if (result.isNewAccount) setEntry("profile");
 		else await Taro.reLaunch({ url: next });
 	};
+	const verify = async (result: VerifySignInResponse | PasswordSignInResponse) =>
+		"status" in result ? setInviteTicket(result.ticket) : finish(result);
 	const wechat = async () => {
 		const gate = wechatGate(busy || signingIn.current, agree, process.env.TARO_ENV !== "h5");
 		if (gate === "busy") return;
@@ -195,14 +202,14 @@ export default function SignIn() {
 		setBusy(true);
 		setError("");
 		try {
-			await finish(
-				await api.wechatMiniPhone({
-					ticket,
-					phoneCode,
-					device: deviceInfo(),
-					...(inviteCode.trim() ? { inviteCode: inviteCode.trim() } : {}),
-				}),
-			);
+			const result = await api.wechatMiniPhone({
+				ticket,
+				phoneCode,
+				device: deviceInfo(),
+				inviteFlow: true,
+				...(inviteCode.trim() ? { inviteCode: inviteCode.trim() } : {}),
+			});
+			await verify(result);
 		} catch (e) {
 			setTicket("");
 			setError(wechatError(e));
@@ -251,13 +258,29 @@ export default function SignIn() {
 			>
 				<AuthStack as={AuthView}>
 					<AuthTitle as={AuthView}>
-						{entry === "profile"
-							? t("完善资料", "Complete your profile")
-							: mode === "reset" && entry === "phone"
-								? t("重置密码", "Reset password")
-								: t("登录 Yonder", "Sign in to Yonder")}
+						{inviteTicket
+							? t("输入邀请码", "Enter invitation code")
+							: entry === "profile"
+								? t("完善资料", "Complete your profile")
+								: mode === "reset" && entry === "phone"
+									? t("重置密码", "Reset password")
+									: t("登录 Yonder", "Sign in to Yonder")}
 					</AuthTitle>
-					{privacy ? (
+					{inviteTicket ? (
+						<InviteActivation
+							ticket={inviteTicket}
+							prefill={inviteCode.trim()}
+							onSignedIn={finish}
+							onSwitchAccount={() => {
+								setInviteTicket("");
+								setTicket("");
+								setPhoneStage(false);
+								setPhone("");
+								setCode("");
+								setRetryAt(0);
+							}}
+						/>
+					) : privacy ? (
 						<>
 							<Text>
 								{t("请阅读并同意微信隐私保护指引后继续", "Review and agree to the WeChat privacy notice to continue")}

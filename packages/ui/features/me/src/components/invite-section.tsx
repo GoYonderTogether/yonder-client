@@ -26,9 +26,10 @@ export function InviteSection() {
 			<p role="status">{t("app.loading")}</p>
 		);
 	}
-	const { code, link, stats, rewardRule } = invite.data;
+	const { code, link, stats, rewardRule, activation } = invite.data;
 	const name = me.data?.member.displayName ?? "Yonder";
 	const remaining = rewardRule.maxInvites === null ? null : Math.max(0, rewardRule.maxInvites - stats.invitedCount);
+	const full = activation?.remaining === 0;
 	async function copy(value: string, what: "code" | "link") {
 		setCopied(null);
 		setFailure(false);
@@ -73,12 +74,21 @@ export function InviteSection() {
 								<span className="tabular-nums">{formatExact(stats.invitedCount, locale)}</span>
 							</strong>
 						</p>
-						<p className="text-caption text-[var(--color-text-secondary)]">
-							{remaining === 0
-								? t("inviteExperience.limitReached")
-								: t("inviteExperience.nextReward", { amount: formatQuota(rewardRule.inviterGets, locale) })}
-						</p>
-						{remaining !== null ? (
+						{activation ? (
+							<p className="text-body text-[var(--color-text-primary)]">
+								{full
+									? t("inviteExperience.activationFull", { limit: activation.limit })
+									: t("inviteExperience.activationRemaining", { remaining: formatExact(activation.remaining, locale) })}
+							</p>
+						) : null}
+						{full ? null : (
+							<p className="text-caption text-[var(--color-text-secondary)]">
+								{remaining === 0
+									? t("inviteExperience.limitReached")
+									: t("inviteExperience.nextReward", { amount: formatQuota(rewardRule.inviterGets, locale) })}
+							</p>
+						)}
+						{remaining !== null && !activation ? (
 							<p className="text-caption text-[var(--color-text-secondary)]">
 								{t("inviteExperience.limit", { remaining: formatExact(remaining, locale) })}
 							</p>
@@ -105,16 +115,21 @@ export function InviteSection() {
 					</div>
 					<div className="flex w-full flex-col gap-[var(--spacing-3)]">
 						<div className="grid grid-cols-2 gap-[var(--spacing-3)]">
-							<Button onClick={() => void copy(link, "link")} className="!rounded-[var(--radius-full)]">
+							<Button disabled={full} onClick={() => void copy(link, "link")} className="!rounded-[var(--radius-full)]">
 								<Copy size={16} aria-hidden="true" />
 								{copied === "link" ? t("app.copied") : t("inviteExperience.copyLink")}
 							</Button>
-							<Button variant="primary" onClick={() => setDialog("card")} className="!rounded-[var(--radius-full)]">
+							<Button
+								disabled={full}
+								variant="primary"
+								onClick={() => setDialog("card")}
+								className="!rounded-[var(--radius-full)]"
+							>
 								<Share2 size={16} aria-hidden="true" />
 								{t("inviteExperience.shareNow")}
 							</Button>
 						</div>
-						<Button variant="link" onClick={() => setDialog("card")}>
+						<Button disabled={full} variant="link" onClick={() => setDialog("card")}>
 							<QrCode size={16} aria-hidden="true" />
 							{t("inviteExperience.cardHint")}
 						</Button>
@@ -140,22 +155,25 @@ export function InviteSection() {
 			>
 				<div className="flex flex-col gap-[var(--spacing-5)] p-[var(--spacing-6)] text-body text-[var(--color-text-primary)]">
 					<p>{t("inviteExperience.ruleJoin")}</p>
+					{activation ? <p>{t("inviteExperience.ruleActivation", { limit: activation.limit })}</p> : null}
 					<p>
 						{t("inviteExperience.ruleReward", {
 							newUserGets: formatExact(rewardRule.newUserGets, locale),
 							inviterGets: formatExact(rewardRule.inviterGets, locale),
 						})}
 					</p>
-					<p>
-						{remaining === null
-							? t("inviteExperience.ruleUnlimited")
-							: t("inviteExperience.ruleLimit", { count: rewardRule.maxInvites })}
-					</p>
+					{activation ? null : (
+						<p>
+							{remaining === null
+								? t("inviteExperience.ruleUnlimited")
+								: t("inviteExperience.ruleLimit", { count: rewardRule.maxInvites })}
+						</p>
+					)}
 					<p>{t("inviteExperience.ruleExisting")}</p>
 					<div className="rounded-[var(--radius-card)] bg-[var(--color-bg-base)] p-[var(--spacing-4)]">
 						<p className="text-caption text-[var(--color-text-secondary)]">{t("me.invite.code")}</p>
 						<p className="break-all text-h2 font-semibold">{code}</p>
-						<Button variant="link" onClick={() => void copy(code, "code")}>
+						<Button disabled={full} variant="link" onClick={() => void copy(code, "code")}>
 							{copied === "code" ? t("app.copied") : t("app.copy")}
 						</Button>
 					</div>
@@ -167,7 +185,7 @@ export function InviteSection() {
 					) : null}
 				</div>
 			</Overlay>
-			{dialog === "card" ? (
+			{dialog === "card" && !full ? (
 				<InviteShareCard
 					name={name}
 					code={code}

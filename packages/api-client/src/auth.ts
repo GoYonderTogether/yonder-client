@@ -1,5 +1,6 @@
 import type {
 	PasswordSignInResponse,
+	RedeemInviteRequest,
 	RefreshResponse,
 	ResetPasswordRequest,
 	ResolveInviteResponse,
@@ -7,11 +8,17 @@ import type {
 	SendCodeResponse,
 	SignInRequest,
 	SignInResponse,
+	VerifySignInResponse,
 	WechatMiniPhoneRequest,
 	WechatMiniSignInRequest,
 	WechatMiniSignInResponse,
 } from "@yonder/protocol";
 import type { ApiClient } from "./client.ts";
+
+type VerifyRequest = SignInRequest | WechatMiniPhoneRequest;
+type SignInResult<Body extends VerifyRequest> = Body extends VerifyRequest & { inviteFlow?: never }
+	? SignInResponse
+	: VerifySignInResponse;
 
 /** Sign-in, refresh and the calls that work before an account is known. */
 export function authEndpoints(client: ApiClient) {
@@ -24,12 +31,16 @@ export function authEndpoints(client: ApiClient) {
 			return client.request("/v1/auth/wechat/mini/sign-in", { body, authenticated: false });
 		},
 
-		wechatMiniPhone(body: WechatMiniPhoneRequest): Promise<SignInResponse> {
+		wechatMiniPhone<Body extends WechatMiniPhoneRequest>(body: Body): Promise<SignInResult<Body>> {
 			return client.request("/v1/auth/wechat/mini/phone", { body, authenticated: false });
 		},
 
-		signIn(body: SignInRequest): Promise<SignInResponse> {
+		signIn<Body extends SignInRequest>(body: Body): Promise<SignInResult<Body>> {
 			return client.request("/v1/auth/sign-in", { body, authenticated: false });
+		},
+
+		redeemInvite(body: RedeemInviteRequest): Promise<SignInResponse> {
+			return client.request("/v1/auth/invite/redeem", { body, authenticated: false });
 		},
 
 		signInWithPassword(body: {

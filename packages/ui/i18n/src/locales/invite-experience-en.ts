@@ -17,6 +17,8 @@ export const inviteExperienceEn = {
 	nextReward: "Invite one more friend to receive {{amount}} main quota",
 	limit: "{{remaining}} rewarded invitations remaining",
 	limitReached: "Your invitation reward limit has been reached",
+	activationRemaining: "{{remaining}} invitation spots remaining",
+	activationFull: "All {{limit}} invitation spots have been used",
 	unlimited: "Earn main quota for every friend who joins",
 	newFriend: "Your friend joins",
 	friendReward: "They receive {{amount}} main quota",
@@ -31,6 +33,7 @@ export const inviteExperienceEn = {
 	shareFailed: "Could not share. You can copy the link or save the card instead.",
 	saveFailed: "Could not save the image. Try again.",
 	ruleJoin: "A friend must use your invitation link or code when creating their account.",
+	ruleActivation: "Each account can invite up to {{limit}} people. A spot is used when a friend first joins.",
 	ruleReward:
 		"Once they join, they receive {{newUserGets}} main quota and you receive {{inviterGets}} main quota, on top of the sign-up package.",
 	ruleUnlimited: "There is no limit on rewarded invitations.",

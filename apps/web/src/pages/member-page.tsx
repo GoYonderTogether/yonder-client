@@ -1,5 +1,5 @@
 import { IconButton } from "@yonder/ui-components";
-import { saveInvite, useData, useResolvedInvite, useSessionStore } from "@yonder/ui-data";
+import { saveInvite, useData, useSessionStore } from "@yonder/ui-data";
 import { ChevronLeft } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,10 +25,9 @@ export function MemberCardPage({ handle }: { handle: string }) {
 	const { storage } = useData();
 	// A card shared with its owner's invite code: a stranger who signs up from it counts as invited.
 	const code = cardInviteCode(location.search);
-	const invite = useResolvedInvite(code, !booting && status === "signed-out");
 	useEffect(() => {
-		if (code && invite.data?.valid) saveInvite(storage, code);
-	}, [code, invite.data?.valid, storage]);
+		if (code && !booting && status === "signed-out") saveInvite(storage, code);
+	}, [booting, code, status, storage]);
 
 	if (booting || status === "unknown") return <Splash />;
 	const signedIn = status === "signed-in";
