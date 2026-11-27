@@ -181,3 +181,17 @@ test("active beta invitations show people remaining without a larger reward cap"
 	await userEvent.click(screen.getByRole("button", { name: "规则" }));
 	expect(screen.queryByText(/最多可获得.*次邀请奖励/)).toBeNull();
 });
+
+test("an account invited past the limit still shows exactly five full spots", () => {
+	state.data.stats.invitedCount = 8;
+	state.data.activation = { limit: 5, used: 8, remaining: 0 };
+	try {
+		show();
+		const nodes = within(screen.getByRole("list", { name: "邀请进度" })).getAllByRole("listitem");
+		expect(nodes).toHaveLength(5);
+		expect(nodes.filter((node) => node.getAttribute("aria-label")?.includes("已加入"))).toHaveLength(5);
+		expect(screen.getByText("5 个邀请名额已用完")).toBeVisible();
+	} finally {
+		state.data.stats.invitedCount = 3;
+	}
+});
