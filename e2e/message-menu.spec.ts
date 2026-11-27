@@ -131,16 +131,17 @@ test("right-clicking another group member's avatar offers profile and a bound @ 
 		});
 });
 
-test("the message menu includes only copy and mention for others, and only copy for yourself", async ({ page }) => {
+test("the message menu offers @Ta only on someone else's message and never on your own", async ({ page }) => {
 	const { incoming, own } = await openGroup(page);
 	const menu = messageMenu(page);
 	await incoming.locator(".message-bubble").click({ button: "right" });
-	await expect(menu.getByRole("menuitem")).toHaveText(["复制", "@Ta"]);
+	await expect(menu.getByRole("menuitem")).toHaveText(["复制", "引用", "转发", "@Ta", "仅为我删除"]);
 	await menu.getByRole("menuitem", { name: "@Ta" }).click();
 	await expect(composer(page)).toHaveValue(`@${member.displayName} `);
 
 	await own.click({ button: "right" });
-	await expect(menu.getByRole("menuitem")).toHaveText(["复制"]);
+	await expect(menu.getByRole("menuitem", { name: "复制" })).toHaveCount(1);
+	await expect(menu.getByRole("menuitem", { name: "@Ta" })).toHaveCount(0);
 });
 
 test("copy writes the selected message text to the clipboard", async ({ page }) => {
@@ -197,7 +198,7 @@ test("Shift+F10 and the Menu key open focused menus and Escape restores the trig
 	await incoming.press("Shift+F10");
 	await expect(rows.first()).toBeFocused();
 	await page.keyboard.press("ArrowDown");
-	await expect(rows.last()).toBeFocused();
+	await expect(rows.nth(1)).toBeFocused();
 	await page.keyboard.press("Escape");
 	await expect(menu).toBeHidden();
 	await expect(incoming).toBeFocused();
@@ -291,7 +292,7 @@ test.describe("touch", () => {
 		const { session } = await beginTouch(page, incoming.locator(".message-bubble"));
 		const menu = messageMenu(page);
 		try {
-			await expect(menu.getByRole("menuitem")).toHaveText(["复制", "@Ta"]);
+			await expect(menu.getByRole("menuitem")).toHaveText(["复制", "引用", "转发", "@Ta", "仅为我删除"]);
 			await expectInsideViewport(menu, page);
 		} finally {
 			await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
