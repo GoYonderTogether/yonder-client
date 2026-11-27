@@ -36,7 +36,7 @@ import {
 	primaryConversation,
 	selectedConversation,
 } from "../pages/conversation-presentation.tsx";
-import { readMemoryView } from "../pages/memory/memory-view.ts";
+import { readMemoryView, showsMemoryBack } from "../pages/memory/memory-view.ts";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { BotTabAvatar } from "../pages/unread-badge.tsx";
@@ -441,7 +441,7 @@ export function AppFrame() {
 					side={side}
 					onBack={back}
 					backLabel={t(visitsRoute && !visitFolder ? "visits.incomingBack" : "app.back")}
-					showContentBack={visitsRoute && !visitFolder}
+					showContentBack={showsMemoryBack(memoryView) || (visitsRoute && !visitFolder)}
 					mobileShowList={!detailOpen}
 					list={list ? deferred(list) : null}
 					content={
