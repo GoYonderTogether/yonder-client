@@ -51,7 +51,7 @@ export function MobileDock({
 		<div
 			data-mobile-dock
 			ref={ref}
-			className="relative z-20 shrink-0 bg-[var(--color-bg-dock)] backdrop-blur-xl backdrop-saturate-150"
+			className="relative z-20 shrink-0 material material-regular material-bar"
 			style={{ paddingBottom: "var(--dock-bottom-inset, var(--safe-area-bottom, env(safe-area-inset-bottom)))" }}
 		>
 			{composer ? (
@@ -71,14 +71,7 @@ export function MobileDock({
 									label: labels[tab],
 									displayLabel: labels[tab],
 									active: tab === current && !botTab?.active,
-									icon: (
-										<Icon
-											className="icon-scaled"
-											size={23}
-											strokeWidth={tab === current && !botTab?.active ? 2.1 : 1.6}
-											aria-hidden="true"
-										/>
-									),
+									icon: <Icon className="icon-scaled" size={24} selected={tab === current && !botTab?.active} />,
 									onSelect: () => onSelect(tab),
 								};
 							}),
@@ -107,17 +100,9 @@ export function MobileDock({
 											active ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-tertiary)]",
 										)}
 									>
-										{/* The selected tab is a filled capsule around its icon, the way the system bar reads
-										    it — shape first, colour second, so the mark is not carried by stroke weight
-										    alone. The negative margins cancel the padding, so only the paint moves. */}
-										<span
-											data-press-target
-											className={cn(
-												"relative inline-flex items-center justify-center rounded-[var(--radius-full)]",
-												active &&
-													"-mx-[var(--spacing-2)] -my-[2px] bg-[var(--color-bg-selected)] px-[var(--spacing-2)] py-[2px]",
-											)}
-										>
+										{/* A tab glyph turns from grey to its own colour; the Bot's avatar keeps its own colours,
+										    so it greys out when away and gains a ring when current (native-mobile.css). */}
+										<span data-press-target className="relative inline-flex items-center justify-center">
 											{icon}
 											{unread ? (
 												<UnreadBadge

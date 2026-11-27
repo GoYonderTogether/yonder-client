@@ -7,7 +7,8 @@
 		".": "./src/index.ts",
 		"./css": "./src/tokens.css",
 		"./glow.css": "./src/glow.css",
-		"./motion.css": "./src/motion.css"
+		"./motion.css": "./src/motion.css",
+		"./materials.css": "./src/materials.css"
 	},
 	"scripts": {
 		"typecheck": "tsc -b"

@@ -1,0 +1,71 @@
+/*
+ * Materials: translucent surfaces for floating chrome (dock, page headers, composer, menus, sheets).
+ * Neutral by design: the tint is the page colour itself, so a material never adds a hue. Three tiers
+ * share one recipe (tint + one blur + saturation + hairline edge + soft shadow). Blur radii are fixed
+ * and never animated; content that scrolls (lists, bubbles) stays flat and never takes a material.
+ */
+:root {
+	--material-saturate: 1.5;
+	--material-thin-blur: 14px;
+	--material-regular-blur: 22px;
+	--material-thick-blur: 34px;
+	--material-thin-tint: color-mix(in srgb, var(--color-bg-base) 60%, transparent);
+	--material-regular-tint: color-mix(in srgb, var(--color-bg-base) 72%, transparent);
+	--material-thick-tint: color-mix(in srgb, var(--color-bg-base) 88%, transparent);
+	--material-edge: rgba(255, 255, 255, 0.6);
+	--material-shadow: 0 8px 30px rgba(24, 24, 22, 0.1);
+}
+
+[data-theme="dark"] {
+	--material-edge: rgba(255, 255, 255, 0.1);
+	--material-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.material {
+	background: var(--material-tint, var(--material-regular-tint));
+	-webkit-backdrop-filter: blur(var(--material-blur, var(--material-regular-blur))) saturate(var(--material-saturate));
+	backdrop-filter: blur(var(--material-blur, var(--material-regular-blur))) saturate(var(--material-saturate));
+	box-shadow:
+		inset 0 0 0 0.5px var(--material-edge),
+		var(--material-shadow);
+}
+
+.material-thin {
+	--material-blur: var(--material-thin-blur);
+	--material-tint: var(--material-thin-tint);
+}
+
+.material-regular {
+	--material-blur: var(--material-regular-blur);
+	--material-tint: var(--material-regular-tint);
+}
+
+.material-thick {
+	--material-blur: var(--material-thick-blur);
+	--material-tint: var(--material-thick-tint);
+}
+
+/* A bar docked to a screen edge: only a hairline on the inner edge, no drop shadow. */
+.material-bar {
+	box-shadow: inset 0 0.5px 0 var(--material-edge);
+}
+
+/* No blur support: fall back to a near-opaque tint so text contrast does not change. */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+	.material {
+		--material-tint: color-mix(in srgb, var(--color-bg-base) 94%, transparent);
+	}
+	.material-thick {
+		--material-tint: var(--color-bg-base);
+	}
+}
+
+/* The system asks for less transparency or more contrast: solid fill and a real hairline. */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+	.material {
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+		background: var(--color-bg-base);
+		box-shadow: inset 0 0 0 1px var(--color-border-default);
+	}
+}

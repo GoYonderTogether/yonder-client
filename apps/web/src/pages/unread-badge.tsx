@@ -13,7 +13,14 @@ export function BotTabAvatar({
 }) {
 	return (
 		<span className="relative">
-			<Avatar name={bot?.displayName ?? ""} src={bot?.avatarUrl} color={bot?.avatarColor} kind="bot" size={24} />
+			<Avatar
+				name={bot?.displayName ?? ""}
+				src={bot?.avatarUrl}
+				color={bot?.avatarColor}
+				kind="bot"
+				size={24}
+				className="bot-tab-avatar"
+			/>
 			<span className="absolute -top-[var(--spacing-1)] -end-[var(--spacing-2)]">
 				<UnreadBadge count={unreadCount} dot={Boolean(muted)} />
 			</span>

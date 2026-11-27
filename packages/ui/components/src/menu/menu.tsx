@@ -7,7 +7,7 @@ import { cn } from "../cn.ts";
  * large shadow, 4px padding. `Popover` and `Menu` both use it, so every anchored panel matches.
  */
 export const MENU_SURFACE =
-	"rounded-[var(--radius-control)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-raised)] p-[var(--spacing-1)] shadow-[var(--shadow-lg)]";
+	"rounded-[var(--radius-control)] border border-[var(--color-border-subtle)] material material-thick p-[var(--spacing-1)]";
 
 /** One row inside the surface: body text, 12/8 padding, the small control radius. */
 export const MENU_ITEM =

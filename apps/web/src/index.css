@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@yonder/ui-tokens/css";
 @import "@yonder/ui-tokens/motion.css";
+@import "@yonder/ui-tokens/materials.css";
 /* After the themes: the glow style overrides their surfaces. */
 @import "@yonder/ui-tokens/glow.css";
 

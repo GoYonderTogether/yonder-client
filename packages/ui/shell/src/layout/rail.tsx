@@ -86,12 +86,12 @@ export function Rail({
 									"flex w-14 flex-col items-center gap-[var(--spacing-hair)] rounded-[var(--radius-control)] py-[var(--spacing-2)]",
 									"transition-colors duration-[var(--duration-fast)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
 									selected
-										? "bg-[var(--color-bg-selected)] text-[var(--color-text-primary)]"
+										? "text-[var(--color-text-primary)]"
 										: "text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]",
 								)}
 							>
 								<span className="relative">
-									<Icon className="icon-scaled" size={20} strokeWidth={selected ? 2.1 : 1.7} aria-hidden="true" />
+									<Icon className="icon-scaled" size={22} selected={selected} />
 									{unread ? (
 										<UnreadBadge
 											{...unread}
