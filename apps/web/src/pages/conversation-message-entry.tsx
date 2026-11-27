@@ -13,7 +13,7 @@ import { AgentCardMessage } from "./agent-card-message.tsx";
 import { ConnectorIntakeMessageCard } from "./connector-intake-card.tsx";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
 import { MeetingMessageCard } from "./meeting-message-card.tsx";
-import { MessageAttachments } from "./message-attachments.tsx";
+import { getAttachmentDownloadItem, MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
 import type { MessageMenuItem, MessageMenuTarget } from "./message-menu.tsx";
 import { MessageOptions } from "./message-options.tsx";
@@ -36,6 +36,8 @@ export interface MessageEntryProps {
 }
 
 function isInteractiveMessagePart(target: EventTarget) {
+	// An attachment tile is a button, but pressing it is how its own download row is reached.
+	if (target instanceof Element && target.closest("[data-attachment-id]")) return false;
 	return (
 		target instanceof Element &&
 		Boolean(
@@ -64,8 +66,23 @@ export function MessageEntry({
 	// A question card's own images are drawn inside the card; only the rest sit beside the bubble.
 	const ordinaryAttachments = question ? attachmentsOutsideQuestionCard(message) : attachments;
 	const meeting = message.meeting;
+	// An attachment's own long press or right-click offers its download row, so a message with no text still opens a menu.
+	const attachmentMenu =
+		Boolean(onMenu) &&
+		!question &&
+		!message.options?.length &&
+		!message.sendFailed &&
+		!voice &&
+		ordinaryAttachments.length > 0;
+	const menuEnabled = Boolean(onMenu) && (Boolean(menuRows?.length) || attachmentMenu);
 	const { handlers, pressed } = useLongPress(
-		menuRows?.length && onMenu ? (point) => onMenu({ ...point, items: menuRows }) : undefined,
+		menuEnabled && onMenu
+			? (point) => {
+					const download = attachmentMenu ? getAttachmentDownloadItem(point.target) : undefined;
+					const items = [...(download ? [download] : []), ...(menuRows ?? [])];
+					if (items.length) onMenu({ ...point, items });
+				}
+			: undefined,
 		isInteractiveMessagePart,
 	);
 	return (
@@ -74,10 +91,10 @@ export function MessageEntry({
 			data-message-id={message.id}
 			data-message-sender={self ? "self" : "other"}
 			data-long-press={pressed || undefined}
-			aria-haspopup={menuRows?.length ? "menu" : undefined}
-			tabIndex={menuRows?.length ? 0 : undefined}
+			aria-haspopup={menuEnabled ? "menu" : undefined}
+			tabIndex={menuEnabled ? 0 : undefined}
 			{...handlers}
-			className={`flex min-w-0 flex-col gap-[var(--spacing-1)] rounded-[var(--radius-control-sm)] ${menuRows?.length ? "[@media(pointer:coarse)]:[&>.message-bubble]:select-none" : ""} focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--color-accent)] ${pressed ? "bg-[var(--color-bg-hover)] [&>.message-bubble]:bg-[var(--color-bg-hover)]!" : ""} ${self ? "items-end" : "items-start"}`}
+			className={`flex min-w-0 flex-col gap-[var(--spacing-1)] rounded-[var(--radius-control-sm)] ${menuEnabled ? "[@media(pointer:coarse)]:[&>.message-bubble]:select-none" : ""} focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--color-accent)] ${pressed ? "bg-[var(--color-bg-hover)] [&>.message-bubble]:bg-[var(--color-bg-hover)]!" : ""} ${self ? "items-end" : "items-start"}`}
 		>
 			{message.outwardDraft ? <p className="text-caption">{t("visits.relayPrivateDraft")}</p> : null}
 			{question ? (

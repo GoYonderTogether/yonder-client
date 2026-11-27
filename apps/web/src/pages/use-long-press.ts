@@ -9,6 +9,8 @@ export interface MenuPoint {
 	x: number;
 	y: number;
 	from: HTMLElement;
+	/** What was pressed, so a row can depend on it (an attachment's own download row). */
+	target: EventTarget | null;
 }
 
 type Press = {
@@ -76,7 +78,7 @@ export function useLongPress(
 					touchPointer.current = event.pointerType !== "mouse";
 					if (!touchPointer.current || event.button !== 0 || ignore?.(event.target)) return;
 					cancel();
-					const { clientX: x, clientY: y, currentTarget: from, pointerId: id } = event;
+					const { clientX: x, clientY: y, currentTarget: from, pointerId: id, target } = event;
 					press.current = {
 						id,
 						x,
@@ -85,7 +87,7 @@ export function useLongPress(
 						hold: setTimeout(() => {
 							cancel();
 							swallowClick();
-							onOpen({ x, y, from });
+							onOpen({ x, y, from, target });
 						}, HOLD_MS),
 					};
 				},
@@ -103,7 +105,7 @@ export function useLongPress(
 					event.preventDefault();
 					event.stopPropagation();
 					if (touchPointer.current) return;
-					onOpen({ x: event.clientX, y: event.clientY, from: event.currentTarget });
+					onOpen({ x: event.clientX, y: event.clientY, from: event.currentTarget, target: event.target });
 				},
 				onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
 					if (event.defaultPrevented || event.target !== event.currentTarget) return;
@@ -111,7 +113,7 @@ export function useLongPress(
 					event.preventDefault();
 					event.stopPropagation();
 					const { right, top } = event.currentTarget.getBoundingClientRect();
-					onOpen({ x: right, y: top, from: event.currentTarget });
+					onOpen({ x: right, y: top, from: event.currentTarget, target: event.currentTarget });
 				},
 			}
 		: {};
