@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112714] - 2026-11-27
+
+### Fixed
+
+- ui：draw the invitation entry without a reward rule, and measure round bubbles
+
 ## [0.3.26112713] - 2026-11-27
 
 ### Fixed
