@@ -141,6 +141,8 @@ export type {
 	ConnectorCommandResult,
 	ConnectorDefinition,
 	ConnectorExecutionError,
+	ConnectorFilePreviewResult,
+	ConnectorFilePreviewStatus,
 	ConnectorGrant,
 	ConnectorId,
 	ConnectorInstance,

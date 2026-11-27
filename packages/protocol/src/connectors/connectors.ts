@@ -127,7 +127,7 @@ export type AppleConnectorOperation =
 	| "apple_voice_memos_list"
 	| "apple_voice_memos_read"
 	| "apple_voice_memos_transcribe";
-export type ConnectorOperation = FileConnectorOperation | AppleConnectorOperation | "asset_original";
+export type ConnectorOperation = FileConnectorOperation | AppleConnectorOperation | "asset_original" | "file_preview";
 export interface ConnectorCommandArgs {
 	/** `search`: a file-name substring. `grep`: a regular expression (Rust `regex` syntax). Apple calendar: an event search term. */
 	query?: string;
@@ -135,6 +135,8 @@ export interface ConnectorCommandArgs {
 	content?: string;
 	/** The SHA-256 hex of the file as the device will find it; `edit` and `delete` require it. */
 	expectedHash?: string;
+	/** `file_preview`: the exact version the requesting client already verified. */
+	knownSha256?: string;
 	recoveryId?: string;
 	/** OS-local resource id, never a filesystem path or a script. */
 	id?: string;
@@ -319,9 +321,18 @@ export type AppleConnectorResult =
 	| { kind: "apple_voice_memos_read"; id: string; attachment: Attachment }
 	| { kind: "apple_voice_memos_transcribe"; id: string; text: string };
 
+export type ConnectorFilePreviewStatus =
+	| { kind: "directory"; entries: { name: string; type: "file" | "directory" }[]; truncated: boolean }
+	| { kind: "unchanged"; sha256: string };
+
+export type ConnectorFilePreviewResult =
+	| ConnectorFilePreviewStatus
+	| { kind: "file"; sha256: string; attachment: Attachment };
+
 export type ConnectorResult =
 	| LocalFilesResult
 	| AppleConnectorResult
+	| ConnectorFilePreviewResult
 	| { kind: "asset_original"; attachment: Attachment };
 
 export type ConnectorExecutionError =
