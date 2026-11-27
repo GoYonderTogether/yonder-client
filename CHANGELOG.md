@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112720] - 2026-11-27
+
+### Added
+
+- tasks：empty states say what to tell the Bot
+
 ## [0.3.26112719] - 2026-11-27
 
 ### Added
