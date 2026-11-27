@@ -1,40 +1,13 @@
 /* The glow style (`data-style="glow"`): the AI gradient chrome and the text roles that stay legible on it. */
 
-/* Semi ai-background-top / ai-background-bottom, copied without changing stops, angles or alpha. */
+/* Neutral chrome: a faint grey wash from the top, no hue, so glass over it stays calm. */
 [data-style="glow"] {
 	--color-bg-chrome: var(--color-bg-base);
-	--color-bg-chrome-image:
-		linear-gradient(
-			201.15deg,
-			rgba(83, 56, 255, 0.16) 6.58%,
-			rgba(176, 48, 240, 0.096) 32.88%,
-			rgba(231, 45, 255, 0.048) 59.17%,
-			rgba(255, 255, 255, 0) 94.23%
-		),
-		linear-gradient(
-			201.15deg,
-			rgba(255, 255, 255, 0.04) 6.58%,
-			rgba(255, 226, 138, 0.04) 32.88%,
-			rgba(231, 45, 255, 0.04) 67.93%,
-			rgba(0, 115, 255, 0.04) 94.23%
-		);
+	--color-bg-chrome-image: linear-gradient(180deg, rgba(46, 50, 56, 0.05), rgba(46, 50, 56, 0) 60%);
 }
 
 [data-theme="dark"][data-style="glow"] {
-	--color-bg-chrome-image:
-		linear-gradient(
-			201.15deg,
-			rgba(83, 56, 255, 0.36) 6.58%,
-			rgba(176, 48, 240, 0.216) 32.88%,
-			rgba(154, 0, 174, 0.108) 59.17%,
-			rgba(0, 0, 0, 0) 94.23%
-		),
-		linear-gradient(
-			201.15deg,
-			rgba(255, 226, 138, 0.2) 6.58%,
-			rgba(231, 45, 255, 0.2) 50.4%,
-			rgba(0, 115, 255, 0.2) 94.23%
-		);
+	--color-bg-chrome-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 60%);
 }
 
 .yonder-chrome {

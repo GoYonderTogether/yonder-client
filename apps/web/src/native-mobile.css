@@ -27,8 +27,8 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 	inset: 0 0 calc(-1 * var(--spacing-6));
 	z-index: -1;
 	background: color-mix(in srgb, var(--color-bg-base) 75%, transparent);
-	-webkit-backdrop-filter: blur(var(--system-bar-blur));
-	backdrop-filter: blur(var(--system-bar-blur));
+	-webkit-backdrop-filter: blur(var(--material-regular-blur)) saturate(var(--material-saturate));
+	backdrop-filter: blur(var(--material-regular-blur)) saturate(var(--material-saturate));
 	-webkit-mask-image: linear-gradient(to bottom, var(--color-mask-solid) calc(100% - var(--spacing-6)), transparent);
 	mask-image: linear-gradient(to bottom, var(--color-mask-solid) calc(100% - var(--spacing-6)), transparent);
 	pointer-events: none;
@@ -38,7 +38,7 @@ html[data-native-mobile="true"] :is([data-frame-header], [data-native-legal-head
 [data-floating-frame-header] {
 	--floating-frame-safe-top: var(--safe-area-top, env(safe-area-inset-top, 0px));
 	--floating-frame-top: max(var(--floating-frame-safe-top), var(--spacing-1));
-	--floating-frame-blur: calc(var(--system-bar-blur) * 1.2);
+	--floating-frame-blur: var(--material-regular-blur);
 	min-height: calc(var(--floating-frame-top) + var(--control-sm));
 	padding-top: var(--floating-frame-top);
 	pointer-events: none;
@@ -86,9 +86,7 @@ html[data-native-mobile="true"] [data-floating-frame-header]::before {
 :is([data-floating-frame-leading], [data-floating-frame-trailing]) > button:not([data-account-avatar]) {
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius-full);
-	background-color: color-mix(in srgb, var(--color-bg-base) 50%, transparent);
-	-webkit-backdrop-filter: blur(var(--floating-frame-blur));
-	backdrop-filter: blur(var(--floating-frame-blur));
+	background-color: color-mix(in srgb, var(--color-bg-base) 72%, transparent);
 }
 
 [data-chat-agent-title] [data-chat-agent-avatar],
@@ -232,9 +230,18 @@ html[data-native-mobile="true"] [data-native-legal] article {
 html[data-native-mobile="true"] [data-native-composer] {
 	z-index: 20;
 	padding-bottom: max(var(--spacing-4), var(--safe-area-bottom));
-	background: var(--color-bg-dock);
-	-webkit-backdrop-filter: blur(var(--system-bar-blur));
-	backdrop-filter: blur(var(--system-bar-blur));
+	background: var(--material-regular-tint);
+	-webkit-backdrop-filter: blur(var(--material-regular-blur)) saturate(var(--material-saturate));
+	backdrop-filter: blur(var(--material-regular-blur)) saturate(var(--material-saturate));
+	box-shadow: inset 0 0.5px 0 var(--material-edge);
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+	html[data-native-mobile="true"] [data-native-composer] {
+		background: var(--color-bg-base);
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
 }
 
 html[data-native-mobile="true"] [data-page-layer="detail"] {
@@ -283,10 +290,29 @@ html[data-native-mobile="true"] [data-surface="chrome"] > [data-shell-frame] > [
 	color: var(--color-text-primary);
 }
 
-/* The selected tab's capsule lands with a small overshoot: the shape says which tab is current, and
+/* The selected tab's icon lands with a small overshoot: the colour says which tab is current, and
    the pop says it just became so. Only on mount, so it never ticks on an ordinary render. */
 [data-mobile-dock] nav button[aria-current="page"] > span[data-press-target] {
 	animation: yonder-tab-pop 240ms var(--ease-decelerate);
+}
+
+/* The main Bot's avatar keeps its own colours, so it cannot turn grey-to-colour like the glyphs
+   beside it: away it is desaturated, current it is in full colour inside a ring. */
+[data-mobile-dock] [data-bot-tab] .bot-tab-avatar {
+	filter: grayscale(1);
+	opacity: 0.55;
+	transition:
+		filter var(--duration-fast) var(--ease-standard),
+		opacity var(--duration-fast) var(--ease-standard),
+		box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+[data-mobile-dock] [data-bot-tab][aria-current="page"] .bot-tab-avatar {
+	filter: none;
+	opacity: 1;
+	box-shadow:
+		0 0 0 2px var(--color-bg-base),
+		0 0 0 3.5px var(--color-text-primary);
 }
 
 @keyframes yonder-tab-pop {
@@ -312,5 +338,19 @@ html[data-native-mobile="true"] [data-layout-mode="mobile"] {
 @media (prefers-reduced-motion: reduce) {
 	html[data-native-mobile="true"] [data-layout-mode="mobile"] {
 		transition: none;
+	}
+}
+
+/* The header glass and its small buttons fall back to a solid page colour when the system asks for
+   less transparency or more contrast. !important: these rules have to beat every blur rule above. */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+	html[data-native-mobile="true"]
+		:is([data-frame-header], [data-native-legal-header], [data-floating-frame-header])::before,
+	[data-floating-frame-header]::before,
+	[data-floating-frame-header] [data-chat-agent-title] > [role="status"]::before,
+	:is([data-floating-frame-leading], [data-floating-frame-trailing]) > button:not([data-account-avatar]) {
+		-webkit-backdrop-filter: none !important;
+		backdrop-filter: none !important;
+		background-color: var(--color-bg-base) !important;
 	}
 }

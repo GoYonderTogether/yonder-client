@@ -85,7 +85,8 @@ export function Overlay({
 						priority={20}
 						side={sheet ? "bottom" : "right"}
 						className={cn(
-							"z-10 bg-[var(--color-bg-surface)]",
+							"z-10",
+							sheet && !centered ? "material material-thick" : "bg-[var(--color-bg-surface)]",
 							centered
 								? cn(
 										"m-auto !flex-none max-h-[var(--dialog-max-height)] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]",
