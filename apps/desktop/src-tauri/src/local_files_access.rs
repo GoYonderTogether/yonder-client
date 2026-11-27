@@ -116,8 +116,14 @@ mod tests {
             execute(&root, "read", "C:\\outside.txt"),
             Err("path_invalid")
         );
-        assert_eq!(execute(&root, "read", "large.txt"), Err("line_too_long"));
-        assert_eq!(execute(&root, "read", "binary"), Err("unsupported_file"));
+        let cut = execute(&root, "read", "large.txt").unwrap();
+        assert_eq!(cut["lineTruncated"], true);
+        assert_eq!(cut["lineBytes"], 65537);
+        assert_eq!(cut["startByte"], 0);
+        assert_eq!(cut["endByte"], 65536);
+        assert_eq!(cut["content"].as_str().unwrap().len(), 65536);
+        assert_eq!(cut["truncated"], true);
+        assert_eq!(execute(&root, "read", "binary"), Err("binary_file"));
         assert_eq!(execute(&root, "read", "non-utf8"), Err("unsupported_file"));
         #[cfg(unix)]
         {

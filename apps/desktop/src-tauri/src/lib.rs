@@ -37,7 +37,11 @@ mod local_files;
 #[cfg(desktop)]
 mod local_files_access;
 #[cfg(desktop)]
+mod local_files_binary;
+#[cfg(desktop)]
 mod local_files_grep;
+#[cfg(desktop)]
+mod local_files_grep_file;
 #[cfg(desktop)]
 mod local_files_limits;
 #[cfg(desktop)]
@@ -46,6 +50,11 @@ mod local_files_mutations;
 mod local_files_mutations_windows;
 #[cfg(desktop)]
 mod local_files_operations;
+#[cfg(desktop)]
+mod local_files_read;
+#[cfg(all(desktop, test))]
+#[path = "local_files_read_test.rs"]
+mod local_files_read_test;
 #[cfg(desktop)]
 mod local_files_scan;
 

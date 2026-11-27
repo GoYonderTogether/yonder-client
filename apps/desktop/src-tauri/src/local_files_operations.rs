@@ -12,6 +12,7 @@
 use crate::local_files_access;
 use crate::local_files_grep;
 use crate::local_files_limits::{MAX_OFFSET, MAX_READ_LINES, SCAN_RESULTS};
+use crate::local_files_read;
 use crate::local_files_mutations::{delete, restore, write};
 use crate::local_files_scan::{self, NameFilter, Options};
 use crate::local_files_store::{Context, Grant};
@@ -127,9 +128,19 @@ fn read(
     };
     let target = resolve(grant, &start, false)?;
     let (offset, limit) = read_range(args)?;
-    let (page, hash) = text::read_page(&target, offset, limit, cancelled, expires)?;
+    // `byteOffset` names a position and `offset` a line, so a call may carry only one of them.
+    let from = match args.get("byteOffset") {
+        None | Some(Value::Null) => local_files_read::Start::Line(offset),
+        Some(value) => {
+            if args.get("offset").is_some_and(|v| !v.is_null()) {
+                return Err("path_invalid");
+            }
+            local_files_read::Start::Byte(value.as_u64().ok_or("path_invalid")?)
+        }
+    };
+    let (page, hash) = local_files_read::read_page(&target, from, limit, cancelled, expires)?;
     let body = String::from_utf8(page.content).map_err(|_| "unsupported_file")?;
-    Ok(json!({
+    let mut result = json!({
         "kind": "read",
         "path": path,
         "content": body,
@@ -138,7 +149,14 @@ fn read(
         "endLine": page.end_line,
         "totalLines": page.total_lines,
         "truncated": page.truncated,
-    }))
+        "startByte": page.start_byte,
+        "endByte": page.end_byte,
+    });
+    if let Some(bytes) = page.line_bytes {
+        result["lineTruncated"] = json!(true);
+        result["lineBytes"] = json!(bytes);
+    }
+    Ok(result)
 }
 
 fn listing(
@@ -276,7 +294,12 @@ fn grep(
     let limit = local_files_grep::limit_from(args.get("limit").and_then(|value| value.as_u64()));
     let literal = flag(args, "literal")?;
     let case_sensitive = flag(args, "caseSensitive")?;
-    let query = local_files_grep::query(pattern, literal, case_sensitive, limit)?;
+    let mut query = local_files_grep::query(pattern, literal, case_sensitive, limit)?;
+    query.files_only = match string_arg(args, "output")? {
+        None | Some("matches") => false,
+        Some("files") => true,
+        Some(_) => return Err("path_invalid"),
+    };
     let target = resolve(grant, raw, false)?;
     let shown_root = if grant.scope == "folder" {
         search_result_path(Path::new(raw), true)
@@ -307,6 +330,12 @@ fn grep(
         cancelled,
         expires,
     )
+}
+
+/// Size and kind of a file `read` refused as binary; `None` when it cannot be described again.
+pub fn binary_detail(grant: &Grant, path: &str) -> Option<(u64, &'static str)> {
+    let target = resolve(grant, path, false).ok()?;
+    crate::local_files_binary::describe(&target)
 }
 
 /// Recover candidate lines only when the file still matches the requested version.

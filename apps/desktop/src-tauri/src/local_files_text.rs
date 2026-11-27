@@ -9,7 +9,7 @@
 //!   change: BOM, untouched line endings, permissions. Matching `oldString` in either LF or CRLF
 //!   form is what makes a multi-line old string work on a CRLF file.
 
-use crate::local_files_limits::{MAX_FILE_BYTES, MAX_INPUT_BYTES, MAX_PAGE_BYTES};
+use crate::local_files_limits::{MAX_FILE_BYTES, MAX_INPUT_BYTES};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::Read;
@@ -196,134 +196,6 @@ pub fn snapshot_bytes(
         bytes,
         hash: format!("{:x}", hasher.finalize()),
     })
-}
-
-/// One page: the exact bytes from the start of line `start_line` through the end of `end_line`.
-///
-/// Byte-exact on purpose: the text a Bot reads can be pasted back as `oldString` unchanged.
-pub struct Page {
-    pub content: Vec<u8>,
-    pub start_line: usize,
-    pub end_line: usize,
-    pub total_lines: usize,
-    pub truncated: bool,
-}
-
-/// Read and hash one stable version with bounded buffers.
-pub fn read_page(
-    path: &Path,
-    offset: usize,
-    limit: usize,
-    cancelled: &AtomicBool,
-    expires: u64,
-) -> Result<(Page, String), &'static str> {
-    let mut file = open_regular(path)?;
-    let before = file.metadata().map_err(|_| "operation_failed")?;
-    if before.len() > MAX_FILE_BYTES {
-        return Err("too_large");
-    }
-    let mut hasher = Sha256::new();
-    let mut chunk = [0u8; 65536];
-    let mut carry = Vec::new();
-    let mut line = Vec::new();
-    let mut length = 0usize;
-    let mut total = 0usize;
-    let mut returned = 0usize;
-    let mut content = Vec::new();
-    let mut full = false;
-    let mut read = 0u64;
-    let mut finish_line =
-        |line: &mut Vec<u8>, length: &mut usize, total: &mut usize| -> Result<(), &'static str> {
-            *total += 1;
-            if *total >= offset && returned < limit && !full {
-                if *length > MAX_PAGE_BYTES {
-                    if returned == 0 {
-                        return Err("line_too_long");
-                    }
-                    full = true;
-                } else {
-                    if line.last() == Some(&b'\r') {
-                        line.pop();
-                    }
-                    let extra = line.len() + usize::from(returned > 0);
-                    if content.len() + extra > MAX_PAGE_BYTES {
-                        full = true;
-                    } else {
-                        if returned > 0 {
-                            content.push(b'\n');
-                        }
-                        content.extend_from_slice(line);
-                        returned += 1;
-                    }
-                }
-            }
-            line.clear();
-            *length = 0;
-            Ok(())
-        };
-    loop {
-        check(cancelled, expires)?;
-        let n = file.read(&mut chunk).map_err(|_| "operation_failed")?;
-        if n == 0 {
-            break;
-        }
-        read += n as u64;
-        if read > before.len() {
-            return Err("conflict");
-        }
-        hasher.update(&chunk[..n]);
-        if chunk[..n].contains(&0) {
-            return Err("unsupported_file");
-        }
-        carry.extend_from_slice(&chunk[..n]);
-        match std::str::from_utf8(&carry) {
-            Ok(_) => carry.clear(),
-            Err(e) if e.error_len().is_none() => {
-                let valid = e.valid_up_to();
-                carry.drain(..valid);
-            }
-            Err(_) => return Err("unsupported_file"),
-        }
-        for &byte in &chunk[..n] {
-            if byte == b'\n' {
-                finish_line(&mut line, &mut length, &mut total)?;
-            } else {
-                length += 1;
-                if line.len() <= MAX_PAGE_BYTES {
-                    line.push(byte);
-                }
-            }
-        }
-    }
-    if !carry.is_empty() {
-        return Err("unsupported_file");
-    }
-    if length > 0 {
-        finish_line(&mut line, &mut length, &mut total)?;
-    }
-    drop(finish_line);
-    if read != before.len()
-        || open_regular(path)
-            .map(|current| !same_handle(&file, &current))
-            .unwrap_or(true)
-        || stamp(&file.metadata().map_err(|_| "operation_failed")?) != stamp(&before)
-        || fs::symlink_metadata(path)
-            .map(|m| link_like(&m) || stamp(&m) != stamp(&before))
-            .unwrap_or(true)
-    {
-        return Err("conflict");
-    }
-    check(cancelled, expires)?;
-    Ok((
-        Page {
-            content,
-            start_line: offset,
-            end_line: offset - 1 + returned,
-            total_lines: total,
-            truncated: offset - 1 + returned < total,
-        },
-        format!("{:x}", hasher.finalize()),
-    ))
 }
 
 /// The newline convention a replacement follows when the match itself has none.

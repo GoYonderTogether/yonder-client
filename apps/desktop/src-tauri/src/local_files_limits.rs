@@ -6,9 +6,10 @@
 //! reasoning for each value is also written into `docs/specs/connectors/local-files.md` (server
 //! repository), so a reviewer can check the number against the measured constraint.
 
-/// The largest file `read` and `edit` will open, 32 MiB.
+/// The largest file `edit` will open, 32 MiB.
 ///
-/// A bounded input for edit's in-memory splice and for each page's full-file hash.
+/// A bounded input and output for edit's in-memory splice. `read` streams and has no size cap: it
+/// holds one page and one chunk, and the whole-file hash is computed as it goes.
 /// This is a resource ceiling, not a promise that a slow volume meets a latency target.
 pub const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 
@@ -21,6 +22,10 @@ pub const MAX_INPUT_BYTES: usize = 65_536;
 /// `read` line parameters. The page byte cap is what usually binds first.
 pub const MAX_READ_LINES: usize = 2_000;
 pub const MAX_OFFSET: usize = 1_000_000;
+
+/// Bytes `read` and `grep` inspect at the start of a file to decide it is binary.
+/// It is also the chunk size they read in, so detection costs no extra I/O.
+pub const SNIFF_BYTES: usize = 65_536;
 
 /// A scan (`search`, `index`, `grep`) stops after this much wall-clock work, at the latest.
 ///
@@ -49,16 +54,18 @@ pub const GREP_TEXT_CHARS: usize = 300;
 /// Characters a user may put before the hit and still see it inside the window.
 pub const GREP_TEXT_LEAD: usize = 100;
 
-/// The largest file `grep` reads, 8 MiB. Content search is a stream of files, so each one is
-/// cheaper than the one file `read` must hash end to end; files above this are usually data.
-pub const GREP_FILE_BYTES: u64 = 8 * 1024 * 1024;
+/// Bytes a long-line window keeps from the one before it, so a hit that straddles the boundary is
+/// still found. It is 4 KiB because a pattern is at most 500 characters (`PATTERN_CHARS`), and a
+/// match longer than the overlap that straddles a boundary can be missed. There is no per-file size
+/// cap any more: the 256 MiB per-command read budget (`GREP_SCAN_BYTES`) is what bounds the work.
+pub const GREP_WINDOW_OVERLAP: usize = 4 * 1024;
 
-/// Lines longer than this are not matched. Keeps one pathological minified line from owning the
-/// whole budget of a file.
+/// The window a line is matched in: a line longer than this is matched piece by piece, never
+/// skipped, so memory holds one window however long the line is.
 pub const GREP_LINE_BYTES: usize = 64 * 1024;
 
-/// Bytes of file content `grep` reads in one command. With 8 MiB files this is 32 files; the intent
-/// is that a big grep stops with `stopReason: "budget"` instead of filling the disk queue.
+/// Bytes of file content `grep` reads in one command, across all files. The intent is that a big
+/// grep stops with `stopReason: "budget"` instead of filling the disk queue.
 pub const GREP_SCAN_BYTES: u64 = 256 * 1024 * 1024;
 
 /// Total size of match payload (`path` + `text` + per-match overhead) one `grep` returns. The

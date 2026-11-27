@@ -288,6 +288,7 @@ pub async fn local_files_execute(
                 preview::execute(&selected, &operation, &path, &args, &signal, expires)
                     .map(CommandReply::Bytes),
                 Vec::new(),
+                None,
             );
         }
         let result = local_files_operations::execute(
@@ -297,11 +298,16 @@ pub async fn local_files_execute(
         if matches!(result, Err("multiple_matches")) {
             match local_files_operations::candidate_lines(&selected, &path, &args, &signal, expires)
             {
-                Ok(candidates) => (result, candidates),
-                Err(error) => (Err(error), Vec::new()),
+                Ok(candidates) => (result, candidates, None),
+                Err(error) => (Err(error), Vec::new(), None),
             }
         } else {
-            (result, Vec::new())
+            let detail = if matches!(result, Err("binary_file")) {
+                local_files_operations::binary_detail(&selected, &path)
+            } else {
+                None
+            };
+            (result, Vec::new(), detail)
         }
     })
     .await
@@ -318,12 +324,15 @@ pub async fn local_files_execute(
         return Err("permission_denied".into());
     }
     let value = match result {
-        (Ok(CommandReply::Bytes(bytes)), _) => return Ok(Response::new(bytes)),
-        (Ok(CommandReply::Json(value)), _) => json!({"ok":true,"result":value}),
-        (Err(error), candidates) if error == "multiple_matches" => {
+        (Ok(CommandReply::Bytes(bytes)), _, _) => return Ok(Response::new(bytes)),
+        (Ok(CommandReply::Json(value)), _, _) => json!({"ok":true,"result":value}),
+        (Err(error), candidates, _) if error == "multiple_matches" => {
             json!({"ok":false,"error":error,"candidateLines":candidates})
         }
-        (Err(error), _) => json!({"ok":false,"error":error}),
+        (Err(error), _, Some((size, file_type))) if error == "binary_file" => {
+            json!({"ok":false,"error":error,"size":size,"fileType":file_type})
+        }
+        (Err(error), _, _) => json!({"ok":false,"error":error}),
     };
     Ok(Response::new(value.to_string()))
 }

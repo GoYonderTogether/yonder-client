@@ -218,6 +218,10 @@ export interface ConnectorCommandArgs {
 	text?: string;
 	/** `shell_job` `write`: close standard input after writing. */
 	eof?: boolean;
+	/** File `read`: the first byte to return, 0-based; exclusive with `offset`. Continue a truncated line with the previous `endByte`. */
+	byteOffset?: number;
+	/** `grep`: `matches` (default) returns matching lines; `files` returns each matching file with its match count. */
+	output?: "matches" | "files";
 }
 
 export interface ConnectorCommand {
@@ -257,13 +261,25 @@ export type LocalFilesResult =
 			totalLines?: number;
 			/** SHA-256 of the whole file, so a later edit can verify it even when only part was read. */
 			hash?: string;
+			/** True when the first returned line was cut because it exceeds 65536 bytes; continue with `byteOffset: endByte`. */
+			lineTruncated?: boolean;
+			/** Total bytes of that line without its newline; present with `lineTruncated`. */
+			lineBytes?: number;
+			/** Byte position in the file where the returned content starts, 0-based. */
+			startByte?: number;
+			/** Byte position in the file just after the returned content; the next `byteOffset`. */
+			endByte?: number;
 	  }
 	| {
 			kind: "grep";
 			/** The file or directory the search started from. */
 			path: string;
-			/** One entry per matching line; `path` is ready to pass to `read`, `line` is 1-based. */
-			matches: { path: string; line: number; text: string }[];
+			/** One entry per matching line; `path` is ready to pass to `read`, `line` is 1-based. `byteOffset` is the hit's byte position in the file and `column` its byte position in the line, both 0-based. */
+			matches: { path: string; line: number; text: string; byteOffset?: number; column?: number }[];
+			/** `output: "files"` only: each matching file with its count of matching lines; `matches` is then empty. */
+			files?: { path: string; count: number }[];
+			/** Binary files the search skipped, so a missing hit is not read as absence. */
+			binaryFilesSkipped?: number;
 			truncated: boolean;
 			/** Present when `truncated`: the result cap or the scan budget ended the search. */
 			stopReason?: ConnectorStopReason;
@@ -454,7 +470,17 @@ export type ConnectorExecutionError =
 	| "job_not_found"
 	/** The job's process is gone with no `.exit` record: it died across a client restart. */
 	| "job_lost"
-	| "operation_failed";
+	| "operation_failed"
+	/** `read` met a binary file (a NUL byte or a known binary header); the failure carries `size` and `fileType`. */
+	| "binary_file";
 export type ConnectorCommandResult =
 	| { ok: true; result: ConnectorResult }
-	| { ok: false; error: ConnectorExecutionError; candidateLines?: number[] };
+	| {
+			ok: false;
+			error: ConnectorExecutionError;
+			candidateLines?: number[];
+			/** `binary_file` only: the file's size in bytes. */
+			size?: number;
+			/** `binary_file` only: the recognised kind (`sqlite`, `pdf`, `zip`, `gzip`, `png`, `jpeg`, `gif`) or `unknown`. */
+			fileType?: string;
+	  };

@@ -1,36 +1,38 @@
 //! `grep`: content search over a folder grant or one file.
 //!
 //! Per-line matching, one match per matching line, `line` from 1, and `path` in the same form as
-//! `search`, so a result can be handed straight to `read`'s `offset`. Text is cut to a window
-//! around the hit (at most [`GREP_TEXT_CHARS`] characters, up to [`GREP_TEXT_LEAD`] of them before
-//! it), so a minified line still shows the part that matched.
+//! `search`, so a result can be handed straight to `read`. Each match also carries `byteOffset` (the
+//! hit's byte position in the file) and `column` (its byte position in the line), both 0-based, so
+//! `read` with `byteOffset` reaches the hit even in a file that is one huge line. Text is cut to a
+//! window around the hit (at most [`GREP_TEXT_CHARS`] characters, up to [`GREP_TEXT_LEAD`] of them
+//! before it).
 //!
 //! The regex is `regex`'s syntax: no look-around and no backreferences. A pattern that does not
-//! compile is `invalid_pattern`, not an empty result — otherwise a Bot retries the same pattern
+//! compile is `invalid_pattern`, not an empty result, otherwise a Bot retries the same pattern
 //! forever. `literal: true` escapes the query, which is how to search text that happens to contain
 //! regex punctuation.
 //!
-//! Reading is chunked and the per-line buffer is capped, so one absurd line costs a skip and not
-//! the device's memory.
+//! The per-file stream lives in [`crate::local_files_grep_file`]; this file compiles the query,
+//! walks the candidates and shapes the result. `output: "files"` lists each matching file with its
+//! count of matching lines instead of the lines.
 
+use crate::local_files_grep_file::{search_file, Outcome, Progress};
 use crate::local_files_limits::{
-    GREP_FILE_BYTES, GREP_LIMIT_DEFAULT, GREP_LIMIT_MAX, GREP_LINE_BYTES, GREP_MATCH_OVERHEAD,
-    GREP_PAYLOAD_BYTES, GREP_SCAN_BYTES, GREP_TEXT_CHARS, GREP_TEXT_LEAD, PATTERN_CHARS,
+    GREP_LIMIT_DEFAULT, GREP_LIMIT_MAX, GREP_TEXT_CHARS, GREP_TEXT_LEAD, PATTERN_CHARS,
     REGEX_SIZE_BYTES,
 };
 use crate::local_files_scan::{Budget, NameFilter, Options, StopReason};
 use crate::local_files_text::check;
 use regex::Regex;
 use serde_json::{json, Value};
-use std::io::Read;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
-
-const CHUNK: usize = 64 * 1024;
 
 pub struct Query {
     pub regex: Regex,
     pub limit: usize,
+    /// `output: "files"`: report matching files with counts instead of matching lines.
+    pub files_only: bool,
 }
 
 /// Compile the caller's pattern, applying `literal` and `caseSensitive`.
@@ -61,7 +63,11 @@ pub fn query(
     if limit == 0 || limit > GREP_LIMIT_MAX {
         return Err("path_invalid");
     }
-    Ok(Query { regex, limit })
+    Ok(Query {
+        regex,
+        limit,
+        files_only: false,
+    })
 }
 
 /// `limit` from the command, or the default; 0 when it is outside 1..=200.
@@ -89,155 +95,11 @@ pub fn window(line: &str, hit_start: usize, hit_end: usize) -> String {
     chars[from..from + width].iter().collect()
 }
 
-pub struct Outcome {
-    pub matches: Vec<Value>,
-    pub stop: Option<StopReason>,
-    pub hits_payload: usize,
-}
-
-/// What one file contributed, so the caller can stop the whole scan.
-enum Progress {
-    Continue,
-    Stop(StopReason),
-}
-
-/// Read one file line by line and collect matches.
-///
-/// A NUL byte in the leading window marks the file binary and ends it with no matches. Lines over
-/// [`GREP_LINE_BYTES`] are skipped without being buffered; their remainder is discarded.
-fn search_file(
-    query: &Query,
-    mut file: std::fs::File,
-    shown: &str,
-    outcome: &mut Outcome,
-    cancelled: &AtomicBool,
-    expires: u64,
-    budget: &Budget,
-    scanned: &mut u64,
-) -> Result<Progress, &'static str> {
-    let metadata = file.metadata().map_err(|_| "operation_failed")?;
-    if !metadata.is_file() || metadata.len() > GREP_FILE_BYTES {
-        return Ok(Progress::Continue);
-    }
-    let mut chunk = [0u8; CHUNK];
-    let mut pending: Vec<u8> = Vec::new();
-    // Past the cap: the rest of the line is thrown away instead of buffered.
-    let mut discarding = false;
-    let mut number = 0usize;
-    let first_match = outcome.matches.len();
-    let first_payload = outcome.hits_payload;
-    let mut pending_stop = None;
-    let mut file_bytes = 0u64;
-    loop {
-        check(cancelled, expires)?;
-        if budget.expired() || *scanned >= GREP_SCAN_BYTES {
-            outcome.matches.truncate(first_match);
-            outcome.hits_payload = first_payload;
-            return Ok(Progress::Stop(StopReason::Budget));
-        }
-        let remaining =
-            (GREP_SCAN_BYTES - *scanned).min(GREP_FILE_BYTES.saturating_sub(file_bytes));
-        if remaining == 0 {
-            outcome.matches.truncate(first_match);
-            outcome.hits_payload = first_payload;
-            return Ok(Progress::Stop(StopReason::Budget));
-        }
-        let count = file
-            .read(&mut chunk[..remaining.min(CHUNK as u64) as usize])
-            .map_err(|_| "operation_failed")?;
-        if count == 0 {
-            break;
-        }
-        *scanned += count as u64;
-        file_bytes += count as u64;
-        if chunk[..count].contains(&0) {
-            outcome.matches.truncate(first_match);
-            outcome.hits_payload = first_payload;
-            return Ok(Progress::Continue);
-        }
-        if pending_stop.is_some() {
-            continue;
-        }
-        let mut from = 0usize;
-        while from < count {
-            let rest = &chunk[from..count];
-            let newline = rest.iter().position(|byte| *byte == b'\n');
-            let end = newline.map(|at| from + at).unwrap_or(count);
-            if !discarding {
-                pending.extend_from_slice(&chunk[from..end]);
-                if pending.len() > GREP_LINE_BYTES {
-                    discarding = true;
-                    pending.clear();
-                }
-            }
-            match newline {
-                Some(at) => {
-                    number += 1;
-                    if !discarding {
-                        if let Some(stop) = take_line(query, &mut pending, shown, number, outcome)?
-                        {
-                            pending_stop = Some(stop);
-                            break;
-                        }
-                    }
-                    discarding = false;
-                    pending.clear();
-                    from = from + at + 1;
-                }
-                None => break,
-            }
-        }
-    }
-    if pending_stop.is_none() && !discarding && !pending.is_empty() {
-        number += 1;
-        if let Some(stop) = take_line(query, &mut pending, shown, number, outcome)? {
-            return Ok(Progress::Stop(stop));
-        }
-    }
-    Ok(match pending_stop {
-        Some(stop) => Progress::Stop(stop),
-        None => Progress::Continue,
-    })
-}
-
-/// Match one complete line (without its newline) and append the match if it hit.
-fn take_line(
-    query: &Query,
-    line: &mut Vec<u8>,
-    shown: &str,
-    number: usize,
-    outcome: &mut Outcome,
-) -> Result<Option<StopReason>, &'static str> {
-    if line.last() == Some(&b'\r') {
-        line.pop();
-    }
-    let Ok(text) = std::str::from_utf8(line) else {
-        return Ok(None);
-    };
-    let Some(found) = query.regex.find(text) else {
-        return Ok(None);
-    };
-    let text = window(text, found.start(), found.end());
-    let value = json!({"path": shown, "line": number, "text": text});
-    let size = serde_json::to_vec(&value)
-        .map_err(|_| "operation_failed")?
-        .len()
-        + GREP_MATCH_OVERHEAD;
-    if outcome.hits_payload + size > GREP_PAYLOAD_BYTES {
-        return Ok(Some(StopReason::Budget));
-    }
-    outcome.hits_payload += size;
-    outcome.matches.push(value);
-    if outcome.matches.len() >= query.limit {
-        return Ok(Some(StopReason::Results));
-    }
-    Ok(None)
-}
-
 /// Search every candidate under `root`.
 ///
 /// `root` may be a file. A file the caller named explicitly is searched even when a `.gitignore`
 /// would hide it: the grant, not the ignore rules, decides what may be read.
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     anchor: &Path,
     root: &Path,
@@ -261,8 +123,10 @@ pub fn run(
     )?;
     let mut outcome = Outcome {
         matches: Vec::new(),
+        files: Vec::new(),
         stop: walk.stop,
         hits_payload: 0,
+        binary_skipped: 0,
     };
     let mut scanned: u64 = 0;
     for entry in &walk.entries {
@@ -307,7 +171,11 @@ pub fn run(
         "path": shown_root,
         "matches": outcome.matches,
         "truncated": outcome.stop.is_some(),
+        "binaryFilesSkipped": outcome.binary_skipped,
     });
+    if query.files_only {
+        result["files"] = json!(outcome.files);
+    }
     if let Some(reason) = outcome.stop {
         result["stopReason"] = json!(reason.as_str());
     }
@@ -329,17 +197,40 @@ fn shown_path(shown_root: &str, relative: &Path, is_root: bool) -> String {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    use crate::local_files_limits::GREP_LINE_BYTES;
     use std::sync::atomic::AtomicBool;
 
-    #[test]
-    fn grep_keeps_line_numbers_after_skipped_long_lines_and_respects_ignore() {
+    fn fixture(name: &str) -> std::path::PathBuf {
         let root = std::env::temp_dir().join(format!(
-            "yonder-grep-{}-{}",
+            "yonder-{name}-{}-{}",
             std::process::id(),
             crate::local_files_text::now_ms()
         ));
         std::fs::create_dir_all(&root).unwrap();
-        let root = root.canonicalize().unwrap();
+        root.canonicalize().unwrap()
+    }
+
+    fn search(root: &Path, query: &Query) -> Value {
+        run(
+            root,
+            root,
+            ".",
+            1024,
+            &NameFilter::none(root),
+            &Options {
+                ignored_rules: true,
+                hidden: false,
+            },
+            query,
+            &AtomicBool::new(false),
+            u64::MAX,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn grep_keeps_line_numbers_after_long_lines_and_respects_ignore() {
+        let root = fixture("grep");
         std::fs::write(root.join(".gitignore"), "ignored.txt\n").unwrap();
         std::fs::write(root.join("ignored.txt"), "needle\n").unwrap();
         std::fs::write(
@@ -347,24 +238,45 @@ mod tests {
             format!("{}\nneedle\n", "x".repeat(GREP_LINE_BYTES + 1)),
         )
         .unwrap();
-        let result = run(
-            &root,
-            &root,
-            ".",
-            1024,
-            &NameFilter::none(&root),
-            &Options {
-                ignored_rules: true,
-                hidden: false,
-            },
-            &query("needle", true, false, 100).unwrap(),
-            &AtomicBool::new(false),
-            u64::MAX,
-        )
-        .unwrap();
+        let result = search(&root, &query("needle", true, false, 100).unwrap());
         assert_eq!(result["matches"].as_array().unwrap().len(), 1);
         assert_eq!(result["matches"][0]["path"], "found.txt");
         assert_eq!(result["matches"][0]["line"], 2);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_hit_inside_a_very_long_line_is_found_with_its_byte_position() {
+        let root = fixture("grep-long");
+        let body = format!("{}needle{}\nneedle\n", "x".repeat(100_000), "y".repeat(10));
+        std::fs::write(root.join("one.json"), &body).unwrap();
+        let result = search(&root, &query("needle", true, false, 100).unwrap());
+        let matches = result["matches"].as_array().unwrap();
+        assert_eq!(matches.len(), 2);
+        assert_eq!(matches[0]["line"], 1);
+        assert_eq!(matches[0]["byteOffset"], 100_000);
+        assert_eq!(matches[0]["column"], 100_000);
+        assert!(matches[0]["text"].as_str().unwrap().chars().count() <= 300);
+        assert!(matches[0]["text"].as_str().unwrap().contains("needle"));
+        assert_eq!(matches[1]["line"], 2);
+        assert_eq!(matches[1]["byteOffset"], 100_017);
+        assert_eq!(matches[1]["column"], 0);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn files_output_counts_lines_and_binary_files_are_reported_as_skipped() {
+        let root = fixture("grep-files");
+        std::fs::write(root.join("a.txt"), "needle\nother\nneedle\n").unwrap();
+        std::fs::write(root.join("b.bin"), b"needle\0binary").unwrap();
+        let mut q = query("needle", true, false, 100).unwrap();
+        q.files_only = true;
+        let result = search(&root, &q);
+        assert!(result["matches"].as_array().unwrap().is_empty());
+        assert_eq!(result["files"].as_array().unwrap().len(), 1);
+        assert_eq!(result["files"][0]["path"], "a.txt");
+        assert_eq!(result["files"][0]["count"], 2);
+        assert_eq!(result["binaryFilesSkipped"], 1);
         std::fs::remove_dir_all(root).unwrap();
     }
 }
