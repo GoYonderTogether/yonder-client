@@ -1,7 +1,7 @@
 {
 	"name": "@yonder/chat-presentation",
 	"private": true,
-	"version": "0.3.26112715",
+	"version": "0.3.26112716",
 	"type": "module",
 	"exports": {
 		".": "./src/index.tsx"

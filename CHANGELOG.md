@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112716] - 2026-11-27
+
+### Fixed
+
+- connectors：restore Mac file previews and keep chat links concise
+- chat：truncate the composer quote bar and keep its cancel button visible
+
 ## [0.3.26112715] - 2026-11-27
 
 ### Added
