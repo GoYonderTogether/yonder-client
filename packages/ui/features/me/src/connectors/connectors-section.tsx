@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
+import { ComputerAccessCard, ComputerAccessPanel, isFileConnector } from "./computer-access.tsx";
 import { ConnectorCard, ConnectorDeviceIcon } from "./connector-card.tsx";
 import { ConnectorPanel } from "./connector-panel.tsx";
 import { canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
@@ -98,6 +99,11 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 		if (offset) bar.scrollBy({ left: offset, behavior: "instant" });
 	}, [activeTarget, loading, failed]);
 
+	const [computerId, setComputerId] = useState<string>();
+	const computerGroup = groups.find(({ device }) => device.id === computerId);
+	useEffect(() => {
+		if (computerId && !computerGroup) setComputerId(undefined);
+	}, [computerId, computerGroup]);
 	const [selected, setSelected] = useState<{
 		connectorId: ConnectorDefinition["id"];
 		deviceId: string;
@@ -248,22 +254,47 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 							</header>
 							<div className="@container">
 								<div className="grid grid-cols-1 gap-[var(--spacing-3)] @[40rem]:grid-cols-2">
-									{definitions.map((def) => (
-										<ConnectorCard
-											key={def.id}
-											definition={def}
-											device={device}
-											instances={instances}
-											canConfigure={canConfigureConnector(device, def, localFiles)}
-											onOpen={(definition, instanceId) => open(device, definition, instanceId)}
+									{definitions.some(isFileConnector) ? (
+										<ComputerAccessCard
+											instances={instances.filter((item) =>
+												definitions.some((def) => isFileConnector(def) && def.id === item.connectorId),
+											)}
+											onOpen={() => setComputerId(device.id)}
+											onLegacy={(item) => {
+												const definition = definitions.find((def) => def.id === item.connectorId);
+												if (definition) open(device, definition, item.id);
+											}}
 										/>
-									))}
+									) : null}
+									{definitions
+										.filter((def) => !isFileConnector(def))
+										.map((def) => (
+											<ConnectorCard
+												key={def.id}
+												definition={def}
+												device={device}
+												instances={instances}
+												canConfigure={canConfigureConnector(device, def, localFiles)}
+												onOpen={(definition, instanceId) => open(device, definition, instanceId)}
+											/>
+										))}
 								</div>
 							</div>
 						</section>
 					);
 				})}
 			</div>
+			{computerGroup ? (
+				<ComputerAccessPanel
+					key={computerGroup.device.id}
+					device={computerGroup.device}
+					definitions={computerGroup.definitions}
+					instances={connections.data?.items ?? []}
+					localFiles={localFiles}
+					onTry={onTryConnector}
+					onClose={() => setComputerId(undefined)}
+				/>
+			) : null}
 			{detailVisible && selected && definition && device ? (
 				<ConnectorPanel
 					key={`${selected.deviceId}:${selected.connectorId}:${selected.instanceId ?? "new"}`}

@@ -36,40 +36,43 @@ test("shows only signed-in devices supported by the connector catalog", async ({
 	await expect(nav.getByRole("link")).toHaveText([mac.name]);
 	await expect(nav.getByRole("link", { name: mac.name })).toHaveAttribute("aria-current", "true");
 	await expect(
-		page
-			.getByRole("region", { name: mac.name })
-			.getByRole("button", { name: /读取文件/ })
-			.first(),
+		page.getByRole("region", { name: mac.name }).getByRole("button", { name: "电脑接管" }).first(),
 	).toBeVisible();
 	await expect(page.getByRole("region", { name: /Chrome|iPhone/ })).toHaveCount(0);
 	await page.screenshot({ path: info.outputPath("connectors-supported-devices.png") });
+	await page.getByRole("button", { name: "电脑接管" }).click();
+	const sheet = page.getByRole("dialog", { name: "电脑接管" });
+	await expect(sheet.getByRole("checkbox", { name: "读取文件" })).toBeDisabled();
+	await expect(sheet.getByRole("checkbox", { name: "修改文件" })).toBeDisabled();
+	await page.screenshot({ path: info.outputPath("computer-permissions-remote.png") });
 });
 
 test("scrolling and device links keep the same selected group on a narrow screen", async ({ page }, info) => {
-	await page.setViewportSize({ width: 390, height: 450 });
-	await openConnectors(page, [browser, mac, work, home, phone]);
+	await page.setViewportSize({ width: 390, height: 390 });
+	await page.emulateMedia({ reducedMotion: "reduce" });
+	const portable = device("spare", "备用笔记本", "macos");
+	await openConnectors(page, [browser, mac, work, portable, home, phone]);
 	const nav = page.getByRole("navigation", { name: "设备" });
 	const link = (entry: DeviceSummary) => nav.getByRole("link", { name: entry.name });
 	await expect(link(mac)).toHaveAttribute("aria-current", "true");
 	const middle = page.getByRole("region", { name: work.name });
-	const distance = await middle.evaluate((section) => {
+	await middle.evaluate((section) => {
 		const frame = section.closest("[data-frame-scroll]");
-		if (!frame) throw new Error("Missing settings scroll container");
-		return Math.ceil(section.getBoundingClientRect().top - frame.getBoundingClientRect().top);
+		const nav = section.parentElement?.querySelector("nav");
+		if (!frame || !nav) throw new Error("Missing settings scroll container");
+		frame.scrollTop += Math.ceil(section.getBoundingClientRect().top - nav.getBoundingClientRect().bottom + 12);
 	});
-	await page.mouse.move(195, 300);
-	await page.mouse.wheel(0, distance);
 	await expect(link(work)).toHaveAttribute("aria-current", "true");
-	await page.mouse.wheel(0, 1000);
+	await nav.evaluate((bar) => bar.closest("[data-frame-scroll]")?.scrollTo(0, 9999));
 	await expect(link(home)).toHaveAttribute("aria-current", "true");
 	await expect.poll(() => nav.evaluate((bar) => bar.scrollLeft)).toBeGreaterThan(0);
 	await page.screenshot({ path: info.outputPath("connectors-scroll-selected.png") });
-	await page.mouse.wheel(0, -1000);
+	await nav.evaluate((bar) => bar.closest("[data-frame-scroll]")?.scrollTo(0, 0));
 	await expect(link(mac)).toHaveAttribute("aria-current", "true");
 	await link(work).click();
 	await expect(middle).toBeFocused();
 	await expect(link(work)).toHaveAttribute("aria-current", "true");
-	await expect(nav.getByRole("link")).toHaveText([mac.name, work.name, home.name]);
+	await expect(nav.getByRole("link")).toHaveText([mac.name, work.name, portable.name, home.name]);
 	await expect(page).toHaveURL(/\/me\/connectors$/);
 });
 
@@ -465,7 +468,7 @@ test("Windows connectors and add-device entry use the same settings shell", asyn
 	await page.emulateMedia({ reducedMotion: "reduce" });
 	await openConnectors(page, [browser, work]);
 	await expect(page.getByRole("region", { name: work.name })).toBeVisible();
-	await expect(page.getByRole("button", { name: /读取文件/ }).first()).toBeVisible();
+	await expect(page.getByRole("button", { name: "电脑接管" }).first()).toBeVisible();
 	await page.screenshot({ path: info.outputPath("10-windows-list.png") });
 	await page.getByRole("button", { name: "连接其他设备", exact: true }).click();
 	await expect(page.getByText("macOS", { exact: true }).first()).toBeVisible();

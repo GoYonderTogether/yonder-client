@@ -94,6 +94,11 @@ export const connectorMessagesEn = {
 		scope:
 			"Your Bots can list files and read text files inside the folder you choose. Read content is sent to the cloud for processing. They cannot modify files or access anything outside that folder.",
 	},
+	computerAccess: {
+		name: "Computer access",
+		apply: "Apply permissions",
+		saveFailed: "Could not save all permissions. Try again.",
+	},
 	computerControl: {
 		name: "Modify files",
 		description: "Create, edit, and remove files.",

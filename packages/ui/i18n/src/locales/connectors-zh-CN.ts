@@ -92,6 +92,11 @@ export const connectorMessagesZhCN = {
 		scope:
 			"你的 Bot 可以列出所选文件夹中的文件并读取文本内容。读取的内容会发送到云端处理，不能修改文件或访问此范围之外的文件。",
 	},
+	computerAccess: {
+		name: "电脑接管",
+		apply: "应用授权",
+		saveFailed: "部分授权未能保存，请重试。",
+	},
 	computerControl: {
 		name: "修改文件",
 		description: "创建、编辑和移除文件。",

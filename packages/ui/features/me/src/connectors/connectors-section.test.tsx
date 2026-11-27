@@ -75,8 +75,8 @@ function group(deviceId: string) {
 	if (!element) throw new Error(`Missing device group ${deviceId}`);
 	return element;
 }
-function openRead(deviceId = "dev_a") {
-	fireEvent.click(within(group(deviceId)).getByRole("button", { name: /Read files Find/ }));
+function openComputer(deviceId = "dev_a") {
+	fireEvent.click(within(group(deviceId)).getByRole("button", { name: "Computer access" }));
 }
 const firstDevice: DeviceSummary = {
 	id: "dev_a",
@@ -90,55 +90,75 @@ const firstDevice: DeviceSummary = {
 beforeEach(() => {
 	state.devices = [{ ...firstDevice }];
 	state.instances = [];
-	state.create.mockReset().mockImplementation(async (body) => ({ ...base, ...body }));
+	state.create.mockReset().mockImplementation(async (body) => {
+		const saved = { ...base, ...body, id: `con_${body.connectorId}` };
+		state.instances = [...state.instances, saved];
+		return saved;
+	});
 	state.update
 		.mockReset()
 		.mockImplementation(async (body) => ({ ...base, ...body, revision: body.expectedRevision + 1 }));
-	state.remove.mockReset().mockResolvedValue({ ok: true });
-});
-
-test("the existing connector item opens an authorization-only sheet", () => {
-	show(adapter());
-	openRead();
-	const sheet = screen.getByRole("dialog", { name: "Read files" });
-	expect(within(sheet).getByRole("button", { name: /^Connect$/ })).toBeVisible();
-	expect(within(sheet).getAllByRole("button")).toHaveLength(2);
-	expect(sheet.querySelector("details, input:not([type=radio]), form")).toBeNull();
-	expect(screen.queryByRole("checkbox")).toBeNull();
-	expect(screen.queryByText(/terminal/i)).toBeNull();
-	expect(screen.queryByText(/MCP/)).toBeNull();
-});
-
-test("read enables explicit whole-device access without a folder picker", async () => {
-	const native = adapter();
-	show(native);
-	openRead();
-	fireEvent.click(screen.getByRole("button", { name: /^Connect$/ }));
-	await waitFor(() =>
-		expect(native.authorize).toHaveBeenCalledWith(
-			expect.objectContaining({ scope: "device", capabilities: { fileTools: false } }),
-		),
-	);
-	expect(state.create).toHaveBeenCalledWith({
-		connectorId: "local-files",
-		deviceId: "dev_a",
-		name: "Windows PC",
-		scope: "device",
-		capabilities: { fileTools: false },
+	state.remove.mockReset().mockImplementation(async (id) => {
+		state.instances = state.instances.filter((item) => item.id !== id);
+		return { ok: true };
 	});
 });
 
-test("modify connector enables file tools directly, without a single-option selector", async () => {
+test("one computer entry exposes only the two shipped permission choices, both off initially", () => {
+	show(adapter());
+	expect(within(group("dev_a")).getAllByRole("button")).toHaveLength(1);
+	openComputer();
+	const sheet = screen.getByRole("dialog", { name: "Computer access" });
+	expect(within(sheet).getAllByRole("checkbox")).toHaveLength(2);
+	expect(within(sheet).getByRole("checkbox", { name: "Read files" })).not.toBeChecked();
+	expect(within(sheet).getByRole("checkbox", { name: "Modify files" })).not.toBeChecked();
+	expect(within(sheet).getByRole("button", { name: "Apply permissions" })).toBeDisabled();
+	expect(sheet.querySelector("details, form")).toBeNull();
+	expect(screen.queryByText(/terminal/i)).toBeNull();
+});
+
+test.each([
+	["Read files", "local-files", false],
+	["Modify files", "computer-control", true],
+] as const)("authorizes only the explicitly selected %s capability on this device", async (label, id, fileTools) => {
 	const native = adapter();
 	show(native);
-	fireEvent.click(screen.getByRole("button", { name: /Modify files Create/ }));
-	expect(screen.queryByRole("checkbox")).toBeNull();
-	fireEvent.click(screen.getByRole("button", { name: /^Connect$/ }));
-	await waitFor(() =>
-		expect(state.create).toHaveBeenCalledWith(
-			expect.objectContaining({ connectorId: "computer-control", capabilities: { fileTools: true } }),
-		),
-	);
+	openComputer();
+	fireEvent.click(screen.getByRole("checkbox", { name: label }));
+	expect(state.create).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Apply permissions" }));
+	await waitFor(() => expect(native.authorize).toHaveBeenCalledOnce());
+	expect(state.create).toHaveBeenCalledExactlyOnceWith({
+		connectorId: id,
+		deviceId: "dev_a",
+		name: "Windows PC",
+		scope: "device",
+		capabilities: { fileTools },
+	});
+});
+
+test("removes write access without touching the existing read grant or another device", async () => {
+	state.instances = [
+		{ ...base, scope: "device" },
+		{ ...base, id: "write_a", connectorId: "computer-control", scope: "device", capabilities: { fileTools: true } },
+		{
+			...base,
+			id: "write_b",
+			deviceId: "other",
+			connectorId: "computer-control",
+			scope: "device",
+			capabilities: { fileTools: true },
+		},
+	];
+	const native = adapter();
+	show(native);
+	openComputer();
+	fireEvent.click(screen.getByRole("checkbox", { name: "Modify files" }));
+	fireEvent.click(screen.getByRole("button", { name: "Apply permissions" }));
+	await waitFor(() => expect(state.remove).toHaveBeenCalledExactlyOnceWith("write_a"));
+	expect(native.revoke).toHaveBeenCalledExactlyOnceWith("write_a");
+	expect(screen.getByRole("checkbox", { name: "Read files" })).toBeChecked();
+	expect(state.create).not.toHaveBeenCalled();
 });
 
 test("legacy folder scope is preserved until the explicit upgrade action", async () => {
@@ -187,8 +207,9 @@ test("closing while creation is pending cleans up instead of granting late acces
 	);
 	const native = adapter();
 	show(native);
-	openRead();
-	fireEvent.click(screen.getByRole("button", { name: /^Connect$/ }));
+	openComputer();
+	fireEvent.click(screen.getByRole("checkbox", { name: "Read files" }));
+	fireEvent.click(screen.getByRole("button", { name: "Apply permissions" }));
 	await waitFor(() => expect(state.create).toHaveBeenCalledOnce());
 	fireEvent.click(screen.getAllByRole("button", { name: "Close" }).at(-1) as HTMLElement);
 	await act(async () => {
@@ -216,8 +237,8 @@ test("a failed rollback revokes local access instead of leaving an unconfirmed u
 test("web only guides to the native device and never creates a grant", () => {
 	state.devices[0] = { ...firstDevice, current: false };
 	show();
-	openRead();
-	expect(screen.queryByRole("button", { name: /^Connect$/ })).toBeNull();
+	openComputer();
+	expect(screen.queryByRole("button", { name: "Apply permissions" })).toBeNull();
 	expect(screen.queryByRole("button", { name: "View devices" })).toBeNull();
 	expect(state.create).not.toHaveBeenCalled();
 });
@@ -245,15 +266,29 @@ test("same-name devices keep independent connected state by id, including offlin
 	];
 	const native = adapter();
 	show(native);
-	expect(within(group("dev_a")).getByRole("button", { name: "Connected · Read files" })).toBeVisible();
-	expect(screen.getByRole("button", { name: "Connect · Modify files" })).toBeVisible();
-	// Another device cannot be connected from here: it is authorized on that device itself.
-	expect(within(group("dev_b")).queryByRole("button", { name: "Connect · Read files" })).toBeNull();
-	fireEvent.click(screen.getByRole("button", { name: "Connected · Device offline · Modify files" }));
+	expect(within(group("dev_a")).getByRole("button", { name: "Computer access" })).toBeVisible();
+	openComputer("dev_b");
+	expect(screen.getByRole("checkbox", { name: "Read files" })).not.toBeChecked();
+	expect(screen.getByRole("checkbox", { name: "Modify files" })).toBeChecked();
+	expect(screen.getByRole("checkbox", { name: "Read files" })).toBeDisabled();
 	expect(screen.queryByRole("button", { name: "Disconnect" })).toBeNull();
 	expect(screen.getByRole("status")).toHaveTextContent(/device is offline/i);
 	expect(state.remove).not.toHaveBeenCalled();
 	expect(native.revoke).not.toHaveBeenCalled();
+});
+
+test("revokes a remote offline grant without touching the local native adapter", async () => {
+	state.devices.push({ ...firstDevice, id: "dev_b", current: false, status: "offline" });
+	state.instances = [{ ...base, id: "con_b", deviceId: "dev_b", currentDevice: false, scope: "device" }];
+	const native = adapter();
+	show(native);
+	openComputer("dev_b");
+	fireEvent.click(screen.getByRole("checkbox", { name: "Read files" }));
+	fireEvent.click(screen.getByRole("button", { name: "Apply permissions" }));
+	await waitFor(() => expect(state.remove).toHaveBeenCalledExactlyOnceWith("con_b"));
+	expect(native.revoke).not.toHaveBeenCalled();
+	expect(native.authorize).not.toHaveBeenCalled();
+	expect(state.create).not.toHaveBeenCalled();
 });
 
 test("a remote device never receives a fake local grant even when this adapter is supported", () => {
@@ -262,9 +297,9 @@ test("a remote device never receives a fake local grant even when this adapter i
 	show(native);
 	expect(screen.getByRole("link", { name: "Studio computer" })).toBeVisible();
 	expect(within(group("dev_b")).getByRole("heading", { name: "Studio computer" })).toBeVisible();
-	openRead("dev_b");
+	openComputer("dev_b");
 	expect(screen.getByText("Continue in Yonder on Studio computer to enable this connector.")).toBeVisible();
-	expect(screen.queryByRole("button", { name: /^Connect$/ })).toBeNull();
+	expect(screen.queryByRole("button", { name: "Apply permissions" })).toBeNull();
 	expect(state.create).not.toHaveBeenCalled();
 	expect(native.authorize).not.toHaveBeenCalled();
 });
@@ -292,7 +327,7 @@ test("web and unsupported devices are absent from both device navigation and sec
 	expect(location.hash).toBe(hash);
 	expect(target).toHaveFocus();
 	expect(link).toHaveAttribute("aria-current", "true");
-	expect(within(group("dev_a")).getByRole("button", { name: /Read files Find/ })).toBeVisible();
+	expect(within(group("dev_a")).getByRole("button", { name: "Computer access" })).toBeVisible();
 	expect(screen.queryByRole("combobox")).toBeNull();
 	expect(screen.queryByRole("tab")).toBeNull();
 	expect(state.create).not.toHaveBeenCalled();
@@ -322,20 +357,20 @@ test.each(["online", "offline"] as const)(
 			},
 		];
 		show(adapter());
-		openRead("dev_b");
+		openComputer("dev_b");
 		expect(
-			within(screen.getByRole("dialog", { name: "Read files" })).queryByRole("button", { name: "Try it" }),
+			within(screen.getByRole("dialog", { name: "Computer access" })).queryByRole("button", { name: "Try it" }),
 		).toBeNull();
-		expect(screen.queryByText("Continue in Yonder on Work computer to enable this connector.")).toBeNull();
+		expect(screen.getByRole("checkbox", { name: "Read files" })).toBeChecked();
 		expect(state.create).not.toHaveBeenCalled();
 	},
 );
 
 test("a supported current platform with no native adapter offers guidance without creating", () => {
 	show();
-	openRead();
+	openComputer();
 	expect(screen.getByText("Continue in Yonder on Windows PC to enable this connector.")).toBeVisible();
-	expect(screen.queryByRole("button", { name: /^Connect$/ })).toBeNull();
+	expect(screen.queryByRole("button", { name: "Apply permissions" })).toBeNull();
 	expect(state.create).not.toHaveBeenCalled();
 });
 
@@ -356,7 +391,7 @@ test("all legacy folder instances remain manageable and disappearing device/inst
 		</I18nextProvider>,
 	);
 	expect(screen.queryByRole("dialog")).toBeNull();
-	openRead();
+	openComputer();
 	state.devices = [];
 	view.rerender(
 		<I18nextProvider i18n={createI18n("en")}>
