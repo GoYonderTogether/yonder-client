@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## [0.3.26112715] - 2026-11-27
+
+### Added
+
+- ui：selected tab icons use the accent colour; align confirm dialogs with the released API; development stays on main
+- ui：neutral glass materials for floating chrome
+- connectors：add device file preview protocol
+- auth：require invitations to join the beta
+- landing：use a globe menu for language selection
+- web：make Yonder installable as a web app
+- protocol：a device endpoint serves the same four wires a cloud one does
+
+### Fixed
+
+- release：verify desktop operating system signatures
+- chat：use a standard row for Bot visits
+- miniprogram：use message list row for Bot visits
+- chat：open Bot visits in a dedicated message pane
+- miniprogram：open incoming Bot visits in a separate list
+- chat：fold incoming Bot visits and relay from the composer
+- notifications：show content setting when supported by the server
+- ios：open system settings to change notification permission
+
 ## [0.3.26112714] - 2026-11-27
 
 ### Fixed
