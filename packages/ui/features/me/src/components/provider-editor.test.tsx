@@ -31,6 +31,25 @@ const provider: Provider = {
 	isDefault: false,
 };
 
+test("a failed model fetch leaves the button ready for another try", async () => {
+	actions.discoverModels.mockReset();
+	actions.discoverModels.mockRejectedValueOnce(new Error("503")).mockResolvedValueOnce({ models: ["m1"] });
+	render(
+		<I18nextProvider i18n={createI18n("en")}>
+			<ProviderEditor provider={provider} onDone={() => {}} />
+		</I18nextProvider>,
+	);
+	const button = screen.getByRole("button", { name: "Get models" });
+	fireEvent.click(button);
+	await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Could not get models"));
+	// The first attempt failed, so the button must be pressable again rather than stuck loading.
+	expect(screen.getByRole("button", { name: "Get models" })).toBeEnabled();
+	fireEvent.click(screen.getByRole("button", { name: "Get models" }));
+	await waitFor(() => expect(actions.discoverModels).toHaveBeenCalledTimes(2));
+	actions.discoverModels.mockReset();
+	actions.discoverModels.mockResolvedValue({ models: ["m1", "m2"] });
+});
+
 test("editing never displays a stored key and discovery reuses it only by provider id", async () => {
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
