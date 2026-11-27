@@ -39,6 +39,7 @@ describe("locate", () => {
 		expect(locate("/memory/timeline")).toEqual({ tab: "memory", detail: ["timeline"] });
 		expect(locate("/memory/g/sources%3A会议")).toEqual({ tab: "memory", detail: ["g", "sources:会议"] });
 		expect(locate("/contacts")).toEqual({ tab: "contacts", detail: [] });
+		expect(locate("/contacts/profile/alice")).toEqual({ tab: "contacts", detail: ["alice"] });
 		expect(locate("/contacts/add")).toBeNull();
 	});
 

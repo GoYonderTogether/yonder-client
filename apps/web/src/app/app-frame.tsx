@@ -28,7 +28,6 @@ import { useLocation, useNavigate } from "react-router";
 import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
-import { ContactsPageList, ContactsPagePlaceholder } from "../pages/contacts-list.tsx";
 import { messageListUnread, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
 import { readMemoryView, showsMemoryBack } from "../pages/memory/memory-view.ts";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
@@ -44,6 +43,7 @@ import { mentionInDraft } from "./completion/mention-in-draft.ts";
 import { Composer } from "./composer.tsx";
 import { ComposerQuoteContext } from "./composer-quote.tsx";
 import { ComposerStatus } from "./composer-status.tsx";
+import { useContactScreens } from "./contact-screens.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemoryList, MemoryPage, SettingsRoutePage, TaskPage, TasksList } from "./lazy-tabs.ts";
 import { eligibleMeetingTarget, openMeetingSource, useMeetingRecordingSurface } from "./meeting-recording-surface.tsx";
@@ -225,6 +225,7 @@ export function AppFrame() {
 	const segmentRoot = tab === "tasks" && selection === "scheduled";
 	const detailOpen = selection !== null && !segmentRoot;
 	const back = useFrameBack({ navigation, tabs, tab, tabLocation, splitMe, search: location.search });
+	const contactScreens = useContactScreens(tab === "contacts" ? selection : null, contacts.data?.items, navigation);
 	const { list, content } = base ? screensFor() : { list: null, content: <NotFoundPage /> };
 	const me = meOpen
 		? {
@@ -331,10 +332,7 @@ export function AppFrame() {
 					content: <MemoryPage view={memoryView} />,
 				};
 			case "contacts":
-				return {
-					list: <ContactsPageList onOpen={(handle) => navigation.open(`/@${encodeURIComponent(handle)}`)} />,
-					content: contacts.data?.items.some((member) => member.kind === "person") ? <ContactsPagePlaceholder /> : null,
-				};
+				return contactScreens;
 		}
 	}
 	const composer = (
@@ -435,9 +433,11 @@ export function AppFrame() {
 						meOpen={meOpen}
 						me={me}
 						side={side}
-						onBack={back}
+						onBack={meOpen ? back : (contactScreens.onBack ?? back)}
 						backLabel={t(visitsRoute && !visitFolder ? "visits.incomingBack" : "app.back")}
-						showContentBack={showsMemoryBack(memoryView) || (visitsRoute && !visitFolder)}
+						showContentBack={
+							showsMemoryBack(memoryView) || (visitsRoute && !visitFolder) || Boolean(contactScreens.onBack)
+						}
 						mobileShowList={!detailOpen}
 						list={list ? deferred(list) : null}
 						content={

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ActionError } from "./chat-actions/action-error.tsx";
 
 /** Historic request state is independent of today's contact relationship. */
-export function FriendRequestCard({ id }: { id: string }) {
+export function FriendRequestCard({ id, compact = false }: { id: string; compact?: boolean }) {
 	const { t } = useTranslation();
 	const person = usePerson();
 	const query = useFriendRequest(id);
@@ -26,16 +26,22 @@ export function FriendRequestCard({ id }: { id: string }) {
 					<Avatar name={peer.displayName} src={peer.avatarUrl} kind={peer.kind} size={40} />
 					<div className="min-w-0 flex-1">
 						<p className="truncate text-body font-medium">{peer.displayName}</p>
-						<p className="text-caption text-[var(--color-text-secondary)]">{t("friendRequests.title")}</p>
+						{compact ? null : (
+							<p className="text-caption text-[var(--color-text-secondary)]">{t("friendRequests.title")}</p>
+						)}
 					</div>
 					{request.status === "accepted" ? (
-						<span role="status">{t("friendRequests.accepted")}</span>
+						<span role="status" className={compact ? "text-caption text-[var(--color-text-secondary)]" : undefined}>
+							{t("friendRequests.accepted")}
+						</span>
 					) : incoming ? (
 						<Button size="sm" loading={accept.isPending} disabled={accept.isPending} onClick={() => accept.mutate(id)}>
 							{t("friendRequests.accept")}
 						</Button>
 					) : (
-						<span role="status">{t("friendRequests.sent")}</span>
+						<span role="status" className={compact ? "text-caption text-[var(--color-text-secondary)]" : undefined}>
+							{t("friendRequests.sent")}
+						</span>
 					)}
 				</div>
 			) : null}
