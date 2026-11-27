@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112701] - 2026-11-27
+
+### Added
+
+- settings：group computer access permissions per device
+
 ## [0.3.26112609] - 2026-11-26
 
 ### Fixed
