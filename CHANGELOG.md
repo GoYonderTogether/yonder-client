@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.3.26112711] - 2026-11-27
+
+### Fixed
+
+- web：keep the rebased branch in step with main
+- web：move developer panel below the header
+
+### Added
+
+- memory：expand notes and recordings in the sidebar
+- tasks：show live runtime beside active items
+- contacts：separate contacts and friend requests
+
 ## [0.3.26112710] - 2026-11-27
 
 ### Added
