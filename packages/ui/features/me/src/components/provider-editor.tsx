@@ -16,6 +16,7 @@ import {
 	providerDeviceLabel,
 	type RegisterLocalProviderEndpoint,
 } from "./provider-location.ts";
+import { ModelPickerDialog } from "./provider-model-picker-dialog.tsx";
 import {
 	discoveredSlot,
 	type ModelSlot,
@@ -96,6 +97,7 @@ export function ProviderEditor({
 	const [available, setAvailable] = useState<string[]>([]);
 	const [metadata, setMetadata] = useState<Record<string, ProviderModelMetadata>>({});
 	const [confirmPreset, setConfirmPreset] = useState(false);
+	const [pickerOpen, setPickerOpen] = useState(false);
 	const version = useRef(0);
 	const nextVersion = () => ++version.current;
 
@@ -418,46 +420,35 @@ export function ProviderEditor({
 			</FormSection>
 
 			<FormSection title={t("models.modelsTitle")}>
-				<div className="flex flex-col gap-[var(--spacing-2)]">
-					<div className="flex items-center justify-end gap-[var(--spacing-2)]">
-						{/* Discovery is a small action beside the table, not the form's main step. */}
-						<Button
-							type="button"
-							variant="link"
-							size="sm"
-							onClick={() => void startDiscover()}
-							loading={fetching}
-							disabled={
-								saving ||
-								(onDevice
-									? !targetReady || device?.status !== "online"
-									: !baseUrl.trim() || (needsKey && !apiKey.trim() && !isLoopbackProviderAddress(baseUrl)))
-							}
-						>
-							{t("models.fetchModels")}
-						</Button>
-					</div>
-					<ProviderModelSlots
-						slots={slots}
-						available={available}
-						disabled={saving}
-						testing={testing}
-						errorOf={(key) => results[key]}
-						onChange={(next) => {
-							setSlots(next);
-							nextVersion();
-						}}
-						onTest={(slot) => {
-							const model = slot.id.trim();
-							if (!model) return;
-							setTesting(slot.key);
-							void test(model).then((result) => {
-								setResults((current) => ({ ...current, [slot.key]: result }));
-								setTesting(null);
-							});
-						}}
-					/>
-				</div>
+				<ProviderModelSlots
+					slots={slots}
+					available={available}
+					disabled={saving}
+					testing={testing}
+					errorOf={(key) => results[key]}
+					fetching={fetching}
+					canFetch={
+						!saving &&
+						(onDevice
+							? targetReady && device?.status === "online"
+							: Boolean(baseUrl.trim()) && (!needsKey || Boolean(apiKey.trim()) || isLoopbackProviderAddress(baseUrl)))
+					}
+					onFetch={() => void startDiscover()}
+					onOpenPicker={() => setPickerOpen(true)}
+					onChange={(next) => {
+						setSlots(next);
+						nextVersion();
+					}}
+					onTest={(slot) => {
+						const model = slot.id.trim();
+						if (!model) return;
+						setTesting(slot.key);
+						void test(model).then((result) => {
+							setResults((current) => ({ ...current, [slot.key]: result }));
+							setTesting(null);
+						});
+					}}
+				/>
 			</FormSection>
 
 			{error ? (
@@ -470,6 +461,17 @@ export function ProviderEditor({
 					{t("app.save")}
 				</Button>
 			</FormFooter>
+			<ModelPickerDialog
+				open={pickerOpen}
+				onClose={() => setPickerOpen(false)}
+				available={available}
+				metadata={metadata}
+				slots={slots}
+				onApply={(next) => {
+					setSlots(next);
+					nextVersion();
+				}}
+			/>
 			<DiscardChangesDialog
 				open={confirmPreset}
 				body={t("models.discard")}
