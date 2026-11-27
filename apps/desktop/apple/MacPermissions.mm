@@ -1,34 +1,6 @@
 #import <AppKit/AppKit.h>
-#import <ApplicationServices/ApplicationServices.h>
 #import <AVFoundation/AVFoundation.h>
 #import <ServiceManagement/ServiceManagement.h>
-#include <cerrno>
-#include <fcntl.h>
-#include <unistd.h>
-
-@interface YonderPermissionAppTile : NSView <NSDraggingSource>
-@property(nonatomic, strong) NSURL *bundleURL;
-@property(nonatomic, strong) NSImage *appIcon;
-@end
-
-@implementation YonderPermissionAppTile
-- (BOOL)acceptsFirstMouse:(NSEvent *)event { return YES; }
-
-- (NSView *)hitTest:(NSPoint)point { return [super hitTest:point] ? self : nil; }
-
-- (void)mouseDragged:(NSEvent *)event {
-    if (!self.bundleURL.isFileURL) return;
-    NSDraggingItem *item = [[NSDraggingItem alloc] initWithPasteboardWriter:self.bundleURL];
-    NSPoint point = [self convertPoint:event.locationInWindow fromView:nil];
-    [item setDraggingFrame:NSMakeRect(point.x - 22, point.y - 22, 44, 44) contents:self.appIcon];
-    [self beginDraggingSessionWithItems:@[item] event:event source:self];
-}
-
-- (NSDragOperation)draggingSession:(NSDraggingSession *)session
-    sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
-    return NSDragOperationCopy;
-}
-@end
 
 @interface YonderPermissionGuide : NSPanel
 @property(nonatomic, strong) NSURL *settingsURL;
@@ -54,11 +26,11 @@ BOOL isAppBundle() {
     return [NSBundle.mainBundle.bundleURL.pathExtension isEqualToString:@"app"];
 }
 
-bool openPermissionGuide(NSString *pane, NSString *title, NSString *instruction, bool dragApp) {
+bool openPermissionGuide(NSString *pane, NSString *title, NSString *instruction) {
     if (!NSThread.isMainThread) {
         __block bool opened;
         dispatch_sync(dispatch_get_main_queue(), ^{
-            opened = openPermissionGuide(pane, title, instruction, dragApp);
+            opened = openPermissionGuide(pane, title, instruction);
         });
         return opened;
     }
@@ -90,32 +62,6 @@ bool openPermissionGuide(NSString *pane, NSString *title, NSString *instruction,
     [steps.widthAnchor constraintEqualToConstant:300].active = YES;
     [body addArrangedSubview:steps];
 
-    if (dragApp && isAppBundle()) {
-        YonderPermissionAppTile *tile = [[YonderPermissionAppTile alloc] init];
-        tile.bundleURL = NSBundle.mainBundle.bundleURL;
-        tile.appIcon = [NSWorkspace.sharedWorkspace iconForFile:tile.bundleURL.path];
-        tile.wantsLayer = YES;
-        tile.layer.cornerRadius = 8;
-        tile.layer.backgroundColor = NSColor.controlBackgroundColor.CGColor;
-        [tile.widthAnchor constraintEqualToConstant:300].active = YES;
-        [tile.heightAnchor constraintEqualToConstant:52].active = YES;
-
-        NSImageView *icon = [NSImageView imageViewWithImage:tile.appIcon];
-        NSTextField *name = [NSTextField labelWithString:chinese ? @"拖动 Yonder.app" : @"Drag Yonder.app"];
-        NSStackView *row = [NSStackView stackViewWithViews:@[icon, name]];
-        row.spacing = 10;
-        row.alignment = NSLayoutAttributeCenterY;
-        row.translatesAutoresizingMaskIntoConstraints = NO;
-        [tile addSubview:row];
-        [NSLayoutConstraint activateConstraints:@[
-            [icon.widthAnchor constraintEqualToConstant:32],
-            [icon.heightAnchor constraintEqualToConstant:32],
-            [row.leadingAnchor constraintEqualToAnchor:tile.leadingAnchor constant:10],
-            [row.centerYAnchor constraintEqualToAnchor:tile.centerYAnchor],
-        ]];
-        [body addArrangedSubview:tile];
-    }
-
     NSButton *settings = [NSButton buttonWithTitle:chinese ? @"打开系统设置" : @"Open System Settings"
         target:guide action:@selector(openSettings:)];
     [body addArrangedSubview:settings];
@@ -131,20 +77,10 @@ bool openPermissionGuide(NSString *pane, NSString *title, NSString *instruction,
 }
 
 extern "C" bool yonder_mac_open_permissions(int permission) {
-    BOOL chinese = [NSLocale.preferredLanguages.firstObject hasPrefix:@"zh"];
-    NSString *dragSteps = chinese
-        ? @"把下方的 Yonder.app 拖入系统设置列表，然后打开开关。如果 Yonder 已在列表中，直接打开开关。"
-        : @"Drag Yonder.app into the list in System Settings, then turn it on. If Yonder is already listed, turn it on there.";
     switch (permission) {
         case 0:
-            return openPermissionGuide(@"com.apple.preference.security?Privacy_AllFiles",
-                chinese ? @"完全磁盘访问权限" : @"Full Disk Access", dragSteps, true);
-        case 1:
-            return openPermissionGuide(@"com.apple.preference.security?Privacy_Accessibility",
-                chinese ? @"辅助功能" : @"Accessibility", dragSteps, true);
-        case 2:
             return openSystemSettings(@"com.apple.preference.security?Privacy_Microphone");
-        case 3:
+        case 1:
             if (@available(macOS 13.0, *)) return openSystemSettings(@"com.apple.Notifications-Settings.extension");
             return openSystemSettings(@"com.apple.preference.notifications");
         default:
@@ -161,52 +97,24 @@ extern "C" bool yonder_apple_open_resource_settings(int resource) {
                     ? @"在日历列表中找到 Yonder，将权限设为完全访问，再回到连接器重试。"
                        @"如果系统要求退出并重新打开 Yonder，请按提示操作。"
                     : @"Find Yonder in Calendars, set access to Full Access, then return and retry connecting. "
-                       @"If macOS asks you to quit and reopen Yonder, follow that prompt.", false);
+                       @"If macOS asks you to quit and reopen Yonder, follow that prompt.");
         case 1:
             return openPermissionGuide(@"com.apple.preference.security?Privacy_Photos",
                 chinese ? @"照片" : @"Photos", chinese
                     ? @"在照片列表中找到 Yonder，允许访问照片，再回到连接器重试。"
                        @"如果系统要求退出并重新打开 Yonder，请按提示操作。"
                     : @"Find Yonder in Photos, allow photo access, then return and retry connecting. "
-                       @"If macOS asks you to quit and reopen Yonder, follow that prompt.", false);
+                       @"If macOS asks you to quit and reopen Yonder, follow that prompt.");
         case 2:
             return openPermissionGuide(@"com.apple.preference.security?Privacy_Automation",
                 chinese ? @"自动化" : @"Automation", chinese
                     ? @"展开 Yonder，打开备忘录，再回到连接器重试。"
-                    : @"Expand Yonder and turn on Notes, then return and retry connecting.", false);
+                    : @"Expand Yonder and turn on Notes, then return and retry connecting.");
         case 3:
-            return yonder_mac_open_permissions(0);
+            return openSystemSettings(@"com.apple.preference.security?Privacy");
         default:
             return false;
     }
-}
-
-extern "C" bool yonder_mac_accessibility_granted() {
-    return AXIsProcessTrusted();
-}
-
-extern "C" int yonder_mac_full_disk_status() {
-    // macOS has no public Full Disk Access status API. Open protected
-    // directories with the current app's permissions without listing or reading them.
-    bool opened = false;
-    for (NSString *folder in @[@"Library/Mail", @"Library/Messages", @"Library/Safari"]) {
-        NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:folder];
-        int fd = open(path.fileSystemRepresentation, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
-        if (fd >= 0) {
-            close(fd);
-            opened = true;
-        } else if (errno == EPERM || errno == EACCES) {
-            return 0;
-        } else if (errno != ENOENT) {
-            return -1;
-        }
-    }
-    return opened ? 1 : -1;
-}
-
-extern "C" void yonder_mac_request_accessibility() {
-    NSDictionary *options = @{(__bridge NSString *)kAXTrustedCheckOptionPrompt: @YES};
-    AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
 }
 
 extern "C" int yonder_mac_microphone_status() {
@@ -222,22 +130,6 @@ extern "C" int yonder_mac_microphone_status() {
 extern "C" void yonder_mac_request_microphone(void *context, void (*complete)(void *, bool)) {
     [AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio
         completionHandler:^(BOOL granted) { complete(context, granted); }];
-}
-
-extern "C" void yonder_mac_initialize_login_item() {
-    if (@available(macOS 13.0, *)) {
-        if (!isAppBundle()) return;
-        NSUserDefaults *preferences = NSUserDefaults.standardUserDefaults;
-        NSString *key = @"yonder.login-item-initialized";
-        if ([preferences boolForKey:key]) return;
-        // Try the default only once. If the person later disables it in System Settings,
-        // registration must stay off until they explicitly enable it again.
-        [preferences setBool:YES forKey:key];
-        SMAppService *service = SMAppService.mainAppService;
-        if (service.status == SMAppServiceStatusNotRegistered) {
-            [service registerAndReturnError:nil];
-        }
-    }
 }
 
 extern "C" int yonder_mac_login_item_status() {

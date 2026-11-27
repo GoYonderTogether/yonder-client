@@ -4,7 +4,6 @@ fn main() {
         println!("cargo:rerun-if-changed=../apple/SelectedNote.mm");
         println!("cargo:rerun-if-changed=../apple/AppleVoiceMemos.mm");
         println!("cargo:rerun-if-changed=../apple/AppleResourceAttachment.h");
-        println!("cargo:rustc-link-lib=framework=ApplicationServices");
         println!("cargo:rustc-link-lib=framework=AVFoundation");
         println!("cargo:rustc-link-lib=framework=CoreServices");
         println!("cargo:rustc-link-lib=framework=ServiceManagement");
@@ -80,7 +79,6 @@ fn main() {
                     .commands(&[
                         "permission_status",
                         "open_settings",
-                        "request_accessibility",
                         "request_microphone",
                         "login_item_status",
                         "set_login_item",

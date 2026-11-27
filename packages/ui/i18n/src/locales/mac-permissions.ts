@@ -1,20 +1,13 @@
 export const macPermissionsEn = {
-	introTitle: "Set up this Mac",
-	introGranted: "Authorized",
-	continue: "Continue to Yonder",
 	manage: "Manage permissions",
 	openSettings: "Open System Settings",
 	failed: "Could not open this permission. Try again.",
 	status: {
-		manual: "Check in System Settings",
 		granted: "System permission enabled",
-		off: "Off",
 		default: "Not requested",
 		denied: "Not allowed",
 		unknown: "Status unavailable",
 	},
-	fullDisk: { description: "Allow Bot to find and read files on this Mac." },
-	accessibility: { description: "Allow Yonder to use macOS Accessibility.", authorize: "Enable Accessibility" },
 	microphone: { description: "Allow microphone access for voice input and recording.", authorize: "Allow microphone" },
 	notifications: { description: "Allow system notifications for new messages.", authorize: "Allow notifications" },
 	startup: {
@@ -28,22 +21,15 @@ export const macPermissionsEn = {
 };
 
 export const macPermissionsZhCN: typeof macPermissionsEn = {
-	introTitle: "设置这台电脑",
-	introGranted: "已授权",
-	continue: "继续使用 Yonder",
 	manage: "管理权限",
 	openSettings: "打开系统设置",
 	failed: "无法打开此权限，请重试。",
 	status: {
-		manual: "在系统设置中查看",
 		granted: "系统权限已开启",
-		off: "未开启",
 		default: "尚未请求",
 		denied: "未允许",
 		unknown: "无法读取状态",
 	},
-	fullDisk: { description: "允许 Bot 在本机查找和阅读文件" },
-	accessibility: { description: "允许 Yonder 使用 macOS 辅助功能", authorize: "开启辅助功能" },
 	microphone: { description: "允许使用麦克风进行语音输入和录音", authorize: "允许麦克风" },
 	notifications: { description: "允许通过系统通知接收新消息提醒", authorize: "允许通知" },
 	startup: {

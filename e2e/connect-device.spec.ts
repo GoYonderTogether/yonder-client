@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import type { ConnectorDefinition, DeviceSummary } from "@yonder/protocol";
-import { isolateChat, person } from "./chat-fixture.ts";
+import { isolateChat } from "./chat-fixture.ts";
 
 const connectLabel = "连接其他设备";
 const deviceGuide = "在要连接的设备上安装 Yonder，并登录同一账号。";
@@ -160,10 +160,6 @@ test.describe("mobile web", () => {
 
 test("simulated macOS opens the public URL through the native bridge after confirmation only", async ({ page }) => {
 	await isolate(page, "macos");
-	await page.addInitScript(
-		(account) => localStorage.setItem(`yonder.mac-permissions-v1:${account}`, "done"),
-		person.id,
-	);
 	const calls = await mockNative(page, macOS);
 	await page.goto("/me/connectors");
 	const connect = page.getByRole("button", { name: new RegExp(connectLabel) });

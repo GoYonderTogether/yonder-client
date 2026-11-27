@@ -242,7 +242,8 @@ export const accountMessagesEn = {
 			closeBehavior: "When closing the window",
 			closeToTray: "Keep running in tray",
 			closeToQuit: "Quit Yonder",
-			closeBehaviorRecording: "Closing the window while recording or uploading a recording keeps Yonder running.",
+			closeBehaviorRecording:
+				"If you close the window during recording or upload, Yonder keeps running. To exit, choose Quit Yonder from the menu bar or system tray.",
 			closeBehaviorError: "Could not access this setting.",
 			internalErrorTitle: "Share pilot error counts",
 			internalErrorDescription:

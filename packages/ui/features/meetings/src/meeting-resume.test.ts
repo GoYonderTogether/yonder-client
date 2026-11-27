@@ -52,6 +52,7 @@ test("notes start once the user ends the recording or the window has closed", ()
 
 test("only a brief audio loss is continued without asking", () => {
 	expect(automaticResume(recording({ error: "audio_interrupted" }))).toBe(true);
+	expect(automaticResume(recording({ error: "meeting_app_restarting" }))).toBe(false);
 	expect(automaticResume(recording({ error: "page_closed" }))).toBe(false);
 	expect(automaticResume(recording({ error: null }))).toBe(false);
 });

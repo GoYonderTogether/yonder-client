@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { isolateChat } from "./chat-fixture.ts";
 
-async function prepareMacPermissions(page: Page, alreadyGranted = false) {
+async function prepareMacPermissions(page: Page) {
 	await isolateChat(page);
 	await page.setViewportSize({ width: 1180, height: 760 });
 	await page.emulateMedia({ reducedMotion: "reduce" });
@@ -15,31 +15,24 @@ async function prepareMacPermissions(page: Page, alreadyGranted = false) {
 			},
 		}),
 	);
-	await page.addInitScript((granted) => {
+	await page.addInitScript(() => {
 		Object.defineProperty(navigator, "userAgent", { value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0)" });
-		let fullDisk = granted ? "granted" : "off";
-		let accessibility = fullDisk;
 		let microphone = "default";
 		let notification = "denied";
-		let login = "enabled";
+		let login = "disabled";
 		let closeBehavior = "tray";
-		let releaseStatus = () => {};
-		const statusReady = new Promise<void>((resolve) => {
-			if (granted) releaseStatus = resolve;
-			else resolve();
-		});
 		let nextCallback = 0;
 		type RuntimeEvent = { event: string; id: number; payload: null };
 		const callbacks = new Map<number, (event: RuntimeEvent) => void>();
 		const focusListeners = new Set<number>();
 		const settingsOpened: unknown[] = [];
+		const permissionCommands: string[] = [];
 		Object.assign(window, {
 			settingsOpened,
+			permissionCommands,
 			focusListeners,
-			releaseStatus,
 			returnFromSystemSettings(status: string) {
-				fullDisk = status;
-				accessibility = status;
+				microphone = status;
 				for (const id of focusListeners) callbacks.get(id)?.({ event: "tauri://focus", id, payload: null });
 			},
 			__TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
@@ -53,6 +46,7 @@ async function prepareMacPermissions(page: Page, alreadyGranted = false) {
 					callbacks.delete(id);
 				},
 				invoke: async (command: string, args: Record<string, unknown>) => {
+					if (command.startsWith("plugin:yonder-mac-permissions|")) permissionCommands.push(command);
 					switch (command) {
 						case "plugin:event|listen": {
 							const id = Number(args.handler);
@@ -67,17 +61,13 @@ async function prepareMacPermissions(page: Page, alreadyGranted = false) {
 						case "get_desktop_refresh_token":
 							return "isolated-mac-permissions";
 						case "plugin:yonder-mac-permissions|permission_status":
-							await statusReady;
-							return { fullDisk, accessibility, microphone };
+							return { microphone };
 						case "plugin:yonder-mac-permissions|open_settings":
 							settingsOpened.push(args.permission);
 							break;
-						case "plugin:yonder-mac-permissions|request_accessibility":
-							accessibility = "granted";
-							break;
 						case "plugin:yonder-mac-permissions|request_microphone":
 							microphone = "granted";
-							break;
+							return true;
 						case "plugin:yonder-mac-permissions|login_item_status":
 							return login;
 						case "plugin:yonder-mac-permissions|set_login_item":
@@ -98,77 +88,58 @@ async function prepareMacPermissions(page: Page, alreadyGranted = false) {
 				},
 			},
 		});
-	}, alreadyGranted);
+	});
 }
 
-test("Mac first login recognizes permissions that were already granted", async ({ page }, info) => {
-	await prepareMacPermissions(page, true);
-	await page.goto("/me/devices");
-	const intro = page.getByRole("main", { name: "", exact: true });
-	await expect(intro.getByRole("heading", { name: "设置这台电脑" })).toBeFocused();
-	await expect(intro.getByRole("button")).toHaveText("继续使用 Yonder");
-	await page.evaluate(() => (window as unknown as { releaseStatus: () => void }).releaseStatus());
-	await expect(intro.getByText("已授权", { exact: true })).toHaveCount(2);
-	await expect(intro.getByRole("button")).toHaveText("继续使用 Yonder");
-	await page.screenshot({ path: info.outputPath("mac-permissions-authorized.png") });
-});
-
-test("Mac first login and device management use the appropriate permission actions", async ({ page }, info) => {
+test("Mac first login reaches the app without requesting broad permissions", async ({ page }) => {
 	await prepareMacPermissions(page);
 	await page.goto("/me/devices");
-	const intro = page.getByRole("main", { name: "", exact: true });
-	await expect(intro.getByRole("heading", { name: "设置这台电脑" })).toBeFocused();
-	await expect(intro.getByRole("button")).toHaveCount(3);
-	await expect(intro.getByText("允许 Bot 在本机查找和阅读文件")).toBeVisible();
-	await expect(intro.getByText(/麦克风|通知/)).toHaveCount(0);
-	await expect(page.getByRole("button", { name: "管理权限" })).toHaveCount(0);
-	await page.screenshot({ path: info.outputPath("mac-permissions-onboarding.png") });
-	await intro.getByRole("button", { name: "打开系统设置" }).click();
-	await expect
-		.poll(() => page.evaluate(() => (window as unknown as { settingsOpened: unknown[] }).settingsOpened))
-		.toEqual(["fullDisk"]);
-	await intro.getByRole("button", { name: "开启辅助功能" }).click();
-	await expect(intro.getByText("已授权", { exact: true })).toHaveCount(1);
-	await expect
-		.poll(() => page.evaluate(() => (window as unknown as { focusListeners: Set<number> }).focusListeners.size))
-		.toBe(1);
-	await page.evaluate(() =>
-		(window as unknown as { returnFromSystemSettings: (status: string) => void }).returnFromSystemSettings("granted"),
+	await expect(page.getByRole("button", { name: "管理权限" })).toBeVisible();
+	await expect(page.getByRole("heading", { name: "设置这台电脑" })).toHaveCount(0);
+	expect(await page.evaluate(() => (window as unknown as { permissionCommands: string[] }).permissionCommands)).toEqual(
+		[],
 	);
-	await expect(intro.getByText("已授权", { exact: true })).toHaveCount(2);
-	await intro.getByRole("button", { name: "继续使用 Yonder" }).click();
-	await expect(intro.getByRole("heading", { name: "设置这台电脑" })).toHaveCount(0);
+});
 
+test("Mac device management uses OS settings and asks for microphone access on demand", async ({ page }, info) => {
+	await prepareMacPermissions(page);
+	await page.goto("/me/devices");
 	const manage = page.getByRole("button", { name: "管理权限" });
 	await expect(manage).toHaveCount(1);
 	await manage.click();
 	const modal = page.getByRole("dialog", { name: "管理权限" });
-	await expect(modal.getByText("系统权限已开启")).toHaveCount(2);
+	await expect(modal.getByText(/完全磁盘访问|辅助功能/)).toHaveCount(0);
 	await expect(modal.getByRole("button", { name: "允许麦克风" })).toBeVisible();
 	await expect(modal.getByText("未允许")).toBeVisible();
+	await modal.getByRole("button", { name: "打开系统设置" }).click();
+	await expect
+		.poll(() => page.evaluate(() => (window as unknown as { settingsOpened: unknown[] }).settingsOpened))
+		.toEqual(["notifications"]);
 	await page.screenshot({ path: info.outputPath("mac-permissions-dialog.png") });
+	await modal.getByRole("button", { name: "允许麦克风" }).click();
+	await expect(modal.getByText("系统权限已开启")).toHaveCount(1);
 	await expect
 		.poll(() => page.evaluate(() => (window as unknown as { focusListeners: Set<number> }).focusListeners.size))
 		.toBe(1);
 	await page.evaluate(() =>
-		(window as unknown as { returnFromSystemSettings: (status: string) => void }).returnFromSystemSettings("off"),
+		(window as unknown as { returnFromSystemSettings: (status: string) => void }).returnFromSystemSettings("denied"),
 	);
-	await expect(modal.getByText("未开启")).toHaveCount(2);
-	await modal.getByRole("button", { name: "允许麦克风" }).click();
-	await expect(modal.getByText("系统权限已开启")).toHaveCount(1);
+	await expect(modal.getByText("未允许")).toHaveCount(2);
 	await modal.getByRole("button", { name: "关闭" }).click();
 	await expect(modal).toHaveCount(0);
-	await page.reload();
-	await expect(manage).toBeVisible();
-	await expect(intro.getByRole("heading", { name: "设置这台电脑" })).toHaveCount(0);
+});
 
+test("Mac login startup is opt-in and can be turned off again", async ({ page }, info) => {
+	await prepareMacPermissions(page);
 	await page.goto("/me/general");
 	const login = page.getByRole("switch", { name: "登录时启动" });
 	const background = page.getByRole("switch", { name: /允许后台运行/ });
-	await expect(login).toBeChecked();
+	await expect(login).not.toBeChecked();
 	await expect(background).toBeChecked();
 	await background.scrollIntoViewIfNeeded();
 	await page.screenshot({ path: info.outputPath("mac-permissions-general.png") });
+	await login.click();
+	await expect(login).toBeChecked();
 	await login.click();
 	await expect(login).not.toBeChecked();
 	await background.click();

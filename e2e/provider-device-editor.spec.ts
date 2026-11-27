@@ -257,7 +257,6 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 		return route.fulfill({ json: { items: [{ ...device, current: true, modelEndpoints }] } });
 	});
 	await page.goto("/me/models/add");
-	await page.getByRole("button", { name: "继续使用 Yonder" }).click();
 	await page.getByRole("button", { name: "自定义供应商", exact: true }).click();
 	await expect(location(page)).toHaveText("云端");
 	await location(page).click();

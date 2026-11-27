@@ -20,25 +20,22 @@ export function useFrameMeeting(ownerId: string | null) {
 	const [shortVoiceActive, setShortVoiceActive] = useState(false);
 	const active = recorder.state.recordings.find((recording) => recording.id === recorder.state.activeId);
 	const interrupted = resumableMeeting(recorder.state.recordings, Date.now());
-	const previous = useRef<{ ownerId: string | null; recordingId: string | null }>(null);
+	const desktop = isTauri() && isDesktopExperience();
+	const previous = useRef<{ ownerId: string | null; recordingId: string | null; paused: boolean }>(null);
+	const attempted = useRef(new Set<string>());
 	useEffect(() => {
 		const last = previous.current;
-		const { activeId, recordings } = recorder.state;
-		previous.current = { ownerId, recordingId: activeId };
+		const { activeId, paused, recordings } = recorder.state;
+		previous.current = { ownerId, recordingId: activeId, paused: Boolean(paused) };
 		if (last?.ownerId !== ownerId || !last.recordingId || last.recordingId === activeId) return;
 		if (recordings.find((recording) => recording.id === last.recordingId)?.state !== "interrupted") return;
 		notify({ key: `meeting:${last.recordingId}:interrupted`, text: t("meetingRecorder.interrupted"), tone: "warning" });
-	}, [ownerId, recorder.state, notify, t]);
-
-	// Only the desktop shell continues by itself. Phones need a tap: a background app may not open the mic.
-	const desktop = isTauri() && isDesktopExperience();
-	const attempted = useRef(new Set<string>());
-	useEffect(() => {
-		if (!desktop || !recorder.ready || recorder.busy || active || !interrupted || !recorder.resume) return;
+		// Only recover a live desktop capture observed under this owner. Relaunches and paused captures need a new tap.
+		if (!desktop || activeId || last.paused || recorder.busy || interrupted?.id !== last.recordingId) return;
 		if (!automaticResume(interrupted) || attempted.current.has(interrupted.id)) return;
 		attempted.current.add(interrupted.id);
-		void recorder.resume(interrupted.id);
-	}, [desktop, recorder, active, interrupted]);
+		void recorder.recover(interrupted.id);
+	}, [desktop, interrupted, ownerId, recorder, notify, t]);
 
 	function start(target: Conversation | undefined) {
 		if (recorder.busy || active || interrupted) return;

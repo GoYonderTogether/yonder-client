@@ -34,7 +34,6 @@ import { ProviderRelayRuntime, providerRelaySupported } from "../lib/provider-re
 import { UpdateOfferProvider, UpdateProvider } from "../updates/provider.tsx";
 import { AppNoticeProvider } from "./app-notice.tsx";
 import { ConnectorContinuationNotices } from "./connector-continuation-notices.tsx";
-import { MacPermissionsGate } from "./mac-permissions.tsx";
 import { NativePushRegistration } from "./native-push-registration.tsx";
 import { AppRouter } from "./router.tsx";
 import { WebPushRegistration } from "./web-push-registration.tsx";
@@ -129,12 +128,7 @@ function Localised() {
 						owner={signedIn && registration.isSuccess && !isContactWindow() ? personId : undefined}
 						devicePlatform={device.platform}
 					>
-						<MacPermissionsGate
-							account={signedIn && device.platform === "macos" ? personId : undefined}
-							storage={storage}
-						>
-							<AppRouter />
-						</MacPermissionsGate>
+						<AppRouter />
 					</UpdateOfferProvider>
 				</UpdateProvider>
 			</AppNoticeProvider>

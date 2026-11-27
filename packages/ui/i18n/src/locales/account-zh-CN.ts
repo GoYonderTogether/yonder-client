@@ -240,7 +240,8 @@ export const accountMessagesZhCN = {
 			closeBehavior: "关闭窗口时",
 			closeToTray: "留在托盘",
 			closeToQuit: "退出 Yonder",
-			closeBehaviorRecording: "正在录音或上传录音时，关闭窗口会保留后台运行。",
+			closeBehaviorRecording:
+				"录音或上传期间关闭窗口，Yonder 会继续运行。要结束运行，请在菜单栏或系统托盘中选择「退出 Yonder」。",
 			closeBehaviorError: "无法读取或保存此设置。",
 			internalErrorTitle: "共享内测错误计数",
 			internalErrorDescription:

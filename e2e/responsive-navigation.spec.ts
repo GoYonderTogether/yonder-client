@@ -321,15 +321,12 @@ test("a macOS Tauri host keeps desktop navigation and clears the traffic lights 
 		Object.defineProperty(navigator, "userAgent", { value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" });
 		Object.defineProperty(window, "__TAURI_INTERNALS__", {
 			value: {
-				// The Mac permission step is already done, so the app opens on its normal navigation.
 				invoke: async (command: string) =>
 					command === "get_desktop_refresh_token"
 						? "public-ui-test"
-						: command.endsWith("yonder-mac-permissions|permission_status")
-							? { accessibility: "granted", microphone: "granted" }
-							: command.endsWith("yonder-mac-permissions|login_item_status")
-								? "enabled"
-								: null,
+						: command.endsWith("yonder-mac-permissions|login_item_status")
+							? "enabled"
+							: null,
 				transformCallback: () => 1,
 				unregisterCallback: () => undefined,
 				metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },

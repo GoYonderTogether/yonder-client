@@ -36,10 +36,29 @@ fn preference_file(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 fn close_behavior(app: &AppHandle) -> &'static str {
-    match preference_file(app).and_then(|p| fs::read_to_string(p).map_err(error)) {
-        Ok(value) if value.trim() == "quit" => "quit",
-        _ => "tray",
+    let preference = preference_file(app)
+        .and_then(|p| fs::read_to_string(p).map_err(error))
+        .ok();
+    resolve_close_behavior(preference.as_deref(), cfg!(target_os = "macos"))
+}
+
+fn resolve_close_behavior(preference: Option<&str>, macos: bool) -> &'static str {
+    match preference.map(str::trim) {
+        Some("tray") => "tray",
+        Some("quit") => "quit",
+        _ if macos => "tray",
+        _ => "quit",
     }
+}
+
+#[cfg(test)]
+#[test]
+fn windows_requires_explicit_close_to_tray() {
+    assert_eq!(resolve_close_behavior(None, false), "quit");
+    assert_eq!(resolve_close_behavior(Some("unrecognized"), false), "quit");
+    assert_eq!(resolve_close_behavior(Some("tray\n"), false), "tray");
+    assert_eq!(resolve_close_behavior(None, true), "tray");
+    assert_eq!(resolve_close_behavior(Some("quit"), true), "quit");
 }
 
 #[tauri::command]

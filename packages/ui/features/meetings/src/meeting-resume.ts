@@ -7,13 +7,8 @@ export const MEETING_RESUME_WINDOW_MS = 10 * 60 * 1000;
 /** Storage and ownership failures leave nothing safe to append to. */
 const UNRECOVERABLE = /storage|damaged|corrupt|owner_changed|capture_start_failed/;
 
-/** Interruptions a desktop shell may continue by itself: the user was recording moments ago and the mic is already allowed. */
-const AUTOMATIC = new Set([
-	"audio_interrupted",
-	"audio_configuration_changed",
-	"meeting_audio_capture_interrupted",
-	"meeting_app_restarting",
-]);
+/** Brief audio interruptions a desktop shell may recover within the current capture session. */
+const AUTOMATIC = new Set(["audio_interrupted", "audio_configuration_changed", "meeting_audio_capture_interrupted"]);
 
 /** When continuing stops being possible; null when the recording was never or is no longer continuable. */
 export function resumeDeadline(recording: MeetingRecording): number | null {
