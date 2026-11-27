@@ -209,7 +209,7 @@ for (const { platform, dark } of [
 				return route.fulfill({ json: { items: current ? [current, ...remoteSources] : remoteSources } });
 			},
 		);
-		await page.route("**/v1/connectors/con_calendar", (route) => {
+		await page.route(`**/v1/connectors/${instance.id}`, (route) => {
 			expect(route.request().method()).toBe("DELETE");
 			current = undefined;
 			return route.fulfill({ json: { ok: true } });
@@ -312,7 +312,6 @@ for (const { platform, dark } of [
 				allowed,
 			);
 		await page.goto("/me/connectors");
-		if (isMac) await page.getByRole("button", { name: "继续使用 Yonder" }).click();
 		const currentDevice = page.getByRole("region", { name: `${target.name} · 这台设备` });
 		await expect(currentDevice.getByText("Apple 相册", { exact: true })).toBeVisible();
 		await expect(currentDevice.getByText("Apple 备忘录", { exact: true })).toHaveCount(isMac ? 1 : 0);
@@ -331,6 +330,7 @@ for (const { platform, dark } of [
 		const choosePhone = () => dialog.getByText("iPhone", { exact: true }).click();
 		await selection.click();
 		await expect(authorize).toBeVisible();
+		await expect(dialog.getByText(/会自动导入和更新授权范围内的数据/)).toBeVisible();
 		await expect(dialog.getByRole("button")).toHaveCount(2);
 		await expect(dialog.locator("details, form, input:not([type=radio])")).toHaveCount(0);
 		expect(await actions()).toEqual([]);
@@ -342,6 +342,7 @@ for (const { platform, dark } of [
 		}
 		if (isMac) {
 			expect((await dialog.boundingBox())?.width).toBeLessThan(1100);
+			await page.screenshot({ path: info.outputPath("mac-connector-consent.png"), animations: "disabled" });
 		}
 		if (!isMac) {
 			const bounds = await dialog.boundingBox();
@@ -381,7 +382,9 @@ for (const { platform, dark } of [
 		);
 		await expect(dialog.getByRole("status")).toHaveText(isMac ? "已授权" : "已授权 · 仅系统允许的内容");
 		await expect(trial).toBeVisible();
-		await expect(dialog.getByRole("button")).toHaveCount(2);
+		const disconnect = dialog.getByRole("button", { name: "断开连接" });
+		await expect(disconnect).toBeVisible();
+		await expect(dialog.getByRole("button")).toHaveCount(3);
 		expect(created).toBe(1);
 		await expect.poll(() => ready).toBe(true);
 		expect(await actions()).toEqual(["request_permission", "open_settings", "authorize"]);
@@ -429,7 +432,16 @@ for (const { platform, dark } of [
 				: { kind: "apple_photos_list", photos: [], more: false },
 		});
 		expect(await actions()).toEqual(["request_permission", "open_settings", "authorize", "execute"]);
-		if (!isMac) {
+		if (isMac) {
+			await currentDevice.getByRole("button", { name: `已接入 · ${name}`, exact: true }).click();
+			await expect(disconnect).toBeVisible();
+			await page.screenshot({ path: info.outputPath("mac-connector-disconnect.png"), animations: "disabled" });
+			await disconnect.click();
+			await expect(dialog).toBeHidden();
+			await expect(selection).toBeVisible();
+			await expect.poll(actions).toEqual(["request_permission", "open_settings", "authorize", "execute", "revoke"]);
+			await expect.poll(() => ready).toBe(false);
+		} else {
 			const connected = currentDevice.getByRole("button", { name: `已接入 · ${name}`, exact: true });
 			await connected.click();
 			await chooseMac();

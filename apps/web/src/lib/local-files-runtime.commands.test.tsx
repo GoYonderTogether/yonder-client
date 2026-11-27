@@ -154,6 +154,7 @@ test("unknown local connector work clears on disconnect, cancellation and accoun
 	const first = setup.beginTrayWork.mock.results[0]?.value.finish;
 	act(() => setup.status("reconnecting"));
 	expect(first).toHaveBeenCalledOnce();
+	expect(setup.invoke).toHaveBeenCalledWith("local_files_cancel", { commandId: "cmd_a" });
 
 	act(() => setup.status("open"));
 	act(() => emit("cmd_b"));
@@ -174,6 +175,45 @@ test("unknown local connector work clears on disconnect, cancellation and accoun
 	rerender(<LocalFilesRuntime />);
 	expect(third).toHaveBeenCalledOnce();
 	unmount();
+});
+
+test("revoking a grant stops an active command and rejects a late command from the old grant", async () => {
+	let finish: ((value: unknown) => void) | undefined;
+	setup.invoke.mockImplementation(async (name: string) => {
+		if (name === "local_files_ready") return [{ id: "con_a", revision: 2, toolsVersion: 2 }];
+		if (name === "local_files_execute")
+			return new Promise((resolve) => {
+				finish = resolve;
+			});
+	});
+	render(<LocalFilesRuntime />);
+	const emit = (id: string) =>
+		setup.event({
+			type: "connector.command",
+			eventId: id,
+			at: new Date().toISOString(),
+			command: {
+				id,
+				connectorId: "local-files",
+				scope: "device",
+				capabilities: { fileTools: false },
+				revision: 2,
+				connectionId: "con_a",
+				deviceId: "dev_a",
+				operation: "read",
+				path: "note.txt",
+				expiresAt: new Date(Date.now() + 15000).toISOString(),
+			},
+		});
+	act(() => emit("cmd_live"));
+	act(() => setup.revoke("con_a"));
+	expect(setup.invoke).toHaveBeenCalledWith("local_files_cancel", { commandId: "cmd_live" });
+	await act(async () => finish?.({ ok: true, result: { kind: "read", content: "fixture" } }));
+	act(() => emit("cmd_stale"));
+	await waitFor(() =>
+		expect(setup.submit).toHaveBeenCalledExactlyOnceWith("cmd_stale", { ok: false, error: "permission_denied" }),
+	);
+	expect(setup.invoke.mock.calls.filter(([name]) => name === "local_files_execute")).toHaveLength(1);
 });
 
 test("cold-cache commands execute immediately, share one authenticated lookup, and never revive cancelled rows", async () => {

@@ -75,6 +75,7 @@ export function ConnectorPanel({
 					instance={grant(target)}
 					localFiles={localFiles}
 					isSelected={() => liveTarget.current === target.id}
+					onDisconnected={close}
 					onTry={
 						onTry &&
 						((draft) => {
@@ -155,8 +156,10 @@ function ConnectorHero({
 	localFiles,
 	isSelected,
 	onTry,
+	onDisconnected,
 }: Pick<ConnectorPanelProps, "definition" | "device" | "instance" | "localFiles" | "onTry"> & {
 	isSelected: () => boolean;
+	onDisconnected: () => void;
 }) {
 	const { t } = useTranslation();
 	const actions = useConnectorActions();
@@ -164,6 +167,7 @@ function ConnectorHero({
 	const [authorizedId, setAuthorizedId] = useState<string>();
 	const [waitingForSettings, setWaitingForSettings] = useState(false);
 	const [busy, setBusy] = useState(false);
+	const [disconnecting, setDisconnecting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const active = useRef(true);
 	useEffect(() => {
@@ -174,26 +178,36 @@ function ConnectorHero({
 	}, []);
 	const control = definition.id === "computer-control";
 	const apple = definition.id.startsWith("apple-");
+	const voiceMemos = definition.id === "apple-voice-memos";
 	const legacy = instance?.scope === "folder";
 	const { key, Icon } = connectorPresentation[definition.id];
 	const canConfigure = canConfigureConnector(device, definition, localFiles);
 	const changed = !instance || legacy || instance.capabilities.fileTools !== control;
 	const permission = apple && device.current ? localFiles?.permissionStatus?.(definition.id) : undefined;
 	const systemAllowed = permission === "granted" || permission === "limited";
+	const voiceNeedsRequest = voiceMemos && device.current && !systemAllowed;
 	const systemDenied = permission === "denied" || permission === "restricted";
-	const systemUnavailable = permission === "unavailable" || permission === "unsupported";
+	const systemUnavailable = (!voiceMemos && permission === "unavailable") || permission === "unsupported";
 	const needsSettings =
 		systemDenied ||
 		(!systemAllowed &&
 			(error === "connectors.systemPermissionDenied" || error === "connectors.openSystemSettingsFailed"));
 	const authorized = Boolean(authorizedId || (instance && !changed));
-	const ready = authorized && isReachable(device, instance) && !needsSettings && !systemUnavailable && !busy;
+	const ready =
+		authorized &&
+		isReachable(device, instance) &&
+		!needsSettings &&
+		!systemUnavailable &&
+		!voiceNeedsRequest &&
+		!busy &&
+		!disconnecting;
 	const canAuthorize =
 		device.status === "online" &&
 		!systemUnavailable &&
 		canConfigure &&
-		(!authorized || needsSettings) &&
-		(!needsSettings || !!localFiles?.openPermissionSettings);
+		!disconnecting &&
+		(!authorized || needsSettings || voiceNeedsRequest) &&
+		(!needsSettings || voiceMemos || !!localFiles?.openPermissionSettings);
 	const afterSettings = useEffectEvent(() => void apply(true));
 	useEffect(() => {
 		if (!waitingForSettings || !systemAllowed || busy) return;
@@ -202,7 +216,7 @@ function ConnectorHero({
 	}, [waitingForSettings, systemAllowed, busy]);
 
 	async function apply(permissionChecked = systemAllowed) {
-		if (!active.current || !isSelected() || !localFiles || !canConfigure || busy) return;
+		if (!active.current || !isSelected() || !localFiles || !canConfigure || busy || disconnecting) return;
 		setBusy(true);
 		setError(null);
 		let saved: ConnectorInstance | undefined;
@@ -267,6 +281,7 @@ function ConnectorHero({
 				if (code === "notes_unavailable") setError("connectors.appleNotes.unavailable");
 				else if (code === "voice_memos_unavailable") setError("connectors.appleVoiceMemos.unavailable");
 				else if (code === "voice_memos_unsupported") setError("connectors.appleVoiceMemos.unsupported");
+				else if (voiceMemos && code === "permission_denied") setError("connectors.appleVoiceMemos.permissionDenied");
 				else
 					setError(
 						apple && code === "permission_denied" ? "connectors.systemPermissionDenied" : "connectors.connectFailed",
@@ -278,7 +293,7 @@ function ConnectorHero({
 	}
 
 	async function authorize() {
-		if (!needsSettings) return apply();
+		if (voiceMemos || !needsSettings) return apply();
 		if (!localFiles?.openPermissionSettings || busy) return;
 		setBusy(true);
 		setWaitingForSettings(true);
@@ -292,50 +307,111 @@ function ConnectorHero({
 		}
 	}
 
-	const status = systemUnavailable
-		? t("connectors.unavailable")
-		: needsSettings
-			? t(error === "connectors.openSystemSettingsFailed" ? error : "connectors.sheet.permissionNeeded")
-			: error
-				? t(error)
-				: authorized
-					? t(
-							!ready
-								? "connectors.sheet.pending"
-								: permission === "limited"
-									? "connectors.sheet.limited"
-									: "connectors.sheet.authorized",
-						)
-					: !canConfigure
-						? t("connectors.onDevice", { device: deviceDisplayName(device) })
-						: undefined;
+	async function disconnect() {
+		const id = instance?.id ?? authorizedId;
+		if (!device.current || !localFiles || !id || busy || disconnecting) return;
+		setError(null);
+		setDisconnecting(true);
+		setWaitingForSettings(false);
+		// Local cancellation and removing the server grant should proceed independently.
+		const [local, server] = await Promise.allSettled([
+			localFiles.revoke(id, definition.id),
+			actions.remove.mutateAsync(id),
+		]);
+		if (active.current) setDisconnecting(false);
+		if (!active.current || !isSelected()) return;
+		if (server.status === "rejected") setError("connectors.disconnectFailed");
+		else if (local.status === "rejected") {
+			setAuthorizedId(undefined);
+			setError("connectors.disconnectLocalFailed");
+		} else onDisconnected();
+	}
+
+	const disconnectError = error === "connectors.disconnectFailed" || error === "connectors.disconnectLocalFailed";
+	const status = disconnectError
+		? t(error)
+		: systemUnavailable
+			? t("connectors.unavailable")
+			: needsSettings
+				? t(
+						voiceMemos
+							? "connectors.appleVoiceMemos.permissionDenied"
+							: error === "connectors.openSystemSettingsFailed"
+								? error
+								: "connectors.sheet.permissionNeeded",
+					)
+				: error
+					? t(error)
+					: authorized
+						? t(
+								voiceNeedsRequest
+									? "connectors.appleVoiceMemos.resume"
+									: !ready
+										? "connectors.sheet.pending"
+										: permission === "limited"
+											? "connectors.sheet.limited"
+											: "connectors.sheet.authorized",
+							)
+						: !canConfigure
+							? t("connectors.onDevice", { device: deviceDisplayName(device) })
+							: undefined;
 
 	const trial = ready && onTry;
+	const canDisconnect = device.current && localFiles && (instance || authorizedId);
 	return (
 		<section className="flex flex-col items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-[var(--spacing-5)] py-[var(--spacing-6)] text-center">
 			<span className="grid size-[var(--spacing-12)] place-items-center rounded-[var(--radius-md)] bg-[var(--color-bg-subtle)]">
 				<Icon size={26} aria-hidden className="text-[var(--color-text-secondary)]" />
 			</span>
 			<h3 className="text-h2 font-semibold">{t(`connectors.${key}.name`)}</h3>
-			<p className="text-body text-[var(--color-text-secondary)]">{t(`connectors.${key}.description`)}</p>
+			<p className="text-body text-[var(--color-text-secondary)]">
+				{t(apple ? `connectors.${key}.scope` : control ? "connectors.fileToolsScope" : "connectors.readScope")}
+			</p>
+			{!control ? (
+				<p className="text-caption text-[var(--color-text-secondary)]">
+					{t(apple ? "connectors.appleUsageBody" : "connectors.usageBody")}
+				</p>
+			) : null}
 			{status ? (
 				<p role="status" className="text-caption text-[var(--color-text-secondary)]">
 					{status}
 				</p>
 			) : null}
-			{!ready || trial ? (
-				<Button
-					variant="primary"
-					size="lg"
-					className="rounded-[var(--radius-full)]! px-[var(--spacing-8)]"
-					disabled={!trial && !canAuthorize}
-					loading={busy}
-					onClick={() =>
-						trial ? trial(t(`connectors.${key}.trial`, { device: deviceDisplayName(device) })) : void authorize()
-					}
-				>
-					{t(trial ? "connectors.sheet.try" : "connectors.connect")}
-				</Button>
+			{!ready || trial || canDisconnect ? (
+				<div className="flex flex-wrap items-center justify-center gap-[var(--spacing-2)]">
+					{!ready || trial ? (
+						<Button
+							variant="primary"
+							size="lg"
+							className="rounded-[var(--radius-full)]! px-[var(--spacing-8)]"
+							disabled={disconnecting || (!trial && !canAuthorize)}
+							loading={busy}
+							onClick={() =>
+								trial ? trial(t(`connectors.${key}.trial`, { device: deviceDisplayName(device) })) : void authorize()
+							}
+						>
+							{t(
+								trial
+									? "connectors.sheet.try"
+									: authorized && voiceNeedsRequest
+										? "connectors.appleVoiceMemos.resumeAction"
+										: "connectors.connect",
+							)}
+						</Button>
+					) : null}
+					{canDisconnect ? (
+						<Button
+							variant="secondary"
+							size="lg"
+							className="rounded-[var(--radius-full)]!"
+							disabled={busy}
+							loading={disconnecting}
+							onClick={() => void disconnect()}
+						>
+							{t("connectors.disconnect")}
+						</Button>
+					) : null}
+				</div>
 			) : null}
 		</section>
 	);

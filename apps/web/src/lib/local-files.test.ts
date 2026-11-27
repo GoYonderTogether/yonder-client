@@ -35,6 +35,7 @@ test("explicit authorization preserves scope, capabilities and revision without 
 	expect(invoke).toHaveBeenCalledWith("local_files_authorize", { context, config });
 	expect(invoke.mock.calls.some(([name]) => name === "local_files_choose")).toBe(false);
 	await adapter.revoke("con_a");
+	expect(listener).toHaveBeenNthCalledWith(2, "con_a");
 	await resetLocalFiles();
 	expect(invoke).toHaveBeenLastCalledWith("local_files_reset", {});
 	expect(listener).toHaveBeenCalledTimes(3);

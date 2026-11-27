@@ -10,9 +10,9 @@ export const connectorMessagesEn = {
 		both: "Allow reading and modifying files on {{device}}?",
 	},
 	requestScope: {
-		read: "Access covers all files this system account can access until you revoke it.",
+		read: "Access covers all files this system account can access. Retrieved names and content are sent to Yonder and may be shared with your model provider for processing. You can disconnect in Connectors.",
 		write: "The Bot can create, edit and recoverably delete files this system account can access until you revoke it.",
-		both: "The Bot can read, find, index on demand, create, edit and recoverably delete files this system account can access until you revoke it.",
+		both: "The Bot can read, find, index on demand, create, edit and recoverably delete files this system account can access until you revoke it. Retrieved names and content are sent to Yonder and may be shared with your model provider. Disconnect in Connectors.",
 	},
 	requestDetail: "{{reason}} — {{scope}}",
 	requestRetry: "Allow again",
@@ -61,7 +61,9 @@ export const connectorMessagesEn = {
 	upgrade: "Enable whole-computer reading",
 	usage: "Usage and data handling",
 	usageBody:
-		"Your Bots use enabled capabilities when carrying out your requests. Retrieved content is sent to the cloud and your chosen model for processing. Disconnecting stops future access.",
+		"Retrieved file names and content are sent to Yonder and may be shared with your model provider for processing. Disconnecting stops future access.",
+	appleUsageBody:
+		"Connecting starts automatic import and updates for permitted data. Cloud processing can include your model provider. Disconnecting stops future access. Previously saved data remains in Yonder. Manage the system permission in System Settings.",
 	legacyScope: "Only the previously selected folder is shared. Whole-computer access has not been enabled.",
 	fileToolsScope:
 		"Bots can create, edit and recoverably delete files across the selected device that the current OS account can access.",
@@ -84,6 +86,8 @@ export const connectorMessagesEn = {
 	retryConnect: "Retry connection",
 	openSystemSettingsFailed: "Could not open System Settings. Open Settings and allow Yonder access.",
 	disconnectFailed: "Could not disconnect. Try again.",
+	disconnectLocalFailed:
+		"Disconnected from your account. Yonder could not remove the permission record on this device.",
 	viewDevices: "View devices",
 	onDevice: "Continue in Yonder on {{device}} to enable this connector.",
 	needsDesktop: "Open Yonder on your computer to enable this connector.",
@@ -106,7 +110,7 @@ export const connectorMessagesEn = {
 		description: "See events and schedules.",
 		trial:
 			"Check today’s Apple Calendar on “{{device}}” only. If that device is unavailable, tell me instead of switching devices.",
-		scope: "Your Bot can find calendar events and read their details when you ask.",
+		scope: "Your Bot can find calendar events and read their details.",
 	},
 	applePhotos: {
 		name: "Apple Photos",
@@ -121,7 +125,8 @@ export const connectorMessagesEn = {
 		description: "Find and read notes.",
 		trial:
 			"List a few recently edited Apple Notes titles on “{{device}}” only. If it is unavailable, tell me instead of switching devices.",
-		scope: "Your Bot can find unlocked notes and read their text and attachments.",
+		scope:
+			"Your Bot can find unlocked notes and read their text and attachments. macOS grants this access through Automation for Notes.",
 		unavailable: "Notes could not be opened. Open Notes on this Mac and try again.",
 	},
 	appleVoiceMemos: {
@@ -129,7 +134,11 @@ export const connectorMessagesEn = {
 		description: "Find and transcribe recordings.",
 		trial:
 			"List a few recent Voice Memos titles on “{{device}}” only. If it is unavailable, tell me instead of switching devices.",
-		scope: "Your Bot can find recordings, read the original audio, and transcribe it when you ask.",
+		scope:
+			"Your Bot can find and read recordings using macOS app data access. Audio is sent to a speech recognition provider for transcription. After restarting Yonder, select Resume access to use Voice Memos again.",
+		permissionDenied: "Voice Memos access was denied. Try again and allow access if macOS prompts you.",
+		resume: "Resume access to Voice Memos for this session.",
+		resumeAction: "Resume access",
 		unavailable: "Open Voice Memos on this Mac and wait for recordings to sync before trying again.",
 		unsupported: "Voice Memos on this Mac cannot be read by Yonder yet.",
 	},

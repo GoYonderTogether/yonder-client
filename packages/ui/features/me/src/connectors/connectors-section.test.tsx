@@ -5,6 +5,7 @@ import type { ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { beforeEach, expect, test, vi } from "vitest";
+import { ConnectorPanel } from "./connector-panel.tsx";
 import { ConnectorsSection } from "./connectors-section.tsx";
 import type { LocalFilesAdapter } from "./local-files-adapter.ts";
 
@@ -113,6 +114,8 @@ test("read enables explicit whole-device access without a folder picker", async 
 	const native = adapter();
 	show(native);
 	openRead();
+	expect(screen.getByText(/accounts? can access for reading/)).toBeVisible();
+	expect(screen.getByText(/content are sent to Yonder/)).toBeVisible();
 	fireEvent.click(screen.getByRole("button", { name: /^Connect$/ }));
 	await waitFor(() =>
 		expect(native.authorize).toHaveBeenCalledWith(
@@ -126,6 +129,67 @@ test("read enables explicit whole-device access without a folder picker", async 
 		scope: "device",
 		capabilities: { fileTools: false },
 	});
+});
+
+test("a local grant can be disconnected while native cleanup is pending", async () => {
+	state.instances = [{ ...base, scope: "device", revision: 2 }];
+	const native = adapter();
+	let revoke: (() => void) | undefined;
+	vi.mocked(native.revoke).mockImplementation(
+		() =>
+			new Promise<void>((resolve) => {
+				revoke = resolve;
+			}),
+	);
+	show(native);
+	fireEvent.click(screen.getByRole("button", { name: "Connected · Read files" }));
+	fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+	expect(native.revoke).toHaveBeenCalledWith("con_a", "local-files");
+	expect(state.remove).toHaveBeenCalledWith("con_a");
+	expect(screen.getByRole("button", { name: "Disconnect" })).toBeDisabled();
+	await act(async () => revoke?.());
+	expect(screen.queryByRole("dialog", { name: "Read files" })).toBeNull();
+});
+
+test("a saved Voice Memos grant resumes through explicit native consent", async () => {
+	const device = { ...firstDevice, platform: "macos" as const };
+	const instance = {
+		...base,
+		connectorId: "apple-voice-memos" as const,
+		scope: "device" as const,
+		status: "offline" as const,
+	};
+	const native = {
+		...adapter(),
+		supports: () => true,
+		permissionStatus: () => "undetermined" as const,
+		prepare: vi.fn().mockRejectedValueOnce(new Error("permission_denied")).mockResolvedValue(undefined),
+		openPermissionSettings: vi.fn(),
+	};
+	state.instances = [instance];
+	render(
+		<I18nextProvider i18n={createI18n("en")}>
+			<ConnectorPanel
+				definition={{ id: "apple-voice-memos", kind: "device", name: "", description: "", platforms: ["macos"] }}
+				device={device}
+				instance={instance}
+				localFiles={native}
+				onClose={vi.fn()}
+			/>
+		</I18nextProvider>,
+	);
+	expect(screen.getByText(/speech recognition provider/)).toBeVisible();
+	expect(native.prepare).not.toHaveBeenCalled();
+	const resume = screen.getByRole("button", { name: "Resume access" });
+	fireEvent.click(resume);
+	expect(await screen.findByText(/Voice Memos access was denied/)).toBeVisible();
+	expect(native.openPermissionSettings).not.toHaveBeenCalled();
+	expect(native.authorize).not.toHaveBeenCalled();
+	fireEvent.click(resume);
+	await waitFor(() => expect(native.authorize).toHaveBeenCalledWith(instance));
+	expect(native.prepare).toHaveBeenCalledTimes(2);
+	expect(state.create).not.toHaveBeenCalled();
+	expect(state.update).not.toHaveBeenCalled();
 });
 
 test("modify connector enables file tools directly, without a single-option selector", async () => {

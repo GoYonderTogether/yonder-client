@@ -28,6 +28,8 @@ import { beginTrayConnectorWork } from "./tray-bridge.ts";
 type PendingCommand = {
 	cancelled: boolean;
 	apple: boolean;
+	connectionId: string;
+	revision: number;
 	upload?: AbortController;
 	tray?: ReturnType<typeof beginTrayConnectorWork>;
 };
@@ -103,6 +105,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 		// Grants this runtime stored that the server's list has not shown yet. The list arrives a moment
 		// later; a grant written now is reported ready without waiting for it.
 		const written = new Map<string, number>();
+		const revoked = new Set<string>();
 		let appleReady = new Set<string>();
 		let readyAttempt = 0;
 		let trayConversations: Promise<{ items: Conversation[] }> | undefined;
@@ -114,11 +117,15 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 						.map((item) => [item.id, item.revision] as const),
 					...written,
 				]),
-			].map(([id, revision]) => ({ id, revision }));
+			]
+				.filter(([id]) => !revoked.has(id))
+				.map(([id, revision]) => ({ id, revision }));
 		const eligible = (connectionId: string) =>
-			written.has(connectionId) || (connectionsRef.current ?? []).some((item) => item.id === connectionId);
+			!revoked.has(connectionId) &&
+			(written.has(connectionId) || (connectionsRef.current ?? []).some((item) => item.id === connectionId));
 		const eligibleApple = (command: ConnectorCommand) =>
 			apple &&
+			!revoked.has(command.connectionId) &&
 			(files || isForeground()) &&
 			command.deviceId === context.deviceId &&
 			command.scope === "device" &&
@@ -159,7 +166,11 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 				if (!apple) return [];
 				const listed = (connectionsRef.current ?? [])
 					.filter(
-						(item) => isAppleConnector(item.connectorId) && item.scope === "device" && !item.capabilities.fileTools,
+						(item) =>
+							!revoked.has(item.id) &&
+							isAppleConnector(item.connectorId) &&
+							item.scope === "device" &&
+							!item.capabilities.fileTools,
 					)
 					.map(({ id, revision }) => ({ id, revision }));
 				await activateAppleConnectors(context);
@@ -191,6 +202,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 				await invokeLocalFiles("local_files_activate", { context });
 				for (const item of grants) {
 					if (!active) return;
+					if (revoked.has(item.connectionId)) throw new Error("permission_denied");
 					await invokeLocalFiles("local_files_authorize", {
 						context,
 						config: {
@@ -210,9 +222,14 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			await refreshReady(requestId, dispatchSeq);
 		};
 		const execute = async (command: ConnectorCommand) => {
-			if (!active || pending.has(command.id)) return;
+			if (!active || realtime.status !== "open" || pending.has(command.id)) return;
 			const appleCommand = command.connectorId?.startsWith("apple-") ?? false;
-			const state: PendingCommand = { cancelled: false, apple: appleCommand };
+			const state: PendingCommand = {
+				cancelled: false,
+				apple: appleCommand,
+				connectionId: command.connectionId,
+				revision: command.revision,
+			};
 			pending.set(command.id, state);
 			try {
 				let result: ConnectorCommandResult;
@@ -345,6 +362,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			}
 		};
 		const cancel = (id: string, state: PendingCommand) => {
+			if (state.cancelled) return;
 			state.cancelled = true;
 			state.upload?.abort();
 			state.tray?.finish();
@@ -360,14 +378,19 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			}
 		});
 		const stopStatus = realtime.subscribe(() => {
-			if (realtime.status !== "open")
-				for (const [id, state] of pending) {
-					if (state.apple) cancel(id, state);
-					else state.tray?.finish();
-				}
+			if (realtime.status !== "open") for (const [id, state] of pending) cancel(id, state);
 			void refreshReady();
 		});
-		const stopGrants = onLocalFilesChanged(() => void refreshReady());
+		const stopGrants = onLocalFilesChanged((connectionId) => {
+			if (connectionId) {
+				revoked.add(connectionId);
+				written.delete(connectionId);
+				for (const [id, state] of pending) {
+					if (state.connectionId === connectionId) cancel(id, state);
+				}
+			}
+			void refreshReady();
+		});
 		const stopForeground = apple ? subscribeForeground(() => void refreshReady()) : undefined;
 		// A list that changed since the last one answered for: drop written grants it no longer names (a
 		// cancel or a rollback), then report again so the server sees what this device now serves.
@@ -377,6 +400,9 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			const current = new Map(listed.map((connection) => [connection.id, connection.revision]));
 			for (const [id, revision] of [...written]) {
 				if (current.get(id) !== revision) written.delete(id);
+			}
+			for (const [id, state] of pending) {
+				if ((written.get(state.connectionId) ?? current.get(state.connectionId)) !== state.revision) cancel(id, state);
 			}
 			void refreshReady();
 		};

@@ -47,10 +47,10 @@ public:
     RecordingQuery &operator=(const RecordingQuery &) = delete;
 };
 
-extern "C" int32_t yonder_voice_memos_permission(bool probe, bool explicitRequest) {
+extern "C" int32_t yonder_voice_memos_permission(bool request) {
     @autoreleasepool {
         int state = permission.load();
-        if (!probe || state == Checking || (!explicitRequest && state != AppleUndetermined)) {
+        if (!request || state == Checking) {
             return state == Checking ? AppleUndetermined : state;
         }
         if (!permission.compare_exchange_strong(state, Checking)) {
