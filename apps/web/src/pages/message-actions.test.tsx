@@ -72,7 +72,7 @@ test("quote block uses the server's preview and targets the original, with safe 
 	const view = (replyTo: typeof quoted & { recalled?: true; missing?: true }) =>
 		english(<MessageQuote replyTo={replyTo} senderName="Alice" onJump={jump} />);
 	const { rerender } = render(view(quoted));
-	const quote = screen.getByRole("button", { name: /Alice\s*Original text/ });
+	const quote = screen.getByRole("button", { name: "Alice: Original text" });
 	fireEvent.click(quote);
 	expect(jump).toHaveBeenCalledExactlyOnceWith(source.id);
 

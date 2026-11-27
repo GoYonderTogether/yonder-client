@@ -17,27 +17,19 @@ export function MessageQuote({
 }) {
 	const { t } = useTranslation();
 	const status = replyTo.recalled ? t("chat.quoteRecalled") : replyTo.missing ? t("chat.quoteUnavailable") : null;
-	const content = status ?? (
-		<>
-			<strong className="block truncate font-medium text-[var(--color-text-primary)]">{senderName}</strong>
-			<span className="block truncate">{replyTo.snippet}</span>
-		</>
+	const content = (
+		<span className="message-quote-content">
+			{status ?? (replyTo.snippet ? `${senderName}: ${replyTo.snippet}` : senderName)}
+		</span>
 	);
-	const className =
-		"mb-[var(--spacing-2)] min-w-0 max-w-full border-s border-[var(--color-border)] ps-[var(--spacing-2)] text-start text-caption text-[var(--color-text-secondary)]";
 	if (replyTo.missing || !onJump)
 		return (
-			<blockquote className={className} data-message-quote>
+			<blockquote className="message-quote" data-message-quote>
 				{content}
 			</blockquote>
 		);
 	return (
-		<button
-			type="button"
-			data-message-quote
-			className={`block ${className} hover:text-[var(--color-text-primary)] focus-visible:outline-[var(--color-accent)]`}
-			onClick={() => onJump(replyTo.id)}
-		>
+		<button type="button" className="message-quote" data-message-quote onClick={() => onJump(replyTo.id)}>
 			{content}
 		</button>
 	);

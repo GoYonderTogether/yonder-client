@@ -251,3 +251,20 @@ test("reopening a menu rechecks recall expiry and starts a quote with the visibl
 		vi.useRealTimers();
 	}
 });
+
+test("a sent quote is below and outside the reply's only bubble", () => {
+	const original = message(other, { body: "原消息" });
+	const reply = message(self, {
+		body: "回复内容",
+		replyToId: original.id,
+		replyTo: { id: original.id, senderId: original.senderId, snippet: "原消息" },
+	});
+	const { container } = renderMessages([original, reply], direct);
+	const decorated = container.querySelector(`[data-message-decorated="${reply.id}"]`);
+	const bubble = screen.getByText("回复内容").closest(".message-bubble");
+	const quote = screen.getByText("小陈: 原消息").closest("[data-message-quote]");
+	expect(bubble).toBeInTheDocument();
+	expect(decorated?.querySelectorAll(".message-bubble")).toHaveLength(1);
+	expect(quote).toBeInTheDocument();
+	expect(decorated?.querySelector("article")?.nextElementSibling).toBe(quote);
+});

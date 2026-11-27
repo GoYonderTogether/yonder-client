@@ -1,31 +1,55 @@
-.decorated-message-entry[data-quoted-message-body] {
-	align-self: flex-start;
+.decorated-message-entry > article:has(+ .message-quote) {
+	align-self: stretch;
+}
+
+.message-quote {
+	position: relative;
 	max-width: var(--message-bubble-width);
+	margin-block-start: var(--spacing-1);
+	border-radius: var(--radius-control-sm);
+	padding: var(--spacing-1) var(--spacing-2);
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	text-align: start;
 }
 
-.message-run-outgoing .decorated-message-entry[data-quoted-message-body] {
-	align-self: flex-end;
+.message-quote::before {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: 0;
+	width: var(--spacing-hair);
+	background: var(--color-border);
+	content: "";
 }
 
-.decorated-message-entry[data-quoted-message-body] > .message-bubble {
-	padding-block-end: 0;
-	border-end-start-radius: 0;
-	border-end-end-radius: 0;
+.message-run-outgoing .message-quote::before {
+	inset-inline: auto 0;
 }
 
-.decorated-message-entry[data-quoted-message-body] > .message-bubble,
-.decorated-message-entry[data-quoted-message-body] > article,
-.decorated-message-entry[data-quoted-message-body] > article > .message-bubble {
-	width: 100%;
-	max-width: 100%;
+button.message-quote {
+	cursor: pointer;
 }
 
-.decorated-message-entry[data-quoted-message-body] > article > .message-bubble:first-child {
-	padding-block-start: 0;
-	border-start-start-radius: 0;
-	border-start-end-radius: 0;
-}
-
-.decorated-message-entry[data-quoted-message-body]:has(> article[data-long-press]) > .message-bubble {
+button.message-quote:focus-visible {
 	background: var(--color-bg-hover);
+	outline-color: var(--color-accent);
+}
+
+@media (hover: hover) {
+	.message-quote:hover {
+		background: var(--color-bg-hover);
+	}
+
+	.message-quote:hover::before {
+		visibility: hidden;
+	}
+}
+
+.message-quote-content {
+	display: -webkit-box;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
 }

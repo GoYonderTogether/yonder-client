@@ -169,12 +169,10 @@
 
 .message-bubble-incoming {
 	background: var(--color-bg-subtle);
-	border-bottom-left-radius: 0;
 }
 
 .message-bubble-outgoing {
 	background: var(--color-accent-subtle);
-	border-bottom-right-radius: 0;
 }
 
 .message-voice-button {
