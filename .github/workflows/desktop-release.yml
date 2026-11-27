@@ -2,8 +2,8 @@
 # 并上传 OSS desktop/<version>/。
 #
 # 触发：本仓 Release 由 release.yml 用 GITHUB_TOKEN 创建，GITHUB_TOKEN 产生的 Release 不会再触发
-# 其他 workflow，所以实际入口是 release.yml 在公开 Release 之后显式派发本 workflow。
-# 下面的 release: published 只是对外部手动发布的兜底，本仓不会由它触发。
+# 其他 workflow，所以实际入口是 release.yml 在公开 Release 后从 main 显式派发本 workflow。
+# release: published 是外部手动发布的兜底，使用专用签名 runner 时须从 main 手动派发。
 #
 # 版本不从仓库文件读：release.yml 已经用 sync-desktop-version.mjs 把版本写进 apps/desktop 的三个
 # 清单，构建时仍用 `tauri build --config '{"version":…}'` 再钉一次，产物名与 tag 一致。
@@ -44,8 +44,12 @@ jobs:
       version: ${{ steps.target.outputs.version }}
       commit: ${{ steps.target.outputs.commit }}
       tag: ${{ steps.target.outputs.tag }}
+      require_os_code_signing: ${{ steps.target.outputs.require_os_code_signing }}
+      windows_signing_runner: ${{ steps.target.outputs.windows_signing_runner }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Pin release version and commit
         id: target
         shell: bash
@@ -53,8 +57,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INPUT_VERSION: ${{ inputs.version || github.event.release.tag_name }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          REQUIRE_OS_CODE_SIGNING: ${{ vars.DESKTOP_REQUIRE_OS_CODE_SIGNING }}
+          WINDOWS_SIGNING_RUNNER: ${{ vars.WINDOWS_SIGNING_RUNNER }}
+          WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}
+          WINDOWS_SIGNING_TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL }}
         run: |
           set -euo pipefail
+          require_os_code_signing="${REQUIRE_OS_CODE_SIGNING:-false}"
+          case "$require_os_code_signing" in
+            true|false) ;;
+            *) echo '::error::DESKTOP_REQUIRE_OS_CODE_SIGNING must be true or false'; exit 1 ;;
+          esac
           version="${INPUT_VERSION#v}"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid release version: $version"; exit 1; }
           tag="v$version"
@@ -67,9 +80,29 @@ jobs:
           state="$(gh release view "$tag" --json isDraft,isPrerelease --jq \
             'if .isDraft or .isPrerelease then "unstable" else "stable" end')"
           [ "$state" = "stable" ] || { echo "Release $tag is not a published stable release"; exit 1; }
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "commit=$actual" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          relationship="$(gh api "repos/{owner}/{repo}/compare/$actual...main" --jq .status)"
+          case "$relationship" in
+            identical|ahead) ;;
+            *) echo "::error::Release $tag is not on main"; exit 1 ;;
+          esac
+          windows_signing_runner=""
+          if [ -n "$WINDOWS_SIGNING_RUNNER" ] && [ -n "$WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT" ] && [ -n "$WINDOWS_SIGNING_TIMESTAMP_URL" ]; then
+            [ "$GITHUB_REF" = 'refs/heads/main' ] || {
+              echo '::error::The Windows signing runner only accepts desktop-release.yml from main. Dispatch the same version and commit with --ref main.'
+              exit 1
+            }
+            [[ "$WINDOWS_SIGNING_RUNNER" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] || {
+              echo '::error::WINDOWS_SIGNING_RUNNER must be a Windows runner label'; exit 1
+            }
+            windows_signing_runner="$WINDOWS_SIGNING_RUNNER"
+          fi
+          {
+            echo "version=$version"
+            echo "commit=$actual"
+            echo "tag=$tag"
+            echo "require_os_code_signing=$require_os_code_signing"
+            echo "windows_signing_runner=$windows_signing_runner"
+          } >> "$GITHUB_OUTPUT"
 
   macos:
     name: macOS dmg
@@ -82,6 +115,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.resolve.outputs.commit }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -113,10 +147,15 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           ASC_KEY_BASE64: ${{ secrets.ASC_API_PRIVATE_KEY_BASE64 }}
+          REQUIRE_OS_CODE_SIGNING: ${{ needs.resolve.outputs.require_os_code_signing }}
         run: |
           set -euo pipefail
           if [ -z "$CERT_BASE64" ] || [ -z "$CERT_PASSWORD" ] || [ -z "$SIGNING_IDENTITY" ]; then
-            echo '::warning::macOS Developer ID secrets are incomplete; building ad-hoc without notarization'
+            if [ "$REQUIRE_OS_CODE_SIGNING" = true ]; then
+              echo '::error::macOS Developer ID signing is required for this release'; exit 1
+            fi
+            echo '::warning::Development build: macOS Developer ID secrets are incomplete; building ad-hoc without notarization'
+            echo 'macOS development build uses ad-hoc signing and has no notarization.' >> "$GITHUB_STEP_SUMMARY"
             echo 'APPLE_SIGNING_IDENTITY=-' >> "$GITHUB_ENV"
             echo 'enabled=false' >> "$GITHUB_OUTPUT"
             exit 0
@@ -163,7 +202,7 @@ jobs:
           # Tauri signs the dmg but only submits the app for notarization.
           xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" \
             --issuer "$APPLE_API_ISSUER" --wait --output-format json > "$RUNNER_TEMP/yonder-macos-notary.json"
-          node -e 'const r = require(process.argv[1]); console.log(`DMG notarization: ${r.status}`); if (r.status !== "Accepted") process.exit(1)' \
+          node -e 'const r = require(process.argv[1]); console.log("DMG notarization:", r.status); if (r.status !== "Accepted") process.exit(1)' \
             "$RUNNER_TEMP/yonder-macos-notary.json"
           xcrun stapler staple "$dmg"
       - name: Collect artifact
@@ -237,7 +276,7 @@ jobs:
   windows:
     name: Windows nsis
     needs: resolve
-    runs-on: windows-2025
+    runs-on: ${{ needs.resolve.outputs.windows_signing_runner && fromJSON(format('["self-hosted","Windows","X64","{0}"]', needs.resolve.outputs.windows_signing_runner)) || 'windows-2025' }}
     timeout-minutes: 60
     env:
       VERSION: ${{ needs.resolve.outputs.version }}
@@ -245,10 +284,39 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.resolve.outputs.commit }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           architecture: x64
+      - name: Configure Windows OS signing and Tauri updater
+        id: signing
+        shell: pwsh
+        env:
+          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+          REQUIRE_OS_CODE_SIGNING: ${{ needs.resolve.outputs.require_os_code_signing }}
+          WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}
+          WINDOWS_SIGNING_TIMESTAMP_URL: ${{ vars.WINDOWS_SIGNING_TIMESTAMP_URL }}
+        run: |
+          $thumbprint = ($env:WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT ?? '').Trim()
+          if (-not $thumbprint -and $env:REQUIRE_OS_CODE_SIGNING -eq 'true') {
+            throw 'Windows Authenticode signing is required for this release'
+          }
+          node scripts/release/tauri-updater-config.mjs --version $env:VERSION --output "$env:RUNNER_TEMP/yonder-updater-config.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($thumbprint) {
+            $certificate = Get-Item -LiteralPath "Cert:\CurrentUser\My\$thumbprint"
+            if (-not $certificate.HasPrivateKey) { throw 'The signing certificate must be linked to its signing provider' }
+            $kitsRoot = Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots' -Name KitsRoot10
+            $signTool = Get-ChildItem -Path (Join-Path $kitsRoot 'bin/*/x64/signtool.exe') -File |
+              Sort-Object FullName -Descending | Select-Object -First 1
+            if (-not $signTool) { throw 'Windows SDK x64 SignTool is required' }
+            "TAURI_WINDOWS_SIGNTOOL_PATH=$($signTool.FullName)" >> $env:GITHUB_ENV
+            "thumbprint=$($certificate.Thumbprint)" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host '::warning::Development build: Windows installer has no Authenticode signature'
+            'Windows development build has no Authenticode signature.' >> $env:GITHUB_STEP_SUMMARY
+          }
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.99.0"
@@ -261,12 +329,7 @@ jobs:
         run: npm run build
       - name: Install Tauri CLI
         run: npm ci --prefix apps/desktop --no-audit --no-fund
-      - name: Inject updater public key
-        shell: pwsh
-        env:
-          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
-        run: node scripts/release/tauri-updater-config.mjs --version $env:VERSION --output "$env:RUNNER_TEMP/yonder-updater-config.json"
-      - name: Build nsis installer (unsigned)
+      - name: Build nsis installer
         working-directory: apps/desktop
         shell: pwsh
         run: |
@@ -274,10 +337,21 @@ jobs:
       - name: Collect artifact
         id: artifact
         shell: pwsh
+        env:
+          SIGNING_THUMBPRINT: ${{ steps.signing.outputs.thumbprint }}
         run: |
           $name = "Yonder_$($env:VERSION)_x64-setup.exe"
-          $src = "apps/desktop/src-tauri/target/release/bundle/nsis/$name"
+          $release = "apps/desktop/src-tauri/target/release"
+          $src = "$release/bundle/nsis/$name"
           if (-not (Test-Path $src)) { throw "missing $src" }
+          if ($env:SIGNING_THUMBPRINT) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $src
+            if ($signature.Status -ne 'Valid' -or $signature.SignatureType -ne 'Authenticode' -or
+                $signature.SignerCertificate.Thumbprint -ne $env:SIGNING_THUMBPRINT -or -not $signature.TimeStamperCertificate) {
+              throw "Missing or invalid timestamped Authenticode installer signature from the expected signer ($($signature.Status))"
+            }
+            "Windows installer Authenticode verified for $($signature.SignerCertificate.Subject)." >> $env:GITHUB_STEP_SUMMARY
+          }
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item $src "dist/$name"
           "file=$name" >> $env:GITHUB_OUTPUT

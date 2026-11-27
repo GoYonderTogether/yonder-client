@@ -6,7 +6,7 @@
 # 候选模式需要同时提供草稿附件 ID 和 SHA256。
 # 产物名与 desktop-release.yml 的 Collect artifact 步骤一致：Yonder_<version>_x64-setup.exe。
 #
-# 安装包未签名，SmartScreen 只在交互下载时出现；CI 里直接执行本地文件，不受影响。
+# 签名包安装前验证安装器，安装后验证主程序和卸载器；SmartScreen 仍需单独验证。
 name: Windows install check
 
 on:
@@ -28,6 +28,13 @@ on:
         type: string
       candidate_sha256:
         description: 草稿候选安装包的 SHA256
+        type: string
+      require_authenticode:
+        description: 要求安装器、主程序及卸载器均有有效的 Authenticode 签名
+        type: boolean
+        default: false
+      expected_signer_thumbprint:
+        description: 预期的签名证书指纹，留空使用仓库当前签名证书
         type: string
 
 permissions:
@@ -64,6 +71,8 @@ jobs:
           TAG: ${{ inputs.tag }}
           CANDIDATE_ASSET_ID: ${{ inputs.candidate_asset_id }}
           CANDIDATE_SHA256: ${{ inputs.candidate_sha256 }}
+          REQUIRE_AUTHENTICODE: ${{ inputs.require_authenticode || vars.DESKTOP_REQUIRE_OS_CODE_SIGNING == 'true' || inputs.expected_signer_thumbprint != '' }}
+          EXPECTED_SIGNER_THUMBPRINT: ${{ inputs.expected_signer_thumbprint || vars.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT }}
         run: |
           $ErrorActionPreference = 'Stop'
           if ($env:TAG -cnotmatch '\Av0\.[0-9]+\.[0-9]{8}\z') {
@@ -107,6 +116,24 @@ jobs:
           "sha256=$hash" >> $env:GITHUB_OUTPUT
           Write-Host "安装包 $name（Release 记录 $size 字节）sha256=$hash"
           if ($candidate -and $hash -ine $env:CANDIDATE_SHA256) { throw '候选安装包的 SHA256 与输入不匹配' }
+          $expectedSigner = ($env:EXPECTED_SIGNER_THUMBPRINT ?? '').Trim()
+          if ($expectedSigner -and $expectedSigner -notmatch '\A[0-9A-Fa-f]{40}\z') {
+            throw '预期的签名证书指纹必须是 40 位十六进制'
+          }
+          $signature = Get-AuthenticodeSignature -LiteralPath $file
+          if ($signature.Status -eq 'NotSigned' -and $env:REQUIRE_AUTHENTICODE -ne 'true') {
+            Write-Host '::warning::开发安装包没有 Authenticode 签名'
+          } else {
+            if ($signature.Status -ne 'Valid' -or $signature.SignatureType -ne 'Authenticode' -or
+                -not $signature.TimeStamperCertificate) {
+              throw "安装包缺少有效的带时间戳 Authenticode 签名 ($($signature.Status))"
+            }
+            if ($expectedSigner -and $signature.SignerCertificate.Thumbprint -ne $expectedSigner) {
+              throw '安装包签名证书指纹与预期不符'
+            }
+            "signer_thumbprint=$($signature.SignerCertificate.Thumbprint)" >> $env:GITHUB_OUTPUT
+            Write-Host "安装包签名已验证 ($($signature.SignerCertificate.Subject))"
+          }
 
       # Tauri 的 nsis 安装包默认 installMode=currentUser，`/S` 是它的静默开关。
       - name: 静默安装
@@ -150,6 +177,16 @@ jobs:
             throw "在 $($roots -join ', ') 下找不到应用 exe；目录内容：$($listing -join ' | ')"
           }
           "dir=$($exe.DirectoryName)" >> $env:GITHUB_OUTPUT
+          if ($env:SIGNER_THUMBPRINT) {
+            foreach ($file in @($exe.FullName, (Join-Path $exe.DirectoryName 'uninstall.exe'))) {
+              $signature = Get-AuthenticodeSignature -LiteralPath $file
+              if ($signature.Status -ne 'Valid' -or $signature.SignatureType -ne 'Authenticode' -or
+                  $signature.SignerCertificate.Thumbprint -ne $env:SIGNER_THUMBPRINT -or -not $signature.TimeStamperCertificate) {
+                throw "主程序或卸载器缺少与安装包一致的带时间戳签名 ($file, $($signature.Status))"
+              }
+            }
+            'installed_signatures_verified=true' >> $env:GITHUB_OUTPUT
+          }
           $reader = [System.IO.BinaryReader]::new([System.IO.File]::OpenRead($exe.FullName))
           try {
             if ($reader.BaseStream.Length -lt 64 -or $reader.ReadUInt16() -ne 0x5A4D) {
@@ -177,6 +214,7 @@ jobs:
           "path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
         env:
           VERSION: ${{ steps.download.outputs.version }}
+          SIGNER_THUMBPRINT: ${{ steps.download.outputs.signer_thumbprint }}
 
       # 进程能起来并且 20 秒不退出，才算安装成功；启动即崩的包在这个检查里会掉出来。
       - name: 启动并确认进程存活 20 秒
@@ -295,6 +333,9 @@ jobs:
             Write-Host '没有安装目录，跳过卸载'
             exit 0
           }
+          if ($env:SIGNER_THUMBPRINT -and $env:INSTALLED_SIGNATURES_VERIFIED -ne 'true') {
+            throw '安装后的签名未通过验证，无法运行卸载器'
+          }
           $uninstaller = Join-Path $dir 'uninstall.exe'
           if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) { throw "$dir 下没有 uninstall.exe" }
           Write-Host "运行 $uninstaller /S"
@@ -309,6 +350,8 @@ jobs:
           Write-Host '卸载完成，安装目录已移除'
         env:
           APP_DIR: ${{ steps.app.outputs.dir }}
+          SIGNER_THUMBPRINT: ${{ steps.download.outputs.signer_thumbprint }}
+          INSTALLED_SIGNATURES_VERIFIED: ${{ steps.app.outputs.installed_signatures_verified }}
 
       - name: 写检查结果
         if: ${{ always() }}
@@ -317,6 +360,7 @@ jobs:
           TAG: ${{ steps.download.outputs.tag }}
           NAME: ${{ steps.download.outputs.name }}
           SHA256: ${{ steps.download.outputs.sha256 }}
+          SIGNER_THUMBPRINT: ${{ steps.download.outputs.signer_thumbprint }}
           OS_ARCHITECTURE: ${{ steps.platform.outputs.architecture }}
           APP_DIR: ${{ steps.app.outputs.dir }}
           APP_MACHINE: ${{ steps.app.outputs.machine }}
@@ -331,6 +375,7 @@ jobs:
             "- OSArchitecture：$env:OS_ARCHITECTURE"
             "- 安装包：$env:NAME"
             "- 下载摘要：$env:SHA256"
+            "- 发布者证书指纹：$env:SIGNER_THUMBPRINT"
             "- 安装路径：$env:APP_DIR"
             "- 应用 PE Machine：$env:APP_MACHINE"
             "- 主窗口句柄：$env:WINDOW_HANDLE"
