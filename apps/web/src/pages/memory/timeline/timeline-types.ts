@@ -1,0 +1,65 @@
+/**
+ * The one shape the timeline page draws. The account's days are turned into it by `toTimelineDays`;
+ * the dev preview's sample days are written in it directly, so both show the same design.
+ *
+ * The timeline is a narrator watching one person. A day is a few `events`; each event is one thing
+ * that happened to the owner, with its process hanging under it as `steps`. `at` on a step is when
+ * that step really happened, never when the review ran. Days run oldest first, like the Photos app.
+ */
+
+import type { MemoryEntry, MemoryMedia } from "@yonder/protocol";
+
+export type StepKind = "thought" | "talk" | "decision" | "photo" | "message" | "recording";
+
+/** A part of the day, from the clock alone; the page words it in the reader's language. */
+export type DayPart = "predawn" | "dawn" | "morning" | "noon" | "afternoon" | "dusk" | "evening" | "night";
+
+export interface TimelineStep {
+	at: string;
+	kind: StepKind;
+	text: string;
+	detail?: string;
+	/** Preview only: files under `dev/photos/`. */
+	photos?: string[];
+	/** The account's own photos and videos. */
+	media?: MemoryMedia[];
+	/** Under a photo strip: how many and where, never who is in the picture. */
+	photoNote?: string;
+	/** A message that reached the owner over WeChat. */
+	from?: { name: string };
+}
+
+/** One thing that happened to the owner. Its `steps` are the process, never separate events. */
+export interface TimelineEvent {
+	/** Words for a part of the day or a span ("从傍晚到半夜"), when someone chose them. */
+	marker?: string;
+	/** The part of the day it starts in, and the one it ends in when it spans more than one. */
+	part?: DayPart;
+	endPart?: DayPart;
+	/** One sentence naming the thing. */
+	headline: string;
+	steps: TimelineStep[];
+	/** True for what mattered (a card), false for a quiet line. Unset: decided from the steps. */
+	major?: boolean;
+	/** Still ahead of now: a planned entry. */
+	upcoming?: boolean;
+	place?: string;
+	/** The account's entry this was made from; it carries the media, sources and delete. */
+	entry?: MemoryEntry;
+}
+
+export interface TimelineDay {
+	date: string;
+	weekday?: string;
+	/** One sentence for the whole day, second person. */
+	lead?: string;
+	/** What is still open at the end of the day. */
+	open?: string[];
+	digestPath?: string | null;
+	state?: "ready" | "organizing" | "failed";
+	failure?: string | null;
+	digest?: { steps: number | null; places: number; photos: number };
+	/** Where the owner stayed during the day; the events inside happened there. */
+	stays?: { id: string; place: string; area: string | null; startsAt: string; endsAt: string | null }[];
+	events: TimelineEvent[];
+}

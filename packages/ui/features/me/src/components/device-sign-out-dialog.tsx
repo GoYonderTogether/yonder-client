@@ -10,7 +10,7 @@ export function DeviceSignOutDialog({ device, onClose }: { device: DeviceSummary
 	return (
 		<ConfirmDialog
 			open
-			title={t("me.devices.signOutTitle")}
+			title={t("me.devices.signOutTitle", { device: deviceDisplayName(device) })}
 			body={
 				<span className="wrap-anywhere">
 					{t(device.current ? "me.devices.signOutCurrentBody" : "me.devices.signOutBody", {

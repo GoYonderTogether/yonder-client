@@ -63,6 +63,7 @@ export function ChatActions({ onOpen, onOpenMeetings }: { onOpen: (id: string) =
 					{action === "contacts" ? (
 						<ContactsDialogList
 							overlay={{ position: contactPosition, close, reopen: () => setOpen(true) }}
+							onOpenGroup={created}
 							onOpen={(handle) => {
 								close();
 								navigate(`/@${encodeURIComponent(handle)}`);

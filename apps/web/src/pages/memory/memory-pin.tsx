@@ -37,7 +37,7 @@ export function MemoryPinBar({
 			const sections = [...timeline.querySelectorAll<HTMLElement>("[data-day]")];
 			let index = -1;
 			sections.forEach((section, i) => {
-				const title = section.querySelector(".memory-day-title strong");
+				const title = section.querySelector(".tl-day-head strong");
 				if (title && title.getBoundingClientRect().top < top) index = i;
 			});
 			const current = sections[index];
@@ -49,7 +49,7 @@ export function MemoryPinBar({
 				setDate(date);
 			}
 			// The next title pushes the bar up as it arrives.
-			const next = sections[index + 1]?.querySelector(".memory-day-title");
+			const next = sections[index + 1]?.querySelector(".tl-day-head");
 			const element = inner.current;
 			if (!element) return;
 			const gap = next ? next.getBoundingClientRect().top - line : PIN_HEIGHT;

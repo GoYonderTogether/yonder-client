@@ -33,16 +33,37 @@ for (const layout of ["desktop", "phone"]) {
 				items: [message("device-file-01", `这里是口播稿：'\\${plainPath}'。\n\n${markdownLink}`)],
 			});
 			let content = oldBody;
-			let status: "online" | "offline" | "revoked" = "online";
+			let status: "online" | "not-ready" | "offline" | "revoked" = "online";
 			let holdUpdate: Promise<void> | undefined;
 			const requests: { path: string; knownSha256?: string }[] = [];
 			await page.route("**/v1/connectors", (route) =>
-				route.fulfill({ json: { items: status === "revoked" ? [] : [{ ...device, status }] } }),
+				route.fulfill({
+					json: {
+						items: status === "revoked" ? [] : [{ ...device, status: status === "online" ? "online" : "offline" }],
+					},
+				}),
+			);
+			await page.route("**/v1/devices", (route) =>
+				route.fulfill({
+					json: {
+						items: [
+							{
+								id: device.deviceId,
+								name: device.deviceName,
+								platform: "macos",
+								appVersion: "0.3.26112713",
+								status: status === "offline" ? "offline" : "online",
+								lastSeenAt: device.createdAt,
+								current: false,
+							},
+						],
+					},
+				}),
 			);
 			await page.route(`**/v1/connectors/${device.id}/file-preview`, async (route) => {
 				const request = route.request().postDataJSON() as (typeof requests)[number];
 				requests.push(request);
-				if (status === "offline")
+				if (status === "offline" || status === "not-ready")
 					return route.fulfill({
 						status: 503,
 						json: { error: { code: "upstream_unavailable", details: { reason: "device_unavailable" } } },
@@ -67,7 +88,7 @@ for (const layout of ["desktop", "phone"]) {
 			});
 			await page.goto("/messages/main");
 			await expect.poll(fixture.connected).toBeTruthy();
-			await page.getByRole("button", { name: /发布安排\.md.*工作 Mac/ }).click();
+			await page.getByRole("button", { name: "发布安排.md", exact: true }).click();
 			const reader = page.locator("[data-device-file-reader]:visible");
 			const detail = page.getByRole(layout === "phone" ? "dialog" : "tabpanel");
 			await expect(reader.getByText("先确认交付范围，再整理手机端回归的截图。")).toBeVisible();
@@ -103,6 +124,16 @@ for (const layout of ["desktop", "phone"]) {
 			}
 			await expect(reader.getByText("已确认交付范围，开始跑手机端回归。")).toBeVisible();
 			expect(requests.some((request) => request.knownSha256 === hash(oldBody))).toBe(true);
+			status = "not-ready";
+			fixture.updateConnectors();
+			await expect(detail.getByText("文件读取暂不可用 · 上次读取的版本")).toBeVisible();
+			await expect(detail.getByText(/源设备离线/u)).toHaveCount(0);
+			await expect(reader.getByText("已确认交付范围，开始跑手机端回归。")).toBeVisible();
+			await page.screenshot({
+				path: `${evidence}/live-device-file-not-ready-${layout}.png`,
+				animations: "disabled",
+				scale: "css",
+			});
 			status = "offline";
 			fixture.updateConnectors();
 			await expect(detail.getByText("源设备离线 · 上次读取的版本")).toBeVisible();
@@ -116,7 +147,7 @@ for (const layout of ["desktop", "phone"]) {
 			fixture.updateConnectors();
 			await expect(detail.getByText("源设备离线 · 上次读取的版本")).toHaveCount(0);
 			if (layout === "phone") await page.getByRole("button", { name: "返回", exact: true }).click();
-			await page.getByRole("button", { name: /项目资料目录.*工作 Mac/ }).click();
+			await page.getByRole("button", { name: "项目资料目录", exact: true }).click();
 			await expect(reader.getByRole("button", { name: "发布安排.md", exact: true })).toBeVisible();
 			await page.screenshot({
 				path: `${evidence}/live-device-directory-${layout}.png`,

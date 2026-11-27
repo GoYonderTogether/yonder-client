@@ -219,7 +219,7 @@ export function ReceptionRemoveButton({
 
 	return (
 		<>
-			<Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirm(true)}>
+			<Button size="sm" variant="danger" disabled={busy} onClick={() => setConfirm(true)}>
 				<Trash2 size={16} aria-hidden />
 				{label}
 			</Button>

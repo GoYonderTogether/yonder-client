@@ -8,6 +8,7 @@ import { vi } from "vitest";
 const context = { ownerId: "mem_a", deviceId: "dev_a", sessionId: "ses_a" };
 let onEvent: ((event: ServerEvent) => void) | undefined;
 let onStatus: (() => void) | undefined;
+let onGrantChange: ((revokedConnectionId?: string) => void) | undefined;
 const realtime = {
 	status: "open",
 	send: vi.fn(() => true),
@@ -84,6 +85,7 @@ export const setup = {
 	executeAppleFile: vi.fn(),
 	cancelApple: vi.fn(async () => undefined),
 	event: (event: ServerEvent) => onEvent?.(event),
+	revoke: (id: string) => onGrantChange?.(id),
 };
 
 vi.mock("@yonder/ui-data", async () => {
@@ -101,7 +103,12 @@ vi.mock("./local-files.ts", () => ({
 	activateAppleConnectors: async () => undefined,
 	isAppleConnector: (id: string | undefined) => id?.startsWith("apple-") === true,
 	invokeLocalFiles: setup.invoke,
-	onLocalFilesChanged: () => () => {},
+	onLocalFilesChanged: (listener: (revokedConnectionId?: string) => void) => {
+		onGrantChange = listener;
+		return () => {
+			onGrantChange = undefined;
+		};
+	},
 	resetAppleConnectors: async () => undefined,
 	useLocalFilesContext: () => setup.account.current,
 }));

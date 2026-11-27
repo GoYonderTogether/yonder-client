@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { interactionStates, type PreviewState, Section, StateRow, sizes } from "./preview-parts.tsx";
 
-const buttonVariants = ["primary", "secondary", "ghost", "danger", "link"] as const;
+const buttonVariants = ["primary", "secondary", "ghost", "danger", "destructive", "link"] as const;
 const iconVariants = ["ghost", "secondary"] as const;
 const buttonStates: readonly PreviewState[] = [...interactionStates, "loading"];
 const avatarSizes = [16, 24, 28, 32, 36, 40, 48, 64, 80] as const;

@@ -4,7 +4,6 @@ import { TaskGlyph } from "@yonder/ui-components";
 import { ChevronRight } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-
 import { RecordingNoteIcon } from "../app/recording-note-icon.tsx";
 import { useOpenMeetingDetail } from "./meeting-detail.tsx";
 import { recordingNoteDate, recordingNoteDuration } from "./meeting-message-summary.ts";

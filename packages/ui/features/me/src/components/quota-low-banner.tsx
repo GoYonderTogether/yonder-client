@@ -15,18 +15,16 @@ const POOL_ORDER: QuotaPool[] = ["main", "background", "coding", "external", "to
 
 /**
  * Which balance is actually stopping a reply. The main pool answers for itself. Another pool
- * counts only once its own grant is gone and it can no longer draw on main, because the floor is
- * what stops that draw — an empty background pool above the floor still runs. `external` is left
- * out on purpose: it pays for other people talking to this account's Bot, so its exhaustion never
- * blocks the account's own chat.
+ * counts only once its own grant is gone and it cannot draw on main, because that is what stops it —
+ * an empty background pool that can draw on main still runs. `external` is left out on purpose: it
+ * pays for other people talking to this account's Bot, so its exhaustion never blocks the account's
+ * own chat.
  */
 export function exhaustedPools(quota: QuotaResponse): QuotaPool[] {
 	if (quota.pools.main.remaining <= 0) return ["main"];
 	return POOL_ORDER.filter((pool) => pool in quota.pools).filter((pool) => {
 		if (pool === "main" || pool === "external" || quota.pools[pool].remaining > 0) return false;
-		const rule = quota.overflow[pool];
-		if (!rule.overflow) return true;
-		return rule.floor !== null && quota.pools.main.remaining <= rule.floor;
+		return !quota.overflow[pool].overflow;
 	});
 }
 

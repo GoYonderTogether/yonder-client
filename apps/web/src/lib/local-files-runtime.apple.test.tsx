@@ -67,7 +67,8 @@ test("publishes one readiness snapshot and blocks stale or revoked Apple command
 		}),
 	);
 	await act(async () => complete?.({ kind: "apple_calendar_list", events: [], more: false }));
-	expect(setup.submit).toHaveBeenCalledWith(command.id, { ok: false, error: "cancelled" });
+	expect(setup.cancelApple).toHaveBeenCalledWith(command.id);
+	expect(setup.submit).not.toHaveBeenCalledWith(command.id, expect.anything());
 	unmount();
 });
 

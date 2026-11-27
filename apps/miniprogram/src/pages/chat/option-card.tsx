@@ -42,7 +42,6 @@ export function OptionImage({ file }: { file: Attachment }) {
 
 export function MessageOptions({
 	question,
-	summary,
 	preview,
 	result,
 	options,
@@ -51,8 +50,6 @@ export function MessageOptions({
 	onChoose,
 }: {
 	question: string | null;
-	/** What the choice is about, one line under the question: what is about to be done. */
-	summary?: string | undefined;
 	/** Markdown the server wants shown before the options, such as the exact things a card will delete. */
 	preview?: string | undefined;
 	/** What became of the choice, one line under the options: done, or why it was not. */
@@ -69,7 +66,6 @@ export function MessageOptions({
 			label={question ?? undefined}
 			title={question?.trim() ? <MessageBody body={question} /> : null}
 			glyph={<Text ariaHidden>?</Text>}
-			detail={summary ? <Text className="message-option-card-summary">{summary}</Text> : null}
 		>
 			{preview ? (
 				previewLines ? (

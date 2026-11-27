@@ -100,7 +100,7 @@ export const membersMessagesEn = {
 			preview: "Organization preview",
 			empty: "No organization plan to review",
 			request:
-				"Please organize my external reception files and pending drafts. Use list_reception_organization_files to inspect the material and directories, then use propose_memory_organization to submit proposed categories, folders, and moves for my review. Prefer existing folders and leave uncertain files in place. Preserve file contents and visibility. When the proposal is ready, tell me to review it in Reception settings.",
+				"Please organize my external reception files and pending drafts: look at the material and the current folders first, then submit proposed categories, folders, and moves for my review. Prefer existing folders and leave uncertain files in place. Preserve file contents and visibility. When the proposal is ready, tell me to review it in Reception settings.",
 			waiting: "Bot is preparing an organization plan…",
 			noProposal: "This request generated no plan. Open the private chat to see the reply.",
 			openChat: "Open private Bot chat",

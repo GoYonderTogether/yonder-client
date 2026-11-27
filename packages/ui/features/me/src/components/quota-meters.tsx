@@ -24,12 +24,7 @@ export function poolRule(pool: QuotaPool, quota: QuotaResponse, t: TFunction): s
 	return rule.rate === 1 ? t("me.quota.poolOverflowSame") : t("me.quota.poolOverflow", { rate: rule.rate });
 }
 
-/** The amount the main pool keeps for the user when other pools draw on it; null when none does. */
-export function mainFloor(quota: QuotaResponse): number | null {
-	const floors = POOL_ORDER.map((pool) => quota.overflow[pool]?.floor ?? null).filter((floor) => floor !== null);
-	return floors.length ? Math.max(...floors) : null;
-}
-
+/** One pool's bar, in the pool's colour. */
 export function PoolMeter({ pool, percent, large = false }: { pool: QuotaPool; percent: number; large?: boolean }) {
 	return (
 		<div
@@ -45,16 +40,13 @@ export function PoolMeter({ pool, percent, large = false }: { pool: QuotaPool; p
 
 /**
  * The top of the quota page: the main pool as one large meter, the other three as a row of small
- * ones, every figure in millions. Each meter opens its pool's own page. The tick on the main meter is
- * the floor other pools stop drawing at, because that is the part of main nobody else can spend.
+ * ones, every figure in millions. Each meter opens its pool's own page.
  */
 export function QuotaMeters({ quota, onOpenPool }: { quota: QuotaResponse; onOpenPool: (pool: QuotaPool) => void }) {
 	const { t, i18n } = useTranslation();
 	const locale = i18n.resolvedLanguage ?? i18n.language;
 	const config = useQuotaConfig(quota.configVersion);
 	const main = quota.pools.main;
-	const floor = mainFloor(quota);
-	const floorAt = floor !== null && main.granted > 0 ? Math.min(100, (floor / main.granted) * 100) : null;
 	const reset = new Intl.DateTimeFormat(locale, { month: "long", day: "numeric" }).format(
 		new Date(quota.cycle.resetsAt),
 	);
@@ -82,18 +74,8 @@ export function QuotaMeters({ quota, onOpenPool }: { quota: QuotaResponse; onOpe
 						{t("me.quota.ofGranted", { amount: formatQuota(main.granted, locale) })}
 					</span>
 				</span>
-				<span className="relative block">
-					<PoolMeter pool="main" percent={main.remainingPercent} large />
-					{floorAt !== null ? (
-						<span
-							aria-hidden="true"
-							className="absolute -top-[var(--spacing-1)] h-[calc(var(--spacing-3)+var(--spacing-2))] w-[2px] -translate-x-1/2 rounded-[var(--radius-full)] bg-[var(--color-text-secondary)]"
-							style={{ left: `${floorAt}%` }}
-						/>
-					) : null}
-				</span>
-				<span className="flex justify-between gap-[var(--spacing-3)] text-caption text-[var(--color-text-tertiary)]">
-					<span>{floor !== null ? t("me.quota.floorMark", { amount: formatQuota(floor, locale) }) : null}</span>
+				<PoolMeter pool="main" percent={main.remainingPercent} large />
+				<span className="flex justify-end gap-[var(--spacing-3)] text-caption text-[var(--color-text-tertiary)]">
 					<span className="tabular-nums">
 						{t("me.quota.remainingPercent", { percent: Math.round(main.remainingPercent) })}
 					</span>

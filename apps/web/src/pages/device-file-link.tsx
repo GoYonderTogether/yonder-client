@@ -32,13 +32,13 @@ export function DeviceFileLink({ reference, label }: { reference: DeviceFileRefe
 				className="message-content-link"
 				data-device-file-link
 				title={reference.path}
+				disabled={query.isPending}
 				onClick={() => {
 					if (source) open(source);
 					else setChoosing(true);
 				}}
 			>
 				{name}
-				{source ? <small className="ms-[var(--spacing-1)]">· {source.deviceName}</small> : null}
 			</button>
 			{choosing ? (
 				<Overlay

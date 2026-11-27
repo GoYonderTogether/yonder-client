@@ -53,7 +53,6 @@ export function MessageCardImage({ file }: { file: Attachment }) {
 
 export function MessageOptions({
 	question,
-	summary,
 	preview,
 	result,
 	options,
@@ -62,8 +61,6 @@ export function MessageOptions({
 	onChoose,
 }: {
 	question: string | null;
-	/** What the choice is about, one line under the question: what is about to be done. */
-	summary?: string | undefined;
 	/** Markdown the server wants shown before the options, such as the exact things a card will delete. */
 	preview?: string | undefined;
 	/** What became of the choice, one line under the options: done, or why it was not. */
@@ -83,7 +80,6 @@ export function MessageOptions({
 				as="div"
 				title={hasQuestion && question ? <MessageContent body={question} /> : null}
 				glyph={<MessageCircleQuestionMark aria-hidden size={ICON_SIZE.md} strokeWidth={ICON_STROKE.normal} />}
-				detail={summary ? <p className="message-option-card-summary">{summary}</p> : null}
 			>
 				{preview ? (
 					<div className="message-option-card-preview">

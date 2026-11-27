@@ -254,7 +254,7 @@ test("deleting asks first and names the number of plans in the Bot's own chat", 
 	render(overview(bot(), onDeleted));
 	fireEvent.click(screen.getByRole("button", { name: "Delete Bot" }));
 	// The confirmation is the shared dialog, not an inline card, and it names both consequences.
-	const dialog = screen.getByRole("dialog", { name: "Delete this Bot?" });
+	const dialog = screen.getByRole("dialog", { name: /^Delete Bot “/ });
 	expect(dialog).toHaveTextContent("Its 2 scheduled plans are deleted too.");
 	expect(dialog).toHaveTextContent("Its chat history will no longer be shown.");
 	fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));

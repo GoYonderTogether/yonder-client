@@ -32,7 +32,7 @@ function TabGlyph({
 			viewBox="0 0 48 48"
 			aria-hidden="true"
 			className={className}
-			style={{ zoom: 1, width: box, height: box, flexShrink: 0 }}
+			style={{ zoom: 1, width: box, height: box, flexShrink: 0, color: selected ? "var(--color-accent)" : undefined }}
 			data-selected={selected || undefined}
 		>
 			<g transform={`translate(${nudge[0]} ${nudge[1]})`}>

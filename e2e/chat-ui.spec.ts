@@ -92,8 +92,9 @@ async function assertBubbles(page: Page) {
 	expect(geometry.incomingColor).not.toBe("rgba(0, 0, 0, 0)");
 	// `--radius-card` follows the interface size (通用 · 界面大小): compare with the resolved token.
 	const card = geometry.cardRadius;
-	expect(geometry.incomingRadii).toEqual([`${card}px`, `${card}px`, `${card}px`, "0px"]);
-	expect(geometry.outgoingRadii).toEqual([`${card}px`, `${card}px`, "0px", `${card}px`]);
+	// A bubble is one whole rounded rectangle on every corner (6049ec9a); a quote now sits below it.
+	expect(geometry.incomingRadii).toEqual([`${card}px`, `${card}px`, `${card}px`, `${card}px`]);
+	expect(geometry.outgoingRadii).toEqual([`${card}px`, `${card}px`, `${card}px`, `${card}px`]);
 	expect(geometry.incomingTail).toBe("none");
 	expect(geometry.outgoingTail).toBe("none");
 }

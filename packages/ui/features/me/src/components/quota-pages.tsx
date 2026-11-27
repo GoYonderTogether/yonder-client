@@ -3,7 +3,7 @@ import { Button, FormSection, ListGroup, ListValue } from "@yonder/ui-components
 import { useConversations, usePerson, useQuotaConfig, useUsageOverview } from "@yonder/ui-data";
 import { useTranslation } from "react-i18next";
 import { QuotaChart } from "./quota-chart.tsx";
-import { mainFloor, PoolMeter, poolRule } from "./quota-meters.tsx";
+import { PoolMeter, poolRule } from "./quota-meters.tsx";
 import { formatQuota, QuotaNumber } from "./quota-number.tsx";
 import { type QuotaRange, RangeSwitch } from "./quota-range.tsx";
 import { conversationName, QuotaRunList } from "./quota-runs.tsx";
@@ -33,7 +33,6 @@ export function QuotaPoolPage({
 	const conversations = useConversations();
 	const person = usePerson();
 	const rule = poolRule(pool, quota, t);
-	const floor = pool === "main" ? mainFloor(quota) : quota.overflow[pool].floor;
 	const monthly = config.data?.monthly[pool];
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)]">
@@ -46,17 +45,13 @@ export function QuotaPoolPage({
 					{t("me.quota.remainingPercent", { percent: Math.round(balance.remainingPercent) })}
 				</p>
 			</div>
-			<ListGroup
-				title={t("me.quota.poolFacts")}
-				footer={pool === "main" && floor !== null ? t("me.quota.floorNote") : undefined}
-			>
+			<ListGroup title={t("me.quota.poolFacts")}>
 				<ListValue title={t("me.quota.poolGranted")} value={<QuotaNumber value={balance.granted} locale={locale} />} />
 				<ListValue title={t("me.quota.poolUsed")} value={<QuotaNumber value={balance.used} locale={locale} />} />
 				{monthly !== undefined ? (
 					<ListValue title={t("me.quota.poolRefill")} value={formatQuota(monthly, locale)} />
 				) : null}
 				{rule ? <ListValue title={t("me.quota.poolWhenEmpty")} value={rule} /> : null}
-				{floor !== null ? <ListValue title={t("me.quota.poolFloorTitle")} value={formatQuota(floor, locale)} /> : null}
 			</ListGroup>
 			<FormSection
 				title={

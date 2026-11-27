@@ -94,7 +94,6 @@ test("the first screen shows every pool in millions, the unit and where the quot
 	const main = screen.getByRole("button", { name: "查看主额度详情" });
 	expect(main).toHaveTextContent("41.2M");
 	expect(main).toHaveTextContent("/ 本月 65M");
-	expect(main).toHaveTextContent("底线 13M");
 	expect(screen.getByRole("button", { name: "查看执行详情" })).toHaveTextContent("0.4M");
 	expect(screen.getByRole("button", { name: "查看执行详情" })).toHaveTextContent("用完按 1.2 倍扣主额度");
 	expect(screen.getByRole("button", { name: "查看后台详情" })).toHaveTextContent("用完扣主额度");

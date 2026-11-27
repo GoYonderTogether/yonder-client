@@ -267,7 +267,7 @@ export function Composer({
 			{visitRelay ? <VisitRelay key={visitRelay.conversationId} {...visitRelay} disabled={disconnected} /> : null}
 			<fieldset
 				aria-label={t("chat.attach")}
-				className={iosAttachments.iphone ? "min-w-0" : undefined}
+				className="min-w-0"
 				onDragEnter={(event) => {
 					if (isFileDrag(event) && !disabled) {
 						event.preventDefault();

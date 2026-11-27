@@ -1,20 +1,40 @@
 # Yonder 客户端工作约定
 
-这是公开客户端仓库，负责 Web、macOS、Windows、Android、iOS。
+公开客户端仓库：Web、macOS、Windows、Android、iOS，以及微信小程序。
+云端业务、数据库、模型密钥和生产环境配置在私有服务端仓库 `~/Documents/yonder/yonder`，不要移入本仓库。
+
+## 开工前读
+
+| 要做什么                     | 先读                                                                                                 |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 界面、tokens、组件、页面骨架 | `docs/design-system.md`                                                                              |
+| 设置页和表单                 | `docs/settings-forms.md`                                                                             |
+| 页面、路由、缓存、分层       | `docs/architecture.md`                                                                               |
+| 发版、预览、Web 部署         | `docs/operations/release.md`、`docs/operations/internal-preview.md`、`docs/operations/web-deploy.md` |
+
+## 界面硬规则
+
+- 交互照 QQ、微信，移动端照 iOS：跟手、层级清楚、有震动反馈。
+- 能不显示就不显示；页面不放不能交互的解释性文字，不放示例用户、示例消息、假模型或假数据。
+- 卡片只有提问和确认两种，不加摘要、徽标或额外文案。
+- 失败给白话原因，技术细节、错误码和堆栈不进气泡。
+- 能由主 Bot 在聊天里完成的，不新增页面、表单或设置。
+- 每个用户可见文案都有 `zh-CN` 与 `en`，颜色、尺寸、圆角只用 tokens，通用图标使用 `lucide-react`；出现第三方品牌（微信、飞书、QQ 等）时必须用官方正版图标，不用通用图标代替，也不手绘。
+- 按桌面、桌面窄屏、手机逐屏核对。
+
+## 代码规则
 
 - 当前唯一主线是 `main`；不从旧 worktree 或 `~/Archive` 复制实现。
 - 前端交互、页面细节、下载、更新和四端壳都在这里改。
-- 云端业务、数据库、模型密钥、生产环境配置在私有 `~/Documents/yonder/yonder`，不要移入本仓库。
 - 遵守 `docs/architecture.md`；分层、入口导入和文件长度检查必须通过。一次性评审和验收报告不放进 `docs/`，放在仓库外 `~/Documents/yonder/reviews/`。
-- 页面不放不能交互的解释性文字，不放示例用户、示例消息、假模型或假数据。
-- 每个用户可见文案都有 `zh-CN` 与 `en`，颜色、尺寸、圆角只用 tokens，图标使用 `lucide-react`。
 - 不操作用户屏幕做验证；用单元测试、浏览器自动化、adb、隔离原生测试和 GitHub Actions。
 - 发版前读取最新 `origin/main` 并快进同步，保留他人的并行修改。
 - 完成改动跑 `npm run check`；原生更新功能可运行 `python3 scripts/desktop-updater-test/run.py`。
 
 ## 多 Agent 并行开发
 
-- `main` 是唯一集成分支。并行任务从最新 `origin/main` 建独立 worktree 和临时**本地**任务分支，例如：`git fetch origin main && git worktree add -b agent/<任务ID> ../<仓库>-<任务ID> origin/main`。不要在日常主目录切分支，不建 fork，不为常规任务推远端分支或开 PR。
+- **所有开发和测试默认只在主分支 `main`、主工作区（`~/Documents/yonder/yonder-client`）上进行，发版也跟随主工作区。不建 worktree、不建任务分支，除非用户主动提出或明确授权。** 原因：多路并行各自开分支，一小时内差距就大到需要大量合并，极大拖慢项目效率。
+- `main` 是唯一集成分支。只有用户明确授权并行时，才从最新 `origin/main` 建独立 worktree 和临时**本地**任务分支（`git fetch origin main && git worktree add -b agent/<任务ID> ../<仓库>-<任务ID> origin/main`）；不建 fork，不为常规任务推远端分支或开 PR。
 - 开工先声明任务 ID、负责人和要改的目录或文件。共用文件、接口或迁移编号由一个任务负责，依赖任务排顺序。前后端配套改动用同一个任务 ID，并写明兼容顺序和联调结果。
 - 本地先验证、再提交、最后汇报。只暂存自己负责的文件，检查 `git diff --cached`，不要 `git add -A`、覆盖别人的改动或重写远端历史。提交前把一个独立任务整理为一个提交；未完成代码只有在默认关闭且不引入不兼容变更时才可进 main。
 - 在干净的任务 worktree 运行 `node scripts/agent-land.mjs -- sh -c 'npm ci && npm ci --prefix apps/miniprogram --no-audit --no-fund && npm run check'`（macOS/Linux）。它按同一仓库串行，将你的提交接到当前远端 main，在独立工作区验证组合结果，成功后普通快进推送。锁不跨克隆；远端先前进时不得强推，重新运行并验证。只在任务明确允许合入远端时运行。
@@ -25,8 +45,8 @@
 ## 发版与测试（2026-11-24 起）
 
 - 当前使用正式版号发出的都是开发测试版，不代表生产验收。先发版，完整 CI 在发布后异步反馈；开发迭代目标 3–5 分钟，不以各端分发完成为前提。
-- 发版 Agent 触发后交给 Dot，不重复盯构建、部署或 CI。Dot 核验每个开发版的实际可用状态并通知 Zoran；iOS 只有确认该准确版本已能在 TestFlight 更新才通知，不把上传成功当作可更新。
-- Dot 负责用最小改动修复 CI 和产品回归，不删减功能、不顺手重构。严重产品或功能冲突、需要设计取舍的问题交给 Zoran；Mac 上的 Claude/Codex Agent 负责新功能。
+- 发版 Agent 触发后交给发布负责人，不重复盯构建、部署或 CI。发布负责人核验每个开发版的实际可用状态并通知创始人；iOS 只有确认该准确版本已能在 TestFlight 更新才通知，不把上传成功当作可更新。
+- 发布负责人用最小改动修复 CI 和产品回归，不删减功能、不顺手重构。严重产品或功能冲突、需要设计取舍的问题交给创始人；新功能由任务 Agent 负责。
 - 发版前在本机跑的测试最多 3 分钟（`npm run check` 这一类）。端到端测试、原生测试等更长的测试不在本机跑、不挡发版，交给 GitHub 的常规 CI 在发版后异步跑，CI 红了按 bug 修。
 - 发版直接执行 `gh workflow run release.yml -R GoYonderTogether/yonder-client -f ref=main`，不加 `require_ci`，不等 CI。
 

@@ -71,7 +71,9 @@ pub fn resolve(grant: &Grant, path: &str, new: bool) -> Result<PathBuf, &'static
             .map_err(|_| "not_found")?;
         Ok(parent.join(target.file_name().ok_or("path_invalid")?))
     } else {
-        target.canonicalize().map_err(|_| "not_found")
+        target
+            .canonicalize()
+            .map_err(local_files_access::existing_path_error)
     }
 }
 /// `offset` and `limit` for `read`, clamped to the documented ranges.

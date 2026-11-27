@@ -8,11 +8,14 @@ import { formatExact, formatQuota } from "./quota-number.tsx";
 function useOpenReward(): { amount: string; remaining: number | null } | null {
 	const { i18n } = useTranslation();
 	const { data } = useInvite();
-	if (!data || data.rewardRule.inviterGets <= 0 || data.activation?.remaining === 0) return null;
-	const { maxInvites } = data.rewardRule;
+	// A response without its reward rule (an older service, or a test stand-in) earns no badge; the
+	// entry itself still opens the page. Never let this shell-level read take the whole app down.
+	const rule = data?.rewardRule;
+	if (!rule || rule.inviterGets <= 0 || data.activation?.remaining === 0) return null;
+	const { maxInvites } = rule;
 	if (maxInvites !== null && data.stats.invitedCount >= maxInvites) return null;
 	return {
-		amount: formatQuota(data.rewardRule.inviterGets, i18n.resolvedLanguage ?? i18n.language),
+		amount: formatQuota(rule.inviterGets, i18n.resolvedLanguage ?? i18n.language),
 		remaining: data.activation?.remaining ?? null,
 	};
 }

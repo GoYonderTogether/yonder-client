@@ -11,15 +11,14 @@ const card = (extra: Partial<AgentCard> = {}): AgentCard => ({
 	kind: "confirm",
 	state: "open",
 	title: "爬山群",
-	summary: "把老王移出群",
 	body: { type: "choices", options },
 	version: 1,
 	...extra,
 });
 
-test("an open card says what it is about and lets each label be tapped", () => {
+test("an open card shows its question and lets each label be tapped", () => {
 	const view = choiceCardView(card(), true);
-	expect(view).toMatchObject({ question: "爬山群", summary: "把老王移出群", result: undefined, selected: null });
+	expect(view).toMatchObject({ question: "爬山群", result: undefined, selected: null });
 	expect(view?.options).toEqual(["执行", "不执行"]);
 	expect(view?.actionFor("执行")).toBe("group-confirm");
 	expect(view?.actionFor("没有这一项")).toBeUndefined();
@@ -34,7 +33,6 @@ test("a card answered shows the choice and what became of it, and nothing can be
 		}),
 		true,
 	);
-	expect(view?.summary).toBeUndefined();
 	expect(view?.result).toBe("没有执行：你现在不是这个群的群主");
 	expect(view?.selected).toBe("执行");
 	expect(view?.actionFor("执行")).toBeUndefined();

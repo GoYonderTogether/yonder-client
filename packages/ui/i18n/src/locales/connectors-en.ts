@@ -146,6 +146,8 @@ export const deviceFileMessagesEn = {
 	checking: "Checking for file updates",
 	offline: "Source device offline",
 	offlineCopy: "Source device offline · Last viewed version",
+	sourceNotReady: "Source device online · File access unavailable",
+	sourceNotReadyCopy: "File access temporarily unavailable · Last viewed version",
 	updateSource: "Update Yonder on the source device",
 	unavailable: "The file is gone or access was removed",
 	readFailed: "Unable to read the file",

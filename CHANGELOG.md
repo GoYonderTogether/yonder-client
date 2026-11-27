@@ -2,6 +2,65 @@
 
 ## [Unreleased]
 
+## [0.3.26112719] - 2026-11-27
+
+### Added
+
+- models：the provider form follows CC Switch — a model picker dialog, a read-only row summary and an editable Advanced fold
+
+## [0.3.26112718] - 2026-11-27
+
+### Added
+
+- memory：oldest-first timeline opening at the bottom, sky cards, week and month bands on live data
+- contacts：group my bots, friends and group chats on the contacts page
+
+## [0.3.26112717] - 2026-11-27
+
+### Fixed
+
+- models：keep the typed address and key on every change, never leave Get models stuck loading, and allow saving a provider without models
+
+### Added
+
+- memory：compact the sidebar file tree
+
+## [0.3.26112716] - 2026-11-27
+
+### Fixed
+
+- connectors：restore Mac file previews and keep chat links concise
+- chat：truncate the composer quote bar and keep its cancel button visible
+
+## [0.3.26112715] - 2026-11-27
+
+### Added
+
+- ui：selected tab icons use the accent colour; align confirm dialogs with the released API; development stays on main
+- ui：neutral glass materials for floating chrome
+- connectors：add device file preview protocol
+- auth：require invitations to join the beta
+- landing：use a globe menu for language selection
+- web：make Yonder installable as a web app
+- protocol：a device endpoint serves the same four wires a cloud one does
+
+### Fixed
+
+- release：verify desktop operating system signatures
+- chat：use a standard row for Bot visits
+- miniprogram：use message list row for Bot visits
+- chat：open Bot visits in a dedicated message pane
+- miniprogram：open incoming Bot visits in a separate list
+- chat：fold incoming Bot visits and relay from the composer
+- notifications：show content setting when supported by the server
+- ios：open system settings to change notification permission
+
+## [0.3.26112714] - 2026-11-27
+
+### Fixed
+
+- ui：draw the invitation entry without a reward rule, and measure round bubbles
+
 ## [0.3.26112713] - 2026-11-27
 
 ### Fixed

@@ -15,8 +15,8 @@ const pool = (remaining: number, granted = 10_000_000) => ({
 });
 
 /**
- * The default catalog: background and coding draw on main at a 4,000,000 floor, external never
- * draws, main never spills anywhere.
+ * The default catalog: background and coding draw on main, external never draws, main never spills
+ * anywhere.
  */
 const quota = (remaining: {
 	main: number;
@@ -82,14 +82,13 @@ test.each([
 );
 
 test("a pool that can still draw on main is not reported as used up", () => {
-	// Background and coding are empty, but main is far above the floor, so they keep answering.
+	// Background and coding are empty, but they can draw on main, so they keep answering.
 	const spilling = { ...quota({ main: 9_000_000 }), pools: { ...quota({ main: 9_000_000 }).pools } };
 	spilling.pools.background = pool(0);
 	spilling.pools.coding = pool(0);
 	expect(exhaustedPools(spilling)).toEqual([]);
-	// At the floor the draw stops, so those two pools really are spent.
-	const atFloor = { ...spilling, pools: { ...spilling.pools, main: pool(4_000_000) } };
-	expect(exhaustedPools(atFloor)).toEqual(["background", "coding"]);
+	// Even with main empty, a pool that may draw on it is not the one the banner names.
+	expect(exhaustedPools({ ...spilling, pools: { ...spilling.pools, main: pool(0) } })).toEqual(["main"]);
 });
 
 test("external is never what stops this account's own chat", () => {

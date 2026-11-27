@@ -101,22 +101,19 @@ test("a question offers its choices only while open, then keeps them without but
 	expect(screen.getByRole("status")).toHaveTextContent("Removed Dee");
 });
 
-test("a card says what it is about while open, and afterwards what became of the choice", () => {
-	state.card = { ...question, summary: "Remove Dee from the group" };
+test("an open card shows its question only, and afterwards what became of the choice", () => {
+	state.card = question;
 	const view = show();
-	expect(screen.getByText("Remove Dee from the group")).toBeVisible();
 	expect(screen.queryByRole("status")).toBeNull();
 
 	// The server wrote why the confirmed change was refused: it must reach the owner.
 	state.card = {
 		...question,
 		state: "done",
-		summary: "Remove Dee from the group",
 		result: "Not done: you are no longer the owner of this group",
 		body: { type: "choices", options: answers, selected: "yes" },
 	};
 	rerenderCard(view);
-	expect(screen.queryByText("Remove Dee from the group")).toBeNull();
 	expect(screen.getByRole("status")).toHaveTextContent("Not done: you are no longer the owner of this group");
 });
 
@@ -156,7 +153,6 @@ test("a confirm card lists its targets as Markdown between the question and the 
 	state.card = {
 		...question,
 		title: "删除这 2 项？",
-		summary: undefined,
 		preview: { kind: "markdown", text: targets },
 		body: {
 			type: "choices",

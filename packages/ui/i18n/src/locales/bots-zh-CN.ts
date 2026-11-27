@@ -57,7 +57,7 @@ export const botMessagesZhCN: Messages["bots"] = {
 	clearHistoryFailed: "清空聊天记录失败，请重试。",
 	resetBusy: "Bot 正在处理消息，请稍后重试。",
 	deleteBot: "删除 Bot",
-	deleteTitle: "删除这个 Bot？",
+	deleteTitle: "删除 Bot「{{name}}」？",
 	deletePlansOne: "它私聊里建的 1 个定时计划也会一起删除。",
 	deletePlansOther: "它私聊里建的 {{count}} 个定时计划也会一起删除。",
 	deletePlansUnknown: "它私聊里建的定时计划也会一起删除。",

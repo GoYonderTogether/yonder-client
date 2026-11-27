@@ -64,6 +64,7 @@ const AppFrame = lazy(() => {
 });
 
 const ComponentsPage = import.meta.env.DEV ? lazy(() => import("../dev/components-page.tsx")) : null;
+const TimelinePreviewPage = import.meta.env.DEV ? lazy(() => import("../dev/timeline-preview.tsx")) : null;
 const DeveloperPanel = import.meta.env.DEV ? lazy(() => import("../dev/panel/index.tsx")) : null;
 
 const router = createBrowserRouter([{ path: "*", element: <AppRoutes /> }]);
@@ -90,6 +91,16 @@ export function AppRoutes() {
 										element={
 											<Suspense fallback={null}>
 												<ComponentsPage />
+											</Suspense>
+										}
+									/>
+								)}
+								{TimelinePreviewPage && (
+									<Route
+										path="/dev/timeline-preview"
+										element={
+											<Suspense fallback={null}>
+												<TimelinePreviewPage />
 											</Suspense>
 										}
 									/>

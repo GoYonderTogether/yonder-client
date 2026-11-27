@@ -31,6 +31,15 @@ const RUN_FAILURE: Record<string, Copy> = {
 	idle_timeout: { zh: "Bot 长时间没有进展，已停下", en: "The Bot stalled and stopped", tone: "quiet" },
 	tool_repeat: { zh: "Bot 卡在重复操作上，已停下", en: "The Bot got stuck repeating itself", tone: "quiet" },
 	subtask_burst: { zh: "派出的任务太多，已暂停", en: "Too many tasks at once, so it paused", tone: "quiet" },
+	context_full: { zh: "对话太长，已停下", en: "The chat was too long", tone: "quiet" },
+	speech_no_text: { zh: "没有听到声音", en: "No speech was heard", tone: "quiet" },
+	speech_audio_invalid: { zh: "这段语音读不了", en: "This voice message could not be read", tone: "quiet" },
+	device_offline: { zh: "选中的设备离线了", en: "The selected device is offline", tone: "action" },
+	device_attachments_unsupported: {
+		zh: "选中的设备打不开附件",
+		en: "The selected device cannot open attachments",
+		tone: "action",
+	},
 };
 
 /** What the owner reads when the reason is one of our own internal failures. */

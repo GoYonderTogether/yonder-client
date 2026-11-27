@@ -122,7 +122,7 @@ function BotDelete({
 	return (
 		<ConfirmDialog
 			open
-			title={t("bots.deleteTitle")}
+			title={t("bots.deleteTitle", { name: bot.displayName })}
 			body={t("bots.deleteBody", { plans, history: t("bots.deleteHistory") })}
 			confirmLabel={t("bots.confirmDelete")}
 			busy={remove.isPending}

@@ -25,6 +25,10 @@ function TestSlots() {
 				onChange={setSlots}
 				onTest={() => {}}
 				testing={null}
+				onFetch={() => {}}
+				onOpenPicker={() => {}}
+				fetching={false}
+				canFetch
 			/>
 			<output aria-label="metadata">{JSON.stringify(saveMetadata(slots))}</output>
 		</>

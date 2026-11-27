@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceFileCacheKey } from "../lib/device-file-cache.ts";
 import { isForeground, subscribeForeground } from "../lib/foreground.ts";
-import { executeLocalFilePreview } from "../lib/local-file-preview.ts";
+import { executeLocalFilePreview, prepareLocalFilePreview } from "../lib/local-file-preview.ts";
 import { localFilesSupported, onLocalFilesChanged, useLocalFilesContext } from "../lib/local-files.ts";
 import { AttachmentReader } from "../preview/attachment-preview.tsx";
 
@@ -26,7 +26,7 @@ type Directory = Extract<ConnectorFileContent, { kind: "directory" }>;
 type ReaderContent =
 	| DeviceFile
 	| Directory
-	| { kind: "offline"; cached?: DeviceFile }
+	| { kind: "stale"; label: string; cached?: DeviceFile }
 	| { kind: "error"; label: string };
 
 export function deviceFilePage(source: ConnectorInstance, path: string): SidePage {
@@ -48,8 +48,8 @@ function DeviceFileReader({ source, path }: { source: ConnectorInstance; path: s
 	const side = useOptionalSidePanel();
 	const owner = usePerson()?.id;
 	const { api, realtime } = useData();
-	const local = source.currentDevice && localFilesSupported();
 	const context = useLocalFilesContext();
+	const local = localFilesSupported() && (context ? context.deviceId === source.deviceId : source.currentDevice);
 	const [content, setContent] = useState<ReaderContent>();
 	const [checking, setChecking] = useState(true);
 	const current = useRef<{ key: string; file: DeviceFile } | undefined>(undefined);
@@ -63,6 +63,7 @@ function DeviceFileReader({ source, path }: { source: ConnectorInstance; path: s
 			signal.throwIfAborted();
 			if (!items.some((item) => item.id === source.id && item.revision === source.revision))
 				throw new Error("permission_denied");
+			if (local && context) await prepareLocalFilePreview(context, source, items, signal);
 		}
 		async function request(knownSha256: string | undefined, signal: AbortSignal) {
 			const args = knownSha256 ? { knownSha256 } : {};
@@ -135,7 +136,27 @@ function DeviceFileReader({ source, path }: { source: ConnectorInstance; path: s
 				const reason =
 					error instanceof ApiError ? error.details?.reason : error instanceof Error ? error.message : error;
 				if (reason === "device_unavailable" || (error instanceof ApiError && error.code === "device_offline")) {
-					setContent(cached ? { kind: "offline", cached } : { kind: "offline" });
+					// Connector readiness and the source device's online presence are separate.
+					const presence =
+						reason === "device_unavailable"
+							? await api
+									.devices()
+									.then(({ items }) => items.find(({ id }) => id === source.deviceId)?.status)
+									.catch(() => undefined)
+							: "offline";
+					if (!active()) return;
+					if (!presence) setContent({ kind: "error", label: "deviceFiles.readFailed" });
+					else {
+						const label =
+							presence === "online"
+								? cached
+									? "deviceFiles.sourceNotReadyCopy"
+									: "deviceFiles.sourceNotReady"
+								: cached
+									? "deviceFiles.offlineCopy"
+									: "deviceFiles.offline";
+						setContent({ kind: "stale", label, ...(cached ? { cached } : {}) });
+					}
 					return;
 				}
 				if (reason === "device_update_required") setContent({ kind: "error", label: "deviceFiles.updateSource" });
@@ -178,15 +199,8 @@ function DeviceFileReader({ source, path }: { source: ConnectorInstance; path: s
 		};
 	}, [api, context, local, owner, path, realtime, source]);
 
-	const file = content?.kind === "file" ? content : content?.kind === "offline" ? content.cached : undefined;
-	const status =
-		content?.kind === "offline"
-			? file
-				? "deviceFiles.offlineCopy"
-				: "deviceFiles.offline"
-			: content?.kind === "error"
-				? content.label
-				: undefined;
+	const file = content?.kind === "file" ? content : content?.kind === "stale" ? content.cached : undefined;
+	const status = content?.kind === "error" || content?.kind === "stale" ? content.label : undefined;
 	return (
 		<section data-device-file-reader className="flex h-full min-h-0 flex-col">
 			<SidePageActions className="flex flex-wrap items-center gap-[var(--spacing-2)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">

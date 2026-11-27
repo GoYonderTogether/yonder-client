@@ -25,14 +25,15 @@ export function ComposerQuoteBar() {
 	return (
 		<div
 			data-message-quote-draft
-			className="flex min-w-0 items-center gap-[var(--spacing-2)] rounded-[var(--radius-control)] bg-[var(--color-bg-subtle)] px-[var(--spacing-2)]"
+			className="flex w-full min-w-0 items-center gap-[var(--spacing-2)] overflow-hidden rounded-[var(--radius-control)] bg-[var(--color-bg-subtle)] px-[var(--spacing-2)] py-[var(--spacing-1)]"
 		>
-			<div className="flex min-w-0 flex-1 items-center gap-[var(--spacing-2)] text-caption">
-				<strong className="max-w-1/2 truncate font-medium text-[var(--color-text-primary)]">{senderName}</strong>
-				<span className="truncate text-[var(--color-text-secondary)]">{replyTo.snippet}</span>
+			<div className="min-w-0 flex-1 text-caption">
+				<strong className="block truncate font-medium text-[var(--color-text-primary)]">{senderName}</strong>
+				<span className="block truncate text-[var(--color-text-secondary)]">{replyTo.snippet}</span>
 			</div>
 			<IconButton
 				size="sm"
+				className="shrink-0"
 				aria-label={t("chat.cancelQuote")}
 				title={t("chat.cancelQuote")}
 				onClick={() => draft.setQuote()}

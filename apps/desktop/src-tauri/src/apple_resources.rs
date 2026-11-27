@@ -124,7 +124,7 @@ extern "C" {
     #[cfg(target_os = "macos")]
     fn yonder_apple_open_resource_settings(resource: i32) -> bool;
     #[cfg(target_os = "macos")]
-    fn yonder_voice_memos_permission(probe: bool, explicit_request: bool) -> i32;
+    fn yonder_voice_memos_permission(request: bool) -> i32;
 }
 
 #[cfg(target_os = "ios")]
@@ -169,9 +169,7 @@ fn permission_status(source: Source) -> &'static str {
         #[cfg(not(target_os = "macos"))]
         Source::AppleNotes => "unsupported",
         #[cfg(target_os = "macos")]
-        Source::AppleVoiceMemos => {
-            permission_name(unsafe { yonder_voice_memos_permission(false, false) })
-        }
+        Source::AppleVoiceMemos => permission_name(unsafe { yonder_voice_memos_permission(false) }),
         #[cfg(not(target_os = "macos"))]
         Source::AppleVoiceMemos => "unsupported",
     }
@@ -229,7 +227,7 @@ async fn request_permission(connector_id: Source) -> Result<&'static str, String
         #[cfg(target_os = "macos")]
         return blocking(|| {
             Ok(permission_name(unsafe {
-                yonder_voice_memos_permission(true, true)
+                yonder_voice_memos_permission(true)
             }))
         })
         .await;
@@ -323,10 +321,6 @@ fn can_read_granted(source: Source) -> bool {
     #[cfg(target_os = "macos")]
     if source == Source::AppleNotes {
         return crate::selected_note::status_for_grant() == "granted";
-    }
-    #[cfg(target_os = "macos")]
-    if source == Source::AppleVoiceMemos {
-        return permission_name(unsafe { yonder_voice_memos_permission(true, false) }) == "granted";
     }
     can_read(source)
 }
@@ -449,7 +443,8 @@ async fn ready<R: Runtime>(
             .collect::<Vec<_>>();
             (state.invalidate_ready(), sources)
         };
-        // Notes may have to open in the background. Never launch it without a persisted current grant.
+        // Notes may open without prompting under a persisted grant. Voice Memos only reads a
+        // known status here: probing its protected container can start a system permission prompt.
         let allowed_sources: Vec<_> = sources
             .into_iter()
             .filter(|source| can_read_granted(*source))

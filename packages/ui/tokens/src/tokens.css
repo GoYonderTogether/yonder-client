@@ -234,6 +234,16 @@
 	--color-memory-other: #8a9096; /* grey-5 */
 	--color-memory-other-bg: rgba(46, 50, 56, 0.07);
 	--color-memory-other-fg: #41464c;
+	/* Sky bands behind the part-of-day chip on the timeline: a top and bottom stop per part of the
+	   day, drawn from the clock and the sunrise and sunset times, never from guessed weather. */
+	--color-sky-night-top: #1b2547;
+	--color-sky-night-bottom: #3a3f73;
+	--color-sky-dawn-top: #6f7bb8;
+	--color-sky-dawn-bottom: #f3b99a;
+	--color-sky-day-top: #7cb8f2;
+	--color-sky-day-bottom: #d6ecfb;
+	--color-sky-dusk-top: #5d5a9e;
+	--color-sky-dusk-bottom: #f08f6a;
 	/* Quota pools, one categorical hue each in this fixed order (main, background, coding,
 	   external); validated as adjacent pairs for colour-blind separation on the light surface.
 	   Aqua and yellow sit under 3:1 here, so every chart that uses them prints its values. */
@@ -336,6 +346,14 @@
 	--color-memory-other: #9aa0a6;
 	--color-memory-other-bg: rgba(255, 255, 255, 0.1);
 	--color-memory-other-fg: #c6cacd;
+	--color-sky-night-top: #0f1630;
+	--color-sky-night-bottom: #262a52;
+	--color-sky-dawn-top: #3f4880;
+	--color-sky-dawn-bottom: #b9735a;
+	--color-sky-day-top: #2f5f93;
+	--color-sky-day-bottom: #567fa8;
+	--color-sky-dusk-top: #3a3870;
+	--color-sky-dusk-bottom: #b8553a;
 	--color-pool-main: #3987e5;
 	--color-pool-background: #d95926;
 	--color-pool-coding: #199e70;
@@ -391,6 +409,8 @@
 	--dialog-width: 440px;
 	--dialog-width-wide: 640px;
 	--dialog-width-min: 320px;
+	/* A confirmation is a question, not a form: it sizes to its content and is never a square. */
+	--dialog-width-alert: 360px;
 	--settings-window-width: 1120px;
 	--settings-window-height: 900px;
 	--group-form-column-min: 224px;

@@ -303,11 +303,17 @@ export function ListOption({
 }
 
 /** A rounded tile holding a line icon: the leading slot of a settings row. */
-export function IconTile({ children }: { children: ReactNode }) {
+/** A rounded tile behind an icon; with a `tone` (a --color-* token name) it is a solid colour tile with a light glyph. */
+export function IconTile({ children, tone }: { children: ReactNode; tone?: string | undefined }) {
 	return (
 		<span
 			aria-hidden
-			className="flex size-8 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)]"
+			className={
+				tone
+					? "flex size-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-on-accent)]"
+					: "flex size-8 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)]"
+			}
+			style={tone ? { backgroundColor: `var(--color-${tone})` } : undefined}
 		>
 			{children}
 		</span>
