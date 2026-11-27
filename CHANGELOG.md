@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112706] - 2026-11-27
+
+### Added
+
+- models：K/M token input, output limit field, sectioned provider form and the real reason a model fetch failed
+
 ## [0.3.26112705] - 2026-11-27
 
 ### Added
