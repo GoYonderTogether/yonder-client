@@ -7,13 +7,17 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { documentPreview } from "../message-preview.ts";
 import { ArchivedGroup } from "./memory-archive.tsx";
+import { MemoryFileTree } from "./memory-file-tree.tsx";
 import { dayName, daysAgo, memoryFormat, useMinute } from "./memory-format.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
 import {
 	ABOUT_PATHS,
 	fileGroup,
 	groupFolderPath,
+	groupPrefix,
+	isInlineMemoryGroup,
 	MEMORY_ABOUT_PATH,
+	type MemoryView,
 	memoryFolderNames,
 	memoryGroupRoute,
 	pathLastSegment,
@@ -268,11 +272,20 @@ export function MemoryHome() {
  * Wide desktop's list column: the private profile entry, then 「全部」 as a list whose first row is the timeline,
  * so the white page beside it always shows the selected one.
  */
-export function MemoryColumn({ selected }: { selected: string }) {
+export function MemoryColumn({ view }: { view: MemoryView }) {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const name = useGroupName();
 	const { query, groups } = useGroups();
+	const groupView = view.kind === "group" ? view : null;
+	const inlineView = groupView && isInlineMemoryGroup(groupView.group) ? groupView : null;
+	const selected = inlineView || view.kind === "home" ? "timeline" : (groupView?.group ?? view.kind);
+	const activePath =
+		view.kind === "file"
+			? view.path
+			: inlineView
+				? `${groupPrefix(inlineView.group)}${inlineView.directory ? `${inlineView.directory}/` : ""}`
+				: null;
 	return (
 		<div className="flex flex-col gap-[var(--spacing-6)] px-[var(--spacing-2)] py-[var(--spacing-2)]">
 			<AboutEntry selected={selected === "about"} />
@@ -283,16 +296,28 @@ export function MemoryColumn({ selected }: { selected: string }) {
 					selected={selected === "timeline"}
 					onClick={() => navigate("/memory/timeline")}
 				/>
-				{groups.map((summary) => (
-					<ListRow
-						key={summary.group}
-						leading={<GroupIcon group={summary.group} />}
-						title={name(summary.group)}
-						trailing={<GroupMeta summary={summary} />}
-						selected={selected === summary.group}
-						onClick={() => navigate(memoryGroupRoute(summary.group))}
-					/>
-				))}
+				{groups.map((summary) =>
+					isInlineMemoryGroup(summary.group) ? (
+						<MemoryFileTree
+							key={summary.group}
+							prefix={groupPrefix(summary.group) ?? ""}
+							title={name(summary.group)}
+							icon={<GroupIcon group={summary.group} />}
+							meta={<GroupMeta summary={summary} />}
+							files={query.data?.items ?? []}
+							activePath={activePath}
+						/>
+					) : (
+						<ListRow
+							key={summary.group}
+							leading={<GroupIcon group={summary.group} />}
+							title={name(summary.group)}
+							trailing={<GroupMeta summary={summary} />}
+							selected={selected === summary.group}
+							onClick={() => navigate(memoryGroupRoute(summary.group))}
+						/>
+					),
+				)}
 			</ListGroup>
 			<ArchivedGroup />
 			{query.error ? <MemoryError error={query.error} retry={() => void query.refetch()} /> : null}

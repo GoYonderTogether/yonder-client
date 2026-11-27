@@ -141,16 +141,10 @@ export function MemoryFileList({
 							/>
 						))}
 						{files.map((file) => (
-							<ListRow
+							<MemoryFileRow
 								key={file.path}
-								title={file.title || file.path.split("/").at(-1)}
+								file={file}
 								subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
-								trailing={
-									<span className="flex items-center gap-[var(--spacing-2)]">
-										{file.draft ? <span className="text-[var(--color-warning)]">{t("memory.pending")}</span> : null}
-										<VisibilityMark visibility={file.visibility} />
-									</span>
-								}
 								selected={file.path === current}
 								onClick={() => onOpen(file.path)}
 							/>
@@ -159,5 +153,36 @@ export function MemoryFileList({
 				);
 			})}
 		</div>
+	);
+}
+
+export function MemoryFileRow({
+	file,
+	subtitle,
+	selected,
+	onClick,
+	className,
+}: {
+	file: MemoryFileSummary;
+	subtitle: string;
+	selected: boolean;
+	onClick: () => void;
+	className?: string;
+}) {
+	const { t } = useTranslation();
+	return (
+		<ListRow
+			title={file.title || file.path.split("/").at(-1)}
+			subtitle={subtitle}
+			trailing={
+				<span className="flex items-center gap-[var(--spacing-2)]">
+					{file.draft ? <span className="text-[var(--color-warning)]">{t("memory.pending")}</span> : null}
+					<VisibilityMark visibility={file.visibility} />
+				</span>
+			}
+			selected={selected}
+			onClick={onClick}
+			className={className}
+		/>
 	);
 }

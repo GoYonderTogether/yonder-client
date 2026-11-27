@@ -12,6 +12,7 @@ import { MemoryTimeline } from "./memory/memory-timeline.tsx";
 import {
 	archivedFolderName,
 	groupPrefix,
+	isInlineMemoryGroup,
 	type MemoryView,
 	memoryFileParent,
 	memoryFileRoute,
@@ -50,11 +51,9 @@ export function MemoryList({ view }: { view: MemoryView }) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
 	const person = usePerson();
-	const selected =
-		view.kind === "group" ? view.group : view.kind === "file" ? "" : view.kind === "home" ? "timeline" : view.kind;
 	return (
 		<ListFrame title={t("nav.memory")}>
-			{mode === "wide" ? <MemoryColumn key={person?.id} selected={selected} /> : <MemoryHome key={person?.id} />}
+			{mode === "wide" ? <MemoryColumn key={person?.id} view={view} /> : <MemoryHome key={person?.id} />}
 		</ListFrame>
 	);
 }
@@ -78,7 +77,7 @@ export function MemoryPage({ view }: { view: MemoryView }) {
 				/>
 			</PageFrame>
 		);
-	if (view.kind === "group")
+	if (view.kind === "group" && (mode !== "wide" || !isInlineMemoryGroup(view.group)))
 		return (
 			<PageFrame title={groupTitle(view.group, view.directory, groupName, folderName)}>
 				<MemoryFileList
