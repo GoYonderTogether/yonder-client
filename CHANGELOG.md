@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112721] - 2026-11-27
+
+### Fixed
+
+- ui：keep detail navigation inline and omit redundant actions
+
 ## [0.3.26112720] - 2026-11-27
 
 ### Added
