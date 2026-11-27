@@ -3,7 +3,7 @@ import { useProviderActions } from "@yonder/ui-data";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
-	isLocalProviderAddress,
+	isDeviceProviderAddress,
 	type NativeProviderBinding,
 	normaliseUrl,
 	type RegisteredLocalProviderEndpoint,
@@ -57,7 +57,7 @@ export function useDeviceBinding(options: {
 		const key = options.canSetLocalKey ? options.localKey.trim() : "";
 		const current = options.device?.modelEndpoints?.find((item) => item.endpointId === endpointId);
 		if (current && !key) return { deviceId, endpointId: current.endpointId };
-		if (!registerEndpoint || !canRegister || (!current && (!addEndpoint || !isLocalProviderAddress(options.localUrl))))
+		if (!registerEndpoint || !canRegister || (!current && (!addEndpoint || !isDeviceProviderAddress(options.localUrl))))
 			throw new Error("Unapproved local endpoint");
 		const address = normaliseUrl(options.localUrl);
 		const previous = registered.current;

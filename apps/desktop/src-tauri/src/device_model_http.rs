@@ -1,6 +1,7 @@
 use reqwest::{header::{HeaderValue, AUTHORIZATION}, redirect::Policy, Client, RequestBuilder, Response, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::net::IpAddr;
 use std::time::Duration;
 
 pub type Error = &'static str;
@@ -34,8 +35,7 @@ pub fn local_base(source: &str) -> Result<Url, Error> {
         return Err("endpoint_unavailable");
     }
     let mut url = Url::parse(source.trim()).map_err(|_| "endpoint_unavailable")?;
-    if url.scheme() != "http"
-        || !url.username().is_empty()
+    if !url.username().is_empty()
         || url.password().is_some()
         || url.query().is_some()
         || url.fragment().is_some()
@@ -43,14 +43,48 @@ pub fn local_base(source: &str) -> Result<Url, Error> {
     {
         return Err("endpoint_unavailable");
     }
-    match url.host_str() {
-        // Do not permit a DNS lookup, including one controlled by a modified hosts file or proxy.
-        Some("localhost") => url.set_host(Some("127.0.0.1")).map_err(|_| "endpoint_unavailable")?,
-        Some("127.0.0.1" | "[::1]") => {}
+    match url.scheme() {
+        // A cleartext address is only ever this machine: no DNS lookup, so a modified hosts file or
+        // proxy cannot point it elsewhere.
+        "http" => match url.host_str() {
+            Some("localhost") => url.set_host(Some("127.0.0.1")).map_err(|_| "endpoint_unavailable")?,
+            Some("127.0.0.1" | "[::1]") => {}
+            _ => return Err("endpoint_unavailable"),
+        },
+        // A public provider the person names directly: the device makes the call, so a gateway only
+        // this machine can reach works. Never a private, loopback, link-local or cloud-metadata host,
+        // which would turn the device into a stepping stone into its own network.
+        "https" => {
+            let host = url.host_str().ok_or("endpoint_unavailable")?;
+            if !public_https_host(host) {
+                return Err("endpoint_unavailable");
+            }
+        }
         _ => return Err("endpoint_unavailable"),
     }
     url.set_path("/v1/");
     Ok(url)
+}
+
+/// A hostname a public provider can live on: a name (never an IP literal, which could be private),
+/// and not loopback, a private-name suffix or a cloud-metadata name. The name itself is what is
+/// checked: pre-resolving here would refuse a valid provider on a machine whose proxy answers with
+/// a fake address (198.18.x.x), and the actual connection still goes to the name.
+fn public_https_host(host: &str) -> bool {
+    let name = host.trim_end_matches('.');
+    if name.is_empty() || name.parse::<IpAddr>().is_ok() {
+        return false;
+    }
+    let lower = name.to_ascii_lowercase();
+    if lower == "localhost"
+        || lower.ends_with(".localhost")
+        || lower.ends_with(".local")
+        || lower.ends_with(".internal")
+        || lower == "metadata.google.internal"
+    {
+        return false;
+    }
+    lower.contains('.')
 }
 
 fn client(timeout: Duration) -> Result<Client, Error> {

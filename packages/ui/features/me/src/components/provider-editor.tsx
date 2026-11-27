@@ -7,8 +7,8 @@ import { useTranslation } from "react-i18next";
 import { useDeviceBinding } from "./provider-device-binding.ts";
 import {
 	CLOUD_PROVIDER,
+	isDeviceProviderAddress,
 	isHttpsAddress,
-	isLocalProviderAddress,
 	isLoopbackProviderAddress,
 	localProviderBinding,
 	type NativeProviderBinding,
@@ -131,7 +131,7 @@ export function ProviderEditor({
 	);
 	const needsKey = !onDevice && (replacing || destinationChanged || Boolean(currentTarget));
 	const canSetLocalKey = canRegister && (addEndpoint || Boolean(endpoint));
-	const targetReady = Boolean(endpoint || (addEndpoint && isLocalProviderAddress(localUrl)));
+	const targetReady = Boolean(endpoint || (addEndpoint && isDeviceProviderAddress(localUrl)));
 
 	const locationOptions = [
 		{ value: CLOUD_PROVIDER, label: t("models.cloud") },

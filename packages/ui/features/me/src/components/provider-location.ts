@@ -74,6 +74,15 @@ export function isLocalProviderAddress(address: string) {
 	}
 }
 
+/**
+ * An address the person's own device may call on its behalf: this machine's loopback, or a public
+ * https provider the device itself reaches (a gateway only this machine can see, or one the server
+ * cannot, such as a provider blocked by DNS where the server runs). The shell applies the same rule.
+ */
+export function isDeviceProviderAddress(address: string): boolean {
+	return isLocalProviderAddress(address) || isHttpsAddress(address);
+}
+
 export function providerDeviceLabel(device: DeviceSummary, t: ReturnType<typeof useTranslation>["t"], locale: string) {
 	const when = new Date(device.lastSeenAt);
 	const at = Number.isNaN(when.getTime())

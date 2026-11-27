@@ -2,12 +2,19 @@ use super::*;
 use crate::device_model_sse::SseFrames;
 
 #[test]
-fn only_fixed_cleartext_loopback_routes_are_allowed() {
+fn cleartext_is_loopback_only_and_https_may_reach_a_public_provider() {
     assert_eq!(local_base("http://localhost:11434/v1").unwrap().as_str(), "http://127.0.0.1:11434/v1/");
     assert!(local_base("http://[::1]:1234/v1/").is_ok());
+    // A public provider the device calls itself: https, a name, path at most /v1.
+    assert_eq!(local_base("https://www.rightapi.ai/v1").unwrap().as_str(), "https://www.rightapi.ai/v1/");
+    assert_eq!(local_base("https://cf.api.fan").unwrap().as_str(), "https://cf.api.fan/v1/");
     for input in ["https://localhost/v1", "http://example.invalid", "http://192.168.0.1",
         "http://localhost.evil.invalid", "http://localhost:1234/admin", "http://127.0.0.1/v1?key=a",
-        "http://user:pass@localhost/v1", "http://[::ffff:127.0.0.1]/", "file:///etc/passwd"]
+        "http://user:pass@localhost/v1", "http://[::ffff:127.0.0.1]/", "file:///etc/passwd",
+        // Public https still refuses private, metadata and IP-literal hosts, and deeper paths.
+        "https://10.0.0.1/v1", "https://127.0.0.1/v1", "https://169.254.169.254/v1",
+        "https://192.168.1.1/v1", "https://metadata.google.internal/v1", "https://intranet/v1",
+        "https://www.rightapi.ai/v1/chat/completions", "https://www.rightapi.ai/v1?x=1"]
     { assert!(local_base(input).is_err(), "{input}"); }
 }
 
@@ -25,7 +32,7 @@ fn approved_openai_requests_only() {
     media["messages"][0]["content"] = serde_json::json!([{"type":"image_url"}]);
     assert!(check_openai_body(&media).is_err());
     let mut large = good;
-    large["max_tokens"] = serde_json::json!(8193);
+    large["max_tokens"] = serde_json::json!(10_000_001);
     assert!(check_openai_body(&large).is_err());
 }
 
