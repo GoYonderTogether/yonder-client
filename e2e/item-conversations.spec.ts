@@ -1,6 +1,8 @@
+import assert from "node:assert/strict";
 import { devices, expect, type Page, test } from "@playwright/test";
 import type { Conversation, ItemDetail, MeetingRecord, Message, SendMessageRequest } from "@yonder/protocol";
-import { bodies, bot, conversation, isolateChat, message } from "./chat-fixture.ts";
+import { pcm16WavHeader } from "../apps/web/src/lib/browser-meeting-wav.ts";
+import { bodies, bot, conversation, isolateChat, message, person } from "./chat-fixture.ts";
 
 const meetingId = "mtg_01KB0ANQFMWYK4RG97RVMFE0YF";
 const newItemId = "cnv_01KB0ARAWXPFTM03DCVG0SNB2H";
@@ -288,6 +290,122 @@ for (const layout of ["desktop", "mobile"] as const) {
 			...(layout === "mobile" ? phone : { viewport: { width: 1440, height: 900 } }),
 			reducedMotion: "reduce",
 			timezoneId: "Asia/Singapore",
+		});
+
+		test("the original recording plays and scrubs across segments above both text tabs", async ({ page }, info) => {
+			await isolateItems(page, false, true);
+			const header = pcm16WavHeader(128_000);
+			const segments = Array.from({ length: 4 }, (_, index) => ({
+				index,
+				durationMs: 4000,
+				byteLength: header.length + 128_000,
+				uploaded: true,
+			}));
+			await page.route(`**/v1/meetings/${meetingId}`, (route) =>
+				route.fulfill({ json: { ...recording, segments, durationMs: 16_000, uploadedDurationMs: 16_000 } }),
+			);
+			const cloudParts: number[] = [];
+			await page.route(`**/v1/meetings/${meetingId}/segments/*/content`, (route) => {
+				expect(route.request().headers().authorization).toBe("Bearer isolated-chat-ui");
+				const index = Number(new URL(route.request().url()).pathname.split("/").at(-2));
+				cloudParts.push(index);
+				if (index !== 2) return route.fulfill({ status: 404, json: { error: { code: "not_found" } } });
+				const wav = Buffer.alloc(header.length + 128_000);
+				wav.set(header);
+				return route.fulfill({ contentType: "audio/wav", body: wav });
+			});
+			await page.goto("/messages/main");
+			await page.getByRole("button", { name: `查看录音笔记 · ${recording.title}` }).click();
+			const reader = page.locator("[data-recording-reader]");
+			const player = reader.getByRole("region", { name: "原录音" });
+			const slider = player.getByRole("slider", { name: "播放进度" });
+			const start = player.getByRole("button", { name: "播放已保存音频" });
+			const pause = player.getByRole("button", { name: "暂停播放" });
+			const notes = reader.getByRole("radio", { name: "整理稿" });
+			const original = reader.getByRole("radio", { name: "原文" });
+			await expect(slider).toBeVisible();
+			const playerBounds = await player.boundingBox();
+			const notesBounds = await notes.boundingBox();
+			assert(playerBounds && notesBounds);
+			expect(playerBounds.y + playerBounds.height).toBeLessThanOrEqual(notesBounds.y);
+			await page.evaluate(
+				({ bytes, clientId, ownerId, size }) =>
+					new Promise<void>((resolve, reject) => {
+						const opening = indexedDB.open("yonder-meeting-recorder", 1);
+						opening.onerror = () => reject(opening.error);
+						opening.onsuccess = () => {
+							const db = opening.result;
+							const tx = db.transaction("audio", "readwrite");
+							const wav = new Uint8Array(size);
+							wav.set(bytes);
+							for (const index of [0, 1]) tx.objectStore("audio").put(wav, [ownerId, clientId, index]);
+							tx.oncomplete = () => {
+								db.close();
+								resolve();
+							};
+							tx.onabort = () => reject(tx.error);
+						};
+					}),
+				{
+					bytes: [...header],
+					clientId: recording.clientRecordingId,
+					ownerId: person.id,
+					size: header.length + 128_000,
+				},
+			);
+			expect(cloudParts).toEqual([]);
+			const position = async () => Number(await slider.inputValue());
+			await start.click();
+			await expect.poll(position).toBeGreaterThan(100);
+			const bounds = await slider.boundingBox();
+			assert(bounds);
+			const y = Math.round(bounds.y + bounds.height / 2);
+			const x = (fraction: number) => Math.round(bounds.x + bounds.width * fraction);
+			if (layout === "mobile") {
+				const touch = await page.context().newCDPSession(page);
+				await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: x(0.1), y }] });
+				await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x(0.58), y }] });
+				await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+				await touch.detach();
+			} else {
+				await page.mouse.move(x(0.1), y);
+				await page.mouse.down();
+				await page.mouse.move(x(0.58), y, { steps: 8 });
+				await page.mouse.up();
+			}
+			await expect.poll(position).toBeGreaterThan(9000);
+			await expect(pause).toBeVisible();
+			await expect(pause).not.toHaveAttribute("aria-busy", "true");
+			await pause.click();
+			const pausedAt = await slider.inputValue();
+			await original.click();
+			await expect(original).toBeChecked();
+			await expect(slider).toHaveValue(pausedAt);
+			await notes.click();
+			await expect(notes).toBeChecked();
+			await expect(slider).toHaveValue(pausedAt);
+			await reader.screenshot({
+				path: paneEvidence ? `${paneEvidence}/recording-player-${layout}.png` : info.outputPath("recording-player.png"),
+				animations: "disabled",
+				scale: "css",
+			});
+
+			await slider.press("End");
+			await expect(slider).toHaveValue("16000");
+			await slider.press("ArrowLeft");
+			await start.click();
+			await expect(player.getByRole("status")).toContainText("请在录制设备上播放");
+			expect(cloudParts).toContain(2);
+			expect(cloudParts).toContain(3);
+			expect(cloudParts).not.toContain(0);
+			expect(cloudParts).not.toContain(1);
+			if (layout === "desktop") {
+				await page.setViewportSize({ width: 1024, height: 760 });
+				await expect(slider).toBeVisible();
+				expect(await player.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+				if (paneEvidence)
+					await page.screenshot({ path: `${paneEvidence}/recording-player-narrow.png`, animations: "disabled" });
+			}
 		});
 
 		test("a referenced task shows its result and original resource links without leaving the chat", async ({

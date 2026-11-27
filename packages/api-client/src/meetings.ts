@@ -74,9 +74,10 @@ export function meetingEndpoints(client: ApiClient) {
 		retryMeeting(id: string, body: RetryMeetingRequest = {}): Promise<MeetingRecord> {
 			return client.request(`/v1/meetings/${encodeURIComponent(id)}/retry`, { body });
 		},
-		meetingAudio(id: string, index: number): Promise<Blob> {
+		meetingAudio(id: string, index: number, signal?: AbortSignal): Promise<Blob> {
 			return client.request(`/v1/meetings/${encodeURIComponent(id)}/segments/${index}/content`, {
 				responseType: "blob",
+				...(signal ? { signal } : {}),
 			});
 		},
 		meetingPhoto(id: string, photoId: string, signal: AbortSignal): Promise<Blob> {

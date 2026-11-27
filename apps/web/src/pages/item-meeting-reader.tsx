@@ -6,9 +6,11 @@ import {
 	type MeetingTranscriptBatch,
 } from "@yonder/protocol";
 import { Button, Segmented } from "@yonder/ui-components";
+import { usePerson } from "@yonder/ui-data";
 import { X } from "lucide-react";
 import { type ReactNode, useId, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { MeetingAudio } from "./item-meeting-audio.tsx";
 import { MeetingArchiveImage } from "./item-meeting-photos.tsx";
 import { renderMeetingArchiveSvg } from "./meeting-archive-svg.tsx";
 import { MessageContent } from "./message-content.tsx";
@@ -166,6 +168,7 @@ export function MeetingReading({
 	action,
 }: MeetingReadingProps & { header?: ReactNode; action?: ReactNode }) {
 	const { t } = useTranslation();
+	const ownerId = usePerson()?.id;
 	const body = useRef<HTMLDivElement>(null);
 	const entries = recordingEntries(meeting);
 	const photos = orderedPhotos(meeting.photos);
@@ -190,6 +193,9 @@ export function MeetingReading({
 		<>
 			<header className="recording-reader-header">
 				{header}
+				{ownerId && meeting.segments.some((segment) => segment.durationMs > 0) ? (
+					<MeetingAudio key={`${ownerId}:${meeting.id}`} meeting={meeting} ownerId={ownerId} />
+				) : null}
 				<div className="col-span-full flex items-center gap-[var(--spacing-2)]">
 					<Segmented
 						aria-label={t("meetingRecorder.name")}
