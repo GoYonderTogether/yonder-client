@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.26112704] - 2026-11-27
+
+### Added
+
+- beta invitations, one-screen invite page and entry points, desktop access, PWA, device file previews
+- chat：offer an attachment's download row from the message menu
+- chat：add attachment download actions and image navigation
+- chat：restore avatar and message context menus
+
 ## [0.3.26112703] - 2026-11-27
 
 ### Added
