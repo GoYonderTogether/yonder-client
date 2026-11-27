@@ -309,7 +309,6 @@ export function AppFrame() {
 					list: (
 						<TasksList
 							scheduled={selection === "scheduled"}
-							selectedItemId={desktop ? taskSelection : null}
 							onChange={(value) => navigation.open(value ? "/tasks/scheduled" : "/tasks")}
 							onOpenItem={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
 							onAddItem={preset.addItem}

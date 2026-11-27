@@ -1,6 +1,6 @@
 import {
 	agentChatStatus,
-	hasPendingBotReply,
+	findPendingBotReply,
 	isTwoPartyAgentChat,
 	newestReadableMessage,
 	ownedBotFor,
@@ -292,7 +292,7 @@ export function ConversationPage({
 			!conversation.visit &&
 			isTwoPartyAgentChat(conversation, person.id) &&
 			(item || ownedAgent) &&
-			hasPendingBotReply(items, agent.memberId, person.id),
+			findPendingBotReply(items, agent.memberId, person.id),
 	);
 	const status = agent && !disconnected ? agentChatStatus(items, agent.memberId, subtasks) : undefined;
 	const statusText =

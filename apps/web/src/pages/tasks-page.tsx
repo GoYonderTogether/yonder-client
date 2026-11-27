@@ -14,14 +14,12 @@ import { TaskActions } from "./task-actions.tsx";
  */
 export function TasksList({
 	scheduled,
-	selectedItemId = null,
 	onChange,
 	onOpenItem,
 	onAddItem,
 	onAddGoal,
 }: {
 	scheduled: boolean;
-	selectedItemId?: string | null;
 	onChange: (scheduled: boolean) => void;
 	onOpenItem: (id: string) => void;
 	/** 「+」 on 「事项」: the main Bot draft starts an item. */
@@ -51,7 +49,7 @@ export function TasksList({
 					<GoalsTab />
 				</div>
 			) : (
-				<ItemsList selectedItemId={selectedItemId} onOpen={onOpenItem} />
+				<ItemsList onOpen={onOpenItem} />
 			)}
 		</ListFrame>
 	);
