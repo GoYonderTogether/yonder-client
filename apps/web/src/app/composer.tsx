@@ -95,7 +95,6 @@ export function Composer({
 	const [dragging, setDragging] = useState(false);
 	const dragDepth = useRef(0);
 	const composing = useRef(false);
-	const compositionEndedAt = useRef(Number.NEGATIVE_INFINITY);
 	const consumeEdit = useTextareaEdit(input, scope);
 	const completion = useComposerCompletion({
 		input,
@@ -405,7 +404,6 @@ export function Composer({
 								}}
 								onCompositionEnd={(event) => {
 									composing.current = false;
-									compositionEndedAt.current = performance.now();
 									delete event.currentTarget.dataset.composing;
 									completion.sync(event.currentTarget);
 								}}
@@ -416,11 +414,7 @@ export function Composer({
 										return;
 									}
 									const enter = event.key === "Enter" && !event.shiftKey;
-									if (
-										enter &&
-										(sendOnEnter || completion.matches.length > 0) &&
-										(event.repeat || performance.now() - compositionEndedAt.current < 500)
-									) {
+									if (event.repeat && enter && (sendOnEnter || completion.matches.length > 0)) {
 										event.preventDefault();
 										return;
 									}

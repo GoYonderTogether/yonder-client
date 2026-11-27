@@ -158,25 +158,24 @@ test.each([false, true])(
 			</I18nextProvider>,
 		);
 		const input = screen.getByRole("textbox");
-		// The composer ignores Enter for 500ms after composition ends, so the test moves the clock past
-		// that window before expecting the send; the confirming Enter itself must not send.
 		const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
 		input.focus();
 		fireEvent.compositionStart(input);
 		if (legacyWebKit) fireEvent.compositionEnd(input);
-		clock.mockReturnValue(1499);
 		// A legacy WebKit keydown after compositionend still carries keyCode 229; a modern one carries
 		// isComposing. Neither may send.
 		if (legacyWebKit) fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
 		else fireEvent.keyDown(input, { key: "Enter", isComposing: true });
 		if (!legacyWebKit) fireEvent.compositionEnd(input);
-		fireEvent.keyUp(input, { key: "Enter" });
 		expect(send).not.toHaveBeenCalled();
-		// The next Enter, once the full 500ms window after compositionEnd has passed, sends.
-		clock.mockReturnValue(2000);
+		// A fresh Enter can send immediately after the IME confirmation.
+		clock.mockReturnValue(1001);
+		fireEvent.keyDown(input, { key: "Enter", repeat: true });
+		expect(send).not.toHaveBeenCalled();
+		fireEvent.keyUp(input, { key: "Enter" });
 		fireEvent.keyDown(input, { key: "Enter" });
-		expect(send).toHaveBeenCalledOnce();
 		clock.mockRestore();
+		expect(send).toHaveBeenCalledOnce();
 	},
 );
 
