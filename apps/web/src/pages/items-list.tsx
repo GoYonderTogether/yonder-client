@@ -19,7 +19,13 @@ type ItemTarget = { id: string; title: string; upcoming: boolean };
  * tidy's job, and an upcoming plan is a scheduled task, which the app can only delete. The folded
  * 已归档 section stays, so past work is one tap below the live list.
  */
-export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
+export function ItemsList({
+	selectedItemId = null,
+	onOpen,
+}: {
+	selectedItemId?: string | null;
+	onOpen: (id: string) => void;
+}) {
 	const { t, i18n } = useTranslation();
 	const [dialog, setDialog] = useState<(ItemTarget & { action: "rename" | "delete" }) | null>(null);
 	const edit = useItemListAction();
@@ -144,6 +150,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 							<ItemRow
 								key={item.id}
 								item={item}
+								selected={item.id === selectedItemId}
 								botName={names.get(item.botMemberId) ?? null}
 								actions={rowActions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}
@@ -204,6 +211,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 							<ItemRow
 								key={item.id}
 								item={item}
+								selected={item.id === selectedItemId}
 								botName={names.get(item.botMemberId) ?? null}
 								actions={rowActions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}

@@ -18,12 +18,14 @@ function stateClass(item: ItemSummary): string {
  */
 export function ItemRow({
 	item,
+	selected,
 	botName,
 	onOpen,
 	locale,
 	actions,
 }: {
 	item: ItemSummary;
+	selected: boolean;
 	botName: string | null;
 	onOpen: () => void;
 	locale: string;
@@ -55,6 +57,8 @@ export function ItemRow({
 		<ListRow
 			actions={actions}
 			chevron
+			selected={selected}
+			className="aria-[current=true]:enabled:hover:bg-[var(--color-bg-selected)]"
 			onClick={onOpen}
 			title={item.title}
 			subtitle={
