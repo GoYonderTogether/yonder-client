@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.3.26112702] - 2026-11-27
+
+### Fixed
+
+- chat：send immediately after IME confirmation
+- chat：cap the phone composer within the chat area
+- chat：use a chevron for the group member list
+- chat：show waiting dots for owned secondary bots
+- memory：show back on desktop memory pages
+- tasks：keep the selected desktop item highlighted
+- chat：grow the desktop composer within line and height limits
+
 ## [0.3.26112701] - 2026-11-27
 
 ### Added
