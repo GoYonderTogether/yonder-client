@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112712] - 2026-11-27
+
+### Added
+
+- ui：add shared detail panes and device file readers
+
 ## [0.3.26112711] - 2026-11-27
 
 ### Fixed
