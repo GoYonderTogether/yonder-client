@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112709] - 2026-11-27
+
+### Added
+
+- ui：flat two-layer glyphs for memory kinds, activities, files, folders, tasks and contacts
+
 ## [0.3.26112708] - 2026-11-27
 
 ### Fixed
