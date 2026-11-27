@@ -193,7 +193,7 @@ test("Web shows only advertised exact endpoints and never accepts an address or 
 	expect(actions.readDevices).not.toHaveBeenCalled();
 });
 
-test("a local key is discarded when switching to a different address or to Cloud", () => {
+test("a local key is discarded when its address changes, and switching where the call runs keeps what was typed", () => {
 	const invoke = startLocal({ native: true });
 	chooseDevice(/My Mac.*Online/);
 	fireEvent.change(screen.getByRole("textbox", { name: "Request URL" }), {
@@ -206,7 +206,9 @@ test("a local key is discarded when switching to a different address or to Cloud
 	expect(screen.getByLabelText("API key")).toHaveValue("");
 	fireEvent.change(screen.getByLabelText("API key"), { target: { value: "synthetic-b" } });
 	chooseDevice(/^Cloud$/);
-	expect(screen.getByLabelText("API key")).toHaveValue("");
+	// Choosing where the call runs keeps the key and the address the person typed.
+	expect(screen.getByLabelText("API key")).toHaveValue("synthetic-b");
+	expect(screen.getByRole("textbox", { name: "Request URL" })).toHaveValue("http://localhost:11434/v1");
 	expect(invoke).not.toHaveBeenCalled();
 	expect(actions.discoverModels).not.toHaveBeenCalled();
 });

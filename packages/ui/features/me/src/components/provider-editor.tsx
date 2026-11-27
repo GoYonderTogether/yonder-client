@@ -25,6 +25,7 @@ import {
 	slotsFromProvider,
 } from "./provider-model-slots.ts";
 import { ProviderModelSlots } from "./provider-model-slots.tsx";
+import { namesFrom, normalise } from "./provider-names.ts";
 import { useProviderSubmit } from "./provider-submit.ts";
 
 export interface ProviderPreset {
@@ -47,21 +48,6 @@ export function presetProtocol(
 	if (value === "openai") return "openai-chat" as const;
 	if (value === "anthropic") return "anthropic-messages" as const;
 	return value;
-}
-
-/** Display names from the metadata map, so a slot can show one without the rest of the row. */
-function normalise(value: string): string {
-	return value.trim().replace(/\/+$/, "");
-}
-
-function namesFrom(metadata: Record<string, ProviderModelMetadata> | undefined): Record<string, string> | undefined {
-	if (!metadata) return undefined;
-	const names = Object.fromEntries(
-		Object.entries(metadata)
-			.filter(([, item]) => item.name)
-			.map(([id, item]) => [id, item.name as string]),
-	);
-	return Object.keys(names).length ? names : undefined;
 }
 
 export function ProviderEditor({
@@ -139,7 +125,7 @@ export function ProviderEditor({
 	const { endpoint, addEndpoint } = binding;
 	// Changing the destination invalidates the stored key: it was entered for another address or wire.
 	const destinationChanged = Boolean(
-		provider && (normalise(baseUrl) !== normalise(provider.baseUrl) || protocol !== provider.protocol),
+		provider && (normalise(baseUrl) !== normalise(provider.baseUrl) || protocol !== presetProtocol(provider.protocol)),
 	);
 	const needsKey = !onDevice && (replacing || destinationChanged || Boolean(currentTarget));
 	const canSetLocalKey = canRegister && (addEndpoint || Boolean(endpoint));
@@ -215,12 +201,15 @@ export function ProviderEditor({
 	 * over when it is a loopback address, because that is exactly the local gateway they meant.
 	 */
 	function chooseLocation(value: string) {
-		const carried = isLocalProviderAddress(baseUrl) ? baseUrl : "";
+		// Choosing where the call runs never throws away what the person already typed.
+		const address = onDevice ? localUrl : baseUrl;
+		const key = onDevice ? localKey : apiKey;
 		setDeviceId(value);
 		setEndpointId("");
-		setLocalKey("");
-		setLocalUrl(carried);
-		setBaseUrl(value === CLOUD_PROVIDER ? carried : "");
+		setLocalKey(key);
+		setApiKey(key);
+		setLocalUrl(address);
+		setBaseUrl(address);
 		resetDiscovery();
 	}
 
