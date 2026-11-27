@@ -17,8 +17,8 @@ use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, TerminateJobObject,
 };
 use windows_sys::Win32::System::Threading::{
-    GetCurrentProcess, GetExitCodeProcess, GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
-    PROCESS_SET_QUOTA, PROCESS_TERMINATE, TerminateProcess,
+    GetExitCodeProcess, GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    PROCESS_SET_QUOTA, PROCESS_TERMINATE,
 };
 
 /// Job handles by the root pid. A `HANDLE` is a raw pointer; the mutex is what makes sharing safe.
@@ -79,7 +79,7 @@ pub fn alive(pid: u32) -> bool {
         let mut code = 0u32;
         let ok = GetExitCodeProcess(process, &mut code);
         CloseHandle(process);
-        ok != 0 && code == STILL_ACTIVE
+        ok != 0 && code == STILL_ACTIVE as u32
     }
 }
 

@@ -41,7 +41,6 @@ pub fn default_shell() -> String {
 pub fn launch(job_dir: &Path, command: &str, shell: &str, exit_path: &Path) -> io::Result<Launch> {
     #[cfg(windows)]
     {
-        use std::io::Write;
         let script = job_dir.join("command.ps1");
         let mut bytes = vec![0xEF, 0xBB, 0xBF];
         bytes.extend_from_slice(command.as_bytes());
@@ -51,7 +50,6 @@ pub fn launch(job_dir: &Path, command: &str, shell: &str, exit_path: &Path) -> i
             &runner,
             "@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"%~1\"\r\n> \"%~2\" echo %ERRORLEVEL%\r\nexit /b 0\r\n",
         )?;
-        let _ = Write::flush;
         let line = format!(
             "\"{}\" \"{}\" \"{}\"",
             runner.display(),
