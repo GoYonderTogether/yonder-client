@@ -63,15 +63,17 @@ export function MessageRun({
 	self,
 	avatar,
 	sender,
+	identity,
 	senderId,
 	children,
-}: Props & { self: boolean; avatar?: ReactNode; sender?: ReactNode; senderId?: string }) {
+}: Props & { self: boolean; avatar?: ReactNode; sender?: ReactNode; identity?: ReactNode; senderId?: string }) {
 	return (
 		<Element
 			data-message-run={senderId}
 			data-run-sender={self ? "self" : "other"}
-			className={`message-run ${self ? "message-run-outgoing" : ""}`}
+			className={`message-run${self ? " message-run-outgoing" : ""}${identity ? " message-run-with-profile" : ""}`}
 		>
+			{identity}
 			{avatar ? (
 				<Element data-message-sender-avatar className="message-run-avatar">
 					{avatar}

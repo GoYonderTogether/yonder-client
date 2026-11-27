@@ -15,6 +15,42 @@
 	justify-content: center;
 }
 
+/* A native button spans the same avatar and sender-name columns. */
+.message-run-with-profile {
+	display: grid;
+	grid-template-columns: var(--spacing-8) minmax(0, 1fr);
+	row-gap: var(--spacing-1);
+	min-block-size: var(--spacing-8);
+}
+
+.message-run-with-profile.message-run-outgoing {
+	grid-template-columns: minmax(0, 1fr) var(--spacing-8);
+}
+
+.message-run-profile {
+	grid-row: 1;
+	position: relative;
+	grid-column: 1 / -1;
+	justify-self: start;
+	padding-inline-start: calc(var(--spacing-8) + var(--spacing-2));
+}
+
+.message-run-outgoing .message-run-profile {
+	grid-row: 1;
+	justify-self: end;
+	padding-inline: 0 calc(var(--spacing-8) + var(--spacing-2));
+}
+
+.message-run-profile-avatar {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline-start: 0;
+}
+
+.message-run-outgoing .message-run-profile-avatar {
+	inset-inline: auto 0;
+}
+
 .message-run-name {
 	display: block;
 	width: 100%;
@@ -64,6 +100,15 @@
 	min-width: 0;
 	flex-direction: column;
 	gap: var(--spacing-1);
+}
+
+.message-run-with-profile .message-run-messages {
+	grid-row: 2;
+	grid-column: 2;
+}
+
+.message-run-with-profile.message-run-outgoing .message-run-messages {
+	grid-column: 1;
 }
 
 /* A system line: the chat's own voice, not anybody's message. Centred and caption sized so it reads

@@ -278,6 +278,9 @@ export const en = {
 	},
 
 	chat: {
+		messageMenu: "Message menu",
+		viewProfile: "View profile",
+		mentionTa: "Mention",
 		settings: "Chat settings",
 		agentStatus: { typing: "Typing", processing: "Working on: {{titles}}", separator: ", " },
 		activityMore: "{{count}} activities",

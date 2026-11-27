@@ -47,6 +47,7 @@ import { AskMainBotProvider } from "./ask-main-bot.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
+import { mentionInDraft } from "./completion/mention-in-draft.ts";
 import { Composer } from "./composer.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemoryList, MemoryPage, SettingsRoutePage, TaskPage, TasksList } from "./lazy-tabs.ts";
@@ -300,6 +301,7 @@ export function AppFrame() {
 							readActive={!meOpen && !side.pages.length && !preset.drawerOpen}
 							onOpenMeeting={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
 							onOpenMember={openMember}
+							onMention={draft.loaded ? (id, name) => mentionInDraft(draft, id, name) : undefined}
 							onOpenGroup={layers.openGroup}
 						/>
 					),

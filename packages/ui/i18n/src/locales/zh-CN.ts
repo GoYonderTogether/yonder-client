@@ -284,6 +284,9 @@ export const zhCN: Messages = {
 	},
 
 	chat: {
+		messageMenu: "消息菜单",
+		viewProfile: "查看资料",
+		mentionTa: "@Ta",
 		settings: "聊天设置",
 		agentStatus: { typing: "正在输入", processing: "正在处理：{{titles}}", separator: "、" },
 		activityMore: "等 {{count}} 项",

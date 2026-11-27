@@ -190,6 +190,7 @@ export function ConversationPage({
 	onOpenMeeting,
 	onOpenMember,
 	onOpenGroup,
+	onMention,
 	item,
 }: {
 	conversationId: string | null;
@@ -198,10 +199,9 @@ export function ConversationPage({
 	readActive?: boolean;
 	contacts?: readonly Member[] | undefined;
 	onOpenMeeting?: (id: string) => void;
-	/** A member id; the frame decides whether it opens a profile or a Bot detail. */
 	onOpenMember?: (memberId: string) => void;
-	/** Opens settings for a group conversation. */
 	onOpenGroup?: () => void;
+	onMention?: ((memberId: string, displayName: string) => void) | undefined;
 	item?: {
 		conversation: Conversation;
 		title: ReactNode;
@@ -277,7 +277,6 @@ export function ConversationPage({
 	// tab's location travels with the push, as the frame does for its own 「我」 entries.
 	const openSection = (target: string) => navigate(target, { state: { tabLocation: location.pathname } });
 	if (!conversationId || !conversation)
-		// HEAD's floating agent header needs the conversation header treatment on both branches.
 		return (
 			<PageFrame title={null} floatingHeader={floatingHeader} conversationHeader>
 				{null}
@@ -453,6 +452,7 @@ export function ConversationPage({
 								retrying={actions.retry.isPending}
 								onOpenRelated={(id) => navigate(`/messages/${encodeURIComponent(id)}`)}
 								onOpenMember={onOpenMember}
+								onMention={onMention}
 								{...(onOpenMeeting ? { onOpenMeeting } : {})}
 								onResend={(message) =>
 									send.mutate({
