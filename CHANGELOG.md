@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112713] - 2026-11-27
+
+### Fixed
+
+- models：per-protocol address suffixes, keep the address and key when the run location changes, and show the server reason when a model fetch fails
+
 ## [0.3.26112712] - 2026-11-27
 
 ### Added

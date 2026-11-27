@@ -1,20 +1,20 @@
 {
 	"name": "@yonder/feature-auth",
 	"private": true,
-	"version": "0.3.26112712",
+	"version": "0.3.26112713",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/protocol": "0.3.26112712",
-		"@yonder/ui-components": "0.3.26112712",
-		"@yonder/ui-data": "0.3.26112712",
-		"@yonder/ui-i18n": "0.3.26112712",
-		"@yonder/ui-shell": "0.3.26112712",
-		"@yonder/ui-tokens": "0.3.26112712",
+		"@yonder/protocol": "0.3.26112713",
+		"@yonder/ui-components": "0.3.26112713",
+		"@yonder/ui-data": "0.3.26112713",
+		"@yonder/ui-i18n": "0.3.26112713",
+		"@yonder/ui-shell": "0.3.26112713",
+		"@yonder/ui-tokens": "0.3.26112713",
 		"lucide-react": "1.72.0",
-		"@yonder/auth-presentation": "0.3.26112712"
+		"@yonder/auth-presentation": "0.3.26112713"
 	},
 	"peerDependencies": {
 		"react": ">=19"
