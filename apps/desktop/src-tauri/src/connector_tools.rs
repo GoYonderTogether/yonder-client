@@ -11,7 +11,7 @@
 //! | 2       | paged reads, in-place edits, grep, includeIgnored/includeHidden          |
 //! | 3       | command-bound original upload from Apple Photos or local files           |
 //! | 4       | command-bound file and directory preview (`asset_original`, `file_preview`) |
-//! | 5       | the read tools' upgrade, built in a parallel task; this task does not touch it |
+//! | 5, 7   | the read tools' upgrade: byte-range reads, binary_file, grep offsets; this build reports 7 because the terminal took 6 first |
 //! | 6       | the terminal: `shell`, `shell_job`, `capabilities.terminal`              |
 
-pub const TOOLS_VERSION: u64 = 6;
+pub const TOOLS_VERSION: u64 = 7;

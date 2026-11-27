@@ -1,4 +1,4 @@
-//! `read` on the byte-range argument set (toolsVersion 5).
+//! `read` on the byte-range argument set (toolsVersion 7).
 //!
 //! One streaming pass over the file gives the page, the line count and the whole-file SHA-256, so
 //! all three come from one version of the file. There is no size ceiling: memory holds one chunk
