@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112719] - 2026-11-27
+
+### Added
+
+- models：the provider form follows CC Switch — a model picker dialog, a read-only row summary and an editable Advanced fold
+
 ## [0.3.26112718] - 2026-11-27
 
 ### Added

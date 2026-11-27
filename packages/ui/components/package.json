@@ -1,18 +1,18 @@
 {
 	"name": "@yonder/ui-components",
 	"private": true,
-	"version": "0.3.26112718",
+	"version": "0.3.26112719",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/protocol": "0.3.26112718",
-		"@yonder/ui-i18n": "0.3.26112718",
-		"@yonder/ui-tokens": "0.3.26112718",
+		"@yonder/protocol": "0.3.26112719",
+		"@yonder/ui-i18n": "0.3.26112719",
+		"@yonder/ui-tokens": "0.3.26112719",
 		"lucide-react": "1.72.0",
 		"qrcode.react": "4.2.0",
-		"@yonder/chat-model": "0.3.26112718"
+		"@yonder/chat-model": "0.3.26112719"
 	},
 	"peerDependencies": {
 		"react": ">=19"
