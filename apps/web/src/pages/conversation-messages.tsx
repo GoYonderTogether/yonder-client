@@ -1,4 +1,5 @@
 import {
+	conversationPeer,
 	groupMessages,
 	isConnectorIntakeCard,
 	isSilentFailure,
@@ -14,15 +15,18 @@ import { Avatar } from "@yonder/ui-components";
 import type { CachedMessage } from "@yonder/ui-data";
 import { resolveLocale } from "@yonder/ui-i18n";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
-import { Copy } from "lucide-react";
-import { Fragment, useCallback, useState } from "react";
+import { Copy, Forward, Quote, RotateCcw, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { Fragment, useCallback, useContext, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppNotice } from "../app/app-notice.tsx";
+import { ComposerQuoteContext } from "../app/composer-quote.tsx";
 import { MessageEntry, type MessageEntryProps, RunFailureNotice } from "./conversation-message-entry.tsx";
+import { DecoratedMessageEntry } from "./decorated-message-entry.tsx";
 import { FriendRequestCard } from "./friend-request-card.tsx";
 import { MemoryUpdatedLine } from "./memory-updated-line.tsx";
 import { MessageContent } from "./message-content.tsx";
 import { MessageMenu, type MessageMenuItem, type MessageMenuTarget, mentionMenuItem } from "./message-menu.tsx";
+import { MessageQuote, quoteSnippet } from "./message-quote.tsx";
 import { OutwardRequestCard } from "./outward-request-card.tsx";
 import { SenderAvatar } from "./sender-avatar.tsx";
 
@@ -37,6 +41,8 @@ export function ConversationMessages({
 	onOpenRelated,
 	onOpenMember,
 	onMention,
+	messageActions,
+	onJumpToQuote,
 	...actions
 }: Omit<MessageEntryProps, "message" | "self" | "optionReply" | "menuRows" | "onMenu"> & {
 	items: CachedMessage[];
@@ -49,12 +55,21 @@ export function ConversationMessages({
 	/** A sender's avatar opens who they are, as in QQ and WeChat (profile-entry matrix 第二节). */
 	onOpenMember?: ((memberId: string) => void) | undefined;
 	onMention?: ((memberId: string, displayName: string) => void) | undefined;
+	onJumpToQuote?: (id: string) => void;
+	messageActions?: MessageActions;
 	onRetry: (userMessageId: string) => void;
 	retrying: boolean;
 }) {
 	const { t, i18n } = useTranslation();
 	const locale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
 	const notice = useAppNotice();
+	const draft = useContext(ComposerQuoteContext);
+	const ownedBotChat = isOwnedBotChat(conversation, person, bot, contacts);
+	const senderName = (id: string) =>
+		conversation.members.find((member) => member.memberId === id)?.displayName ||
+		(id === person?.id ? person.displayName : id === bot?.id ? bot.displayName : undefined) ||
+		contacts?.find((member) => member.id === id)?.displayName ||
+		t("chat.unknownSender");
 	const [menu, setMenu] = useState<MessageMenuTarget | null>(null);
 	const closeMenu = useCallback(() => setMenu(null), []);
 	const visitRole = conversation.visit?.role;
@@ -82,9 +97,11 @@ export function ConversationMessages({
 				) : null}
 			</div>
 		));
-	const visibleItems = delivered.size ? items.filter((item) => !delivered.has(item.id)) : items;
+	const visibleItems = delivered.size ? items.filter((item) => item.recalled || !delivered.has(item.id)) : items;
 	const grouping = { agentCards: true, connectorIntakeOwnerLayout: true };
-	const blocks = groupMessages(visibleItems, hasFullHistory, grouping).map((block) => {
+	// Keep a recalled message in the same timeline position, outside any sender run.
+	const timeline = visibleItems.map((item): CachedMessage => (item.recalled ? { ...item, type: "system" } : item));
+	const blocks = groupMessages(timeline, hasFullHistory, grouping).map((block) => {
 		if ("time" in block)
 			return (
 				<MessageTime
@@ -105,6 +122,21 @@ export function ConversationMessages({
 		const run = block.run;
 		const first = run[0];
 		if (!first) return null;
+		if (first.recalled)
+			return (
+				<SystemLine
+					key={first.id}
+					message={first}
+					recalledText={t(
+						first.recalled.by === "owner" && first.senderId !== conversation.ownerId
+							? "chat.recalledOwner"
+							: first.senderId === person?.id
+								? "chat.recalledSelf"
+								: "chat.recalledSender",
+						{ name: senderName(first.senderId) },
+					)}
+				/>
+			);
 		if (first.type === "system") return <SystemLine key={first.id} message={first} />;
 		if (person && isConnectorIntakeCard(first)) {
 			return (
@@ -160,8 +192,30 @@ export function ConversationMessages({
 					</div>
 				);
 			}
+			const menuContext = {
+				conversation,
+				personId: person?.id,
+				ownedBotChat,
+				mention,
+				actions: messageActions,
+				onQuote:
+					draft?.conversationId === conversation.id
+						? () =>
+								draft.setQuote({
+									senderName: senderName(message.senderId),
+									replyTo: { id: message.id, senderId: message.senderId, snippet: quoteSnippet(message) },
+								})
+						: undefined,
+				onCopied: (ok: boolean) =>
+					notice({
+						key: "message-menu-copy",
+						text: t(ok ? "app.copied" : "landing.copyFailed"),
+						tone: ok ? "info" : "error",
+					}),
+			};
+			const replyTo = message.replyTo;
 			return (
-				<MessageEntry
+				<DecoratedMessageEntry
 					key={message.id}
 					message={message}
 					self={self}
@@ -169,14 +223,23 @@ export function ConversationMessages({
 					personId={person?.id}
 					onChooseOption={message.id === optionCards.openId ? actions.onChooseOption : undefined}
 					optionReply={optionCards.replies.get(message.id)}
-					menuRows={messageMenuRows(message, t, mention, (ok) =>
-						notice({
-							key: "message-menu-copy",
-							text: t(ok ? "app.copied" : "landing.copyFailed"),
-							tone: ok ? "info" : "error",
-						}),
-					)}
-					onMenu={setMenu}
+					menuRows={messageMenuRows(message, t, menuContext)}
+					{...(messageHasMenu(message)
+						? {
+								onMenu: (target: MessageMenuTarget) => {
+									const rows = [
+										...target.items.filter(({ id }) => id === "download"),
+										...messageMenuRows(message, t, menuContext),
+									];
+									if (rows.length) setMenu({ ...target, items: rows });
+								},
+							}
+						: {})}
+					quote={
+						replyTo ? (
+							<MessageQuote replyTo={replyTo} senderName={senderName(replyTo.senderId)} onJump={onJumpToQuote} />
+						) : null
+					}
 				/>
 			);
 		});
@@ -255,18 +318,70 @@ export function ConversationMessages({
 	);
 }
 
-function messageMenuRows(
+type MessageActions = {
+	forward: (message: CachedMessage) => void;
+	feedback: (message: CachedMessage, value: "up" | "down" | null) => void;
+	recall: (message: CachedMessage) => void;
+	delete: (message: CachedMessage) => void;
+};
+
+export function isOwnedBotChat(
+	conversation: Conversation,
+	person: Member | undefined,
+	bot: Member | undefined,
+	contacts: readonly Member[] | undefined,
+) {
+	if (!person || conversation.kind !== "direct" || conversation.visit) return false;
+	const peer = conversationPeer(conversation, person.id);
+	return Boolean(
+		peer?.kind === "bot" &&
+			(peer.botOwner?.handle === person.handle || ownedBotFor(peer.memberId, person.id, bot, contacts)),
+	);
+}
+
+function messageHasMenu(message: CachedMessage) {
+	return (
+		message.type === "text" &&
+		!message.recalled &&
+		!message.streaming &&
+		!message.pending &&
+		!message.questionCard &&
+		!message.options?.length &&
+		!message.sendFailed &&
+		message.run?.status !== "failed" &&
+		!message.scheduleNotice &&
+		!message.burstNotice
+	);
+}
+
+export function messageMenuRows(
 	message: CachedMessage,
 	t: (key: string) => string,
-	mention: (() => void) | undefined,
-	onCopied: (ok: boolean) => void,
+	{
+		conversation,
+		personId,
+		ownedBotChat,
+		mention,
+		onCopied,
+		onQuote,
+		actions,
+		now = Date.now(),
+	}: {
+		conversation: Conversation;
+		personId: string | undefined;
+		ownedBotChat: boolean;
+		mention?: (() => void) | undefined;
+		onCopied: (ok: boolean) => void;
+		onQuote?: (() => void) | undefined;
+		actions?: MessageActions | undefined;
+		now?: number;
+	},
 ): MessageMenuItem[] {
-	if (message.questionCard || message.options?.length || message.sendFailed || message.run?.status === "failed")
-		return [];
-	const items: MessageMenuItem[] = [];
+	if (!messageHasMenu(message) || conversation.kind === "system") return [];
+	const rows: MessageMenuItem[] = [];
 	const body = message.body;
 	if (body?.trim())
-		items.push({
+		rows.push({
 			id: "copy",
 			label: t("app.copy"),
 			icon: <Copy size={16} />,
@@ -280,8 +395,58 @@ function messageMenuRows(
 					}
 				})(),
 		});
-	if (mention) items.push(mentionMenuItem(t("chat.mentionTa"), mention));
-	return items;
+	if (onQuote) rows.push({ id: "quote", label: t("chat.quote"), icon: <Quote size={16} />, run: onQuote });
+	if (
+		actions &&
+		!message.cardId &&
+		!message.connectorRequestId &&
+		!message.meeting &&
+		!message.taskSession &&
+		!message.outwardRequest &&
+		!message.channelAttemptId &&
+		!message.friendRequestId &&
+		!message.connectorIntake
+	)
+		rows.push({
+			id: "forward",
+			label: t("chat.forward"),
+			icon: <Forward size={16} />,
+			run: () => actions.forward(message),
+		});
+	if (mention) rows.push(mentionMenuItem(t("chat.mentionTa"), mention));
+	if (!actions || !personId) return rows;
+	if (message.senderKind === "bot")
+		rows.push(
+			{
+				id: "like",
+				label: t(message.feedback === "up" ? "chat.cancelLike" : "chat.like"),
+				icon: <ThumbsUp size={16} />,
+				run: () => actions.feedback(message, message.feedback === "up" ? null : "up"),
+			},
+			{
+				id: "dislike",
+				label: t(message.feedback === "down" ? "chat.cancelDislike" : "chat.dislike"),
+				icon: <ThumbsDown size={16} />,
+				run: () => actions.feedback(message, message.feedback === "down" ? null : "down"),
+			},
+		);
+	const humanChat = conversation.kind === "group" || conversationPeer(conversation, personId)?.kind === "person";
+	const owner = conversation.kind === "group" && conversation.ownerId === personId;
+	const ownRecentMessage = message.senderId === personId && now - Date.parse(message.createdAt) < 5 * 60_000;
+	if (!conversation.visit && humanChat && (owner || ownRecentMessage))
+		rows.push({
+			id: "recall",
+			label: t("chat.recall"),
+			icon: <RotateCcw size={16} />,
+			run: () => actions.recall(message),
+		});
+	rows.push({
+		id: "delete",
+		label: t(ownedBotChat ? "chat.deleteMessage" : "chat.deleteMessageForMe"),
+		icon: <Trash2 size={16} />,
+		run: () => actions.delete(message),
+	});
+	return rows;
 }
 
 /**
@@ -289,11 +454,11 @@ function messageMenuRows(
  * bubble, avatar or actions (19 3.3). The sentence comes from the stored event, so the same row
  * reads correctly in Chinese and in English, and an event nothing can be said about stays out.
  */
-function SystemLine({ message }: { message: CachedMessage }) {
+function SystemLine({ message, recalledText }: { message: CachedMessage; recalledText?: string }) {
 	const { t } = useTranslation();
-	if (message.system?.event === "memory_updated")
+	if (!recalledText && message.system?.event === "memory_updated")
 		return <MemoryUpdatedLine messageId={message.id} event={message.system} />;
-	const text = message.system ? systemEventText(message.system, t) : "";
+	const text = recalledText ?? (message.system ? systemEventText(message.system, t) : "");
 	if (!text) return null;
 	return (
 		<p

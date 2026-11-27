@@ -1,16 +1,13 @@
 import {
 	agentChatStatus,
-	conversationBotOwner,
 	hasPendingBotReply,
 	isTwoPartyAgentChat,
 	newestReadableMessage,
 	ownedBotFor,
 } from "@yonder/chat-model";
 import { exhaustedPools, QuotaLowBanner } from "@yonder/feature-me";
-import { BotName } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import {
-	Avatar,
 	Button,
 	ConversationList,
 	ConversationRow,
@@ -40,7 +37,7 @@ import { useLocation, useNavigate } from "react-router";
 import { isForeground, useForeground } from "../lib/foreground.ts";
 import { BotWaitingBubble } from "./bot-waiting-bubble.tsx";
 import { ChatActions } from "./chat-actions/index.tsx";
-import { ConversationMessages } from "./conversation-messages.tsx";
+import { ConversationAgentHeader } from "./conversation-agent-header.tsx";
 import {
 	ConversationAvatar,
 	conversationPeer,
@@ -48,6 +45,8 @@ import {
 	primaryConversation,
 } from "./conversation-presentation.tsx";
 import { ConversationEntry } from "./conversation-row.tsx";
+import { InteractiveConversationMessages } from "./message-action-dialogs.tsx";
+import { useMessageQuoteJump } from "./use-message-quote-jump.ts";
 import { useMessageScroll } from "./use-message-scroll.ts";
 import { VisitBar } from "./visit-bar.tsx";
 
@@ -251,6 +250,7 @@ export function ConversationPage({
 			: undefined,
 		person?.id,
 	);
+	const jumpToQuote = useMessageQuoteJump(bottom, messages);
 	const foreground = useForeground();
 	const canRead = useCallback(() => isForeground() && canReadLatest(), [canReadLatest]);
 	useMarkConversationRead(
@@ -303,18 +303,7 @@ export function ConversationPage({
 				: undefined;
 	const openPeer = peer && onOpenMember ? () => onOpenMember(peer.memberId) : undefined;
 	const openSettings = conversation.kind === "group" ? onOpenGroup : openPeer;
-	const clickableIdentity = mobileBotHeader && openPeer;
-	const Identity = clickableIdentity ? "button" : "div";
-	const agentAvatar = agent && showAgentIdentity && (
-		<Avatar
-			name={title}
-			src={agent.avatarUrl}
-			color={agent.avatarColor}
-			kind="bot"
-			size={48}
-			className="rounded-[var(--radius-full)]!"
-		/>
-	);
+
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
 			<PageFrame
@@ -324,53 +313,14 @@ export function ConversationPage({
 				titleAlign={agent && !item ? "center" : "start"}
 				afterTopBar={
 					agent && showAgentIdentity ? (
-						<section
-							data-chat-agent-title
-							aria-label={title}
-							className="flex flex-col items-center gap-[var(--spacing-1)] px-[var(--spacing-4)]"
-						>
-							<Identity
-								data-chat-agent-identity={clickableIdentity ? true : undefined}
-								className={
-									clickableIdentity
-										? "flex w-fit max-w-[75%] flex-col items-center gap-[var(--spacing-1)] rounded-[var(--radius-full)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
-										: "contents"
-								}
-								{...(clickableIdentity
-									? {
-											type: "button",
-											"aria-label": t("bots.settings"),
-											"aria-haspopup": "dialog" as const,
-											onClick: openPeer,
-										}
-									: {})}
-							>
-								<span data-chat-agent-avatar className="flex">
-									{agentAvatar}
-								</span>
-								<span
-									data-chat-agent-name
-									className={`w-fit ${clickableIdentity ? "max-w-full" : "max-w-[75%]"} text-center text-body font-medium text-[var(--color-text-primary)]`}
-									title={title}
-								>
-									<BotName
-										name={title}
-										ownedBot={ownedAgent}
-										owner={conversationBotOwner(agent, conversation)}
-										compact="header"
-									/>
-								</span>
-							</Identity>
-							{statusText ? (
-								<div
-									role="status"
-									className="max-w-full text-center text-caption text-[var(--color-text-secondary)]"
-									title={statusText}
-								>
-									<span className="line-clamp-2 wrap-anywhere">{statusText}</span>
-								</div>
-							) : null}
-						</section>
+						<ConversationAgentHeader
+							agent={agent}
+							conversation={conversation}
+							ownedAgent={ownedAgent}
+							title={title}
+							statusText={statusText}
+							onOpen={mobileBotHeader ? openPeer : undefined}
+						/>
 					) : null
 				}
 				action={
@@ -424,7 +374,7 @@ export function ConversationPage({
 				) : null}
 				{item?.intro || items?.length ? (
 					<div
-						className="mx-auto flex w-full max-w-[680px] flex-col gap-[var(--spacing-4)]"
+						className="mx-auto flex w-full max-w-[680px] flex-col gap-[var(--spacing-4)] [&_[data-message-highlighted]]:outline [&_[data-message-highlighted]]:outline-offset-[var(--spacing-1)] [&_[data-message-highlighted]]:outline-[var(--color-accent)]"
 						role="log"
 						aria-label={t("nav.messages")}
 					>
@@ -441,7 +391,7 @@ export function ConversationPage({
 							</div>
 						) : null}
 						{items?.length ? (
-							<ConversationMessages
+							<InteractiveConversationMessages
 								items={items}
 								hasFullHistory={!messages.hasNextPage}
 								conversation={conversation}
@@ -453,6 +403,7 @@ export function ConversationPage({
 								onOpenRelated={(id) => navigate(`/messages/${encodeURIComponent(id)}`)}
 								onOpenMember={onOpenMember}
 								onMention={onMention}
+								onJumpToQuote={jumpToQuote}
 								{...(onOpenMeeting ? { onOpenMeeting } : {})}
 								onResend={(message) =>
 									send.mutate({
@@ -461,6 +412,8 @@ export function ConversationPage({
 										clientNonce: message.clientNonce ?? "",
 										attachmentIds: message.attachments.map((attachment) => attachment.id),
 										attachments: message.attachments,
+										...(message.replyToId ? { replyToId: message.replyToId } : {}),
+										...(message.replyTo ? { replyTo: message.replyTo } : {}),
 										...(message.voice ? { voice: message.voice } : {}),
 										...(message.skillIds ? { skillIds: message.skillIds } : {}),
 										...(message.mentionedMemberIds ? { mentionedMemberIds: message.mentionedMemberIds } : {}),

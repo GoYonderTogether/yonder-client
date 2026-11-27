@@ -26,6 +26,7 @@ import "./composer-voice.css";
 import type { ChatVoice } from "../lib/chat-voice.ts";
 import { useFilePicker } from "./composer-file-picker.ts";
 import type { ComposerProps } from "./composer-props.ts";
+import { ComposerQuoteBar } from "./composer-quote.tsx";
 import { VisitRelay } from "./visit-relay.tsx";
 
 /**
@@ -295,6 +296,7 @@ export function Composer({
 				}}
 			>
 				<ComposerFrame as="div" dragging={dragging}>
+					<ComposerQuoteBar />
 					{!editor.fullscreen ? <CompletionPopup completion={completion} /> : null}
 					{files.length && !voiceSending ? (
 						<ComposerFiles

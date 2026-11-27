@@ -115,3 +115,32 @@ test("a delayed pre-clear page cannot restore hidden rows or old cursors", async
 	]);
 	client.clear();
 });
+
+test("history already in flight cannot overwrite a same-version vote change or unredact a recalled reply", async () => {
+	const client = new QueryClient();
+	const voted = { ...row("vote"), feedback: "up" as const };
+	const source = row("source");
+	const reply = {
+		...row("reply"),
+		replyToId: source.id,
+		replyTo: { id: source.id, senderId: source.senderId, snippet: "original" },
+	};
+	const stale = page([voted, source, reply]);
+	client.setQueryData(key, { pages: [stale], pageParams: [undefined] });
+	const late = deferred();
+	const fetching = client.fetchInfiniteQuery(options(client, () => late.promise));
+	updateMessage(client, row("vote"));
+	updateMessage(client, {
+		...source,
+		recalled: { at: source.createdAt, by: "sender" },
+		body: null,
+		version: source.version + 1,
+	});
+	late.resolve(stale);
+	await fetching;
+	const items = client.getQueryData<InfiniteData<MessagePage>>(key)?.pages[0]?.items;
+	expect(items?.[0]).not.toHaveProperty("feedback");
+	expect(items?.[1]).toMatchObject({ body: null, recalled: { by: "sender" } });
+	expect(items?.[2]?.replyTo).toMatchObject({ snippet: "", recalled: true });
+	client.clear();
+});

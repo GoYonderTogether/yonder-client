@@ -96,6 +96,31 @@ export function conversationEndpoints(client: ApiClient) {
 			});
 		},
 
+		recallMessage(messageId: string): Promise<Message> {
+			return client.request(`/v1/messages/${encodeURIComponent(messageId)}/recall`, { method: "POST" });
+		},
+
+		deleteMessage(messageId: string): Promise<{ ok: true }> {
+			return client.request(`/v1/messages/${encodeURIComponent(messageId)}`, { method: "DELETE" });
+		},
+
+		messageFeedback(messageId: string, value: NonNullable<Message["feedback"]> | null): Promise<Message> {
+			return client.request(`/v1/messages/${encodeURIComponent(messageId)}/feedback`, {
+				method: "PUT",
+				body: { value },
+			});
+		},
+
+		forwardMessage(
+			messageId: string,
+			body: { conversationId: string; clientNonce: string },
+		): Promise<SendMessageResponse> {
+			return client.request(`/v1/messages/${encodeURIComponent(messageId)}/forward`, {
+				body,
+				idempotencyKey: body.clientNonce,
+			});
+		},
+
 		questionCard(messageId: string): Promise<Message> {
 			return client.request(`/v1/messages/${encodeURIComponent(messageId)}/question`);
 		},

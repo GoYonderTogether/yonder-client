@@ -1,4 +1,4 @@
-import { visitRelayTarget } from "@yonder/chat-model";
+import { conversationPeer, visitRelayTarget } from "@yonder/chat-model";
 import type { Attachment, Conversation, SendMessageRequest } from "@yonder/protocol";
 import {
 	outboxCacheKey,
@@ -11,6 +11,8 @@ import {
 } from "@yonder/ui-data";
 import { type ChatVoice, voiceDuration, voiceFiles } from "../lib/chat-voice.ts";
 import { isDesktopExperience } from "../lib/platform.ts";
+import { conversationTitle } from "../pages/conversation-presentation.tsx";
+import { quoteInput } from "./composer-quote.tsx";
 import { draftFile, useChatDraft } from "./use-chat-draft.ts";
 import { useDirectAttachmentSend } from "./use-direct-attachment-send.ts";
 
@@ -37,6 +39,8 @@ export function useFrameChat({
 		conversation: target?.id,
 		uploadFile: draft.uploadDirectFile,
 		send: send.mutateAsync,
+		quote: draft.quote,
+		onQuotedSend: (id) => draft.setQuote(undefined, id),
 		knownNonce: (nonce) =>
 			history.data?.pages.some((page) => page.items.some((message) => message.clientNonce === nonce)) ?? false,
 	});
@@ -50,9 +54,11 @@ export function useFrameChat({
 	const knownVoiceNonce = (nonce: string) =>
 		history.data?.pages.some((page) => page.items.some((message) => message.clientNonce === nonce)) ?? false;
 
-	async function sendToTarget(input: SendMessageRequest & { attachments: Attachment[] }) {
+	async function sendToTarget(
+		input: SendMessageRequest & { attachments: Attachment[] } & ReturnType<typeof quoteInput>,
+	) {
 		if (!creating) return void (await send.mutateAsync(input));
-		const { attachments: _attachments, ...body } = input;
+		const { attachments: _attachments, replyTo: _replyTo, ...body } = input;
 		const result = await create.mutateAsync(body);
 		onCreated(result.item.id);
 	}
@@ -62,7 +68,7 @@ export function useFrameChat({
 		let createdId: string | undefined;
 		const sent = await draft.submit(async (input) => {
 			if (!creating) return send.mutateAsync(input);
-			const { attachments: _attachments, ...body } = input;
+			const { attachments: _attachments, replyTo: _replyTo, ...body } = input;
 			const result = await create.mutateAsync(body);
 			createdId = result.item.id;
 		});
@@ -88,6 +94,7 @@ export function useFrameChat({
 				clientNonce: recording.nonce,
 				attachmentIds: attachments.map(({ id }) => id),
 				attachments,
+				...quoteInput(draft.quote),
 				voice: { durationMs: voiceDuration(recording), ...(hasBot ? { transcribe: true } : {}) },
 			});
 		} catch (error) {
@@ -95,10 +102,19 @@ export function useFrameChat({
 			const queued = personId && target && (await readChatCache(outboxCacheKey(personId, target.id, recording.nonce)));
 			if (!queued) throw error;
 		}
+		if (draft.quote) draft.setQuote(undefined, draft.quote.replyTo.id);
 	}
 
 	return {
 		draft,
+		quote: {
+			conversationId: draft.loaded && !target?.closedReason && target?.visit?.role !== "host" ? target?.id : undefined,
+			quote: draft.quote,
+			setQuote: draft.setQuote,
+		},
+		recipientName: task
+			? target && conversationPeer(target, personId)?.displayName
+			: conversation && conversationTitle(conversation, personId),
 		scope,
 		target,
 		hasBot,

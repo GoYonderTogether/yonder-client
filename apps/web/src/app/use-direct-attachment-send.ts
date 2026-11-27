@@ -9,6 +9,7 @@ import {
 	writeChatCache,
 } from "@yonder/ui-data";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type DraftQuote, quoteInput } from "./composer-quote.tsx";
 import {
 	AttachmentTooLargeError,
 	CHAT_ATTACHMENT_LIMIT,
@@ -17,7 +18,7 @@ import {
 	draftFile,
 } from "./use-chat-draft.ts";
 
-type Upload = { nonce: string; files: DraftFile[] };
+type Upload = { nonce: string; files: DraftFile[]; quote?: DraftQuote | undefined };
 type Failure = { key: string; upload: Upload };
 
 function removeUpload(key: string, nonce: string, generation = chatCacheGeneration()) {
@@ -29,12 +30,18 @@ export function useDirectAttachmentSend({
 	conversation,
 	uploadFile,
 	send,
+	quote,
+	onQuotedSend,
 	knownNonce,
 }: {
 	owner: string | undefined;
 	conversation: string | undefined;
 	uploadFile: (file: DraftFile, signal: AbortSignal) => Promise<{ attachment: Attachment; blob: Blob }>;
-	send: (request: SendMessageRequest & { attachments: Attachment[] }) => Promise<unknown>;
+	send: (
+		request: SendMessageRequest & { attachments: Attachment[] } & ReturnType<typeof quoteInput>,
+	) => Promise<unknown>;
+	quote?: DraftQuote | undefined;
+	onQuotedSend?: (id: string) => void;
 	knownNonce: (nonce: string) => boolean;
 }) {
 	const key = owner && conversation ? `direct-attachment-upload:${owner}:${conversation}` : "";
@@ -119,6 +126,7 @@ export function useDirectAttachmentSend({
 				clientNonce: upload.nonce,
 				attachmentIds: attachments.map(({ id }) => id),
 				attachments,
+				...quoteInput(upload.quote),
 			});
 			if (generation === chatCacheGeneration())
 				for (const { id } of attachments) void removeChatCache(attachmentCacheKey(owner, id)).catch(() => {});
@@ -128,7 +136,10 @@ export function useDirectAttachmentSend({
 				setFailed({ key, upload });
 			}
 		} finally {
-			if (handedOff) await removeUpload(key, upload.nonce, generation).catch(() => {});
+			if (handedOff) {
+				if (upload.quote && !interrupted()) onQuotedSend?.(upload.quote.replyTo.id);
+				await removeUpload(key, upload.nonce, generation).catch(() => {});
+			}
 			if (inFlight.current === active) {
 				inFlight.current = undefined;
 				setSendingKey("");
@@ -149,7 +160,11 @@ export function useDirectAttachmentSend({
 				setError({ key, message: files.length > CHAT_ATTACHMENT_LIMIT ? "chat.tooManyFiles" : "chat.fileTooLarge" });
 				return;
 			}
-			void run({ nonce: crypto.randomUUID(), files: files.map((file) => ({ ...draftFile(file), sendOriginal })) });
+			void run({
+				nonce: crypto.randomUUID(),
+				quote,
+				files: files.map((file) => ({ ...draftFile(file), sendOriginal })),
+			});
 		},
 		retry: () => {
 			if (uploadToRetry && !postedNonce) void run(uploadToRetry, true);

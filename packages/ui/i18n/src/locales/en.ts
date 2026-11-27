@@ -12,6 +12,7 @@ import { connectDeviceDownloadEn, landingPageEn } from "./landing-page-en.ts";
 import { meetingRecorderEn } from "./meeting-recorder-en.ts";
 import { membersMessagesEn } from "./members-en.ts";
 import { memoryMessagesEn } from "./memory-en.ts";
+import { messageActionsEn } from "./message-actions.ts";
 import { messagesEn } from "./messages.ts";
 import { modelMessagesEn } from "./models-en.ts";
 import { notificationsEn } from "./notifications.ts";
@@ -278,6 +279,7 @@ export const en = {
 	},
 
 	chat: {
+		...messageActionsEn,
 		messageMenu: "Message menu",
 		viewProfile: "View profile",
 		mentionTa: "Mention",

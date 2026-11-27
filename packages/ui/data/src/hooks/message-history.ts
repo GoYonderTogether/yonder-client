@@ -3,6 +3,7 @@ import { chatHistoryTimeOffset, isNewChatHistoryCutoff, mergeMessage } from "@yo
 import type { ChatHistoryCutoff, MessagePage } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import type { CachedMessage } from "../realtime/cached-message.ts";
+import { withFeedback } from "../realtime/message-cache.ts";
 
 type History = InfiniteData<MessagePage, string | undefined>;
 const fetchedPages = new WeakMap<MessagePage, { before: History | undefined }>();
@@ -73,11 +74,23 @@ export function shareMessageHistory(oldData: unknown, newData: unknown): unknown
 	const reconcile = (item: CachedMessage, latest: CachedMessage | undefined) => {
 		if (!latest) return item;
 		if (item.id.startsWith("temp_")) return latest.id.startsWith("temp_") ? item : latest;
-		const merged = mergeMessage(latest, item);
+		let merged = latest.recalled && !item.recalled ? latest : mergeMessage(latest, item);
+		const originalMessage = original.find(latest);
+		// Feedback is viewer state and can change at the same message version.
+		if (originalMessage && latest.version >= item.version && latest.feedback !== originalMessage.feedback)
+			merged = withFeedback(merged, latest.feedback);
+		const updatedReply = latest.replyTo;
+		if (
+			(updatedReply?.recalled || updatedReply?.missing) &&
+			updatedReply.id === merged.replyTo?.id &&
+			updatedReply !== originalMessage?.replyTo
+		) {
+			merged = { ...merged, replyTo: updatedReply };
+		}
 		// A run-only event does not bump the message version. Keep a live run changed during this request.
 		if (
 			latest.run &&
-			latest.run !== original.find(latest)?.run &&
+			latest.run !== originalMessage?.run &&
 			latest.version >= item.version &&
 			(!item.run || latest.run.id === item.run.id)
 		) {

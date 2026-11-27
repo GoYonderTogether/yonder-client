@@ -13,6 +13,7 @@ import { connectDeviceDownloadZhCN, landingPageZhCN } from "./landing-page-zh-CN
 import { meetingRecorderZhCN } from "./meeting-recorder-zh-CN.ts";
 import { membersMessagesZhCN } from "./members-zh-CN.ts";
 import { memoryMessagesZhCN } from "./memory-zh-CN.ts";
+import { messageActionsZhCN } from "./message-actions.ts";
 import { messagesZhCN } from "./messages.ts";
 import { modelMessagesZhCN } from "./models-zh-CN.ts";
 import { notificationsZhCN } from "./notifications.ts";
@@ -284,6 +285,7 @@ export const zhCN: Messages = {
 	},
 
 	chat: {
+		...messageActionsZhCN,
 		messageMenu: "消息菜单",
 		viewProfile: "查看资料",
 		mentionTa: "@Ta",

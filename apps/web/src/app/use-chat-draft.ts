@@ -1,6 +1,5 @@
 import type { Attachment, SendMessageRequest } from "@yonder/protocol";
 import {
-	ApiError,
 	attachmentCacheKey,
 	chatCacheGeneration,
 	readChatCache,
@@ -21,7 +20,11 @@ import {
 	type TextEditRange,
 } from "./completion/bindings.ts";
 import { completionHistory } from "./completion/history.ts";
+import { type DraftQuote, quoteInput } from "./composer-quote.tsx";
 import { type PresetDraft, takePreset, withPreset } from "./draft-preset.ts";
+import { AttachmentTooLargeError, sendErrorMessageKey } from "./draft-send-error.ts";
+
+export { AttachmentTooLargeError, sendErrorMessageKey } from "./draft-send-error.ts";
 
 export interface DraftFile {
 	id: string;
@@ -49,34 +52,13 @@ export function selectedDraftFile(file: DraftFile) {
 	return { blob: file.blob, name: file.name, mimeType: file.mimeType, nonce: file.id, original: true };
 }
 
-/**
- * The message key for a refused send. A visit refusal and a quota refusal are real answers from
- * the server, so they replace the generic "your draft is preserved" line; anything else, including
- * a network failure, keeps that line because the draft really is preserved.
- */
-const SEND_REFUSAL_KEYS = new Set(["visit_limit", "visit_denied", "visit_cap"]);
-
-/**
- * A dissolved group, or a chat the sender was removed from, refuses every send with one code: the
- * composer says exactly that, in the members wording, instead of the generic "draft preserved" line
- * (19 3.2). It is a real refusal from the server, never drawn as something the Bot said.
- */
-const CONVERSATION_CLOSED_KEY = "members.errors.conversationClosed";
-
-export class AttachmentTooLargeError extends Error {}
-
-export function sendErrorMessageKey(error: unknown): string {
-	if (error instanceof AttachmentTooLargeError) return "chat.fileTooLarge";
-	if (!(error instanceof ApiError)) return "chat.sendPreserved";
-	if (error.code === "conversation_closed") return CONVERSATION_CLOSED_KEY;
-	return SEND_REFUSAL_KEYS.has(error.code) ? `errors.${error.code}` : "chat.sendPreserved";
-}
 interface Draft {
 	text: string;
 	files: DraftFile[];
 	clientNonce?: string | undefined;
 	revision: number;
 	bindings?: CompletionBinding[];
+	quote?: DraftQuote | undefined;
 }
 const empty = (): Draft => ({ text: "", files: [], revision: 0 });
 export const CHAT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
@@ -293,7 +275,9 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 	}
 
 	async function submit(
-		send: (input: SendMessageRequest & { attachments: Attachment[] }) => Promise<unknown>,
+		send: (
+			input: SendMessageRequest & { attachments: Attachment[] } & ReturnType<typeof quoteInput>,
+		) => Promise<unknown>,
 		voice?: { file: File; transcribe: boolean },
 	) {
 		if (
@@ -366,6 +350,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				...(durationMs > 0 && durationMs <= 120_000 && attachments[0]?.kind === "audio"
 					? { voice: { durationMs } }
 					: {}),
+				...quoteInput(draft.quote),
 				...(skillIds?.length ? { skillIds } : {}),
 				...(mentionedMemberIds.length ? { mentionedMemberIds } : {}),
 			});
@@ -380,6 +365,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 					void removeChatCache(attachmentCacheKey(owner, attachment.id)).catch(() => {});
 			const clearSent = (value = empty()): Draft => ({
 				text: value.revision === draft.revision ? "" : value.text,
+				quote: value.quote?.replyTo.id === draft.quote?.replyTo.id ? undefined : value.quote,
 				files: value.files.filter((file) => !sentIds.has(file.id)),
 				bindings:
 					value.revision === draft.revision
@@ -429,6 +415,12 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		preserveBeforeReload,
 		error,
 		sending,
+		setQuote: (quote?: DraftQuote, sentQuoteId?: string) =>
+			void change((draft) =>
+				sentQuoteId && draft.quote?.replyTo.id !== sentQuoteId
+					? draft
+					: { ...draft, quote, revision: draft.revision + 1 },
+			),
 		setText: (text: string, edit?: TextEditRange) =>
 			void change(
 				(draft) => ({

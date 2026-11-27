@@ -11,6 +11,8 @@ export const ERROR_CODES = [
 	"account_pending_deletion",
 	"account_deleted",
 	"not_found",
+	"not_allowed",
+	"recall_window_closed",
 	"handle_taken",
 	"handle_cooldown",
 	"handle_reserved",

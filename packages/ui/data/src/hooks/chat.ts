@@ -9,7 +9,7 @@ import { fetchHistoryPage, shareMessageHistory } from "./message-history.ts";
 
 export type { CachedMessage };
 
-type SendInput = SendMessageRequest & { attachments?: Attachment[] };
+type SendInput = SendMessageRequest & { attachments?: Attachment[]; replyTo?: NonNullable<Message["replyTo"]> };
 
 /** Nonces whose request is still in flight in this tab; a history refresh must not call those failed. */
 const inFlightSends = new Set<string>();
@@ -70,7 +70,8 @@ export function useSendMessage(conversationId: string | null, personId: string |
 	const client = useQueryClient();
 	return useMutation({
 		mutationKey: ["send-message", personId, conversationId],
-		mutationFn: ({ attachments: _attachments, ...body }: SendInput) => api.sendMessage(conversationId ?? "", body),
+		mutationFn: ({ attachments: _attachments, replyTo: _replyTo, ...body }: SendInput) =>
+			api.sendMessage(conversationId ?? "", body),
 		onMutate: async (body) => {
 			if (!conversationId) return;
 			await client.cancelQueries({ queryKey: keys.messages.latest(conversationId) });
@@ -85,7 +86,8 @@ export function useSendMessage(conversationId: string | null, personId: string |
 				attachments: body.attachments ?? [],
 				...(body.voice ? { voice: body.voice } : {}),
 				...(body.type === "voice" ? { sendType: body.type } : {}),
-				replyToId: null,
+				replyToId: body.replyToId ?? null,
+				...(body.replyTo ? { replyTo: body.replyTo } : {}),
 				createdAt: new Date().toISOString(),
 				editedAt: null,
 				streaming: false,
@@ -125,7 +127,8 @@ export function useSendMessage(conversationId: string | null, personId: string |
 				attachments: body.attachments ?? [],
 				...(body.voice ? { voice: body.voice } : {}),
 				...(body.type === "voice" ? { sendType: body.type } : {}),
-				replyToId: null,
+				replyToId: body.replyToId ?? null,
+				...(body.replyTo ? { replyTo: body.replyTo } : {}),
 				createdAt: new Date().toISOString(),
 				editedAt: null,
 				streaming: false,

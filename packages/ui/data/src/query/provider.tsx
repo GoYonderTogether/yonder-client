@@ -49,6 +49,8 @@ export interface DataContextValue {
 	api: Endpoints;
 	realtime: RealtimeConnection;
 	storage: Storage;
+	/** Immediately persist a confirmed message deletion. */
+	flushQueryCache: () => void;
 	/** Development only: drop the access token without touching the refresh credential. */
 	expireAccessTokenForDev?: () => void;
 	/** Drop every trace of the signed-in user: token, cache, stored preferences. */
@@ -119,6 +121,7 @@ export function DataProvider({
 			...clientParts,
 			api,
 			storage,
+			flushQueryCache: persister.flush,
 			async startSession(session) {
 				await onSessionChange?.();
 				await clearChatCache();
