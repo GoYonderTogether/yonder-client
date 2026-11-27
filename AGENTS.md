@@ -5,12 +5,12 @@
 
 ## 开工前读
 
-| 要做什么 | 先读 |
-| --- | --- |
-| 界面、tokens、组件、页面骨架 | `docs/design-system.md` |
-| 设置页和表单 | `docs/settings-forms.md` |
-| 页面、路由、缓存、分层 | `docs/architecture.md` |
-| 发版、预览、Web 部署 | `docs/operations/release.md`、`docs/operations/internal-preview.md`、`docs/operations/web-deploy.md` |
+| 要做什么                     | 先读                                                                                                 |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 界面、tokens、组件、页面骨架 | `docs/design-system.md`                                                                              |
+| 设置页和表单                 | `docs/settings-forms.md`                                                                             |
+| 页面、路由、缓存、分层       | `docs/architecture.md`                                                                               |
+| 发版、预览、Web 部署         | `docs/operations/release.md`、`docs/operations/internal-preview.md`、`docs/operations/web-deploy.md` |
 
 ## 界面硬规则
 
@@ -33,7 +33,8 @@
 
 ## 多 Agent 并行开发
 
-- `main` 是唯一集成分支。并行任务从最新 `origin/main` 建独立 worktree 和临时**本地**任务分支，例如：`git fetch origin main && git worktree add -b agent/<任务ID> ../<仓库>-<任务ID> origin/main`。不要在日常主目录切分支，不建 fork，不为常规任务推远端分支或开 PR。
+- **所有开发和测试默认只在主分支 `main`、主工作区（`~/Documents/yonder/yonder-client`）上进行，发版也跟随主工作区。不建 worktree、不建任务分支，除非用户主动提出或明确授权。** 原因：多路并行各自开分支，一小时内差距就大到需要大量合并，极大拖慢项目效率。
+- `main` 是唯一集成分支。只有用户明确授权并行时，才从最新 `origin/main` 建独立 worktree 和临时**本地**任务分支（`git fetch origin main && git worktree add -b agent/<任务ID> ../<仓库>-<任务ID> origin/main`）；不建 fork，不为常规任务推远端分支或开 PR。
 - 开工先声明任务 ID、负责人和要改的目录或文件。共用文件、接口或迁移编号由一个任务负责，依赖任务排顺序。前后端配套改动用同一个任务 ID，并写明兼容顺序和联调结果。
 - 本地先验证、再提交、最后汇报。只暂存自己负责的文件，检查 `git diff --cached`，不要 `git add -A`、覆盖别人的改动或重写远端历史。提交前把一个独立任务整理为一个提交；未完成代码只有在默认关闭且不引入不兼容变更时才可进 main。
 - 在干净的任务 worktree 运行 `node scripts/agent-land.mjs -- sh -c 'npm ci && npm ci --prefix apps/miniprogram --no-audit --no-fund && npm run check'`（macOS/Linux）。它按同一仓库串行，将你的提交接到当前远端 main，在独立工作区验证组合结果，成功后普通快进推送。锁不跨克隆；远端先前进时不得强推，重新运行并验证。只在任务明确允许合入远端时运行。

@@ -237,6 +237,7 @@ export function ReceptionRemoveButton({
 				confirmLabel={label}
 				cancelLabel={t("app.cancel")}
 				closeLabel={t("app.close")}
+				backLabel={t("app.back")}
 				busy={edit.isPending}
 				error={memberFailureText(edit.error, t) || null}
 				onCancel={close}

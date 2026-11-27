@@ -182,7 +182,7 @@ test.each([false, true])(
 test.each([
 	{ draft: " \n ", disabled: false, disconnected: false, streaming: false, blocked: true, label: "Send" },
 	{ draft: "draft", disabled: true, disconnected: false, streaming: false, blocked: true, label: "Send" },
-	{ draft: "draft", disabled: false, disconnected: true, streaming: false, blocked: false, label: "Send" },
+	{ draft: "draft", disabled: false, disconnected: true, streaming: false, blocked: true, label: "Send" },
 	{ draft: "draft", disabled: false, disconnected: false, streaming: false, blocked: false, label: "Send" },
 	{ draft: "draft", disabled: false, disconnected: false, streaming: true, blocked: true, label: "Send" },
 	{ draft: "draft", disabled: false, disconnected: true, streaming: true, blocked: true, label: "Send" },

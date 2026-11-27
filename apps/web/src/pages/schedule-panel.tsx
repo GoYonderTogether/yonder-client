@@ -85,11 +85,12 @@ export function SchedulePanel({ scheduleId }: { scheduleId: string }) {
 			) : null}
 			<ConfirmDialog
 				open={deleting}
-				title={t("tasks.deleteTitle", { title: schedule.title })}
-				body={t("tasks.deleteIrreversible")}
+				title={t("tasks.delete")}
+				body={schedule.title}
 				confirmLabel={t("tasks.delete")}
 				cancelLabel={t("app.cancel")}
 				closeLabel={t("app.close")}
+				backLabel={t("app.back")}
 				busy={actions.remove.isPending}
 				onCancel={() => setDeleting(false)}
 				onConfirm={() => {

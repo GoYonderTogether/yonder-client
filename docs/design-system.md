@@ -93,27 +93,27 @@
 
 ## 二、组件目录
 
-| 场景         | 组件                                       | 包         | 主要 props                                                                                                                             |
-| ------------ | ------------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 按钮         | `Button`                                   | components | `variant` primary/secondary/ghost/danger/destructive/link（`destructive` 只给确认弹窗的提交键），`size` sm/md/lg，`loading`，`block`                                                     |
-| 图标按钮     | `IconButton`                               | components | `aria-label` 必填，`size` sm/md                                                                                                        |
-| 文字链接按钮 | `Button variant="link" size="sm"`          | components | 不再手写 `text-accent-text hover:underline`                                                                                            |
-| 卡片面       | `Card` + `CardHeader/Body/Footer`          | components | `variant` plain/raised/interactive                                                                                                     |
-| 设置列表     | `ListGroup` + `ListRow`                    | components | 行：`leading` `title` `subtitle` `trailing` `chevron`；`static` 纯展示；`value` 当前值；`control` 放 `Switch`/`Checkbox`，整行是 label |
-| 会话列表     | `ConversationRow`                          | components | —                                                                                                                                      |
-| 开关         | `Switch`                                   | components | 原生 checkbox + `role="switch"`；`busy`；用于立即生效的设置                                                                            |
-| 勾选         | `Checkbox`                                 | components | 需要点保存的选择                                                                                                                       |
-| 分段         | `Segmented`                                | components | `size` sm（桌面工具栏 32）/ lg（列表顶部满宽胶囊）                                                                                     |
-| 菜单         | `Menu`                                     | components | `label` `items`（id/label/icon/tone/disabled）`onSelect` `trigger`（渲染触发按钮）                                                     |
-| 浮出面       | `MenuSurface`、`MENU_SURFACE`、`MENU_ITEM` | components | 补全、附件菜单等自定义内容的外壳；`Popover`/`Listbox` 已用它                                                                           |
-| 徽标         | `Badge`                                    | components | `tone` neutral/accent/danger；micro，圆角 xs                                                                                           |
-| 提示条       | `Banner`                                   | components | `tone` info/warning/danger，`icon`，`action`；一页一条                                                                                 |
-| 行内错误     | `InlineError`                              | components | `onRetry` + `retryLabel`；`as="li"` 放进列表                                                                                           |
-| 加载         | `LoadingRow`、`Spinner`                    | components | `LoadingRow label`；`Spinner size` sm/md/lg，`label` 时是 status                                                                       |
-| 空状态       | `EmptyState`                               | components | `variant` page（整屏）/ inline（列表里一行），`as="li"`，`action`                                                                      |
-| 页面骨架     | `PageFrame`、`ListFrame`                   | shell      | `PageFrame width` form/sheet/reading/wide/full                                                                                         |
-| 页头         | `TopBar`                                   | shell      | 只经 `PageFrame`/`ListFrame` 用，页面不自己画                                                                                          |
-| 弹层         | `Overlay`                                  | shell      | `wide`，`mobilePresentation` page/sheet，`footer`，`padded`                                                                            |
+| 场景         | 组件                                       | 包         | 主要 props                                                                                                                                     |
+| ------------ | ------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 按钮         | `Button`                                   | components | `variant` primary/secondary/ghost/danger/destructive/link（`destructive` 只给确认弹窗的提交键），`size` sm/md/lg，`loading`，`block`           |
+| 图标按钮     | `IconButton`                               | components | `aria-label` 必填，`size` sm/md                                                                                                                |
+| 文字链接按钮 | `Button variant="link" size="sm"`          | components | 不再手写 `text-accent-text hover:underline`                                                                                                    |
+| 卡片面       | `Card` + `CardHeader/Body/Footer`          | components | `variant` plain/raised/interactive                                                                                                             |
+| 设置列表     | `ListGroup` + `ListRow`                    | components | 行：`leading` `title` `subtitle` `trailing` `chevron`；`static` 纯展示；`value` 当前值；`control` 放 `Switch`/`Checkbox`，整行是 label         |
+| 会话列表     | `ConversationRow`                          | components | —                                                                                                                                              |
+| 开关         | `Switch`                                   | components | 原生 checkbox + `role="switch"`；`busy`；用于立即生效的设置                                                                                    |
+| 勾选         | `Checkbox`                                 | components | 需要点保存的选择                                                                                                                               |
+| 分段         | `Segmented`                                | components | `size` sm（桌面工具栏 32）/ lg（列表顶部满宽胶囊）                                                                                             |
+| 菜单         | `Menu`                                     | components | `label` `items`（id/label/icon/tone/disabled）`onSelect` `trigger`（渲染触发按钮）                                                             |
+| 浮出面       | `MenuSurface`、`MENU_SURFACE`、`MENU_ITEM` | components | 补全、附件菜单等自定义内容的外壳；`Popover`/`Listbox` 已用它                                                                                   |
+| 徽标         | `Badge`                                    | components | `tone` neutral/accent/danger；micro，圆角 xs                                                                                                   |
+| 提示条       | `Banner`                                   | components | `tone` info/warning/danger，`icon`，`action`；一页一条                                                                                         |
+| 行内错误     | `InlineError`                              | components | `onRetry` + `retryLabel`；`as="li"` 放进列表                                                                                                   |
+| 加载         | `LoadingRow`、`Spinner`                    | components | `LoadingRow label`；`Spinner size` sm/md/lg，`label` 时是 status                                                                               |
+| 空状态       | `EmptyState`                               | components | `variant` page（整屏）/ inline（列表里一行），`as="li"`，`action`                                                                              |
+| 页面骨架     | `PageFrame`、`ListFrame`                   | shell      | `PageFrame width` form/sheet/reading/wide/full                                                                                                 |
+| 页头         | `TopBar`                                   | shell      | 只经 `PageFrame`/`ListFrame` 用，页面不自己画                                                                                                  |
+| 弹层         | `Overlay`                                  | shell      | `wide`，`mobilePresentation` page/sheet，`footer`，`padded`                                                                                    |
 | 确认         | `ConfirmDialog`                            | shell      | `title`（问句，带对象）`body`（一句后果）`confirmLabel` `cancelLabel` `closeLabel` `onConfirm` `onCancel` `tone` danger/primary `busy` `error` |
 
 组件不带文案：所有可见文字由调用方 `t()` 传入，`zh-CN` 和 `en` 都要有。

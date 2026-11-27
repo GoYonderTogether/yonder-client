@@ -16,5 +16,12 @@ export interface ConfirmDialogProps {
 /** The shell's confirmation with this app's Cancel, Close and Back words filled in. */
 export function ConfirmDialog(props: ConfirmDialogProps) {
 	const { t } = useTranslation();
-	return <ShellConfirmDialog {...props} cancelLabel={t("app.cancel")} closeLabel={t("app.close")} />;
+	return (
+		<ShellConfirmDialog
+			{...props}
+			cancelLabel={t("app.cancel")}
+			closeLabel={t("app.close")}
+			backLabel={t("app.back")}
+		/>
+	);
 }

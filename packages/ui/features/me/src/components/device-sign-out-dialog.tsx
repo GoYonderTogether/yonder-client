@@ -21,6 +21,7 @@ export function DeviceSignOutDialog({ device, onClose }: { device: DeviceSummary
 			confirmLabel={t("me.devices.signOut")}
 			cancelLabel={t("app.cancel")}
 			closeLabel={t("app.close")}
+			backLabel={t("app.back")}
 			busy={signOut.isPending}
 			error={signOut.isError ? t("me.devices.signOutFailed") : null}
 			onCancel={() => {

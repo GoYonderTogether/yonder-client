@@ -112,6 +112,7 @@ function BotConversationActions({ conversationId }: { conversationId: string }) 
 					confirmLabel={t("bots.clearHistory")}
 					cancelLabel={t("app.cancel")}
 					closeLabel={t("app.close")}
+					backLabel={t("app.back")}
 					busy={reset.isPending}
 					error={reset.isError ? failure : null}
 					onCancel={() => {

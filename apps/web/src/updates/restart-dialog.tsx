@@ -24,7 +24,7 @@ export function RestartUpdateDialog({
 			confirmLabel={t("me.update.restart")}
 			cancelLabel={t("app.cancel")}
 			closeLabel={t("app.close")}
-			tone="primary"
+			backLabel={t("app.back")}
 			busy={busy}
 			error={state.status === "error" && state.error === "install" ? t("me.update.installFailed") : null}
 			onCancel={() => {
