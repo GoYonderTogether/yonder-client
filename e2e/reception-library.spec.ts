@@ -1,5 +1,5 @@
 import { devices, expect, type Page, test } from "@playwright/test";
-import type { SocialLibrary, SocialLibraryChange } from "@yonder/protocol";
+import type { MemoryFileContent, SocialLibrary, SocialLibraryChange } from "@yonder/protocol";
 import { bot, isolateChat, person } from "./chat-fixture.ts";
 
 const updatedAt = "2026-11-20T03:00:00.000Z";
@@ -35,7 +35,7 @@ const bots = [
 	},
 ];
 
-async function isolateLibrary(page: Page, large = false) {
+async function isolateLibrary(page: Page, large = false, sourcePath?: string) {
 	await isolateChat(page, { items: [] });
 	await page.emulateMedia({ reducedMotion: "reduce" });
 	await page.route("**/v1/me", (route) =>
@@ -62,6 +62,7 @@ async function isolateLibrary(page: Page, large = false) {
 				folderId: "visits",
 				title: "来访时间与预约",
 				updatedAt,
+				...(sourcePath ? { path: sourcePath } : {}),
 				content:
 					"工作室在工作日 **10:00–18:00** 接待来访。\n\n### 如何预约\n\n- 请提前一天说明来访人数和希望到访的时段。\n- 临时改期时，直接回复预约消息即可。\n\n到达后请在一楼等候，接待同事会来接你。",
 			},
@@ -158,6 +159,60 @@ async function isolateLibrary(page: Page, large = false) {
 	});
 	return changes;
 }
+
+test("reception keeps the source shortcut only when that memory file is not already selected", async ({
+	page,
+}, info) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	const path = "/public/来访时间与预约.md";
+	const target = `/memory/files/${encodeURIComponent(path)}`;
+	await isolateLibrary(page, false, path);
+	const source: MemoryFileContent = {
+		path,
+		title: "发布版来访安排",
+		kind: "note",
+		content: "工作室在工作日接待来访。",
+		version: 1,
+		updatedAt,
+		visibility: "public",
+		updatedBy: "user",
+		userEdited: false,
+		draft: false,
+		sources: [],
+		links: [],
+		limit: { length: 65536, unit: "bytes" },
+	};
+	await page.route(/\/v1\/memory\/files\/content\?/u, (route) => route.fulfill({ json: source }));
+	await page.goto("/me/reception");
+	const openDocument = async () => {
+		await page.getByRole("button", { name: /^来访指南/ }).click();
+		await page.getByRole("button", { name: /^来访时间与预约/ }).click();
+	};
+	await openDocument();
+	const pane = page.locator("[data-detail-pane]");
+	const shortcut = pane.locator("[data-side-title-actions]").getByRole("link", { name: "在记忆中查看" });
+	await expect(shortcut).toHaveAttribute("href", target);
+	await expect(shortcut).toHaveAttribute("title", "在记忆中查看");
+	await expect(shortcut).toHaveText("");
+	const evidence = process.env.YONDER_E2E_EVIDENCE_DIR;
+	await page.screenshot({
+		path: evidence ? `${evidence}/reception-source-shortcut.png` : info.outputPath("source.png"),
+	});
+	await shortcut.click();
+	await expect(page).toHaveURL(new RegExp(target));
+	await expect(page.getByRole("heading", { name: source.title })).toBeVisible();
+	await page.getByRole("button", { name: "设置", exact: true }).click();
+	if (!new URL(page.url()).pathname.startsWith("/me/reception")) {
+		await page.getByRole("button", { name: "对外接待", exact: true }).click();
+	}
+	await openDocument();
+	await expect(pane.getByRole("heading", { name: "来访时间与预约" })).toBeVisible();
+	await expect(pane.getByRole("link", { name: "在记忆中查看" })).toHaveCount(0);
+	await expect(pane.getByRole("button", { name: "编辑资料" })).toBeVisible();
+	await page.screenshot({
+		path: evidence ? `${evidence}/reception-same-source-hidden.png` : info.outputPath("same-source.png"),
+	});
+});
 
 test("desktop reception opens folders and documents beside the directory and persists library edits", async ({
 	page,

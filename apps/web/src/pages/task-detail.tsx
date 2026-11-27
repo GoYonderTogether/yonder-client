@@ -79,19 +79,21 @@ function TaskDetail({ id }: { id: string }) {
 	return (
 		<div data-task-pane-reader className="flex flex-col">
 			<div className="flex flex-col gap-[var(--spacing-4)] p-[var(--spacing-4)]">
-				{state || started ? (
-					<p className="flex flex-wrap gap-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
-						{state ? <span>{t(state)}</span> : null}
-						{started ? <time dateTime={item.startedAt}>{t("tasks.itemStartedAt", { at: started })}</time> : null}
-					</p>
-				) : null}
+				<div className="flex items-center gap-[var(--spacing-2)] empty:hidden">
+					{state || started ? (
+						<p className="flex flex-1 flex-wrap gap-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
+							{state ? <span>{t(state)}</span> : null}
+							{started ? <time dateTime={item.startedAt}>{t("tasks.itemStartedAt", { at: started })}</time> : null}
+						</p>
+					) : null}
+					<FullTaskLink id={id} />
+				</div>
 				{text ? <MessageContent body={text} /> : null}
 				{item.failureReason ? (
 					<p role="note">{itemFailure(item.failureReason, i18n.resolvedLanguage ?? i18n.language).text}</p>
 				) : null}
 				{item.files?.length ? <TaskOutputFiles paths={item.files} /> : null}
 			</div>
-			<FullTaskLink id={id} />
 		</div>
 	);
 }

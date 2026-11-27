@@ -163,7 +163,8 @@ export function MeetingReading({
 	onRead,
 	header,
 	anchorRequest,
-}: MeetingReadingProps & { header?: ReactNode }) {
+	action,
+}: MeetingReadingProps & { header?: ReactNode; action?: ReactNode }) {
 	const { t } = useTranslation();
 	const body = useRef<HTMLDivElement>(null);
 	const entries = recordingEntries(meeting);
@@ -189,17 +190,20 @@ export function MeetingReading({
 		<>
 			<header className="recording-reader-header">
 				{header}
-				<Segmented
-					aria-label={t("meetingRecorder.name")}
-					size="lg"
-					options={[
-						{ value: "notes", label: t("meetingRecorder.archiveNotes"), disabled: !summary },
-						{ value: "original", label: t("meetingRecorder.archiveOriginal") },
-					]}
-					value={shown}
-					onChange={(value) => onRead(value === "notes" ? "notes" : "original")}
-					className="col-span-full"
-				/>
+				<div className="col-span-full flex items-center gap-[var(--spacing-2)]">
+					<Segmented
+						aria-label={t("meetingRecorder.name")}
+						size="lg"
+						options={[
+							{ value: "notes", label: t("meetingRecorder.archiveNotes"), disabled: !summary },
+							{ value: "original", label: t("meetingRecorder.archiveOriginal") },
+						]}
+						value={shown}
+						onChange={(value) => onRead(value === "notes" ? "notes" : "original")}
+						className="min-w-0 flex-1"
+					/>
+					{action}
+				</div>
 			</header>
 			<div ref={body} className="recording-reader-body" key={shown}>
 				{shown === "notes" && summary ? (

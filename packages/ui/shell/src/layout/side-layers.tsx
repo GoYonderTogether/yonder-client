@@ -21,15 +21,28 @@ export interface SidePage {
 }
 
 /** `undefined` outside a detail pane; inside, the slot element once it is mounted. */
-const ActionsSlot = createContext<{ element: HTMLElement | null } | undefined>(undefined);
+const ActionsSlot = createContext<
+	{ element: HTMLElement | null; title: HTMLElement | null; desktop: boolean } | undefined
+>(undefined);
 
 /**
- * The one place a detail page puts its own actions (download, edit, delete, open in full, source
- * status). They render in a row between the tabs and the content, so every kind of detail offers
- * them in the same spot. Outside a pane the children stay where they were written.
+ * Detail controls share the action row by default. Compact actions can opt into the desktop title
+ * bar; on phones those controls stay inline at their call site.
  */
-export function SidePageActions({ children, className }: { children: ReactNode; className?: string }) {
+export function SidePageActions({
+	children,
+	className,
+	placement = "row",
+}: {
+	children: ReactNode;
+	className?: string;
+	placement?: "row" | "title";
+}) {
 	const slot = useContext(ActionsSlot);
+	if (placement === "title") {
+		if (!slot?.desktop) return children;
+		return slot.title ? createPortal(children, slot.title) : null;
+	}
 	if (!slot) return <div className={className}>{children}</div>;
 	return slot.element ? createPortal(children, slot.element) : null;
 }
@@ -100,6 +113,7 @@ export function SideLayers({ side, mode, desktop }: { side: SideStack; mode: Lay
 function DesktopSide({ side, mode }: { side: SideStack; mode: LayoutMode }) {
 	const id = useId();
 	const strip = useRef<HTMLDivElement>(null);
+	const [titleActions, setTitleActions] = useState<HTMLDivElement | null>(null);
 	const [overflow, setOverflow] = useState(false);
 	useEffect(() => {
 		const list = strip.current;
@@ -247,6 +261,11 @@ function DesktopSide({ side, mode }: { side: SideStack; mode: LayoutMode }) {
 					</label>
 				) : null}
 				<div data-tauri-drag-region className="min-h-full min-w-0 flex-1 self-stretch" />
+				<div
+					ref={setTitleActions}
+					data-side-title-actions
+					className="flex shrink-0 items-center gap-[var(--spacing-1)] empty:hidden"
+				/>
 				<div className="flex shrink-0 items-center gap-[var(--spacing-1)]">
 					<IconButton
 						aria-label={side.labels.collapse}
@@ -277,7 +296,14 @@ function DesktopSide({ side, mode }: { side: SideStack; mode: LayoutMode }) {
 					tabIndex={0}
 					className={cn("min-h-0 flex-1 outline-none", tab.key === side.active && "flex flex-col")}
 				>
-					<SidePages tab={tab} mode={mode} desktop onBack={side.onBack} backLabel={side.labels.back} />
+					<SidePages
+						tab={tab}
+						mode={mode}
+						desktop
+						onBack={side.onBack}
+						backLabel={side.labels.back}
+						titleActions={tab.key === side.active ? titleActions : null}
+					/>
 				</div>
 			))}
 		</aside>
@@ -291,6 +317,7 @@ function SidePages({
 	mobile,
 	onBack,
 	backLabel,
+	titleActions = null,
 }: {
 	tab: SideTab;
 	mode: LayoutMode;
@@ -298,6 +325,7 @@ function SidePages({
 	mobile?: boolean;
 	onBack: () => void;
 	backLabel: string;
+	titleActions?: HTMLElement | null;
 }) {
 	const active = tab.pages.at(-1);
 	const frame = useRef<HTMLDivElement>(null);
@@ -325,7 +353,14 @@ function SidePages({
 				</div>
 			) : null}
 			{tab.pages.map((page) => (
-				<SidePageFrame key={page.key} page={page} active={page === active} mode={mode} desktop={desktop} />
+				<SidePageFrame
+					key={page.key}
+					page={page}
+					active={page === active}
+					mode={mode}
+					desktop={desktop}
+					titleActions={page === active ? titleActions : null}
+				/>
 			))}
 		</div>
 	);
@@ -336,11 +371,13 @@ function SidePageFrame({
 	active,
 	mode,
 	desktop,
+	titleActions,
 }: {
 	page: SidePage;
 	active: boolean;
 	mode: LayoutMode;
 	desktop: boolean;
+	titleActions: HTMLElement | null;
 }) {
 	const [element, setElement] = useState<HTMLElement | null>(null);
 	return (
@@ -355,7 +392,7 @@ function SidePageFrame({
 				aria-label={page.title}
 				className="min-h-0 flex-1 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-contain"
 			>
-				<ActionsSlot value={{ element }}>
+				<ActionsSlot value={{ element, title: titleActions, desktop }}>
 					<ShellProvider value={{ mode, desktop, left: null, meOpen: false }}>{page.content}</ShellProvider>
 				</ActionsSlot>
 			</section>

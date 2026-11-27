@@ -1,4 +1,5 @@
-import { GesturePanel, SidePageActions } from "@yonder/ui-shell";
+import { IconButton } from "@yonder/ui-components";
+import { GesturePanel, SidePageActions, useShellChrome } from "@yonder/ui-shell";
 import { Download, X } from "lucide-react";
 import { lazy, type RefObject, Suspense, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -51,12 +52,17 @@ function ImagePosition({ position, total }: ImageNavigation) {
 	return <output className="attachment-reader-position">{t("imagePosition", { position, total })}</output>;
 }
 
-function DownloadAttachment({ file }: { file: PreviewFile }) {
+function DownloadAttachment({ file, compact = false }: { file: PreviewFile; compact?: boolean }) {
 	const t = usePreviewTranslation();
 	return (
-		<button type="button" onClick={() => downloadAttachment(file)} aria-label={t("download")} title={t("download")}>
+		<IconButton
+			size={compact ? "sm" : "md"}
+			onClick={() => downloadAttachment(file)}
+			aria-label={t("download")}
+			title={t("download")}
+		>
 			<Download size={20} aria-hidden="true" />
-		</button>
+		</IconButton>
 	);
 }
 
@@ -73,6 +79,7 @@ export function AttachmentReader({
 	imageNavigation?: ImageNavigation | undefined;
 }) {
 	const t = usePreviewTranslation();
+	const { desktop } = useShellChrome();
 	const pane = useRef<HTMLElement>(null);
 	useImageKeys(pane, imageNavigation?.move);
 	const kind = previewKind(file);
@@ -105,10 +112,17 @@ export function AttachmentReader({
 	);
 	if (display === "overlay") return reader;
 	return (
-		<section ref={pane} className="attachment-reader attachment-reader-pane" data-attachment-pane-reader>
-			<SidePageActions className="attachment-reader-toolbar attachment-reader-download">
-				{imageNavigation ? <ImagePosition {...imageNavigation} /> : null}
-				<DownloadAttachment file={file} />
+		<section
+			ref={pane}
+			className="attachment-reader attachment-reader-pane"
+			data-attachment-pane-reader
+			data-inline-actions={desktop ? undefined : imageNavigation ? "gallery" : "file"}
+		>
+			<SidePageActions placement="title">
+				<div className={desktop ? "flex items-center gap-[var(--spacing-1)]" : "attachment-reader-inline-actions"}>
+					{imageNavigation ? <ImagePosition {...imageNavigation} /> : null}
+					<DownloadAttachment file={file} compact />
+				</div>
 			</SidePageActions>
 			{reader}
 		</section>

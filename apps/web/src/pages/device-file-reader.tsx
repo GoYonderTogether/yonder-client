@@ -203,25 +203,26 @@ function DeviceFileReader({ source, path }: { source: ConnectorInstance; path: s
 	const status = content?.kind === "error" || content?.kind === "stale" ? content.label : undefined;
 	return (
 		<section data-device-file-reader className="flex h-full min-h-0 flex-col">
-			<SidePageActions className="flex flex-wrap items-center gap-[var(--spacing-2)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
-				<span className="me-auto flex flex-wrap items-center gap-[var(--spacing-2)]">
-					<span>{source.deviceName}</span>
-					{checking ? (
-						<LoaderCircle
-							role="status"
-							aria-label={t("deviceFiles.checking")}
-							className="animate-spin motion-reduce:animate-none"
-							size={16}
-						/>
-					) : null}
-					{status ? <span role="status">{t(status)}</span> : null}
-					{status && !checking ? (
-						<Button size="sm" variant="link" onClick={() => refresh.current?.()}>
-							{t("app.retry")}
-						</Button>
-					) : null}
-				</span>
-			</SidePageActions>
+			{checking || status ? (
+				<SidePageActions className="flex flex-wrap items-center gap-[var(--spacing-2)] border-b border-[var(--color-border-subtle)] px-[var(--spacing-4)] py-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
+					<span className="me-auto flex flex-wrap items-center gap-[var(--spacing-2)]">
+						{checking ? (
+							<LoaderCircle
+								role="status"
+								aria-label={t("deviceFiles.checking")}
+								className="animate-spin motion-reduce:animate-none"
+								size={16}
+							/>
+						) : null}
+						{status ? <span role="status">{t(status)}</span> : null}
+						{status && !checking ? (
+							<Button size="sm" variant="link" onClick={() => refresh.current?.()}>
+								{t("app.retry")}
+							</Button>
+						) : null}
+					</span>
+				</SidePageActions>
+			) : null}
 			{content?.kind === "directory" ? (
 				<div className="min-h-0 flex-1 overflow-y-auto p-[var(--spacing-3)]">
 					{content.entries.length ? (

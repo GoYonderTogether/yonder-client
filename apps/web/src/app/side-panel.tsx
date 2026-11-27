@@ -8,6 +8,7 @@ import {
 	type SidePage,
 	SidePanelProvider,
 	type SideStack,
+	useOptionalSidePanel,
 } from "@yonder/ui-shell";
 import { ICON_SIZE } from "@yonder/ui-tokens";
 import { Bot, UserRound, Users } from "lucide-react";
@@ -237,7 +238,11 @@ function ScopedPage({
 	page: string;
 	children: ReactNode;
 }) {
-	const controls = useMemo(() => controlsFor(tab, page), [controlsFor, tab, page]);
+	const primaryResource = useOptionalSidePanel()?.primaryResource ?? null;
+	const controls = useMemo(
+		() => ({ ...controlsFor(tab, page), primaryResource }),
+		[controlsFor, tab, page, primaryResource],
+	);
 	return <SidePanelProvider value={controls}>{children}</SidePanelProvider>;
 }
 

@@ -22,7 +22,7 @@ import {
 	tabPath,
 } from "@yonder/ui-shell";
 import type { ReactNode } from "react";
-import { Suspense, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { listenForContactAdded } from "../lib/contact-window.ts";
@@ -213,6 +213,13 @@ export function AppFrame() {
 		path: location.pathname,
 	});
 	const memoryView = readMemoryView(tab === "memory" ? selection : null, subSelection);
+	const primaryResource =
+		taskSelection && taskSelection !== "new"
+			? `task:${taskSelection}`
+			: memoryView.kind === "file"
+				? `memory:${memoryView.path}`
+				: null;
+	const sideControls = useMemo(() => ({ ...layers.controls, primaryResource }), [layers.controls, primaryResource]);
 	const memoryTimeline = memoryView.kind === "timeline";
 	const segmentRoot = tab === "tasks" && selection === "scheduled";
 	const detailOpen = selection !== null && !segmentRoot;
@@ -400,7 +407,7 @@ export function AppFrame() {
 	return (
 		<ComposerQuoteContext value={chat.quote}>
 			<AskMainBotProvider value={preset.ask}>
-				<SidePanelProvider value={layers.controls}>
+				<SidePanelProvider value={sideControls}>
 					<AppShell
 						tab={{
 							current: tab,

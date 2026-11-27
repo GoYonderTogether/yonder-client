@@ -118,6 +118,10 @@ test("desktop attachment tabs keep the chat usable and reuse a zoomed document",
 	await setup(page);
 	await open(page, "chinese.pdf");
 	const pane = page.locator("[data-detail-pane]");
+	const download = pane.locator("[data-side-title-actions]").getByRole("button", { name: "下载原文件" });
+	await expect(download).toBeVisible();
+	await expect(download).toHaveAttribute("title", "下载原文件");
+	await expect(pane.locator("[data-side-actions]")).toBeHidden();
 	const pdfPage = pane.locator('[data-pdf-page="1"]:visible');
 	const width = () => pdfPage.evaluate((element: HTMLElement) => Number.parseFloat(element.style.width));
 	const fit = await width();
@@ -296,6 +300,16 @@ test.describe("phone attachment readers", () => {
 		await expect(page.getByRole("heading", { name: "交付清单" })).toBeVisible();
 		const header = page.getByRole("dialog", { name: "发布安排.md" }).locator("[data-frame-header]");
 		await expect(header.getByRole("button")).toHaveCount(1);
+		const reader = page.locator("[data-attachment-pane-reader]");
+		const inlineDownload = reader.getByRole("button", { name: "下载原文件" });
+		await expect(inlineDownload).toBeVisible();
+		const [downloadBounds, headingBounds] = await Promise.all([
+			inlineDownload.boundingBox(),
+			reader.getByRole("heading", { name: "发布安排" }).boundingBox(),
+		]);
+		if (!downloadBounds || !headingBounds) throw new Error("The reader heading and download action must be visible");
+		expect(downloadBounds.y).toBeLessThan(headingBounds.y + headingBounds.height);
+		expect(headingBounds.y).toBeLessThan(downloadBounds.y + downloadBounds.height);
 		await expect(page.getByRole("tablist")).toHaveCount(0);
 		await page.screenshot({ path: `${evidence}/phone-attachment-detail.png`, animations: "disabled" });
 		await close(page);

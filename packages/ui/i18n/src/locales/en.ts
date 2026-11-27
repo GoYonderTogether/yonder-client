@@ -437,9 +437,7 @@ export const en = {
 	},
 
 	memory: memoryMessagesEn,
-
 	me: accountMessagesEn.me,
-
 	models: modelMessagesEn,
 
 	profile: accountMessagesEn.profile,

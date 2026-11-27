@@ -54,8 +54,8 @@ function MeetingDetail({ id, options }: { id: string; options: MeetingReadingLoc
 				source={location?.source ?? null}
 				anchorRequest={location}
 				onRead={(mode, source) => setLocation({ mode, ...(source ? { source } : {}) })}
+				action={<FullTaskLink id={id} />}
 			/>
-			<FullTaskLink id={id} />
 		</div>
 	);
 }

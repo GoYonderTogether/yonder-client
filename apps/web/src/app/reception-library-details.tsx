@@ -5,7 +5,7 @@ import { SidePageActions, useOptionalSidePanel } from "@yonder/ui-shell";
 import { EyeOff, File, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { DetailLinkAction } from "../lib/detail-link-action.tsx";
 import { memoryFileRoute } from "../pages/memory/memory-view.ts";
 import { MessageContent } from "../pages/message-content.tsx";
 import { receptionDraftTitle, useReceptionDate } from "./reception-library-directory.tsx";
@@ -73,9 +73,12 @@ export function ReceptionDocumentDetail({
 	return (
 		<article className="flex min-w-0 flex-col gap-[var(--spacing-5)]">
 			<header className="flex flex-col gap-[var(--spacing-2)]">
-				<h2 className="text-h2 font-semibold text-[var(--color-text-primary)] [overflow-wrap:anywhere]">
-					{document.title}
-				</h2>
+				<div className="flex items-start gap-[var(--spacing-2)]">
+					<h2 className="min-w-0 flex-1 text-h2 font-semibold text-[var(--color-text-primary)] [overflow-wrap:anywhere]">
+						{document.title}
+					</h2>
+					{path ? <MemoryFileLink path={path} /> : null}
+				</div>
 				<div className="flex flex-wrap items-center gap-[var(--spacing-2)] text-caption text-[var(--color-text-tertiary)]">
 					<span className="rounded-[var(--radius-control-sm)] bg-[var(--color-accent-subtle)] px-[var(--spacing-2)] py-[var(--spacing-1)] text-[var(--color-accent-text)]">
 						{t("members.social.library.published")}
@@ -95,18 +98,15 @@ export function ReceptionDocumentDetail({
 					</>
 				) : null}
 				{path ? (
-					<>
-						<Button
-							size="sm"
-							variant="ghost"
-							loading={setVisibility.isPending}
-							onClick={() => setVisibility.mutate({ path, visibility: "private" }, { onSuccess: onRemoved })}
-						>
-							<EyeOff size={16} aria-hidden />
-							{t("members.social.library.unpublish")}
-						</Button>
-						<MemoryFileLink path={path} />
-					</>
+					<Button
+						size="sm"
+						variant="ghost"
+						loading={setVisibility.isPending}
+						onClick={() => setVisibility.mutate({ path, visibility: "private" }, { onSuccess: onRemoved })}
+					>
+						<EyeOff size={16} aria-hidden />
+						{t("members.social.library.unpublish")}
+					</Button>
 				) : null}
 			</SidePageActions>
 			<ReceptionMutationError error={setVisibility.error} />
@@ -116,13 +116,9 @@ export function ReceptionDocumentDetail({
 
 function MemoryFileLink({ path }: { path: string }) {
 	const { t } = useTranslation();
-	return (
-		<Link
-			to={memoryFileRoute(path)}
-			className="inline-flex min-h-[var(--control-sm)] items-center rounded-[var(--radius-control-sm)] px-[var(--spacing-2)] text-caption font-medium text-[var(--color-accent-text)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
-		>
-			{t("members.social.library.openMemory")}
-		</Link>
+	const side = useOptionalSidePanel();
+	return side?.primaryResource === `memory:${path}` ? null : (
+		<DetailLinkAction to={memoryFileRoute(path)} label={t("members.social.library.openMemory")} />
 	);
 }
 
@@ -167,9 +163,12 @@ export function ReceptionDraftDetail({
 	return (
 		<article className="flex min-w-0 flex-col gap-[var(--spacing-5)]">
 			<header className="flex flex-col gap-[var(--spacing-2)]">
-				<h2 className="text-h2 font-semibold text-[var(--color-text-primary)] [overflow-wrap:anywhere]">
-					{originalTitle}
-				</h2>
+				<div className="flex items-start gap-[var(--spacing-2)]">
+					<h2 className="min-w-0 flex-1 text-h2 font-semibold text-[var(--color-text-primary)] [overflow-wrap:anywhere]">
+						{originalTitle}
+					</h2>
+					{draft.path ? <MemoryFileLink path={draft.path} /> : null}
+				</div>
 				<time className="text-caption text-[var(--color-text-tertiary)]" dateTime={draft.createdAt}>
 					{date.format(new Date(draft.createdAt))}
 				</time>
@@ -197,7 +196,6 @@ export function ReceptionDraftDetail({
 						{t("members.social.approve")}
 					</Button>
 					<ReceptionRemoveButton draft id={draft.id} title={originalTitle} onRemoved={reviewed} />
-					{draft.path ? <MemoryFileLink path={draft.path} /> : null}
 				</div>
 			</form>
 		</article>

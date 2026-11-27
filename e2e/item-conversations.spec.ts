@@ -307,10 +307,17 @@ for (const layout of ["desktop", "mobile"] as const) {
 			const pane = page.locator("[data-task-pane-reader]");
 			await expect(pane).toContainText(detail.result ?? "");
 			await expect(pane.getByRole("link", { name: "发布清单.md" })).toHaveAttribute("href", /^\/memory\/files\//);
-			await expect(page.getByRole("link", { name: "打开完整任务" })).toHaveAttribute("href", `/tasks/${detail.id}`);
+			const openTask = (layout === "desktop" ? page.locator("[data-side-title-actions]") : pane).getByRole("link", {
+				name: "打开完整任务",
+			});
+			await expect(openTask).toHaveAttribute("href", `/tasks/${detail.id}`);
+			await expect(openTask).toHaveAttribute("title", "打开完整任务");
+			await expect(openTask).toHaveText("");
 			await expect(page).toHaveURL(/\/messages\/main$/);
 			if (paneEvidence)
 				await page.screenshot({ path: `${paneEvidence}/chat-task-reference-${layout}.png`, animations: "disabled" });
+			await openTask.click();
+			await expect(page).toHaveURL(new RegExp(`/tasks/${detail.id}$`));
 		});
 
 		test("a recording item opens its transcript and keeps the follow-up in the item", async ({ page }, info) => {
@@ -351,6 +358,12 @@ for (const layout of ["desktop", "mobile"] as const) {
 			else await reader.getByRole("radio", { name: "原文" }).click();
 			await expect(reader.getByRole("radio", { name: "原文" })).toBeChecked();
 			await expect(reader.getByText(recording.transcript, { exact: true })).toBeVisible();
+			await expect(page.getByRole("link", { name: "打开完整任务" })).toHaveCount(0);
+			if (paneEvidence)
+				await page.screenshot({
+					path: `${paneEvidence}/same-task-action-hidden-${layout}.png`,
+					animations: "disabled",
+				});
 			await page.screenshot({
 				path: info.outputPath(`recording-expanded-${layout}.png`),
 				animations: "disabled",

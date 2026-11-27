@@ -92,7 +92,8 @@ for (const layout of ["desktop", "phone"]) {
 			const reader = page.locator("[data-device-file-reader]:visible");
 			const detail = page.getByRole(layout === "phone" ? "dialog" : "tabpanel");
 			await expect(reader.getByText("先确认交付范围，再整理手机端回归的截图。")).toBeVisible();
-			await expect(detail.getByText("工作 Mac", { exact: true })).toBeVisible();
+			await expect(detail).toHaveAccessibleName("发布安排.md · 工作 Mac");
+			await expect(detail.getByText("工作 Mac", { exact: true })).toHaveCount(0);
 			if (layout === "phone") {
 				await expect
 					.poll(async () => {

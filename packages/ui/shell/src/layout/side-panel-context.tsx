@@ -3,6 +3,8 @@ import type { SidePage } from "./side-layers.tsx";
 
 /** Opens an independent resource or a child page of the current resource. */
 export interface SidePanelControls {
+	/** The resource already shown by the workspace route, e.g. `task:<id>` or `memory:<path>`. */
+	primaryResource?: string | null;
 	open: (page: SidePage) => void;
 	push: (page: SidePage) => void;
 	openMember?: (handle: string, title?: string, onReturn?: () => void) => void;
