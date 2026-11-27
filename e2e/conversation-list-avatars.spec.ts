@@ -30,6 +30,9 @@ const direct = {
 	],
 } satisfies Conversation;
 
+// Compare final layout, not bounds taken at different frames of the mobile entry animation.
+test.use({ reducedMotion: "reduce" });
+
 for (const phone of [false, true]) {
 	test(`system, group and direct rows share an avatar slot on ${phone ? "phone" : "desktop"}`, async ({
 		page,

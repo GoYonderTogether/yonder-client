@@ -1,6 +1,6 @@
 import { devices, expect, type Page, type TestInfo, test } from "@playwright/test";
 import type { MeetingRecord, MemoryDayPage, MemoryFileContent, MemoryFileRevision } from "@yonder/protocol";
-import { memoryFileRoute } from "../apps/web/src/pages/memory/memory-view.ts";
+import { memoryFileRoute, memoryFolderRoute } from "../apps/web/src/pages/memory/memory-view.ts";
 import { conversation, isolateChat } from "./chat-fixture.ts";
 
 // The static fixture serves extension-bearing deep links through a route intercept.
@@ -8,9 +8,13 @@ test.use({ serviceWorkers: "block" });
 
 const at = "2026-11-18T09:30:00Z";
 const notePath = "/sources/recordings/周会.md";
+const nestedNotePath = "/notes/meetings/weekly/decisions.md";
 const digestPath = "/digests/day/2026-11-18.md";
 const folders = [
-	{ path: "/sources/recordings", displayName: "会议" },
+	{ path: "/sources/recordings", displayName: "录音" },
+	{ path: "/notes", displayName: "笔记" },
+	{ path: "/notes/meetings", displayName: "纪要" },
+	{ path: "/notes/meetings/weekly", displayName: "每周" },
 	{ path: "/digests", displayName: "总结" },
 	{ path: "/digests/day", displayName: "日总结" },
 ];
@@ -125,6 +129,7 @@ async function memoryApi(page: Page) {
 		[impressionPath]: file(impressionPath, "印象", "impression", "偏好 **直接说明**。"),
 		[recentPath]: file(recentPath, "近期", "recent", "本周核对归档。"),
 		[notePath]: note,
+		[nestedNotePath]: file(nestedNotePath, "项目决定", "note", "先确认发布时间。"),
 		[digestPath]: file(digestPath, "日总结", "digest", "接口约定和发布窗口已记录。"),
 	};
 	const revisions: MemoryFileRevision[] = [
@@ -242,12 +247,17 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	await expect(impression.getByText("12 / 3,000")).toBeVisible();
 	await impression.getByRole("button", { name: "取消" }).click();
 
-	// Every group is a card under 「全部」 (a row in the wide column); the meeting folder holds the note.
 	await page.goto("/memory");
-	await page.getByRole("button", { name: /^会议/ }).click();
-	await expect(page).toHaveURL(/\/memory\/g\/.+/);
+	const recordings = page.getByRole("button", { name: /^录音/ });
+	await recordings.click();
+	const directoryRoute = phone ? /\/memory\/g\/.+$/ : /\/memory$/;
+	await expect(page).toHaveURL(directoryRoute);
+	if (!phone) {
+		await expect(recordings).toHaveAttribute("aria-expanded", "true");
+		await expect(page.getByRole("main").getByRole("button", { name: /会后决定/ })).toBeVisible();
+	}
 	await page.getByRole("button", { name: /周会纪要/ }).click();
-	await expect(page).toHaveURL(/\/memory\/g\/.+/);
+	await expect(page).toHaveURL(directoryRoute);
 	await expect(pane).toBeVisible();
 	await expect(pane.getByRole("tab")).toHaveCount(phone ? 0 : 1);
 	const reader = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "周会纪要" }) });
@@ -281,7 +291,7 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 
 	await reader.getByRole("button", { name: "删除" }).click();
 	await reader.getByRole("button", { name: "确认删除" }).click();
-	await expect(page).toHaveURL(/\/memory\/g\/.+$/);
+	await expect(page).toHaveURL(directoryRoute);
 	await expect(reader).toHaveCount(0);
 	expect(api.writes.at(-1)).toEqual({ method: "DELETE", body: { path: notePath } });
 
@@ -294,6 +304,39 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 test("opens, edits, publishes and deletes memory on desktop", async ({ page }, testInfo) => {
 	await page.setViewportSize({ width: 1280, height: 900 });
 	await exerciseMemory(page, testInfo, false);
+});
+
+test("expands nested notes in the wide sidebar while keeping the current detail", async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 900 });
+	await memoryApi(page);
+	await page.goto("/memory");
+	const main = page.getByRole("main");
+	const pane = page.locator("[data-detail-pane]");
+	const notes = page.getByRole("button", { name: /^笔记/ });
+	const folder = page.getByRole("button", { name: "纪要", exact: true });
+	const subfolder = page.getByRole("button", { name: "每周", exact: true });
+	const note = page.getByRole("button", { name: /项目决定/ });
+	await expect(notes).toHaveAttribute("aria-expanded", "false");
+	await notes.click();
+	await expect(note).toHaveCount(0);
+	await folder.click();
+	await subfolder.click();
+	await expect(page).toHaveURL(/\/memory$/);
+	await expect(main.getByRole("button", { name: /会后决定/ })).toBeVisible();
+	await note.click();
+	await expect(pane.getByRole("heading", { name: "项目决定" })).toBeVisible();
+	await expect(pane.getByRole("tab", { name: "项目决定" })).toHaveAttribute("aria-selected", "true");
+	await expect(page).toHaveURL(/\/memory$/);
+	await notes.click();
+	await expect(note).toHaveCount(0);
+	await expect(pane.getByRole("heading", { name: "项目决定" })).toBeVisible();
+	await notes.click();
+	await expect(note).toBeVisible();
+
+	await page.goto(memoryFolderRoute("notes", "meetings/weekly"));
+	await expect(main.getByRole("button", { name: /会后决定/ })).toBeVisible();
+	await expect(note).toBeVisible();
+	await expect(main.getByRole("button", { name: /项目决定/ })).toHaveCount(0);
 });
 
 test.describe("memory on a phone", () => {

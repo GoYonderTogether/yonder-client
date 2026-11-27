@@ -8,6 +8,7 @@ export const friendQrEn = {
 
 export const friendRequestsEn = {
 	title: "Friend requests",
+	empty: "No friend requests yet",
 	accepted: "Accepted",
 	accept: "Accept",
 	sent: "Request sent",

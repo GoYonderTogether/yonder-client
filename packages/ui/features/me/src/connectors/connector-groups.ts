@@ -31,7 +31,7 @@ const COPY_KEYS: Record<ConnectorId, string> = {
 };
 
 export function groupKey(group: ConnectorGroup): string {
-	return group.id === "computer" ? "computer" : COPY_KEYS[group.id];
+	return group.id === "computer" ? "computerAccess" : COPY_KEYS[group.id];
 }
 
 export type SwitchState = "on" | "off" | "mixed";

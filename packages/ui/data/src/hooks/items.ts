@@ -1,7 +1,17 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ItemDetail, MeResponse, SendMessageRequest, UpdateItemRequest } from "@yonder/protocol";
+import { type InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { findPendingBotReply } from "@yonder/chat-model";
+import type {
+	ItemDetail,
+	ItemSummary,
+	MeResponse,
+	MessagePage,
+	SendMessageRequest,
+	UpdateItemRequest,
+} from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
+import { usePerson } from "./account.ts";
+import { useMessages } from "./chat.ts";
 
 /**
  * The items list (16-3 第八节): one merged, newest-first page over subtasks, schedule firings and
@@ -91,14 +101,31 @@ export function useItem(id: string | null) {
 	});
 }
 
-export function useItemSession(id: string | null) {
+export function useItemSession(id: string | null, enabled = true) {
 	const api = useApi();
 	return useQuery({
 		queryKey: keys.items.session(id ?? ""),
 		queryFn: () => api.openItemSession(id ?? ""),
-		enabled: Boolean(id),
+		enabled: enabled && Boolean(id),
 		staleTime: 60_000,
 	});
+}
+
+/** Watch each item's own chat without opening sessions or fetching idle histories from the list. */
+export function useItemPendingReply(item: ItemSummary) {
+	const person = usePerson();
+	const { data: session } = useItemSession(item.id, false);
+	const conversationId = session?.conversation.id ?? (item.source === "conversation" ? item.id : null);
+	const pendingReply = (history: InfiniteData<MessagePage> | undefined) =>
+		person &&
+		findPendingBotReply(
+			history?.pages.flatMap((page) => page.items),
+			item.botMemberId,
+			person.id,
+		);
+	// Keep pending histories active so realtime reconnect can reconcile them after leaving the detail.
+	const { data } = useMessages(conversationId, false, (history) => Boolean(pendingReply(history)));
+	return pendingReply(data);
 }
 
 export function useRenameItemSession(personId: string | undefined) {

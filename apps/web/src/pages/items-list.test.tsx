@@ -4,6 +4,7 @@ import type { ItemSummary, Member } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
+import { itemTimeLabel } from "./items-format.ts";
 import { ItemsList } from "./items-list.tsx";
 
 const state = vi.hoisted(() => ({
@@ -37,6 +38,7 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 			refetch: async () => {},
 		};
 	},
+	useItemPendingReply: () => undefined,
 	useContacts: () => ({ data: { items: state.contacts } }),
 	useSchedules: () => ({ data: { items: [] } }),
 	useItemListAction: () => ({ mutate: state.change, mutateAsync: state.change, reset: vi.fn() }),
@@ -90,30 +92,33 @@ test("items are grouped into today, yesterday and earlier, with earlier collapse
 	]);
 	const headings = [...container.querySelectorAll("h2")].map((heading) => heading.textContent);
 	expect(headings).toEqual(["Today", "Yesterday", "Earlier"]);
-	expect(screen.getByText("今天的事")).toBeVisible();
+	const today = screen.getByRole("button", { name: /^今天的事/ });
+	expect(within(today).getByText(/^Running 0m\d{2}s$/)).toBeVisible();
 	expect(screen.getByText("昨天的事")).toBeVisible();
 	expect(screen.getByText("很久以前的事")).toBeVisible();
 });
 
-test("a row shows the title, the word the owner acts on, the Bot and one line of outcome", () => {
+test("a row shows the title, the word the owner acts on and the Bot, with no preview and no time", () => {
+	const startedAt = "2026-11-27T02:05:00.000Z";
 	show([
-		item({ id: "done", title: "整理会议纪要", state: "completed", result: "纪要已发到对话里。" }),
+		item({ id: "done", title: "整理会议纪要", state: "completed", result: "纪要已发到对话里。", startedAt }),
 		item({ id: "waiting", title: "等你确认", state: "waiting_user" }),
 	]);
 	const done = screen.getByText("整理会议纪要").closest("li");
 	expect(done).not.toBeNull();
-	// A finished item adds no state word (2026-11-24); its result line says what it did.
+	// A finished item adds no state word (2026-11-24); its result line is not in the row (2026-11-27).
 	expect(within(done as HTMLElement).queryByText("Completed")).toBeNull();
-	expect(within(done as HTMLElement).getByText("纪要已发到对话里。")).toBeVisible();
+	expect(within(done as HTMLElement).queryByText("纪要已发到对话里。")).toBeNull();
 	expect(within(done as HTMLElement).getByText(/我的 Bot/)).toBeVisible();
+	expect(within(done as HTMLElement).queryByText(itemTimeLabel(startedAt, "en"))).toBeNull();
 
 	// A blocked item says it waits, and does not pretend to have a result.
 	const waiting = screen.getByText("等你确认").closest("li");
 	expect(within(waiting as HTMLElement).getByText("Waiting for you")).toBeVisible();
-	expect(within(waiting as HTMLElement).getByText("No result yet")).toBeVisible();
+	expect(within(waiting as HTMLElement).queryByText("No result yet")).toBeNull();
 });
 
-test("a failure shows the real reason the server recorded, never a made-up success", () => {
+test("a failure shows the state word and the Bot, not a result line, and never a made-up success", () => {
 	show([
 		item({
 			id: "failed",
@@ -125,7 +130,8 @@ test("a failure shows the real reason the server recorded, never a made-up succe
 	]);
 	const row = screen.getByText("没跑成的事").closest("li") as HTMLElement;
 	expect(within(row).getByText("Failed")).toBeVisible();
-	expect(within(row).getByText("Background quota is used up")).toBeVisible();
+	expect(within(row).getByText(/我的 Bot/)).toBeVisible();
+	expect(within(row).queryByText("Background quota is used up")).toBeNull();
 	expect(within(row).queryByText("半截")).toBeNull();
 });
 

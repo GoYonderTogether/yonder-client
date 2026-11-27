@@ -37,6 +37,10 @@
 	font-size: var(--text-body);
 	font-weight: 600;
 }
+.attachment-reader-position {
+	font-size: var(--text-caption);
+	color: var(--color-text-secondary);
+}
 .attachment-reader button {
 	display: inline-flex;
 	align-items: center;
@@ -114,7 +118,6 @@
 	max-width: 100%;
 	max-height: 100%;
 	object-fit: contain;
-	user-select: none;
 	will-change: transform;
 }
 .attachment-document-scroll {

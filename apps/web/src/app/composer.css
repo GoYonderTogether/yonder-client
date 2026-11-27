@@ -27,7 +27,7 @@
 	position: relative;
 	inset: auto;
 	min-height: var(--composer-button-size);
-	max-height: calc(var(--control-md) * 4);
+	max-height: var(--composer-mobile-max-height, calc(var(--control-md) * 4));
 }
 .composer-text {
 	position: relative;
@@ -219,6 +219,9 @@
 .composer-add-menu button:focus-visible {
 	background: var(--color-bg-subtle);
 }
+[data-native-composer] .composer-files {
+	max-height: var(--composer-file-height-limit, none);
+}
 .composer-file-preview:focus-visible {
 	outline: 2px solid var(--color-accent);
 	outline-offset: -2px;
@@ -356,6 +359,7 @@
 	position: absolute;
 	inset: 0;
 	height: 100%;
+	max-height: var(--composer-mobile-max-height, calc(var(--control-md) * 4));
 	field-sizing: fixed;
 	scrollbar-width: none;
 	color: var(--color-text-primary);

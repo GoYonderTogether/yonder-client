@@ -28,15 +28,8 @@ import { useLocation, useNavigate } from "react-router";
 import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
-import { ContactsPageList, ContactsPagePlaceholder } from "../pages/contacts-list.tsx";
-import {
-	conversationPeer,
-	conversationTitle,
-	messageListUnread,
-	primaryConversation,
-	selectedConversation,
-} from "../pages/conversation-presentation.tsx";
-import { readMemoryView } from "../pages/memory/memory-view.ts";
+import { messageListUnread, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
+import { readMemoryView, showsMemoryBack } from "../pages/memory/memory-view.ts";
 import { ConversationPage, MessagesList } from "../pages/messages-page.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
 import { BotTabAvatar } from "../pages/unread-badge.tsx";
@@ -46,8 +39,11 @@ import { useReconnectNotice } from "./app-notice.tsx";
 import { AskMainBotProvider } from "./ask-main-bot.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { completionItems } from "./completion/items.ts";
+import { mentionInDraft } from "./completion/mention-in-draft.ts";
 import { Composer } from "./composer.tsx";
+import { ComposerQuoteContext } from "./composer-quote.tsx";
 import { ComposerStatus } from "./composer-status.tsx";
+import { useContactScreens } from "./contact-screens.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemoryList, MemoryPage, SettingsRoutePage, TaskPage, TasksList } from "./lazy-tabs.ts";
 import { eligibleMeetingTarget, openMeetingSource, useMeetingRecordingSurface } from "./meeting-recording-surface.tsx";
@@ -221,6 +217,7 @@ export function AppFrame() {
 	const segmentRoot = tab === "tasks" && selection === "scheduled";
 	const detailOpen = selection !== null && !segmentRoot;
 	const back = useFrameBack({ navigation, tabs, tab, tabLocation, splitMe, search: location.search });
+	const contactScreens = useContactScreens(tab === "contacts" ? selection : null, contacts.data?.items, navigation);
 	const { list, content } = base ? screensFor() : { list: null, content: <NotFoundPage /> };
 	const me = meOpen
 		? {
@@ -293,6 +290,7 @@ export function AppFrame() {
 							readActive={!meOpen && !sideCover && !preset.drawerOpen}
 							onOpenMeeting={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
 							onOpenMember={openMember}
+							onMention={draft.loaded ? (id, name) => mentionInDraft(draft, id, name) : undefined}
 							onOpenGroup={() => {
 								if (conversation?.kind === "group") layers.open({ kind: "group", conversationId: conversation.id });
 							}}
@@ -327,26 +325,14 @@ export function AppFrame() {
 					content: <MemoryPage view={memoryView} />,
 				};
 			case "contacts":
-				return {
-					list: <ContactsPageList onOpen={(handle) => navigation.open(`/@${encodeURIComponent(handle)}`)} />,
-					content:
-						!side.expanded && contacts.data?.items.some((member) => member.kind === "person") ? (
-							<ContactsPagePlaceholder />
-						) : null,
-				};
+				return side.expanded && selection === null ? { ...contactScreens, content: null } : contactScreens;
 		}
 	}
-	const talkingTo =
-		taskSelection && chat.target
-			? conversationPeer(chat.target, person?.id)?.displayName
-			: tab === "messages" && conversation
-				? conversationTitle(conversation, person?.id)
-				: undefined;
 	const composer = (
 		<Composer
 			microphoneOccupied={Boolean(meeting.active || meeting.interrupted || meeting.recorder.busy)}
 			onVoiceActivityChange={meeting.setShortVoiceActive}
-			recipientName={talkingTo ?? bot?.displayName ?? null}
+			recipientName={(taskSelection || tab === "messages" ? chat.recipientName : undefined) ?? bot?.displayName ?? null}
 			draft={draft.text}
 			onDraftChange={draft.setText}
 			readOnly={!draft.loaded}
@@ -360,7 +346,7 @@ export function AppFrame() {
 			mobilePicker={!desktop}
 			onMeeting={recordingConversation ? () => recordingSurface.start(recordingConversation) : undefined}
 			error={draft.error || chat.directAttachments.error}
-			disabled={chat.blocked}
+			disabled={chat.blocked || disconnected}
 			disconnected={disconnected}
 			sendOnEnter={desktop}
 			streaming={chat.streaming}
@@ -412,88 +398,90 @@ export function AppFrame() {
 		(target) => openMeetingSource(detailOpen ? conversation?.id : undefined, target.id, primary?.id, tabs.go),
 	);
 	return (
-		<AskMainBotProvider value={preset.ask}>
-			<SidePanelProvider value={layers.controls}>
-				<AppShell
-					tab={{
-						current: tab,
-						onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : tabs.go(tabPath(id))),
-						labels,
-						ariaLabel: t("nav.tabs"),
-						messagesUnread: { count: unreadCount, label: t("messages.unread", { count: unreadCount }) },
-						mobileBot: {
-							label: bot?.selectedNickname || bot?.displayName || t("nav.mainBot"),
-							active: mobileBot,
-							icon: <BotTabAvatar bot={bot} unreadCount={primary?.unreadCount} muted={primary?.muted} />,
-							onSelect: () => tabs.go(MAIN_BOT_PATH),
-						},
-					}}
-					desktop={desktop}
-					renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
-					personName={person?.displayName ?? ""}
-					meLabel={t("nav.me")}
-					settingsLabel={t("nav.settings")}
-					updateAction={<UpdateReadyButton />}
-					inviteAction={
-						<InviteRailButton current={meOpen && section === "invite"} onOpen={() => navigation.open("/me/invite")} />
-					}
-					onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
-					meOpen={meOpen}
-					me={me}
-					side={side}
-					onBack={back}
-					backLabel={t(visitsRoute && !visitFolder ? "visits.incomingBack" : "app.back")}
-					showContentBack={visitsRoute && !visitFolder}
-					mobileShowList={!detailOpen}
-					list={list ? deferred(list) : null}
-					content={
-						tab === "messages" ? (
-							<FileDropZone
-								key={conversation?.id}
-								onFiles={draft.addFiles}
-								disabled={!conversation || conversation.kind === "system" || !draft.loaded || draft.sending || meOpen}
-							>
-								{deferred(content)}
-							</FileDropZone>
-						) : (
-							deferred(content)
-						)
-					}
-					detailOpen={detailOpen}
-					composer={preset.drawerOpen ? null : dock}
-					status={preset.drawerOpen ? null : recordingSurface.status}
-					titlebarInset={isMacDesktopShell()}
-					brand={<Logo size={32} title="Yonder" />}
-					labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
-					locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
-					onModeChange={setLayoutMode}
-					onSideCoverChange={setSideCover}
-				/>
-				<BotPresetOverlay
-					preset={preset}
-					title={bot?.displayName ?? ""}
-					conversationId={conversation?.id ?? null}
-					disconnected={disconnected}
-					status={preset.drawerOpen ? recordingSurface.status : null}
-				>
-					{composer}
-				</BotPresetOverlay>
-				<UpdateTopNotice
-					recording={Boolean(meeting.active || meeting.shortVoiceActive)}
-					busy={() => !meeting.recorder.ready || meeting.recorder.busy || draft.sending || isDirty()}
-					persist={draft.preserveBeforeReload}
-				/>
-				{recordingSurface.dialog}
-				{discardDialog}
-				<DetailDiscardDialog layers={layers} mode={layoutMode ?? "mobile"} desktop={desktop} />
-				<PresenceReporter conversationId={tab === "messages" && conversation ? conversation.id : null} />
-				<MessageNotifications
-					key={person?.id}
-					personId={person?.id}
-					conversationId={tab === "messages" && conversation ? conversation.id : null}
-					onOpen={(id) => tabs.go(id === primary?.id ? MAIN_BOT_PATH : `/messages/${encodeURIComponent(id)}`)}
-				/>
-			</SidePanelProvider>
-		</AskMainBotProvider>
+		<ComposerQuoteContext value={chat.quote}>
+			<AskMainBotProvider value={preset.ask}>
+				<SidePanelProvider value={layers.controls}>
+					<AppShell
+						tab={{
+							current: tab,
+							onSelect: (id) => (meOpen && id === tab ? navigation.back(tabLocation) : tabs.go(tabPath(id))),
+							labels,
+							ariaLabel: t("nav.tabs"),
+							messagesUnread: { count: unreadCount, label: t("messages.unread", { count: unreadCount }) },
+							mobileBot: {
+								label: bot?.selectedNickname || bot?.displayName || t("nav.mainBot"),
+								active: mobileBot,
+								icon: <BotTabAvatar bot={bot} unreadCount={primary?.unreadCount} muted={primary?.muted} />,
+								onSelect: () => tabs.go(MAIN_BOT_PATH),
+							},
+						}}
+						desktop={desktop}
+						renderAvatar={(size) => <Avatar name={person?.displayName ?? "?"} src={person?.avatarUrl} size={size} />}
+						personName={person?.displayName ?? ""}
+						meLabel={t("nav.me")}
+						settingsLabel={t("nav.settings")}
+						updateAction={<UpdateReadyButton />}
+						inviteAction={<InviteRailButton section={section} onOpen={navigation.open} />}
+						onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
+						meOpen={meOpen}
+						me={me}
+						side={side}
+						onBack={meOpen ? back : (contactScreens.onBack ?? back)}
+						backLabel={t(visitsRoute && !visitFolder ? "visits.incomingBack" : "app.back")}
+						showContentBack={
+							showsMemoryBack(memoryView) || (visitsRoute && !visitFolder) || Boolean(contactScreens.onBack)
+						}
+						mobileShowList={!detailOpen}
+						list={list ? deferred(list) : null}
+						content={
+							tab === "messages" ? (
+								<FileDropZone
+									key={conversation?.id}
+									onFiles={draft.addFiles}
+									disabled={!conversation || conversation.kind === "system" || !draft.loaded || draft.sending || meOpen}
+								>
+									{deferred(content)}
+								</FileDropZone>
+							) : (
+								deferred(content)
+							)
+						}
+						detailOpen={detailOpen}
+						composer={preset.drawerOpen ? null : dock}
+						status={preset.drawerOpen ? null : recordingSurface.status}
+						titlebarInset={isMacDesktopShell()}
+						brand={<Logo size={32} title="Yonder" />}
+						labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
+						locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
+						onModeChange={setLayoutMode}
+						onSideCoverChange={setSideCover}
+					/>
+					<BotPresetOverlay
+						preset={preset}
+						title={bot?.displayName ?? ""}
+						conversationId={conversation?.id ?? null}
+						disconnected={disconnected}
+						status={preset.drawerOpen ? recordingSurface.status : null}
+					>
+						{composer}
+					</BotPresetOverlay>
+					<UpdateTopNotice
+						recording={Boolean(meeting.active || meeting.shortVoiceActive)}
+						busy={() => !meeting.recorder.ready || meeting.recorder.busy || draft.sending || isDirty()}
+						persist={draft.preserveBeforeReload}
+					/>
+					{recordingSurface.dialog}
+					{discardDialog}
+					<DetailDiscardDialog layers={layers} mode={layoutMode ?? "mobile"} desktop={desktop} />
+					<PresenceReporter conversationId={tab === "messages" && conversation ? conversation.id : null} />
+					<MessageNotifications
+						key={person?.id}
+						personId={person?.id}
+						conversationId={tab === "messages" && conversation ? conversation.id : null}
+						onOpen={(id) => tabs.go(id === primary?.id ? MAIN_BOT_PATH : `/messages/${encodeURIComponent(id)}`)}
+					/>
+				</SidePanelProvider>
+			</AskMainBotProvider>
+		</ComposerQuoteContext>
 	);
 }

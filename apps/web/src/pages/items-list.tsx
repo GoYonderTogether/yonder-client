@@ -147,7 +147,6 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 								botName={names.get(item.botMemberId) ?? null}
 								actions={rowActions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}
-								locale={i18n.language}
 							/>
 						))}
 						{earlier && !showEarlier && section.items.length > EARLIER_PREVIEW ? (
@@ -207,7 +206,6 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 								botName={names.get(item.botMemberId) ?? null}
 								actions={rowActions({ id: item.id, title: item.title, upcoming: false })}
 								onOpen={() => onOpen(item.id)}
-								locale={i18n.language}
 							/>
 						))
 					: null}

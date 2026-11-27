@@ -2,6 +2,149 @@
 
 ## [Unreleased]
 
+## [0.3.26112713] - 2026-11-27
+
+### Fixed
+
+- models：per-protocol address suffixes, keep the address and key when the run location changes, and show the server reason when a model fetch fails
+
+## [0.3.26112712] - 2026-11-27
+
+### Added
+
+- ui：add shared detail panes and device file readers
+
+## [0.3.26112711] - 2026-11-27
+
+### Fixed
+
+- web：keep the rebased branch in step with main
+- web：move developer panel below the header
+
+### Added
+
+- memory：expand notes and recordings in the sidebar
+- tasks：show live runtime beside active items
+- contacts：separate contacts and friend requests
+
+## [0.3.26112710] - 2026-11-27
+
+### Added
+
+- web：the present above the main composer, built-in brand icons, official channel icons
+
+## [0.3.26112709] - 2026-11-27
+
+### Added
+
+- ui：flat two-layer glyphs for memory kinds, activities, files, folders, tasks and contacts
+
+## [0.3.26112708] - 2026-11-27
+
+### Fixed
+
+- invite：keep the track at its spots when an account invited more
+
+### Added
+
+- ui：neutral glass materials for floating chrome
+
+## [0.3.26112707] - 2026-11-27
+
+### Fixed
+
+- chat：show quoted replies below rounded bubbles
+
+## [0.3.26112706] - 2026-11-27
+
+### Added
+
+- models：K/M token input, output limit field, sectioned provider form and the real reason a model fetch failed
+
+## [0.3.26112705] - 2026-11-27
+
+### Added
+
+- chat：quote, forward, recall, delete and rate messages
+
+## [0.3.26112704] - 2026-11-27
+
+### Added
+
+- beta invitations, one-screen invite page and entry points, desktop access, PWA, device file previews
+- chat：offer an attachment's download row from the message menu
+- chat：add attachment download actions and image navigation
+- chat：restore avatar and message context menus
+
+## [0.3.26112703] - 2026-11-27
+
+### Added
+
+- connectors：one card per connector, device switches inside
+
+## [0.3.26112702] - 2026-11-27
+
+### Fixed
+
+- chat：send immediately after IME confirmation
+- chat：cap the phone composer within the chat area
+- chat：use a chevron for the group member list
+- chat：show waiting dots for owned secondary bots
+- memory：show back on desktop memory pages
+- tasks：keep the selected desktop item highlighted
+- chat：grow the desktop composer within line and height limits
+
+## [0.3.26112701] - 2026-11-27
+
+### Added
+
+- settings：group computer access permissions per device
+
+## [0.3.26112609] - 2026-11-26
+
+### Fixed
+
+- providers：show raw lowercase reasoning levels
+- providers：restore local URL and compact reasoning level selection
+- providers：preserve native endpoint editing and local key handoff
+
+## [0.3.26112608] - 2026-11-26
+
+### Fixed
+
+- chat：use a standard row for Bot visits
+- miniprogram：use message list row for Bot visits
+
+## [0.3.26112607] - 2026-11-26
+
+### Added
+
+- connectors：align device cards and restore Apple setup entries
+
+## [0.3.26112606] - 2026-11-26
+
+### Fixed
+
+- chat：open Bot visits in a dedicated message pane
+- miniprogram：open incoming Bot visits in a separate list
+
+## [0.3.26112605] - 2026-11-26
+
+### Fixed
+
+- chat：fold incoming Bot visits and relay from the composer
+- ios：read public group from build relationships
+- ios：make TestFlight status exact and redact private data
+- notifications：show content setting when supported by the server
+- ios：open system settings to change notification permission
+- ios：verify TestFlight availability and signed build identity
+
+## [0.3.26112603] - 2026-11-26
+
+### Added
+
+- models：a device endpoint serves the same four wires a cloud one does
+
 ## [0.3.26112509] - 2026-11-25
 
 ### Added

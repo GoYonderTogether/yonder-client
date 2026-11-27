@@ -6,12 +6,14 @@ import { composerAttachmentsEn } from "./composer-attachments-en.ts";
 import { composerInputEn } from "./composer-input.ts";
 import { connectorIntakeEn } from "./connector-intake-en.ts";
 import { connectorMessagesEn, deviceFileMessagesEn } from "./connectors-en.ts";
+import { detailPaneEn } from "./detail-pane.ts";
 import { friendQrEn, friendRequestsEn } from "./friend-qr-en.ts";
 import { inviteExperienceEn } from "./invite-experience-en.ts";
 import { connectDeviceDownloadEn, landingPageEn } from "./landing-page-en.ts";
 import { meetingRecorderEn } from "./meeting-recorder-en.ts";
 import { membersMessagesEn } from "./members-en.ts";
 import { memoryMessagesEn } from "./memory-en.ts";
+import { messageActionsEn } from "./message-actions.ts";
 import { messagesEn } from "./messages.ts";
 import { modelMessagesEn } from "./models-en.ts";
 import { notificationsEn } from "./notifications.ts";
@@ -20,7 +22,6 @@ import { pricingMessagesEn } from "./pricing-en.ts";
 import { questionCardsEn } from "./question-cards.ts";
 import { setupMessagesEn } from "./setup-en.ts";
 import { skillMessagesEn } from "./skills-en.ts";
-import { tasksMessagesEn } from "./tasks-en.ts";
 import { trayEn } from "./tray-en.ts";
 import { visitsMessagesEn } from "./visits-en.ts";
 /**
@@ -33,6 +34,7 @@ export const en = {
 	commerce: commerceEn,
 	composerAttachments: composerAttachmentsEn,
 	connectors: connectorMessagesEn,
+	deviceFiles: deviceFileMessagesEn,
 	questionCards: questionCardsEn,
 	inviteExperience: inviteExperienceEn,
 	friendQr: friendQrEn,
@@ -52,7 +54,6 @@ export const en = {
 		reloadConfirm: "Reload the page? Unsaved changes may be lost.",
 		retry: "Try again",
 		discardChanges: "Discard changes",
-		discardChangesTitle: "Discard unsaved changes?",
 		cancel: "Cancel",
 		save: "Save",
 		saving: "Saving…",
@@ -100,6 +101,7 @@ export const en = {
 	},
 	nav: {
 		settings: "Settings",
+		...detailPaneEn,
 		chat: "Chat",
 		mainBot: "Main Bot",
 		messages: "Messages",
@@ -114,13 +116,6 @@ export const en = {
 		showList: "Show the list",
 		hideList: "Hide the list",
 		resizeList: "Resize the list",
-		detailPane: "Details",
-		expandDetails: "Expand details",
-		collapseDetails: "Collapse details",
-		closeAllDetails: "Close all details",
-		closeAllDetailsCount: "Close all {{count}} details",
-		closeDetailTab: "Close {{title}}",
-		resizeDetails: "Resize details",
 		tabs: "Main navigation",
 	},
 
@@ -287,6 +282,10 @@ export const en = {
 	},
 
 	chat: {
+		...messageActionsEn,
+		messageMenu: "Message menu",
+		viewProfile: "View profile",
+		mentionTa: "Mention",
 		settings: "Chat settings",
 		agentStatus: { typing: "Typing", processing: "Working on: {{titles}}", separator: ", " },
 		activityMore: "{{count}} activities",
@@ -314,6 +313,7 @@ export const en = {
 		stopSend: "Cancel sending",
 		streaming: "Responding…",
 		reconnecting: "Connection lost. Reconnecting.",
+		reconnectingReply: "Response status is unknown.",
 		openTaskSession: "Open task · {{title}}",
 		sending: "Sending…",
 		sendFailed: "Message not sent",
@@ -328,11 +328,6 @@ export const en = {
 		idleTimeout: "The Bot stalled and stopped",
 		toolRepeat: "The Bot got stuck repeating itself",
 		subtaskBurst: "Too many tasks at once, so it paused",
-		contextFull: "The chat was too long",
-		speechNoText: "No speech was heard",
-		speechAudioInvalid: "This voice message could not be read",
-		deviceOffline: "The selected device is offline",
-		deviceAttachmentsUnsupported: "The selected device cannot open attachments",
 		quotaCodingExhausted: "Execution quota is used up",
 		quotaExternalExhausted: "External quota is used up",
 		quotaToolsExhausted: "Tools quota is used up",
@@ -351,9 +346,90 @@ export const en = {
 		memoryRevisionUnavailable: "This change isn't in the file's history",
 	},
 
-	tasks: tasksMessagesEn,
-
-	deviceFiles: deviceFileMessagesEn,
+	tasks: {
+		title: "Tasks",
+		scheduled: "Goals",
+		goals: "Goals",
+		emptyTitle: "No items yet",
+		emptyScheduled: "Nothing tracked or planned yet",
+		expandBotConversation: "Expand main Bot conversation",
+		scheduleTitle: "Title",
+		kindOnce: "Once",
+		kindDaily: "Every day",
+		kindWeekly: "Every week",
+		weekday1: "Mon",
+		weekday2: "Tue",
+		weekday3: "Wed",
+		weekday4: "Thu",
+		weekday5: "Fri",
+		weekday6: "Sat",
+		weekday7: "Sun",
+		nextRun: "Next: {{at}}",
+		resultReported: "Reported",
+		resultSkipped: "Nothing to report",
+		resultFailed: "Failed",
+		resultMissed: "Missed",
+		planEnded: "Ended",
+		delete: "Delete",
+		actionFailed: "Could not update this task.",
+		itemsToday: "Today",
+		itemsYesterday: "Yesterday",
+		itemsEarlier: "Earlier",
+		itemsLoading: "Loading items…",
+		itemsLoadMore: "Load earlier items",
+		itemsArchived: "Archived",
+		itemsArchivedEmpty: "No archived items",
+		create: "Create",
+		itemHeading: "Item",
+		openFullItem: "Open full task",
+		newItemHeading: "New item",
+		itemActions: "Item actions",
+		itemRename: "Rename",
+		itemDeleteConfirm: "Delete “{{title}}” from Tasks? Its source records are kept.",
+		upcomingDeleteConfirm: "Delete “{{title}}”? It will no longer run at the scheduled time.",
+		itemRecording: "Meeting recording",
+		itemTranscript: "Transcript",
+		itemRecordingSummary: "Recording summary",
+		itemUpcoming: "Coming up",
+		itemStateRunning: "Running",
+		itemRuntime: "Running {{minutes}}m{{seconds}}s",
+		itemStateWaitingUser: "Waiting for you",
+		itemStatePaused: "Paused",
+		itemStateFailed: "Failed",
+		itemStateCancelled: "Cancelled",
+		itemStartedAt: "Started {{at}}",
+		itemEndedAt: "Ended {{at}}",
+		itemNoResult: "No result yet",
+		itemCancel: "Stop this item",
+		itemCancelFailed: "Could not stop this item.",
+		itemNotFound: "This item is gone.",
+		goalsTracking: "Tracking",
+		groupActive: "Active",
+		groupSchedules: "Schedules",
+		groupDone: "Done ({{count}})",
+		nextCheck: "Next check {{at}}",
+		lastCheck: "Last {{result}} {{when}}",
+		declineGoal: "No thanks",
+		progressTitle: "Progress",
+		runsTitle: "Recent runs",
+		goalsEmptyGoals: "No goals yet",
+		presetItem: "Help me with: ",
+		presetGoal: "Help me pursue this goal: ",
+		presetGoalEdit: "Change the goal 「{{title}}」 to: ",
+		presetScheduleEdit: "Change the scheduled task 「{{title}}」 to: ",
+		goalState: {
+			proposed: "Needs confirmation",
+			active: "In progress",
+			paused: "Paused",
+			achieved: "Achieved",
+			stopped: "Stopped",
+		},
+		goalAction: {
+			confirm: "Confirm goal",
+			complete: "Mark done",
+		},
+		handoffHistory: "Transferred from {{from}} to {{to}}",
+	},
 
 	memory: memoryMessagesEn,
 

@@ -1,6 +1,6 @@
 import { GesturePanel, SidePageActions } from "@yonder/ui-shell";
 import { Download, X } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { lazy, type RefObject, Suspense, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type PreviewFile, previewKind } from "./file-kind.ts";
 import { ImagePreview } from "./image-preview.tsx";
@@ -25,6 +25,32 @@ export function downloadAttachment(file: PreviewFile) {
 	setTimeout(() => URL.revokeObjectURL(address), 30_000);
 }
 
+export type ImageNavigation = {
+	position: number;
+	total: number;
+	move: (direction: -1 | 1) => void;
+};
+
+function useImageKeys(container: RefObject<HTMLElement | null>, moveImage: ImageNavigation["move"] | undefined) {
+	useEffect(() => {
+		const element = container.current;
+		if (!element || !moveImage) return;
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+			event.preventDefault();
+			event.stopPropagation();
+			moveImage(event.key === "ArrowLeft" ? -1 : 1);
+		};
+		element.addEventListener("keydown", onKeyDown);
+		return () => element.removeEventListener("keydown", onKeyDown);
+	}, [container, moveImage]);
+}
+
+function ImagePosition({ position, total }: ImageNavigation) {
+	const t = usePreviewTranslation();
+	return <output className="attachment-reader-position">{t("imagePosition", { position, total })}</output>;
+}
+
 function DownloadAttachment({ file }: { file: PreviewFile }) {
 	const t = usePreviewTranslation();
 	return (
@@ -39,15 +65,19 @@ export function AttachmentReader({
 	file,
 	onClose,
 	display = "pane",
+	imageNavigation,
 }: {
 	file: PreviewFile;
 	onClose?: (() => void) | undefined;
 	display?: "pane" | "overlay";
+	imageNavigation?: ImageNavigation | undefined;
 }) {
 	const t = usePreviewTranslation();
+	const pane = useRef<HTMLElement>(null);
+	useImageKeys(pane, imageNavigation?.move);
 	const kind = previewKind(file);
 	let viewer: React.ReactNode;
-	if (kind === "image") viewer = <ImagePreview file={file} onClose={onClose} />;
+	if (kind === "image") viewer = <ImagePreview file={file} onClose={onClose} onSwipe={imageNavigation?.move} />;
 	else if (kind === "pdf") viewer = <PdfPreview file={file} />;
 	else if (kind === "docx") viewer = <DocxPreview file={file} />;
 	else if (kind === "text" || kind === "markdown" || kind === "doc") viewer = <TextPreview file={file} kind={kind} />;
@@ -75,8 +105,9 @@ export function AttachmentReader({
 	);
 	if (display === "overlay") return reader;
 	return (
-		<section className="attachment-reader attachment-reader-pane" data-attachment-pane-reader>
+		<section ref={pane} className="attachment-reader attachment-reader-pane" data-attachment-pane-reader>
 			<SidePageActions className="attachment-reader-toolbar attachment-reader-download">
+				{imageNavigation ? <ImagePosition {...imageNavigation} /> : null}
 				<DownloadAttachment file={file} />
 			</SidePageActions>
 			{reader}
@@ -84,11 +115,21 @@ export function AttachmentReader({
 	);
 }
 
-export function AttachmentPreview({ file, onClose }: { file: PreviewFile; onClose: () => void }) {
+export function AttachmentPreview({
+	file,
+	onClose,
+	imageNavigation,
+}: {
+	file: PreviewFile;
+	onClose: () => void;
+	imageNavigation?: ImageNavigation | undefined;
+}) {
 	const t = usePreviewTranslation();
 	usePreviewHistory(onClose);
+	const layer = useRef<HTMLDivElement>(null);
+	useImageKeys(layer, imageNavigation?.move);
 	return createPortal(
-		<div className="attachment-preview-layer">
+		<div ref={layer} className="attachment-preview-layer">
 			<GesturePanel
 				open
 				initial={false}
@@ -101,12 +142,13 @@ export function AttachmentPreview({ file, onClose }: { file: PreviewFile; onClos
 			>
 				<header className="attachment-reader-header">
 					<h2 title={file.name}>{file.name}</h2>
+					{imageNavigation ? <ImagePosition {...imageNavigation} /> : null}
 					<DownloadAttachment file={file} />
 					<button type="button" onClick={onClose} aria-label={t("close")} title={t("close")}>
 						<X size={22} aria-hidden="true" />
 					</button>
 				</header>
-				<AttachmentReader file={file} onClose={onClose} display="overlay" />
+				<AttachmentReader file={file} onClose={onClose} display="overlay" imageNavigation={imageNavigation} />
 			</GesturePanel>
 		</div>,
 		document.body,

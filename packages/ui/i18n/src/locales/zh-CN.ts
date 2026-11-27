@@ -6,6 +6,7 @@ import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
 import { composerInputZhCN } from "./composer-input.ts";
 import { connectorIntakeZhCN } from "./connector-intake-zh-CN.ts";
 import { connectorMessagesZhCN, deviceFileMessagesZhCN } from "./connectors-zh-CN.ts";
+import { detailPaneZhCN } from "./detail-pane.ts";
 import type { Messages } from "./en.ts";
 import { friendQrZhCN, friendRequestsZhCN } from "./friend-qr-zh-CN.ts";
 import { inviteExperienceZhCN } from "./invite-experience-zh-CN.ts";
@@ -13,6 +14,7 @@ import { connectDeviceDownloadZhCN, landingPageZhCN } from "./landing-page-zh-CN
 import { meetingRecorderZhCN } from "./meeting-recorder-zh-CN.ts";
 import { membersMessagesZhCN } from "./members-zh-CN.ts";
 import { memoryMessagesZhCN } from "./memory-zh-CN.ts";
+import { messageActionsZhCN } from "./message-actions.ts";
 import { messagesZhCN } from "./messages.ts";
 import { modelMessagesZhCN } from "./models-zh-CN.ts";
 import { notificationsZhCN } from "./notifications.ts";
@@ -21,7 +23,6 @@ import { pricingMessagesZhCN } from "./pricing-zh-CN.ts";
 import { questionCardsZhCN } from "./question-cards.ts";
 import { setupMessagesZhCN } from "./setup-zh-CN.ts";
 import { skillMessagesZhCN } from "./skills-zh-CN.ts";
-import { tasksMessagesZhCN } from "./tasks-zh-CN.ts";
 import { trayZhCN } from "./tray-zh-CN.ts";
 import { visitsMessagesZhCN } from "./visits-zh-CN.ts";
 
@@ -35,6 +36,7 @@ export const zhCN: Messages = {
 	commerce: commerceZhCN,
 	composerAttachments: composerAttachmentsZhCN,
 	connectors: connectorMessagesZhCN,
+	deviceFiles: deviceFileMessagesZhCN,
 	questionCards: questionCardsZhCN,
 	inviteExperience: inviteExperienceZhCN,
 	friendQr: friendQrZhCN,
@@ -54,7 +56,6 @@ export const zhCN: Messages = {
 		reloadConfirm: "重新加载页面？未保存的更改可能丢失。",
 		retry: "重试",
 		discardChanges: "放弃更改",
-		discardChangesTitle: "放弃未保存的更改？",
 		cancel: "取消",
 		save: "保存",
 		saving: "保存中…",
@@ -105,6 +106,7 @@ export const zhCN: Messages = {
 
 	nav: {
 		settings: "设置",
+		...detailPaneZhCN,
 		chat: "对话",
 		mainBot: "主 Bot",
 		messages: "消息",
@@ -119,13 +121,6 @@ export const zhCN: Messages = {
 		showList: "显示列表",
 		hideList: "收起列表",
 		resizeList: "拖动调整列表宽度",
-		detailPane: "详情",
-		expandDetails: "展开详情",
-		collapseDetails: "收起详情",
-		closeAllDetails: "关闭全部",
-		closeAllDetailsCount: "关闭全部 {{count}} 个详情",
-		closeDetailTab: "关闭 {{title}}",
-		resizeDetails: "调整详情窗格宽度",
 		tabs: "主导航",
 	},
 
@@ -293,6 +288,10 @@ export const zhCN: Messages = {
 	},
 
 	chat: {
+		...messageActionsZhCN,
+		messageMenu: "消息菜单",
+		viewProfile: "查看资料",
+		mentionTa: "@Ta",
 		settings: "聊天设置",
 		agentStatus: { typing: "正在输入", processing: "正在处理：{{titles}}", separator: "、" },
 		activityMore: "等 {{count}} 项",
@@ -319,6 +318,7 @@ export const zhCN: Messages = {
 		stopSend: "取消发送",
 		streaming: "回复中…",
 		reconnecting: "连接已断开，正在重连。",
+		reconnectingReply: "回复状态待确认。",
 		openTaskSession: "打开任务 · {{title}}",
 		sending: "发送中…",
 		sendFailed: "消息没有发出",
@@ -333,11 +333,6 @@ export const zhCN: Messages = {
 		idleTimeout: "Bot 长时间没有进展，已停下",
 		toolRepeat: "Bot 卡在重复操作上，已停下",
 		subtaskBurst: "派出的任务太多，已暂停",
-		contextFull: "对话太长，已停下",
-		speechNoText: "没有听到声音",
-		speechAudioInvalid: "这段语音读不了",
-		deviceOffline: "选中的设备离线了",
-		deviceAttachmentsUnsupported: "选中的设备打不开附件",
 		quotaCodingExhausted: "执行额度已用完",
 		quotaExternalExhausted: "对外额度已用完",
 		quotaToolsExhausted: "工具额度已用完",
@@ -356,9 +351,84 @@ export const zhCN: Messages = {
 		memoryRevisionUnavailable: "文件历史里找不到这次改动",
 	},
 
-	tasks: tasksMessagesZhCN,
-
-	deviceFiles: deviceFileMessagesZhCN,
+	tasks: {
+		title: "任务",
+		scheduled: "目标",
+		goals: "目标",
+		emptyTitle: "还没有事项",
+		emptyScheduled: "还没有关注或目标",
+		expandBotConversation: "展开主 Bot 对话",
+		scheduleTitle: "标题",
+		kindOnce: "一次",
+		kindDaily: "每天",
+		kindWeekly: "每周",
+		weekday1: "周一",
+		weekday2: "周二",
+		weekday3: "周三",
+		weekday4: "周四",
+		weekday5: "周五",
+		weekday6: "周六",
+		weekday7: "周日",
+		nextRun: "下次：{{at}}",
+		resultReported: "已汇报",
+		resultSkipped: "没有要说的",
+		resultFailed: "失败",
+		resultMissed: "错过",
+		planEnded: "已结束",
+		delete: "删除",
+		actionFailed: "没能更新这个定时任务。",
+		itemsToday: "今天",
+		itemsYesterday: "昨天",
+		itemsEarlier: "更早",
+		itemsLoading: "正在加载事项…",
+		itemsLoadMore: "加载更早的事项",
+		itemsArchived: "已归档",
+		itemsArchivedEmpty: "没有已归档的事项",
+		create: "新建",
+		itemHeading: "事项",
+		openFullItem: "打开完整任务",
+		newItemHeading: "新事项",
+		itemActions: "事项操作",
+		itemRename: "改名",
+		itemDeleteConfirm: "从任务列表删除「{{title}}」？原始记录会保留。",
+		upcomingDeleteConfirm: "删除「{{title}}」？这项任务将不会按计划执行。",
+		itemRecording: "会议录音",
+		itemTranscript: "转写全文",
+		itemRecordingSummary: "录音摘要",
+		itemUpcoming: "即将执行",
+		itemStateRunning: "进行中",
+		itemRuntime: "已运行 {{minutes}}m{{seconds}}s",
+		itemStateWaitingUser: "等你",
+		itemStatePaused: "已暂停",
+		itemStateFailed: "失败",
+		itemStateCancelled: "已取消",
+		itemStartedAt: "开始于 {{at}}",
+		itemEndedAt: "结束于 {{at}}",
+		itemNoResult: "还没有结果",
+		itemCancel: "停止这件事",
+		itemCancelFailed: "没能停止这件事。",
+		itemNotFound: "这件事不在了。",
+		goalsTracking: "关注",
+		groupActive: "进行中",
+		groupSchedules: "定时任务",
+		groupDone: "已完成（{{count}}）",
+		nextCheck: "下次检查 {{at}}",
+		lastCheck: "上次{{result}} {{when}}",
+		declineGoal: "不用",
+		progressTitle: "进展",
+		runsTitle: "最近几次",
+		goalsEmptyGoals: "还没有目标",
+		presetItem: "帮我做一件事：",
+		presetGoal: "帮我推进这个目标：",
+		presetGoalEdit: "把目标「{{title}}」改成：",
+		presetScheduleEdit: "把定时任务「{{title}}」改成：",
+		goalState: { proposed: "待确认", active: "进行中", paused: "已暂停", achieved: "已达成", stopped: "已停止" },
+		goalAction: {
+			confirm: "确认目标",
+			complete: "标为完成",
+		},
+		handoffHistory: "由 {{from}} 转给 {{to}}",
+	},
 
 	memory: memoryMessagesZhCN,
 

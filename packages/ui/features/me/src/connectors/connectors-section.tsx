@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
-import { ConnectorCard } from "./connector-card.tsx";
+import { ConnectorCard, ConnectorDeviceIcon } from "./connector-card.tsx";
 import { groupConnectors } from "./connector-groups.ts";
 import { ConnectorPanel } from "./connector-panel.tsx";
 import type { LocalFilesAdapter } from "./local-files-adapter.ts";
@@ -152,6 +152,7 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 							className={TAB}
 							onClick={() => jump(platform)}
 						>
+							<ConnectorDeviceIcon platform={platform} />
 							{t(`me.devices.platforms.${platform}`)}
 						</button>
 					))}

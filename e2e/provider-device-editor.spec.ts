@@ -30,11 +30,11 @@ const endpoint = {
 	endpointId: "00000000-0000-4000-8000-000000000001",
 	revision: 1,
 	label: "本地模型 A",
-	protocol: "openai",
+	protocol: "openai-chat",
 } as const;
 const approvedAnthropic = {
 	...endpoint,
-	protocol: "anthropic" as const,
+	protocol: "anthropic-messages" as const,
 	endpointId: "00000000-0000-4000-8000-000000000002",
 	label: "本地 Anthropic",
 };
@@ -47,7 +47,7 @@ const savedCloud: Provider = {
 	enabled: true,
 	isDefault: false,
 	keyConfigured: true,
-	protocol: "openai",
+	protocol: "openai-chat",
 	models: ["legacy"],
 };
 const expectedTarget = { origin: "device", deviceId: device.id, endpointId: endpoint.endpointId } as const;
@@ -101,6 +101,7 @@ async function setup(page: Page, { configured = false }: { configured?: boolean 
 const name = (page: Page) => page.getByRole("textbox", { name: "名称", exact: true });
 const url = (page: Page) => page.getByRole("textbox", { name: "请求地址", exact: true });
 const location = (page: Page) => page.getByRole("button", { name: /^运行位置:/ });
+const discoveredModel = (page: Page) => page.getByRole("textbox", { name: "请求模型", exact: true }).first();
 const discover = (page: Page) => page.getByRole("button", { name: "获取模型列表", exact: true });
 async function start(page: Page) {
 	await page.goto("/me/models/add");
@@ -134,21 +135,22 @@ test("one editor selects Cloud or an approved Desktop, and Web sends only the ex
 	await page.getByRole("option", { name: "本地模型 A" }).click();
 	await name(page).fill("本机模型 Vol.1");
 	await discover(page).click();
-	await page.getByRole("checkbox", { name: "fixture-model" }).check();
-	expect(requests.discovery).toEqual([{ protocol: "openai", ...expectedTarget }]);
+	await expect(discoveredModel(page)).toHaveValue("fixture-model");
+	expect(requests.discovery).toEqual([{ protocol: "openai-chat", ...expectedTarget }]);
 	await capture(page, "provider-web-device-bound");
 	await page.getByRole("button", { name: "保存", exact: true }).click();
-	expect(requests.saves).toEqual([
-		{
-			name: "本机模型 Vol.1",
-			note: null,
-			website: null,
-			models: ["fixture-model"],
-			metadata: { "fixture-model": { contextLength: 4096 } },
-			protocol: "openai",
-			...expectedTarget,
-		},
-	]);
+	await expect
+		.poll(() => requests.saves)
+		.toEqual([
+			{
+				name: "本机模型 Vol.1",
+				note: null,
+				models: ["fixture-model"],
+				metadata: { "fixture-model": { name: "fixture-model", contextLength: 4096 } },
+				protocol: "openai-chat",
+				...expectedTarget,
+			},
+		]);
 	await expect(page.getByText("工作 Mac · 在线", { exact: true })).toBeVisible();
 	await expect(page.getByText("密钥未配置", { exact: true })).toHaveCount(0);
 	await capture(page, "provider-web-list-device");
@@ -164,21 +166,24 @@ test("one editor selects Cloud or an approved Desktop, and Web sends only the ex
 	await expect(page.getByLabel("API Key")).toHaveCount(0);
 	await capture(page, "provider-web-anthropic-bound");
 	await discover(page).click();
-	await expect(page.getByRole("checkbox", { name: "fixture-model" })).toBeVisible();
+	await expect(discoveredModel(page)).toHaveValue("fixture-model");
 	expect(requests.discovery.at(-1)).toEqual({
-		protocol: "anthropic",
+		protocol: "anthropic-messages",
 		...expectedTarget,
 		endpointId: approvedAnthropic.endpointId,
 	});
 });
-test("existing cloud key is not revealed and its model request remains the old shape", async ({ page }) => {
+test("existing cloud key is not revealed and uses the stored key by provider ID", async ({ page }) => {
 	const requests = await setup(page, { configured: true });
 	await page.goto("/me/models");
 	await page.getByRole("button", { name: "编辑供应商", exact: true }).click();
 	await expect(name(page)).toHaveValue("既有云端供应商");
+	await expect(page.getByLabel("API Key")).toHaveCount(0);
 	await discover(page).click();
-	await expect(page.getByRole("checkbox", { name: "fixture-model" })).toBeVisible();
-	expect(requests.discovery).toEqual([{ protocol: "openai", baseUrl: savedCloud.baseUrl, providerId: savedCloud.id }]);
+	await expect(discoveredModel(page)).toHaveValue("fixture-model");
+	expect(requests.discovery).toEqual([
+		{ protocol: "openai-chat", baseUrl: savedCloud.baseUrl, providerId: savedCloud.id },
+	]);
 	expect(requests.saves).toEqual([]);
 });
 
@@ -194,6 +199,8 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await page.setViewportSize({ width: 1280, height: 1080 });
 	const registrations: unknown[] = [];
 	await page.exposeFunction("recordProviderRegistration", (record: unknown) => registrations.push(record));
+	let rejectedRegistrations = 0;
+	await page.exposeFunction("recordProviderRejection", () => ++rejectedRegistrations);
 	await page.addInitScript(() => {
 		Object.defineProperty(navigator, "userAgent", { value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0)" });
 		localStorage.setItem("dev.yonder.desktop.refresh-token", "browser-fixture");
@@ -206,6 +213,10 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 				invoke: async (command: string, args: unknown) => {
 					if (command === "get_desktop_refresh_token") return "browser-fixture";
 					if (command === "device_model_register" || command === "device_model_set_key") {
+						if ((args as { baseUrl?: string }).baseUrl === "http://127.0.0.1:9999/v1") {
+							await (window as Window & { recordProviderRejection: () => Promise<void> }).recordProviderRejection();
+							throw new Error("Synthetic local endpoint registration failed");
+						}
 						await (
 							window as Window & {
 								recordProviderRegistration: (record: unknown) => Promise<void>;
@@ -218,7 +229,7 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 									: (args as { endpointId: string }).endpointId,
 							revision: 1,
 							label: "本地模型",
-							protocol: "anthropic",
+							protocol: "anthropic-messages",
 						};
 					}
 					return null;
@@ -261,10 +272,25 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await expect(location(page)).toHaveText("云端");
 	await location(page).click();
 	await page.getByRole("option", { name: /工作 Mac.*在线/ }).click();
-	await page.getByRole("button", { name: /^请求地址:/ }).click();
-	await page.getByRole("option", { name: "输入新地址" }).click();
+	await expect(page.getByRole("button", { name: /^请求地址:/ })).toHaveCount(0);
+	await expect(url(page)).toHaveCount(1);
 	await expect(url(page)).toBeEditable();
+	await expect(url(page)).toHaveAttribute("required", "");
+	await expect(url(page)).toHaveValue("");
+	await expect(discoveredModel(page)).toHaveValue("");
+	expect(registrations).toEqual([]);
+	await capture(page, "provider-desktop-local-address-empty");
 	await name(page).fill("桌面本地模型");
+	await url(page).fill("http://127.0.0.1:9999/v1");
+	await discover(page).click();
+	await expect.poll(() => rejectedRegistrations).toBe(1);
+	await expect(page.getByRole("alert")).toHaveText("设备或地址不可用。");
+	await discoveredModel(page).fill("fixture-model");
+	await page.getByRole("button", { name: "保存", exact: true }).click();
+	await expect.poll(() => rejectedRegistrations).toBe(2);
+	await expect(page.getByRole("alert")).toHaveText("设备或地址不可用。");
+	expect(requests).toEqual({ discovery: [], saves: [] });
+	await discoveredModel(page).fill("");
 	await url(page).fill("http://127.0.0.1:8788/v1");
 	const protocol = page.getByRole("button", { name: /^协议:/ });
 	await protocol.click();
@@ -277,24 +303,48 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await capture(page, "provider-desktop-anthropic-loopback");
 	await keyField.fill("synthetic-local-key");
 	await discover(page).click();
-	await page.getByRole("checkbox", { name: "fixture-model" }).check();
+	await expect(discoveredModel(page)).toHaveValue("fixture-model");
 	expect(checks).toBeGreaterThan(1);
 	const target = { origin: "device", deviceId: device.id, endpointId: "00000000-0000-4000-8000-000000000005" } as const;
-	expect(requests.discovery).toEqual([{ protocol: "anthropic", ...target }]);
+	expect(requests.discovery).toEqual([{ protocol: "anthropic-messages", ...target }]);
 	expect(registrations).toEqual([
 		{
 			command: "device_model_register",
 			args: expect.objectContaining({
 				context: { ownerId: "chat-person", deviceId: device.id, sessionId: "local-browser-session" },
 				baseUrl: "http://127.0.0.1:8788/v1",
-				protocol: "anthropic",
+				protocol: "anthropic-messages",
 				apiKey: "synthetic-local-key",
 			}),
 		},
 	]);
 	await expect(keyField).toHaveValue("");
+	const effort = page.getByRole("button", { name: "思考档位", exact: true }).first();
+	await effort.click();
+	const menu = page.getByRole("menu", { name: "思考档位" });
+	await expect(menu.getByRole("menuitemcheckbox")).toHaveText(["off", "low", "medium", "high", "max"]);
+	await menu.getByRole("menuitemcheckbox", { name: "low", exact: true }).click();
+	await menu.getByRole("menuitemcheckbox", { name: "high", exact: true }).click();
+	await expect(menu.getByRole("menuitemcheckbox", { name: "low", exact: true })).toHaveAttribute(
+		"aria-checked",
+		"true",
+	);
+	await expect(menu.getByRole("menuitemcheckbox", { name: "high", exact: true })).toHaveAttribute(
+		"aria-checked",
+		"true",
+	);
+	await capture(page, "provider-raw-effort-menu-zh");
+	await page.keyboard.press("Escape");
+	await expect(effort).toContainText("low");
+	await expect(effort).toContainText("high");
 	await page.getByRole("button", { name: "保存", exact: true }).click();
-	await expect.poll(() => requests.saves.at(-1)).toMatchObject({ ...target, protocol: "anthropic" });
+	await expect
+		.poll(() => requests.saves.at(-1))
+		.toMatchObject({
+			...target,
+			protocol: "anthropic-messages",
+			metadata: { "fixture-model": { name: "fixture-model", contextLength: 4096, efforts: ["low", "high"] } },
+		});
 	expect(requests.saves.at(-1)).not.toHaveProperty("baseUrl");
 	expect(requests.saves.at(-1)).not.toHaveProperty("apiKey");
 	await expect(page.getByRole("button", { name: "编辑供应商", exact: true })).toBeVisible();
@@ -307,13 +357,18 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await expect(protocol).toHaveText("Anthropic Messages");
 	await expect(url(page)).toHaveCount(0);
 	await expect(keyField).toHaveValue("");
+	await expect(effort).toContainText("low");
+	await expect(effort).toContainText("high");
 	await capture(page, "provider-canonical-desktop-bound-edit");
 	await discover(page).click();
-	await expect(page.getByRole("checkbox", { name: "fixture-model" })).toBeVisible();
+	await expect(discoveredModel(page)).toHaveValue("fixture-model");
+	await expect.poll(() => requests.discovery).toHaveLength(2);
+	await expect(effort).toContainText("low");
+	await expect(effort).toContainText("high");
 	expect(registrations).toHaveLength(1);
 	await keyField.fill("synthetic-replacement-key");
 	await discover(page).click();
-	await expect(page.getByRole("checkbox", { name: "fixture-model" })).toBeVisible();
+	await expect(discoveredModel(page)).toHaveValue("fixture-model");
 	await expect(keyField).toHaveValue("");
 	expect(registrations).toHaveLength(2);
 	expect(registrations.at(-1)).toEqual({
@@ -324,7 +379,9 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 			apiKey: "synthetic-replacement-key",
 		},
 	});
-	expect(requests.discovery).toEqual(Array.from({ length: 3 }, () => ({ protocol: "anthropic", ...target })));
+	await expect
+		.poll(() => requests.discovery)
+		.toEqual(Array.from({ length: 3 }, () => ({ protocol: "anthropic-messages", ...target })));
 	expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain("synthetic-");
 	await page.getByRole("button", { name: "保存", exact: true }).click();
 	await expect
@@ -332,12 +389,11 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 		.toEqual([
 			{
 				...target,
-				protocol: "anthropic",
+				protocol: "anthropic-messages",
 				name: "桌面本地模型",
 				note: null,
-				website: null,
 				models: ["fixture-model"],
-				metadata: { "fixture-model": { contextLength: 4096 } },
+				metadata: { "fixture-model": { name: "fixture-model", contextLength: 4096, efforts: ["low", "high"] } },
 			},
 		]);
 	expect(registrations).toHaveLength(2);
@@ -457,7 +513,7 @@ for (const width of [1280, 390]) {
 		await url(page).fill("https://models.example.test");
 		await page.getByLabel("API Key").fill("synthetic-fixture-only");
 		await discover(page).click();
-		await page.getByRole("checkbox", { name: "fixture-model" }).check();
+		await expect(discoveredModel(page)).toHaveValue("fixture-model");
 		await page.getByRole("button", { name: "保存", exact: true }).click();
 		await expect(page).toHaveURL(/\/me\/models$/);
 		await expect(page.getByText("浏览器测试", { exact: true })).toBeVisible();

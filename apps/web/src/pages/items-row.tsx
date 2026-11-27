@@ -1,7 +1,10 @@
 import type { ItemSummary } from "@yonder/protocol";
 import { ListRow, type RowAction } from "@yonder/ui-components";
+import { useItemPendingReply } from "@yonder/ui-data";
+import { LoaderCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { itemFailure, itemSummaryLine, itemTimeLabel, itemTrailingKey } from "./items-format.ts";
+import { itemTrailingKey } from "./items-format.ts";
 
 /** The state word, coloured by what it means: a wait is the accent, a pause is quiet. */
 function stateClass(item: ItemSummary): string {
@@ -12,58 +15,60 @@ function stateClass(item: ItemSummary): string {
 }
 
 /**
- * One row: the title, the one status word the owner acts on, the Bot that owns it and one line of
- * outcome. A failure's line is the real reason, translated from the server's code; nothing is
- * invented for a row with no result (2026-11-24: no 已完成 / 已取消 word, as in Meta Muse).
+ * One row: the title, the Bot that owns it, and the status or elapsed time.
  */
 export function ItemRow({
 	item,
 	botName,
 	onOpen,
-	locale,
 	actions,
 }: {
 	item: ItemSummary;
 	botName: string | null;
 	onOpen: () => void;
-	locale: string;
 	actions: readonly RowAction[];
 }) {
 	const { t } = useTranslation();
-	const line = itemSummaryLine(item);
-	const fallback =
-		item.source === "visit"
-			? t(item.state === "completed" ? "visits.relayApproved" : "visits.relayOpen")
-			: item.source === "conversation"
-				? null
-				: t("tasks.itemNoResult");
-	const outcome =
-		line.kind === "failure"
-			? itemFailure(line.text, locale).text
-			: line.kind === "result"
-				? line.text
-				: (item.waitingReason ?? fallback);
-	const meta = [
-		item.source === "meeting" ? t("meetingRecorder.name") : null,
-		botName,
-		itemTimeLabel(item.startedAt, locale),
-	]
-		.filter(Boolean)
-		.join(" · ");
+	const meta = [item.source === "meeting" ? t("meetingRecorder.name") : null, botName].filter(Boolean).join(" · ");
 	const word = itemTrailingKey(item);
+	const reply = useItemPendingReply(item);
+	const startedAt = reply?.createdAt ?? (item.state === "running" ? item.startedAt : null);
 	return (
 		<ListRow
 			actions={actions}
-			chevron
 			onClick={onOpen}
 			title={item.title}
-			subtitle={
-				<span className="flex flex-col gap-[var(--spacing-1)]">
-					{outcome ? <span className="truncate">{outcome}</span> : null}
-					{meta ? <span className="text-[var(--color-text-tertiary)]">{meta}</span> : null}
-				</span>
+			subtitle={meta ? <span className="text-[var(--color-text-tertiary)]">{meta}</span> : undefined}
+			trailing={
+				startedAt ? (
+					<ItemRuntime startedAt={startedAt} />
+				) : word ? (
+					<span className={stateClass(item)}>{t(word)}</span>
+				) : undefined
 			}
-			trailing={word ? <span className={stateClass(item)}>{t(word)}</span> : undefined}
 		/>
+	);
+}
+
+function ItemRuntime({ startedAt }: { startedAt: string }) {
+	const { t } = useTranslation();
+	const [now, setNow] = useState(Date.now);
+	useEffect(() => {
+		const timer = window.setInterval(() => setNow(Date.now()), 1000);
+		return () => window.clearInterval(timer);
+	}, []);
+	const elapsed = Math.max(0, Math.floor((now - Date.parse(startedAt)) / 1000));
+	return (
+		<span className="inline-flex max-w-full items-center gap-[var(--spacing-1)] text-caption text-[var(--color-text-tertiary)] opacity-[var(--opacity-disabled)] tabular-nums">
+			<LoaderCircle aria-hidden="true" className="size-[var(--text-micro)] shrink-0 motion-safe:animate-spin" />
+			<span className="truncate">
+				{Number.isFinite(elapsed)
+					? t("tasks.itemRuntime", {
+							minutes: Math.floor(elapsed / 60),
+							seconds: String(elapsed % 60).padStart(2, "0"),
+						})
+					: t("tasks.itemStateRunning")}
+			</span>
+		</span>
 	);
 }

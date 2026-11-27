@@ -6,8 +6,10 @@ import { join } from "node:path";
 import test from "node:test";
 
 const workflow = readFileSync(new URL("../../.github/workflows/ios-release.yml", import.meta.url), "utf8");
+const statusWorkflow = readFileSync(new URL("../../.github/workflows/testflight-status.yml", import.meta.url), "utf8");
 const team = "TESTTEAM42";
 const bundle = "net.yonderbot.app";
+const nextBundle = "net.yonderbot.ios";
 const plist = (xml) => `<?xml version="1.0"?><plist version="1.0"><dict>${xml}</dict></plist>`;
 const row = (key, value) => `<key>${key}</key><string>${value}</string>`;
 
@@ -49,18 +51,25 @@ function fixture(t) {
 	stub("xcodebuild", 'cp "$FAKE_IPA" dist-ios/exported.ipa');
 	stub("codesign", 'cat "$5/fake-signed-entitlements.plist"');
 	stub("xcrun", 'test "$1" = altool && echo uploaded > "$RUNNER_TEMP/uploaded"');
+	stub("git", 'test "$1" = rev-parse && printf "%s\\n" "$HEAD_SHA"');
 	const env = {
 		PATH: `${bin}:/usr/bin:/bin`,
 		HOME: home,
 		RUNNER_TEMP: run,
 		GITHUB_ENV: join(run, "env"),
 		TEAM_ID: team,
+		BUNDLE_ID: bundle,
 		CERT_BASE64: Buffer.from("synthetic certificate placeholder").toString("base64"),
 		CERT_PASSWORD: "synthetic password",
 		IOS_PROFILE_NAME: "Synthetic selected profile",
 		ARCHIVE: "isolated fixtures use a stub",
-		VERSION: "0.3.26112399",
+		MARKETING_VERSION: "0.3.26112399",
 		BUILD_NUMBER: "26112399",
+		INPUT_VERSION: "0.3.26112399",
+		GITHUB_REF: "refs/heads/main",
+		GITHUB_EVENT_NAME: "workflow_dispatch",
+		HEAD_SHA: "a".repeat(40),
+		EXPECTED_COMMIT: "a".repeat(40),
 		KEY_BASE64: Buffer.from("synthetic upload key placeholder").toString("base64"),
 		KEY_ID: "synthetic",
 		ISSUER_ID: "synthetic",
@@ -69,7 +78,7 @@ function fixture(t) {
 	function step(name, overrides) {
 		const start = workflow.indexOf(`      - name: ${name}\n`);
 		assert.notEqual(start, -1);
-		const yaml = workflow.slice(start).split("\n      - name: ")[0];
+		const yaml = workflow.slice(start).split("\n      - ")[0];
 		const runAt = yaml.indexOf("        run: |\n");
 		assert.notEqual(runAt, -1);
 		const script = yaml
@@ -86,22 +95,29 @@ function fixture(t) {
 			encoding: "utf8",
 		});
 	}
-	function ipa({ marker = "production", aps = "production", signedTeam = team } = {}) {
+	function ipa({
+		marker = "production",
+		aps = "production",
+		app = bundle,
+		signedTeam = team,
+		version = env.MARKETING_VERSION,
+		build = env.BUILD_NUMBER,
+	} = {}) {
 		const path = join(root, "Payload/Yonder.app");
 		mkdirSync(path, { recursive: true });
 		writeFileSync(
 			join(path, "Info.plist"),
 			plist(
-				row("CFBundleIdentifier", bundle) +
-					row("CFBundleShortVersionString", env.VERSION) +
-					row("CFBundleVersion", env.BUILD_NUMBER) +
+				row("CFBundleIdentifier", app) +
+					row("CFBundleShortVersionString", version) +
+					row("CFBundleVersion", build) +
 					row("YonderPushEnvironment", marker),
 			),
 		);
 		writeFileSync(
 			join(path, "fake-signed-entitlements.plist"),
 			plist(
-				row("application-identifier", `${signedTeam}.${bundle}`) +
+				row("application-identifier", `${signedTeam}.${app}`) +
 					row("com.apple.developer.team-identifier", signedTeam) +
 					(aps ? row("aps-environment", aps) : ""),
 			),
@@ -186,6 +202,8 @@ test("both export modes require the production marker and actual signature entit
 			[{ aps: "" }, "aps-environment"],
 			[{ aps: "development" }, "aps-environment"],
 			[{ signedTeam: "WRONGTEAM1" }, "application-identifier"],
+			[{ version: "1.0.0" }, "CFBundleShortVersionString"],
+			[{ build: "26112300" }, "CFBundleVersion"],
 		]) {
 			const { step, ipa, run } = fixture(t);
 			ipa(fixtureOptions);
@@ -200,11 +218,96 @@ test("both export modes require the production marker and actual signature entit
 				encoding: "utf8",
 			});
 			assert.equal(JSON.parse(opts).testFlightInternalTestingOnly, internal === "true" ? true : undefined);
+			assert.equal(JSON.parse(opts).manageAppVersionAndBuildNumber, false);
 			assertOk(step("上传 TestFlight"));
 			assert.equal(readFileSync(join(run, "uploaded"), "utf8"), "uploaded\n");
 		}
 	}
 	// Failed validation in the export step must not be overridden or upload a GitHub asset via the internal lane.
 	assert.doesNotMatch(workflow, /continue-on-error|if:.*always.*\n.*上传 TestFlight/);
-	assert.match(workflow, /上传 GitHub Release 资产\n +if: \$\{\{ !inputs\.testflight_internal \}\}/);
+	assert.match(
+		workflow,
+		/上传 GitHub Release 资产\n +if: \$\{\{ !inputs\.testflight_internal && github\.ref_type == 'tag' \}\}/,
+	);
+});
+
+test(
+	"dated test releases keep their version; a verified eligible build can specify App Store marketing version",
+	mac,
+	(t) => {
+		const verify = "核对 tag → 提交并确定版本";
+		const { step, env } = fixture(t);
+		assertOk(step(verify, { RELEASE_TAG: "v0.3.26112399", GITHUB_REF: "refs/tags/v0.3.26112399" }));
+		assert.match(readFileSync(env.GITHUB_ENV, "utf8"), /MARKETING_VERSION=0\.3\.26112399/);
+		assertOk(step(verify, { INPUT_MARKETING_VERSION: "1.0.0" }));
+		assert.match(
+			readFileSync(env.GITHUB_ENV, "utf8"),
+			/MARKETING_VERSION=1\.0\.0\nTAG=v0\.3\.26112399\nBUILD_NUMBER=26112399/,
+		);
+		const candidate = fixture(t);
+		candidate.ipa({ version: "1.0.0" });
+		assertOk(candidate.step("导出 IPA", { MARKETING_VERSION: "1.0.0" }));
+		for (const invalid of [
+			{ INPUT_MARKETING_VERSION: "1.0" },
+			{ INPUT_MARKETING_VERSION: "1.0.0", TESTFLIGHT_INTERNAL: "true" },
+			{ INPUT_MARKETING_VERSION: "1.0.0", EXPECTED_COMMIT: "" },
+			{ INPUT_MARKETING_VERSION: "1.0.0", GITHUB_REF: "refs/tags/v0.3.26112399" },
+		]) {
+			assert.notEqual(step(verify, invalid).status, 0);
+		}
+	},
+);
+
+test("each iOS app selects its own credential names before reading secrets", () => {
+	for (const suffix of [
+		"DISTRIBUTION_CERT_P12_BASE64",
+		"DISTRIBUTION_CERT_PASSWORD",
+		"PROVISIONING_PROFILE_BASE64",
+		"TEAM_ID",
+	]) {
+		assert.ok(workflow.includes(`secrets[inputs.ios_app == 'next' && 'IOS_NEXT_${suffix}' || 'IOS_${suffix}']`));
+	}
+	for (const suffix of ["KEY_ID", "ISSUER_ID", "PRIVATE_KEY_BASE64"]) {
+		assert.ok(
+			workflow.includes(`secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_${suffix}' || 'ASC_API_${suffix}']`),
+		);
+		assert.ok(
+			statusWorkflow.includes(
+				`secrets[inputs.bundle_id == '${nextBundle}' && 'ASC_IOS_NEXT_API_${suffix}' || 'ASC_API_${suffix}']`,
+			),
+		);
+	}
+	assert.ok(workflow.includes("inputs.ios_app != 'next' && secrets.IOS_TESTFLIGHT_PUSH_PROFILE_BASE64 || ''"));
+});
+
+test("the new iOS app uses a verified manual dispatch, scoped profile, and matching exported IPA", mac, (t) => {
+	const verify = "核对 tag → 提交并确定版本";
+	const next = { BUNDLE_ID: nextBundle, IOS_APP: "next" };
+	const { step, env } = fixture(t);
+	assertOk(step(verify, next));
+	for (const override of [
+		{ GITHUB_EVENT_NAME: "release" },
+		{ GITHUB_REF: "refs/tags/v0.3.26112399" },
+		{ TESTFLIGHT_INTERNAL: "true" },
+		{ EXPECTED_COMMIT: "" },
+	]) {
+		assert.notEqual(step(verify, { ...next, ...override }).status, 0);
+	}
+	assert.notEqual(step("还原签名材料", { ...next, PROFILE_BASE64: profile() }).status, 0);
+	assertOk(step("还原签名材料", { ...next, PROFILE_BASE64: profile({ app: nextBundle }) }));
+	assert.match(readFileSync(env.GITHUB_ENV, "utf8"), /TEAM_ID=TESTTEAM42\nIOS_TEAM_ID=TESTTEAM42/);
+	const good = fixture(t);
+	good.ipa({ app: nextBundle });
+	assertOk(good.step("导出 IPA", next));
+	const exported = JSON.parse(
+		execFileSync("/usr/bin/plutil", ["-convert", "json", "-o", "-", join(good.run, "ExportOptions.plist")], {
+			encoding: "utf8",
+		}),
+	);
+	assert.deepEqual(exported.provisioningProfiles, { [nextBundle]: env.IOS_PROFILE_NAME });
+	const wrong = fixture(t);
+	wrong.ipa();
+	const rejected = wrong.step("导出 IPA", next);
+	assert.notEqual(rejected.status, 0);
+	assert.match(rejected.stdout, /invalid CFBundleIdentifier/);
 });

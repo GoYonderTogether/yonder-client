@@ -94,29 +94,55 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 		}
 	}
 
-	function memberSwitch(member: ConnectorDefinition) {
+	const deviceLine = `${t(`me.devices.platforms.${device.platform}`)}${device.current ? ` · ${t("me.account.sessionCurrent")}` : ""}${device.status === "offline" ? ` · ${t("me.devices.offline")}` : ""}`;
+
+	function errorOf(id: string) {
+		if (error?.id !== id) return undefined;
+		const settings =
+			error.key === "connectors.systemPermissionDenied" && device.current && localFiles?.openPermissionSettings;
+		return (
+			<>
+				{t(error.key)}
+				{settings ? (
+					<button
+						type="button"
+						className="ms-[var(--spacing-2)] text-[var(--color-accent-text)] underline"
+						onClick={() => {
+							const target = members.find((member) => member.id.startsWith("apple-"));
+							if (target) void localFiles.openPermissionSettings?.(target.id).catch(() => {});
+						}}
+					>
+						{t("connectors.openSystemSettings")}
+					</button>
+				) : null}
+			</>
+		);
+	}
+
+	/** One capability's switch. Alone in its connector, the row stands for the device and carries its name. */
+	function memberSwitch(member: ConnectorDefinition, alone = false) {
 		const { key } = connectorPresentation[member.id];
 		const granted = Boolean(grantOf(member));
+		const hint =
+			!granted && !canGrant(member) && device.status === "online"
+				? t("connectors.onDevice", { device: deviceDisplayName(device) })
+				: undefined;
 		return (
 			<ListSwitch
 				key={member.id}
-				title={t(`connectors.${key}.name`)}
-				subtitle={
-					!granted && !canGrant(member) && device.status === "online"
-						? t("connectors.onDevice", { device: deviceDisplayName(device) })
-						: t(`connectors.${key}.description`)
-				}
+				title={alone ? deviceDisplayName(device) : t(`connectors.${key}.name`)}
+				subtitle={hint ?? (alone ? deviceLine : t(`connectors.${key}.description`))}
 				checked={granted}
 				busy={busy === member.id}
 				disabled={busy !== null || (!granted && !canGrant(member))}
-				error={error?.id === member.id ? t(error.key) : undefined}
+				error={errorOf(member.id)}
 				onChange={(on) => void run(member.id, [member], on)}
 			/>
 		);
 	}
 
 	const only = members.length === 1 ? members[0] : undefined;
-	if (only) return memberSwitch(only);
+	if (only) return memberSwitch(only, true);
 
 	const on = state !== "on" && addable.length > 0;
 	const targets = on ? addable : members.filter((member) => grantOf(member));
@@ -132,10 +158,7 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 				>
 					<span className="flex min-w-0 flex-1 flex-col">
 						<span className="truncate text-body text-[var(--color-text-primary)]">{deviceDisplayName(device)}</span>
-						<span className="truncate text-caption text-[var(--color-text-tertiary)]">
-							{t(`me.devices.platforms.${device.platform}`)}
-							{device.current ? ` · ${t("me.account.sessionCurrent")}` : ""}
-						</span>
+						<span className="truncate text-caption text-[var(--color-text-tertiary)]">{deviceLine}</span>
 					</span>
 					<ChevronDown
 						size={16}
@@ -159,12 +182,12 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 			</div>
 			{error?.id === "master" ? (
 				<p role="alert" className="px-[var(--spacing-4)] pb-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
-					{t(error.key)}
+					{errorOf("master")}
 				</p>
 			) : null}
 			{open ? (
 				<ul id={panel} className="ms-[var(--spacing-4)] border-t border-dashed border-[var(--color-border)]">
-					{members.map(memberSwitch)}
+					{members.map((member) => memberSwitch(member))}
 				</ul>
 			) : null}
 		</li>

@@ -1,5 +1,6 @@
 import type { ProviderModelMetadata, ProviderProtocol } from "@yonder/protocol";
 import { defaultsFor, type EffortLevel } from "./provider-model-defaults.ts";
+import { formatTokens, parseTokens } from "./provider-token-units.ts";
 
 /** The levels a model slot may declare; the same list the server stores as `capabilities.efforts`. */
 export const EFFORT_LEVELS = ["off", "low", "medium", "high", "max"] as const;
@@ -14,7 +15,10 @@ export interface ModelSlot {
 	key: string;
 	name: string;
 	id: string;
+	/** What the person typed: `1M`, `200K` or a plain count. Parsed on save. */
 	contextLength: string;
+	/** The most one answer may generate, typed the same way. */
+	maxOutput: string;
 	efforts: EffortLevel[];
 }
 
@@ -24,6 +28,7 @@ export function newSlot(partial: Partial<ModelSlot> = {}): ModelSlot {
 		name: "",
 		id: "",
 		contextLength: "",
+		maxOutput: "",
 		efforts: [],
 		...partial,
 	};
@@ -39,7 +44,8 @@ export function discoveredSlot(id: string, declared: ProviderModelMetadata | und
 	return newSlot({
 		id,
 		name: defaults.name ?? id,
-		contextLength: defaults.contextLength ? String(defaults.contextLength) : "",
+		contextLength: defaults.contextLength ? formatTokens(defaults.contextLength) : "",
+		maxOutput: declared?.maxOutput ? formatTokens(declared.maxOutput) : "",
 		efforts: defaults.efforts ?? [],
 	});
 }
@@ -54,7 +60,8 @@ export function slotsFromProvider(
 		newSlot({
 			id,
 			name: names?.[id] ?? metadata?.[id]?.name ?? "",
-			contextLength: metadata?.[id]?.contextLength ? String(metadata[id]?.contextLength) : "",
+			contextLength: metadata?.[id]?.contextLength ? formatTokens(metadata[id]?.contextLength as number) : "",
+			maxOutput: metadata?.[id]?.maxOutput ? formatTokens(metadata[id]?.maxOutput as number) : "",
 			efforts: readEfforts(metadata?.[id]?.efforts),
 		}),
 	);
@@ -86,10 +93,12 @@ export function saveMetadata(slots: readonly ModelSlot[]): Record<string, Provid
 	for (const slot of slots) {
 		const id = slot.id.trim();
 		if (!id) continue;
-		const contextLength = Number(slot.contextLength);
+		const contextLength = parseTokens(slot.contextLength) ?? 0;
+		const maxOutput = parseTokens(slot.maxOutput) ?? 0;
 		metadata[id] = {
 			...(slot.name.trim() ? { name: slot.name.trim() } : {}),
-			...(Number.isSafeInteger(contextLength) && contextLength > 0 ? { contextLength } : {}),
+			...(contextLength > 0 ? { contextLength } : {}),
+			...(maxOutput > 0 ? { maxOutput } : {}),
 			...(slot.efforts.length ? { efforts: [...slot.efforts] } : {}),
 		};
 	}

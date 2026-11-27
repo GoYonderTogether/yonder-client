@@ -17,6 +17,8 @@ export interface RailProps {
 	meLabel: string;
 	settingsLabel: string;
 	updateAction?: ReactNode;
+	/** Sits right above the settings button. */
+	inviteAction?: ReactNode;
 	titlebarInset: boolean;
 	messagesUnread?: { count: number; label: string } | undefined;
 }
@@ -33,6 +35,7 @@ export function Rail({
 	meLabel,
 	settingsLabel,
 	updateAction,
+	inviteAction,
 	titlebarInset,
 	messagesUnread,
 }: RailProps) {
@@ -108,6 +111,7 @@ export function Rail({
 			</ul>
 			<div className="mt-auto flex flex-col items-center gap-[var(--spacing-2)]">
 				{updateAction}
+				{inviteAction}
 				<button
 					type="button"
 					onClick={onOpenMe}

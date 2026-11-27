@@ -26,6 +26,7 @@ import "./composer-voice.css";
 import type { ChatVoice } from "../lib/chat-voice.ts";
 import { useFilePicker } from "./composer-file-picker.ts";
 import type { ComposerProps } from "./composer-props.ts";
+import { ComposerQuoteBar } from "./composer-quote.tsx";
 import { VisitRelay } from "./visit-relay.tsx";
 
 /**
@@ -95,7 +96,6 @@ export function Composer({
 	const [dragging, setDragging] = useState(false);
 	const dragDepth = useRef(0);
 	const composing = useRef(false);
-	const compositionEndedAt = useRef(Number.NEGATIVE_INFINITY);
 	const consumeEdit = useTextareaEdit(input, scope);
 	const completion = useComposerCompletion({
 		input,
@@ -118,10 +118,10 @@ export function Composer({
 	const hasContent = Boolean(draft.trim() || files.length);
 	const voiceSending = voiceSendingScope === scope;
 	const holdMode = mobilePicker && voiceScope === scope;
-	const editor = useComposerEditor(input, draft, mobilePicker, scope, holdMode, files.length);
+	const editor = useComposerEditor(input, draft, mobilePicker, scope, holdMode);
 	const showSend = !mobilePicker || streaming || sending || (hasContent && !holdMode && !voiceSending);
 	const voiceUnavailable = disabled || readOnly || disconnected || microphoneOccupied || !onSendVoice;
-	const canSend = !disabled && !streaming && hasContent;
+	const canSend = !disabled && !disconnected && !streaming && hasContent;
 	function toggleVoiceMode() {
 		setHoldError(undefined);
 		if (holdMode) {
@@ -168,8 +168,7 @@ export function Composer({
 		editor: input,
 		sending,
 		disabled,
-		// Only the voice send is gated by the connection; a failed text send keeps its own retry.
-		disconnected: false,
+		disconnected,
 		streaming,
 		canSend,
 		hasFiles: files.length > 0,
@@ -297,6 +296,7 @@ export function Composer({
 				}}
 			>
 				<ComposerFrame as="div" dragging={dragging}>
+					<ComposerQuoteBar />
 					{!editor.fullscreen ? <CompletionPopup completion={completion} /> : null}
 					{files.length && !voiceSending ? (
 						<ComposerFiles
@@ -322,11 +322,7 @@ export function Composer({
 					) : null}
 					<ComposerLayout
 						as="div"
-						expanded={
-							mobilePicker
-								? !holdMode && (editor.multiline || files.length > 0)
-								: editor.expanded || draft.includes("\n") || files.length > 0
-						}
+						expanded={mobilePicker ? !holdMode && (editor.multiline || files.length > 0) : files.length > 0}
 					>
 						{mobilePicker ? (
 							<button
@@ -410,7 +406,6 @@ export function Composer({
 								}}
 								onCompositionEnd={(event) => {
 									composing.current = false;
-									compositionEndedAt.current = performance.now();
 									delete event.currentTarget.dataset.composing;
 									completion.sync(event.currentTarget);
 								}}
@@ -421,11 +416,7 @@ export function Composer({
 										return;
 									}
 									const enter = event.key === "Enter" && !event.shiftKey;
-									if (
-										enter &&
-										(sendOnEnter || completion.matches.length > 0) &&
-										(event.repeat || performance.now() - compositionEndedAt.current < 500)
-									) {
+									if (event.repeat && enter && (sendOnEnter || completion.matches.length > 0)) {
 										event.preventDefault();
 										return;
 									}
@@ -438,7 +429,7 @@ export function Composer({
 									send();
 								}}
 								data-empty={mobilePicker && !draft ? true : undefined}
-								className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-row-height)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
+								className="composer-text composer-text-style min-h-[var(--composer-row-height)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none placeholder:text-[var(--color-text-tertiary)]"
 							/>
 						</ComposerEditor>
 						{mobilePicker && onSendVoice ? (
@@ -459,7 +450,7 @@ export function Composer({
 						) : null}
 						{!mobilePicker ? (
 							<VoiceControl
-								disabled={disabled || readOnly || disconnected || (microphoneOccupied && !voice.isListening)}
+								disabled={disabled || readOnly || (microphoneOccupied && !voice.isListening)}
 								listening={voice.isListening}
 								onStart={startVoice}
 								onPause={pauseVoice}
@@ -468,7 +459,9 @@ export function Composer({
 						{showSend ? (
 							<button
 								type="button"
-								disabled={iosAttachments.importing || (!sending && (streaming || (!canSend && !voiceActive)))}
+								disabled={
+									iosAttachments.importing || (!sending && (streaming || disconnected || (!canSend && !voiceActive)))
+								}
 								onClick={sending ? onCancelSend : send}
 								aria-label={t(sending ? "chat.stopSend" : "chat.disabledSend")}
 								className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"

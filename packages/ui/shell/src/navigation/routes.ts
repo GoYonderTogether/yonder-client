@@ -51,6 +51,7 @@ export const ROUTES: readonly RouteEntry[] = [
 	{ path: "/memory/g/:group", layer: "detail", tab: "memory" },
 	{ path: "/memory/files/:path", layer: "detail", tab: "memory" },
 	{ path: "/contacts", layer: "tab", tab: "contacts" },
+	{ path: "/contacts/profile/:handle", layer: "detail", tab: "contacts" },
 	{ path: "/me", layer: "detail" },
 	{ path: "/me/:section", layer: "detail" },
 	{ path: "/me/:section/:page", layer: "detail" },
@@ -69,6 +70,10 @@ export function isTab(value: string): value is TabId {
 export function locate(pathname: string): { tab: TabId | null; detail: string[] } | null {
 	const [first, ...rest] = pathname.split("/").filter(Boolean);
 	if (!first || (first !== "me" && !isTab(first))) return null;
-	if (first === "contacts" && rest.length) return null;
+	if (first === "contacts" && rest.length) {
+		const [profile, handle] = rest;
+		if (profile !== "profile" || !handle || rest.length !== 2) return null;
+		return { tab: "contacts", detail: [decodeURIComponent(handle)] };
+	}
 	return { tab: first === "me" ? null : first, detail: rest.map(decodeURIComponent) };
 }

@@ -2,6 +2,7 @@ import type { Provider, ProviderModelMetadata, ProviderProtocol } from "@yonder/
 import { useProviderActions } from "@yonder/ui-data";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { normalizeAddress } from "./provider-address.ts";
 import type { NativeProviderBinding, ProviderAddFailure } from "./provider-location.ts";
 import { completeSlots, type ModelSlot, saveMetadata } from "./provider-model-slots.ts";
 
@@ -46,7 +47,7 @@ export function useProviderSubmit(options: {
 				target
 					? { origin: "device", ...target, protocol: options.deviceProtocol }
 					: {
-							baseUrl: normalizeWallet(options.baseUrl),
+							baseUrl: normalizeAddress(options.baseUrl, options.deviceProtocol),
 							protocol: options.deviceProtocol,
 							...(key ? { apiKey: key } : options.provider ? { providerId: options.provider.id } : {}),
 						},
@@ -54,10 +55,11 @@ export function useProviderSubmit(options: {
 			if (version !== options.version.current) return;
 			options.setAvailable(result.models);
 			options.setMetadata(result.metadata ?? {});
-			if (!result.models.length) setError(t("models.fetchFailed"));
+			if (!result.models.length) setError(t("models.fetchEmpty"));
 		} catch (cause) {
 			if (version === options.version.current) {
-				setError(t("models.fetchFailed"));
+				// The server's own words: a wrong key and an unknown protocol lead to different fixes.
+				setError(t("models.fetchFailed", { reason: describe(cause) }));
 				options.onAddFailure?.("discover", cause, startedAt);
 			}
 		} finally {
@@ -94,7 +96,11 @@ export function useProviderSubmit(options: {
 				metadata: saveMetadata(slots),
 				...(target
 					? { origin: "device", ...target, protocol: options.deviceProtocol }
-					: { baseUrl: normalizeWallet(options.baseUrl), protocol: values.protocol, ...(key ? { apiKey: key } : {}) }),
+					: {
+							baseUrl: normalizeAddress(options.baseUrl, options.deviceProtocol),
+							protocol: values.protocol,
+							...(key ? { apiKey: key } : {}),
+						}),
 			});
 			saved = true;
 			options.onDone();
@@ -126,10 +132,17 @@ export function useProviderSubmit(options: {
 	return { discover, save, test, fetching, saving };
 }
 
-/**
- * A cloud address is stored without the version segment the adapter appends itself, so an address
- * copied straight from a provider's documentation does not become `/v1/v1/chat/completions`.
- */
-export function normalizeWallet(value: string): string {
-	return value.trim().replace(/\/+$/, "").replace(/\/v1$/i, "");
+/** The sentence a failed call is shown with: the status and the server's message, whichever exist. */
+export function describe(cause: unknown): string {
+	if (cause && typeof cause === "object") {
+		const error = cause as { message?: unknown; status?: unknown; details?: { reason?: unknown } | null };
+		const reason = typeof error.details?.reason === "string" ? error.details.reason : "";
+		const message = typeof error.message === "string" ? error.message : "";
+		const status = typeof error.status === "number" ? error.status : null;
+		if (reason && status) return `${status} · ${reason}`;
+		if (message && status) return `${status} · ${message}`;
+		if (message) return message;
+		if (status) return String(status);
+	}
+	return cause instanceof Error ? cause.message : String(cause);
 }

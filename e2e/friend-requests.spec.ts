@@ -11,8 +11,7 @@ for (const mobile of [false, true]) {
 			await page.addInitScript(() =>
 				Object.defineProperty(navigator, "userAgent", { get: () => "Mozilla/5.0 (Linux; Android 14) Mobile" }),
 			);
-		await isolateChat(page);
-		await page.addInitScript(() => localStorage.setItem("yonder.locale", "en"));
+		await isolateChat(page, { locale: "en" });
 		let request: FriendRequest = {
 			id: "request-1",
 			sender: { ...person, id: "friend", displayName: "Alice", handle: "alice" },
@@ -22,6 +21,21 @@ for (const mobile of [false, true]) {
 			acceptedAt: null,
 			version: 1,
 		};
+		const history: FriendRequest = {
+			...request,
+			id: "request-history",
+			sender: { ...request.sender, id: "history-friend", handle: "charlie", displayName: "Charlie" },
+			status: "accepted",
+			acceptedAt: "2026-11-18T00:01:00Z",
+		};
+		await page.route("**/v1/contacts", (route) =>
+			route.fulfill({ json: { items: request.status === "accepted" ? [request.sender] : [] } }),
+		);
+		await page.route("**/v1/members/alice", (route) =>
+			route.fulfill({
+				json: { card: { ...request.sender, owner: null }, relation: "contact", memberId: request.sender.id },
+			}),
+		);
 		const notice = {
 			...conversation,
 			id: "notifications",
@@ -47,13 +61,15 @@ for (const mobile of [false, true]) {
 				request = { ...request, status: "accepted", acceptedAt: "2026-11-18T00:01:00Z", version: 2 };
 				return route.fulfill({ json: { request, conversation } });
 			}
-			return route.fulfill({ json: path.endsWith("/friend-requests") ? { items: [request] } : { request } });
+			return route.fulfill({
+				json: path.endsWith("/friend-requests")
+					? { items: [history, request] }
+					: { request: path.endsWith(history.id) ? history : request },
+			});
 		});
 		await page.goto("/messages/notifications");
 		await expect(page.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
 		await expect(page.locator("textarea")).toHaveCount(0);
-		await page.getByRole("button", { name: "Accept", exact: true }).click();
-		await expect(page.getByRole("status").filter({ hasText: "Accepted" })).toBeVisible();
 		const navigation = page.getByRole("navigation", { name: "Main navigation" });
 		if (mobile) {
 			await page.goto("/messages");
@@ -68,9 +84,37 @@ for (const mobile of [false, true]) {
 		const contacts = mobile
 			? page.getByRole("dialog", { name: "Contacts", exact: true })
 			: page.getByRole("complementary");
-		await expect(contacts.getByRole("status").filter({ hasText: "Accepted" })).toBeVisible();
-		await expect(contacts.getByRole("button", { name: "Accept", exact: true })).toHaveCount(0);
-		// Contacts remain empty; historical acceptance is not inferred from the contact list.
+		const contactsTab = contacts.getByRole("radio", { name: "Contacts", exact: true });
+		const requestsTab = contacts.getByRole("radio", { name: "Friend requests", exact: true });
+		const alice = contacts.getByRole("button", { name: /Alice/ });
+		const accept = contacts.getByRole("button", { name: "Accept", exact: true });
+		const accepted = contacts.getByRole("status").filter({ hasText: "Accepted" });
+		await expect(contactsTab).toBeChecked();
+		await expect(contacts.getByText("No contacts yet")).toBeVisible();
+		await expect(accept).toHaveCount(0);
+		await expect(accepted).toHaveCount(0);
+		if (mobile) await expect(contacts.getByRole("button", { name: "Back", exact: true })).toBeVisible();
+
+		await requestsTab.click();
+		await expect(requestsTab).toBeChecked();
+		await expect(contacts.locator("section").first()).toContainText("Alice");
+		await expect(accepted).toHaveCount(1);
+		await accept.click();
+		await expect(requestsTab).toBeChecked();
+		await expect(accepted).toHaveCount(2);
+
+		await contactsTab.click();
+		await expect(alice).toBeVisible();
+		await expect(accepted).toHaveCount(0);
+		await expect(contacts.getByText("Charlie")).toHaveCount(0);
+		await alice.click();
+		const pane = mobile ? page.locator('[data-page-layer="side"]') : page.locator("[data-detail-pane]");
+		await expect(page).toHaveURL(mobile ? /\/messages$/ : /\/contacts$/);
+		await expect(pane.getByRole("heading", { name: "Alice", exact: true })).toBeVisible();
+
+		await page.goto("/messages/notifications");
+		await expect(page.getByRole("status").filter({ hasText: "Accepted" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Accept", exact: true })).toHaveCount(0);
 	});
 }
 
@@ -115,12 +159,26 @@ test("desktop Contacts keeps its selected tab across widths and navigation", asy
 		await expect(page.getByRole("dialog", { name: "联系人", exact: true })).toHaveCount(0);
 	}
 	await page.setViewportSize({ width: 1440, height: 900 });
+	await expect(page.getByText("选择联系人查看名片")).toBeVisible();
 	await row.click();
 	const pane = page.locator("[data-detail-pane]");
 	await expect(pane.getByRole("tab", { name: "林晓" })).toBeVisible();
 	await expect(pane.getByRole("heading", { name: "林晓" })).toBeVisible();
 	await expect(page).toHaveURL(/\/contacts$/);
 	await page.screenshot({ path: info.outputPath("desktop-contact-detail.png"), animations: "disabled" });
+
+	await list.getByRole("radio", { name: "好友申请", exact: true }).click();
+	await expect(page).toHaveURL(/\/contacts$/);
+	await expect(page.getByText("选择联系人查看名片")).toHaveCount(0);
+	await expect(list.getByText("暂无好友申请")).toBeVisible();
+	await expect(pane.getByRole("heading", { name: "林晓" })).toBeVisible();
+	await pane.getByRole("button", { name: "关闭全部", exact: true }).click();
+
+	await list.getByRole("radio", { name: "联系人", exact: true }).click();
+	await page.setViewportSize({ width: 500, height: 900 });
+	await row.click();
+	await expect(pane.getByRole("heading", { name: "林晓" })).toBeVisible();
+	await expect(page).toHaveURL(/\/contacts$/);
 	await pane.getByRole("button", { name: "关闭全部", exact: true }).click();
 	await expect(contacts).toHaveAttribute("aria-current", "page");
 	await page.reload();
@@ -128,6 +186,9 @@ test("desktop Contacts keeps its selected tab across widths and navigation", asy
 	await page.goBack();
 	await expect(page).toHaveURL(/\/tasks$/);
 	await expect(rail.getByRole("button", { name: "任务", exact: true })).toHaveAttribute("aria-current", "page");
+	await page.goto("/contacts/profile/alice");
+	await expect(page.getByRole("main").getByRole("heading", { name: "林晓" })).toBeVisible();
+	await expect(pane).toHaveCount(0);
 	await page.goto("/@alice");
 	await expect(page.getByRole("heading", { name: "林晓" })).toBeVisible();
 	await expect(pane).toHaveCount(0);

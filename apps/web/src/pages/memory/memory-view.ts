@@ -54,6 +54,16 @@ export function fileGroup(path: string): string | null {
 	return source ? `sources:${source}` : null;
 }
 
+export function isInlineMemoryGroup(group: string): boolean {
+	return group === "notes" || group === "sources:recordings";
+}
+
+export function showsMemoryBack(view: MemoryView): boolean {
+	if (view.kind === "group" && !view.directory) return false;
+	const group = view.kind === "group" ? view.group : view.kind === "file" ? fileGroup(view.path) : null;
+	return group !== null && (isInlineMemoryGroup(group) || group === "digests");
+}
+
 export function groupPrefix(group: string): string | null {
 	if (group === "archived") return MEMORY_ARCHIVE_PREFIX;
 	if (group === "notes" || group === "digests" || group === "public") return `/${group}/`;

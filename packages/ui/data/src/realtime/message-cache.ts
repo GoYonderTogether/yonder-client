@@ -1,10 +1,89 @@
-import type { InfiniteData, QueryClient } from "@tanstack/react-query";
+import type { InfiniteData, Query, QueryClient } from "@tanstack/react-query";
 import { chatHistoryTimeOffset, isNewChatHistoryCutoff, mergeMessage } from "@yonder/chat-model";
-import type { ChatHistoryCutoff, Conversation, MessagePage, Run } from "@yonder/protocol";
+import type { ChatHistoryCutoff, Conversation, Message, MessagePage, Run } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
 import type { CachedMessage } from "./cached-message.ts";
 
 type ConversationList = { items: Conversation[] };
+// Scope deleted ids to the cached history's lifetime so delayed events cannot restore the row.
+const deletedMessages = new WeakMap<Query, Set<string>>();
+
+export function withFeedback(message: Message, value: Message["feedback"] | null): Message {
+	const { feedback: _feedback, ...rest } = message;
+	return value ? { ...rest, feedback: value } : rest;
+}
+
+export function editCachedMessage(
+	client: QueryClient,
+	conversationId: string,
+	messageId: string,
+	edit: (message: Message) => Message,
+): Message | undefined {
+	let previous: Message | undefined;
+	client.setQueryData<InfiniteData<MessagePage>>(keys.messages.latest(conversationId), (current) => {
+		if (!current) return current;
+		return {
+			...current,
+			pages: current.pages.map((page) => ({
+				...page,
+				items: page.items.map((item) => {
+					if (item.id !== messageId) return item;
+					previous ??= item;
+					return edit(item);
+				}),
+			})),
+		};
+	});
+	return previous;
+}
+
+function markUnavailableReply(message: Message, sourceId: string, kind: "recalled" | "missing"): Message {
+	const reply = message.replyTo;
+	if (!reply || reply.id !== sourceId) return message;
+	return { ...message, replyTo: { id: reply.id, senderId: reply.senderId, snippet: "", [kind]: true } };
+}
+
+export function removeMessage(client: QueryClient, conversationId: string, messageId: string): Message | undefined {
+	const historyKey = keys.messages.latest(conversationId);
+	const query = client.getQueryCache().find({ queryKey: historyKey, exact: true });
+	if (query) {
+		const deleted = deletedMessages.get(query) ?? new Set<string>();
+		deleted.add(messageId);
+		deletedMessages.set(query, deleted);
+	}
+
+	let removed: Message | undefined;
+	client.setQueryData<InfiniteData<MessagePage>>(historyKey, (current) => {
+		if (!current) return current;
+		return {
+			...current,
+			pages: current.pages.map((page) => ({
+				...page,
+				items: page.items.flatMap((item) => {
+					if (item.id === messageId) {
+						removed ??= item;
+						return [];
+					}
+					return [markUnavailableReply(item, messageId, "missing")];
+				}),
+			})),
+		};
+	});
+
+	const removedAt = removed?.createdAt;
+	client.setQueryData<ConversationList>(
+		keys.conversations.list(),
+		(current) =>
+			current && {
+				items: current.items.map((item) =>
+					item.id === conversationId && removedAt && item.lastMessage?.createdAt === removedAt
+						? { ...item, lastMessage: null }
+						: item,
+				),
+			},
+	);
+	return removed;
+}
 
 function cachedConversation(client: QueryClient, id: string) {
 	return client.getQueryData<ConversationList>(keys.conversations.list())?.items.find((item) => item.id === id);
@@ -63,7 +142,14 @@ export function applyChatHistoryClear(client: QueryClient, id: string, cutoff: C
 /** Keep one message per server id (or client nonce while a send is being confirmed). */
 export function updateMessage(client: QueryClient, message: CachedMessage): void {
 	const queryKey = keys.messages.latest(message.conversationId);
-	const cutoff = client.getQueryData<InfiniteData<MessagePage>>(queryKey)?.pages[0]?.historyClearedThrough;
+	const query = client.getQueryCache().find({ queryKey, exact: true });
+	if (query && deletedMessages.get(query)?.has(message.id)) return;
+	const history = client.getQueryData<InfiniteData<MessagePage>>(queryKey);
+	const previous = history?.pages
+		.find((page) => page.items.some((item) => item.id === message.id))
+		?.items.find((item) => item.id === message.id);
+	if (previous && (previous.version > message.version || (previous.recalled && !message.recalled))) return;
+	const cutoff = history?.pages[0]?.historyClearedThrough;
 	const listedCutoff = cachedConversation(client, message.conversationId)?.historyClearedThrough;
 	const latest = listedCutoff && isNewChatHistoryCutoff(listedCutoff, cutoff) ? listedCutoff : cutoff;
 	if (latest && !message.pending && !message.sendFailed) {
@@ -96,7 +182,8 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 		const next = pages.map((page) => ({
 			...page,
 			items: page.items.map((old) => {
-				if (old.id !== message.id && (!message.clientNonce || old.clientNonce !== message.clientNonce)) return old;
+				if (old.id !== message.id && (!message.clientNonce || old.clientNonce !== message.clientNonce))
+					return message.recalled ? markUnavailableReply(old, message.id, "recalled") : old;
 				found = true;
 				return mergeMessage(old, message);
 			}),
@@ -109,12 +196,15 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 	// A group lifecycle message has no body but still belongs in the list preview: the row renders it
 	// from `system` in the reader's language (19 第三节).
 	const isSystem = message.type === "system";
-	if (!isSystem && !message.voice && !message.meeting && !message.body?.trim()) return;
+	if (!isSystem && !message.recalled && !message.voice && !message.meeting && !message.body?.trim()) return;
 	// A reply in a hidden conversation (清空历史) brings the conversation list back in step, so the row
 	// does not keep showing an older preview than the message that just landed.
-	if (!message.streaming && cachedConversation(client, message.conversationId)?.hiddenFromMessages)
-		void client.invalidateQueries({ queryKey: keys.conversations.list() });
-	client.setQueryData<ConversationList>(keys.conversations.list(), (current) => {
+	const conversation = cachedConversation(client, message.conversationId);
+	const listKey = keys.conversations.list();
+	if (message.recalled && conversation?.lastMessage?.createdAt === message.createdAt)
+		void client.cancelQueries({ queryKey: listKey });
+	if (!message.streaming && conversation?.hiddenFromMessages) void client.invalidateQueries({ queryKey: listKey });
+	client.setQueryData<ConversationList>(listKey, (current) => {
 		if (!current) return current;
 		return {
 			items: current.items.map((conversation) => {
@@ -132,8 +222,8 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 						createdAt: message.createdAt,
 						type: message.type,
 						...(message.system ? { system: message.system } : {}),
-						...(message.voice ? { voice: message.voice } : {}),
-						...(message.meeting ? { recordingNote: true } : {}),
+						...(!message.recalled && message.voice ? { voice: message.voice } : {}),
+						...(!message.recalled && message.meeting ? { recordingNote: true } : {}),
 					},
 				};
 			}),

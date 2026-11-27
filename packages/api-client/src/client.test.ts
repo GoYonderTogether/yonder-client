@@ -293,3 +293,34 @@ describe("refresh", () => {
 		expect(await none.refreshSession()).toBe(false);
 	});
 });
+
+test("message actions send the contract paths, methods and retry-safe forward nonce", async () => {
+	const fetchImpl = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => jsonResponse({ ok: true }));
+	const api = createEndpoints(client(fetchImpl));
+	await api.recallMessage("m/1");
+	await api.deleteMessage("m/1");
+	await api.messageFeedback("m/1", null);
+	await api.forwardMessage("m/1", { conversationId: "target", clientNonce: "nonce" });
+	expect(
+		fetchImpl.mock.calls.map(([url, init]) => [
+			new URL(String(url)).pathname,
+			init?.method,
+			init?.body,
+			new Headers(init?.headers).get("idempotency-key"),
+		]),
+	).toEqual([
+		["/v1/messages/m%2F1/recall", "POST", null, null],
+		["/v1/messages/m%2F1", "DELETE", null, null],
+		["/v1/messages/m%2F1/feedback", "PUT", '{"value":null}', null],
+		["/v1/messages/m%2F1/forward", "POST", '{"conversationId":"target","clientNonce":"nonce"}', "nonce"],
+	]);
+});
+
+test.each([
+	[403, "not_allowed"],
+	[404, "not_found"],
+	[409, "recall_window_closed"],
+])("message actions retain %s %s errors", async (status, code) => {
+	const api = createEndpoints(client(async () => errorResponse(code, status)));
+	await expect(api.recallMessage("m")).rejects.toMatchObject({ status, code });
+});

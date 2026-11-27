@@ -307,7 +307,7 @@ for (const layout of ["desktop", "mobile"] as const) {
 			const pane = page.locator("[data-task-pane-reader]");
 			await expect(pane).toContainText(detail.result ?? "");
 			await expect(pane.getByRole("link", { name: "发布清单.md" })).toHaveAttribute("href", /^\/memory\/files\//);
-			await expect(pane.getByRole("link", { name: "打开完整任务" })).toHaveAttribute("href", `/tasks/${detail.id}`);
+			await expect(page.getByRole("link", { name: "打开完整任务" })).toHaveAttribute("href", `/tasks/${detail.id}`);
 			await expect(page).toHaveURL(/\/messages\/main$/);
 			if (paneEvidence)
 				await page.screenshot({ path: `${paneEvidence}/chat-task-reference-${layout}.png`, animations: "disabled" });
@@ -408,7 +408,7 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await expect(reader.getByRole("radio", { name: "原文" })).toBeChecked();
 			if (paneEvidence)
 				await page.screenshot({ path: `${paneEvidence}/chat-meeting-pane-${layout}.png`, animations: "disabled" });
-			await reader.getByRole("link", { name: "打开完整任务" }).click();
+			await page.getByRole("link", { name: "打开完整任务" }).click();
 			await expect(page).toHaveURL(new RegExp(`/tasks/${meetingId}$`));
 			const header = page
 				.locator("[data-frame-header]")
@@ -473,7 +473,7 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await expect(reader.locator('[data-recording-source="batch-2"]')).toBeFocused();
 			await expect(reader.locator('[data-recording-source="batch-2"]')).toContainText(api.evidence);
 			expect(externalRequests).toEqual([]);
-			await reader.getByRole("link", { name: "打开完整任务" }).click();
+			await page.getByRole("link", { name: "打开完整任务" }).click();
 			await expect(page).toHaveURL(new RegExp(`/tasks/${meetingId}$`));
 			const card = page.locator("[data-item-recording]");
 			await expect(card).toContainText("登录页先交付");

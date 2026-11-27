@@ -8,6 +8,7 @@ export const friendQrZhCN = {
 
 export const friendRequestsZhCN = {
 	title: "好友申请",
+	empty: "暂无好友申请",
 	accepted: "已同意",
 	accept: "同意",
 	sent: "已发送申请",

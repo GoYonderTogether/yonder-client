@@ -75,7 +75,9 @@ export function createQueryClient(): QueryClient {
 }
 
 /** A persister over a key-value store, so the web (localStorage) and a shell (its own store) share one shape. */
-export function createPersister(store: KeyValueStore): Persister & { activate(): void; dispose(): void } {
+export function createPersister(
+	store: KeyValueStore,
+): Persister & { activate(): void; dispose(): void; flush(): void } {
 	let pending: PersistedClient | undefined;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let active = true;
@@ -151,6 +153,7 @@ export function createPersister(store: KeyValueStore): Persister & { activate():
 			cancel();
 			store.remove(CACHE_STORAGE_KEY);
 		},
+		flush,
 		activate: () => {
 			active = true;
 		},

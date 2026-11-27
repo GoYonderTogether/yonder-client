@@ -18,14 +18,15 @@ function useOpenReward(): { amount: string; remaining: number | null } | null {
 }
 
 /** The desktop rail's way into the invitation page, right above settings; the badge is the reward. */
-export function InviteRailButton({ current, onOpen }: { current: boolean; onOpen: () => void }) {
+export function InviteRailButton({ section, onOpen }: { section: string | null; onOpen: (path: string) => void }) {
 	const { t } = useTranslation();
+	const current = section === "invite";
 	const reward = useOpenReward();
 	const label = reward ? t("inviteExperience.railLabel", { amount: reward.amount }) : t("inviteExperience.title");
 	return (
 		<button
 			type="button"
-			onClick={onOpen}
+			onClick={() => onOpen("/me/invite")}
 			aria-label={label}
 			title={label}
 			aria-current={current ? "page" : undefined}
@@ -40,8 +41,10 @@ export function InviteRailButton({ current, onOpen }: { current: boolean; onOpen
 			{reward ? (
 				<span
 					aria-hidden="true"
-					className="absolute end-[var(--spacing-2)] top-[var(--spacing-2)] size-[var(--spacing-2)] rounded-[var(--radius-full)] bg-[var(--color-text-secondary)]"
-				/>
+					className="absolute -end-[var(--spacing-3)] -top-[var(--spacing-1)] rounded-[var(--radius-full)] bg-[var(--color-warning)] px-[var(--spacing-1)] text-[length:var(--text-micro)] font-semibold leading-[1.45] tabular-nums text-[var(--color-on-accent)] shadow-[var(--shadow-xs)]"
+				>
+					+{reward.amount}
+				</span>
 			) : null}
 		</button>
 	);

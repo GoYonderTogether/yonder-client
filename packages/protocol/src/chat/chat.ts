@@ -246,7 +246,18 @@ export interface Message {
 	body: string | null;
 	attachments: Attachment[];
 	voice?: { durationMs: number; transcription?: "pending" | "completed" | "failed" };
+	recalled?: { at: string; by: "sender" | "owner" };
+	/** The current viewer's feedback. */
+	feedback?: "up" | "down";
 	replyToId: string | null;
+	replyTo?: {
+		id: string;
+		senderId: string;
+		/** At most 80 characters. */
+		snippet: string;
+		recalled?: true;
+		missing?: true;
+	};
 	createdAt: string;
 	/** When a streamed reply became eligible for unread counts. */
 	readableAt?: string;

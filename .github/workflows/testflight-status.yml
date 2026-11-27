@@ -1,0 +1,43 @@
+name: TestFlight status
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: App bundle ID
+        required: true
+        default: net.yonderbot.app
+        type: string
+      build_number:
+        description: Exact iOS build number (CFBundleVersion)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check TestFlight distribution
+        env:
+          KEY_BASE64: ${{ secrets[inputs.bundle_id == 'net.yonderbot.ios' && 'ASC_IOS_NEXT_API_PRIVATE_KEY_BASE64' || 'ASC_API_PRIVATE_KEY_BASE64'] }}
+          KEY_ID: ${{ secrets[inputs.bundle_id == 'net.yonderbot.ios' && 'ASC_IOS_NEXT_API_KEY_ID' || 'ASC_API_KEY_ID'] }}
+          ISSUER_ID: ${{ secrets[inputs.bundle_id == 'net.yonderbot.ios' && 'ASC_IOS_NEXT_API_ISSUER_ID' || 'ASC_API_ISSUER_ID'] }}
+          BUNDLE_ID: ${{ inputs.bundle_id }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          set -eu
+          [ -n "$KEY_BASE64" ] && [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] || {
+            echo "::error::missing App Store Connect credentials for the selected bundle"
+            exit 1
+          }
+          key_path=$(mktemp "$RUNNER_TEMP/asc-testflight.XXXXXX")
+          trap 'rm -f "$key_path"' EXIT
+          printf '%s' "$KEY_BASE64" | base64 --decode > "$key_path"
+          unset KEY_BASE64
+          KEY_PATH="$key_path" node scripts/release/testflight-outer.mjs

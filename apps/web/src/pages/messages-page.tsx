@@ -1,16 +1,13 @@
 import {
 	agentChatStatus,
-	conversationBotOwner,
-	hasPendingBotReply,
+	findPendingBotReply,
 	isTwoPartyAgentChat,
 	newestReadableMessage,
 	ownedBotFor,
 } from "@yonder/chat-model";
 import { exhaustedPools, QuotaLowBanner } from "@yonder/feature-me";
-import { BotName } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import {
-	Avatar,
 	Button,
 	ConversationList,
 	ConversationRow,
@@ -40,7 +37,7 @@ import { useLocation, useNavigate } from "react-router";
 import { isForeground, useForeground } from "../lib/foreground.ts";
 import { BotWaitingBubble } from "./bot-waiting-bubble.tsx";
 import { ChatActions } from "./chat-actions/index.tsx";
-import { ConversationMessages } from "./conversation-messages.tsx";
+import { ConversationAgentHeader } from "./conversation-agent-header.tsx";
 import {
 	ConversationAvatar,
 	conversationPeer,
@@ -48,6 +45,8 @@ import {
 	primaryConversation,
 } from "./conversation-presentation.tsx";
 import { ConversationEntry } from "./conversation-row.tsx";
+import { InteractiveConversationMessages } from "./message-action-dialogs.tsx";
+import { useMessageQuoteJump } from "./use-message-quote-jump.ts";
 import { useMessageScroll } from "./use-message-scroll.ts";
 import { VisitBar } from "./visit-bar.tsx";
 
@@ -163,11 +162,12 @@ export function MessagesList({
 			{deleting ? (
 				<ConfirmDialog
 					open
-					title={t("messages.deleteTitle", { name: deleting.title })}
+					title={t("messages.deleteTitle")}
 					body={t("messages.deleteBody", { name: deleting.title })}
 					confirmLabel={t("messages.delete")}
 					cancelLabel={t("app.cancel")}
 					closeLabel={t("app.close")}
+					backLabel={t("app.back")}
 					busy={remove.isPending}
 					error={remove.isError ? t("messages.deleteFailed") : null}
 					onCancel={() => {
@@ -189,6 +189,7 @@ export function ConversationPage({
 	onOpenMeeting,
 	onOpenMember,
 	onOpenGroup,
+	onMention,
 	item,
 }: {
 	conversationId: string | null;
@@ -197,10 +198,9 @@ export function ConversationPage({
 	readActive?: boolean;
 	contacts?: readonly Member[] | undefined;
 	onOpenMeeting?: (id: string) => void;
-	/** A member id; the frame decides whether it opens a profile or a Bot detail. */
 	onOpenMember?: (memberId: string) => void;
-	/** Opens settings for a group conversation. */
 	onOpenGroup?: () => void;
+	onMention?: ((memberId: string, displayName: string) => void) | undefined;
 	item?: {
 		conversation: Conversation;
 		title: ReactNode;
@@ -219,6 +219,7 @@ export function ConversationPage({
 	const conversation = item?.conversation ?? conversations.data?.items.find((item) => item.id === conversationId);
 	const peer = conversation?.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
 	const agent = peer?.kind === "bot" ? peer : undefined;
+	const ownedAgent = agent && ownedBotFor(agent.memberId, person?.id, bot, contacts);
 	const mainBotHeader = mainBotHome && (!conversation || Boolean(agent));
 	const mobileBotHome = mainBotHeader && mode === "mobile";
 	const mobileBotHeader = mode === "mobile" && Boolean(agent && !item);
@@ -250,6 +251,7 @@ export function ConversationPage({
 			: undefined,
 		person?.id,
 	);
+	const jumpToQuote = useMessageQuoteJump(bottom, messages);
 	const foreground = useForeground();
 	const canRead = useCallback(() => isForeground() && canReadLatest(), [canReadLatest]);
 	useMarkConversationRead(
@@ -276,7 +278,6 @@ export function ConversationPage({
 	// tab's location travels with the push, as the frame does for its own 「我」 entries.
 	const openSection = (target: string) => navigate(target, { state: { tabLocation: location.pathname } });
 	if (!conversationId || !conversation)
-		// HEAD's floating agent header needs the conversation header treatment on both branches.
 		return (
 			<PageFrame title={null} floatingHeader={floatingHeader} conversationHeader>
 				{null}
@@ -291,8 +292,8 @@ export function ConversationPage({
 			agent &&
 			!conversation.visit &&
 			isTwoPartyAgentChat(conversation, person.id) &&
-			(item || ((conversation.isPrimary ?? mainBotHome) && agent.memberId === bot?.id)) &&
-			hasPendingBotReply(items, agent.memberId, person.id),
+			(item || ownedAgent) &&
+			findPendingBotReply(items, agent.memberId, person.id),
 	);
 	const status = agent && !disconnected ? agentChatStatus(items, agent.memberId, subtasks) : undefined;
 	const statusText =
@@ -303,18 +304,7 @@ export function ConversationPage({
 				: undefined;
 	const openPeer = peer && onOpenMember ? () => onOpenMember(peer.memberId) : undefined;
 	const openSettings = conversation.kind === "group" ? onOpenGroup : openPeer;
-	const clickableIdentity = mobileBotHeader && openPeer;
-	const Identity = clickableIdentity ? "button" : "div";
-	const agentAvatar = agent && showAgentIdentity && (
-		<Avatar
-			name={title}
-			src={agent.avatarUrl}
-			color={agent.avatarColor}
-			kind="bot"
-			size={48}
-			className="rounded-[var(--radius-full)]!"
-		/>
-	);
+
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
 			<PageFrame
@@ -324,53 +314,14 @@ export function ConversationPage({
 				titleAlign={agent && !item ? "center" : "start"}
 				afterTopBar={
 					agent && showAgentIdentity ? (
-						<section
-							data-chat-agent-title
-							aria-label={title}
-							className="flex flex-col items-center gap-[var(--spacing-1)] px-[var(--spacing-4)]"
-						>
-							<Identity
-								data-chat-agent-identity={clickableIdentity ? true : undefined}
-								className={
-									clickableIdentity
-										? "flex w-fit max-w-[75%] flex-col items-center gap-[var(--spacing-1)] rounded-[var(--radius-full)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
-										: "contents"
-								}
-								{...(clickableIdentity
-									? {
-											type: "button",
-											"aria-label": t("bots.settings"),
-											"aria-haspopup": "dialog" as const,
-											onClick: openPeer,
-										}
-									: {})}
-							>
-								<span data-chat-agent-avatar className="flex">
-									{agentAvatar}
-								</span>
-								<span
-									data-chat-agent-name
-									className={`w-fit ${clickableIdentity ? "max-w-full" : "max-w-[75%]"} text-center text-body font-medium text-[var(--color-text-primary)]`}
-									title={title}
-								>
-									<BotName
-										name={title}
-										ownedBot={ownedBotFor(agent.memberId, person?.id, bot, contacts)}
-										owner={conversationBotOwner(agent, conversation)}
-										compact="header"
-									/>
-								</span>
-							</Identity>
-							{statusText ? (
-								<div
-									role="status"
-									className="max-w-full text-center text-caption text-[var(--color-text-secondary)]"
-									title={statusText}
-								>
-									<span className="line-clamp-2 wrap-anywhere">{statusText}</span>
-								</div>
-							) : null}
-						</section>
+						<ConversationAgentHeader
+							agent={agent}
+							conversation={conversation}
+							ownedAgent={ownedAgent}
+							title={title}
+							statusText={statusText}
+							onOpen={mobileBotHeader ? openPeer : undefined}
+						/>
 					) : null
 				}
 				action={
@@ -424,7 +375,7 @@ export function ConversationPage({
 				) : null}
 				{item?.intro || items?.length ? (
 					<div
-						className="mx-auto flex w-full max-w-[680px] flex-col gap-[var(--spacing-4)]"
+						className="mx-auto flex w-full max-w-[680px] flex-col gap-[var(--spacing-4)] [&_[data-message-highlighted]]:outline [&_[data-message-highlighted]]:outline-offset-[var(--spacing-1)] [&_[data-message-highlighted]]:outline-[var(--color-accent)]"
 						role="log"
 						aria-label={t("nav.messages")}
 					>
@@ -441,7 +392,7 @@ export function ConversationPage({
 							</div>
 						) : null}
 						{items?.length ? (
-							<ConversationMessages
+							<InteractiveConversationMessages
 								items={items}
 								hasFullHistory={!messages.hasNextPage}
 								conversation={conversation}
@@ -452,6 +403,8 @@ export function ConversationPage({
 								retrying={actions.retry.isPending}
 								onOpenRelated={(id) => navigate(`/messages/${encodeURIComponent(id)}`)}
 								onOpenMember={onOpenMember}
+								onMention={onMention}
+								onJumpToQuote={jumpToQuote}
 								{...(openItem ? { onOpenMeeting: openItem } : {})}
 								onResend={(message) =>
 									send.mutate({
@@ -460,6 +413,8 @@ export function ConversationPage({
 										clientNonce: message.clientNonce ?? "",
 										attachmentIds: message.attachments.map((attachment) => attachment.id),
 										attachments: message.attachments,
+										...(message.replyToId ? { replyToId: message.replyToId } : {}),
+										...(message.replyTo ? { replyTo: message.replyTo } : {}),
 										...(message.voice ? { voice: message.voice } : {}),
 										...(message.skillIds ? { skillIds: message.skillIds } : {}),
 										...(message.mentionedMemberIds ? { mentionedMemberIds: message.mentionedMemberIds } : {}),

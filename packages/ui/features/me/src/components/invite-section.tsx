@@ -40,6 +40,7 @@ export function InviteSection() {
 	const remaining = rewardRule.maxInvites === null ? null : Math.max(0, rewardRule.maxInvites - stats.invitedCount);
 	const full = activation?.remaining === 0;
 	const spots = activation?.limit ?? rewardRule.maxInvites ?? DEFAULT_SPOTS;
+	const joined = Math.min(stats.invitedCount, spots);
 	const shareText = t("inviteExperience.shareText", { name, code });
 	const status = full
 		? t("inviteExperience.activationFull", { limit: activation.limit })
@@ -99,11 +100,7 @@ export function InviteSection() {
 						<p className="text-caption font-medium text-[var(--color-accent-text)]">{t("inviteExperience.tagline")}</p>
 					</div>
 					<div className="flex min-w-0 flex-col gap-[var(--spacing-4)]">
-						<InviteTrack
-							spots={spots}
-							joined={stats.invitedCount}
-							reward={formatQuota(rewardRule.inviterGets, locale)}
-						/>
+						<InviteTrack spots={spots} joined={joined} reward={formatQuota(rewardRule.inviterGets, locale)} />
 						<p className="flex flex-wrap justify-between gap-x-[var(--spacing-3)] text-caption text-[var(--color-text-secondary)]">
 							<span>{status}</span>
 							<span className="tabular-nums">

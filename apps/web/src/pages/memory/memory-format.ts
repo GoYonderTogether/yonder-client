@@ -8,7 +8,7 @@ export type IconComponent = ComponentType<{
 	"aria-hidden"?: boolean | "true" | "false" | undefined;
 }>;
 
-/** Flat two-tone glyphs; the colour is the kind ink from the surrounding --memory-* variables. */
+/** Flat glyphs; the ink comes from the surrounding --memory-* variables. */
 export const KIND_ICONS: Record<MemoryKind, IconComponent> = MEMORY_KIND_GLYPHS;
 
 const ACTIVITY_ICONS: Record<MemoryActivity, IconComponent> = ACTIVITY_GLYPHS;

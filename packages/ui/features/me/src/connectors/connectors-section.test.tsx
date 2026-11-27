@@ -81,7 +81,7 @@ function show(localFiles?: LocalFilesAdapter) {
 }
 function openCard(name: string) {
 	fireEvent.click(screen.getByRole("button", { name }));
-	return screen.getByRole("dialog", { name: "Computer control" });
+	return screen.getByRole("dialog", { name: "Computer access" });
 }
 beforeEach(() => {
 	state.devices = [{ ...firstDevice }];
@@ -93,14 +93,14 @@ beforeEach(() => {
 
 test("reading and modifying files are one computer card per device", () => {
 	show(adapter());
-	expect(screen.getByRole("button", { name: "Connect · Computer control" })).toBeVisible();
+	expect(screen.getByRole("button", { name: "Connect · Computer access" })).toBeVisible();
 	expect(screen.queryByRole("button", { name: /Read files|Modify files/ })).toBeNull();
 });
 
 test("the master switch grants every capability of the device", async () => {
 	const native = adapter();
 	show(native);
-	const dialog = openCard("Connect · Computer control");
+	const dialog = openCard("Connect · Computer access");
 	fireEvent.click(within(dialog).getByRole("switch", { name: "Windows PC" }));
 	await waitFor(() => expect(state.create).toHaveBeenCalledTimes(2));
 	expect(state.create).toHaveBeenCalledWith(
@@ -114,7 +114,7 @@ test("the master switch grants every capability of the device", async () => {
 
 test("tapping the row opens its switches and one switch grants one capability", async () => {
 	show(adapter());
-	const dialog = openCard("Connect · Computer control");
+	const dialog = openCard("Connect · Computer access");
 	expect(within(dialog).queryByRole("switch", { name: "Modify files" })).toBeNull();
 	fireEvent.click(within(dialog).getByRole("button", { name: /Windows PC/ }));
 	fireEvent.click(within(dialog).getByRole("switch", { name: /Modify files/ }));
@@ -128,7 +128,7 @@ test("turning the master switch off revokes locally and removes every grant", as
 	state.instances = both;
 	const native = adapter();
 	show(native);
-	const dialog = openCard("Connected · Computer control");
+	const dialog = openCard("Connected · Computer access");
 	fireEvent.click(within(dialog).getByRole("switch", { name: "Windows PC" }));
 	await waitFor(() => expect(state.remove).toHaveBeenCalledTimes(2));
 	expect(native.revoke).toHaveBeenCalledWith("con_a", "local-files");
@@ -140,7 +140,7 @@ test("an offline device says so once in its heading and greys its card", () => {
 	state.instances = both.map((item) => ({ ...item, status: "offline" as const, currentDevice: false }));
 	show(adapter());
 	expect(within(screen.getByRole("region", { name: "Windows PC" })).getByText(/Offline/)).toBeVisible();
-	expect(screen.getByRole("button", { name: "Connected · Device offline · Computer control" })).toBeVisible();
+	expect(screen.getByRole("button", { name: "Connected · Device offline · Computer access" })).toBeVisible();
 });
 
 test("web and unsupported devices get no section", () => {

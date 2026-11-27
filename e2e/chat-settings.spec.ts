@@ -66,6 +66,22 @@ const pane = (page: Page) => page.locator("[data-detail-pane]");
 const tabBody = (page: Page) => pane(page).locator("[data-detail-tab-panel]:visible");
 const memberPicker = (page: Page) => page.getByRole("dialog", { name: "添加成员", exact: true });
 
+async function expectMembersChevron(panel: Locator) {
+	const entry = panel.getByRole("button", { name: "全部成员", exact: true });
+	await expect(entry.locator("svg.lucide-chevron-right")).toBeVisible();
+	await expect(entry).toHaveText("");
+	return entry;
+}
+
+async function expectMemberListAndBack(page: Page, entry: Locator, phone = false) {
+	const frame = phone ? page.getByRole("dialog", { name: "全部成员", exact: true }) : tabBody(page);
+	const list = frame.getByRole("region", { name: "全部成员", exact: true });
+	await expect(list.getByRole("listitem")).toHaveCount(2);
+	await frame.getByRole("button", { name: "返回", exact: true }).click();
+	await expect(list).toHaveCount(0);
+	await expect(entry).toBeVisible();
+}
+
 async function expectBottomAction(panel: Locator) {
 	const footer = panel.getByRole("button", { name: "解散群聊", exact: true });
 	await expect(footer).toBeInViewport();
@@ -209,6 +225,10 @@ for (const width of [1440, 600]) {
 			path: info.outputPath(width === 1440 ? "desktop-group-settings.png" : "desktop-narrow-group-settings.png"),
 			animations: "disabled",
 		});
+
+		const members = await expectMembersChevron(panel);
+		await members.press("Enter");
+		await expectMemberListAndBack(page, members);
 
 		await panel.getByRole("button", { name: "添加成员", exact: true }).click();
 		const picker = memberPicker(page);
@@ -421,6 +441,10 @@ test.describe("phone chat settings", () => {
 		await expect(panel.getByRole("button", { name: "修改群名" }).locator("[data-avatar-fallback]")).toHaveCount(2);
 		await expectBottomAction(panel);
 		await page.screenshot({ path: info.outputPath("phone-group-settings.png") });
+		const members = await expectMembersChevron(panel);
+		await members.tap();
+		await expectMemberListAndBack(page, members, true);
+
 		const add = panel.getByRole("button", { name: "添加成员", exact: true });
 		await add.press("Enter");
 		const picker = memberPicker(page);

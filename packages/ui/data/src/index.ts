@@ -73,6 +73,7 @@ export {
 	useItem,
 	useItemActions,
 	useItemListAction,
+	useItemPendingReply,
 	useItemSession,
 	useItems,
 	useRenameItemSession,
@@ -89,6 +90,7 @@ export {
 	useMemoryFiles,
 	useMemoryFolders,
 } from "./hooks/memory.ts";
+export { useDeleteMessage, useForwardMessage, useMessageFeedback, useRecallMessage } from "./hooks/message-actions.ts";
 export type { ModelChoice } from "./hooks/model-choices.ts";
 export { defaultChoiceId, modelChoices } from "./hooks/model-choices.ts";
 export { useNotificationPreferences, useUpdateNotificationPreferences } from "./hooks/notifications.ts";

@@ -102,6 +102,15 @@ export async function isolateChat(
 			return;
 		}
 		if (path === "/v1/providers") return route.fulfill({ json: { items: [], platformModels: [] } });
+		if (path === "/v1/invite")
+			return route.fulfill({
+				json: {
+					code: "isolated-invite",
+					link: "https://example.test/i/isolated-invite",
+					stats: { invitedCount: 0, grantedTotal: 0 },
+					rewardRule: { newUserGets: 0, inviterGets: 0, maxInvites: null },
+				},
+			});
 		const json =
 			path === "/v1/auth/refresh"
 				? { accessToken: "isolated-chat-ui", expiresIn: 3600 }

@@ -209,3 +209,47 @@ test("a history clear invalidates old pages and prevents delayed messages from r
 	expect(client.getQueryData<InfiniteData<MessagePage>>(historyKey)?.pages[0]?.items).toEqual([pending, next]);
 	client.clear();
 });
+
+test("message.updated merges viewer feedback and reply metadata, then redacts a recalled message and its quotes", () => {
+	const client = new QueryClient();
+	const key = keys.messages.latest("c");
+	const listKey = keys.conversations.list();
+	const at = "2026-11-27T00:00:00.000Z";
+	const source: Message = {
+		id: "source",
+		conversationId: "c",
+		senderId: "bot",
+		senderKind: "bot",
+		type: "text",
+		body: "original",
+		attachments: [],
+		replyToId: null,
+		createdAt: at,
+		editedAt: null,
+		streaming: false,
+		version: 1,
+	};
+	const replyTo = { id: source.id, senderId: source.senderId, snippet: "original" };
+	const reply = { ...source, id: "reply", replyToId: source.id, replyTo };
+	const page = (items: Message[]) => ({ items, nextCursor: null, hasMore: false });
+	client.setQueryData(key, { pages: [page([source]), page([reply])], pageParams: [undefined, "older"] });
+	client.setQueryData(listKey, {
+		items: [{ id: "c", lastMessageAt: at, lastMessage: { createdAt: at, body: source.body } }],
+	});
+	const event = (message: Message) => applyServerEvent(client, { type: "message.updated", eventId: "m", at, message });
+	const read = (index: number) => client.getQueryData<InfiniteData<MessagePage>>(key)?.pages[index]?.items[0];
+
+	event({ ...source, feedback: "up" });
+	expect(read(0)?.feedback).toBe("up");
+	event(source);
+	expect(read(0)).not.toHaveProperty("feedback");
+	event({ ...reply, feedback: "down" });
+	expect(read(1)).toMatchObject({ feedback: "down", replyTo });
+	const recalled = { at, by: "owner" as const };
+	event({ ...source, body: null, recalled, version: 2 });
+	event(source);
+	expect(read(0)).toMatchObject({ body: null, attachments: [], recalled });
+	expect(read(1)?.replyTo).toEqual({ ...replyTo, snippet: "", recalled: true });
+	expect(client.getQueryData(listKey)).toMatchObject({ items: [{ lastMessage: { body: null } }] });
+	client.clear();
+});

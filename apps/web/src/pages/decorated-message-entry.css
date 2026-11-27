@@ -1,0 +1,55 @@
+.decorated-message-entry > article:has(+ .message-quote) {
+	align-self: stretch;
+}
+
+.message-quote {
+	position: relative;
+	max-width: var(--message-bubble-width);
+	margin-block-start: var(--spacing-1);
+	border-radius: var(--radius-control-sm);
+	padding: var(--spacing-1) var(--spacing-2);
+	color: var(--color-text-secondary);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	text-align: start;
+}
+
+.message-quote::before {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: 0;
+	width: var(--spacing-hair);
+	background: var(--color-border);
+	content: "";
+}
+
+.message-run-outgoing .message-quote::before {
+	inset-inline: auto 0;
+}
+
+button.message-quote {
+	cursor: pointer;
+}
+
+button.message-quote:focus-visible {
+	background: var(--color-bg-hover);
+	outline-color: var(--color-accent);
+}
+
+@media (hover: hover) {
+	.message-quote:hover {
+		background: var(--color-bg-hover);
+	}
+
+	.message-quote:hover::before {
+		visibility: hidden;
+	}
+}
+
+.message-quote-content {
+	display: -webkit-box;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+}

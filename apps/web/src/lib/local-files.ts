@@ -116,10 +116,9 @@ export function createLocalFilesAdapter(
 			changed();
 		},
 		async revoke(connectionId, connectorId) {
-			// Stop transport and any upload before waiting for the on-disk grant to be removed.
-			changed(connectionId);
 			if (connectorId && isAppleConnector(connectorId)) await revokeAppleResourceGrant(context, connectionId);
 			else await invokeLocalFiles("local_files_revoke", { context, connectionId });
+			changed(connectionId);
 		},
 	};
 }

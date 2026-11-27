@@ -136,6 +136,22 @@ test("desktop attachment tabs keep the chat usable and reuse a zoomed document",
 	await close(page);
 });
 
+test("a sent image group retains navigation and independent desktop tabs", async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 850 });
+	await setup(page);
+	await open(page, "diagram.svg");
+	const pane = page.locator("[data-detail-pane]");
+	const reader = pane.locator("[data-attachment-pane-reader]:visible");
+	await expect(pane.getByText("第 2 张 / 共 2 张")).toBeVisible();
+	await reader.locator(".attachment-image-area").press("ArrowLeft");
+	await expect(pane.getByRole("tab", { name: "photo.heic" })).toHaveAttribute("aria-selected", "true");
+	await expect(pane.getByText("第 1 张 / 共 2 张")).toBeVisible();
+	await expect(reader.getByRole("img", { name: "photo.heic" })).toBeVisible();
+	await expect(pane.getByRole("tab")).toHaveCount(2);
+	await page.screenshot({ path: `${evidence}/release-chat-image-gallery-desktop.png`, animations: "disabled" });
+	await close(page);
+});
+
 test("real three-page Chinese PDF paints text and canvas; manual scrolling updates real page number", async ({
 	page,
 }) => {

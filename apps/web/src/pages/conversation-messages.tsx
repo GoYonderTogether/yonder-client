@@ -1,52 +1,34 @@
 import {
-	attachmentsOutsideQuestionCard,
+	conversationPeer,
 	groupMessages,
 	isConnectorIntakeCard,
 	isSilentFailure,
 	isTwoPartyAgentChat,
-	optionCardAttachments,
 	optionCardState,
 	ownedBotFor,
-	runFailureText,
-	scheduleFailureText,
 } from "@yonder/chat-model";
-import { MessageBubble, MessageRun, MessageTime, SystemNotice } from "@yonder/chat-presentation";
+import { MessageRun, MessageTime } from "@yonder/chat-presentation";
 import { FeishuAttemptCard } from "@yonder/feature-me";
 import { BotName, systemEventText } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
-import { Avatar, Button } from "@yonder/ui-components";
+import { Avatar } from "@yonder/ui-components";
 import type { CachedMessage } from "@yonder/ui-data";
 import { resolveLocale } from "@yonder/ui-i18n";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
-import { Fragment } from "react";
+import { Copy, Forward, Quote, RotateCcw, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { Fragment, useCallback, useContext, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AgentCardMessage } from "./agent-card-message.tsx";
-import { ConnectorIntakeMessageCard } from "./connector-intake-card.tsx";
-import { ConnectorRequestCard } from "./connector-request-card.tsx";
+import { useAppNotice } from "../app/app-notice.tsx";
+import { ComposerQuoteContext } from "../app/composer-quote.tsx";
+import { MessageEntry, type MessageEntryProps, RunFailureNotice } from "./conversation-message-entry.tsx";
+import { DecoratedMessageEntry } from "./decorated-message-entry.tsx";
 import { FriendRequestCard } from "./friend-request-card.tsx";
-import { MeetingMessageCard } from "./meeting-message-card.tsx";
 import { MemoryUpdatedLine } from "./memory-updated-line.tsx";
-import { MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
-import { MessageOptions } from "./message-options.tsx";
-import { MessageSources } from "./message-sources.tsx";
+import { MessageMenu, type MessageMenuItem, type MessageMenuTarget, mentionMenuItem } from "./message-menu.tsx";
+import { MessageQuote, quoteSnippet } from "./message-quote.tsx";
 import { OutwardRequestCard } from "./outward-request-card.tsx";
-import { QuestionCard } from "./question-card.tsx";
-import { VoiceMessage } from "./voice-message.tsx";
-
-interface MessageProps {
-	message: CachedMessage;
-	self: boolean;
-	disconnected: boolean;
-	onResend: (message: CachedMessage) => void;
-	onRetry: (userMessageId: string) => void;
-	retrying: boolean;
-	onOpenMeeting?: (id: string) => void;
-	onChooseOption?: ((body: string, cardId: string) => void) | undefined;
-	optionReply?: CachedMessage | undefined;
-	personId?: string | undefined;
-	deviceFiles?: boolean;
-}
+import { SenderAvatar } from "./sender-avatar.tsx";
 
 /** Sender identity belongs to a consecutive run, shared by text and attachment messages. */
 export function ConversationMessages({
@@ -58,8 +40,11 @@ export function ConversationMessages({
 	contacts,
 	onOpenRelated,
 	onOpenMember,
+	onMention,
+	messageActions,
+	onJumpToQuote,
 	...actions
-}: Omit<MessageProps, "message" | "self" | "optionReply"> & {
+}: Omit<MessageEntryProps, "message" | "self" | "optionReply" | "menuRows" | "onMenu"> & {
 	items: CachedMessage[];
 	hasFullHistory: boolean;
 	conversation: Conversation;
@@ -69,9 +54,24 @@ export function ConversationMessages({
 	onOpenRelated?: (id: string) => void;
 	/** A sender's avatar opens who they are, as in QQ and WeChat (profile-entry matrix 第二节). */
 	onOpenMember?: ((memberId: string) => void) | undefined;
+	onMention?: ((memberId: string, displayName: string) => void) | undefined;
+	onJumpToQuote?: (id: string) => void;
+	messageActions?: MessageActions;
+	onRetry: (userMessageId: string) => void;
+	retrying: boolean;
 }) {
 	const { t, i18n } = useTranslation();
 	const locale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
+	const notice = useAppNotice();
+	const draft = useContext(ComposerQuoteContext);
+	const ownedBotChat = isOwnedBotChat(conversation, person, bot, contacts);
+	const senderName = (id: string) =>
+		conversation.members.find((member) => member.memberId === id)?.displayName ||
+		(id === person?.id ? person.displayName : id === bot?.id ? bot.displayName : undefined) ||
+		contacts?.find((member) => member.id === id)?.displayName ||
+		t("chat.unknownSender");
+	const [menu, setMenu] = useState<MessageMenuTarget | null>(null);
+	const closeMenu = useCallback(() => setMenu(null), []);
 	const visitRole = conversation.visit?.role;
 	const deviceFiles = Boolean(
 		person &&
@@ -106,9 +106,11 @@ export function ConversationMessages({
 				) : null}
 			</div>
 		));
-	const visibleItems = delivered.size ? items.filter((item) => !delivered.has(item.id)) : items;
+	const visibleItems = delivered.size ? items.filter((item) => item.recalled || !delivered.has(item.id)) : items;
 	const grouping = { agentCards: true, connectorIntakeOwnerLayout: true };
-	return groupMessages(visibleItems, hasFullHistory, grouping).map((block) => {
+	// Keep a recalled message in the same timeline position, outside any sender run.
+	const timeline = visibleItems.map((item): CachedMessage => (item.recalled ? { ...item, type: "system" } : item));
+	const blocks = groupMessages(timeline, hasFullHistory, grouping).map((block) => {
 		if ("time" in block)
 			return (
 				<MessageTime
@@ -129,6 +131,21 @@ export function ConversationMessages({
 		const run = block.run;
 		const first = run[0];
 		if (!first) return null;
+		if (first.recalled)
+			return (
+				<SystemLine
+					key={first.id}
+					message={first}
+					recalledText={t(
+						first.recalled.by === "owner" && first.senderId !== conversation.ownerId
+							? "chat.recalledOwner"
+							: first.senderId === person?.id
+								? "chat.recalledSelf"
+								: "chat.recalledSender",
+						{ name: senderName(first.senderId) },
+					)}
+				/>
+			);
 		if (first.type === "system") return <SystemLine key={first.id} message={first} />;
 		if (person && isConnectorIntakeCard(first)) {
 			return (
@@ -153,6 +170,13 @@ export function ConversationMessages({
 					onRetry={actions.onRetry}
 				/>
 			));
+		const peer = conversation.members.find((member) => member.memberId === first.senderId);
+		const member = peer ?? (self ? person : first.senderId === bot?.id ? bot : undefined);
+		const name = member?.displayName || t("chat.unknownSender");
+		const mention =
+			conversation.kind === "group" && !conversation.closedReason && person && !self && peer && onMention
+				? () => onMention(peer.memberId, name)
+				: undefined;
 		const entries = spoken.map((message) => {
 			if (message.friendRequestId) return <FriendRequestCard key={message.id} id={message.friendRequestId} />;
 			if (message.channelAttemptId)
@@ -177,8 +201,30 @@ export function ConversationMessages({
 					</div>
 				);
 			}
+			const menuContext = {
+				conversation,
+				personId: person?.id,
+				ownedBotChat,
+				mention,
+				actions: messageActions,
+				onQuote:
+					draft?.conversationId === conversation.id
+						? () =>
+								draft.setQuote({
+									senderName: senderName(message.senderId),
+									replyTo: { id: message.id, senderId: message.senderId, snippet: quoteSnippet(message) },
+								})
+						: undefined,
+				onCopied: (ok: boolean) =>
+					notice({
+						key: "message-menu-copy",
+						text: t(ok ? "app.copied" : "landing.copyFailed"),
+						tone: ok ? "info" : "error",
+					}),
+			};
+			const replyTo = message.replyTo;
 			return (
-				<MessageEntry
+				<DecoratedMessageEntry
 					key={message.id}
 					message={message}
 					self={self}
@@ -187,13 +233,27 @@ export function ConversationMessages({
 					deviceFiles={deviceFiles}
 					onChooseOption={message.id === optionCards.openId ? actions.onChooseOption : undefined}
 					optionReply={optionCards.replies.get(message.id)}
+					menuRows={messageMenuRows(message, t, menuContext)}
+					{...(messageHasMenu(message)
+						? {
+								onMenu: (target: MessageMenuTarget) => {
+									const rows = [
+										...target.items.filter(({ id }) => id === "download"),
+										...messageMenuRows(message, t, menuContext),
+									];
+									if (rows.length) setMenu({ ...target, items: rows });
+								},
+							}
+						: {})}
+					quote={
+						replyTo ? (
+							<MessageQuote replyTo={replyTo} senderName={senderName(replyTo.senderId)} onJump={onJumpToQuote} />
+						) : null
+					}
 				/>
 			);
 		});
 		if (!spoken.length) return <Fragment key={first.id}>{notices}</Fragment>;
-		const peer = conversation.members.find((member) => member.memberId === first.senderId);
-		const member = peer ?? (self ? person : first.senderId === bot?.id ? bot : undefined);
-		const name = member?.displayName || t("chat.unknownSender");
 		const owner = first.senderKind === "person" && first.senderId === conversation.ownerId;
 		const face = (
 			<Avatar
@@ -204,58 +264,55 @@ export function ConversationMessages({
 				size={32}
 			/>
 		);
+		const sender =
+			conversation.kind === "group" ? (
+				<span data-message-sender-header className="min-w-0 text-start text-caption text-[var(--color-text-secondary)]">
+					{first.senderKind === "bot" ? (
+						<BotName
+							name={
+								<span data-message-sender-name title={name} className="inline-block max-w-full align-top">
+									{name}
+								</span>
+							}
+							ownedBot={ownedBotFor(first.senderId, person?.id, bot, contacts)}
+							owner={peer?.botOwner}
+						/>
+					) : owner ? (
+						<span className="message-run-owner">
+							<span data-message-sender-name title={name} className="message-run-name">
+								{name}
+							</span>
+							<span data-message-group-owner className="message-run-owner-badge">
+								{t("members.group.owner")}
+							</span>
+						</span>
+					) : (
+						<span data-message-sender-name title={name} className="message-run-name">
+							{name}
+						</span>
+					)}
+				</span>
+			) : null;
+		const profile =
+			showAvatars && member && onOpenMember ? (
+				<SenderAvatar
+					name={name}
+					face={face}
+					sender={sender}
+					onOpen={() => onOpenMember(first.senderId)}
+					onMention={mention}
+					onMenu={setMenu}
+				/>
+			) : null;
 		return (
 			<Fragment key={first.id}>
 				<MessageRun
 					as="div"
 					self={self}
 					senderId={first.senderId}
-					avatar={
-						showAvatars ? (
-							member && onOpenMember ? (
-								<button
-									type="button"
-									aria-label={t("members.openOwner", { name })}
-									onClick={() => onOpenMember(first.senderId)}
-									className="rounded-[var(--radius-full)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
-								>
-									{face}
-								</button>
-							) : (
-								face
-							)
-						) : null
-					}
-					sender={
-						conversation.kind === "group" ? (
-							<div data-message-sender-header className="text-start text-caption text-[var(--color-text-secondary)]">
-								{first.senderKind === "bot" ? (
-									<BotName
-										name={
-											<span data-message-sender-name title={name} className="inline-block max-w-full align-top">
-												{name}
-											</span>
-										}
-										ownedBot={ownedBotFor(first.senderId, person?.id, bot, contacts)}
-										owner={peer?.botOwner}
-									/>
-								) : owner ? (
-									<span className="message-run-owner">
-										<span data-message-sender-name title={name} className="message-run-name">
-											{name}
-										</span>
-										<span data-message-group-owner className="message-run-owner-badge">
-											{t("members.group.owner")}
-										</span>
-									</span>
-								) : (
-									<span data-message-sender-name title={name} className="message-run-name">
-										{name}
-									</span>
-								)}
-							</div>
-						) : null
-					}
+					avatar={showAvatars && !(profile && sender) ? (profile ?? face) : null}
+					sender={profile ? null : sender}
+					identity={sender ? profile : null}
 				>
 					{entries}
 				</MessageRun>
@@ -263,6 +320,143 @@ export function ConversationMessages({
 			</Fragment>
 		);
 	});
+	return (
+		<>
+			{blocks}
+			{menu ? <MessageMenu target={menu} onClose={closeMenu} /> : null}
+		</>
+	);
+}
+
+type MessageActions = {
+	forward: (message: CachedMessage) => void;
+	feedback: (message: CachedMessage, value: "up" | "down" | null) => void;
+	recall: (message: CachedMessage) => void;
+	delete: (message: CachedMessage) => void;
+};
+
+export function isOwnedBotChat(
+	conversation: Conversation,
+	person: Member | undefined,
+	bot: Member | undefined,
+	contacts: readonly Member[] | undefined,
+) {
+	if (!person || conversation.kind !== "direct" || conversation.visit) return false;
+	const peer = conversationPeer(conversation, person.id);
+	return Boolean(
+		peer?.kind === "bot" &&
+			(peer.botOwner?.handle === person.handle || ownedBotFor(peer.memberId, person.id, bot, contacts)),
+	);
+}
+
+function messageHasMenu(message: CachedMessage) {
+	return (
+		message.type === "text" &&
+		!message.recalled &&
+		!message.streaming &&
+		!message.pending &&
+		!message.questionCard &&
+		!message.options?.length &&
+		!message.sendFailed &&
+		message.run?.status !== "failed" &&
+		!message.scheduleNotice &&
+		!message.burstNotice
+	);
+}
+
+export function messageMenuRows(
+	message: CachedMessage,
+	t: (key: string) => string,
+	{
+		conversation,
+		personId,
+		ownedBotChat,
+		mention,
+		onCopied,
+		onQuote,
+		actions,
+		now = Date.now(),
+	}: {
+		conversation: Conversation;
+		personId: string | undefined;
+		ownedBotChat: boolean;
+		mention?: (() => void) | undefined;
+		onCopied: (ok: boolean) => void;
+		onQuote?: (() => void) | undefined;
+		actions?: MessageActions | undefined;
+		now?: number;
+	},
+): MessageMenuItem[] {
+	if (!messageHasMenu(message) || conversation.kind === "system") return [];
+	const rows: MessageMenuItem[] = [];
+	const body = message.body;
+	if (body?.trim())
+		rows.push({
+			id: "copy",
+			label: t("app.copy"),
+			icon: <Copy size={16} />,
+			run: () =>
+				void (async () => {
+					try {
+						await navigator.clipboard.writeText(body);
+						onCopied(true);
+					} catch {
+						onCopied(false);
+					}
+				})(),
+		});
+	if (onQuote) rows.push({ id: "quote", label: t("chat.quote"), icon: <Quote size={16} />, run: onQuote });
+	if (
+		actions &&
+		!message.cardId &&
+		!message.connectorRequestId &&
+		!message.meeting &&
+		!message.taskSession &&
+		!message.outwardRequest &&
+		!message.channelAttemptId &&
+		!message.friendRequestId &&
+		!message.connectorIntake
+	)
+		rows.push({
+			id: "forward",
+			label: t("chat.forward"),
+			icon: <Forward size={16} />,
+			run: () => actions.forward(message),
+		});
+	if (mention) rows.push(mentionMenuItem(t("chat.mentionTa"), mention));
+	if (!actions || !personId) return rows;
+	if (message.senderKind === "bot")
+		rows.push(
+			{
+				id: "like",
+				label: t(message.feedback === "up" ? "chat.cancelLike" : "chat.like"),
+				icon: <ThumbsUp size={16} />,
+				run: () => actions.feedback(message, message.feedback === "up" ? null : "up"),
+			},
+			{
+				id: "dislike",
+				label: t(message.feedback === "down" ? "chat.cancelDislike" : "chat.dislike"),
+				icon: <ThumbsDown size={16} />,
+				run: () => actions.feedback(message, message.feedback === "down" ? null : "down"),
+			},
+		);
+	const humanChat = conversation.kind === "group" || conversationPeer(conversation, personId)?.kind === "person";
+	const owner = conversation.kind === "group" && conversation.ownerId === personId;
+	const ownRecentMessage = message.senderId === personId && now - Date.parse(message.createdAt) < 5 * 60_000;
+	if (!conversation.visit && humanChat && (owner || ownRecentMessage))
+		rows.push({
+			id: "recall",
+			label: t("chat.recall"),
+			icon: <RotateCcw size={16} />,
+			run: () => actions.recall(message),
+		});
+	rows.push({
+		id: "delete",
+		label: t(ownedBotChat ? "chat.deleteMessage" : "chat.deleteMessageForMe"),
+		icon: <Trash2 size={16} />,
+		run: () => actions.delete(message),
+	});
+	return rows;
 }
 
 /**
@@ -270,11 +464,11 @@ export function ConversationMessages({
  * bubble, avatar or actions (19 3.3). The sentence comes from the stored event, so the same row
  * reads correctly in Chinese and in English, and an event nothing can be said about stays out.
  */
-function SystemLine({ message }: { message: CachedMessage }) {
+function SystemLine({ message, recalledText }: { message: CachedMessage; recalledText?: string }) {
 	const { t } = useTranslation();
-	if (message.system?.event === "memory_updated")
+	if (!recalledText && message.system?.event === "memory_updated")
 		return <MemoryUpdatedLine messageId={message.id} event={message.system} />;
-	const text = message.system ? systemEventText(message.system, t) : "";
+	const text = recalledText ?? (message.system ? systemEventText(message.system, t) : "");
 	if (!text) return null;
 	return (
 		<p
@@ -286,187 +480,5 @@ function SystemLine({ message }: { message: CachedMessage }) {
 		>
 			{text}
 		</p>
-	);
-}
-
-function MessageEntry({
-	message,
-	self,
-	disconnected,
-	onResend,
-	onOpenMeeting,
-	onChooseOption,
-	optionReply,
-	personId,
-	deviceFiles,
-}: MessageProps) {
-	const { t } = useTranslation();
-	const { attachments, images } = optionCardAttachments(message);
-	const attachment = attachments[0];
-	const voice = attachment && attachments.every(({ kind }) => kind === "audio") ? message.voice : undefined;
-	const question = message.questionCard;
-	// A question card's own images are drawn inside the card; only the rest sit beside the bubble.
-	const ordinaryAttachments = question ? attachmentsOutsideQuestionCard(message) : attachments;
-	const meeting = message.meeting;
-	return (
-		<article
-			key={message.id}
-			data-message-id={message.id}
-			data-message-sender={self ? "self" : "other"}
-			className={`flex min-w-0 flex-col gap-[var(--spacing-1)] ${self ? "items-end" : "items-start"}`}
-		>
-			{message.outwardDraft ? <p className="text-caption">{t("visits.relayPrivateDraft")}</p> : null}
-			{question ? (
-				<QuestionCard
-					id={message.id}
-					conversationId={message.conversationId}
-					personId={personId}
-					card={question}
-					attachments={message.attachments}
-					disconnected={disconnected}
-				/>
-			) : message.options?.length ? (
-				<MessageOptions
-					question={message.body}
-					options={message.options}
-					images={images}
-					selected={optionReply && !optionReply.pending && !optionReply.sendFailed ? optionReply.body : null}
-					onChoose={
-						!disconnected && !optionReply && onChooseOption ? (body) => onChooseOption(body, message.id) : undefined
-					}
-				/>
-			) : voice && attachment ? (
-				<VoiceMessage
-					key={attachment.id}
-					attachment={attachment}
-					additional={attachments.slice(1)}
-					durationMs={voice.durationMs}
-					self={self}
-				/>
-			) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
-				<MessageBubble as="div" self={self}>
-					{message.questionReply?.question ? (
-						<blockquote className="m-0 mb-[var(--spacing-2)] whitespace-pre-wrap break-words border-s border-[var(--color-border-subtle)] ps-[var(--spacing-2)] text-caption text-[var(--color-text-secondary)]">
-							{message.questionReply.question}
-						</blockquote>
-					) : null}
-					{message.body ? (
-						message.questionReply ? (
-							<span className="whitespace-pre-wrap break-words">{message.body}</span>
-						) : (
-							<MessageContent
-								body={message.body}
-								streaming={message.streaming}
-								{...(deviceFiles ? { deviceFiles } : {})}
-							/>
-						)
-					) : (
-						<span role="status" className="text-caption text-[var(--color-text-secondary)]">
-							{t("chat.streaming")}
-						</span>
-					)}
-				</MessageBubble>
-			) : null}
-			{voice?.transcription === "pending" ? (
-				<span role="status" className="text-caption text-[var(--color-text-secondary)]">
-					{t("chat.transcribing")}
-				</span>
-			) : null}
-			{voice ? null : <MessageAttachments attachments={ordinaryAttachments} self={self} />}
-			{message.reaction ? <span>{message.reaction}</span> : null}
-			<MessageSources run={message.run} />
-			{message.connectorRequestId ? <ConnectorRequestCard id={message.connectorRequestId} /> : null}
-			{message.cardId ? <AgentCardMessage id={message.cardId} disconnected={disconnected} /> : null}
-			{meeting && onOpenMeeting ? <MeetingMessageCard meeting={meeting} onOpen={onOpenMeeting} /> : null}
-			{message.taskSession && onOpenMeeting && !message.connectorIntake ? (
-				<MeetingMessageCard meeting={message.taskSession} task onOpen={onOpenMeeting} />
-			) : null}
-			{/* A connector's entry is one card: the import's own facts, which also open the session. */}
-			{message.connectorIntake ? (
-				<ConnectorIntakeMessageCard
-					intake={message.connectorIntake}
-					{...(message.taskSession ? { sessionId: message.taskSession.id } : {})}
-					{...(onOpenMeeting ? { onOpen: onOpenMeeting } : {})}
-				/>
-			) : null}
-			{message.pending ? (
-				<span className="text-caption text-[var(--color-text-secondary)]">{t("chat.sending")}</span>
-			) : null}
-			{message.sendFailed ? (
-				<SystemNotice
-					as="div"
-					tone="quiet"
-					role="alert"
-					action={
-						<Button variant="link" size="sm" onClick={() => onResend(message)}>
-							{t("app.retry")}
-						</Button>
-					}
-				>
-					{t("chat.sendFailed")}
-				</SystemNotice>
-			) : null}
-			{message.scheduleNotice ? <ScheduleFailureNotice notice={message.scheduleNotice} /> : null}
-			{message.burstNotice ? (
-				<SystemNotice as="div" tone="quiet" role="note">
-					{t("chat.subtaskBurst")}
-				</SystemNotice>
-			) : null}
-		</article>
-	);
-}
-
-/**
- * A failed reply as one system line, never a bubble: a quota refusal names the pool that ran out so
- * the reader knows what to top up; everything else is one short sentence with no reason code. A
- * reply that said nothing is already replaced by this line, so it carries no bubble of its own.
- */
-function RunFailureNotice({
-	message,
-	repeats,
-	retrying,
-	onRetry,
-}: {
-	message: CachedMessage;
-	repeats: number | undefined;
-	retrying: boolean;
-	onRetry: (userMessageId: string) => void;
-}) {
-	const { t, i18n } = useTranslation();
-	const locale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
-	const notice = runFailureText(message.run?.failureReason, locale);
-	const canRetry = !message.outwardDraft && message.run?.canRetry !== false;
-	return (
-		<SystemNotice
-			as="div"
-			tone={notice.tone}
-			role="alert"
-			messageId={message.id}
-			action={
-				canRetry ? (
-					<Button variant="link" size="sm" onClick={() => onRetry(message.run?.userMessageId ?? "")} loading={retrying}>
-						{t("app.retry")}
-					</Button>
-				) : null
-			}
-		>
-			{notice.text}
-			{repeats && repeats > 1 ? ` · ${t("chat.failureRepeats", { count: repeats })}` : ""}
-		</SystemNotice>
-	);
-}
-
-/** A plan that never ran: the same system line, with the plan's own title. */
-function ScheduleFailureNotice({ notice }: { notice: { title: string; reason: string } }) {
-	const { i18n } = useTranslation();
-	const failure = scheduleFailureText(
-		notice.reason,
-		notice.title,
-		resolveLocale(i18n.resolvedLanguage ?? i18n.language),
-	);
-	return (
-		<SystemNotice as="div" tone={failure.tone} role="alert">
-			{failure.text}
-		</SystemNotice>
 	);
 }

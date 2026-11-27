@@ -10,9 +10,9 @@ export const connectorMessagesZhCN = {
 		both: "允许读取和修改 {{device}} 上的文件？",
 	},
 	requestScope: {
-		read: "权限覆盖该系统账号可访问的全部文件。读取的文件名和内容会发送给 Yonder，处理时可能发送给模型服务商。你可以在连接器设置中断开。",
+		read: "权限覆盖该系统账号可访问的全部文件，直至你撤回。",
 		write: "可创建、编辑和可恢复删除该系统账号可访问的文件，直至你撤回。",
-		both: "可读取、查找、按需索引、创建、编辑和可恢复删除该系统账号可访问的文件。读取的文件名和内容会发送给 Yonder，处理时可能发送给模型服务商。你可以在连接器设置中断开。",
+		both: "可读取、查找、按需索引、创建、编辑和可恢复删除该系统账号可访问的文件，直至你撤回。",
 	},
 	requestDetail: "{{reason}}，{{scope}}",
 	requestRetry: "重新允许",
@@ -60,9 +60,8 @@ export const connectorMessagesZhCN = {
 	save: "保存更改",
 	upgrade: "启用整台电脑读取",
 	usage: "使用说明与数据处理",
-	usageBody: "读取的文件名和内容会发送给 Yonder，处理时可能发送给模型服务商。断开连接会停止后续访问。",
-	appleUsageBody:
-		"连接后，Yonder 会自动导入和更新授权范围内的数据。云端处理可能涉及模型服务商。断开后会停止后续访问，已保存至 Yonder 的内容仍会保留。系统权限可在系统设置中管理。",
+	usageBody:
+		"你的 Bot 会在处理你的请求时使用已启用的能力。读取内容会发送到云端及你使用的模型进行处理，断开后停止后续访问。",
 	legacyScope: "当前仅开放之前选择的文件夹，尚未启用整台电脑读取。",
 	fileToolsScope: "Bot 可以在该设备上创建、编辑和可恢复删除此系统账号可访问的全部文件。",
 	readScope: "启用后，Bot 可以读取、查找和按需索引该设备上此系统账号可访问的全部文件。",
@@ -83,7 +82,6 @@ export const connectorMessagesZhCN = {
 	retryConnect: "重试连接",
 	openSystemSettingsFailed: "没能打开系统设置。请从系统设置中找到 Yonder 并允许访问。",
 	disconnectFailed: "没有断开连接，请重试。",
-	disconnectLocalFailed: "已从账户断开连接。未能清除这台设备上的授权记录。",
 	viewDevices: "查看设备",
 	onDevice: "请在 {{device}} 的 Yonder 中继续启用此连接器。",
 	needsDesktop: "请在电脑上打开 Yonder，启用此连接器。",
@@ -94,7 +92,7 @@ export const connectorMessagesZhCN = {
 		scope:
 			"你的 Bot 可以列出所选文件夹中的文件并读取文本内容。读取的内容会发送到云端处理，不能修改文件或访问此范围之外的文件。",
 	},
-	computer: {
+	computerAccess: {
 		name: "电脑接管",
 		description: "读取和修改这台电脑上的文件。",
 		trial: "请只针对「{{device}}」说明你能协助哪些文件操作，先不要改动任何文件。",
@@ -109,7 +107,7 @@ export const connectorMessagesZhCN = {
 		name: "Apple 日历",
 		description: "查看日程与安排。",
 		trial: "请只用「{{device}}」上的 Apple 日历看看我今天的安排；如果这台设备不可用，请直接告诉我，不要用其他设备。",
-		scope: "Bot 可以查找日程并读取详情。",
+		scope: "连接后，Bot 可以按你的要求查找日程和读取日程详情。",
 	},
 	applePhotos: {
 		name: "Apple 相册",
@@ -122,7 +120,7 @@ export const connectorMessagesZhCN = {
 		description: "查找和阅读备忘录。",
 		trial:
 			"请只用「{{device}}」上的 Apple 备忘录列几个最近编辑的标题；如果这台设备不可用，请直接告诉我，不要用其他设备。",
-		scope: "Bot 可以查找并读取未锁定备忘录的正文和附件。macOS 会通过「自动化」授权 Yonder 访问备忘录。",
+		scope: "Bot 可以查找并读取未锁定备忘录的正文和附件。",
 		unavailable: "暂时无法打开备忘录。请在这台 Mac 上打开备忘录后重试。",
 	},
 	appleVoiceMemos: {
@@ -130,11 +128,7 @@ export const connectorMessagesZhCN = {
 		description: "查找和转写录音。",
 		trial:
 			"请只用「{{device}}」上的 Apple 语音备忘录列几个最近的录音标题；如果这台设备不可用，请直接告诉我，不要用其他设备。",
-		scope:
-			"Bot 可通过 macOS 的应用数据权限查找并读取录音。转写时，音频会发送给语音识别服务。重新启动 Yonder 后，点击「恢复访问」即可继续使用。",
-		permissionDenied: "语音备忘录访问已被拒绝。请重试，并在 macOS 弹出提示时允许访问。",
-		resume: "请恢复本次运行的语音备忘录访问。",
-		resumeAction: "恢复访问",
+		scope: "连接后，Bot 可以按你的要求查找录音、读取原始录音并转写。",
 		unavailable: "请在这台 Mac 上打开语音备忘录，等待录音同步后重试。",
 		unsupported: "这台 Mac 上的语音备忘录暂不支持读取。",
 	},

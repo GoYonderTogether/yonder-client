@@ -82,6 +82,8 @@ export interface ProviderModelMetadata {
 	/** What the app shows a person; the endpoint is always sent the model id instead. */
 	name?: string;
 	contextLength?: number;
+	/** The most one answer may generate, in tokens, as the provider or the person declared it. */
+	maxOutput?: number;
 	capabilities?: Record<string, boolean>;
 	/**
 	 * The reasoning levels this model's upstream really accepts, weakest first

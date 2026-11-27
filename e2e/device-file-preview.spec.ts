@@ -69,8 +69,9 @@ for (const layout of ["desktop", "phone"]) {
 			await expect.poll(fixture.connected).toBeTruthy();
 			await page.getByRole("button", { name: /发布安排\.md.*工作 Mac/ }).click();
 			const reader = page.locator("[data-device-file-reader]:visible");
+			const detail = page.getByRole(layout === "phone" ? "dialog" : "tabpanel");
 			await expect(reader.getByText("先确认交付范围，再整理手机端回归的截图。")).toBeVisible();
-			await expect(reader.getByText("工作 Mac", { exact: true })).toBeVisible();
+			await expect(detail.getByText("工作 Mac", { exact: true })).toBeVisible();
 			if (layout === "phone") {
 				await expect
 					.poll(async () => {
@@ -89,7 +90,7 @@ for (const layout of ["desktop", "phone"]) {
 			holdUpdate = update.promise;
 			fixture.updateConnectors();
 			try {
-				await expect(reader.getByRole("status", { name: "正在检查文件更新" })).toBeVisible();
+				await expect(detail.getByRole("status", { name: "正在检查文件更新" })).toBeVisible();
 				await expect(reader.getByText("先确认交付范围，再整理手机端回归的截图。")).toBeVisible();
 				await page.screenshot({
 					path: `${evidence}/live-device-file-refreshing-${layout}.png`,
@@ -104,7 +105,7 @@ for (const layout of ["desktop", "phone"]) {
 			expect(requests.some((request) => request.knownSha256 === hash(oldBody))).toBe(true);
 			status = "offline";
 			fixture.updateConnectors();
-			await expect(reader.getByText("源设备离线 · 上次读取的版本")).toBeVisible();
+			await expect(detail.getByText("源设备离线 · 上次读取的版本")).toBeVisible();
 			await expect(reader.getByText("已确认交付范围，开始跑手机端回归。")).toBeVisible();
 			await page.screenshot({
 				path: `${evidence}/live-device-file-offline-${layout}.png`,
@@ -113,7 +114,7 @@ for (const layout of ["desktop", "phone"]) {
 			});
 			status = "online";
 			fixture.updateConnectors();
-			await expect(reader.getByText("源设备离线 · 上次读取的版本")).toHaveCount(0);
+			await expect(detail.getByText("源设备离线 · 上次读取的版本")).toHaveCount(0);
 			if (layout === "phone") await page.getByRole("button", { name: "返回", exact: true }).click();
 			await page.getByRole("button", { name: /项目资料目录.*工作 Mac/ }).click();
 			await expect(reader.getByRole("button", { name: "发布安排.md", exact: true })).toBeVisible();
@@ -127,7 +128,7 @@ for (const layout of ["desktop", "phone"]) {
 			if (layout === "desktop") await expect(page.getByRole("tab", { name: /发布安排\.md.*工作 Mac/ })).toHaveCount(1);
 			status = "revoked";
 			fixture.updateConnectors();
-			await expect(reader.getByText("文件不存在或已无法访问")).toBeVisible();
+			await expect(detail.getByText("文件不存在或已无法访问")).toBeVisible();
 			await expect(reader.getByText("已确认交付范围，开始跑手机端回归。")).toHaveCount(0);
 			await expect
 				.poll(() =>

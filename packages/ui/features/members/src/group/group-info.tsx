@@ -1,8 +1,9 @@
 import { addableFor, groupMemberRights } from "@yonder/chat-model";
 import type { Conversation, ConversationMember } from "@yonder/protocol";
-import { Avatar, ListGroup, ListRow } from "@yonder/ui-components";
+import { Avatar, IconButton, ListGroup, ListRow } from "@yonder/ui-components";
 import { useContacts, useGroupActions, useMe } from "@yonder/ui-data";
 import { Overlay, useShellChrome, useSidePanel } from "@yonder/ui-shell";
+import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -106,8 +107,9 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft, prefer
 					<span className="text-caption text-[var(--color-text-secondary)]">
 						{t("members.group.memberCount", { count: conversation.members.length })}
 					</span>
-					<button
-						type="button"
+					<IconButton
+						size="sm"
+						aria-label={t("members.group.allMembers")}
 						onClick={() =>
 							side.push({
 								key: "group-members",
@@ -123,10 +125,12 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft, prefer
 								),
 							})
 						}
-						className="rounded-[var(--radius-sm)] text-caption text-[var(--color-accent-text)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 					>
-						{t("members.group.allMembers")}
-					</button>
+						<ChevronRight
+							aria-hidden="true"
+							className="size-[var(--icon-md)] text-[var(--color-text-secondary)] [stroke-width:var(--icon-stroke)]"
+						/>
+					</IconButton>
 				</div>
 				<div className="flex flex-wrap gap-[var(--spacing-3)] px-[var(--spacing-1)]">
 					{conversation.members.slice(0, FACE_LIMIT).map((member) => (

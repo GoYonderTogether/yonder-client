@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { openAddContactsWindow } from "../../lib/contact-window.ts";
 import { shouldShowScanner } from "../../lib/platform.ts";
-import { type ContactPosition, ContactsList } from "../contacts-list.tsx";
+import { type ContactPosition, ContactsDialogList } from "../contacts-list.tsx";
 import { QrScanner } from "../qr-scanner.tsx";
 import { AddContacts } from "./add-contacts.tsx";
 import { type ChatAction, ChatMenu } from "./chat-menu.tsx";
@@ -58,10 +58,10 @@ export function ChatActions({ onOpen, onOpenMeetings }: { onOpen: (id: string) =
 					title={t(`chatActions.${action}`)}
 					mode={mode}
 					{...(action === "createGroup" ? { size: "wide" } : {})}
-					{...(action === "addContact" ? { mobileBackLabel: t("app.back") } : {})}
+					{...(action === "addContact" || action === "contacts" ? { mobileBackLabel: t("app.back") } : {})}
 				>
 					{action === "contacts" ? (
-						<ContactsList
+						<ContactsDialogList
 							overlay={{ position: contactPosition, close, reopen: () => setOpen(true) }}
 							onOpen={(handle) => {
 								close();

@@ -119,7 +119,6 @@ export function AppShell({
 	const [preferredSideWidth, setSideWidth] = useState(DETAIL_WIDTH);
 	const [sideDragging, setSideDragging] = useState(false);
 	const [showFoldedList, setShowFoldedList] = useState(false);
-	const revealButton = useRef<HTMLButtonElement>(null);
 	const sideWidth = Math.min(preferredSideWidth, pane.available - WORKSPACE_MIN);
 	const foldedList = wide && sideOpen && inlineSide && pane.available - sideWidth - pane.width < WORKSPACE_MIN;
 	const listCollapsed = wide && pane.collapsed && !(inlineSide && sideOpen);
@@ -169,7 +168,7 @@ export function AppShell({
 	const revealSide =
 		desktop && side && !sideOpen && side.active ? (
 			<Button
-				ref={revealButton}
+				data-detail-reveal=""
 				aria-label={side.labels.expand}
 				title={side.labels.expand}
 				aria-expanded={false}
@@ -411,7 +410,11 @@ export function AppShell({
 											onCollapse: () => {
 												setShowFoldedList(false);
 												side.onCollapse();
-												requestAnimationFrame(() => revealButton.current?.focus({ preventScroll: true }));
+												requestAnimationFrame(() =>
+													container.current
+														?.querySelector<HTMLButtonElement>("[data-detail-reveal]")
+														?.focus({ preventScroll: true }),
+												);
 											},
 										}}
 										mode={mode}
