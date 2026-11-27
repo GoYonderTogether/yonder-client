@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.26112724] - 2026-11-27
+
+### Fixed
+
+- local-files：the read upgrade reports tools version 7; the terminal keeps 6
+
+### Added
+
+- local-files：read large files by byte range, cut long lines, report binary files, stream grep
+
 ## [0.3.26112723] - 2026-11-27
 
 ### Added

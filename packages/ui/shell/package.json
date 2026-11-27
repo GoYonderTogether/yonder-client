@@ -1,16 +1,16 @@
 {
 	"name": "@yonder/ui-shell",
 	"private": true,
-	"version": "0.3.26112723",
+	"version": "0.3.26112724",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/protocol": "0.3.26112723",
-		"@yonder/ui-components": "0.3.26112723",
-		"@yonder/ui-i18n": "0.3.26112723",
-		"@yonder/ui-tokens": "0.3.26112723",
+		"@yonder/protocol": "0.3.26112724",
+		"@yonder/ui-components": "0.3.26112724",
+		"@yonder/ui-i18n": "0.3.26112724",
+		"@yonder/ui-tokens": "0.3.26112724",
 		"lucide-react": "1.72.0",
 		"motion": "14.14.0"
 	},
