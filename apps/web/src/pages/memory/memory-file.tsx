@@ -1,14 +1,16 @@
 import type { MemoryFileContent } from "@yonder/protocol";
 import { Button, ChatGlyph, InlineError, MEMORY_KIND_GLYPHS, TaskGlyph } from "@yonder/ui-components";
 import { ApiError, useMemoryFile, useMemoryFileActions } from "@yonder/ui-data";
+import { useOptionalSidePanel } from "@yonder/ui-shell";
 import { ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { UserEditedBadge } from "./memory-edited.tsx";
 import { MemoryEditor } from "./memory-editor.tsx";
+import { useOpenMemoryFile } from "./memory-file-detail.tsx";
 import { useMinute } from "./memory-format.ts";
 import { MemoryMarkdown } from "./memory-markdown.tsx";
-import { useOpenMemoryFile, useSourceNavigation } from "./memory-navigation.ts";
+import { useSourceNavigation } from "./memory-navigation.ts";
 import { MemoryError, MemoryLoading, useErrorText } from "./memory-status.tsx";
 import { archivedOriginalPath, isAboutMemoryFile, isArchivedMemoryFile } from "./memory-view.ts";
 import { VisibilityControl } from "./memory-visibility.tsx";
@@ -35,7 +37,15 @@ const SOURCE_LABELS: Record<string, string> = {
  * action is 恢复, which moves it back to the path it was archived from (no confirmation: the move is
  * itself reversible).
  */
-export function MemoryFilePage({ path, onDeleted }: { path: string; onDeleted: () => void }) {
+export function MemoryFilePage({
+	path,
+	onDeleted,
+	inPane = false,
+}: {
+	path: string;
+	onDeleted: () => void;
+	inPane?: boolean;
+}) {
 	const file = useMemoryFile(path);
 	if (file.error)
 		return (
@@ -44,14 +54,15 @@ export function MemoryFilePage({ path, onDeleted }: { path: string; onDeleted: (
 			</div>
 		);
 	if (file.isPending) return <MemoryLoading />;
-	return <FileBody key={`${file.data.path}:${file.data.version}`} file={file.data} onDeleted={onDeleted} />;
+	return <FileBody key={file.data.path} file={file.data} onDeleted={onDeleted} inPane={inPane} />;
 }
 
-function FileBody({ file, onDeleted }: { file: MemoryFileContent; onDeleted: () => void }) {
+function FileBody({ file, onDeleted, inPane }: { file: MemoryFileContent; onDeleted: () => void; inPane: boolean }) {
 	const { t, i18n } = useTranslation();
 	const now = useMinute();
 	const author = useAuthorName();
 	const openFile = useOpenMemoryFile();
+	const side = useOptionalSidePanel();
 	const actions = useMemoryFileActions();
 	const [editing, setEditing] = useState(false);
 	const [deleting, setDeleting] = useState(false);
@@ -69,7 +80,15 @@ function FileBody({ file, onDeleted }: { file: MemoryFileContent; onDeleted: () 
 			: errorText(failure);
 	const restore = () => {
 		if (!originalPath) return;
-		actions.move.mutate({ from: file.path, to: originalPath }, { onSuccess: () => openFile(originalPath) });
+		actions.move.mutate(
+			{ from: file.path, to: originalPath },
+			{
+				onSuccess: () => {
+					if (inPane) side?.close();
+					openFile(originalPath, title);
+				},
+			},
+		);
 	};
 	return (
 		<article className="flex flex-col gap-[var(--spacing-5)]">
@@ -96,7 +115,11 @@ function FileBody({ file, onDeleted }: { file: MemoryFileContent; onDeleted: () 
 				)}
 			</header>
 			{editing && !archived ? (
-				<MemoryEditor file={file} onDone={() => setEditing(false)} />
+				<MemoryEditor
+					file={file}
+					onDone={() => setEditing(false)}
+					onDirtyChange={inPane ? side?.setDirty : undefined}
+				/>
 			) : file.content.trim() ? (
 				<MemoryMarkdown file={file} onOpen={openFile} />
 			) : (

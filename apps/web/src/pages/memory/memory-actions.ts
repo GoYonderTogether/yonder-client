@@ -9,8 +9,8 @@ export interface EntryActions {
 	onToggle: (id: string) => void;
 	onLink: (link: MemoryLink) => void;
 	onPreview: (file: PreviewFile) => void;
-	/** A source row with a target: open the conversation or the scheduled-task list. */
-	onSource: (target: MemoryTarget, meetingId?: string) => void;
+	/** A source row opens its referenced meeting, conversation or scheduled-task list. */
+	onSource: (target: MemoryTarget | null, meetingId?: string, title?: string) => void;
 	onDelete: (id: string) => void;
 	/** The entry being deleted, while its request is in flight. */
 	deleting: string | null;

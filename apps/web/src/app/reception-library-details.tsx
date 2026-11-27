@@ -1,15 +1,61 @@
 import type { SocialLibrary } from "@yonder/protocol";
-import { Button, TextField } from "@yonder/ui-components";
-import { useEditSocialLibrary, useMemoryFileActions } from "@yonder/ui-data";
-import { EyeOff, Pencil } from "lucide-react";
-import { useState } from "react";
+import { Button, EmptyState, TextField } from "@yonder/ui-components";
+import { useEditSocialLibrary, useMemoryFileActions, useSocialLibrary } from "@yonder/ui-data";
+import { SidePageActions, useOptionalSidePanel } from "@yonder/ui-shell";
+import { EyeOff, File, Pencil } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { memoryFileRoute } from "../pages/memory/memory-view.ts";
 import { MessageContent } from "../pages/message-content.tsx";
 import { receptionDraftTitle, useReceptionDate } from "./reception-library-directory.tsx";
-import { ReceptionFolderField, ReceptionMutationError, ReceptionRemoveButton } from "./reception-library-editor.tsx";
+import {
+	ReceptionFolderField,
+	ReceptionLibraryEditor,
+	ReceptionMutationError,
+	ReceptionRemoveButton,
+} from "./reception-library-editor.tsx";
 import { receptionWritablePath } from "./reception-library-paths.ts";
+
+export function ReceptionPane({ kind, id }: { kind: "document" | "draft"; id: string }) {
+	const { t } = useTranslation();
+	const { data, error, isPending, refetch } = useSocialLibrary();
+	const side = useOptionalSidePanel();
+	const [editor, setEditor] = useState<SocialLibrary["documents"][number] | null>(null);
+	const close = () => side?.close();
+	const document = kind === "document" ? data?.documents.find((item) => item.id === id) : undefined;
+	const draft = kind === "draft" ? data?.drafts.find((item) => item.id === id) : undefined;
+	return (
+		<div className="p-[var(--spacing-4)]">
+			{error ? (
+				<>
+					<ReceptionMutationError error={error} />
+					<Button size="sm" variant="link" onClick={() => void refetch()}>
+						{t("app.retry")}
+					</Button>
+				</>
+			) : isPending ? (
+				<p role="status">{t("app.loading")}</p>
+			) : document && data ? (
+				<>
+					<ReceptionDocumentDetail document={document} onEdit={() => setEditor(document)} onRemoved={close} />
+					{editor ? (
+						<ReceptionLibraryEditor
+							initial={{ document: editor, folderId: editor.folderId }}
+							folders={data.folders}
+							onClose={() => setEditor(null)}
+							onMoved={close}
+						/>
+					) : null}
+				</>
+			) : draft && data ? (
+				<ReceptionDraftDetail draft={draft} folders={data.folders} onReviewed={close} inPane />
+			) : (
+				<EmptyState icon={<File size={24} />} title={t("members.social.library.missing")} />
+			)}
+		</div>
+	);
+}
 
 export function ReceptionDocumentDetail({
 	document,
@@ -38,7 +84,7 @@ export function ReceptionDocumentDetail({
 				</div>
 			</header>
 			<MessageContent body={document.content} />
-			<div className="flex flex-wrap items-center gap-[var(--spacing-2)]">
+			<SidePageActions className="flex flex-wrap items-center gap-[var(--spacing-2)]">
 				{receptionWritablePath(path) ? (
 					<>
 						<Button size="sm" onClick={onEdit}>
@@ -62,7 +108,7 @@ export function ReceptionDocumentDetail({
 						<MemoryFileLink path={path} />
 					</>
 				) : null}
-			</div>
+			</SidePageActions>
 			<ReceptionMutationError error={setVisibility.error} />
 		</article>
 	);
@@ -84,23 +130,35 @@ export function ReceptionDraftDetail({
 	draft,
 	folders,
 	onReviewed,
+	inPane = false,
 }: {
 	draft: SocialLibrary["drafts"][number];
 	folders: SocialLibrary["folders"];
 	onReviewed: () => void;
+	inPane?: boolean;
 }) {
 	const { t } = useTranslation();
 	const date = useReceptionDate();
+	const side = useOptionalSidePanel();
 	const originalTitle = receptionDraftTitle(draft, t("members.social.library.untitledDraft"));
 	const [title, setTitle] = useState(originalTitle);
 	const [folderId, setFolderId] = useState<string | null>(draft.folderId ?? null);
 	const { edit, busy } = useEditSocialLibrary();
 	const canApprove = !busy && Boolean(title.trim());
+	const setDirty = inPane ? side?.setDirty : undefined;
+	useEffect(() => {
+		setDirty?.(title !== originalTitle || folderId !== (draft.folderId ?? null));
+		return () => setDirty?.(false);
+	}, [draft.folderId, folderId, originalTitle, setDirty, title]);
+	const reviewed = () => {
+		setDirty?.(false);
+		onReviewed();
+	};
 
 	async function approve() {
 		try {
 			await edit.mutateAsync({ kind: "review_draft", id: draft.id, approve: true, folderId, title: title.trim() });
-			onReviewed();
+			reviewed();
 		} catch {
 			// Keep the selected destination and title for retry.
 		}
@@ -138,7 +196,7 @@ export function ReceptionDraftDetail({
 					<Button type="submit" size="sm" variant="primary" disabled={!canApprove} loading={edit.isPending}>
 						{t("members.social.approve")}
 					</Button>
-					<ReceptionRemoveButton draft id={draft.id} title={originalTitle} onRemoved={onReviewed} />
+					<ReceptionRemoveButton draft id={draft.id} title={originalTitle} onRemoved={reviewed} />
 					{draft.path ? <MemoryFileLink path={draft.path} /> : null}
 				</div>
 			</form>

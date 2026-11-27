@@ -1,6 +1,6 @@
-import { GesturePanel } from "@yonder/ui-shell";
+import { GesturePanel, SidePageActions } from "@yonder/ui-shell";
 import { Download, X } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, type RefObject, Suspense, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type PreviewFile, previewKind } from "./file-kind.ts";
 import { ImagePreview } from "./image-preview.tsx";
@@ -25,22 +25,15 @@ export function downloadAttachment(file: PreviewFile) {
 	setTimeout(() => URL.revokeObjectURL(address), 30_000);
 }
 
-/** One reader for drafts and sent messages; bytes are already authorized, never a public file URL. */
-export function AttachmentPreview({
-	file,
-	onClose,
-	imageNavigation,
-}: {
-	file: PreviewFile;
-	onClose: () => void;
-	imageNavigation?: { position: number; total: number; move: (direction: -1 | 1) => void } | undefined;
-}) {
-	const t = usePreviewTranslation();
-	usePreviewHistory(onClose);
-	const layer = useRef<HTMLDivElement>(null);
-	const moveImage = imageNavigation?.move;
+export type ImageNavigation = {
+	position: number;
+	total: number;
+	move: (direction: -1 | 1) => void;
+};
+
+function useImageKeys(container: RefObject<HTMLElement | null>, moveImage: ImageNavigation["move"] | undefined) {
 	useEffect(() => {
-		const element = layer.current;
+		const element = container.current;
 		if (!element || !moveImage) return;
 		const onKeyDown = (event: KeyboardEvent) => {
 			if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -50,15 +43,91 @@ export function AttachmentPreview({
 		};
 		element.addEventListener("keydown", onKeyDown);
 		return () => element.removeEventListener("keydown", onKeyDown);
-	}, [moveImage]);
+	}, [container, moveImage]);
+}
+
+function ImagePosition({ position, total }: ImageNavigation) {
+	const t = usePreviewTranslation();
+	return <output className="attachment-reader-position">{t("imagePosition", { position, total })}</output>;
+}
+
+function DownloadAttachment({ file }: { file: PreviewFile }) {
+	const t = usePreviewTranslation();
+	return (
+		<button type="button" onClick={() => downloadAttachment(file)} aria-label={t("download")} title={t("download")}>
+			<Download size={20} aria-hidden="true" />
+		</button>
+	);
+}
+
+/** The same authorized bytes can be opened in a detail tab or a draft's temporary overlay. */
+export function AttachmentReader({
+	file,
+	onClose,
+	display = "pane",
+	imageNavigation,
+}: {
+	file: PreviewFile;
+	onClose?: (() => void) | undefined;
+	display?: "pane" | "overlay";
+	imageNavigation?: ImageNavigation | undefined;
+}) {
+	const t = usePreviewTranslation();
+	const pane = useRef<HTMLElement>(null);
+	useImageKeys(pane, imageNavigation?.move);
 	const kind = previewKind(file);
 	let viewer: React.ReactNode;
 	if (kind === "image") viewer = <ImagePreview file={file} onClose={onClose} onSwipe={imageNavigation?.move} />;
 	else if (kind === "pdf") viewer = <PdfPreview file={file} />;
 	else if (kind === "docx") viewer = <DocxPreview file={file} />;
 	else if (kind === "text" || kind === "markdown" || kind === "doc") viewer = <TextPreview file={file} kind={kind} />;
-	else if (kind === "audio" || kind === "video") viewer = <MediaPreview file={file} kind={kind} />;
+	else if (kind === "audio" || kind === "video")
+		viewer = <MediaPreview key={kind} file={file} kind={kind} pauseWhenHidden={display === "pane"} />;
 	else viewer = <p className="attachment-reader-notice">{t("unsupported")}</p>;
+	const reader = (
+		<PreviewBoundary
+			fallback={
+				<p role="status" className="attachment-reader-notice">
+					{t("failed")}
+				</p>
+			}
+		>
+			<Suspense
+				fallback={
+					<p role="status" className="attachment-reader-notice">
+						{t("loading")}
+					</p>
+				}
+			>
+				{viewer}
+			</Suspense>
+		</PreviewBoundary>
+	);
+	if (display === "overlay") return reader;
+	return (
+		<section ref={pane} className="attachment-reader attachment-reader-pane" data-attachment-pane-reader>
+			<SidePageActions className="attachment-reader-toolbar attachment-reader-download">
+				{imageNavigation ? <ImagePosition {...imageNavigation} /> : null}
+				<DownloadAttachment file={file} />
+			</SidePageActions>
+			{reader}
+		</section>
+	);
+}
+
+export function AttachmentPreview({
+	file,
+	onClose,
+	imageNavigation,
+}: {
+	file: PreviewFile;
+	onClose: () => void;
+	imageNavigation?: ImageNavigation | undefined;
+}) {
+	const t = usePreviewTranslation();
+	usePreviewHistory(onClose);
+	const layer = useRef<HTMLDivElement>(null);
+	useImageKeys(layer, imageNavigation?.move);
 	return createPortal(
 		<div ref={layer} className="attachment-preview-layer">
 			<GesturePanel
@@ -73,40 +142,13 @@ export function AttachmentPreview({
 			>
 				<header className="attachment-reader-header">
 					<h2 title={file.name}>{file.name}</h2>
-					{imageNavigation ? (
-						<output className="attachment-reader-position">
-							{t("imagePosition", { position: imageNavigation.position, total: imageNavigation.total })}
-						</output>
-					) : null}
-					<button
-						type="button"
-						onClick={() => downloadAttachment(file)}
-						aria-label={t("download")}
-						title={t("download")}
-					>
-						<Download size={20} aria-hidden="true" />
-					</button>
+					{imageNavigation ? <ImagePosition {...imageNavigation} /> : null}
+					<DownloadAttachment file={file} />
 					<button type="button" onClick={onClose} aria-label={t("close")} title={t("close")}>
 						<X size={22} aria-hidden="true" />
 					</button>
 				</header>
-				<PreviewBoundary
-					fallback={
-						<p role="status" className="attachment-reader-notice">
-							{t("failed")}
-						</p>
-					}
-				>
-					<Suspense
-						fallback={
-							<p role="status" className="attachment-reader-notice">
-								{t("loading")}
-							</p>
-						}
-					>
-						{viewer}
-					</Suspense>
-				</PreviewBoundary>
+				<AttachmentReader file={file} onClose={onClose} display="overlay" imageNavigation={imageNavigation} />
 			</GesturePanel>
 		</div>,
 		document.body,

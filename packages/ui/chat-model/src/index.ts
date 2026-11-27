@@ -5,6 +5,15 @@ export { chatHistoryTimeOffset, isNewChatHistoryCutoff } from "./chat-history-cl
 export { connectorRequestReason } from "./connector-requests.ts";
 export { conversationPeer } from "./conversation-peer.ts";
 export {
+	type DeviceFileReference,
+	deviceFileChild,
+	deviceFileName,
+	deviceFileScheme,
+	linkedDeviceFileReference,
+	plainDeviceFileReference,
+	quotedDeviceFiles,
+} from "./device-file-reference.ts";
+export {
 	addableContacts,
 	addableFor,
 	canRemoveMember,

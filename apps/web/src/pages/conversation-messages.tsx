@@ -73,6 +73,15 @@ export function ConversationMessages({
 	const [menu, setMenu] = useState<MessageMenuTarget | null>(null);
 	const closeMenu = useCallback(() => setMenu(null), []);
 	const visitRole = conversation.visit?.role;
+	const deviceFiles = Boolean(
+		person &&
+			!conversation.visit &&
+			conversation.kind !== "system" &&
+			conversation.members.some((member) => member.kind === "bot") &&
+			conversation.members.every(
+				(member) => member.memberId === person.id || ownedBotFor(member.memberId, person.id, bot, contacts),
+			),
+	);
 	const showAvatars = !isTwoPartyAgentChat(conversation, person?.id);
 	const optionCards = optionCardState(items, person?.id);
 	const delivered = new Set(items.filter((item) => item.outwardRequest?.result).map((item) => item.replyToId));
@@ -221,6 +230,7 @@ export function ConversationMessages({
 					self={self}
 					{...actions}
 					personId={person?.id}
+					deviceFiles={deviceFiles}
 					onChooseOption={message.id === optionCards.openId ? actions.onChooseOption : undefined}
 					optionReply={optionCards.replies.get(message.id)}
 					menuRows={messageMenuRows(message, t, menuContext)}

@@ -20,6 +20,7 @@ import {
 	requestMainAccessToken,
 	serveContactWindowSession,
 } from "../lib/contact-window.ts";
+import { useDeviceFileCacheMaintenance } from "../lib/device-file-cache.ts";
 import { loadSystemDeviceName, SystemDeviceName, useDeviceInfo } from "../lib/device-info.ts";
 import { DeviceModelRuntime } from "../lib/device-model-runtime.tsx";
 import { DeviceModelWireRuntime } from "../lib/device-model-wire-runtime.tsx";
@@ -94,6 +95,7 @@ function Localised() {
 	useTheme();
 	const i18n = useMemo(() => createI18n(locale as Locale), [locale]);
 	useRealtimeSync();
+	useDeviceFileCacheMaintenance(signedIn && !isContactWindow() ? personId : undefined);
 	useEffect(() => {
 		let stop: (() => void) | undefined;
 		let cancelled = false;

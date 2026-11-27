@@ -147,6 +147,7 @@ export async function isolateChat(
 			| { type: "subtask.updated"; subtask: SubtaskSummary }
 			| { type: "device.update.available" }
 			| { type: "connector_request.updated"; request: ConnectorRequestView }
+			| { type: "connectors.changed" }
 			| { type: "conversation.state_changed"; conversationId: string },
 	) {
 		for (const socket of sockets)
@@ -166,6 +167,7 @@ export async function isolateChat(
 		updateSubtask: (subtask: SubtaskSummary) => emit({ type: "subtask.updated", subtask }),
 		updateOffer: () => emit({ type: "device.update.available" }),
 		updateConnectorRequest: (request: ConnectorRequestView) => emit({ type: "connector_request.updated", request }),
+		updateConnectors: () => emit({ type: "connectors.changed" }),
 		reloadConversation: () => emit({ type: "conversation.state_changed", conversationId: current.id }),
 	};
 }

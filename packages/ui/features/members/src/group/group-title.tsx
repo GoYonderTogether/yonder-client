@@ -15,6 +15,7 @@ export interface GroupTitleProps {
 	editable: boolean;
 	saving: boolean;
 	onRename: (title: string) => Promise<unknown>;
+	onDirtyChange?: ((dirty: boolean) => void) | undefined;
 }
 
 /**
@@ -22,7 +23,7 @@ export interface GroupTitleProps {
  * rename costs one interaction and no page. Enter saves, Escape cancels — the two things a keyboard
  * user expects from an inline field.
  */
-export function GroupTitle({ title, members, editable, saving, onRename }: GroupTitleProps) {
+export function GroupTitle({ title, members, editable, saving, onRename, onDirtyChange }: GroupTitleProps) {
 	const { t } = useTranslation();
 	const [draft, setDraft] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -32,7 +33,11 @@ export function GroupTitle({ title, members, editable, saving, onRename }: Group
 	const editing = editable && draft !== null;
 	const value = draft?.trim() ?? "";
 	const canSave = editing && !saving && Boolean(value) && value !== title;
+	const dirty = editing && draft !== title;
 	const avatar = <GroupAvatar members={members} />;
+	useEffect(() => {
+		onDirtyChange?.(dirty);
+	}, [dirty, onDirtyChange]);
 
 	// Renaming is a deliberate click on this row, so the field takes focus; a scrolled page is not moved.
 	useEffect(() => {

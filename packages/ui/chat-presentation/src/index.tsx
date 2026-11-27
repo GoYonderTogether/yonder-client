@@ -6,7 +6,7 @@ import "./interaction-card.css";
 export { InteractionCard, InteractionCardActions, useQuestionCountdown } from "./interaction-card.tsx";
 export { type ChatTextHost, StreamingText } from "./streaming-text.tsx";
 
-import { type MarkdownToJSX, parser } from "markdown-to-jsx";
+import { type MarkdownToJSX, parser, RuleType } from "markdown-to-jsx";
 import { type ComponentType, type JSX, type ReactNode, type Ref, useEffect, useReducer } from "react";
 
 export type ChatHost = ComponentType<{ className?: string; children?: ReactNode; ref?: Ref<unknown> }> | "div";
@@ -159,4 +159,34 @@ export function UploadTile({ as: Element, children, name, kind }: Props & { name
 export const messageMarkdownOptions = { disableParsingRawHTML: true } as const;
 export function parseMessage(body: string, options: MarkdownToJSX.Options = {}) {
 	return parser(body, { ...options, ...messageMarkdownOptions });
+}
+
+/** Markdown escapes can split a single printed path across adjacent text nodes. */
+export function mapMessageText(
+	nodes: MarkdownToJSX.ASTNode[],
+	map: (text: string, inlineCode: boolean) => MarkdownToJSX.ASTNode[],
+): MarkdownToJSX.ASTNode[] {
+	const result: MarkdownToJSX.ASTNode[] = [];
+	for (const [index, node] of nodes.entries()) {
+		if (node.type === RuleType.text) {
+			if (nodes[index - 1]?.type === RuleType.text) continue;
+			let text = node.text;
+			for (let next = index + 1; nodes[next]?.type === RuleType.text; next++) {
+				text += (nodes[next] as MarkdownToJSX.TextNode).text;
+			}
+			result.push(...map(text, false));
+		} else if (node.type === RuleType.codeInline) {
+			result.push(...map(node.text, true));
+		} else if (node.type === RuleType.orderedList || node.type === RuleType.unorderedList) {
+			result.push({ ...node, items: node.items.map((item) => mapMessageText(item, map)) });
+		} else if (node.type === RuleType.table) {
+			const row = (cells: MarkdownToJSX.ASTNode[][]) => cells.map((cell) => mapMessageText(cell, map));
+			result.push({ ...node, header: row(node.header), cells: node.cells.map(row) });
+		} else if ("children" in node && Array.isArray(node.children) && node.type !== RuleType.link) {
+			result.push({ ...node, children: mapMessageText(node.children, map) });
+		} else {
+			result.push(node);
+		}
+	}
+	return result;
 }

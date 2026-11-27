@@ -1,19 +1,47 @@
 import { devices, expect, type Page, type TestInfo, test } from "@playwright/test";
-import type { MemoryDayPage, MemoryFileContent, MemoryFileRevision } from "@yonder/protocol";
+import type { MeetingRecord, MemoryDayPage, MemoryFileContent, MemoryFileRevision } from "@yonder/protocol";
 import { memoryFileRoute, memoryFolderRoute } from "../apps/web/src/pages/memory/memory-view.ts";
-import { isolateChat } from "./chat-fixture.ts";
+import { conversation, isolateChat } from "./chat-fixture.ts";
+
+// The static fixture serves extension-bearing deep links through a route intercept.
+test.use({ serviceWorkers: "block" });
 
 const at = "2026-11-18T09:30:00Z";
 const notePath = "/sources/recordings/周会.md";
 const nestedNotePath = "/notes/meetings/weekly/decisions.md";
+const digestPath = "/digests/day/2026-11-18.md";
 const folders = [
 	{ path: "/sources/recordings", displayName: "录音" },
 	{ path: "/notes", displayName: "笔记" },
 	{ path: "/notes/meetings", displayName: "纪要" },
 	{ path: "/notes/meetings/weekly", displayName: "每周" },
+	{ path: "/digests", displayName: "总结" },
+	{ path: "/digests/day", displayName: "日总结" },
 ];
 const impressionPath = "/me/impression.md";
 const recentPath = "/me/recent.md";
+const meetingId = "meeting-1";
+const attachmentText = "归档文件的正文只在阅读器内显示。";
+const meeting: MeetingRecord = {
+	id: meetingId,
+	clientRecordingId: "memory-test-recording",
+	conversationId: conversation.id,
+	title: "星期三周会",
+	sourceState: "ended",
+	startedAt: Date.parse(at),
+	endedAt: Date.parse(at) + 60_000,
+	durationMs: 60_000,
+	uploadedDurationMs: 60_000,
+	status: "completed",
+	segments: [],
+	batches: [],
+	transcript: "00:03 发言人 1：验收项目归档。",
+	summary: "录音笔记已经交给项目负责人确认。",
+	summaryRunId: null,
+	resultMessageId: null,
+	failedStage: null,
+	errorCode: null,
+};
 
 const timeline: MemoryDayPage = {
 	items: [
@@ -22,7 +50,7 @@ const timeline: MemoryDayPage = {
 			state: "ready",
 			failure: null,
 			digest: { steps: null, places: 0, photos: 0 },
-			digestPath: null,
+			digestPath,
 			blocks: [
 				{
 					type: "entry",
@@ -39,14 +67,29 @@ const timeline: MemoryDayPage = {
 						place: null,
 						media: [],
 						mediaCount: 0,
-						materials: [],
+						materials: [
+							{
+								id: "material-1",
+								kind: "doc",
+								label: "归档资料",
+								detail: null,
+								attachment: {
+									id: "memory-records",
+									kind: "file",
+									name: "归档资料.txt",
+									mimeType: "text/plain",
+									size: 64,
+								},
+								url: null,
+							},
+						],
 						tags: [],
 						people: [],
 						quote: null,
 						links: [],
 						visibility: "private",
 						weight: 2,
-						sources: [{ kind: "meeting", title: "星期三周会", count: 1, target: null }],
+						sources: [{ kind: "meeting", title: meeting.title, count: 1, target: null, meetingId }],
 						deletable: true,
 					},
 				},
@@ -59,6 +102,10 @@ const timeline: MemoryDayPage = {
 async function memoryApi(page: Page) {
 	await isolateChat(page, { items: [] });
 	await page.emulateMedia({ reducedMotion: "reduce" });
+	await page.route("**/v1/meetings/meeting-1", (route) => route.fulfill({ json: meeting }));
+	await page.route("**/v1/attachments/memory-records/content", (route) =>
+		route.fulfill({ contentType: "text/plain; charset=utf-8", body: attachmentText }),
+	);
 	const file = (path: string, title: string, kind: MemoryFileContent["kind"], content: string): MemoryFileContent => ({
 		path,
 		title,
@@ -77,12 +124,13 @@ async function memoryApi(page: Page) {
 	});
 	const note = file(notePath, "周会纪要", "archive", "核对发布窗口。");
 	note.version = 2;
-	note.sources = [{ eventId: "mev_1", connector: "meeting", title: "星期三周会", meetingId: "meeting-1" }];
+	note.sources = [{ eventId: "mev_1", connector: "meeting", title: meeting.title, meetingId }];
 	const records: Record<string, MemoryFileContent> = {
 		[impressionPath]: file(impressionPath, "印象", "impression", "偏好 **直接说明**。"),
 		[recentPath]: file(recentPath, "近期", "recent", "本周核对归档。"),
 		[notePath]: note,
 		[nestedNotePath]: file(nestedNotePath, "项目决定", "note", "先确认发布时间。"),
+		[digestPath]: file(digestPath, "日总结", "digest", "接口约定和发布窗口已记录。"),
 	};
 	const revisions: MemoryFileRevision[] = [
 		{ version: 2, content: note.content, by: "bot:weekly", at },
@@ -158,6 +206,27 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	await expect(page.getByRole("img", { name: "私人" })).toHaveCount(0);
 	await page.getByRole("button", { name: /会后决定/ }).click();
 	await expect(page.getByText("接口在周五完成。")).toBeVisible();
+	const pane = phone ? page.locator('[data-page-layer="side"]') : page.locator("[data-detail-pane]");
+	const closePane = () => pane.getByRole("button", { name: phone ? "返回" : "关闭全部", exact: true }).click();
+	await page.getByRole("button", { name: "当天总结" }).click();
+	await expect(pane.getByText("接口约定和发布窗口已记录。")).toBeVisible();
+	await page.screenshot({ path: testInfo.outputPath(phone ? "phone-memory-digest.png" : "desktop-memory-digest.png") });
+	await closePane();
+	await expect(pane.getByText("接口约定和发布窗口已记录。")).toHaveCount(0);
+	await page.getByRole("button", { name: "归档资料", exact: true }).click();
+	await expect(pane.getByText(attachmentText)).toBeVisible();
+	await page.screenshot({
+		path: testInfo.outputPath(phone ? "phone-memory-material.png" : "desktop-memory-material.png"),
+	});
+	await closePane();
+	await expect(pane.getByText(attachmentText)).toHaveCount(0);
+	await page.getByRole("button", { name: meeting.title, exact: true }).click();
+	await expect(pane.getByText(meeting.summary ?? "")).toBeVisible();
+	await page.screenshot({
+		path: testInfo.outputPath(phone ? "phone-memory-meeting.png" : "desktop-memory-meeting.png"),
+	});
+	await closePane();
+	await expect(pane.locator("[data-recording-reader]")).toHaveCount(0);
 
 	// The owner profile renders the Markdown directly; its canonical editable file URL still works.
 	if (phone) await page.goto("/memory");
@@ -181,21 +250,25 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	await page.goto("/memory");
 	const recordings = page.getByRole("button", { name: /^录音/ });
 	await recordings.click();
-	if (phone) {
-		await expect(page).toHaveURL(/\/memory\/g\/.+/);
-	} else {
+	const directoryRoute = phone ? /\/memory\/g\/.+$/ : /\/memory$/;
+	await expect(page).toHaveURL(directoryRoute);
+	if (!phone) {
 		await expect(recordings).toHaveAttribute("aria-expanded", "true");
-		await expect(page).toHaveURL(/\/memory$/);
 		await expect(page.getByRole("main").getByRole("button", { name: /会后决定/ })).toBeVisible();
 	}
-	const recording = page.getByRole("button", { name: /周会纪要/ });
-	await recording.click();
-	if (!phone) await expect(recording).toHaveAttribute("aria-current", "true");
-	await expect(page).toHaveURL(/\/memory\/files\/.+/);
+	await page.getByRole("button", { name: /周会纪要/ }).click();
+	await expect(page).toHaveURL(directoryRoute);
+	await expect(pane).toBeVisible();
+	await expect(pane.getByRole("tab")).toHaveCount(phone ? 0 : 1);
 	const reader = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "周会纪要" }) });
 	await expect(reader.getByRole("button", { name: "星期三周会" })).toBeVisible();
 	await reader.getByRole("button", { name: "编辑" }).click();
-	await reader.getByRole("textbox", { name: "正文" }).fill("发布窗口已确认。");
+	const editor = reader.getByRole("textbox", { name: "正文" });
+	await editor.fill("发布窗口已确认。");
+	await closePane();
+	const discard = page.getByRole("dialog", { name: "放弃更改", exact: true });
+	await discard.getByRole("button", { name: "取消", exact: true }).click();
+	await expect(editor).toHaveValue("发布窗口已确认。");
 	await reader.getByRole("button", { name: "保存" }).click();
 	await expect(reader.getByText("发布窗口已确认。", { exact: true })).toBeVisible();
 	expect(api.writes.at(-1)).toEqual({
@@ -214,11 +287,12 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 
 	// Version history and restore are gone from the app (2026-11-24, Meta Muse as the reference).
 	await expect(reader.getByRole("button", { name: "历史" })).toHaveCount(0);
-	if (!phone) await page.screenshot({ path: testInfo.outputPath("memory-file.png") });
+	await page.screenshot({ path: testInfo.outputPath(phone ? "phone-memory-file.png" : "desktop-memory-file.png") });
 
 	await reader.getByRole("button", { name: "删除" }).click();
 	await reader.getByRole("button", { name: "确认删除" }).click();
-	await expect(page).toHaveURL(/\/memory\/g\/.+$/);
+	await expect(page).toHaveURL(directoryRoute);
+	await expect(reader).toHaveCount(0);
 	expect(api.writes.at(-1)).toEqual({ method: "DELETE", body: { path: notePath } });
 
 	api.disableFiles();
@@ -237,6 +311,7 @@ test("expands nested notes in the wide sidebar while keeping the current detail"
 	await memoryApi(page);
 	await page.goto("/memory");
 	const main = page.getByRole("main");
+	const pane = page.locator("[data-detail-pane]");
 	const notes = page.getByRole("button", { name: /^笔记/ });
 	const folder = page.getByRole("button", { name: "纪要", exact: true });
 	const subfolder = page.getByRole("button", { name: "每周", exact: true });
@@ -249,13 +324,14 @@ test("expands nested notes in the wide sidebar while keeping the current detail"
 	await expect(page).toHaveURL(/\/memory$/);
 	await expect(main.getByRole("button", { name: /会后决定/ })).toBeVisible();
 	await note.click();
-	await expect(main.getByRole("heading", { name: "项目决定" })).toBeVisible();
-	await expect(note).toHaveAttribute("aria-current", "true");
+	await expect(pane.getByRole("heading", { name: "项目决定" })).toBeVisible();
+	await expect(pane.getByRole("tab", { name: "项目决定" })).toHaveAttribute("aria-selected", "true");
+	await expect(page).toHaveURL(/\/memory$/);
 	await notes.click();
 	await expect(note).toHaveCount(0);
-	await expect(main.getByRole("heading", { name: "项目决定" })).toBeVisible();
+	await expect(pane.getByRole("heading", { name: "项目决定" })).toBeVisible();
 	await notes.click();
-	await expect(note).toHaveAttribute("aria-current", "true");
+	await expect(note).toBeVisible();
 
 	await page.goto(memoryFolderRoute("notes", "meetings/weekly"));
 	await expect(main.getByRole("button", { name: /会后决定/ })).toBeVisible();

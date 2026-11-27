@@ -67,15 +67,14 @@ export function EntryDrawer({ entry, actions }: { entry: Entry; actions: EntryAc
 }
 
 /**
- * One row per place the entry was organized from. A row with a target opens the conversation or the
- * scheduled-task list it came from; a row without one is a plain line.
+ * One row per place the entry was organized from. An actionable row opens the meeting, conversation or scheduled-task list it came from.
  */
 function SourceList({
 	sources,
 	onSource,
 }: {
 	sources: MemorySource[];
-	onSource: (target: MemoryTarget, meetingId?: string) => void;
+	onSource: (target: MemoryTarget | null, meetingId?: string, title?: string) => void;
 }) {
 	const { t } = useTranslation();
 	return (
@@ -92,12 +91,16 @@ function SourceList({
 					</>
 				);
 				// A source has no id of its own: its kind, title and where it goes name it.
-				const key = `${source.kind}|${source.title}|${source.target ? JSON.stringify(source.target) : ""}`;
+				const key = `${source.kind}|${source.title}|${source.meetingId ?? JSON.stringify(source.target)}`;
 				const target = source.target;
 				return (
 					<li key={key}>
-						{target ? (
-							<button type="button" className="memory-source" onClick={() => onSource(target, source.meetingId)}>
+						{target || source.meetingId ? (
+							<button
+								type="button"
+								className="memory-source"
+								onClick={() => onSource(target, source.meetingId, source.title)}
+							>
 								{content}
 							</button>
 						) : (

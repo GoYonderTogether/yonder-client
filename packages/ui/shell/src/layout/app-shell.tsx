@@ -1,18 +1,19 @@
-import { cn, IconButton } from "@yonder/ui-components";
-import { ChevronLeft, X } from "lucide-react";
-import { AnimatePresence, useIsPresent } from "motion/react";
+import { Button, cn, IconButton } from "@yonder/ui-components";
+import { ChevronLeft, Ellipsis, PanelLeft } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { GesturePanel } from "../navigation/gesture-panel.tsx";
 import type { TabId } from "../navigation/routes.ts";
 import { backAction, leaveApp, listenForSystemBack } from "../navigation/system-back.ts";
-import { dismissTopLayer, hasOpenLayer, useDismiss } from "../navigation/use-dismiss.ts";
-import { OverlayBackdrop } from "../overlay/overlay-backdrop.tsx";
+import { dismissTopLayer, hasOpenLayer } from "../navigation/use-dismiss.ts";
 import type { LayoutMode } from "../responsive/layout-mode.ts";
 import { LIST_PANE_MIN } from "../responsive/layout-mode.ts";
 import { useKeyboardDismiss } from "../responsive/use-keyboard-dismiss.ts";
 import { useLayoutMode } from "../responsive/use-layout-mode.ts";
 import { useVisualViewport } from "../responsive/use-visual-viewport.ts";
+import { workspaceCardInset, workspaceCardSurface } from "./frames.tsx";
+import { MeLayers } from "./me-layers.tsx";
 import type { MobileDockProps } from "./mobile-dock.tsx";
 import { MobileDock } from "./mobile-dock.tsx";
 import { PaneSplitter } from "./pane-splitter.tsx";
@@ -67,7 +68,12 @@ export interface AppShellProps {
 	labels: { showList: string; hideList: string; resizeList: string };
 	locationKey: string;
 	onModeChange?: (mode: LayoutMode) => void;
+	onSideCoverChange?: (covering: boolean) => void;
 }
+
+const DETAIL_WIDTH = 400;
+const DETAIL_MIN = 300;
+const WORKSPACE_MIN = 360;
 
 /** Host chrome stays stable while the same list and detail surfaces reflow into covering layers. */
 export function AppShell({
@@ -94,6 +100,7 @@ export function AppShell({
 	titlebarInset,
 	labels,
 	onModeChange,
+	onSideCoverChange,
 }: AppShellProps) {
 	const container = useRef<HTMLDivElement>(null);
 	const meTrigger = useRef<HTMLButtonElement>(null);
@@ -106,13 +113,22 @@ export function AppShell({
 	const [dockHeight, setDockHeight] = useState(0);
 	const nativeComposer = useChromeSize("--native-dock-height", !phone && Boolean(composer), setDockHeight);
 	const covering = !wide && detailOpen;
-	const sideOpen = Boolean(side?.pages.length);
+	const sideOpen = Boolean(side?.expanded);
+	const inlineSide = desktop && pane.available >= DETAIL_MIN + WORKSPACE_MIN && (!meOpen || wide);
+	const sideCover = sideOpen && !inlineSide;
+	const [preferredSideWidth, setSideWidth] = useState(DETAIL_WIDTH);
+	const [sideDragging, setSideDragging] = useState(false);
+	const [showFoldedList, setShowFoldedList] = useState(false);
+	const sideWidth = Math.min(preferredSideWidth, pane.available - WORKSPACE_MIN);
+	const foldedList = wide && sideOpen && inlineSide && pane.available - sideWidth - pane.width < WORKSPACE_MIN;
+	const listCollapsed = wide && pane.collapsed && !(inlineSide && sideOpen);
 	const desktopSettingsOpen = desktop && meOpen && Boolean(me);
 	const overDock =
-		!meOpen && !sideOpen && (phone || (Boolean(composer) && (wide ? !pane.collapsed : detailOpen || !list)));
+		!meOpen && !sideCover && (phone || (Boolean(composer) && (wide ? !listCollapsed : detailOpen || !list)));
 	const keyboard = useVisualViewport(container, phone);
 	useKeyboardDismiss(container, keyboard);
 	useEffect(() => onModeChange?.(mode), [mode, onModeChange]);
+	useEffect(() => onSideCoverChange?.(sideCover), [onSideCoverChange, sideCover]);
 	// The system's Back closes the topmost layer first; with nothing open it follows history, and
 	// only a page with nothing behind it leaves the app. A browser tab never registers this.
 	useEffect(() => {
@@ -149,6 +165,39 @@ export function AppShell({
 		</IconButton>
 	);
 	const toggleMe = meOpen && me ? me.onClose : onOpenMe;
+	const revealSide =
+		desktop && side && !sideOpen && side.active ? (
+			<Button
+				data-detail-reveal=""
+				aria-label={side.labels.expand}
+				title={side.labels.expand}
+				aria-expanded={false}
+				size="sm"
+				variant="secondary"
+				className="ms-[var(--spacing-2)] px-[var(--spacing-2)]"
+				onClick={() => {
+					if (side.active) side.onActivate(side.active);
+					requestAnimationFrame(() =>
+						container.current?.querySelector<HTMLButtonElement>('[data-detail-pane] [aria-selected="true"]')?.focus(),
+					);
+				}}
+			>
+				<Ellipsis size={20} aria-hidden="true" />
+				{side.tabs.length > 1 ? <span className="text-micro font-medium tabular-nums">{side.tabs.length}</span> : null}
+			</Button>
+		) : null;
+	const revealOnList = Boolean(list && (listCollapsed || (!wide && !detailOpen) || !content));
+	const showListButton =
+		foldedList && list ? (
+			<IconButton
+				aria-label={showFoldedList ? labels.hideList : labels.showList}
+				size="sm"
+				aria-expanded={showFoldedList}
+				onClick={() => setShowFoldedList((show) => !show)}
+			>
+				<PanelLeft size={20} aria-hidden="true" />
+			</IconButton>
+		) : null;
 	/** Every phone tab root, the main Bot included, opens 「我」 from the same top-left avatar. */
 	const avatar = (withName: boolean) => (
 		<button
@@ -167,13 +216,15 @@ export function AppShell({
 		mode,
 		desktop,
 		left: phone ? avatar(tab.current === "messages") : null,
+		detailAction: !meOpen && revealOnList ? revealSide : null,
 		meOpen: false,
 		scroll: { key: tab.current, positions: scrollPositions },
 	};
 	const contentChrome = {
 		mode,
 		desktop,
-		left: mainBotOpen ? avatar(false) : !wide || showContentBack ? backButton : null,
+		left: mainBotOpen ? avatar(false) : !wide || showContentBack ? backButton : showListButton,
+		detailAction: !meOpen && !revealOnList ? revealSide : null,
 		meOpen: false,
 	};
 	return (
@@ -184,11 +235,11 @@ export function AppShell({
 			className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden"
 			style={{ top: "var(--app-offset-top, 0px)" }}
 		>
-			<div className="yonder-chrome flex h-full w-full">
+			<div className="yonder-chrome relative flex h-full w-full">
 				{!phone ? (
 					<div
-						inert={desktopSettingsOpen}
-						aria-hidden={desktopSettingsOpen || undefined}
+						inert={desktopSettingsOpen || sideCover}
+						aria-hidden={desktopSettingsOpen || sideCover || undefined}
 						className={cn("shrink-0", desktopSettingsOpen && !wide && "invisible")}
 					>
 						<Rail
@@ -211,108 +262,166 @@ export function AppShell({
 						/>
 					</div>
 				) : null}
-				<div ref={pane.panes} className="relative flex min-w-0 flex-1">
-					{list ? (
-						<aside
-							inert={meOpen || covering || sideOpen}
-							aria-hidden={meOpen || covering || sideOpen || undefined}
-							data-surface="chrome"
-							className="relative flex h-full shrink-0 flex-col"
-							style={{ width: wide && !pane.collapsed ? pane.width : "100%" }}
+				<div ref={pane.panes} className="flex min-w-0 flex-1">
+					<div className="relative flex min-w-0 flex-1">
+						{list ? (
+							<aside
+								inert={meOpen || covering || sideCover}
+								aria-hidden={meOpen || covering || sideCover || undefined}
+								data-surface="chrome"
+								className={cn(
+									"relative flex h-full shrink-0 flex-col",
+									foldedList &&
+										(showFoldedList
+											? "!absolute inset-y-0 start-0 z-20 bg-[var(--color-bg-page)] shadow-[var(--shadow-lg)]"
+											: "hidden"),
+								)}
+								style={{ width: wide && !listCollapsed ? pane.width : "100%" }}
+							>
+								<ShellProvider value={listChrome}>{list}</ShellProvider>
+								{wide && !foldedList ? (
+									<PaneSplitter
+										width={pane.width}
+										min={LIST_PANE_MIN}
+										max={pane.available}
+										onResize={pane.resize}
+										onDragChange={pane.setDragging}
+										onReset={() => pane.resize(pane.available / 2)}
+										label={labels.resizeList}
+									/>
+								) : null}
+								{phone && !covering && !meOpen && !sideCover && !keyboard ? (
+									<MobileDock
+										composer={null}
+										onHeightChange={setDockHeight}
+										showTabs
+										current={tab.current}
+										onSelect={tab.onSelect}
+										labels={tab.labels}
+										ariaLabel={tab.ariaLabel}
+										botTab={tab.mobileBot}
+										messagesUnread={tab.messagesUnread}
+									/>
+								) : null}
+							</aside>
+						) : null}
+						{/* The main Bot tab is a root, not the pushed detail that animates on exit. */}
+						<GesturePanel
+							key={mainBotOpen ? "main-bot-tab" : "detail"}
+							open={detailOpen || !list}
+							inline={wide || mainBotOpen}
+							active={!meOpen && !sideCover && (wide ? !listCollapsed : detailOpen || !list)}
+							layerKey="detail"
+							onBack={onBack}
+							label={backLabel}
+							className={cn("z-10", listCollapsed && "hidden", !phone && workspaceCardInset)}
 						>
-							<ShellProvider value={listChrome}>{list}</ShellProvider>
-							{wide ? (
-								<PaneSplitter
-									width={pane.width}
-									min={LIST_PANE_MIN}
-									max={pane.available}
-									onResize={pane.resize}
-									onDragChange={pane.setDragging}
-									onReset={() => pane.resize(pane.available / 2)}
-									label={labels.resizeList}
-								/>
-							) : null}
-							{phone && !covering && !meOpen && !sideOpen && !keyboard ? (
-								<MobileDock
-									composer={null}
-									onHeightChange={setDockHeight}
-									showTabs
-									current={tab.current}
-									onSelect={tab.onSelect}
-									labels={tab.labels}
-									ariaLabel={tab.ariaLabel}
-									botTab={tab.mobileBot}
-									messagesUnread={tab.messagesUnread}
-								/>
-							) : null}
-						</aside>
-					) : null}
-					{/* The main Bot tab is a root, not the pushed detail that animates on exit. */}
-					<GesturePanel
-						key={mainBotOpen ? "main-bot-tab" : "detail"}
-						open={detailOpen || !list}
-						inline={wide || mainBotOpen}
-						active={!meOpen && !sideOpen && (wide ? !pane.collapsed : detailOpen || !list)}
-						layerKey="detail"
-						onBack={onBack}
-						label={backLabel}
-						className={cn("z-10", wide && pane.collapsed && "hidden", !phone && "p-[var(--spacing-2)]")}
-					>
-						<main
+							<main
+								className={cn(
+									"relative flex min-h-0 flex-1 flex-col",
+									phone ? "bg-[var(--color-bg-base)]" : workspaceCardSurface,
+								)}
+							>
+								<ShellProvider value={contentChrome}>{content}</ShellProvider>
+								{!phone && composer ? (
+									<div
+										ref={nativeComposer}
+										data-native-composer
+										className="relative shrink-0 px-[var(--spacing-4)] pb-[var(--spacing-4)]"
+									>
+										<div className="mx-auto w-full max-w-[760px]">{composer}</div>
+									</div>
+								) : null}
+								{phone && !meOpen && (detailOpen || !list) ? (
+									<MobileDock
+										composer={composer}
+										onHeightChange={setDockHeight}
+										showTabs={mainBotOpen && !keyboard}
+										current={tab.current}
+										onSelect={tab.onSelect}
+										labels={tab.labels}
+										ariaLabel={tab.ariaLabel}
+										botTab={tab.mobileBot}
+										messagesUnread={tab.messagesUnread}
+									/>
+								) : null}
+							</main>
+						</GesturePanel>
+						{pane.dragging && wide ? (
+							<div
+								aria-hidden="true"
+								data-pane-drag-shield
+								className="absolute inset-0 z-30 cursor-col-resize bg-transparent"
+							/>
+						) : null}
+						{status ? (
+							<div
+								data-floating-status
+								className="pointer-events-none absolute inset-x-0 z-40 px-[var(--spacing-3)]"
+								style={{
+									insetInlineStart: overDock && wide && list && !foldedList ? pane.width : 0,
+									bottom: overDock
+										? phone
+											? dockHeight
+											: `calc(${dockHeight}px + var(--spacing-4))`
+										: "calc(var(--dock-bottom-inset, var(--safe-area-bottom, env(safe-area-inset-bottom))) + var(--spacing-2))",
+								}}
+							>
+								{status}
+							</div>
+						) : null}
+					</div>
+					{side ? (
+						<div
+							data-detail-dock
+							inert={desktop && !sideOpen}
+							aria-hidden={(desktop && !sideOpen) || undefined}
 							className={cn(
-								"relative flex min-h-0 flex-1 flex-col bg-[var(--color-bg-base)]",
-								!phone && "overflow-hidden rounded-[var(--radius-lg)]",
+								desktop
+									? inlineSide
+										? "relative z-30 flex h-full shrink-0"
+										: "absolute inset-0 z-40 flex"
+									: "contents",
+								desktop && !sideOpen && !inlineSide && "hidden",
+								inlineSide && !sideDragging && "motion-safe:transition-[width] duration-[var(--duration-fast)]",
 							)}
+							style={inlineSide ? { width: sideOpen ? sideWidth : 0 } : undefined}
 						>
-							<ShellProvider value={contentChrome}>{content}</ShellProvider>
-							{!phone && composer ? (
-								<div
-									ref={nativeComposer}
-									data-native-composer
-									className="relative shrink-0 px-[var(--spacing-4)] pb-[var(--spacing-4)]"
-								>
-									<div className="mx-auto w-full max-w-[760px]">{composer}</div>
-								</div>
-							) : null}
-							{phone && !meOpen && (detailOpen || !list) ? (
-								<MobileDock
-									composer={composer}
-									onHeightChange={setDockHeight}
-									showTabs={mainBotOpen && !keyboard}
-									current={tab.current}
-									onSelect={tab.onSelect}
-									labels={tab.labels}
-									ariaLabel={tab.ariaLabel}
-									botTab={tab.mobileBot}
-									messagesUnread={tab.messagesUnread}
+							{inlineSide && sideOpen ? (
+								<PaneSplitter
+									width={sideWidth}
+									min={DETAIL_MIN}
+									max={pane.available - WORKSPACE_MIN}
+									edge="start"
+									onResize={setSideWidth}
+									onDragChange={setSideDragging}
+									onReset={() => setSideWidth(DETAIL_WIDTH)}
+									label={side.labels.resize}
 								/>
 							) : null}
-						</main>
-					</GesturePanel>
-					{pane.dragging && wide ? (
-						<div
-							aria-hidden="true"
-							data-pane-drag-shield
-							className="absolute inset-0 z-30 cursor-col-resize bg-transparent"
-						/>
-					) : null}
-					<AnimatePresence>
-						{side && sideOpen ? <SideLayers key="side" side={side} mode={mode} desktop={desktop} /> : null}
-					</AnimatePresence>
-					{status ? (
-						<div
-							data-floating-status
-							className="pointer-events-none absolute inset-x-0 z-40 px-[var(--spacing-3)]"
-							style={{
-								insetInlineStart: overDock && wide && list ? pane.width : 0,
-								bottom: overDock
-									? phone
-										? dockHeight
-										: `calc(${dockHeight}px + var(--spacing-4))`
-									: "calc(var(--dock-bottom-inset, var(--safe-area-bottom, env(safe-area-inset-bottom))) + var(--spacing-2))",
-							}}
-						>
-							{status}
+							<div className={desktop ? "flex min-w-0 flex-1 overflow-hidden" : "contents"}>
+								<div
+									className={desktop ? cn("flex shrink-0", !inlineSide && "w-full", workspaceCardInset) : "contents"}
+									style={inlineSide ? { width: sideWidth } : undefined}
+								>
+									<SideLayers
+										side={{
+											...side,
+											onCollapse: () => {
+												setShowFoldedList(false);
+												side.onCollapse();
+												requestAnimationFrame(() =>
+													container.current
+														?.querySelector<HTMLButtonElement>("[data-detail-reveal]")
+														?.focus({ preventScroll: true }),
+												);
+											},
+										}}
+										mode={mode}
+										desktop={desktop}
+									/>
+								</div>
+							</div>
 						</div>
 					) : null}
 				</div>
@@ -329,153 +438,13 @@ export function AppShell({
 							backButton={backButton}
 							label={meLabel}
 							scrollPositions={scrollPositions}
+							covered={sideCover}
+							sideWidth={inlineSide && sideOpen ? sideWidth : 0}
+							detailAction={meOpen ? revealSide : null}
 						/>
 					) : null}
 				</AnimatePresence>
 			</div>
-		</div>
-	);
-}
-
-function MeLayers({
-	me,
-	mode,
-	desktop,
-	titlebarInset,
-	statusVisible,
-	onBack,
-	backButton,
-	label,
-	scrollPositions,
-}: {
-	me: MeStack;
-	mode: LayoutMode;
-	desktop: boolean;
-	titlebarInset: boolean;
-	statusVisible: boolean;
-	onBack: () => void;
-	backButton: ReactNode;
-	label: string;
-	scrollPositions: React.RefObject<Record<string, number>>;
-}) {
-	const wide = mode === "wide";
-	const floating = desktop && wide;
-	const settingsMode = desktop && !wide ? "mobile" : mode;
-	const hasPage = me.pages.length > 0;
-	const present = useIsPresent();
-	const entering = useRef(true);
-	useEffect(() => {
-		entering.current = false;
-	}, []);
-	useDismiss(floating && present, me.onClose, 10);
-	const panel = (
-		<GesturePanel
-			open
-			inline={floating}
-			active={!desktop || present}
-			side="left"
-			layerKey="me"
-			onBack={me.onClose}
-			label={label}
-			modal={mode === "mobile" || (desktop && !statusVisible)}
-			role={desktop || mode === "mobile" ? "dialog" : "region"}
-			priority={10}
-			className={cn(
-				floating
-					? "z-10 h-full max-h-[var(--settings-window-height)] w-full max-w-[var(--settings-window-width)] overflow-hidden rounded-[var(--radius-xl)] bg-[var(--color-bg-base)] shadow-[var(--shadow-lg)] motion-safe:animate-pop-in"
-					: "z-20",
-				!desktop && mode !== "mobile" && "start-[var(--rail-width)]",
-				desktop && !wide && titlebarInset && "[--topbar-padding-start:calc(var(--spacing-3)+var(--rail-width))]",
-			)}
-		>
-			<div className="relative flex min-h-0 flex-1">
-				<div
-					inert={!wide && hasPage}
-					aria-hidden={(!wide && hasPage) || undefined}
-					data-surface="chrome"
-					className={cn(
-						"yonder-chrome flex min-h-0 shrink-0 flex-col",
-						wide ? "w-[var(--list-pane-default,320px)]" : "w-full",
-					)}
-				>
-					<ShellProvider
-						value={{
-							mode: settingsMode,
-							desktop,
-							// The phone's 「我」 enters from the left, so it leaves to the left: one round close at the
-							// trailing edge and nothing at the leading one. The back arrow belongs to the pages pushed on it.
-							left:
-								(wide && !desktop) || settingsMode === "mobile" ? null : (
-									<IconButton aria-label={me.closeLabel} size="sm" onClick={me.onClose}>
-										<X size={20} aria-hidden="true" />
-									</IconButton>
-								),
-							right:
-								settingsMode === "mobile" ? (
-									<IconButton
-										aria-label={me.closeLabel}
-										size="sm"
-										variant="secondary"
-										className="rounded-[var(--radius-full)]"
-										onClick={me.onClose}
-									>
-										<X size={18} strokeWidth={2} aria-hidden="true" />
-									</IconButton>
-								) : undefined,
-							meOpen: true,
-							scroll: { key: "me", positions: scrollPositions },
-						}}
-					>
-						{me.list}
-					</ShellProvider>
-				</div>
-				<div
-					className={cn(
-						"min-h-0 min-w-0 flex-1",
-						wide ? "relative" : "absolute inset-0",
-						!hasPage && "pointer-events-none",
-					)}
-				>
-					<AnimatePresence>
-						{me.pages.map((page, index) => (
-							<GesturePanel
-								key={page.key}
-								open
-								initial={!entering.current}
-								active={present && index === me.pages.length - 1}
-								layerKey={page.key}
-								onBack={onBack}
-								priority={11 + index}
-								label={label}
-							>
-								<ShellProvider
-									value={{
-										mode: settingsMode,
-										desktop,
-										left: wide && index === 0 ? null : backButton,
-										meOpen: true,
-									}}
-								>
-									{page.content}
-								</ShellProvider>
-							</GesturePanel>
-						))}
-					</AnimatePresence>
-				</div>
-			</div>
-		</GesturePanel>
-	);
-	return (
-		<div
-			data-me-layers
-			inert={!present}
-			className={cn(
-				floating ? "absolute inset-0 z-20 grid place-items-center px-[max(var(--spacing-4),5vw)]" : "contents",
-				floating && (titlebarInset ? "py-[max(var(--titlebar-height),5dvh)]" : "py-[max(var(--spacing-6),5dvh)]"),
-			)}
-		>
-			{floating ? <OverlayBackdrop onClose={me.onClose} /> : null}
-			{panel}
 		</div>
 	);
 }

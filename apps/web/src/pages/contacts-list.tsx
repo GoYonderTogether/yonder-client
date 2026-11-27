@@ -1,17 +1,44 @@
 import { MemberRow } from "@yonder/feature-members";
 import { Button, ContactsGlyph, EmptyState, Segmented } from "@yonder/ui-components";
 import { useContacts, useFriendRequests } from "@yonder/ui-data";
-import { ListFrame, PageFrame } from "@yonder/ui-shell";
-import { useState } from "react";
+import { ListFrame, PageFrame, useOptionalSidePanel } from "@yonder/ui-shell";
+import { type RefObject, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { FriendRequestCard } from "./friend-request-card.tsx";
 import { type MemberCardHandlers, MemberCardView } from "./member-card.tsx";
 
-export function ContactsList({ onOpen }: { onOpen: (handle: string) => void }) {
+export interface ContactPosition {
+	handle: string;
+	scrollTop: number;
+}
+
+interface ContactsListProps {
+	onOpen: (handle: string) => void;
+	overlay?: { close: () => void; reopen: () => void; position: RefObject<ContactPosition | null> } | undefined;
+}
+
+export function ContactsList({ onOpen, overlay }: ContactsListProps) {
 	const { t } = useTranslation();
 	const contacts = useContacts();
+	const openMember = useOptionalSidePanel()?.openMember;
 	const people = contacts.data?.items.filter((member) => member.kind === "person");
+	const rows = useRef<HTMLUListElement>(null);
+	const position = overlay?.position;
+	useLayoutEffect(() => {
+		const saved = position?.current;
+		const list = rows.current;
+		const index = people?.findIndex(({ handle }) => handle === saved?.handle) ?? -1;
+		const button = list?.children.item(index)?.querySelector("button");
+		const scrollPanel = list?.closest<HTMLElement>("[data-overlay-body]");
+		if (!position || !saved || !button || !scrollPanel) return;
+		const frame = requestAnimationFrame(() => {
+			position.current = null;
+			scrollPanel.scrollTop = saved.scrollTop;
+			button.focus({ preventScroll: true });
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [people, position]);
 	return (
 		<>
 			{contacts.isPending ? <p role="status">{t("app.loading")}</p> : null}
@@ -20,9 +47,26 @@ export function ContactsList({ onOpen }: { onOpen: (handle: string) => void }) {
 					{t("app.retry")}
 				</Button>
 			) : null}
-			<ul aria-label={t("chatActions.contacts")}>
+			<ul ref={rows} aria-label={t("chatActions.contacts")}>
 				{people?.map((member) => (
-					<MemberRow key={member.id} member={member} onOpen={() => onOpen(member.handle)} />
+					<MemberRow
+						key={member.id}
+						member={member}
+						onOpen={() => {
+							if (!openMember) return onOpen(member.handle);
+							const scrollTop = rows.current?.closest<HTMLElement>("[data-overlay-body]")?.scrollTop ?? 0;
+							openMember(
+								member.handle,
+								member.displayName,
+								overlay &&
+									(() => {
+										overlay.position.current = { handle: member.handle, scrollTop };
+										overlay.reopen();
+									}),
+							);
+							overlay?.close();
+						}}
+					/>
 				))}
 			</ul>
 			{!contacts.isError && people?.length === 0 ? (
@@ -101,7 +145,7 @@ export function ContactsPageList({
 	);
 }
 
-export function ContactsDialogList({ onOpen }: { onOpen: (handle: string) => void }) {
+export function ContactsDialogList({ onOpen, overlay }: ContactsListProps) {
 	const [showRequests, setShowRequests] = useState(false);
 	return (
 		<>
@@ -109,7 +153,7 @@ export function ContactsDialogList({ onOpen }: { onOpen: (handle: string) => voi
 				<ContactsViewSwitch showRequests={showRequests} onChange={setShowRequests} />
 			</div>
 			<div className="px-[var(--spacing-4)] pb-[calc(var(--spacing-4)+var(--safe-area-bottom,env(safe-area-inset-bottom)))]">
-				{showRequests ? <FriendRequestsList /> : <ContactsList onOpen={onOpen} />}
+				{showRequests ? <FriendRequestsList /> : <ContactsList onOpen={onOpen} overlay={overlay} />}
 			</div>
 		</>
 	);

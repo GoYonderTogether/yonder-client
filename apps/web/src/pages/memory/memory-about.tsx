@@ -3,8 +3,8 @@ import { useMemoryFile } from "@yonder/ui-data";
 import { PageFrame, useShellChrome } from "@yonder/ui-shell";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useOpenMemoryFile } from "./memory-file-detail.tsx";
 import { MemoryMarkdown } from "./memory-markdown.tsx";
-import { useOpenMemoryFile } from "./memory-navigation.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
 import { ABOUT_PATHS } from "./memory-view.ts";
 

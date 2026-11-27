@@ -7,6 +7,7 @@ import { FileTypeIcon } from "../lib/file-type-icon.tsx";
 import { ensureDisplayBlob } from "../lib/image-display.ts";
 import { useObjectUrl } from "../lib/use-object-url.ts";
 import { useVideoPoster } from "../lib/use-video-poster.ts";
+import { useOpenAttachmentDetail } from "../preview/attachment-detail.tsx";
 import { AttachmentPreview, downloadAttachment } from "../preview/attachment-preview.tsx";
 import { type PreviewFile, previewKind } from "../preview/file-kind.ts";
 import { usePreviewTranslation } from "../preview/preview-i18n.ts";
@@ -102,7 +103,6 @@ function MessageAttachment({
 				className={`message-attachment-open ${media ? "message-attachment-media" : "message-attachment-file"}`}
 				onClick={() => onOpen(attachment)}
 				aria-label={labels("open", { name: attachment.name })}
-				disabled={original.loading}
 			>
 				{media ? (
 					<>
@@ -173,13 +173,29 @@ function MessageAttachment({
 export function MessageAttachments({ attachments, self = false }: { attachments: Attachment[]; self?: boolean }) {
 	const loaders = useRef(new Map<string, LoadAttachment>());
 	const request = useRef(0);
+	const openDetail = useOpenAttachmentDetail();
 	const [selected, setSelected] = useState<PreviewFile>();
 	const images = attachments.filter((attachment) => previewKind(attachment) === "image");
 	const index = images.findIndex((image) => image.id === selected?.id);
 
-	async function open(attachment: Attachment) {
+	async function open(attachment: Attachment, available = new Map(loaders.current)) {
+		const load = available.get(attachment.id);
+		if (!load) return;
+		const imageIndex = images.findIndex((image) => image.id === attachment.id);
+		const navigation =
+			imageIndex >= 0 && images.length > 1
+				? {
+						position: imageIndex + 1,
+						total: images.length,
+						move: (direction: -1 | 1) => {
+							const next = images[imageIndex + direction];
+							if (next) void open(next, available);
+						},
+					}
+				: undefined;
+		if (openDetail({ ...attachment, load }, navigation)) return;
 		const current = ++request.current;
-		const blob = await loaders.current.get(attachment.id)?.();
+		const blob = await load();
 		if (blob && current === request.current) setSelected({ ...attachment, blob });
 	}
 

@@ -1,270 +1,269 @@
 import { conversationPeer } from "@yonder/chat-model";
 import { GroupInfo } from "@yonder/feature-members";
 import type { Conversation, ConversationMember, Member } from "@yonder/protocol";
-import type { SidePage, SidePanelControls, SideStack } from "@yonder/ui-shell";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate } from "react-router";
-import { MemberCardView } from "../pages/member-card.tsx";
 import {
-	CHAT_BOT_PAGE_TITLE,
-	type ChatBotPage,
-	ChatBotSettings,
-	ChatBotSettingsChild,
-	chatBotPageStack,
-} from "./chat-bot-settings.tsx";
+	DiscardChangesDialog,
+	type LayoutMode,
+	ShellProvider,
+	type SidePage,
+	SidePanelProvider,
+	type SideStack,
+} from "@yonder/ui-shell";
+import { ICON_SIZE } from "@yonder/ui-tokens";
+import { Bot, UserRound, Users } from "lucide-react";
+import { type ReactNode, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
+import { conversationTitle } from "../pages/conversation-presentation.tsx";
+import { MemberCardView } from "../pages/member-card.tsx";
+import { CHAT_BOT_PAGE_TITLE, type ChatBotPage, ChatBotSettings, ChatBotSettingsChild } from "./chat-bot-settings.tsx";
 import { ConversationNotificationSettings } from "./conversation-notification-settings.tsx";
+import type { DetailTabs, SideEntry } from "./use-detail-tabs.ts";
 
-/**
- * One page of the right-hand side panel. The frame's own entries are rebuilt from live data on
- * every render; `page` is a page another screen handed over, whose content fetches its own data.
- */
-export type SideEntry =
-	| { kind: "bot"; id: string }
-	| { kind: "member"; handle: string }
-	| { kind: "group" }
-	| { kind: "page"; page: SidePage };
-
-/**
- * The frame's right-hand side panel (17 3.1, 3.2, 3.5): group info, a Bot this account owns, and
- * anyone else's card. Opening from the chat replaces what the panel shows; opening from inside the
- * panel (a member from group info) stacks one page on it, and back returns to group info.
- */
-export function useFrameLayers() {
-	const [localStack, setStack] = useState<readonly SideEntry[]>([]);
-	const { pathname, search, hash, state } = useLocation();
-	const navigate = useNavigate();
-	const botDrawer = (state as { chatBotDrawer?: { id: string; page?: ChatBotPage } } | null)?.chatBotDrawer;
-	const currentBotDrawer = useRef(botDrawer);
-	const previousBotDrawer = useRef(botDrawer);
-	const botOpeners = useRef(new Map<ChatBotPage | "overview", HTMLElement>());
-	currentBotDrawer.current = botDrawer;
-	useLayoutEffect(() => {
-		const previous = previousBotDrawer.current;
-		previousBotDrawer.current = botDrawer;
-		if (!previous || (botDrawer && previous.id !== botDrawer.id)) return;
-		if (botDrawer && chatBotPageStack(previous.page).length <= chatBotPageStack(botDrawer.page).length) return;
-		const target = botOpeners.current.get(botDrawer ? (previous.page ?? "overview") : "overview");
-		// The router may make the opener inert before the new drawer captures its focus.
-		const frame = requestAnimationFrame(() => {
-			if (target?.isConnected && !target.closest("[inert]")) target.focus({ preventScroll: true });
-		});
-		return () => cancelAnimationFrame(frame);
-	}, [botDrawer]);
-	// Same-URL router entries keep browser Back in this chat and restore each visible Bot page.
-	const openBot = useCallback(
-		(id: string, page?: ChatBotPage) => {
-			if (!page) botOpeners.current.clear();
-			if (document.activeElement instanceof HTMLElement)
-				botOpeners.current.set(page ?? "overview", document.activeElement);
-			navigate(`${pathname}${search}${hash}`, { state: { ...state, chatBotDrawer: { id, page } } });
-		},
-		[pathname, search, hash, state, navigate],
-	);
-	const open = useCallback(
-		(entry: SideEntry) => {
-			if (entry.kind === "bot") openBot(entry.id);
-			else setStack([entry]);
-		},
-		[openBot],
-	);
-	const push = useCallback((entry: SideEntry) => setStack((current) => [...current, entry]), []);
-	const back = useCallback(
-		(key?: string) => {
-			if (currentBotDrawer.current) {
-				if (!key || key === currentBotDrawer.current.page) navigate(-1);
-				return;
-			}
-			setStack((current) => {
-				const top = current.at(-1);
-				if (!top || (key !== undefined && (top.kind !== "page" || top.page.key !== key))) return current;
-				return current.slice(0, -1);
-			});
-		},
-		[navigate],
-	);
-	const clear = useCallback(() => setStack([]), []);
-	const close = useCallback(() => {
-		const drawer = currentBotDrawer.current;
-		if (drawer) navigate(-1 - chatBotPageStack(drawer.page).length);
-		else clear();
-	}, [navigate, clear]);
-	return useMemo(
-		() => ({
-			stack: botDrawer ? [{ kind: "bot", id: botDrawer.id } satisfies SideEntry] : localStack,
-			botDrawer,
-			open,
-			push,
-			back,
-			close,
-			clear,
-			openBot,
-			openGroup: () => open({ kind: "group" }),
-			/** What pages get through `useSidePanel`. */
-			controls: {
-				open: (page: SidePage) => open({ kind: "page", page }),
-				push: (page: SidePage) => push({ kind: "page", page }),
-				back,
-				close,
-			} satisfies SidePanelControls,
-		}),
-		[localStack, botDrawer, open, push, back, close, clear, openBot],
-	);
+export function memberDetail(
+	member: ConversationMember | Member,
+	personId: string | undefined,
+	defaultBot: Member | undefined,
+	contacts: readonly Member[] | undefined,
+	conversationId?: string,
+): SideEntry | null {
+	const id = "memberId" in member ? member.memberId : member.id;
+	const contact = contacts?.find((item) => item.id === id);
+	if (id === defaultBot?.id || (contact?.kind === "bot" && contact.ownerId === personId))
+		return { kind: "bot", id, conversationId };
+	const handle = member.handle ?? contact?.handle;
+	return handle ? { kind: "member", handle, title: member.displayName, conversationId } : null;
 }
 
-export type FrameLayers = ReturnType<typeof useFrameLayers>;
-
-/** Builds the shell's side stack from the frame's entries; entries that cannot be shown are skipped. */
+/** Resolves live profiles and conversations for each tab, including ones opened in an earlier chat. */
 export function useSideStack({
 	layers,
-	conversation,
+	settings,
+	conversations,
 	personId,
 	defaultBot,
 	contacts,
-	onBotDirtyChange,
 	onBotDeleted,
-	onOpenMember,
 	onLeftGroup,
 }: {
-	layers: FrameLayers;
-	conversation: Conversation | undefined;
+	layers: DetailTabs;
+	settings: boolean;
+	conversations: readonly Conversation[] | undefined;
 	personId: string | undefined;
 	defaultBot: Member | undefined;
 	contacts: readonly Member[] | undefined;
-	onBotDirtyChange: (dirty: boolean) => void;
 	onBotDeleted: (chatId: string | undefined) => void;
-	/** A member opened from inside the panel; the caller decides between a Bot's detail and a card. */
-	onOpenMember: (member: ConversationMember) => void;
-	onLeftGroup: () => void;
+	onLeftGroup: (conversationId: string) => void;
 }): SideStack {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
-	const peer = conversation?.kind === "direct" ? conversationPeer(conversation, personId) : undefined;
-	const preferences =
-		conversation && !conversation.closedReason ? (
-			<ConversationNotificationSettings
-				key={conversation.id}
-				id={conversation.id}
-				muted={conversation.muted === true}
-			/>
-		) : undefined;
-	const pages = layers.stack.flatMap((entry, index): SidePage[] => {
-		const key = `${index}:${entryKey(entry)}`;
-		switch (entry.kind) {
-			case "bot": {
-				const bot = defaultBot?.id === entry.id ? defaultBot : contacts?.find((item) => item.id === entry.id);
-				if (!bot || !personId || bot.kind !== "bot" || (bot !== defaultBot && bot.ownerId !== personId)) return [];
-				const openBotPage = (page: ChatBotPage) => layers.openBot(bot.id, page);
-				return [
-					{
-						key,
-						title: bot.displayName,
-						content: (
-							<ChatBotSettings
-								key={bot.id}
-								bot={bot}
-								conversationId={
-									peer?.memberId === bot.id && !conversation?.visit && !conversation?.closedReason
-										? conversation?.id
-										: undefined
-								}
-								preferences={peer?.memberId === bot.id ? preferences : undefined}
-								{...(layers.botDrawer ? { onOpenPage: openBotPage } : {})}
-								onDeleted={(chatId) => {
-									if (chatId && chatId === conversation?.id) layers.clear();
-									else layers.close();
-									onBotDeleted(chatId);
-								}}
-							/>
-						),
-					},
-					...chatBotPageStack(layers.botDrawer?.page).map((page) => ({
-						key: `${key}:${page}`,
-						title: t(CHAT_BOT_PAGE_TITLE[page]),
-						content: (
-							<ChatBotSettingsChild
-								bot={bot}
-								page={page}
-								back={() => layers.back(page)}
-								onDirtyChange={onBotDirtyChange}
-								onOpenPage={openBotPage}
-							/>
-						),
-					})),
-				];
-			}
-			case "member":
-				return [
-					{
-						key,
-						title: t("members.card.title"),
-						content: (
-							<>
-								<MemberCardView
-									handle={entry.handle}
-									onOpenConversation={(conversationId) => {
-										layers.close();
-										navigate(`/messages/${encodeURIComponent(conversationId)}`);
-									}}
-									onOpenOwner={(owner) => layers.push({ kind: "member", handle: owner })}
-									onOpenBot={(bot) => layers.push({ kind: "member", handle: bot })}
-									onOpenPrivacy={() => {
-										layers.close();
-										navigate("/me/privacy");
-									}}
-									onHome={layers.close}
-								/>
-								{peer?.handle === entry.handle && preferences ? (
-									<div className="p-[var(--spacing-4)]">{preferences}</div>
-								) : null}
-							</>
-						),
-					},
-				];
-			case "group":
-				if (conversation?.kind !== "group") return [];
-				return [
-					{
-						key,
-						title: t("members.group.title"),
-						content: (
-							<GroupInfo
-								conversation={conversation}
-								preferences={preferences}
-								personId={personId}
-								onOpenMember={onOpenMember}
-								onLeft={() => {
-									layers.close();
-									onLeftGroup();
-								}}
-							/>
-						),
-					},
-				];
-			case "page":
-				return [{ ...entry.page, key }];
-			default:
-				return [];
-		}
+	const tabs = layers.tabs.flatMap((tab) => {
+		const pages = tab.entries.flatMap(({ key, value }): SidePage[] => {
+			const resolved = render(tab.key, key, value);
+			return resolved
+				? [
+						{
+							...resolved,
+							content: (
+								<ScopedPage layers={layers} tab={tab.key} page={key}>
+									{resolved.content}
+								</ScopedPage>
+							),
+						},
+					]
+				: [];
+		});
+		return pages[0] ? [{ key: tab.key, pages }] : [];
 	});
+	const active = tabs.find((tab) => tab.key === layers.active);
+	const settingsTab = layers.tabs.find((tab) => tab.key === layers.active)?.settings;
 	return {
-		pages,
+		tabs,
+		active: active?.key ?? null,
+		expanded: Boolean(active && layers.expanded && (!settings || settingsTab)),
+		onActivate: layers.activate,
+		onMove: layers.move,
 		onBack: () => layers.back(),
 		onClose: layers.close,
-		backLabel: t("app.back"),
-		closeLabel: t("app.close"),
+		onCloseAll: layers.closeAll,
+		onCollapse: layers.collapse,
+		labels: {
+			pane: t("nav.detailPane"),
+			back: t("app.back"),
+			close: t("app.close"),
+			closeTab: (title) => t("nav.closeDetailTab", { title }),
+			closeAll: t("nav.closeAllDetails"),
+			closeAllCount: (count) => t("nav.closeAllDetailsCount", { count }),
+			collapse: t("nav.collapseDetails"),
+			expand: t("nav.expandDetails"),
+			resize: t("nav.resizeDetails"),
+		},
 	};
+
+	function render(tab: string, key: string, entry: SideEntry): SidePage | null {
+		const conversation =
+			"conversationId" in entry ? conversations?.find((item) => item.id === entry.conversationId) : undefined;
+		const peer = conversation?.kind === "direct" ? conversationPeer(conversation, personId) : undefined;
+		const preferences =
+			conversation && !conversation.closedReason ? (
+				<ConversationNotificationSettings id={conversation.id} muted={conversation.muted === true} />
+			) : undefined;
+		switch (entry.kind) {
+			case "bot":
+			case "bot-page": {
+				const bot = defaultBot?.id === entry.id ? defaultBot : contacts?.find((item) => item.id === entry.id);
+				if (!bot || !personId || bot.kind !== "bot" || (bot !== defaultBot && bot.ownerId !== personId)) return null;
+				const openBotPage = (page: ChatBotPage) => layers.push({ kind: "bot-page", id: bot.id, page }, tab);
+				return entry.kind === "bot"
+					? {
+							key,
+							title: bot.displayName,
+							icon: <Bot size={ICON_SIZE.sm} aria-hidden="true" />,
+							content: (
+								<ChatBotSettings
+									bot={bot}
+									conversationId={
+										peer?.memberId === bot.id && !conversation?.visit && !conversation?.closedReason
+											? conversation?.id
+											: undefined
+									}
+									preferences={peer?.memberId === bot.id ? preferences : undefined}
+									onOpenPage={openBotPage}
+									onDeleted={(chatId) => {
+										layers.remove([tab]);
+										onBotDeleted(chatId);
+									}}
+								/>
+							),
+						}
+					: {
+							key,
+							title: t(CHAT_BOT_PAGE_TITLE[entry.page]),
+							icon: <Bot size={ICON_SIZE.sm} aria-hidden="true" />,
+							content: (
+								<ChatBotDetailPage
+									bot={bot}
+									page={entry.page}
+									layers={layers}
+									tab={tab}
+									pageKey={key}
+									onOpenPage={openBotPage}
+								/>
+							),
+						};
+			}
+			case "member":
+				return {
+					key,
+					title: entry.title ?? t("members.card.title"),
+					icon: <UserRound size={ICON_SIZE.sm} aria-hidden="true" />,
+					content: (
+						<>
+							<MemberCardView
+								handle={entry.handle}
+								onOpenConversation={(id) => navigate(`/messages/${encodeURIComponent(id)}`)}
+								onOpenOwner={(handle) => layers.open({ kind: "member", handle })}
+								onOpenBot={(handle) => layers.open({ kind: "member", handle })}
+								onOpenPrivacy={() => navigate("/me/privacy")}
+								onHome={() => layers.close(tab)}
+							/>
+							{peer?.handle === entry.handle && preferences ? (
+								<div className="p-[var(--spacing-4)]">{preferences}</div>
+							) : null}
+						</>
+					),
+				};
+			case "group":
+				if (conversation?.kind !== "group") return null;
+				return {
+					key,
+					title: conversationTitle(conversation, personId) || t("members.group.title"),
+					icon: <Users size={ICON_SIZE.sm} aria-hidden="true" />,
+					content: (
+						<GroupInfo
+							conversation={conversation}
+							preferences={preferences}
+							personId={personId}
+							onOpenMember={(member) => {
+								const detail = memberDetail(member, personId, defaultBot, contacts);
+								if (detail) layers.open(detail);
+							}}
+							onLeft={() => {
+								layers.remove([tab]);
+								onLeftGroup(conversation.id);
+							}}
+						/>
+					),
+				};
+			case "page":
+				return entry.page;
+		}
+	}
 }
 
-function entryKey(entry: SideEntry): string {
-	switch (entry.kind) {
-		case "bot":
-			return `bot:${entry.id}`;
-		case "member":
-			return `member:${entry.handle}`;
-		case "group":
-			return "group";
-		case "page":
-			return `page:${entry.page.key}`;
-	}
+export function DetailDiscardDialog({
+	layers,
+	mode,
+	desktop,
+}: {
+	layers: DetailTabs;
+	mode: LayoutMode;
+	desktop: boolean;
+}) {
+	const { t } = useTranslation();
+	return (
+		<ShellProvider value={{ mode, desktop, left: null, meOpen: false }}>
+			<DiscardChangesDialog
+				open={Boolean(layers.confirm)}
+				body={t("bots.discardChanges")}
+				onCancel={layers.clearConfirmation}
+				onConfirm={() => {
+					layers.confirm?.();
+					layers.clearConfirmation();
+				}}
+			/>
+		</ShellProvider>
+	);
+}
+
+function ScopedPage({
+	layers: { controlsFor },
+	tab,
+	page,
+	children,
+}: {
+	layers: DetailTabs;
+	tab: string;
+	page: string;
+	children: ReactNode;
+}) {
+	const controls = useMemo(() => controlsFor(tab, page), [controlsFor, tab, page]);
+	return <SidePanelProvider value={controls}>{children}</SidePanelProvider>;
+}
+
+function ChatBotDetailPage({
+	bot,
+	page,
+	layers: { controlsFor },
+	tab,
+	pageKey,
+	onOpenPage,
+}: {
+	bot: Member;
+	page: ChatBotPage;
+	layers: DetailTabs;
+	tab: string;
+	pageKey: string;
+	onOpenPage: (page: ChatBotPage) => void;
+}) {
+	const controls = useMemo(() => controlsFor(tab, pageKey), [controlsFor, tab, pageKey]);
+	return (
+		<ChatBotSettingsChild
+			bot={bot}
+			page={page}
+			back={() => controls.back(pageKey)}
+			onDirtyChange={controls.setDirty}
+			onOpenPage={onOpenPage}
+		/>
+	);
 }

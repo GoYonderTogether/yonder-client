@@ -4,9 +4,9 @@ import { useMemoryFolders } from "@yonder/ui-data";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useOpenMemoryFile } from "./memory-file-detail.tsx";
 import { MemoryFileRow } from "./memory-file-list.tsx";
 import { useMinute } from "./memory-format.ts";
-import { useOpenMemoryFile } from "./memory-navigation.ts";
 import { memoryFolderNames } from "./memory-view.ts";
 import { relativeTime } from "./memory-who.ts";
 
@@ -103,7 +103,7 @@ export function MemoryFileTree({
 									file={file}
 									subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
 									selected={activePath === file.path}
-									onClick={() => openFile(file.path)}
+									onClick={() => openFile(file.path, file.title)}
 									className={CHILD_ROW}
 								/>
 							))}

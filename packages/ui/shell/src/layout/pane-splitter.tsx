@@ -10,12 +10,23 @@ export interface PaneSplitterProps {
 	label: string;
 	onDragChange?: (dragging: boolean) => void;
 	onReset?: () => void;
+	edge?: "start" | "end";
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, Math.round(value)));
 
 /** Captured pointer dragging and keyboard resizing share the same width bounds. */
-export function PaneSplitter({ width, min, max, onResize, label, onDragChange, onReset }: PaneSplitterProps) {
+export function PaneSplitter({
+	width,
+	min,
+	max,
+	onResize,
+	label,
+	onDragChange,
+	onReset,
+	edge = "end",
+}: PaneSplitterProps) {
+	const direction = edge === "end" ? 1 : -1;
 	const drag = useRef<{
 		x: number;
 		width: number;
@@ -64,7 +75,7 @@ export function PaneSplitter({ width, min, max, onResize, label, onDragChange, o
 	const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
 		const current = drag.current;
 		if (!current || current.released || current.pointer !== event.pointerId) return;
-		current.target = clamp(current.width + event.clientX - current.x, min, max);
+		current.target = clamp(current.width + direction * (event.clientX - current.x), min, max);
 		if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
 			current.position = current.target;
 			onResize(current.target);
@@ -99,8 +110,8 @@ export function PaneSplitter({ width, min, max, onResize, label, onDragChange, o
 	const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
 		const step = event.shiftKey ? 48 : 16;
 		if (["ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(event.key)) finish(false);
-		if (event.key === "ArrowLeft") onResize(clamp(width - step, min, max));
-		else if (event.key === "ArrowRight") onResize(clamp(width + step, min, max));
+		if (event.key === "ArrowLeft") onResize(clamp(width - direction * step, min, max));
+		else if (event.key === "ArrowRight") onResize(clamp(width + direction * step, min, max));
 		else if (event.key === "Home") onResize(min);
 		else if (event.key === "End") onResize(max);
 		else if (event.key === "Enter") onReset?.();
@@ -156,7 +167,7 @@ export function PaneSplitter({ width, min, max, onResize, label, onDragChange, o
 				onReset?.();
 			}}
 			onKeyDown={handleKeyDown}
-			className="group absolute inset-y-0 -end-1 z-40 w-2 touch-none cursor-col-resize select-none outline-none"
+			className={`group absolute inset-y-0 ${edge === "end" ? "-end-1" : "-start-1"} z-40 w-2 touch-none cursor-col-resize select-none outline-none`}
 		>
 			<span className="pointer-events-none absolute inset-y-0 start-1/2 w-px -translate-x-1/2 bg-transparent transition-colors duration-[var(--duration-fast)] group-hover:bg-[var(--color-border-strong)] group-focus-visible:bg-[var(--color-accent)]" />
 		</div>

@@ -1,10 +1,10 @@
 import { Overlay, useShellChrome } from "@yonder/ui-shell";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { openAddContactsWindow } from "../../lib/contact-window.ts";
 import { shouldShowScanner } from "../../lib/platform.ts";
-import { ContactsDialogList } from "../contacts-list.tsx";
+import { type ContactPosition, ContactsDialogList } from "../contacts-list.tsx";
 import { QrScanner } from "../qr-scanner.tsx";
 import { AddContacts } from "./add-contacts.tsx";
 import { type ChatAction, ChatMenu } from "./chat-menu.tsx";
@@ -19,6 +19,7 @@ export function ChatActions({ onOpen, onOpenMeetings }: { onOpen: (id: string) =
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [windowError, setWindowError] = useState(false);
+	const contactPosition = useRef<ContactPosition | null>(null);
 
 	const close = () => setOpen(false);
 	const created = (id: string) => {
@@ -61,6 +62,7 @@ export function ChatActions({ onOpen, onOpenMeetings }: { onOpen: (id: string) =
 				>
 					{action === "contacts" ? (
 						<ContactsDialogList
+							overlay={{ position: contactPosition, close, reopen: () => setOpen(true) }}
 							onOpen={(handle) => {
 								close();
 								navigate(`/@${encodeURIComponent(handle)}`);

@@ -164,6 +164,15 @@ export function renderMessageBlock(
 	const owner = first.senderKind === "person" && first.senderId === chat.conversation?.ownerId;
 	const avatarUrl = sender?.avatarUrl;
 	const botId = senderBotId(chat.conversation, first.senderId);
+	const deviceFiles =
+		chat.conversation?.kind === "direct" &&
+		!chat.conversation.visit &&
+		Boolean(
+			chat.me &&
+				chat.conversation.members.some((member) =>
+					ownedBotFor(member.memberId, chat.me?.member.id, chat.me?.bot, contacts),
+				),
+		);
 	const avatar = showMessageAvatars ? (
 		<ChatAvatar
 			name={name}
@@ -263,7 +272,7 @@ export function renderMessageBlock(
 										<Text className="mini-question-quote">{message.questionReply.question.replace(/\n/g, " · ")}</Text>
 									) : null}
 									{message.body ? (
-										<MessageBody body={message.body} streaming={message.streaming} />
+										<MessageBody body={message.body} streaming={message.streaming} allowDeviceFiles={deviceFiles} />
 									) : (
 										<Text className="mini-muted">
 											{message.streaming ? t("正在生成…", "Generating…") : t("正在重连…", "Reconnecting…")}

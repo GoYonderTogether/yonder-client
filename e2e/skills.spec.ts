@@ -61,14 +61,16 @@ test("skills import whole folders, load references on demand and attach an expli
 		await expect(page.getByText("meeting-follow-up", { exact: true })).toBeVisible();
 		expect(readPaths).toEqual([]);
 		await page.getByRole("button", { name: "meeting-follow-up", exact: false }).click();
-		await expect(page.getByRole("heading", { name: "技能详情", exact: true })).toBeVisible();
-		await expect(page.locator("pre")).toContainText(text);
+		const pane = page.locator("[data-detail-pane]");
+		await expect(pane.getByRole("tab", { name: "meeting-follow-up", exact: true })).toBeVisible();
+		await expect(pane.locator("pre")).toContainText(text);
 		await expect(page.getByRole("button", { name: "删除技能" })).toHaveCount(0);
 		await page.getByRole("button", { name: "技能文件: SKILL.md" }).click();
 		await page.getByRole("option", { name: "references/guide.md" }).click();
 		await expect(page.locator("pre")).toContainText(files["references/guide.md"] ?? "");
 		expect(readPaths).toContain("references/guide.md");
-		await page.getByRole("button", { name: "返回", exact: true }).click();
+		await page.screenshot({ path: test.info().outputPath("desktop-skill-detail.png"), animations: "disabled" });
+		await pane.getByRole("button", { name: "关闭全部", exact: true }).click();
 		await page.getByRole("button", { name: "导入技能", exact: true }).click();
 		await expect(page.getByRole("heading", { name: "导入技能", exact: true })).toBeVisible();
 		await page.locator('input[aria-label="选择文件夹"]').setInputFiles(folder);
@@ -96,4 +98,48 @@ test("skills import whole folders, load references on demand and attach an expli
 	} finally {
 		await rm(folder, { recursive: true, force: true });
 	}
+});
+
+test.describe("phone skill reader", () => {
+	test.use({
+		viewport: { width: 390, height: 844 },
+		userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile Safari",
+		isMobile: true,
+		hasTouch: true,
+	});
+	test("opens one skill and returns to the filtered list", async ({ page }, info) => {
+		await isolateChat(page);
+		const skill: SkillSummary = {
+			id: "skill-platform",
+			name: "meeting-follow-up",
+			displayNameZh: "会议跟进",
+			description: "Extract agreed actions from meeting notes.",
+			source: "platform",
+			enabled: true,
+			revision: "r1",
+			canEdit: false,
+			files: ["SKILL.md"],
+			updatedAt: "2026-11-15T00:00:00Z",
+		};
+		await page.route("**/v1/skills**", (route) => {
+			const path = new URL(route.request().url()).pathname;
+			return route.fulfill({
+				json: path.endsWith("/files")
+					? { id: skill.id, revision: skill.revision, path: "SKILL.md", content: "Keep missing owners unassigned." }
+					: path.endsWith(skill.id)
+						? skill
+						: { items: [skill] },
+			});
+		});
+		await page.goto("/me/skills");
+		const search = page.getByRole("searchbox", { name: "搜索技能" });
+		await search.fill("会议跟进");
+		await page.getByRole("button", { name: /meeting-follow-up/ }).click();
+		const detail = page.locator('[data-page-layer="side"]');
+		await expect(detail.getByText("Keep missing owners unassigned.")).toBeVisible();
+		await expect(detail.getByRole("tab")).toHaveCount(0);
+		await page.screenshot({ path: info.outputPath("phone-skill-detail.png"), animations: "disabled" });
+		await detail.getByRole("button", { name: "返回", exact: true }).click();
+		await expect(search).toHaveValue("会议跟进");
+	});
 });

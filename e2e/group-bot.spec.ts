@@ -20,11 +20,12 @@ test("group owner changes the payer and a selected Bot is sent as a mention", as
 	});
 	await page.goto(`/messages/${group.id}`);
 	await page.getByRole("button", { name: "聊天设置" }).click();
-	const groupInfo = page.getByRole("dialog", { name: "群资料" });
+	const detail = page.locator("[data-detail-pane]");
+	const groupInfo = detail.getByRole("tabpanel", { name: "群聊验收" });
 	const payer = page.getByRole("combobox", { name: "Bot 回复由谁付费" });
 	await expect(payer).toHaveCount(0);
 	await groupInfo.getByRole("button", { name: "Bot 设置" }).click();
-	const settings = page.getByRole("dialog", { name: "Bot 设置" });
+	const settings = detail.getByRole("region", { name: "Bot 设置", exact: true });
 	await expect(payer).toHaveValue("mentioner");
 	await payer.selectOption("owner");
 	await expect(payer).toHaveValue("owner");
@@ -38,11 +39,11 @@ test("group owner changes the payer and a selected Bot is sent as a mention", as
 		)
 		.toBe(0);
 	await page.screenshot({ path: info.outputPath("group-bot-payer.png") });
-	await settings.getByRole("button", { name: "返回" }).click();
+	await detail.getByRole("button", { name: "返回", exact: true }).click();
 	await expect(settings).toHaveCount(0);
 	await expect(groupInfo).toBeVisible();
-	await page.keyboard.press("Escape");
 	const input = page.locator("textarea.composer-text");
+	await expect(input).toBeEditable();
 	await input.fill("@界面");
 	await page.getByRole("option").filter({ hasText: bot.displayName }).click();
 	await input.press("End");

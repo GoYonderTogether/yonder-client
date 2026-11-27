@@ -22,18 +22,18 @@ export interface LocalFilesContext {
 	sessionId: string;
 }
 
-const grantListeners = new Set<() => void>();
+const grantListeners = new Set<(revokedConnectionId?: string) => void>();
 const appleContexts = new Map<string, LocalFilesContext>();
 const appleContextKey = ({ ownerId, deviceId, sessionId }: LocalFilesContext) =>
 	JSON.stringify([ownerId, deviceId, sessionId]);
-export function onLocalFilesChanged(listener: () => void): () => void {
+export function onLocalFilesChanged(listener: (revokedConnectionId?: string) => void): () => void {
 	grantListeners.add(listener);
 	return () => {
 		grantListeners.delete(listener);
 	};
 }
-function changed() {
-	for (const listener of grantListeners) listener();
+function changed(revokedConnectionId?: string) {
+	for (const listener of grantListeners) listener(revokedConnectionId);
 }
 
 export function localFilesSupported(): boolean {
@@ -118,7 +118,7 @@ export function createLocalFilesAdapter(
 		async revoke(connectionId, connectorId) {
 			if (connectorId && isAppleConnector(connectorId)) await revokeAppleResourceGrant(context, connectionId);
 			else await invokeLocalFiles("local_files_revoke", { context, connectionId });
-			changed();
+			changed(connectionId);
 		},
 	};
 }

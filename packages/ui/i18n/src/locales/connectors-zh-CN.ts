@@ -133,3 +133,17 @@ export const connectorMessagesZhCN = {
 		unsupported: "这台 Mac 上的语音备忘录暂不支持读取。",
 	},
 } as const;
+
+export const deviceFileMessagesZhCN = {
+	chooseSource: "选择文件所在设备",
+	noSource: "没有可读取此路径的已授权设备",
+	checking: "正在检查文件更新",
+	offline: "源设备离线",
+	offlineCopy: "源设备离线 · 上次读取的版本",
+	updateSource: "请更新源设备上的 Yonder",
+	unavailable: "文件不存在或已无法访问",
+	readFailed: "无法读取文件",
+	verifyFailed: "文件校验失败",
+	emptyDirectory: "此目录为空",
+	partialDirectory: "仅显示部分条目",
+} as const;

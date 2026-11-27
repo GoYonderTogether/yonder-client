@@ -1,24 +1,26 @@
 import { useMemoryFile } from "@yonder/ui-data";
+import { useOptionalSidePanel } from "@yonder/ui-shell";
 import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useOpenMemoryFile } from "./memory-file-detail.tsx";
 import { MemoryMarkdown } from "./memory-markdown.tsx";
-import { useOpenMemoryFile } from "./memory-navigation.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
 
 /**
- * 「当天总结」under a day's title when the day has a daily summary (24 第三节). It unfolds in place;
- * the file is fetched only once it is opened. A day without one shows nothing.
+ * 「当天总结」under a day's title when the day has a daily summary (24 第三节).
  */
 export function DaySummary({ path }: { path: string }) {
 	const { t } = useTranslation();
+	const side = useOptionalSidePanel();
+	const openFile = useOpenMemoryFile();
 	const [open, setOpen] = useState(false);
 	return (
 		<div className="flex flex-col gap-[var(--spacing-2)] pb-[var(--spacing-2)]">
 			<button
 				type="button"
-				aria-expanded={open}
-				onClick={() => setOpen(!open)}
+				aria-expanded={side ? undefined : open}
+				onClick={() => (side ? openFile(path, t("memory.daySummary")) : setOpen(!open))}
 				className="inline-flex w-fit items-center gap-[var(--spacing-1)] rounded-[var(--radius-control-sm)] text-caption text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 			>
 				<ChevronRight

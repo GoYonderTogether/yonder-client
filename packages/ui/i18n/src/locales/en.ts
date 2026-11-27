@@ -5,7 +5,8 @@ import { commerceEn } from "./commerce.ts";
 import { composerAttachmentsEn } from "./composer-attachments-en.ts";
 import { composerInputEn } from "./composer-input.ts";
 import { connectorIntakeEn } from "./connector-intake-en.ts";
-import { connectorMessagesEn } from "./connectors-en.ts";
+import { connectorMessagesEn, deviceFileMessagesEn } from "./connectors-en.ts";
+import { detailPaneEn } from "./detail-pane.ts";
 import { friendQrEn, friendRequestsEn } from "./friend-qr-en.ts";
 import { inviteExperienceEn } from "./invite-experience-en.ts";
 import { connectDeviceDownloadEn, landingPageEn } from "./landing-page-en.ts";
@@ -33,6 +34,7 @@ export const en = {
 	commerce: commerceEn,
 	composerAttachments: composerAttachmentsEn,
 	connectors: connectorMessagesEn,
+	deviceFiles: deviceFileMessagesEn,
 	questionCards: questionCardsEn,
 	inviteExperience: inviteExperienceEn,
 	friendQr: friendQrEn,
@@ -99,6 +101,7 @@ export const en = {
 	},
 	nav: {
 		settings: "Settings",
+		...detailPaneEn,
 		chat: "Chat",
 		mainBot: "Main Bot",
 		messages: "Messages",
@@ -378,6 +381,7 @@ export const en = {
 		itemsArchivedEmpty: "No archived items",
 		create: "Create",
 		itemHeading: "Item",
+		openFullItem: "Open full task",
 		newItemHeading: "New item",
 		itemActions: "Item actions",
 		itemRename: "Rename",

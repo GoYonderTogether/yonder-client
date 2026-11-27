@@ -4,6 +4,7 @@ import { useMemoryActions, useMemoryDays } from "@yonder/ui-data";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useOpenAttachmentDetail } from "../../preview/attachment-detail.tsx";
 import { AttachmentPreview } from "../../preview/attachment-preview.tsx";
 import type { PreviewFile } from "../../preview/file-kind.ts";
 import { localDay } from "../items-format.ts";
@@ -26,6 +27,7 @@ export function MemoryTimeline() {
 	const query = useMemoryDays();
 	const { remove } = useMemoryActions();
 	const onSource = useSourceNavigation().target;
+	const openAttachment = useOpenAttachmentDetail();
 	const errorText = useErrorText();
 	const [open, setOpen] = useState<string | null>(null);
 	const [preview, setPreview] = useState<PreviewFile>();
@@ -98,7 +100,9 @@ export function MemoryTimeline() {
 		flash,
 		onToggle: (id) => setOpen((current) => (current === id ? null : id)),
 		onLink: (link: MemoryLink) => setPending(link.entryId),
-		onPreview: setPreview,
+		onPreview: (file) => {
+			if (!openAttachment(file)) setPreview(file);
+		},
 		onSource,
 		onDelete: (id) => remove.mutate(id),
 		deleting: remove.isPending ? (remove.variables ?? null) : null,

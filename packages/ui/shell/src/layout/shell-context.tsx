@@ -9,6 +9,8 @@ export interface ShellChrome {
 	left: ReactNode;
 	/** A control the shell owns at the trailing edge, such as the round close of a layer entered from the side. */
 	right?: ReactNode;
+	/** Opens the window's retained detail tabs when the pane is collapsed. */
+	detailAction?: ReactNode;
 	meOpen: boolean;
 	scroll?: { key: string; positions: RefObject<Record<string, number>> };
 }

@@ -84,7 +84,7 @@ export function MemoryFileList({
 	group: string;
 	directory?: string | undefined;
 	current: string | null;
-	onOpen: (path: string) => void;
+	onOpen: (path: string, title?: string) => void;
 	onFolder: (path: string) => void;
 }) {
 	const { t, i18n } = useTranslation();
@@ -146,7 +146,7 @@ export function MemoryFileList({
 								file={file}
 								subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
 								selected={file.path === current}
-								onClick={() => onOpen(file.path)}
+								onClick={() => onOpen(file.path, file.title)}
 							/>
 						))}
 					</ListGroup>

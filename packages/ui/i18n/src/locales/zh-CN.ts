@@ -5,7 +5,8 @@ import { commerceZhCN } from "./commerce.ts";
 import { composerAttachmentsZhCN } from "./composer-attachments-zh-CN.ts";
 import { composerInputZhCN } from "./composer-input.ts";
 import { connectorIntakeZhCN } from "./connector-intake-zh-CN.ts";
-import { connectorMessagesZhCN } from "./connectors-zh-CN.ts";
+import { connectorMessagesZhCN, deviceFileMessagesZhCN } from "./connectors-zh-CN.ts";
+import { detailPaneZhCN } from "./detail-pane.ts";
 import type { Messages } from "./en.ts";
 import { friendQrZhCN, friendRequestsZhCN } from "./friend-qr-zh-CN.ts";
 import { inviteExperienceZhCN } from "./invite-experience-zh-CN.ts";
@@ -35,6 +36,7 @@ export const zhCN: Messages = {
 	commerce: commerceZhCN,
 	composerAttachments: composerAttachmentsZhCN,
 	connectors: connectorMessagesZhCN,
+	deviceFiles: deviceFileMessagesZhCN,
 	questionCards: questionCardsZhCN,
 	inviteExperience: inviteExperienceZhCN,
 	friendQr: friendQrZhCN,
@@ -104,6 +106,7 @@ export const zhCN: Messages = {
 
 	nav: {
 		settings: "设置",
+		...detailPaneZhCN,
 		chat: "对话",
 		mainBot: "主 Bot",
 		messages: "消息",
@@ -383,6 +386,7 @@ export const zhCN: Messages = {
 		itemsArchivedEmpty: "没有已归档的事项",
 		create: "新建",
 		itemHeading: "事项",
+		openFullItem: "打开完整任务",
 		newItemHeading: "新事项",
 		itemActions: "事项操作",
 		itemRename: "改名",

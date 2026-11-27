@@ -16,6 +16,12 @@ const samples = [
 async function setup(page: Page) {
 	const files = new Map(samples.map(([name, mime]) => [name, { mime, bytes: readFileSync(`${fixtures}/${name}`) }]));
 	files.set("note.txt", { mime: "text/plain", bytes: Buffer.from("文档开头的中文内容。\n".repeat(800)) });
+	files.set("发布安排.md", {
+		mime: "text/markdown",
+		bytes: Buffer.from(
+			"# 发布安排\n\n周四前完成登录页验收，周五整理手机端回归结果。\n\n## 交付清单\n\n- 更新登录页动效。\n- 核对 iOS 和 Android 的返回路径。\n- 整理验收截图，附到任务记录。",
+		),
+	});
 	files.set("notes.md", {
 		mime: "text/markdown",
 		bytes: Buffer.from(
@@ -53,16 +59,36 @@ async function setup(page: Page) {
 }
 async function open(page: Page, name: string) {
 	await page.getByRole("button", { name: `打开 ${name}`, exact: true }).click();
-	await expect(page.getByRole("dialog", { name: `预览 ${name}`, exact: true })).toBeVisible();
+	await expect(page.locator("[data-attachment-pane-reader]:visible")).toBeVisible();
+	if ((await page.locator("[data-layout-mode]").getAttribute("data-layout-mode")) === "mobile") {
+		const dialog = page.getByRole("dialog", { name, exact: true });
+		await expect
+			.poll(() =>
+				dialog.evaluate((element) => {
+					const bounds = element.getBoundingClientRect();
+					return Math.abs(bounds.left) < 1 && Math.abs(bounds.width - window.innerWidth) < 1;
+				}),
+			)
+			.toBe(true);
+	}
 }
 async function close(page: Page) {
-	await page.locator(".attachment-reader-header").getByRole("button", { name: "关闭预览", exact: true }).click();
-	await expect(page.locator(".attachment-preview-layer")).toHaveCount(0);
-	await expect.poll(() => page.evaluate(() => history.state?.attachmentPreview ?? null)).toBeNull();
+	const overlay = page.locator(".attachment-preview-layer");
+	if (await overlay.count()) {
+		await overlay.getByRole("button", { name: "关闭预览", exact: true }).click();
+		await expect(overlay).toHaveCount(0);
+		await expect.poll(() => page.evaluate(() => history.state?.attachmentPreview ?? null)).toBeNull();
+	} else {
+		const desktop = page.locator("[data-detail-pane]");
+		if (await desktop.isVisible()) await desktop.getByRole("button", { name: "关闭全部", exact: true }).click();
+		else await page.getByRole("dialog").getByRole("button", { name: "返回", exact: true }).click();
+		await expect(page.locator("[data-attachment-pane-reader]")).toHaveCount(0);
+	}
 }
 
-test("real image gestures, SVG isolation and browser Back preserve the conversation", async ({ page }) => {
+test("real image gestures and SVG isolation preserve the desktop conversation", async ({ page }) => {
 	await setup(page);
+	const before = await page.evaluate(() => history.length);
 	await open(page, "diagram.svg");
 	const image = page.locator(".attachment-image-area img");
 	await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(240);
@@ -80,11 +106,50 @@ test("real image gestures, SVG isolation and browser Back preserve the conversat
 	expect(await page.evaluate(() => "svgExecuted" in window)).toBe(false);
 	await page.getByRole("button", { name: "适应窗口" }).click();
 	await page.locator(".attachment-image-area").click({ position: { x: 10, y: 10 } });
-	await expect(page.locator(".attachment-preview-layer")).toHaveCount(0);
+	await expect(page.locator("[data-attachment-pane-reader]")).toBeVisible();
 	await open(page, "diagram.svg");
-	await page.goBack();
-	await expect(page.locator(".attachment-preview-layer")).toHaveCount(0);
+	await expect.poll(() => page.evaluate(() => history.length)).toBe(before);
+	await close(page);
 	await expect(page).toHaveURL(new RegExp(`/messages/${conversation.id}$`));
+});
+
+test("desktop attachment tabs keep the chat usable and reuse a zoomed document", async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 850 });
+	await setup(page);
+	await open(page, "chinese.pdf");
+	const pane = page.locator("[data-detail-pane]");
+	const pdfPage = pane.locator('[data-pdf-page="1"]:visible');
+	const width = () => pdfPage.evaluate((element: HTMLElement) => Number.parseFloat(element.style.width));
+	const fit = await width();
+	await pane.getByRole("button", { name: "放大", exact: true }).click();
+	await expect.poll(width).toBeGreaterThan(fit);
+	const zoom = await width();
+	await open(page, "发布安排.md");
+	await expect(pane.getByRole("heading", { name: "发布安排" })).toBeVisible();
+	await page.getByRole("textbox", { name: /^对 / }).fill("一边看文档，一边继续对话。");
+	await expect(pane.getByRole("tab")).toHaveCount(2);
+	await page.screenshot({ path: `${evidence}/desktop-attachment-tabs.png`, animations: "disabled" });
+	await open(page, "chinese.pdf");
+	await expect(pane.getByRole("tab")).toHaveCount(2);
+	await expect(pane.getByRole("tab", { name: "chinese.pdf" })).toHaveAttribute("aria-selected", "true");
+	await expect.poll(width).toBeCloseTo(zoom);
+	await close(page);
+});
+
+test("a sent image group retains navigation and independent desktop tabs", async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 850 });
+	await setup(page);
+	await open(page, "diagram.svg");
+	const pane = page.locator("[data-detail-pane]");
+	const reader = pane.locator("[data-attachment-pane-reader]:visible");
+	await expect(pane.getByText("第 2 张 / 共 2 张")).toBeVisible();
+	await reader.locator(".attachment-image-area").press("ArrowLeft");
+	await expect(pane.getByRole("tab", { name: "photo.heic" })).toHaveAttribute("aria-selected", "true");
+	await expect(pane.getByText("第 1 张 / 共 2 张")).toBeVisible();
+	await expect(reader.getByRole("img", { name: "photo.heic" })).toBeVisible();
+	await expect(pane.getByRole("tab")).toHaveCount(2);
+	await page.screenshot({ path: `${evidence}/release-chat-image-gallery-desktop.png`, animations: "disabled" });
+	await close(page);
 });
 
 test("real three-page Chinese PDF paints text and canvas; manual scrolling updates real page number", async ({
@@ -179,6 +244,10 @@ test("real PCM audio and H264 video play; closing pauses media and invalid codec
 			await el.play();
 		});
 		await expect.poll(() => media.evaluate((el: HTMLMediaElement) => el.currentTime)).toBeGreaterThan(0);
+		if (tag === "audio") {
+			await open(page, "发布安排.md");
+			await expect.poll(() => media.evaluate((element: HTMLMediaElement) => element.paused)).toBe(true);
+		}
 		if (tag === "video") await page.screenshot({ path: `${evidence}/desktop-video.png` });
 		await close(page);
 		expect(await page.evaluate(() => (window as unknown as { lastMedia: HTMLMediaElement }).lastMedia.paused)).toBe(
@@ -187,7 +256,7 @@ test("real PCM audio and H264 video play; closing pauses media and invalid codec
 	}
 	await open(page, "broken.mp4");
 	// The Bot chat header keeps its own status line; the codec notice belongs to the reader.
-	await expect(page.getByRole("dialog", { name: "预览 broken.mp4", exact: true }).getByRole("status")).toContainText(
+	await expect(page.locator("[data-attachment-pane-reader]:visible").getByRole("status")).toContainText(
 		"当前设备无法播放",
 	);
 	await expect(page.getByRole("button", { name: "下载原文件" })).toBeVisible();
@@ -222,6 +291,13 @@ test.describe("phone attachment readers", () => {
 		await open(page, "notes.md");
 		await expect(page.getByRole("heading", { name: "阅读标题" })).toBeVisible();
 		await expect(page.locator(".attachment-document-scroll script,.attachment-document-scroll img")).toHaveCount(0);
+		await close(page);
+		await open(page, "发布安排.md");
+		await expect(page.getByRole("heading", { name: "交付清单" })).toBeVisible();
+		const header = page.getByRole("dialog", { name: "发布安排.md" }).locator("[data-frame-header]");
+		await expect(header.getByRole("button")).toHaveCount(1);
+		await expect(page.getByRole("tablist")).toHaveCount(0);
+		await page.screenshot({ path: `${evidence}/phone-attachment-detail.png`, animations: "disabled" });
 		await close(page);
 		await page
 			.getByLabel("上传文件", { exact: true })
@@ -278,7 +354,7 @@ test.describe("phone attachment readers", () => {
 				.toBeGreaterThan(100);
 			await page.screenshot({ path: `${evidence}/mobile-touch-image.png` });
 			await page.goBack();
-			await expect(page.locator(".attachment-preview-layer")).toHaveCount(0);
+			await expect(page.locator("[data-attachment-pane-reader]")).toHaveCount(0);
 			await expect(page).toHaveURL(new RegExp(`/messages/${conversation.id}$`));
 		} finally {
 			await context.close();

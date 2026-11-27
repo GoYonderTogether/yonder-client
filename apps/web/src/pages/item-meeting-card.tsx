@@ -7,13 +7,14 @@ import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { MeetingArchiveImage } from "./item-meeting-photos.tsx";
 import { MeetingReader, orderedPhotos } from "./item-meeting-reader.tsx";
+import { useOpenMeetingDetail } from "./meeting-detail.tsx";
 import {
 	recordingNoteDate,
 	recordingNoteDuration,
 	recordingNoteProgress,
 	recordingNoteTimeRange,
 } from "./meeting-message-summary.ts";
-import { memoryFileRoute } from "./memory/memory-view.ts";
+import { memoryFileRoute, useOpenMemoryFile } from "./memory/memory-file-detail.tsx";
 
 export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 	const { t, i18n } = useTranslation();
@@ -23,6 +24,8 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 	const [params, setParams] = useSearchParams();
 	const location = useLocation();
 	const navigate = useNavigate();
+	const openDetail = useOpenMeetingDetail();
+	const openMemoryFile = useOpenMemoryFile();
 	const mode = params.get("recording");
 	const openedHere = location.state?.recordingOpenedHere === true;
 	function open(value: "notes" | "original" | null, source?: string) {
@@ -46,6 +49,9 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 	// The two files the recording keeps in memory: its transcript and its write-up, both openable.
 	const files = meeting?.memoryFiles ?? [];
 	const topic = title.trim() || meeting?.topic?.trim() || meeting?.title.trim() || t("meetingRecorder.defaultTitle");
+	function read(value: "notes" | "original", source?: string) {
+		if (!openDetail(id, topic, { mode: value, ...(source ? { source } : {}) })) open(value, source);
+	}
 	const date = recordingNoteDate(meeting?.startedAt, i18n.resolvedLanguage);
 	const duration = recordingNoteDuration(meeting?.durationMs);
 	const details = [date, duration ? t(`meetingRecorder.card${duration.unit}`, duration) : null]
@@ -66,7 +72,7 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 					type="button"
 					aria-label={t("meetingRecorder.openResult", { title: topic })}
 					aria-describedby={brief || details || time ? detailsId : undefined}
-					onClick={() => open(meeting.summary?.trim() ? "notes" : "original")}
+					onClick={() => read(meeting.summary?.trim() ? "notes" : "original")}
 					className="flex min-h-[var(--control-lg)] w-full items-start gap-[var(--spacing-2)] rounded-[var(--radius-card)] px-[var(--spacing-4)] py-[var(--spacing-3)] text-start hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 				>
 					<span className="flex min-w-0 flex-1 flex-col gap-[var(--spacing-1)]">
@@ -121,7 +127,16 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 			{files.length ? (
 				<div className="mb-[var(--spacing-3)] flex flex-wrap items-center gap-x-[var(--spacing-3)] px-[var(--spacing-4)] text-caption">
 					{files.map((file) => (
-						<Link key={file.path} to={memoryFileRoute(file.path)} className="underline-offset-2 hover:underline">
+						<Link
+							key={file.path}
+							to={memoryFileRoute(file.path)}
+							className="underline-offset-2 hover:underline"
+							onClick={(event) => {
+								if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+								event.preventDefault();
+								openMemoryFile(file.path);
+							}}
+						>
 							{file.role === "transcript"
 								? t("meetingRecorder.archiveTranscriptFile")
 								: t("meetingRecorder.archiveMinutesFile")}
@@ -139,14 +154,14 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 							key={photo.clientPhotoId}
 							type="button"
 							aria-label={t("meetingRecorder.archivePhoto", { time: recordingDuration(photo.elapsedMs) })}
-							onClick={() => open("original", `photo-${photo.clientPhotoId}`)}
+							onClick={() => read("original", `photo-${photo.clientPhotoId}`)}
 							className="flex size-[var(--control-lg)] shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-raised)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 						>
 							<MeetingArchiveImage meetingId={id} photo={photo} thumb />
 						</button>
 					))}
 					{photos[3] ? (
-						<Button size="sm" variant="link" onClick={() => open("original", `photo-${photos[3]?.clientPhotoId}`)}>
+						<Button size="sm" variant="link" onClick={() => read("original", `photo-${photos[3]?.clientPhotoId}`)}>
 							+{photos.length - 3}
 						</Button>
 					) : null}

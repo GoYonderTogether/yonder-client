@@ -1,7 +1,15 @@
-import { isHttpLink } from "@yonder/chat-model";
-import { messageMarkdownOptions, parseMessage, StreamingText } from "@yonder/chat-presentation";
-import Markdown, { type MarkdownToJSX, RuleType } from "markdown-to-jsx";
+import {
+	type DeviceFileReference,
+	deviceFileScheme,
+	isHttpLink,
+	linkedDeviceFileReference,
+	plainDeviceFileReference,
+	quotedDeviceFiles,
+} from "@yonder/chat-model";
+import { mapMessageText, messageMarkdownOptions, parseMessage, StreamingText } from "@yonder/chat-presentation";
+import Markdown, { astToJSX, type MarkdownToJSX, RuleType } from "markdown-to-jsx/react";
 import { Fragment, type ReactNode } from "react";
+import { DeviceFileLink } from "./device-file-link.tsx";
 import { MessageCodeBlock } from "./message-code-block.tsx";
 import "./message-content.css";
 
@@ -9,14 +17,22 @@ import "./message-content.css";
 export function MessageContent({
 	body,
 	streaming = false,
+	deviceFiles = false,
 	sourceAction,
 	renderCodeBlock,
 }: {
 	body: string;
 	streaming?: boolean;
+	deviceFiles?: boolean;
 	sourceAction?: (source: string) => (() => void) | undefined;
 	renderCodeBlock?: (language: string | undefined, text: string) => ReactNode;
 }) {
+	const devicePathNodes = new WeakMap<MarkdownToJSX.ASTNode, DeviceFileReference>();
+	function pathNode(reference: DeviceFileReference): MarkdownToJSX.CodeInlineNode {
+		const node = { type: RuleType.codeInline, text: reference.path } as const;
+		devicePathNodes.set(node, reference);
+		return node;
+	}
 	const options: MarkdownToJSX.Options = {
 		...messageMarkdownOptions,
 		forceWrapper: true,
@@ -72,6 +88,20 @@ export function MessageContent({
 		};
 	}
 	options.renderRule = (next, node, renderChildren, state) => {
+		if (node.type === RuleType.link && node.target && /^file:/iu.test(node.target.trim())) {
+			return <Fragment key={state.key}>{renderChildren(node.children, state)}</Fragment>;
+		}
+		if (node.type === RuleType.link && node.target?.startsWith(deviceFileScheme)) {
+			const reference = deviceFiles && !streaming ? linkedDeviceFileReference(node.target) : undefined;
+			const label = renderChildren(node.children, state);
+			return reference ? (
+				<DeviceFileLink key={state.key} reference={reference} label={label} />
+			) : (
+				<Fragment key={state.key}>{label}</Fragment>
+			);
+		}
+		const devicePath = devicePathNodes.get(node);
+		if (devicePath) return <DeviceFileLink key={state.key} reference={devicePath} />;
 		if (node.type === RuleType.codeBlock && renderCodeBlock) {
 			const block = renderCodeBlock(node.lang, node.text);
 			if (block != null) return <Fragment key={state.key}>{block}</Fragment>;
@@ -113,11 +143,39 @@ export function MessageContent({
 		}
 		return linkRule ? linkRule(next, node, renderChildren, state) : next();
 	};
+	if (deviceFiles && !streaming) {
+		const nodes = mapMessageText(parseMessage(body, options), (text, inlineCode) => {
+			if (inlineCode) {
+				const reference = plainDeviceFileReference(text);
+				return [reference ? pathNode(reference) : { type: RuleType.codeInline, text }];
+			}
+			return deviceFilePathNodes(text, pathNode);
+		});
+		return astToJSX(nodes, {
+			...options,
+			wrapperProps: { className: "message-content" } as NonNullable<MarkdownToJSX.Options["wrapperProps"]>,
+		});
+	}
 	return (
 		<Markdown className="message-content" options={options}>
 			{body}
 		</Markdown>
 	);
+}
+
+function deviceFilePathNodes(
+	text: string,
+	pathNode: (reference: DeviceFileReference) => MarkdownToJSX.CodeInlineNode,
+): MarkdownToJSX.ASTNode[] {
+	const nodes: MarkdownToJSX.ASTNode[] = [];
+	let offset = 0;
+	for (const { index, length, reference } of quotedDeviceFiles(text)) {
+		nodes.push({ type: RuleType.text, text: text.slice(offset, index) });
+		nodes.push(pathNode(reference));
+		offset = index + length;
+	}
+	nodes.push({ type: RuleType.text, text: text.slice(offset) });
+	return nodes;
 }
 
 /** The parser gives automatic and explicit links the same node shape. */

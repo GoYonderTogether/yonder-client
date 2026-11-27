@@ -31,6 +31,7 @@ export interface MessageEntryProps {
 	onChooseOption?: ((body: string, cardId: string) => void) | undefined;
 	optionReply?: CachedMessage | undefined;
 	personId?: string | undefined;
+	deviceFiles?: boolean;
 	menuRows?: readonly MessageMenuItem[] | undefined;
 	onMenu?: (target: MessageMenuTarget) => void;
 }
@@ -55,6 +56,7 @@ export function MessageEntry({
 	onChooseOption,
 	optionReply,
 	personId,
+	deviceFiles = false,
 	menuRows,
 	onMenu,
 }: MessageEntryProps) {
@@ -135,7 +137,7 @@ export function MessageEntry({
 						message.questionReply ? (
 							<span className="whitespace-pre-wrap break-words">{message.body}</span>
 						) : (
-							<MessageContent body={message.body} streaming={message.streaming} />
+							<MessageContent body={message.body} streaming={message.streaming} deviceFiles={deviceFiles} />
 						)
 					) : (
 						<span role="status" className="text-caption text-[var(--color-text-secondary)]">

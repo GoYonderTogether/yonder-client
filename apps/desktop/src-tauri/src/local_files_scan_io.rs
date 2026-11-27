@@ -91,10 +91,10 @@ pub fn open_candidate(_base: &File, _root: &Path, _path: &Path) -> Result<File, 
 }
 
 #[cfg(unix)]
-pub(super) struct Directory(*mut libc::DIR);
+pub(crate) struct Directory(*mut libc::DIR);
 #[cfg(unix)]
 impl Directory {
-    pub(super) fn new(file: &File) -> Result<Self, &'static str> {
+    pub(crate) fn new(file: &File) -> Result<Self, &'static str> {
         use std::os::fd::AsRawFd;
         let fd = unsafe { libc::dup(file.as_raw_fd()) };
         if fd < 0 {
@@ -109,7 +109,7 @@ impl Directory {
         }
         Ok(Self(dir))
     }
-    pub(super) fn next(&mut self) -> Option<std::ffi::OsString> {
+    pub(crate) fn next(&mut self) -> Option<std::ffi::OsString> {
         use std::os::unix::ffi::OsStringExt;
         loop {
             let entry = unsafe { libc::readdir(self.0) };
@@ -132,15 +132,15 @@ impl Drop for Directory {
     }
 }
 #[cfg(windows)]
-pub(super) struct Directory(cap_primitives::fs::ReadDir);
+pub(crate) struct Directory(cap_primitives::fs::ReadDir);
 #[cfg(windows)]
 impl Directory {
-    pub(super) fn new(file: &File) -> Result<Self, &'static str> {
+    pub(crate) fn new(file: &File) -> Result<Self, &'static str> {
         cap_primitives::fs::read_base_dir(file)
             .map(Self)
             .map_err(|_| "permission_denied")
     }
-    pub(super) fn next(&mut self) -> Option<std::ffi::OsString> {
+    pub(crate) fn next(&mut self) -> Option<std::ffi::OsString> {
         self.0
             .by_ref()
             .flatten()
@@ -149,13 +149,13 @@ impl Directory {
     }
 }
 #[cfg(not(any(unix, windows)))]
-pub(super) struct Directory;
+pub(crate) struct Directory;
 #[cfg(not(any(unix, windows)))]
 impl Directory {
-    pub(super) fn new(_: &File) -> Result<Self, &'static str> {
+    pub(crate) fn new(_: &File) -> Result<Self, &'static str> {
         Err("permission_denied")
     }
-    pub(super) fn next(&mut self) -> Option<std::ffi::OsString> {
+    pub(crate) fn next(&mut self) -> Option<std::ffi::OsString> {
         None
     }
 }

@@ -7,7 +7,7 @@ import { createI18n } from "@yonder/ui-i18n";
 import { SideLayers, type SidePage, SidePanelProvider } from "@yonder/ui-shell";
 import { useState } from "react";
 import { I18nextProvider } from "react-i18next";
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
 	me: { member: { id: "mem_owner" } },
@@ -103,18 +103,37 @@ function TestSide({
 				mode={desktop ? "wide" : "mobile"}
 				desktop={desktop}
 				side={{
-					pages: [
+					tabs: [
 						{
 							key: "group",
-							title: "Group info",
-							content: <GroupInfo conversation={conversation} personId={personId} onLeft={onLeft} />,
+							pages: [
+								{
+									key: "group",
+									title: "Group info",
+									content: <GroupInfo conversation={conversation} personId={personId} onLeft={onLeft} />,
+								},
+								...pages,
+							],
 						},
-						...pages,
 					],
+					active: "group",
+					expanded: true,
+					onActivate: () => {},
+					onMove: () => {},
 					onBack: () => back(),
 					onClose: () => setPages([]),
-					backLabel: "Back",
-					closeLabel: "Close",
+					onCloseAll: () => setPages([]),
+					onCollapse: () => {},
+					labels: {
+						pane: "Details",
+						back: "Back",
+						close: "Close",
+						closeTab: (title) => `Close ${title}`,
+						closeAll: "Close all details",
+						collapse: "Collapse details",
+						expand: "Expand details",
+						resize: "Resize details",
+					},
 				}}
 			/>
 		</SidePanelProvider>
@@ -136,9 +155,18 @@ function show(conversation: Conversation, personId = "mem_owner", desktop = true
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	vi.stubGlobal(
+		"ResizeObserver",
+		class {
+			observe() {}
+			disconnect() {}
+		},
+	);
 	state.me = { member: { id: "mem_owner" } };
 	state.contacts = { items: [] };
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 test("the owner can rename, add, transfer and dissolve, and is never offered leave", () => {
 	show(group());
@@ -222,7 +250,7 @@ test("leaving asks first, and cancelling leaves the group alone", async () => {
 test("the member list puts people first, marks the reader, and removes only after a confirmation", async () => {
 	show(group());
 	await userEvent.click(screen.getByRole("button", { name: "All members" }));
-	const dialog = screen.getByRole("dialog", { name: "All members" });
+	const dialog = screen.getByRole("region", { name: "All members" });
 	const rows = within(dialog).getAllByRole("listitem");
 	expect(rows.map((row) => row.textContent?.includes("Helper"))).toEqual([false, false, true]);
 	expect(within(dialog).getByText("Group owner · You")).toBeVisible();
@@ -294,7 +322,7 @@ test("payer is edited through the Bot settings page", async () => {
 	show(group({ groupBotPayer: "mentioner" }));
 	expect(screen.queryByRole("combobox", { name: "Who pays for Bot replies?" })).toBeNull();
 	await userEvent.click(screen.getByRole("button", { name: "Bot settings" }));
-	const page = screen.getByRole("dialog", { name: "Bot settings" });
+	const page = screen.getByRole("region", { name: "Bot settings" });
 	const payer = within(page).getByRole("combobox", { name: "Who pays for Bot replies?" });
 	expect(payer).toHaveValue("mentioner");
 	await userEvent.selectOptions(payer, "owner");

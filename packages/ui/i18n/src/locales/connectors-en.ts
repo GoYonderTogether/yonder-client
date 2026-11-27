@@ -139,3 +139,17 @@ export const connectorMessagesEn = {
 		unsupported: "Voice Memos on this Mac cannot be read by Yonder yet.",
 	},
 } as const;
+
+export const deviceFileMessagesEn = {
+	chooseSource: "Choose the file’s source device",
+	noSource: "No authorized device can read this path",
+	checking: "Checking for file updates",
+	offline: "Source device offline",
+	offlineCopy: "Source device offline · Last viewed version",
+	updateSource: "Update Yonder on the source device",
+	unavailable: "The file is gone or access was removed",
+	readFailed: "Unable to read the file",
+	verifyFailed: "File verification failed",
+	emptyDirectory: "This folder is empty",
+	partialDirectory: "Showing some items",
+} as const;

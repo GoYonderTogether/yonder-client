@@ -99,6 +99,7 @@ export function GroupInfo({ conversation, personId, onOpenMember, onLeft, prefer
 				editable={owner && !closed}
 				saving={actions.rename.isPending}
 				onRename={actions.rename.mutateAsync}
+				onDirtyChange={side.setDirty}
 			/>
 
 			<div className="flex flex-col gap-[var(--spacing-3)]">

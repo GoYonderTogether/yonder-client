@@ -169,13 +169,30 @@ test("desktop reception opens folders and documents beside the directory and per
 	await page.getByRole("button", { name: /^来访指南/ }).click();
 	await expect(page).toHaveURL(/\/me\/reception\/folder\/visits$/);
 	await page.getByRole("button", { name: /^来访时间与预约/ }).click();
-	const layer = page.locator('[data-page-layer="/me/reception/folder/visits/hours"]');
+	const layer = page.locator("[data-detail-pane]");
 	await expect(layer.getByRole("heading", { name: "来访时间与预约" })).toBeVisible();
-	await expect(layer.locator("[data-reception-directory]").getByRole("button", { name: /^到达方式/ })).toBeVisible();
+	await expect(page.getByRole("button", { name: /^到达方式/ })).toBeVisible();
 	await expect(layer.getByRole("button", { name: "编辑资料" })).toBeVisible();
+	await expect(page).toHaveURL(/\/me\/reception\/folder\/visits$/);
+	const settings = page.locator("[data-me-content-card]");
+	const [settingsBounds, detailBounds] = await Promise.all([settings.boundingBox(), layer.boundingBox()]);
+	if (!settingsBounds || !detailBounds) throw new Error("Both settings and detail cards must be visible");
+	expect(settingsBounds.y).toBe(detailBounds.y);
+	expect(settingsBounds.height).toBe(detailBounds.height);
+	expect(settingsBounds.x + settingsBounds.width).toBeLessThan(detailBounds.x);
+	await expect(settings).toHaveCSS(
+		"border-top-left-radius",
+		await layer.evaluate((node) => getComputedStyle(node).borderTopLeftRadius),
+	);
+	await expect(settings).toHaveCSS(
+		"background-color",
+		await layer.evaluate((node) => getComputedStyle(node).backgroundColor),
+	);
 	await page.mouse.move(1395, 870);
-	await page.screenshot({ path: info.outputPath("reception-desktop.png"), animations: "disabled" });
+	await page.screenshot({ path: info.outputPath("desktop-reception-document.png"), animations: "disabled" });
+	await page.goto("/me/reception/folder/visits/hours");
 	await page.reload();
+	await expect(page.getByRole("heading", { name: "来访时间与预约" })).toBeVisible();
 	const back = page.getByRole("button", { name: "返回", exact: true });
 	await back.click();
 	await expect(page).toHaveURL(/\/folder\/visits$/);
@@ -195,10 +212,7 @@ test("desktop reception opens folders and documents beside the directory and per
 	await page.getByRole("textbox", { name: "正文" }).fill("请通过原预约渠道联系。");
 	await page.getByRole("button", { name: "保存并公开" }).click();
 	await page.getByRole("button", { name: /^接待联系渠道/ }).click();
-	await page
-		.locator('[data-page-layer="/me/reception/folder/new-folder/new-document"]:not([inert])')
-		.getByRole("button", { name: "编辑资料" })
-		.click();
+	await layer.getByRole("button", { name: "编辑资料" }).click();
 	await page.getByRole("button", { name: /^存放位置/ }).click();
 	await page.getByRole("option", { name: "参观指南" }).click();
 	await page.getByRole("button", { name: "保存", exact: true }).click();
@@ -217,6 +231,10 @@ test("desktop reception opens folders and documents beside the directory and per
 		"save_document",
 		"remove_document",
 	]);
+	await page.goto("/me/reception/drafts");
+	await page.getByRole("button", { name: /^周末来访安排/ }).click();
+	await expect(layer.getByRole("tab", { name: "周末来访安排" })).toBeVisible();
+	await page.screenshot({ path: info.outputPath("desktop-reception-draft.png"), animations: "disabled" });
 });
 
 test("desktop drags published documents and whole folders to another directory", async ({ page }, info) => {
@@ -371,8 +389,10 @@ test.describe("phone reception library", () => {
 		await expect(result).toBeVisible();
 		await page.screenshot({ path: info.outputPath("reception-mobile-search.png"), animations: "disabled" });
 		await result.click();
-		await expect(page.getByRole("heading", { name: "访客出入与停车申请" })).toBeVisible();
-		await page.getByRole("button", { name: "返回", exact: true }).click();
+		const detail = page.locator('[data-page-layer="side"]');
+		await expect(detail.getByRole("heading", { name: "访客出入与停车申请" })).toBeVisible();
+		await page.screenshot({ path: info.outputPath("phone-reception-document.png"), animations: "disabled" });
+		await detail.getByRole("button", { name: "返回", exact: true }).click();
 		await expect(search).toHaveValue("南门无障碍电梯");
 		await expect(result).toBeVisible();
 		await search.fill("活动接待手册第 124 期");
@@ -417,16 +437,18 @@ test.describe("phone reception library", () => {
 		await page.screenshot({ path: info.outputPath("reception-mobile.png"), animations: "disabled" });
 		await page.getByRole("button", { name: /^来访指南/ }).click();
 		await page.getByRole("button", { name: /^来访时间与预约/ }).click();
-		await expect(page.getByRole("heading", { name: "来访时间与预约" })).toBeVisible();
-		await expect(page.locator("[data-reception-directory]")).toHaveCount(0);
+		const detail = page.locator('[data-page-layer="side"]');
+		await expect(detail.getByRole("heading", { name: "来访时间与预约" })).toBeVisible();
 		await expect(page.getByRole("radio")).toHaveCount(0);
 		const back = page.getByRole("button", { name: "返回", exact: true });
-		await back.click();
+		await detail.getByRole("button", { name: "返回", exact: true }).click();
 		await expect(page).toHaveURL(/\/folder\/visits$/);
 		await back.click();
 		await pending.click();
 		await page.getByRole("button", { name: /^周末来访安排/ }).click();
-		await expect(page.getByRole("heading", { name: "周末来访安排" })).toBeVisible();
+		await expect(detail.getByRole("heading", { name: "周末来访安排" })).toBeVisible();
+		await page.screenshot({ path: info.outputPath("phone-reception-draft.png"), animations: "disabled" });
+		await page.goto("/me/reception/drafts/one");
 		await page.reload();
 		await page.getByRole("button", { name: /^存放位置/ }).click();
 		await expect(page.getByRole("option", { name: "来访指南" })).toBeVisible();

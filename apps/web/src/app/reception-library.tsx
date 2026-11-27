@@ -2,17 +2,20 @@ import { memberFailureText } from "@yonder/feature-members";
 import type { SocialLibrary, SocialLibraryFolder } from "@yonder/protocol";
 import { Button, EmptyState } from "@yonder/ui-components";
 import { useMemoryOrganization, useSocialLibrary } from "@yonder/ui-data";
-import { PageFrame, useShellChrome } from "@yonder/ui-shell";
-import { File, FilePlus, FolderPlus, Pencil, Sparkles } from "lucide-react";
+import { locate, PageFrame, useOptionalSidePanel, useShellChrome } from "@yonder/ui-shell";
+import { ICON_SIZE } from "@yonder/ui-tokens";
+import { File, FilePen, FilePlus, FileText, FolderPlus, Pencil, Sparkles } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { memoryFileDetailKey } from "../pages/memory/memory-file-detail.tsx";
 import { NotFoundPage } from "../pages/not-found-page.tsx";
-import { ReceptionDocumentDetail, ReceptionDraftDetail } from "./reception-library-details.tsx";
+import { ReceptionDocumentDetail, ReceptionDraftDetail, ReceptionPane } from "./reception-library-details.tsx";
 import {
 	ReceptionDocumentList,
 	ReceptionDraftList,
 	ReceptionFolderContents,
 	ReceptionRootDirectory,
+	receptionDraftTitle,
 } from "./reception-library-directory.tsx";
 import { ReceptionDragProvider, receptionDropHighlight, useReceptionDrag } from "./reception-library-drag.tsx";
 import { type Editor, ReceptionLibraryEditor, ReceptionRemoveButton } from "./reception-library-editor.tsx";
@@ -132,7 +135,7 @@ function ReceptionLibraryBody({
 	view,
 	wide,
 	folderName,
-	onOpen,
+	onOpen: navigate,
 	onBack,
 }: {
 	library: SocialLibrary;
@@ -143,10 +146,38 @@ function ReceptionLibraryBody({
 	onBack: (path: string) => void;
 }) {
 	const { t } = useTranslation();
+	const side = useOptionalSidePanel();
 	const [editor, setEditor] = useState<Editor | null>(null);
 	const folder = library.folders.find((item) => item.id === (view.kind === "folder" ? view.id : undefined));
 	const document = view.kind === "document" ? library.documents.find((item) => item.id === view.id) : undefined;
 	const draft = view.kind === "drafts" ? library.drafts.find((item) => item.id === view.id) : undefined;
+	const onOpen = (path: string) => {
+		const target = side ? readView(locate(path)?.detail.slice(1) ?? []) : null;
+		if (side && target?.kind === "document") {
+			const entry = library.documents.find((item) => item.id === target.id);
+			if (entry) {
+				side.open({
+					key: entry.path ? memoryFileDetailKey(entry.path) : `reception-document:${entry.id}`,
+					title: entry.title,
+					icon: <FileText size={ICON_SIZE.sm} aria-hidden="true" />,
+					content: <ReceptionPane kind="document" id={entry.id} />,
+				});
+				return;
+			}
+		} else if (side && target?.kind === "drafts" && target.id) {
+			const entry = library.drafts.find((item) => item.id === target.id);
+			if (entry) {
+				side.open({
+					key: `reception-draft:${entry.id}`,
+					title: receptionDraftTitle(entry, t("members.social.library.untitledDraft")),
+					icon: <FilePen size={ICON_SIZE.sm} aria-hidden="true" />,
+					content: <ReceptionPane kind="draft" id={entry.id} />,
+				});
+				return;
+			}
+		}
+		navigate(path);
+	};
 	const documentFolder = library.folders.find((item) => item.id === document?.folderId);
 	const folderTrail = receptionFolderTrail(library.folders, folder?.id ?? documentFolder?.id);
 	const parentFolder = folderTrail.at(-2);

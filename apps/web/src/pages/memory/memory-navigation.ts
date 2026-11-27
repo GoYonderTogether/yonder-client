@@ -3,15 +3,8 @@ import { useBot, useConversations } from "@yonder/ui-data";
 import { MAIN_CONVERSATION } from "@yonder/ui-shell";
 import { useNavigate } from "react-router";
 import { primaryConversation } from "../conversation-presentation.tsx";
-
-import { memoryFileRoute } from "./memory-view.ts";
-
-export { memoryFileRoute };
-
-export function useOpenMemoryFile() {
-	const navigate = useNavigate();
-	return (path: string) => navigate(memoryFileRoute(path));
-}
+import { useOpenMeetingDetail } from "../meeting-detail.tsx";
+import { useOpenTaskDetail } from "../task-detail.tsx";
 
 /**
  * Where a source row goes: the conversation it came from (the primary one addressed as
@@ -19,6 +12,8 @@ export function useOpenMemoryFile() {
  */
 export function useSourceNavigation() {
 	const navigate = useNavigate();
+	const openMeeting = useOpenMeetingDetail();
+	const openTask = useOpenTaskDetail();
 	const conversations = useConversations();
 	const bot = useBot();
 	const conversation = (conversationId: string) => {
@@ -26,18 +21,24 @@ export function useSourceNavigation() {
 		const id = conversationId === primary?.id ? MAIN_CONVERSATION : conversationId;
 		navigate(`/messages/${encodeURIComponent(id)}`);
 	};
+	const meeting = (id: string, title?: string) => {
+		if (!openMeeting(id, title)) navigate(`/tasks/${encodeURIComponent(id)}`);
+	};
 	return {
 		/** A timeline card's source. */
-		target: (target: MemoryTarget, meetingId?: string) => {
-			if (target.type === "schedules") navigate("/tasks/scheduled");
-			else if (meetingId) navigate(`/tasks/${encodeURIComponent(meetingId)}`);
-			else conversation(target.conversationId);
+		target: (target: MemoryTarget | null, meetingId?: string, title?: string) => {
+			if (meetingId) meeting(meetingId, title);
+			else if (target?.type === "schedules") navigate("/tasks/scheduled");
+			else if (target) conversation(target.conversationId);
 		},
 		/** A file's source; null when the source has nowhere to open. */
 		file: (source: MemoryFileSource): (() => void) | null => {
 			const { itemId, conversationId, meetingId } = source;
-			if (meetingId) return () => navigate(`/tasks/${encodeURIComponent(meetingId)}`);
-			if (itemId) return () => navigate(`/tasks/${encodeURIComponent(itemId)}`);
+			if (meetingId) return () => meeting(meetingId, source.title);
+			if (itemId)
+				return () => {
+					if (!openTask(itemId, source.title)) navigate(`/tasks/${encodeURIComponent(itemId)}`);
+				};
 			if (conversationId) return () => conversation(conversationId);
 			return null;
 		},

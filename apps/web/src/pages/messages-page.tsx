@@ -212,6 +212,7 @@ export function ConversationPage({
 	const navigate = useNavigate();
 	const location = useLocation();
 	const { mode } = useShellChrome();
+	const openItem = onOpenMeeting ?? (item ? (id: string) => navigate(`/tasks/${encodeURIComponent(id)}`) : undefined);
 	const person = usePerson();
 	const bot = useBot();
 	const conversations = useConversations();
@@ -267,8 +268,8 @@ export function ConversationPage({
 			(item || conversation?.unreadCount)
 			? newestReadableMessage(items, person.id, {
 					agentCards: true,
-					recordingNotes: Boolean(onOpenMeeting),
-					taskSessions: Boolean(onOpenMeeting),
+					recordingNotes: Boolean(openItem),
+					taskSessions: Boolean(openItem),
 				})
 			: undefined,
 		canRead,
@@ -404,7 +405,7 @@ export function ConversationPage({
 								onOpenMember={onOpenMember}
 								onMention={onMention}
 								onJumpToQuote={jumpToQuote}
-								{...(onOpenMeeting ? { onOpenMeeting } : {})}
+								{...(openItem ? { onOpenMeeting: openItem } : {})}
 								onResend={(message) =>
 									send.mutate({
 										type: message.sendType ?? "text",

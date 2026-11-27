@@ -135,9 +135,23 @@ pub fn snapshot(
     cancelled: &AtomicBool,
     expires: u64,
 ) -> Result<Snapshot, &'static str> {
+    let snapshot = snapshot_bytes(path, MAX_FILE_BYTES, cancelled, expires)?;
+    if snapshot.bytes.contains(&0) || std::str::from_utf8(&snapshot.bytes).is_err() {
+        return Err("unsupported_file");
+    }
+    Ok(snapshot)
+}
+
+/// Binary originals use the same consistency, cancellation and no-follow checks as text edits.
+pub fn snapshot_bytes(
+    path: &Path,
+    limit: u64,
+    cancelled: &AtomicBool,
+    expires: u64,
+) -> Result<Snapshot, &'static str> {
     let mut handle = open_regular(path)?;
     let before = handle.metadata().map_err(|_| "operation_failed")?;
-    if before.len() > MAX_FILE_BYTES {
+    if before.len() > limit {
         return Err("too_large");
     }
     let expected = before.len();
@@ -178,9 +192,6 @@ pub fn snapshot(
         return Err("conflict");
     }
     check(cancelled, expires)?;
-    if bytes.contains(&0) || std::str::from_utf8(&bytes).is_err() {
-        return Err("unsupported_file");
-    }
     Ok(Snapshot {
         bytes,
         hash: format!("{:x}", hasher.finalize()),
