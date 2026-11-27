@@ -93,6 +93,7 @@ vi.mock("@yonder/ui-shell", async (original) => ({
 	},
 }));
 vi.mock("@yonder/feature-me", () => ({
+	InviteRailButton: () => null,
 	isMeSection: (value: string) => value === "account",
 	MeList: ({ onOpen }: { onOpen: (id: string) => void }) => (
 		<button type="button" onClick={() => onOpen("account")}>

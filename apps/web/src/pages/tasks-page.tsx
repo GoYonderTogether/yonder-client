@@ -1,7 +1,6 @@
-import { EmptyState, Segmented } from "@yonder/ui-components";
+import { EmptyState, Segmented, TaskGlyph } from "@yonder/ui-components";
 import type { useItemSession } from "@yonder/ui-data";
 import { ListFrame, PageFrame } from "@yonder/ui-shell";
-import { ListChecks } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { GoalsTab } from "./goal-records.tsx";
 import { ItemDetailPage } from "./items-detail.tsx";
@@ -92,7 +91,7 @@ export function TaskPage({
 	return (
 		<PageFrame title={null}>
 			<div className="flex flex-1 items-center justify-center">
-				<EmptyState icon={<ListChecks size={24} strokeWidth={1.6} />} title={t("tasks.emptyTitle")} />
+				<EmptyState icon={<TaskGlyph size={24} />} title={t("tasks.emptyTitle")} />
 			</div>
 		</PageFrame>
 	);

@@ -19,6 +19,14 @@ test("renders Markdown without executing raw HTML, unsafe links or loading image
 	expect(container.querySelector("a")?.getAttribute("href") ?? "").not.toMatch(/^javascript:/i);
 });
 
+test("local URLs and private references remain text outside an authorized chat", () => {
+	const { container, getByText } = render(
+		<MessageContent body={"[本机地址](file:///private/report.md) [私有文件](yonder-file:connection/report.md)"} />,
+	);
+	expect(getByText(/本机地址.*私有文件/u)).toBeTruthy();
+	expect(container.querySelector("a,button")).toBeNull();
+});
+
 test("archive citations only activate known stable sources, while HTML and diagrams stay inert", () => {
 	const open = vi.fn();
 	const { container, getByRole, getByText } = render(

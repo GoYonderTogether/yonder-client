@@ -13,7 +13,7 @@ export function memberHandle(pathname: string): string | null {
 	const segments = pathname.split("/").filter(Boolean);
 	if (segments.length !== 1) return null;
 	const [first] = segments;
-	if (!first || !first.startsWith(CARD_PREFIX)) return null;
+	if (!first?.startsWith(CARD_PREFIX)) return null;
 	const handle = first.slice(CARD_PREFIX.length);
 	if (!handle) return null;
 	try {

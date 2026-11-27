@@ -5,6 +5,7 @@ export default defineAppConfig({
 		"pages/memory/index",
 		"pages/sign-in/index",
 		"pages/chat/index",
+		"pages/device-file/index",
 		"pages/me/index",
 		"pages/profile/index",
 		"pages/account/index",

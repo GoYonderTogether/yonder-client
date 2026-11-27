@@ -28,7 +28,7 @@ static SCAN: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Bumped when an operation's arguments or results change shape; the server reads it from
 /// `connector.ready` to decide whether to offer this device the newer parameters.
-pub const TOOLS_VERSION: u64 = 2;
+pub const TOOLS_VERSION: u64 = 4;
 
 const READ_OPERATIONS: [&str; 5] = ["list", "read", "search", "index", "grep"];
 const WRITE_OPERATIONS: [&str; 4] = ["create", "edit", "delete", "restore"];
@@ -44,7 +44,7 @@ fn search_result_path(path: &Path, folder_scope: bool) -> String {
         value.into_owned()
     }
 }
-fn home() -> Result<PathBuf, &'static str> {
+pub(crate) fn home() -> Result<PathBuf, &'static str> {
     std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
         .map(PathBuf::from)
         .ok_or("not_found")

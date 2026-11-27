@@ -4,5 +4,3 @@ async function invokeDownload(action: "open" | "share" | "copy", url: string): P
 }
 
 export const openDeviceDownload = (url: string) => invokeDownload("open", url);
-export const shareDeviceDownload = (url: string) => invokeDownload("share", url);
-export const copyDeviceDownload = (url: string) => invokeDownload("copy", url);

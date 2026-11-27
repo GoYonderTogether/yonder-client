@@ -49,13 +49,19 @@ async function warmVideo(page: Page, requests: string[]) {
 	expect(requests).not.toContain("video.mp4");
 	expect(requests).not.toContain("note.txt");
 	await page.getByRole("button", { name: "打开 video.mp4", exact: true }).click();
-	await expect(page.getByRole("dialog", { name: "预览 video.mp4" })).toBeVisible();
+	await expect(page.locator("[data-attachment-pane-reader]:visible")).toBeVisible();
 	await expect
 		.poll(() => page.locator(".attachment-media-reader video").evaluate((video: HTMLVideoElement) => video.readyState))
 		.toBeGreaterThanOrEqual(2);
-	await page.locator(".attachment-reader-header").getByRole("button", { name: "关闭预览", exact: true }).click();
-	await expect(page.locator(".attachment-preview-layer")).toHaveCount(0);
+	await closeSentReader(page);
 	expect(requests.filter((name) => name === "video.mp4")).toHaveLength(1);
+}
+
+async function closeSentReader(page: Page) {
+	const pane = page.locator("[data-detail-pane]");
+	if (await pane.isVisible()) await pane.getByRole("button", { name: "关闭全部", exact: true }).click();
+	else await page.getByRole("dialog").getByRole("button", { name: "返回", exact: true }).click();
+	await expect(page.locator("[data-attachment-pane-reader]")).toHaveCount(0);
 }
 
 async function assertCards(page: Page) {
@@ -253,7 +259,7 @@ test("compact sent cards still open real DOCX and PDF readers and video playback
 	await page.goto(`/messages/${conversation.id}`);
 	for (const name of ["document.docx", "chinese.pdf", "video.mp4"]) {
 		await page.getByRole("button", { name: `打开 ${name}`, exact: true }).click();
-		await expect(page.getByRole("dialog", { name: `预览 ${name}` })).toBeVisible();
+		await expect(page.locator("[data-attachment-pane-reader]:visible")).toBeVisible();
 		if (name.endsWith("docx")) await expect(page.locator(".attachment-document-content table")).toBeVisible();
 		else if (name.endsWith("pdf"))
 			await expect(page.locator('[data-pdf-page="1"] .textLayer')).toContainText("附件阅读验收");
@@ -270,8 +276,7 @@ test("compact sent cards still open real DOCX and PDF readers and video playback
 			});
 			await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0);
 		}
-		await page.locator(".attachment-reader-header").getByRole("button", { name: "关闭预览", exact: true }).click();
-		await expect(page.locator(".attachment-preview-layer")).toHaveCount(0);
+		await closeSentReader(page);
 		if (name.endsWith("mp4"))
 			expect(await page.evaluate(() => (window as unknown as { cardVideo: HTMLVideoElement }).cardVideo.paused)).toBe(
 				true,

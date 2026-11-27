@@ -1,11 +1,13 @@
 import { recordingDuration } from "@yonder/feature-meetings";
 import type { Message } from "@yonder/protocol";
-import { ChevronRight, ListTodo } from "lucide-react";
+import { TaskGlyph } from "@yonder/ui-components";
+import { ChevronRight } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-
 import { RecordingNoteIcon } from "../app/recording-note-icon.tsx";
+import { useOpenMeetingDetail } from "./meeting-detail.tsx";
 import { recordingNoteDate, recordingNoteDuration } from "./meeting-message-summary.ts";
+import { useOpenTaskDetail } from "./task-detail.tsx";
 
 export function MeetingMessageCard({
 	meeting,
@@ -18,6 +20,8 @@ export function MeetingMessageCard({
 	onOpen: (id: string) => void;
 }) {
 	const { t, i18n } = useTranslation();
+	const openMeeting = useOpenMeetingDetail();
+	const openTask = useOpenTaskDetail();
 	const detailsId = useId();
 	const title = task ? meeting.title : meeting.title.trim() || t("meetingRecorder.defaultTitle");
 	const date = task ? null : recordingNoteDate(meeting.startedAt, i18n.resolvedLanguage);
@@ -31,11 +35,13 @@ export function MeetingMessageCard({
 			data-meeting-task-card
 			aria-describedby={details ? detailsId : undefined}
 			aria-label={t(task ? "chat.openTaskSession" : "meetingRecorder.openResult", { title })}
-			onClick={() => onOpen(meeting.id)}
+			onClick={() => {
+				if (!(task ? openTask(meeting.id, title) : openMeeting(meeting.id, title))) onOpen(meeting.id);
+			}}
 			className="flex min-h-[var(--control-lg)] w-full max-w-[calc(var(--control-lg)*7)] items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-raised)] px-[var(--spacing-3)] py-[var(--spacing-2)] text-start text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]"
 		>
 			{task ? (
-				<ListTodo aria-hidden="true" size={20} className="shrink-0 text-[var(--color-accent-text)]" />
+				<TaskGlyph aria-hidden="true" size={20} className="shrink-0" />
 			) : (
 				<RecordingNoteIcon aria-hidden="true" className="shrink-0" />
 			)}

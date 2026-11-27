@@ -180,7 +180,7 @@ test("a task row offers rename and delete only; the list no longer archives by h
 
 	fireEvent.contextMenu(row());
 	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-	const dialog = screen.getByRole("dialog", { name: "Delete" });
+	const dialog = screen.getByRole("dialog", { name: /^Delete “/ });
 	fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 	await waitFor(() =>
 		expect(state.change).toHaveBeenCalledWith(expect.objectContaining({ id: "active", remove: true })),

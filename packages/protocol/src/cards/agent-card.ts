@@ -1,14 +1,6 @@
 import type { MemberCard } from "../member/member.ts";
 
-export type AgentCardKind =
-	| "import_progress"
-	| "understanding"
-	| "card_draft"
-	| "confirm"
-	| "digest"
-	| "watch_suggestion"
-	| "nudge"
-	| "connect";
+export type AgentCardKind = "card_draft" | "confirm" | "digest";
 
 export type AgentCardState = "open" | "working" | "done" | "dismissed" | "expired" | "failed";
 
@@ -71,7 +63,6 @@ export interface AgentCard {
 	kind: AgentCardKind;
 	state: AgentCardState;
 	title: string;
-	summary?: string;
 	body?: CardBody;
 	preview?: CardPreview;
 	/** Exact prospective visitor card from a private, server-verified owner review. */

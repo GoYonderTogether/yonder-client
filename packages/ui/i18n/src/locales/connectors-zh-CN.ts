@@ -94,6 +94,11 @@ export const connectorMessagesZhCN = {
 		scope:
 			"你的 Bot 可以列出所选文件夹中的文件并读取文本内容。读取的内容会发送到云端处理，不能修改文件或访问此范围之外的文件。",
 	},
+	computer: {
+		name: "电脑接管",
+		description: "读取和修改这台电脑上的文件。",
+		trial: "请只针对「{{device}}」说明你能协助哪些文件操作，先不要改动任何文件。",
+	},
 	computerControl: {
 		name: "修改文件",
 		description: "创建、编辑和移除文件。",
@@ -133,4 +138,18 @@ export const connectorMessagesZhCN = {
 		unavailable: "请在这台 Mac 上打开语音备忘录，等待录音同步后重试。",
 		unsupported: "这台 Mac 上的语音备忘录暂不支持读取。",
 	},
+} as const;
+
+export const deviceFileMessagesZhCN = {
+	chooseSource: "选择文件所在设备",
+	noSource: "没有可读取此路径的已授权设备",
+	checking: "正在检查文件更新",
+	offline: "源设备离线",
+	offlineCopy: "源设备离线 · 上次读取的版本",
+	updateSource: "请更新源设备上的 Yonder",
+	unavailable: "文件不存在或已无法访问",
+	readFailed: "无法读取文件",
+	verifyFailed: "文件校验失败",
+	emptyDirectory: "此目录为空",
+	partialDirectory: "仅显示部分条目",
 } as const;

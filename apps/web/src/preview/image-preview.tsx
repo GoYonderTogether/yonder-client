@@ -11,7 +11,7 @@ export function ImagePreview({
 	onSwipe,
 }: {
 	file: PreviewFile;
-	onClose: () => void;
+	onClose?: (() => void) | undefined;
 	onSwipe?: (direction: -1 | 1) => void;
 }) {
 	const t = usePreviewTranslation();
@@ -79,7 +79,7 @@ export function ImagePreview({
 				type="button"
 				ref={area}
 				className="attachment-image-area"
-				aria-label={t("close")}
+				aria-label={onClose ? t("close") : t("preview", { name: file.name })}
 				onPointerDown={(event) => {
 					event.stopPropagation();
 					area.current?.setPointerCapture(event.pointerId);
@@ -125,7 +125,11 @@ export function ImagePreview({
 				}}
 				onPointerCancel={() => points.current.clear()}
 				onClick={(event) => {
-					if (event.detail === 0 || (gesture.current.blank && !gesture.current.moved)) onClose();
+					if (onClose && (event.detail === 0 || (gesture.current.blank && !gesture.current.moved))) onClose();
+					else if (!onClose && event.detail === 0) {
+						if (scale === 1) zoom(2);
+						else reset();
+					}
 				}}
 				onDoubleClick={() => {
 					if (scale === 1) zoom(2);

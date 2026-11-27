@@ -58,7 +58,7 @@ export const botMessagesEn = {
 	clearHistoryFailed: "Could not clear chat history. Try again.",
 	resetBusy: "The Bot is processing a message. Try again shortly.",
 	deleteBot: "Delete Bot",
-	deleteTitle: "Delete this Bot?",
+	deleteTitle: "Delete Bot “{{name}}”?",
 	deletePlansOne: "Its 1 scheduled plan is deleted too.",
 	deletePlansOther: "Its {{count}} scheduled plans are deleted too.",
 	deletePlansUnknown: "Its scheduled plans are deleted too.",

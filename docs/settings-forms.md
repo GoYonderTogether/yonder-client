@@ -48,9 +48,10 @@ Checkboxes are for picking several items in a list (members, files), never for a
 
 ## Confirmations
 
-Destructive or hard-to-undo actions open the shared confirmation dialog: a centred dialog on a
-desktop and a page on a phone, with the consequence in one or two sentences and a danger button
-named after the action (「删除」, 「解散」). Never an inline card that pushes the page around.
+Destructive or hard-to-undo actions open the shared confirmation dialog: a small centred dialog on a
+desktop and a bottom sheet on a phone (never a full page), titled with a question that names the
+object (「删除「周报」？」), the consequence in one sentence, and a solid danger button named after the
+action (「删除」, 「解散」). Never an inline card that pushes the page around. See design-system.md §五.
 
 ## Layout by width
 

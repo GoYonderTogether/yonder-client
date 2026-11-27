@@ -1,18 +1,18 @@
 import type { MemoryEntry as Entry, MemorySource, MemoryTarget } from "@yonder/protocol";
-import { Button } from "@yonder/ui-components";
-import type { LucideIcon } from "lucide-react";
-import { CornerDownRight, ListChecks, MessageCircle, Mic } from "lucide-react";
+import { Button, ChatGlyph, MEMORY_KIND_GLYPHS, TaskGlyph } from "@yonder/ui-components";
+import { CornerDownRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { EntryActions } from "./memory-actions.ts";
+import type { IconComponent } from "./memory-format.ts";
 import { Material } from "./memory-material.tsx";
 import { MemoryThumb } from "./memory-media.tsx";
 import { useErrorText } from "./memory-status.tsx";
 
-const SOURCE_ICONS: Record<MemorySource["kind"], LucideIcon> = {
-	chat: MessageCircle,
-	meeting: Mic,
-	task: ListChecks,
+const SOURCE_ICONS: Record<MemorySource["kind"], IconComponent> = {
+	chat: ChatGlyph,
+	meeting: MEMORY_KIND_GLYPHS.voice,
+	task: TaskGlyph,
 };
 
 export const SOURCE_LABELS: Record<MemorySource["kind"], string> = {

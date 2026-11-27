@@ -54,6 +54,7 @@ const firstReply = "可以。先确认上线范围，再检查回归、签名和
 const priorDraft = "主 Bot 的草稿";
 const followUp = "这次会议定了哪一项截止时间？";
 const followUpReply = "会议确定周四前完成登录页动效验收。";
+const paneEvidence = process.env.YONDER_E2E_EVIDENCE_DIR;
 const newItem = {
 	...meetingItem,
 	id: newItemId,
@@ -65,6 +66,13 @@ const newItem = {
 	result: null,
 	steps: [],
 };
+
+async function closeMeetingPane(page: Page) {
+	const pane = page.locator("[data-detail-pane]");
+	if (await pane.isVisible()) await pane.getByRole("button", { name: "关闭全部", exact: true }).click();
+	else await page.getByRole("dialog").getByRole("button", { name: "返回", exact: true }).click();
+	await expect(page.locator("[data-recording-reader]")).toHaveCount(0);
+}
 
 async function isolateItems(page: Page, taskOnlyRecording: boolean, withRunningMeeting = false, rich = false) {
 	const meetingNotice = {
@@ -282,6 +290,29 @@ for (const layout of ["desktop", "mobile"] as const) {
 			timezoneId: "Asia/Singapore",
 		});
 
+		test("a referenced task shows its result and original resource links without leaving the chat", async ({
+			page,
+		}) => {
+			const detail: ItemDetail = {
+				...newItem,
+				result: "签名、上线范围与回归用例已汇总。",
+				files: ["/notes/发布清单.md"],
+			};
+			await isolateChat(page, {
+				items: [{ ...message("task-pane-04", ""), taskSession: { id: detail.id, title: detail.title } }],
+			});
+			await page.route(`**/v1/items/${detail.id}`, (route) => route.fulfill({ json: detail }));
+			await page.goto("/messages/main");
+			await page.getByRole("button", { name: `打开任务 · ${detail.title}` }).click();
+			const pane = page.locator("[data-task-pane-reader]");
+			await expect(pane).toContainText(detail.result ?? "");
+			await expect(pane.getByRole("link", { name: "发布清单.md" })).toHaveAttribute("href", /^\/memory\/files\//);
+			await expect(pane.getByRole("link", { name: "打开完整任务" })).toHaveAttribute("href", `/tasks/${detail.id}`);
+			await expect(page).toHaveURL(/\/messages\/main$/);
+			if (paneEvidence)
+				await page.screenshot({ path: `${paneEvidence}/chat-task-reference-${layout}.png`, animations: "disabled" });
+		});
+
 		test("a recording item opens its transcript and keeps the follow-up in the item", async ({ page }, info) => {
 			const api = await isolateItems(page, layout === "mobile");
 			await page.goto("/tasks");
@@ -325,8 +356,7 @@ for (const layout of ["desktop", "mobile"] as const) {
 				animations: "disabled",
 				scale: "css",
 			});
-			await reader.getByRole("button", { name: "关闭", exact: true }).click();
-			await expect(reader).toHaveCount(0);
+			await closeMeetingPane(page);
 
 			await input.fill(followUp);
 			await page.getByRole("button", { name: "发送", exact: true }).click();
@@ -347,6 +377,7 @@ for (const layout of ["desktop", "mobile"] as const) {
 			const api = await isolateItems(page, true, true, true);
 			await page.goto("/messages/main");
 			await page.getByRole("button", { name: `查看录音笔记 · ${recording.title}` }).click();
+			await page.getByRole("link", { name: "打开完整任务" }).click();
 			const card = page.locator("[data-item-recording]");
 			await expect(card.getByText(recording.title, { exact: true })).toBeVisible();
 			await expect.poll(api.connected).toBeTruthy();
@@ -372,6 +403,12 @@ for (const layout of ["desktop", "mobile"] as const) {
 				scale: "css",
 			});
 			await entry.click();
+			await expect(page).toHaveURL(/\/messages\/main$/);
+			const reader = page.locator("[data-recording-reader]");
+			await expect(reader.getByRole("radio", { name: "原文" })).toBeChecked();
+			if (paneEvidence)
+				await page.screenshot({ path: `${paneEvidence}/chat-meeting-pane-${layout}.png`, animations: "disabled" });
+			await reader.getByRole("link", { name: "打开完整任务" }).click();
 			await expect(page).toHaveURL(new RegExp(`/tasks/${meetingId}$`));
 			const header = page
 				.locator("[data-frame-header]")
@@ -418,6 +455,26 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await expect(entry).toHaveAccessibleDescription(/^.+ · 20秒$/);
 			expect(api.detailRequests()).toBe(0);
 			await entry.click();
+			await expect(page).toHaveURL(/\/messages\/main$/);
+			const reader = page.locator("[data-recording-reader]");
+			await expect(reader.getByRole("heading", { name: "决定" })).toBeVisible();
+			await expect(reader.getByText("正式上线日期")).toBeVisible();
+			await expect(reader.getByRole("button", { name: "正式上线日期" })).toHaveCount(0);
+			await expect(reader.locator("script")).toHaveCount(0);
+			await page.screenshot({
+				path: paneEvidence
+					? `${paneEvidence}/chat-meeting-summary-${layout}.png`
+					: info.outputPath("archive-notes.png"),
+				animations: "disabled",
+				scale: "css",
+			});
+			await reader.getByRole("button", { name: "查看依据" }).click();
+			await expect(page).toHaveURL(/\/messages\/main$/);
+			await expect(reader.locator('[data-recording-source="batch-2"]')).toBeFocused();
+			await expect(reader.locator('[data-recording-source="batch-2"]')).toContainText(api.evidence);
+			expect(externalRequests).toEqual([]);
+			await reader.getByRole("link", { name: "打开完整任务" }).click();
+			await expect(page).toHaveURL(new RegExp(`/tasks/${meetingId}$`));
 			const card = page.locator("[data-item-recording]");
 			await expect(card).toContainText("登录页先交付");
 			await expect(card.getByText(recording.title, { exact: true })).toBeVisible();
@@ -428,15 +485,13 @@ for (const layout of ["desktop", "mobile"] as const) {
 			await expect(card.locator("[data-recording-photos] img")).toHaveCount(2);
 			await page.screenshot({ path: info.outputPath("archive-card.png"), animations: "disabled", scale: "css" });
 			await card.getByRole("button", { name: `查看录音笔记 · ${recording.title}` }).click();
-			const reader = page.locator("[data-recording-reader]");
-			await expect(reader.getByRole("heading", { name: "决定" })).toBeVisible();
-			await expect(reader.getByText("正式上线日期")).toBeVisible();
-			await expect(reader.getByRole("button", { name: "正式上线日期" })).toHaveCount(0);
-			await expect(reader.locator("script")).toHaveCount(0);
-			expect(externalRequests).toEqual([]);
-			await page.screenshot({ path: info.outputPath("archive-notes.png"), animations: "disabled", scale: "css" });
-			await reader.getByRole("button", { name: "查看依据" }).click();
-			await expect(page).toHaveURL(/recording=original&source=batch-2/);
+			if (layout !== "mobile") {
+				await expect(page.getByRole("tab", { name: recording.title })).toHaveCount(1);
+				await expect(reader.getByRole("radio", { name: "原文" })).toBeChecked();
+			}
+			await closeMeetingPane(page);
+			await page.goto(`/tasks/${meetingId}?recording=original&source=batch-2`);
+			await expect(reader.locator("#batch-2")).toBeFocused();
 			const anchored = reader.locator("#batch-2");
 			await expect(anchored).toBeFocused();
 			await expect(anchored).toContainText(api.evidence);

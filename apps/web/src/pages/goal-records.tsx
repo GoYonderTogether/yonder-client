@@ -2,7 +2,8 @@ import type { Goal, Schedule } from "@yonder/protocol";
 import { Button, EmptyState, ListGroup, ListRow } from "@yonder/ui-components";
 import { ApiError, useGoals, useSchedules } from "@yonder/ui-data";
 import { useSidePanel } from "@yonder/ui-shell";
-import { Target } from "lucide-react";
+import { ICON_SIZE } from "@yonder/ui-tokens";
+import { CalendarClock, Target } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoalPanel } from "./goal-panel.tsx";
@@ -44,9 +45,19 @@ export function GoalsTab() {
 	const done = goals.filter((goal) => !LIVE.has(goal.state));
 	const plans = schedules.filter((plan) => plan.kind !== "once" && !plan.goalId);
 	const openGoal = (goal: Goal) =>
-		side.open({ key: `goal:${goal.id}`, title: goal.title, content: <GoalPanel goalId={goal.id} /> });
+		side.open({
+			key: `goal:${goal.id}`,
+			title: goal.title,
+			icon: <Target size={ICON_SIZE.sm} aria-hidden="true" />,
+			content: <GoalPanel goalId={goal.id} />,
+		});
 	const openPlan = (plan: Schedule) =>
-		side.open({ key: `schedule:${plan.id}`, title: plan.title, content: <SchedulePanel scheduleId={plan.id} /> });
+		side.open({
+			key: `schedule:${plan.id}`,
+			title: plan.title,
+			icon: <CalendarClock size={ICON_SIZE.sm} aria-hidden="true" />,
+			content: <SchedulePanel scheduleId={plan.id} />,
+		});
 	return (
 		<div className="flex flex-col gap-[var(--spacing-4)] py-[var(--spacing-3)]">
 			{failed ? (

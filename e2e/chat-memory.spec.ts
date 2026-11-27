@@ -85,7 +85,12 @@ test("a file changed again after the reply cannot be undone from chat", async ({
 	const dialog = await openUpdate(page);
 	await expect(dialog.getByText("之后又改过，请在文件里修改")).toBeVisible();
 	await expect(dialog.getByRole("button", { name: "撤回", exact: true })).toHaveCount(0);
-	await expect(dialog.getByRole("button", { name: "打开" })).toBeVisible();
+	await dialog.getByRole("button", { name: "打开" }).click();
+	const pane = page.locator("[data-detail-pane]");
+	await expect(pane.getByRole("heading", { name: "近期" })).toBeVisible();
+	await expect(dialog).toHaveCount(0);
+	await expect(page).toHaveURL(new RegExp(`/messages/${conversation.id}$`));
+	await page.screenshot({ path: test.info().outputPath("memory-change-detail-desktop.png"), animations: "disabled" });
 });
 
 test.describe("on a phone", () => {

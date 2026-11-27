@@ -18,7 +18,8 @@ export interface OverlayProps {
 	mode: LayoutMode;
 	children: ReactNode;
 	footer?: ReactNode;
-	size?: "small" | "wide";
+	/** `alert` is a short question: sized to its content, no header bar, the caller draws the title. */
+	size?: "small" | "wide" | "alert";
 	closeLabel?: string;
 	mobileBackLabel?: string;
 	mobilePresentation?: "page" | "sheet" | "tall-sheet" | "large-sheet";
@@ -47,7 +48,8 @@ export function Overlay({
 }: OverlayProps) {
 	const { desktop } = useShellChrome();
 	const centered = mode === "wide" || (mode !== "mobile" && mobilePresentation !== "page");
-	const square = desktop && centered;
+	const alert = size === "alert";
+	const square = desktop && centered && !alert;
 	const sheet = !centered && mobilePresentation !== "page";
 	const tallSheet = sheet && mobilePresentation === "tall-sheet";
 	const expandable = tallSheet && Boolean(onExpand);
@@ -98,7 +100,9 @@ export function Overlay({
 												)
 											: size === "wide"
 												? "w-[min(880px,90vw)]"
-												: "w-[min(560px,90vw)]",
+												: alert
+													? "w-[min(var(--dialog-width-alert),90vw)]"
+													: "w-[min(560px,90vw)]",
 									)
 								: sheet
 									? cn(
@@ -156,7 +160,7 @@ export function Overlay({
 							data-shell-frame={nativeFrame || undefined}
 							className="relative flex min-h-0 flex-1 flex-col"
 						>
-							{!expandable ? (
+							{!expandable && !alert ? (
 								<div
 									ref={header}
 									data-frame-header={nativeFrame || undefined}

@@ -219,7 +219,7 @@ export function ReceptionRemoveButton({
 
 	return (
 		<>
-			<Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirm(true)}>
+			<Button size="sm" variant="danger" disabled={busy} onClick={() => setConfirm(true)}>
 				<Trash2 size={16} aria-hidden />
 				{label}
 			</Button>
@@ -237,7 +237,6 @@ export function ReceptionRemoveButton({
 				confirmLabel={label}
 				cancelLabel={t("app.cancel")}
 				closeLabel={t("app.close")}
-				backLabel={t("app.back")}
 				busy={edit.isPending}
 				error={memberFailureText(edit.error, t) || null}
 				onCancel={close}

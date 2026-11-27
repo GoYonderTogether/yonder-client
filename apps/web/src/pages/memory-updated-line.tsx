@@ -7,7 +7,7 @@ import { BookmarkCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MemoryDiff } from "./memory/memory-diff.tsx";
-import { useOpenMemoryFile } from "./memory/memory-navigation.ts";
+import { useOpenMemoryFile } from "./memory/memory-file-detail.tsx";
 import { MemoryError, MemoryLoading } from "./memory/memory-status.tsx";
 
 /**
@@ -165,7 +165,7 @@ function Change({
 						size="sm"
 						onClick={() => {
 							onOpened();
-							openFile(change.path);
+							openFile(change.path, change.title);
 						}}
 					>
 						{t("memory.open")}

@@ -193,7 +193,6 @@ function ChannelControls({
 					confirmLabel={t("channels.disconnect")}
 					cancelLabel={t("app.cancel")}
 					closeLabel={t("app.close")}
-					backLabel={t("app.back")}
 					busy={actions.disconnect.isPending}
 					error={actions.disconnect.isError ? t("channels.failed") : null}
 					onCancel={() => setConfirming(false)}

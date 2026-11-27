@@ -1,11 +1,9 @@
 import type { ChannelConnection } from "@yonder/protocol";
-import { BotSelector, Button, IconTile, ListGroup, ListRow } from "@yonder/ui-components";
+import { BotSelector, BrandIcon, Button, ListGroup, ListRow } from "@yonder/ui-components";
 import { ownedBots, useBot, useChannels, useContacts, usePerson } from "@yonder/ui-data";
-import { MessageCircle, MessagesSquare, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const CHANNELS = ["feishu", "wechat", "qq"] as const;
-const ICONS = { feishu: Send, wechat: MessagesSquare, qq: MessageCircle };
 
 export type MessageChannel = (typeof CHANNELS)[number];
 
@@ -64,18 +62,13 @@ export function ChannelDirectory({
 
 	function row({ channel, connection }: (typeof rows)[number]) {
 		const title = t(`channels.${channel}`);
-		const Icon = ICONS[channel];
 		const status = connection ? channelStatus(connection) : null;
 		const canConnect = channel === "feishu" ? available : channel === "wechat" && wechatAvailable;
 		const action = canConnect ? "openConnection" : "unavailableShort";
 		return (
 			<ListRow
 				key={channel}
-				leading={
-					<IconTile>
-						<Icon size={18} />
-					</IconTile>
-				}
+				leading={<BrandIcon name={channel} size={32} />}
 				title={title}
 				subtitle={connection?.name !== title ? connection?.name : undefined}
 				trailing={status === "connected" ? undefined : t(`channels.${status ?? action}`)}

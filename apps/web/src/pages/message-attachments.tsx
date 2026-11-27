@@ -7,6 +7,7 @@ import { FileTypeIcon } from "../lib/file-type-icon.tsx";
 import { ensureDisplayBlob } from "../lib/image-display.ts";
 import { useObjectUrl } from "../lib/use-object-url.ts";
 import { useVideoPoster } from "../lib/use-video-poster.ts";
+import { useOpenAttachmentDetail } from "../preview/attachment-detail.tsx";
 import { AttachmentPreview } from "../preview/attachment-preview.tsx";
 import { type PreviewFile, previewKind } from "../preview/file-kind.ts";
 import { usePreviewTranslation } from "../preview/preview-i18n.ts";
@@ -16,6 +17,7 @@ function MessageAttachment({ attachment }: { attachment: Attachment }) {
 	const { t } = useTranslation();
 	const labels = usePreviewTranslation();
 	const original = useAttachmentBlob(attachment);
+	const openDetail = useOpenAttachmentDetail();
 	const card = useRef<HTMLDivElement>(null);
 	const [visible, setVisible] = useState(false);
 	const [display, setDisplay] = useState<Blob>();
@@ -53,6 +55,7 @@ function MessageAttachment({ attachment }: { attachment: Attachment }) {
 		};
 	}, [original.blob, kind, attachment.name]);
 	async function open() {
+		if (openDetail({ ...attachment, load: original.load })) return;
 		const blob = await original.load();
 		if (blob) setSelected({ ...attachment, blob });
 	}
@@ -63,7 +66,6 @@ function MessageAttachment({ attachment }: { attachment: Attachment }) {
 				className={`message-attachment-open ${media ? "message-attachment-media" : "message-attachment-file"}`}
 				onClick={() => void open()}
 				aria-label={labels("open", { name: attachment.name })}
-				disabled={original.loading}
 			>
 				{media ? (
 					<>

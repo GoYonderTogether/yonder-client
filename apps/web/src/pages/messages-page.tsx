@@ -163,12 +163,11 @@ export function MessagesList({
 			{deleting ? (
 				<ConfirmDialog
 					open
-					title={t("messages.deleteTitle")}
+					title={t("messages.deleteTitle", { name: deleting.title })}
 					body={t("messages.deleteBody", { name: deleting.title })}
 					confirmLabel={t("messages.delete")}
 					cancelLabel={t("app.cancel")}
 					closeLabel={t("app.close")}
-					backLabel={t("app.back")}
 					busy={remove.isPending}
 					error={remove.isError ? t("messages.deleteFailed") : null}
 					onCancel={() => {
@@ -213,6 +212,7 @@ export function ConversationPage({
 	const navigate = useNavigate();
 	const location = useLocation();
 	const { mode } = useShellChrome();
+	const openItem = onOpenMeeting ?? (item ? (id: string) => navigate(`/tasks/${encodeURIComponent(id)}`) : undefined);
 	const person = usePerson();
 	const bot = useBot();
 	const conversations = useConversations();
@@ -266,8 +266,8 @@ export function ConversationPage({
 			(item || conversation?.unreadCount)
 			? newestReadableMessage(items, person.id, {
 					agentCards: true,
-					recordingNotes: Boolean(onOpenMeeting),
-					taskSessions: Boolean(onOpenMeeting),
+					recordingNotes: Boolean(openItem),
+					taskSessions: Boolean(openItem),
 				})
 			: undefined,
 		canRead,
@@ -452,7 +452,7 @@ export function ConversationPage({
 								retrying={actions.retry.isPending}
 								onOpenRelated={(id) => navigate(`/messages/${encodeURIComponent(id)}`)}
 								onOpenMember={onOpenMember}
-								{...(onOpenMeeting ? { onOpenMeeting } : {})}
+								{...(openItem ? { onOpenMeeting: openItem } : {})}
 								onResend={(message) =>
 									send.mutate({
 										type: message.sendType ?? "text",

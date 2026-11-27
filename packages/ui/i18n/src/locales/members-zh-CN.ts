@@ -95,7 +95,7 @@ export const membersMessagesZhCN = {
 			preview: "整理预览",
 			empty: "暂无待审核的整理方案",
 			request:
-				"请整理我的对外接待资料和待审核草稿。先用 list_reception_organization_files 查看资料和当前目录，再用 propose_memory_organization 提交一份待我审核的分类、目录和批量移动建议。优先复用已有目录，把不确定的资料留在原处。请保留正文和公开状态，提交建议后告诉我去对外接待设置审核。",
+				"请整理我的对外接待资料和待审核草稿：先看资料和当前目录，再提交一份待我审核的分类、目录和批量移动建议。优先复用已有目录，把不确定的资料留在原处。请保留正文和公开状态，提交建议后告诉我去对外接待设置审核。",
 			waiting: "Bot 正在生成整理建议…",
 			noProposal: "此轮没有生成整理建议，可以去私聊查看回复。",
 			openChat: "查看 Bot 私聊",

@@ -1,0 +1,421 @@
+/* Preview only: photo strips, WeChat messages, what is still open, the theme switch, narrow screens. */
+
+.tl-seg {
+	display: inline-flex;
+	margin: 0;
+	padding: 3px;
+	border: 0;
+	border-radius: var(--radius-full);
+	background: var(--color-bg-subtle);
+}
+.tl-seg button {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	border: 0;
+	border-radius: var(--radius-full);
+	background: transparent;
+	color: var(--color-text-secondary);
+	font: inherit;
+	font-size: var(--text-caption);
+	cursor: pointer;
+}
+.tl-seg button[aria-pressed="true"] {
+	background: var(--color-bg-base);
+	color: var(--color-text-primary);
+	box-shadow: var(--shadow-xs);
+}
+
+/* A photo step has no time gutter: the pictures take the card's width, the note sits under them. */
+.tl-step-photo {
+	display: block;
+}
+.tl-strip {
+	position: relative;
+	display: grid;
+	gap: 3px;
+	width: fit-content;
+	max-width: 100%;
+	overflow: hidden;
+	border-radius: var(--radius-control);
+}
+.tl-strip img {
+	width: 100%;
+	height: 100%;
+	aspect-ratio: 1;
+	object-fit: cover;
+	background: var(--color-bg-subtle);
+}
+.tl-strip-1 {
+	grid-template-columns: minmax(0, 360px);
+}
+.tl-strip-1 img {
+	aspect-ratio: 4 / 3;
+}
+.tl-strip-2 {
+	grid-template-columns: repeat(2, minmax(0, 180px));
+}
+.tl-strip-3 {
+	grid-template-columns: minmax(0, 240px) minmax(0, 120px);
+	grid-template-rows: repeat(2, 120px);
+}
+.tl-strip-3 img:first-child {
+	grid-row: span 2;
+	aspect-ratio: auto;
+}
+.tl-strip-4 {
+	grid-template-columns: repeat(2, minmax(0, 160px));
+}
+.tl-strip-more {
+	position: absolute;
+	right: 6px;
+	bottom: 6px;
+	padding: 2px 8px;
+	border-radius: var(--radius-full);
+	background: var(--color-bg-overlay);
+	color: var(--color-text-inverse);
+	font-size: var(--text-micro);
+	font-variant-numeric: tabular-nums;
+}
+.tl-photo-note {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: var(--spacing-2) 0 0;
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	color: var(--color-text-secondary);
+}
+.tl-photo-note svg {
+	flex: none;
+	color: var(--color-memory-photo);
+}
+
+/* A message that reached the owner over WeChat: the app's own icon, then who and what. */
+.tl-msg {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--spacing-3);
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.tl-photo {
+	display: block;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: zoom-in;
+}
+.tl-lightbox {
+	position: fixed;
+	inset: 0;
+	z-index: 12;
+	display: grid;
+	place-items: center;
+	padding: var(--spacing-6);
+	background: var(--color-bg-overlay);
+}
+.tl-lightbox img {
+	max-width: 100%;
+	max-height: 80dvh;
+	border-radius: var(--radius-control);
+	object-fit: contain;
+}
+.tl-lightbox-bar {
+	position: absolute;
+	right: var(--spacing-4);
+	bottom: var(--spacing-4);
+	left: var(--spacing-4);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	color: var(--color-on-media);
+	font-size: var(--text-caption);
+}
+.tl-lightbox-bar button {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: var(--spacing-2) var(--spacing-4);
+	border: 0;
+	border-radius: var(--radius-full);
+	background: var(--color-media-scrim);
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.tl-msg-icon {
+	flex: none;
+	margin-top: 2px;
+	border-radius: var(--radius-control-sm);
+}
+.tl-msg-from {
+	margin: 0 0 2px;
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	font-weight: var(--font-weight-medium);
+	color: var(--color-text-secondary);
+}
+.tl-msg-text {
+	margin: 0;
+	font-size: var(--text-body);
+	line-height: 1.68;
+	text-wrap: pretty;
+}
+.tl-msg-detail {
+	margin: 2px 0 0;
+	max-width: 58ch;
+	font-size: var(--text-caption);
+	line-height: 1.7;
+	color: var(--color-text-secondary);
+}
+/* One colour per kind of step, all from the registered tokens. */
+.tl-step-text .tl-kind-thought {
+	color: var(--color-memory-ai);
+}
+.tl-step-text .tl-kind-task,
+.tl-step-text .tl-kind-decision {
+	color: var(--color-accent-text);
+}
+.tl-step-text .tl-kind-recording {
+	color: var(--color-memory-voice);
+}
+.tl-step-text .tl-kind-doc {
+	color: var(--color-memory-doc);
+}
+.tl-step-text .tl-kind-place {
+	color: var(--color-memory-place);
+}
+
+/* The present: pinned to the bottom, a layer above the history. Cards are buttons, so no label is needed to say they can be pressed. */
+.tl-nowbar {
+	position: sticky;
+	bottom: var(--spacing-4);
+	z-index: 4;
+	max-width: 720px;
+	margin: 0 auto;
+	padding: var(--spacing-3);
+	border: 1px solid var(--color-border-default);
+	border-radius: var(--radius-card);
+	background: var(--color-bg-card);
+	box-shadow: var(--shadow-sm);
+}
+.tl-nowcards {
+	display: flex;
+	gap: var(--spacing-2);
+	margin: 0 0 var(--spacing-3);
+	padding: 0;
+	overflow-x: auto;
+	list-style: none;
+}
+.tl-nowcard {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2);
+	max-width: 260px;
+	padding: var(--spacing-2) var(--spacing-3);
+	border: 1px solid var(--color-border-default);
+	border-radius: var(--radius-control);
+	background: var(--color-bg-subtle);
+	color: var(--color-text-primary);
+	font: inherit;
+	font-size: var(--text-caption);
+	line-height: 1.5;
+	text-align: left;
+	cursor: pointer;
+}
+.tl-nowcard span {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+}
+/* A running task is a status, not a button: no border, no chevron, a small pulsing dot. */
+.tl-nowtask {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2);
+	max-width: 260px;
+	padding: var(--spacing-2) var(--spacing-3);
+	border-radius: var(--radius-control);
+	background: var(--color-accent-subtle);
+	color: var(--color-accent-text);
+	font-size: var(--text-caption);
+	line-height: 1.5;
+}
+.tl-pulse {
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: var(--radius-full);
+	background: var(--color-accent);
+	animation: tl-pulse 1.6s ease-in-out infinite;
+}
+@keyframes tl-pulse {
+	50% {
+		opacity: 0.35;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.tl-pulse {
+		animation: none;
+	}
+}
+.tl-nowcard-go {
+	flex: none;
+	color: var(--color-accent-text);
+}
+.tl-nowinput {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2);
+}
+.tl-nowinput input {
+	flex: 1;
+	min-width: 0;
+	padding: var(--spacing-2) var(--spacing-4);
+	border: 0;
+	border-radius: var(--radius-full);
+	background: var(--color-bg-subtle);
+	color: inherit;
+	font: inherit;
+	font-size: var(--text-body);
+}
+.tl-nowinput button {
+	display: grid;
+	place-items: center;
+	width: var(--spacing-8);
+	height: var(--spacing-8);
+	border: 0;
+	border-radius: var(--radius-full);
+	background: var(--color-accent);
+	color: var(--color-text-inverse);
+	cursor: pointer;
+}
+.tl-nowinput button:disabled {
+	background: var(--color-bg-subtle);
+	color: var(--color-text-tertiary);
+	cursor: default;
+}
+
+/* The sky behind a card's part of the day: a band that fades into the card. Four skies, set by the clock; no weather is drawn. */
+.tl-card[data-sky]::before {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom));
+	opacity: var(--sky-alpha, 0.14);
+	content: "";
+	pointer-events: none;
+}
+[data-theme="dark"] .tl-card {
+	--sky-alpha: 0.4;
+}
+.tl-card[data-sky] > * {
+	position: relative;
+}
+.tl-card[data-sky="night"] {
+	--sky-top: var(--color-sky-night-top);
+	--sky-bottom: var(--color-sky-night-bottom);
+}
+.tl-card[data-sky="dawn"] {
+	--sky-top: var(--color-sky-dawn-top);
+	--sky-bottom: var(--color-sky-dawn-bottom);
+}
+.tl-card[data-sky="day"] {
+	--sky-top: var(--color-sky-day-top);
+	--sky-bottom: var(--color-sky-day-bottom);
+}
+.tl-card[data-sky="dusk"] {
+	--sky-top: var(--color-sky-dusk-top);
+	--sky-bottom: var(--color-sky-dusk-bottom);
+}
+
+/* The whole-card watermark and the part-of-day capsule: both stay quiet so the words on the card are what you read. */
+.tl-card[data-sky] > .tl-mark {
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 240px;
+	height: auto;
+	mask-image: linear-gradient(to left, #000 45%, transparent);
+	color: color-mix(in srgb, var(--sky-top), var(--sky-bottom));
+	opacity: 0.16;
+	pointer-events: none;
+}
+.tl-card[data-sky] .tl-chip {
+	background: color-mix(in srgb, var(--sky-top) 16%, var(--color-bg-card));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky-top) 28%, transparent);
+	color: var(--color-text-primary);
+}
+
+/* In the dark the watermark takes the text colour, faintly: a dark shape on a dark card would not show at all. */
+[data-theme="dark"] .tl-card[data-sky] > .tl-mark {
+	color: var(--color-text-primary);
+	opacity: 0.07;
+}
+
+/* Month and week markers between days: the month is a title with air around it, the week a thin rule with a label. */
+.tl-month {
+	display: flex;
+	align-items: baseline;
+	gap: var(--spacing-3);
+	margin: var(--spacing-12) 0 var(--spacing-4);
+	font-size: var(--text-display);
+	line-height: 1.1;
+	font-weight: var(--font-weight-bold);
+	letter-spacing: -0.03em;
+}
+.tl-month span {
+	font-size: var(--text-caption);
+	font-weight: var(--font-weight-medium);
+	letter-spacing: 0.04em;
+	color: var(--color-text-tertiary);
+}
+.tl-week {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-3);
+	margin: var(--spacing-6) 0 var(--spacing-2);
+	font-size: var(--text-caption);
+	font-variant-numeric: tabular-nums;
+	color: var(--color-text-tertiary);
+}
+.tl-week::after {
+	flex: 1;
+	height: 1px;
+	background: var(--color-border-default);
+	content: "";
+}
+
+@media (max-width: 560px) {
+	.tl {
+		padding-inline: var(--spacing-4);
+	}
+	.tl-card {
+		padding: var(--spacing-4);
+	}
+	.tl-card-title {
+		font-size: var(--text-h2);
+	}
+	.tl-step {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 2px;
+	}
+	.tl-strip-1 {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.tl-strip-2,
+	.tl-strip-4 {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.tl-strip-3 {
+		grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+		grid-template-rows: repeat(2, 96px);
+	}
+}

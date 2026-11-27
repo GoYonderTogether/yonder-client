@@ -5,7 +5,7 @@ export const messagesEn = {
 	unpin: "Unpin conversation",
 	pinFailed: "Could not change the pin. Try again.",
 	delete: "Delete conversation",
-	deleteTitle: "Delete conversation?",
+	deleteTitle: "Delete “{{name}}”?",
 	deleteBody:
 		"Remove “{{name}}” from Messages? Your chat history stays. A new message will bring the conversation back.",
 	deleteFailed: "Could not remove the conversation. Try again.",
@@ -30,7 +30,7 @@ export const messagesZhCN = {
 	unpin: "取消置顶",
 	pinFailed: "无法更改置顶，请重试。",
 	delete: "删除会话",
-	deleteTitle: "删除会话？",
+	deleteTitle: "删除「{{name}}」？",
 	deleteBody: "将「{{name}}」从消息列表移除。聊天记录会保留，有新消息时会话会重新出现。",
 	deleteFailed: "无法移除会话，请重试。",
 	muted: "消息免打扰",

@@ -3,7 +3,15 @@ import { useObjectUrl } from "../lib/use-object-url.ts";
 import type { PreviewFile } from "./file-kind.ts";
 import { usePreviewTranslation } from "./preview-i18n.ts";
 
-export function MediaPreview({ file, kind }: { file: PreviewFile; kind: "audio" | "video" }) {
+export function MediaPreview({
+	file,
+	kind,
+	pauseWhenHidden = false,
+}: {
+	file: PreviewFile;
+	kind: "audio" | "video";
+	pauseWhenHidden?: boolean;
+}) {
 	const t = usePreviewTranslation();
 	const ref = useRef<HTMLMediaElement>(null);
 	const [error, setError] = useState(false);
@@ -18,6 +26,15 @@ export function MediaPreview({ file, kind }: { file: PreviewFile; kind: "audio" 
 			element?.load();
 		};
 	}, [url]);
+	useEffect(() => {
+		const element = ref.current;
+		if (!element || !pauseWhenHidden) return;
+		const observer = new IntersectionObserver(([entry]) => {
+			if (entry && !entry.isIntersecting && !element.paused) element.pause();
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, [pauseWhenHidden]);
 	return (
 		<div className="attachment-media-reader">
 			{kind === "audio" ? (

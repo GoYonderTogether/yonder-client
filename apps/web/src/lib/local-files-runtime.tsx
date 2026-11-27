@@ -15,6 +15,7 @@ import {
 	readyAppleResourceGrants,
 } from "./apple-resources.ts";
 import { isForeground, subscribeForeground } from "./foreground.ts";
+import { executeLocalFilePreview } from "./local-file-preview.ts";
 import {
 	activateAppleConnectors,
 	invokeLocalFiles,
@@ -243,8 +244,9 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 				else if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) result = { ok: false, error: "cancelled" };
 				else {
 					const { origin, ...nativeCommand } = command;
+					const readsOriginal = command.operation === "asset_original" || command.operation === "file_preview";
 					const activity = activityLabel.current(
-						`tray.connector.${appleCommand ? (command.operation.endsWith("_list") ? "list" : "read") : command.operation}`,
+						`tray.connector.${appleCommand ? (command.operation.endsWith("_list") ? "list" : "read") : readsOriginal ? "read" : command.operation}`,
 					);
 					const identify = (items: Conversation[] | undefined) => {
 						const conversation = items?.find((item) => item.id === origin?.conversationId);
@@ -282,7 +284,29 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 					try {
 						const native = { ...nativeCommand, expiresAtMs };
 						const { operation, args } = command;
-						if (!appleCommand) {
+						if (!appleCommand && (operation === "asset_original" || operation === "file_preview")) {
+							const file = await executeLocalFilePreview(context, native);
+							if (
+								!active ||
+								state.cancelled ||
+								realtime.status !== "open" ||
+								!eligible(command.connectionId) ||
+								expiresAtMs <= Date.now()
+							)
+								throw new Error("cancelled");
+							if (file.kind === "file") {
+								state.upload = new AbortController();
+								const attachment = await api.uploadConnectorAttachment(command.id, file.blob, state.upload.signal);
+								result = {
+									ok: true,
+									result:
+										operation === "asset_original"
+											? { kind: operation, attachment }
+											: { kind: "file", sha256: file.sha256, attachment },
+								};
+							} else if (operation === "file_preview") result = { ok: true, result: file };
+							else throw new Error("unsupported_file");
+						} else if (!appleCommand) {
 							result = await invokeLocalFiles<ConnectorCommandResult>("local_files_execute", {
 								context,
 								command: native,

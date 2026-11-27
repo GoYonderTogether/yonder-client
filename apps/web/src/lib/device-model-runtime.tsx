@@ -45,7 +45,8 @@ const byteLength = (value: string) => new TextEncoder().encode(value).length;
 
 /** The OpenAI-shaped stream ends with `[DONE]`; an Anthropic one ends with a part the server sees itself. */
 function openAiTerminal(protocol: DeviceModelProtocol, body: unknown): string | undefined {
-	if (protocol !== "openai") return undefined;
+	// Only the Anthropic wire ends on its own event; the OpenAI shapes and Gemini end on `[DONE]`.
+	if (protocol === "anthropic-messages") return undefined;
 	return (body as { stream?: unknown } | null)?.stream === true ? OPENAI_TERMINAL : undefined;
 }
 
@@ -59,8 +60,11 @@ function openAiTerminal(protocol: DeviceModelProtocol, body: unknown): string | 
  * device runs this.
  */
 /** The two wire names a device endpoint can advertise, from the provider's own protocol name. */
+/** A device endpoint speaks the provider's own wire; only the two pre-release names are mapped. */
 export function deviceWire(protocol: ProviderProtocol | "openai" | "anthropic"): DeviceModelProtocol {
-	return protocol === "anthropic-messages" || protocol === "anthropic" ? "anthropic" : "openai";
+	if (protocol === "openai") return "openai-chat";
+	if (protocol === "anthropic") return "anthropic-messages";
+	return protocol;
 }
 
 export function DeviceModelRuntime() {

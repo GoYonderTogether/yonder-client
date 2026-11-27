@@ -1,9 +1,9 @@
 import { MessageBubble, MessageRun, SystemNotice } from "@yonder/chat-presentation";
 import type { ItemDetail } from "@yonder/protocol";
-import { Button, EmptyState } from "@yonder/ui-components";
+import { Button, EmptyState, TaskGlyph } from "@yonder/ui-components";
 import { ApiError, useItem, useItemActions, type useItemSession } from "@yonder/ui-data";
 import { PageFrame } from "@yonder/ui-shell";
-import { CircleCheck, CircleX, Clock3, Ellipsis, ListChecks } from "lucide-react";
+import { CircleCheck, CircleX, Clock3, Ellipsis } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ItemMeetingCard } from "./item-meeting-card.tsx";
 import { ItemSessionTitle } from "./item-session-title.tsx";
@@ -11,6 +11,7 @@ import { itemActions, itemFailure, itemGroup, itemTimeLabel, itemTrailingKey, lo
 import { MessageContent } from "./message-content.tsx";
 import { ConversationPage } from "./messages-page.tsx";
 import { OutwardRequestCard } from "./outward-request-card.tsx";
+import { TaskOutputFiles } from "./task-detail.tsx";
 
 export function ItemDetailPage({
 	itemId,
@@ -35,7 +36,7 @@ export function ItemDetailPage({
 			<PageFrame title={t("tasks.itemHeading")}>
 				{query.isError ? (
 					<EmptyState
-						icon={<ListChecks size={24} strokeWidth={1.6} />}
+						icon={<TaskGlyph size={24} />}
 						title={
 							query.error instanceof ApiError && query.error.code === "not_found"
 								? t("tasks.itemNotFound")
@@ -81,8 +82,9 @@ export function ItemDetailPage({
 	const actionError = actions.cancel.isError ? "tasks.itemCancelFailed" : null;
 	const reason = actions.cancel.error;
 	const hasSeed =
-		item.source !== "conversation" &&
-		(item.source === "meeting" || item.instruction || item.outwardRequest || item.failureReason || item.result);
+		Boolean(item.files?.length) ||
+		(item.source !== "conversation" &&
+			(item.source === "meeting" || item.instruction || item.outwardRequest || item.failureReason || item.result));
 	const conversationFailure = item.source === "conversation" && item.state === "failed" && item.failureReason;
 	const intro =
 		hasSeed || actionError || conversationFailure ? (
@@ -113,7 +115,7 @@ export function ItemDetailPage({
 				{intro}
 				{session.isError ? (
 					<EmptyState
-						icon={<ListChecks size={24} strokeWidth={1.6} />}
+						icon={<TaskGlyph size={24} />}
 						title={t("app.loadFailed")}
 						action={
 							<Button variant="secondary" onClick={() => void session.refetch()}>
@@ -195,7 +197,7 @@ function ItemIntroduction({
 		<>
 			{item.source === "meeting" ? (
 				<ItemMeetingCard id={item.id} title={item.title} />
-			) : item.instruction ? (
+			) : item.source !== "conversation" && item.instruction ? (
 				<MessageRun as="div" self>
 					<div className="flex justify-end">
 						<MessageBubble as="div" self>
@@ -215,8 +217,8 @@ function ItemIntroduction({
 					}
 				/>
 			) : null}
-			{item.failureReason ? <ItemFailureNotice reason={item.failureReason} /> : null}
-			{item.source !== "meeting" && item.result ? (
+			{item.source !== "conversation" && item.failureReason ? <ItemFailureNotice reason={item.failureReason} /> : null}
+			{item.source !== "meeting" && item.source !== "conversation" && item.result ? (
 				<MessageRun as="div" self={false}>
 					<div className="flex justify-start">
 						<MessageBubble as="div" self={false}>
@@ -225,6 +227,7 @@ function ItemIntroduction({
 					</div>
 				</MessageRun>
 			) : null}
+			{item.files?.length ? <TaskOutputFiles paths={item.files} /> : null}
 		</>
 	);
 }

@@ -21,6 +21,7 @@ import { Splash } from "../pages/splash.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { preloadFrameView } from "./lazy-tabs.ts";
 import { MemberCardRoute, preloadMemberCard } from "./member-card-route.tsx";
+import { NowProvider } from "./now-items.tsx";
 import { TrayMainActions } from "./tray/main-actions.tsx";
 import { warmableImport } from "./warmable-import.ts";
 
@@ -63,6 +64,7 @@ const AppFrame = lazy(() => {
 });
 
 const ComponentsPage = import.meta.env.DEV ? lazy(() => import("../dev/components-page.tsx")) : null;
+const TimelinePreviewPage = import.meta.env.DEV ? lazy(() => import("../dev/timeline-preview.tsx")) : null;
 const DeveloperPanel = import.meta.env.DEV ? lazy(() => import("../dev/panel/index.tsx")) : null;
 
 const router = createBrowserRouter([{ path: "*", element: <AppRoutes /> }]);
@@ -93,6 +95,16 @@ export function AppRoutes() {
 										}
 									/>
 								)}
+								{TimelinePreviewPage && (
+									<Route
+										path="/dev/timeline-preview"
+										element={
+											<Suspense fallback={null}>
+												<TimelinePreviewPage />
+											</Suspense>
+										}
+									/>
+								)}
 								{publicRoutes.map(({ path, element }) => (
 									// Sign-in restores a session before it draws its form (main's session recovery).
 									<Route key={path} path={path} element={path === "/sign-in" ? <SignInRoute /> : element} />
@@ -118,7 +130,14 @@ export function AppRoutes() {
 												{/* The old chat path, from links written before the frame changed. */}
 												<Route path="/chat/*" element={<Navigate to="/messages/main" replace />} />
 												{/* The frame reads the URL itself: tab, then what is open inside it. */}
-												<Route path="*" element={<AppFrame />} />
+												<Route
+													path="*"
+													element={
+														<NowProvider>
+															<AppFrame />
+														</NowProvider>
+													}
+												/>
 											</Routes>
 										</RequireSession>
 									}

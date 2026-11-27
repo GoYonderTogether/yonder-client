@@ -1,11 +1,11 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn } from "../cn.ts";
 import { Spinner } from "../feedback/loading.tsx";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "link";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "destructive" | "link";
 export type ButtonSize = "sm" | "md" | "lg";
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends ComponentPropsWithRef<"button"> {
 	variant?: ButtonVariant;
 	size?: ButtonSize;
 	/** Shows a spinner and blocks input; the width does not change. */
@@ -26,6 +26,9 @@ const VARIANTS: Record<ButtonVariant, string> = {
 	ghost: "bg-transparent text-[var(--color-text-primary)] enabled:hover:bg-[var(--color-bg-hover)]",
 	danger:
 		"bg-[var(--color-danger-subtle)] text-[var(--color-danger)] enabled:hover:bg-[var(--color-danger)] enabled:hover:text-[var(--color-danger-inverse)]",
+	/* The button that commits an irreversible action inside a confirmation: solid, so it reads as the weighty choice. */
+	destructive:
+		"bg-[var(--color-danger)] text-[var(--color-danger-inverse)] enabled:hover:brightness-90 enabled:active:brightness-90",
 	link: "bg-transparent text-[var(--color-accent-text)] enabled:hover:text-[var(--color-accent-hover)] enabled:hover:underline",
 };
 

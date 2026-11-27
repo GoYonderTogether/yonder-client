@@ -62,8 +62,10 @@ impl Profile {
     }
 
     fn ready(self) -> Ready {
+        // The default wire is named explicitly: a reader must not have to guess which of the four
+        // a profile means, and the OpenAI chat name is no longer the default spelling.
         Ready {
-            protocol: (self.protocol == http::Protocol::Anthropic).then_some(self.protocol),
+            protocol: Some(self.protocol),
             endpoint_id: self.endpoint_id, revision: self.revision, label: self.label,
         }
     }
@@ -106,10 +108,12 @@ fn scope(active: &Active, context: &Context) -> Result<(), Error> {
 }
 
 fn path(app: &AppHandle, protocol: http::Protocol) -> Result<PathBuf, Error> {
-    // An older desktop binary must not mistake an Anthropic profile for OpenAI.
+    // One file per wire: an older desktop binary must not mistake another wire's profile for its own.
     let file = match protocol {
-        http::Protocol::Openai => "device-model-endpoints-v1.json",
-        http::Protocol::Anthropic => "device-model-anthropic-endpoints-v1.json",
+        http::Protocol::OpenaiChat => "device-model-endpoints-v1.json",
+        http::Protocol::OpenaiResponses => "device-model-openai-responses-endpoints-v1.json",
+        http::Protocol::AnthropicMessages => "device-model-anthropic-endpoints-v1.json",
+        http::Protocol::GeminiNative => "device-model-gemini-endpoints-v1.json",
     };
     app.path().app_local_data_dir().map(|base| base.join(file)).map_err(|_| "endpoint_unavailable")
 }
@@ -129,8 +133,15 @@ fn read_profiles(app: &AppHandle, protocol: http::Protocol) -> Result<Vec<Profil
 }
 
 fn profiles(app: &AppHandle) -> Result<Vec<Profile>, Error> {
-    let mut entries = read_profiles(app, http::Protocol::Openai)?;
-    entries.extend(read_profiles(app, http::Protocol::Anthropic)?);
+    let mut entries = Vec::new();
+    for protocol in [
+        http::Protocol::OpenaiChat,
+        http::Protocol::OpenaiResponses,
+        http::Protocol::AnthropicMessages,
+        http::Protocol::GeminiNative,
+    ] {
+        entries.extend(read_profiles(app, protocol)?);
+    }
     Ok(entries)
 }
 
@@ -373,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    fn old_profiles_and_requests_are_openai_and_protocol_cannot_override_the_profile() {
+    fn a_profile_without_a_protocol_is_openai_chat_and_protocol_cannot_override_the_profile() {
         let profile: Profile = serde_json::from_value(serde_json::json!({
             "ownerId":"owner-a","deviceId":"device-a","endpointId":"abcdefab-0123-4456-8abc-012345abcdef",
             "revision":1,"label":"test","baseUrl":"http://127.0.0.1:8788/v1/"
@@ -383,8 +394,12 @@ mod tests {
             "requestId":"test","endpointId":&profile.endpoint_id,"revision":1,"expiresAtMs":10,"operation":"discover"
         })).unwrap();
         assert!(profile.matches_request(&context, &request));
-        request.protocol = http::Protocol::Anthropic;
+        request.protocol = http::Protocol::AnthropicMessages;
         assert!(!profile.matches_request(&context, &request));
-        assert!(serde_json::to_value(profile.ready()).unwrap().get("protocol").is_none());
+        // The wire is always named, so no reader has to infer it from a missing field.
+        assert_eq!(
+            serde_json::to_value(profile.ready()).unwrap().get("protocol").and_then(|value| value.as_str()),
+            Some("openai-chat")
+        );
     }
 }

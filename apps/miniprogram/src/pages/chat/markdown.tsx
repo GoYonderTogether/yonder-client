@@ -1,14 +1,52 @@
 import { Button as NativeButton, ScrollView, Text, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
-import { isHttpLink } from "@yonder/chat-model";
-import { type ChatTextHost, parseMessage, StreamingText } from "@yonder/chat-presentation";
+import {
+	type DeviceFileReference,
+	deviceFileName,
+	isHttpLink,
+	linkedDeviceFileReference,
+	plainDeviceFileReference,
+	quotedDeviceFiles,
+} from "@yonder/chat-model";
+import { type ChatTextHost, mapMessageText, parseMessage, StreamingText } from "@yonder/chat-presentation";
 import { type MarkdownToJSX, RuleType } from "markdown-to-jsx";
-import { Fragment, useMemo } from "react";
+import { createContext, Fragment, type ReactNode, useContext, useMemo } from "react";
+import { openDeviceFile } from "../../lib/device-file-navigation";
 import { t } from "../../lib/i18n";
 
 type Node = MarkdownToJSX.ASTNode;
 const nodeKey = (node: Node, position: number) => `${node.type}:${position}`;
 const positionKey = (kind: string, position: number) => `${kind}:${position}`;
+const DeviceFiles = createContext(false);
+
+function FileLink({ reference, children }: { reference: DeviceFileReference; children?: ReactNode }) {
+	return (
+		<Text className="message-content-link" ariaRole="button" onClick={() => openDeviceFile(reference)}>
+			{children ?? deviceFileName(reference.path)}
+		</Text>
+	);
+}
+
+function QuotedPaths({ value }: { value: string }) {
+	const links = quotedDeviceFiles(value);
+	if (!links.length)
+		return (
+			<Text selectable userSelect>
+				{value}
+			</Text>
+		);
+	return (
+		<Text>
+			{links.map(({ index, reference }, position) => (
+				<Fragment key={index}>
+					{value.slice(position ? links[position - 1].index + links[position - 1].length : 0, index)}
+					<FileLink reference={reference} />
+				</Fragment>
+			))}
+			{value.slice(links[links.length - 1].index + links[links.length - 1].length)}
+		</Text>
+	);
+}
 
 function Nodes({ nodes, streaming = false }: { nodes: Node[]; streaming?: boolean }) {
 	return (
@@ -23,10 +61,13 @@ function Nodes({ nodes, streaming = false }: { nodes: Node[]; streaming?: boolea
 }
 
 function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
+	const deviceFiles = useContext(DeviceFiles) && !streaming;
 	switch (node.type) {
 		case RuleType.text:
 			return streaming ? (
 				<StreamingText as={Text as unknown as ChatTextHost} text={node.text} />
+			) : deviceFiles ? (
+				<QuotedPaths value={node.text} />
 			) : (
 				<Text selectable userSelect>
 					{node.text}
@@ -50,12 +91,16 @@ function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
 					<Nodes nodes={node.children} streaming={streaming} />
 				</Text>
 			);
-		case RuleType.codeInline:
-			return (
+		case RuleType.codeInline: {
+			const reference = deviceFiles && plainDeviceFileReference(node.text);
+			return reference ? (
+				<FileLink reference={reference} />
+			) : (
 				<Text selectable userSelect className="message-content-inline-code">
 					{node.text}
 				</Text>
 			);
+		}
 		case RuleType.codeBlock:
 			return (
 				<View className="message-code-block message-content-block">
@@ -85,12 +130,19 @@ function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
 			return <View className="message-content-rule message-content-block" />;
 		case RuleType.link: {
 			const target = node.target ?? "";
+			const reference = deviceFiles && linkedDeviceFileReference(target);
+			const label = (
+				<DeviceFiles.Provider value={false}>
+					<Nodes nodes={node.children} streaming={streaming} />
+				</DeviceFiles.Provider>
+			);
+			if (reference) return <FileLink reference={reference}>{label}</FileLink>;
 			return isHttpLink(target) ? (
 				<Text className="message-content-link" onClick={() => void Taro.setClipboardData({ data: target })}>
-					<Nodes nodes={node.children} streaming={streaming} />
+					{label}
 				</Text>
 			) : (
-				<Nodes nodes={node.children} streaming={streaming} />
+				label
 			);
 		}
 		case RuleType.image:
@@ -146,11 +198,28 @@ function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
 	}
 }
 
-export function MessageBody({ body, streaming = false }: { body: string; streaming?: boolean }) {
-	const nodes = useMemo(() => parseMessage(body) as Node[], [body]);
+export function MessageBody({
+	body,
+	streaming = false,
+	allowDeviceFiles = false,
+}: {
+	body: string;
+	streaming?: boolean;
+	allowDeviceFiles?: boolean;
+}) {
+	const nodes = useMemo(() => {
+		const parsed = parseMessage(body);
+		return allowDeviceFiles && !streaming
+			? mapMessageText(parsed, (text, inlineCode) => [
+					inlineCode ? { type: RuleType.codeInline, text } : { type: RuleType.text, text },
+				])
+			: parsed;
+	}, [allowDeviceFiles, body, streaming]);
 	return (
 		<View className="message-content">
-			<Nodes nodes={nodes} streaming={streaming} />
+			<DeviceFiles.Provider value={allowDeviceFiles}>
+				<Nodes nodes={nodes} streaming={streaming} />
+			</DeviceFiles.Provider>
 		</View>
 	);
 }

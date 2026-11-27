@@ -1,9 +1,9 @@
-import { ChannelDirectory, ChannelSettings, FeishuExternalConversations, isMessageChannel } from "@yonder/feature-me";
+import { ChannelDirectory, ChannelSettings, FeishuExternalConversations } from "@yonder/feature-me";
 import { BotForm, BotModelPage, BotSettingsOverview } from "@yonder/feature-members";
 import type { Member } from "@yonder/protocol";
 import { ListGroup, ListRow } from "@yonder/ui-components";
 import { ApiError, useBot, useContacts, useResetBotConversation } from "@yonder/ui-data";
-import { ConfirmDialog, useSidePanel } from "@yonder/ui-shell";
+import { ConfirmDialog } from "@yonder/ui-shell";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppNotice } from "./app-notice.tsx";
@@ -22,12 +22,6 @@ export const CHAT_BOT_PAGE_TITLE = {
 
 export type ChatBotPage = keyof typeof CHAT_BOT_PAGE_TITLE;
 
-export function chatBotPageStack(page: ChatBotPage | undefined): ChatBotPage[] {
-	if (page === "external") return ["channels", "feishu", "external"];
-	if (isMessageChannel(page)) return ["channels", page];
-	return page ? [page] : [];
-}
-
 export function ChatBotSettings({
 	bot,
 	conversationId,
@@ -38,28 +32,17 @@ export function ChatBotSettings({
 	bot: Member;
 	conversationId?: string | undefined;
 	onDeleted: (chatId: string | undefined) => void;
-	onOpenPage?: (page: ChatBotPage) => void;
+	onOpenPage: (page: ChatBotPage) => void;
 	preferences?: ReactNode;
 }) {
-	const { t } = useTranslation();
-	const side = useSidePanel();
-	function open(page: ChatBotPage) {
-		if (onOpenPage) return onOpenPage(page);
-		const key = `bot-settings:${bot.id}:${page}`;
-		side.push({
-			key,
-			title: t(CHAT_BOT_PAGE_TITLE[page]),
-			content: <ChatBotSettingsChild bot={bot} page={page} back={() => side.back(key)} onOpenPage={open} />,
-		});
-	}
 	return (
 		<ChatSettingsBody>
 			<BotSettingsOverview
 				bot={bot}
-				onEdit={() => open("profile")}
-				onPersona={() => open("persona")}
-				onModel={() => open("model")}
-				onChannels={() => open("channels")}
+				onEdit={() => onOpenPage("profile")}
+				onPersona={() => onOpenPage("persona")}
+				onModel={() => onOpenPage("model")}
+				onChannels={() => onOpenPage("channels")}
 				onDeleted={onDeleted}
 			>
 				{preferences}
@@ -129,7 +112,6 @@ function BotConversationActions({ conversationId }: { conversationId: string }) 
 					confirmLabel={t("bots.clearHistory")}
 					cancelLabel={t("app.cancel")}
 					closeLabel={t("app.close")}
-					backLabel={t("app.back")}
 					busy={reset.isPending}
 					error={reset.isError ? failure : null}
 					onCancel={() => {

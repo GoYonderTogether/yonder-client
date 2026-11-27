@@ -1,0 +1,194 @@
+/* Preview only: a dev route, not shipped. Days are sections, what mattered is a card, small things are one grey line. */
+
+.tl {
+	min-height: 100dvh;
+	padding: var(--spacing-8) var(--spacing-5) calc(var(--spacing-16) * 2);
+	background: var(--color-bg-base);
+	color: var(--color-text-primary);
+	font-family: var(--font-sans);
+}
+.tl-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	max-width: 720px;
+	margin: 0 auto var(--spacing-6);
+	/* The dev panel's floating button sits at the top right; keep the switch clear of it. */
+	padding-right: calc(var(--spacing-12) + var(--spacing-2));
+}
+.tl-top h1 {
+	margin: 0;
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	font-weight: var(--font-weight-medium);
+	letter-spacing: 0.08em;
+	color: var(--color-text-tertiary);
+}
+.tl-stage {
+	max-width: 720px;
+	margin: 0 auto;
+}
+
+/* A day: its header sticks to the top so the day you are in is never in doubt. */
+.tl-day {
+	padding-bottom: var(--spacing-12);
+}
+.tl-day-head {
+	position: sticky;
+	top: 0;
+	z-index: 3;
+	display: flex;
+	align-items: baseline;
+	gap: var(--spacing-3);
+	padding: var(--spacing-3) 0;
+	border-bottom: 1px solid var(--color-border-default);
+	background: var(--color-bg-base);
+}
+.tl-day-head strong {
+	font-size: var(--text-display);
+	line-height: 1;
+	font-weight: var(--font-weight-bold);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.03em;
+}
+.tl-day-head span {
+	font-size: var(--text-caption);
+	color: var(--color-text-tertiary);
+}
+/* The narrator's line for the day, in a serif voice set apart from the records. */
+.tl-narration {
+	max-width: 52ch;
+	margin: var(--spacing-5) 0 var(--spacing-6);
+	font-family: "Songti SC", "Noto Serif SC", "Source Han Serif SC", serif;
+	font-size: var(--text-h3);
+	line-height: 1.75;
+	color: var(--color-text-secondary);
+	text-wrap: pretty;
+}
+.tl-blocks {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-4);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* A card: the part of the day as a chip, one large headline, then what happened inside it. */
+.tl-card {
+	position: relative;
+	overflow: hidden;
+	padding: var(--spacing-5);
+	border: 1px solid var(--color-border-default);
+	border-radius: var(--radius-card);
+	background: var(--color-bg-card);
+	box-shadow: var(--shadow-sm);
+}
+.tl-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 10px 2px 8px;
+	border-radius: var(--radius-full);
+	background: var(--color-accent-subtle);
+	color: var(--color-accent-text);
+	font-size: var(--text-caption);
+	line-height: var(--text-caption--line-height);
+	font-weight: var(--font-weight-medium);
+}
+.tl-card-title {
+	margin: var(--spacing-3) 0 var(--spacing-4);
+	font-size: var(--text-h1);
+	line-height: 1.4;
+	font-weight: var(--font-weight-bold);
+	letter-spacing: -0.01em;
+	text-wrap: pretty;
+}
+.tl-steps {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-4);
+	margin: 0;
+	padding: var(--spacing-4) 0 0;
+	border-top: 1px solid var(--color-border-default);
+	list-style: none;
+}
+.tl-step {
+	display: grid;
+	grid-template-columns: 3.4em minmax(0, 1fr);
+	gap: var(--spacing-3);
+}
+.tl-time {
+	padding-top: 3px;
+	font-size: var(--text-micro);
+	line-height: 1.6;
+	font-variant-numeric: tabular-nums;
+	color: var(--color-text-tertiary);
+}
+.tl-step-body {
+	min-width: 0;
+}
+.tl-step-text {
+	display: flex;
+	align-items: baseline;
+	gap: var(--spacing-2);
+	margin: 0;
+	font-size: var(--text-body);
+	line-height: 1.68;
+	text-wrap: pretty;
+}
+.tl-step-text svg {
+	flex: none;
+	translate: 0 2px;
+	color: var(--color-text-tertiary);
+}
+.tl-step-detail {
+	margin: 2px 0 0;
+	max-width: 58ch;
+	font-size: var(--text-caption);
+	line-height: 1.7;
+	color: var(--color-text-secondary);
+	text-wrap: pretty;
+}
+
+/* Small things: no card, no weight. Smaller, greyer, tucked in a dotted rail, so they read as small. */
+.tl-quiet ul {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-1);
+	margin: 0 0 0 var(--spacing-4);
+	padding: 0 0 0 var(--spacing-4);
+	border-left: 2px dotted var(--color-border-strong);
+	list-style: none;
+}
+.tl-quiet li {
+	display: flex;
+	gap: var(--spacing-3);
+	font-size: var(--text-caption);
+	line-height: 1.7;
+	color: var(--color-text-tertiary);
+}
+.tl-quiet time {
+	flex: none;
+	width: 3.4em;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Where the owner is now. */
+.tl-now {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2);
+	margin: 0;
+	font-size: var(--text-caption);
+	font-weight: var(--font-weight-medium);
+	color: var(--color-accent-text);
+}
+.tl-now::before {
+	width: 12px;
+	height: 12px;
+	border-radius: var(--radius-full);
+	background: var(--color-accent);
+	box-shadow: 0 0 0 4px var(--color-accent-subtle);
+	content: "";
+}

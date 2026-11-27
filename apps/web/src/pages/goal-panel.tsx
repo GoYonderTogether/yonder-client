@@ -117,12 +117,11 @@ export function GoalPanel({ goalId }: { goalId: string }) {
 			) : null}
 			<ConfirmDialog
 				open={deleting}
-				title={t("tasks.delete")}
-				body={goal.title}
+				title={t("tasks.deleteTitle", { title: goal.title })}
+				body={t("tasks.deleteIrreversible")}
 				confirmLabel={t("tasks.delete")}
 				cancelLabel={t("app.cancel")}
 				closeLabel={t("app.close")}
-				backLabel={t("app.back")}
 				busy={remove.isPending}
 				onCancel={() => setDeleting(false)}
 				onConfirm={() => {

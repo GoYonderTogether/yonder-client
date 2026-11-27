@@ -3,7 +3,6 @@ import type { AgentCard } from "@yonder/protocol";
 /** What a card with choices shows, ready for the option card; null for a kind this client does not draw. */
 export interface ChoiceCardView {
 	question: string;
-	summary: string | undefined;
 	/** Markdown the server wants shown before the options, such as the exact things a card will delete. */
 	preview: string | undefined;
 	result: string | undefined;
@@ -22,7 +21,6 @@ export function choiceCardView(card: AgentCard, canAct: boolean): ChoiceCardView
 	return {
 		question: card.title,
 		// What is about to happen reads while it can still be chosen; afterwards only what became of it.
-		summary: open ? card.summary : undefined,
 		preview: card.preview?.kind === "markdown" ? card.preview.text : undefined,
 		result: card.result,
 		options: choices.options.map(({ label }) => label),

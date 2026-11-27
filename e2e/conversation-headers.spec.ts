@@ -131,7 +131,7 @@ for (const viewport of ["desktop", "phone"] as const) {
 			}
 			await expect(detail.getByRole("log")).toBeVisible();
 			await page.screenshot({ path: info.outputPath(`${viewport}-secondary-bot.png`), animations: "disabled" });
-			const panel = page.getByRole("dialog", { name: secondaryBot.displayName, exact: true });
+			const panel = page.getByRole(phone ? "dialog" : "tabpanel", { name: secondaryBot.displayName, exact: true });
 			if (!phone) {
 				await more.click();
 				await expect(panel.getByText(`@${secondaryBot.handle}`, { exact: true })).toBeVisible();

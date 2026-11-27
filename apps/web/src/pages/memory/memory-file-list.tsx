@@ -1,7 +1,6 @@
 import type { MemoryFileSummary } from "@yonder/protocol";
-import { EmptyState, ListGroup, ListRow } from "@yonder/ui-components";
+import { EmptyState, FolderGlyph, ListGroup, ListRow } from "@yonder/ui-components";
 import { useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
-import { Folder } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMinute } from "./memory-format.ts";
 import { MemoryError, MemoryLoading } from "./memory-status.tsx";
@@ -85,7 +84,7 @@ export function MemoryFileList({
 	group: string;
 	directory?: string | undefined;
 	current: string | null;
-	onOpen: (path: string) => void;
+	onOpen: (path: string, title?: string) => void;
 	onFolder: (path: string) => void;
 }) {
 	const { t, i18n } = useTranslation();
@@ -107,7 +106,7 @@ export function MemoryFileList({
 			: groupFiles(matches, t)
 		: [];
 	if (!directoryPrefix || !groups.length || (group === "archived" && !matches.length))
-		return <EmptyState icon={<Folder size={24} strokeWidth={1.6} />} title={t("memory.noFiles")} />;
+		return <EmptyState icon={<FolderGlyph size={24} />} title={t("memory.noFiles")} />;
 	return (
 		<div className="flex flex-col gap-[var(--spacing-5)] py-[var(--spacing-2)]">
 			{groups.map((sub) => {
@@ -136,7 +135,7 @@ export function MemoryFileList({
 											? archivedFolderName(folder, folderName)
 											: folderName(`${prefix}${directory ? `${directory}/` : ""}${folder}`) || folder
 								}
-								leading={<Folder size={18} aria-hidden />}
+								leading={<FolderGlyph size={20} aria-hidden />}
 								chevron
 								onClick={() => onFolder(directory ? `${directory}/${folder}` : folder)}
 							/>
@@ -153,7 +152,7 @@ export function MemoryFileList({
 									</span>
 								}
 								selected={file.path === current}
-								onClick={() => onOpen(file.path)}
+								onClick={() => onOpen(file.path, file.title)}
 							/>
 						))}
 					</ListGroup>

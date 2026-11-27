@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import type { FriendRequest } from "@yonder/protocol";
 import { conversation, isolateChat, message, person } from "./chat-fixture.ts";
 
@@ -74,16 +74,26 @@ for (const mobile of [false, true]) {
 	});
 }
 
-test("desktop Contacts keeps its selected tab across widths and navigation", async ({ page }) => {
-	await page.setViewportSize({ width: 1440, height: 900 });
+async function isolateContact(page: Page, earlierRows = 0) {
 	await isolateChat(page);
 	const contact = { ...person, id: "contact-alice", handle: "alice", displayName: "林晓" };
-	await page.route("**/v1/contacts", (route) => route.fulfill({ json: { items: [contact] } }));
+	const neighbours = Array.from({ length: earlierRows }, (_, index) => ({
+		...person,
+		id: `contact-${index}`,
+		handle: `contact${index}`,
+		displayName: `联系人 ${index + 1}`,
+	}));
+	await page.route("**/v1/contacts", (route) => route.fulfill({ json: { items: [...neighbours, contact] } }));
 	await page.route("**/v1/members/alice", (route) =>
 		route.fulfill({
 			json: { card: { ...contact, owner: null }, relation: "contact", memberId: contact.id, conversationId: null },
 		}),
 	);
+}
+
+test("desktop Contacts keeps its selected tab across widths and navigation", async ({ page }, info) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await isolateContact(page);
 	await page.goto("/tasks");
 
 	const rail = page.getByRole("navigation", { name: "主导航" });
@@ -104,15 +114,54 @@ test("desktop Contacts keeps its selected tab across widths and navigation", asy
 		await expect(row).toBeVisible();
 		await expect(page.getByRole("dialog", { name: "联系人", exact: true })).toHaveCount(0);
 	}
+	await page.setViewportSize({ width: 1440, height: 900 });
 	await row.click();
-	await expect(page).toHaveURL(/\/@alice$/);
-	await expect(page.getByText("林晓", { exact: true })).toBeVisible();
-	await page.getByRole("button", { name: "返回", exact: true }).click();
+	const pane = page.locator("[data-detail-pane]");
+	await expect(pane.getByRole("tab", { name: "林晓" })).toBeVisible();
+	await expect(pane.getByRole("heading", { name: "林晓" })).toBeVisible();
 	await expect(page).toHaveURL(/\/contacts$/);
+	await page.screenshot({ path: info.outputPath("desktop-contact-detail.png"), animations: "disabled" });
+	await pane.getByRole("button", { name: "关闭全部", exact: true }).click();
 	await expect(contacts).toHaveAttribute("aria-current", "page");
 	await page.reload();
 	await expect(row).toBeVisible();
 	await page.goBack();
 	await expect(page).toHaveURL(/\/tasks$/);
 	await expect(rail.getByRole("button", { name: "任务", exact: true })).toHaveAttribute("aria-current", "page");
+	await page.goto("/@alice");
+	await expect(page.getByRole("heading", { name: "林晓" })).toBeVisible();
+	await expect(pane).toHaveCount(0);
+});
+
+test.describe("phone contact details", () => {
+	test.use({
+		viewport: { width: 390, height: 844 },
+		userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile Safari",
+		isMobile: true,
+		hasTouch: true,
+	});
+	test("opens a contact from messages in a single full-screen detail", async ({ page }, info) => {
+		await isolateContact(page, 20);
+		await page.goto("/messages");
+		await page.getByRole("button", { name: "发起聊天", exact: true }).click();
+		await page.getByRole("menuitem", { name: "联系人", exact: true }).click();
+		const list = page.getByRole("dialog", { name: "联系人", exact: true });
+		const contact = list.getByRole("button", { name: /林晓/ });
+		const scrollTop = () => list.locator("[data-overlay-body]").evaluate((body) => body.scrollTop);
+		await contact.scrollIntoViewIfNeeded();
+		const before = await scrollTop();
+		expect(before).toBeGreaterThan(0);
+		await contact.click();
+		const pane = page.locator('[data-page-layer="side"]');
+		await expect(pane.getByRole("heading", { name: "林晓" })).toBeVisible();
+		await expect(pane.getByRole("tab")).toHaveCount(0);
+		await expect(page).toHaveURL(/\/messages$/);
+		await page.screenshot({ path: info.outputPath("phone-contact-detail.png"), animations: "disabled" });
+		await pane.getByRole("button", { name: "返回", exact: true }).click();
+		await expect(pane).toBeHidden();
+		await expect(contact).toBeVisible();
+		await expect(contact).toBeFocused();
+		await expect.poll(scrollTop).toBe(before);
+		await expect(page).toHaveURL(/\/messages$/);
+	});
 });

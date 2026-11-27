@@ -1,20 +1,11 @@
+import { RecordingGlyph } from "@yonder/ui-components";
 import type { LucideProps } from "lucide-react";
 
-export function RecordingNoteIcon({ size = 20, className, ...props }: LucideProps) {
+/** The recording-note entry: five bars of a recording in the accent colour, lighter ones behind. */
+export function RecordingNoteIcon({ size = 20, className }: LucideProps) {
 	return (
-		<svg
-			{...props}
-			aria-hidden="true"
-			width={size}
-			height={size}
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="var(--color-accent)"
-			strokeWidth={1.4}
-			strokeLinecap="round"
-			className={className}
-		>
-			<path d="M4 10v4 M7.2 6.5v11 M10.4 2.5v19 M13.6 7.5v9 M16.8 4.5v15 M20 9v6" />
-		</svg>
+		<span className={className} style={{ display: "inline-flex" }}>
+			<RecordingGlyph size={Number(size)} />
+		</span>
 	);
 }

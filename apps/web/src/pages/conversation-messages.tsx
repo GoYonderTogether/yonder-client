@@ -45,6 +45,7 @@ interface MessageProps {
 	onChooseOption?: ((body: string, cardId: string) => void) | undefined;
 	optionReply?: CachedMessage | undefined;
 	personId?: string | undefined;
+	deviceFiles?: boolean;
 }
 
 /** Sender identity belongs to a consecutive run, shared by text and attachment messages. */
@@ -72,6 +73,15 @@ export function ConversationMessages({
 	const { t, i18n } = useTranslation();
 	const locale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
 	const visitRole = conversation.visit?.role;
+	const deviceFiles = Boolean(
+		person &&
+			!conversation.visit &&
+			conversation.kind !== "system" &&
+			conversation.members.some((member) => member.kind === "bot") &&
+			conversation.members.every(
+				(member) => member.memberId === person.id || ownedBotFor(member.memberId, person.id, bot, contacts),
+			),
+	);
 	const showAvatars = !isTwoPartyAgentChat(conversation, person?.id);
 	const optionCards = optionCardState(items, person?.id);
 	const delivered = new Set(items.filter((item) => item.outwardRequest?.result).map((item) => item.replyToId));
@@ -174,6 +184,7 @@ export function ConversationMessages({
 					self={self}
 					{...actions}
 					personId={person?.id}
+					deviceFiles={deviceFiles}
 					onChooseOption={message.id === optionCards.openId ? actions.onChooseOption : undefined}
 					optionReply={optionCards.replies.get(message.id)}
 				/>
@@ -287,6 +298,7 @@ function MessageEntry({
 	onChooseOption,
 	optionReply,
 	personId,
+	deviceFiles,
 }: MessageProps) {
 	const { t } = useTranslation();
 	const { attachments, images } = optionCardAttachments(message);
@@ -342,11 +354,15 @@ function MessageEntry({
 						message.questionReply ? (
 							<span className="whitespace-pre-wrap break-words">{message.body}</span>
 						) : (
-							<MessageContent body={message.body} streaming={message.streaming} />
+							<MessageContent
+								body={message.body}
+								streaming={message.streaming}
+								{...(deviceFiles ? { deviceFiles } : {})}
+							/>
 						)
 					) : (
 						<span role="status" className="text-caption text-[var(--color-text-secondary)]">
-							{t(disconnected ? "chat.reconnectingReply" : "chat.streaming")}
+							{t("chat.streaming")}
 						</span>
 					)}
 				</MessageBubble>

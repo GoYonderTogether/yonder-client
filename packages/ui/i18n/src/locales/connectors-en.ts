@@ -98,6 +98,11 @@ export const connectorMessagesEn = {
 		scope:
 			"Your Bots can list files and read text files inside the folder you choose. Read content is sent to the cloud for processing. They cannot modify files or access anything outside that folder.",
 	},
+	computer: {
+		name: "Computer control",
+		description: "Read and modify files on this computer.",
+		trial: "Tell me what file operations you can help with on “{{device}}” only. Do not change any files.",
+	},
 	computerControl: {
 		name: "Modify files",
 		description: "Create, edit, and remove files.",
@@ -142,4 +147,18 @@ export const connectorMessagesEn = {
 		unavailable: "Open Voice Memos on this Mac and wait for recordings to sync before trying again.",
 		unsupported: "Voice Memos on this Mac cannot be read by Yonder yet.",
 	},
+} as const;
+
+export const deviceFileMessagesEn = {
+	chooseSource: "Choose the file’s source device",
+	noSource: "No authorized device can read this path",
+	checking: "Checking for file updates",
+	offline: "Source device offline",
+	offlineCopy: "Source device offline · Last viewed version",
+	updateSource: "Update Yonder on the source device",
+	unavailable: "The file is gone or access was removed",
+	readFailed: "Unable to read the file",
+	verifyFailed: "File verification failed",
+	emptyDirectory: "This folder is empty",
+	partialDirectory: "Showing some items",
 } as const;

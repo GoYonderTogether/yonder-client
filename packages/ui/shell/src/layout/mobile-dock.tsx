@@ -51,7 +51,7 @@ export function MobileDock({
 		<div
 			data-mobile-dock
 			ref={ref}
-			className="relative z-20 shrink-0 material material-regular material-bar"
+			className="relative z-20 shrink-0 bg-[var(--color-bg-dock)] backdrop-blur-xl backdrop-saturate-150"
 			style={{ paddingBottom: "var(--dock-bottom-inset, var(--safe-area-bottom, env(safe-area-inset-bottom)))" }}
 		>
 			{composer ? (

@@ -30,12 +30,11 @@ export function ItemActionDialog({
 		return (
 			<ConfirmDialog
 				open
-				title={t("tasks.delete")}
-				body={t(upcoming ? "tasks.upcomingDeleteConfirm" : "tasks.itemDeleteConfirm", { title: initialTitle })}
+				title={t("tasks.deleteTitle", { title: initialTitle })}
+				body={t(upcoming ? "tasks.upcomingDeleteConfirm" : "tasks.itemDeleteConfirm")}
 				confirmLabel={t("tasks.delete")}
 				cancelLabel={t("app.cancel")}
 				closeLabel={t("app.close")}
-				backLabel={t("app.back")}
 				busy={busy}
 				error={error}
 				onCancel={onClose}

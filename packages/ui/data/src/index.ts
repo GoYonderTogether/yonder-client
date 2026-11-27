@@ -154,6 +154,7 @@ export { useRealtimeSync } from "./realtime/use-realtime-sync.ts";
 export {
 	attachmentCacheKey,
 	chatCacheGeneration,
+	chatCacheKeys,
 	outboxCacheKey,
 	readChatCache,
 	removeChatCache,

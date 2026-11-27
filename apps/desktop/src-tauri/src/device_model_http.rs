@@ -6,12 +6,27 @@ use std::time::Duration;
 pub type Error = &'static str;
 const MAX_REQUEST: usize = 256 * 1024;
 
+/// The four wires a local endpoint can serve. They are distinct request and stream shapes, so the
+/// shell routes and parses each on its own terms rather than pretending one is another.
 #[derive(Clone, Copy, Default, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum Protocol {
     #[default]
-    Openai,
-    Anthropic,
+    OpenaiChat,
+    OpenaiResponses,
+    AnthropicMessages,
+    GeminiNative,
+}
+
+impl Protocol {
+    /// The credential header this wire expects.
+    fn key_header(self) -> &'static str {
+        match self {
+            Protocol::AnthropicMessages => "x-api-key",
+            Protocol::GeminiNative => "x-goog-api-key",
+            Protocol::OpenaiChat | Protocol::OpenaiResponses => AUTHORIZATION.as_str(),
+        }
+    }
 }
 
 pub fn local_base(source: &str) -> Result<Url, Error> {
@@ -80,21 +95,19 @@ pub fn validate_key(key: &str) -> Result<(), Error> {
 }
 
 fn authorize(mut request: RequestBuilder, protocol: Protocol, key: Option<&str>) -> Result<RequestBuilder, Error> {
-    if protocol == Protocol::Anthropic {
+    if protocol == Protocol::AnthropicMessages {
         request = request.header("anthropic-version", "2023-06-01");
     }
     let Some(key) = key else { return Ok(request); };
     validate_key(key)?;
+    // Only the OpenAI wires carry the key as a bearer token; the other two name it in their own header.
     let value = match protocol {
-        Protocol::Openai => HeaderValue::from_str(&format!("Bearer {key}")),
-        Protocol::Anthropic => HeaderValue::from_str(key),
+        Protocol::OpenaiChat | Protocol::OpenaiResponses => HeaderValue::from_str(&format!("Bearer {key}")),
+        Protocol::AnthropicMessages | Protocol::GeminiNative => HeaderValue::from_str(key),
     };
     let mut value = value.map_err(|_| "upstream_rejected")?;
     value.set_sensitive(true);
-    Ok(match protocol {
-        Protocol::Openai => request.header(AUTHORIZATION, value),
-        Protocol::Anthropic => request.header("x-api-key", value),
-    })
+    Ok(request.header(protocol.key_header(), value))
 }
 
 /// Reject directly reflected credential strings before forwarding a structured response.
@@ -215,6 +228,18 @@ fn check_anthropic_body(body: &Value) -> Result<(), Error> {
     Ok(())
 }
 
+/// A Gemini request as this shell forwards it: the node speaks Gemini's own shape, so the body is
+/// checked for the one field the route needs and the size limit, and passed through unchanged.
+fn check_gemini_body(body: &Value) -> Result<(), Error> {
+    if !body.is_object()
+        || !body.get("model").and_then(Value::as_str).is_some_and(model_id)
+        || serde_json::to_vec(body).map_err(|_| "upstream_rejected")?.len() > MAX_REQUEST
+    {
+        return Err("upstream_rejected");
+    }
+    Ok(())
+}
+
 pub async fn chat(
     base: Url,
     timeout: Duration,
@@ -223,9 +248,18 @@ pub async fn chat(
     body: Value,
     mut emit: impl FnMut(String) -> Result<(), Error>,
 ) -> Result<(), Error> {
+    // Gemini's route names the model and asks for SSE; every other wire has one fixed path.
+    let gemini_route;
     let route = match protocol {
-        Protocol::Openai => { check_openai_body(&body)?; "chat/completions" }
-        Protocol::Anthropic => { check_anthropic_body(&body)?; "messages" }
+        Protocol::OpenaiChat => { check_openai_body(&body)?; "chat/completions" }
+        Protocol::OpenaiResponses => { check_openai_body(&body)?; "responses" }
+        Protocol::AnthropicMessages => { check_anthropic_body(&body)?; "messages" }
+        Protocol::GeminiNative => {
+            check_gemini_body(&body)?;
+            let model = body.get("model").and_then(Value::as_str).ok_or("upstream_rejected")?;
+            gemini_route = format!("models/{model}:streamGenerateContent?alt=sse");
+            gemini_route.as_str()
+        }
     };
     let request = base.join(route).map_err(|_| "endpoint_unavailable")?;
     let mut res = accepted(authorize(client(timeout)?.post(request), protocol, key)?
@@ -241,8 +275,8 @@ pub async fn chat(
         return Err("invalid_response");
     }
     let mut frames = crate::device_model_sse::SseFrames::new(match protocol {
-        Protocol::Openai => Wire::OpenAi,
-        Protocol::Anthropic => Wire::Anthropic,
+        Protocol::OpenaiChat | Protocol::OpenaiResponses | Protocol::GeminiNative => Wire::OpenAi,
+        Protocol::AnthropicMessages => Wire::Anthropic,
     });
     while let Some(chunk) = res.chunk().await.map_err(request_error)? {
         if frames.push(&chunk, key, &mut emit)? {

@@ -8,6 +8,15 @@
 	color: var(--color-text-primary);
 	padding: 0;
 }
+.attachment-reader-pane {
+	display: flex;
+	height: 100%;
+	min-height: 0;
+	flex-direction: column;
+}
+.attachment-reader .attachment-reader-download {
+	justify-content: flex-end;
+}
 .attachment-reader-header {
 	display: flex;
 	flex: 0 0 auto;

@@ -121,7 +121,7 @@ export function Composer({
 	const editor = useComposerEditor(input, draft, mobilePicker, scope, holdMode, files.length);
 	const showSend = !mobilePicker || streaming || sending || (hasContent && !holdMode && !voiceSending);
 	const voiceUnavailable = disabled || readOnly || disconnected || microphoneOccupied || !onSendVoice;
-	const canSend = !disabled && !disconnected && !streaming && hasContent;
+	const canSend = !disabled && !streaming && hasContent;
 	function toggleVoiceMode() {
 		setHoldError(undefined);
 		if (holdMode) {
@@ -168,7 +168,8 @@ export function Composer({
 		editor: input,
 		sending,
 		disabled,
-		disconnected,
+		// Only the voice send is gated by the connection; a failed text send keeps its own retry.
+		disconnected: false,
 		streaming,
 		canSend,
 		hasFiles: files.length > 0,
@@ -458,7 +459,7 @@ export function Composer({
 						) : null}
 						{!mobilePicker ? (
 							<VoiceControl
-								disabled={disabled || readOnly || (microphoneOccupied && !voice.isListening)}
+								disabled={disabled || readOnly || disconnected || (microphoneOccupied && !voice.isListening)}
 								listening={voice.isListening}
 								onStart={startVoice}
 								onPause={pauseVoice}
@@ -467,9 +468,7 @@ export function Composer({
 						{showSend ? (
 							<button
 								type="button"
-								disabled={
-									iosAttachments.importing || (!sending && (streaming || disconnected || (!canSend && !voiceActive)))
-								}
+								disabled={iosAttachments.importing || (!sending && (streaming || (!canSend && !voiceActive)))}
 								onClick={sending ? onCancelSend : send}
 								aria-label={t(sending ? "chat.stopSend" : "chat.disabledSend")}
 								className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"

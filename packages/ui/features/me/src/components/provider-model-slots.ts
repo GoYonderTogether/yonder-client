@@ -1,8 +1,9 @@
 import type { ProviderModelMetadata, ProviderProtocol } from "@yonder/protocol";
+import { defaultsFor, type EffortLevel } from "./provider-model-defaults.ts";
 
 /** The levels a model slot may declare; the same list the server stores as `capabilities.efforts`. */
 export const EFFORT_LEVELS = ["off", "low", "medium", "high", "max"] as const;
-export type EffortLevel = (typeof EFFORT_LEVELS)[number];
+export type { EffortLevel };
 
 /**
  * One row of the model table. `id` is the model name the endpoint expects, `name` is what the app
@@ -26,6 +27,21 @@ export function newSlot(partial: Partial<ModelSlot> = {}): ModelSlot {
 		efforts: [],
 		...partial,
 	};
+}
+
+/**
+ * A discovered model as a row that is already filled in: its display name starts as the id, and the
+ * window and levels come from its family (see provider-model-defaults.ts), with whatever the
+ * endpoint declared taking precedence.
+ */
+export function discoveredSlot(id: string, declared: ProviderModelMetadata | undefined): ModelSlot {
+	const defaults = defaultsFor(id, declared);
+	return newSlot({
+		id,
+		name: defaults.name ?? id,
+		contextLength: defaults.contextLength ? String(defaults.contextLength) : "",
+		efforts: defaults.efforts ?? [],
+	});
 }
 
 /** Slots from a saved provider: the stored metadata carries the display name and the levels. */

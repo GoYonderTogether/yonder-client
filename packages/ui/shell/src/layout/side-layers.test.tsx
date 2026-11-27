@@ -51,44 +51,58 @@ function shell(width: number, side: SideStack | undefined, onBack = vi.fn(), des
 
 function stack(titles: string[], onBack = vi.fn(), onClose = vi.fn()): SideStack {
 	return {
-		pages: titles.map((title) => ({ key: title, title, content: <p>{title} body</p> })),
+		tabs: titles.length
+			? [
+					{
+						key: titles[0] ?? "",
+						pages: titles.map((title) => ({ key: title, title, content: <p>{title} body</p> })),
+					},
+				]
+			: [],
+		active: titles[0] ?? null,
+		expanded: titles.length > 0,
+		onActivate: vi.fn(),
+		onMove: vi.fn(),
 		onBack,
 		onClose,
-		backLabel: "Back",
-		closeLabel: "Close",
+		onCloseAll: vi.fn(),
+		onCollapse: vi.fn(),
+		labels: {
+			pane: "Details",
+			back: "Back",
+			close: "Close",
+			closeTab: (title) => `Close ${title}`,
+			closeAll: "Close all details",
+			collapse: "Collapse details",
+			expand: "Expand details",
+			resize: "Resize details",
+		},
 	};
 }
 
-test("the side panel is the top layer: Escape leaves it before the chat", () => {
-	const side = stack(["Group info"]);
-	const frameBack = vi.fn();
-	render(shell(1280, side, frameBack));
-	const panel = screen.getByRole("dialog", { name: "Group info" });
-	expect(panel).toHaveAttribute("data-page-layer", "side");
-	expect(panel).toHaveAttribute("data-page-side", "right");
-	fireEvent.keyDown(window, { key: "Escape" });
-	expect(side.onBack).toHaveBeenCalledTimes(1);
-	expect(frameBack).not.toHaveBeenCalled();
-});
-
-test.each([600, 1280])("a %ipx desktop window closes its drawer with × or a click beside it", (width) => {
+test("wide desktop shows a tabbed region beside a live chat with three distinct close actions", () => {
 	const side = stack(["Bot"]);
-	render(shell(width, side, vi.fn(), true));
-	expect(screen.getByRole("dialog", { name: "Bot" }).className).toContain("w-[var(--side-panel-width)]");
-	fireEvent.click(screen.getAllByRole("button", { name: "Close" }).at(-1) as HTMLElement);
-	expect(side.onClose).toHaveBeenCalledTimes(1);
-	fireEvent.click(document.querySelector("[data-side-scrim]") as HTMLElement);
-	expect(side.onClose).toHaveBeenCalledTimes(2);
+	render(shell(1280, side));
+	expect(screen.queryByRole("dialog")).toBeNull();
+	expect(screen.getByRole("tab", { name: "Bot" })).toHaveAttribute("aria-selected", "true");
+	expect(document.querySelector('[data-page-layer="detail"]')).not.toHaveAttribute("inert");
+	fireEvent.click(screen.getByRole("button", { name: "Close Bot" }));
+	fireEvent.click(screen.getByRole("button", { name: "Close all details" }));
+	fireEvent.click(screen.getByRole("button", { name: "Collapse details" }));
+	expect(side.onClose).toHaveBeenCalledWith("Bot");
+	expect(side.onCloseAll).toHaveBeenCalledTimes(1);
+	expect(side.onCollapse).toHaveBeenCalledTimes(1);
 });
 
-test("on a phone the panel covers the chat, and a stacked page goes back to the one under it", () => {
+test.each([390, 844])("a %ipx mobile host presents one detail with Back, independent of orientation", (width) => {
 	const side = stack(["Group info", "Card"]);
-	render(shell(390, side));
-	expect(screen.getByRole("dialog", { name: "Group info" }).className).not.toContain("side-panel-width");
+	render(shell(width, side, vi.fn(), false));
+	expect(screen.queryByRole("dialog", { name: "Group info" })).toBeNull();
 	const card = screen.getByRole("dialog", { name: "Card" });
-	expect(card).toHaveAttribute("data-page-layer", "side:Card");
+	expect(card).toHaveAttribute("data-page-layer", "side");
 	expect(card).toHaveAttribute("data-page-side", "right");
-	expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+	expect(screen.queryByRole("tab")).toBeNull();
+	expect(screen.queryByRole("button", { name: "Close all details" })).toBeNull();
 	fireEvent.click(card.querySelector("header button") as HTMLElement);
 	fireEvent.keyDown(window, { key: "Escape" });
 	expect(side.onBack).toHaveBeenCalledTimes(2);
@@ -98,5 +112,5 @@ test("on a phone the panel covers the chat, and a stacked page goes back to the 
 
 test("no pages means no panel", () => {
 	render(shell(1280, stack([])));
-	expect(document.querySelector('[data-page-layer="side"]')).toBeNull();
+	expect(screen.queryByRole("tablist", { name: "Details" })).toBeNull();
 });

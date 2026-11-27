@@ -1,4 +1,4 @@
-import { isMeSection, MeList } from "@yonder/feature-me";
+import { InviteRailButton, isMeSection, MeList } from "@yonder/feature-me";
 import { ClosedGroupNotice } from "@yonder/feature-members";
 import { Avatar, Logo } from "@yonder/ui-components";
 import {
@@ -45,17 +45,18 @@ import { UpdateTopNotice } from "../updates/top-notice.tsx";
 import { useReconnectNotice } from "./app-notice.tsx";
 import { AskMainBotProvider } from "./ask-main-bot.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
-import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
 import { Composer } from "./composer.tsx";
+import { ComposerStatus } from "./composer-status.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemoryList, MemoryPage, SettingsRoutePage, TaskPage, TasksList } from "./lazy-tabs.ts";
 import { eligibleMeetingTarget, openMeetingSource, useMeetingRecordingSurface } from "./meeting-recording-surface.tsx";
 import { MessageNotifications } from "./message-notifications.tsx";
 import { PresenceReporter } from "./presence-reporter.tsx";
 import { settingsPagePaths } from "./settings-navigation.ts";
-import { useFrameLayers, useSideStack } from "./side-panel.tsx";
+import { DetailDiscardDialog, memberDetail, useSideStack } from "./side-panel.tsx";
 import { BotPresetOverlay } from "./task-bot-drawer.tsx";
+import { useDetailTabs } from "./use-detail-tabs.ts";
 import { useFrameBack } from "./use-frame-back.ts";
 import { useFrameChat } from "./use-frame-chat.ts";
 import { useFrameMeeting } from "./use-frame-meeting.ts";
@@ -86,14 +87,9 @@ export function AppFrame() {
 	const skills = useSkills();
 	const contacts = useContacts();
 	const [layoutMode, setLayoutMode] = useState<LayoutMode | null>(null);
+	const [sideCover, setSideCover] = useState(false);
 	const [chatOpen, setChatOpen] = useState(0);
 	const phone = !desktop && (layoutMode === "mobile" || layoutMode === null);
-	const {
-		modelDirty,
-		setBotDirty,
-		isDirty,
-		dialog: discardDialog,
-	} = useModelDirtyGuard(layoutMode ?? "mobile", desktop);
 	const previousLocation = useRef("/messages");
 	const located = locate(location.pathname);
 	const meOpen = located !== null && located.tab === null;
@@ -166,27 +162,26 @@ export function AppFrame() {
 			Boolean(contacts.data?.items.some((member) => member.id === id && person && member.ownerId === person.id)),
 	);
 	useMeetingLink();
-	const layers = useFrameLayers();
-	/** From the chat a member replaces the side panel; from inside it (group info) one stacks on it. */
-	const openMember = useEffectEvent((memberId: string, stacked = false) => {
-		const ownsDefaultBot = bot?.id === memberId;
-		const member = contacts.data?.items.find((item) => item.id === memberId);
-		const listed = conversation?.members.find((item) => item.memberId === memberId);
-		const handle = member?.handle ?? listed?.handle;
-		const entry =
-			ownsDefaultBot || (member?.kind === "bot" && member.ownerId === person?.id)
-				? ({ kind: "bot", id: memberId } as const)
-				: handle
-					? ({ kind: "member", handle } as const)
-					: null;
-		if (entry) (stacked ? layers.push : layers.open)(entry);
+	const layers = useDetailTabs(desktop, person?.id, path, meOpen);
+	const {
+		modelDirty,
+		setBotDirty,
+		isDirty,
+		dialog: discardDialog,
+	} = useModelDirtyGuard(layoutMode ?? "mobile", desktop, layers);
+	const openMember = useEffectEvent((memberId: string) => {
+		const member =
+			(memberId === bot?.id ? bot : contacts.data?.items.find((item) => item.id === memberId)) ??
+			conversation?.members.find((item) => item.memberId === memberId);
+		const entry = member ? memberDetail(member, person?.id, bot, contacts.data?.items, conversation?.id) : null;
+		if (entry) layers.open(entry);
 	});
 	/**
 	 * A deleted Bot's chat leaves the list over the socket; if it is the one on screen, the frame
 	 * goes back to the message list rather than showing an empty page (17 3.1).
 	 */
 	const removedConversation = useEffectEvent((conversationId: string) => {
-		layers.clear();
+		layers.removeConversation(conversationId);
 		const open = locate(navigation.current());
 		if (open?.tab !== "messages") return;
 		if ([...open.detail].includes(conversationId)) navigation.back("/messages");
@@ -200,21 +195,18 @@ export function AppFrame() {
 	);
 	const side = useSideStack({
 		layers,
-		conversation,
+		settings: meOpen,
+		conversations: conversations.data?.items,
 		personId: person?.id,
 		defaultBot: bot,
 		contacts: contacts.data?.items,
-		onBotDirtyChange: setBotDirty,
 		onBotDeleted: (chatId) => {
 			if (chatId) removedConversation(chatId);
 		},
-		onOpenMember: (member) => openMember(member.memberId, true),
-		onLeftGroup: () => navigation.back("/messages"),
+		onLeftGroup: (id) => {
+			if (conversation?.id === id) navigation.back("/messages");
+		},
 	});
-	const closeSide = useEffectEvent(() => layers.clear());
-	useEffect(() => {
-		if (location.pathname) closeSide();
-	}, [location.pathname]);
 	const preset = useTaskPreset({
 		person,
 		primary,
@@ -225,6 +217,7 @@ export function AppFrame() {
 		path: location.pathname,
 	});
 	const memoryView = readMemoryView(tab === "memory" ? selection : null, subSelection);
+	const memoryTimeline = memoryView.kind === "timeline";
 	const segmentRoot = tab === "tasks" && selection === "scheduled";
 	const detailOpen = selection !== null && !segmentRoot;
 	const back = useFrameBack({ navigation, tabs, tab, tabLocation, splitMe, search: location.search });
@@ -297,10 +290,12 @@ export function AppFrame() {
 							disconnected={disconnected}
 							mainBotHome={mainBot}
 							contacts={contacts.data?.items}
-							readActive={!meOpen && !side.pages.length && !preset.drawerOpen}
+							readActive={!meOpen && !sideCover && !preset.drawerOpen}
 							onOpenMeeting={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
 							onOpenMember={openMember}
-							onOpenGroup={layers.openGroup}
+							onOpenGroup={() => {
+								if (conversation?.kind === "group") layers.open({ kind: "group", conversationId: conversation.id });
+							}}
 						/>
 					),
 				};
@@ -321,7 +316,7 @@ export function AppFrame() {
 							taskId={taskSelection}
 							session={chat.itemSession}
 							disconnected={disconnected}
-							readActive={!meOpen && !side.pages.length}
+							readActive={!meOpen && !sideCover}
 							onOpenConversation={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
 						/>
 					),
@@ -334,7 +329,10 @@ export function AppFrame() {
 			case "contacts":
 				return {
 					list: <ContactsPageList onOpen={(handle) => navigation.open(`/@${encodeURIComponent(handle)}`)} />,
-					content: contacts.data?.items.some((member) => member.kind === "person") ? <ContactsPagePlaceholder /> : null,
+					content:
+						!side.expanded && contacts.data?.items.some((member) => member.kind === "person") ? (
+							<ContactsPagePlaceholder />
+						) : null,
 				};
 		}
 	}
@@ -362,7 +360,7 @@ export function AppFrame() {
 			mobilePicker={!desktop}
 			onMeeting={recordingConversation ? () => recordingSurface.start(recordingConversation) : undefined}
 			error={draft.error || chat.directAttachments.error}
-			disabled={chat.blocked || disconnected}
+			disabled={chat.blocked}
 			disconnected={disconnected}
 			sendOnEnter={desktop}
 			streaming={chat.streaming}
@@ -378,7 +376,7 @@ export function AppFrame() {
 			visitRelay={tab === "messages" ? chat.visitRelay : undefined}
 			onAcceptCompletion={draft.acceptCompletion}
 			onCompact={compact.run}
-			commandStatus={<CompactStatus command={compact} />}
+			commandStatus={<ComposerStatus compact={compact} />}
 			onSendVoice={chat.submitVoice}
 			speech={{ transcription: api, knownNonce: chat.knownVoiceNonce }}
 			onSend={() => {
@@ -397,8 +395,10 @@ export function AppFrame() {
 	const closed = Boolean(conversation?.closedReason);
 	const dock = taskSelection ? (
 		composer
-	) : tab !== "messages" || visitsRoute || watchingVisit || conversation?.kind === "system" ? null : closed &&
-		conversation ? (
+	) : (tab !== "messages" && !memoryTimeline) ||
+		visitsRoute ||
+		watchingVisit ||
+		conversation?.kind === "system" ? null : closed && conversation ? (
 		<ClosedGroupNotice conversation={conversation} />
 	) : (
 		composer
@@ -434,6 +434,9 @@ export function AppFrame() {
 					meLabel={t("nav.me")}
 					settingsLabel={t("nav.settings")}
 					updateAction={<UpdateReadyButton />}
+					inviteAction={
+						<InviteRailButton current={meOpen && section === "invite"} onOpen={() => navigation.open("/me/invite")} />
+					}
 					onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
 					meOpen={meOpen}
 					me={me}
@@ -464,6 +467,7 @@ export function AppFrame() {
 					labels={{ showList: t("nav.showList"), hideList: t("nav.hideList"), resizeList: t("nav.resizeList") }}
 					locationKey={segmentRoot ? tabPath(tab) : (tabLocation.split(/[?#]/)[0] ?? tabPath(tab))}
 					onModeChange={setLayoutMode}
+					onSideCoverChange={setSideCover}
 				/>
 				<BotPresetOverlay
 					preset={preset}
@@ -481,6 +485,7 @@ export function AppFrame() {
 				/>
 				{recordingSurface.dialog}
 				{discardDialog}
+				<DetailDiscardDialog layers={layers} mode={layoutMode ?? "mobile"} desktop={desktop} />
 				<PresenceReporter conversationId={tab === "messages" && conversation ? conversation.id : null} />
 				<MessageNotifications
 					key={person?.id}

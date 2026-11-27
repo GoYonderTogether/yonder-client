@@ -1,6 +1,5 @@
-import { Button } from "@yonder/ui-components";
+import { Button, ChatGlyph } from "@yonder/ui-components";
 import { ApiError, useStartBotChat } from "@yonder/ui-data";
-import { MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 /**
@@ -30,7 +29,7 @@ export function StartBotChatButton({
 				loading={start.isPending}
 				onClick={() => start.mutate(handle, { onSuccess: (result) => onOpen(result.conversation.id) })}
 			>
-				<MessageSquare size={16} aria-hidden="true" />
+				<ChatGlyph size={16} aria-hidden="true" />
 				{label ?? t("visits.startChat")}
 			</Button>
 			{start.error ? (

@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
 import { beforeEach, expect, test, vi } from "vitest";
-import { ConnectorPanel } from "./connector-panel.tsx";
 import { ConnectorsSection } from "./connectors-section.tsx";
 import type { LocalFilesAdapter } from "./local-files-adapter.ts";
 
@@ -29,9 +28,7 @@ vi.mock("@yonder/ui-data", () => ({
 		},
 	}),
 	useConnectors: () => ({ data: { items: state.instances } }),
-	useDevices: () => ({
-		data: { items: state.devices },
-	}),
+	useDevices: () => ({ data: { items: state.devices } }),
 	useConnectorActions: () => ({
 		create: { mutateAsync: state.create },
 		update: { mutateAsync: state.update },
@@ -47,38 +44,18 @@ const base: ConnectorInstance = {
 	connectorId: "local-files",
 	deviceId: "dev_a",
 	deviceName: "Windows PC",
-	name: "Documents",
-	scope: "folder",
+	name: "Windows PC",
+	scope: "device",
 	capabilities: { fileTools: false },
 	revision: 1,
 	status: "online",
 	currentDevice: true,
 	createdAt: "2026-11-15T00:00:00Z",
 };
-function adapter(): LocalFilesAdapter {
-	return {
-		supported: true,
-		authorize: vi.fn().mockResolvedValue(undefined),
-		revoke: vi.fn().mockResolvedValue(undefined),
-	};
-}
-function show(localFiles?: LocalFilesAdapter) {
-	const open = vi.fn();
-	render(
-		<I18nextProvider i18n={createI18n("en")}>
-			<ConnectorsSection localFiles={localFiles} onOpenDevices={open} />
-		</I18nextProvider>,
-	);
-	return open;
-}
-function group(deviceId: string) {
-	const element = document.getElementById(`connector-device-${deviceId}`);
-	if (!element) throw new Error(`Missing device group ${deviceId}`);
-	return element;
-}
-function openRead(deviceId = "dev_a") {
-	fireEvent.click(within(group(deviceId)).getByRole("button", { name: /Read files Find/ }));
-}
+const both: ConnectorInstance[] = [
+	base,
+	{ ...base, id: "con_b", connectorId: "computer-control", capabilities: { fileTools: true } },
+];
 const firstDevice: DeviceSummary = {
 	id: "dev_a",
 	name: "Windows PC",
@@ -88,354 +65,98 @@ const firstDevice: DeviceSummary = {
 	lastSeenAt: "2026-11-16T00:00:00Z",
 	appVersion: "1",
 };
+function adapter(): LocalFilesAdapter {
+	return {
+		supported: true,
+		authorize: vi.fn().mockResolvedValue(undefined),
+		revoke: vi.fn().mockResolvedValue(undefined),
+	};
+}
+function show(localFiles?: LocalFilesAdapter) {
+	render(
+		<I18nextProvider i18n={createI18n("en")}>
+			<ConnectorsSection localFiles={localFiles} />
+		</I18nextProvider>,
+	);
+}
+function openCard(name: string) {
+	fireEvent.click(screen.getByRole("button", { name }));
+	return screen.getByRole("dialog", { name: "Computer control" });
+}
 beforeEach(() => {
 	state.devices = [{ ...firstDevice }];
 	state.instances = [];
 	state.create.mockReset().mockImplementation(async (body) => ({ ...base, ...body }));
-	state.update
-		.mockReset()
-		.mockImplementation(async (body) => ({ ...base, ...body, revision: body.expectedRevision + 1 }));
+	state.update.mockReset();
 	state.remove.mockReset().mockResolvedValue({ ok: true });
 });
 
-test("the existing connector item opens an authorization-only sheet", () => {
+test("reading and modifying files are one computer card per device", () => {
 	show(adapter());
-	openRead();
-	const sheet = screen.getByRole("dialog", { name: "Read files" });
-	expect(within(sheet).getByRole("button", { name: /^Connect$/ })).toBeVisible();
-	expect(within(sheet).getAllByRole("button")).toHaveLength(2);
-	expect(sheet.querySelector("details, input:not([type=radio]), form")).toBeNull();
-	expect(screen.queryByRole("checkbox")).toBeNull();
-	expect(screen.queryByText(/terminal/i)).toBeNull();
-	expect(screen.queryByText(/MCP/)).toBeNull();
+	expect(screen.getByRole("button", { name: "Connect · Computer control" })).toBeVisible();
+	expect(screen.queryByRole("button", { name: /Read files|Modify files/ })).toBeNull();
 });
 
-test("read enables explicit whole-device access without a folder picker", async () => {
+test("the master switch grants every capability of the device", async () => {
 	const native = adapter();
 	show(native);
-	openRead();
-	expect(screen.getByText(/accounts? can access for reading/)).toBeVisible();
-	expect(screen.getByText(/content are sent to Yonder/)).toBeVisible();
-	fireEvent.click(screen.getByRole("button", { name: /^Connect$/ }));
-	await waitFor(() =>
-		expect(native.authorize).toHaveBeenCalledWith(
-			expect.objectContaining({ scope: "device", capabilities: { fileTools: false } }),
-		),
+	const dialog = openCard("Connect · Computer control");
+	fireEvent.click(within(dialog).getByRole("switch", { name: "Windows PC" }));
+	await waitFor(() => expect(state.create).toHaveBeenCalledTimes(2));
+	expect(state.create).toHaveBeenCalledWith(
+		expect.objectContaining({ connectorId: "local-files", scope: "device", capabilities: { fileTools: false } }),
 	);
-	expect(state.create).toHaveBeenCalledWith({
-		connectorId: "local-files",
-		deviceId: "dev_a",
-		name: "Windows PC",
-		scope: "device",
-		capabilities: { fileTools: false },
-	});
+	expect(state.create).toHaveBeenCalledWith(
+		expect.objectContaining({ connectorId: "computer-control", capabilities: { fileTools: true } }),
+	);
+	expect(native.authorize).toHaveBeenCalledTimes(2);
 });
 
-test("a local grant can be disconnected while native cleanup is pending", async () => {
-	state.instances = [{ ...base, scope: "device", revision: 2 }];
-	const native = adapter();
-	let revoke: (() => void) | undefined;
-	vi.mocked(native.revoke).mockImplementation(
-		() =>
-			new Promise<void>((resolve) => {
-				revoke = resolve;
-			}),
-	);
-	show(native);
-	fireEvent.click(screen.getByRole("button", { name: "Connected · Read files" }));
-	fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
-	expect(native.revoke).toHaveBeenCalledWith("con_a", "local-files");
-	expect(state.remove).toHaveBeenCalledWith("con_a");
-	expect(screen.getByRole("button", { name: "Disconnect" })).toBeDisabled();
-	await act(async () => revoke?.());
-	expect(screen.queryByRole("dialog", { name: "Read files" })).toBeNull();
-});
-
-test("a saved Voice Memos grant resumes through explicit native consent", async () => {
-	const device = { ...firstDevice, platform: "macos" as const };
-	const instance = {
-		...base,
-		connectorId: "apple-voice-memos" as const,
-		scope: "device" as const,
-		status: "offline" as const,
-	};
-	const native = {
-		...adapter(),
-		supports: () => true,
-		permissionStatus: () => "undetermined" as const,
-		prepare: vi.fn().mockRejectedValueOnce(new Error("permission_denied")).mockResolvedValue(undefined),
-		openPermissionSettings: vi.fn(),
-	};
-	state.instances = [instance];
-	render(
-		<I18nextProvider i18n={createI18n("en")}>
-			<ConnectorPanel
-				definition={{ id: "apple-voice-memos", kind: "device", name: "", description: "", platforms: ["macos"] }}
-				device={device}
-				instance={instance}
-				localFiles={native}
-				onClose={vi.fn()}
-			/>
-		</I18nextProvider>,
-	);
-	expect(screen.getByText(/speech recognition provider/)).toBeVisible();
-	expect(native.prepare).not.toHaveBeenCalled();
-	const resume = screen.getByRole("button", { name: "Resume access" });
-	fireEvent.click(resume);
-	expect(await screen.findByText(/Voice Memos access was denied/)).toBeVisible();
-	expect(native.openPermissionSettings).not.toHaveBeenCalled();
-	expect(native.authorize).not.toHaveBeenCalled();
-	fireEvent.click(resume);
-	await waitFor(() => expect(native.authorize).toHaveBeenCalledWith(instance));
-	expect(native.prepare).toHaveBeenCalledTimes(2);
-	expect(state.create).not.toHaveBeenCalled();
-	expect(state.update).not.toHaveBeenCalled();
-});
-
-test("modify connector enables file tools directly, without a single-option selector", async () => {
-	const native = adapter();
-	show(native);
-	fireEvent.click(screen.getByRole("button", { name: /Modify files Create/ }));
-	expect(screen.queryByRole("checkbox")).toBeNull();
-	fireEvent.click(screen.getByRole("button", { name: /^Connect$/ }));
-	await waitFor(() =>
-		expect(state.create).toHaveBeenCalledWith(
-			expect.objectContaining({ connectorId: "computer-control", capabilities: { fileTools: true } }),
-		),
-	);
-});
-
-test("legacy folder scope is preserved until the explicit upgrade action", async () => {
-	state.instances = [base];
-	const native = adapter();
-	show(native);
-	fireEvent.click(screen.getByRole("button", { name: "Manage Documents" }));
-	expect(state.update).not.toHaveBeenCalled();
-	expect(native.authorize).not.toHaveBeenCalled();
-	fireEvent.click(screen.getByRole("button", { name: /^Connect$/ }));
-	await waitFor(() =>
-		expect(state.update).toHaveBeenCalledWith({
-			id: "con_a",
-			expectedRevision: 1,
-			scope: "device",
-			capabilities: { fileTools: false },
-		}),
-	);
-});
-
-test("failed native upgrade restores old scope at a fresh revision", async () => {
-	state.instances = [base];
-	const native = adapter();
-	vi.mocked(native.authorize).mockRejectedValueOnce(new Error("failed"));
-	show(native);
-	fireEvent.click(screen.getByRole("button", { name: "Manage Documents" }));
-	fireEvent.click(screen.getByRole("button", { name: /^Connect$/ }));
-	await waitFor(() =>
-		expect(state.update).toHaveBeenLastCalledWith({
-			id: "con_a",
-			expectedRevision: 2,
-			scope: "folder",
-			capabilities: { fileTools: false },
-		}),
-	);
-	expect(native.authorize).toHaveBeenLastCalledWith(expect.objectContaining({ scope: "folder", revision: 3 }));
-	expect(await screen.findByRole("status")).toHaveTextContent("Could not finish connecting");
-});
-
-test("closing while creation is pending cleans up instead of granting late access", async () => {
-	let finish: ((value: ConnectorInstance) => void) | undefined;
-	state.create.mockReturnValue(
-		new Promise<ConnectorInstance>((resolve) => {
-			finish = resolve;
-		}),
-	);
-	const native = adapter();
-	show(native);
-	openRead();
-	fireEvent.click(screen.getByRole("button", { name: /^Connect$/ }));
+test("tapping the row opens its switches and one switch grants one capability", async () => {
+	show(adapter());
+	const dialog = openCard("Connect · Computer control");
+	expect(within(dialog).queryByRole("switch", { name: "Modify files" })).toBeNull();
+	fireEvent.click(within(dialog).getByRole("button", { name: /Windows PC/ }));
+	fireEvent.click(within(dialog).getByRole("switch", { name: /Modify files/ }));
 	await waitFor(() => expect(state.create).toHaveBeenCalledOnce());
-	fireEvent.click(screen.getAllByRole("button", { name: "Close" }).at(-1) as HTMLElement);
-	await act(async () => {
-		finish?.({ ...base, scope: "device" });
-	});
-	await waitFor(() => expect(state.remove).toHaveBeenCalledWith("con_a"));
-	expect(native.authorize).not.toHaveBeenCalled();
-	expect(native.revoke).toHaveBeenCalledWith("con_a");
+	expect(state.create).toHaveBeenCalledWith(
+		expect.objectContaining({ connectorId: "computer-control", capabilities: { fileTools: true } }),
+	);
 });
 
-test("a failed rollback revokes local access instead of leaving an unconfirmed upgrade", async () => {
-	state.instances = [base];
-	state.update
-		.mockResolvedValueOnce({ ...base, scope: "device", revision: 2 })
-		.mockRejectedValueOnce(new Error("conflict"));
-	const native = adapter();
-	vi.mocked(native.authorize).mockRejectedValueOnce(new Error("failed"));
-	show(native);
-	fireEvent.click(screen.getByRole("button", { name: "Manage Documents" }));
-	fireEvent.click(screen.getByRole("button", { name: /^Connect$/ }));
-	await waitFor(() => expect(native.revoke).toHaveBeenCalledWith("con_a"));
-	expect(await screen.findByRole("status")).toHaveTextContent("Could not finish connecting");
-});
-
-test("web only guides to the native device and never creates a grant", () => {
-	state.devices[0] = { ...firstDevice, current: false };
-	show();
-	openRead();
-	expect(screen.getByRole("button", { name: /^Connect$/ })).toBeDisabled();
-	expect(screen.queryByRole("button", { name: "View devices" })).toBeNull();
-	expect(state.create).not.toHaveBeenCalled();
-});
-
-test("same-name devices keep independent connected state by id, including offline instances", () => {
-	state.devices.push({
-		...firstDevice,
-		id: "dev_b",
-		current: false,
-		status: "offline",
-		lastSeenAt: "2026-11-16T00:01:00Z",
-	});
-	state.instances = [
-		base,
-		{
-			...base,
-			id: "con_b",
-			connectorId: "computer-control",
-			deviceId: "dev_b",
-			currentDevice: false,
-			scope: "device",
-			capabilities: { fileTools: true },
-			status: "offline",
-		},
-	];
+test("turning the master switch off revokes locally and removes every grant", async () => {
+	state.instances = both;
 	const native = adapter();
 	show(native);
-	expect(within(group("dev_a")).getByRole("button", { name: "Connected · Read files" })).toBeVisible();
-	expect(screen.getByRole("button", { name: "Connect · Modify files" })).toBeVisible();
-	// Another device cannot be connected from here: it is authorized on that device itself.
-	expect(within(group("dev_b")).queryByRole("button", { name: "Connect · Read files" })).toBeNull();
-	fireEvent.click(screen.getByRole("button", { name: "Connected · Device offline · Modify files" }));
-	expect(screen.queryByRole("button", { name: "Disconnect" })).toBeNull();
-	expect(screen.getByRole("status")).toHaveTextContent("Authorized · waiting to connect");
-	expect(state.remove).not.toHaveBeenCalled();
-	expect(native.revoke).not.toHaveBeenCalled();
+	const dialog = openCard("Connected · Computer control");
+	fireEvent.click(within(dialog).getByRole("switch", { name: "Windows PC" }));
+	await waitFor(() => expect(state.remove).toHaveBeenCalledTimes(2));
+	expect(native.revoke).toHaveBeenCalledWith("con_a", "local-files");
+	expect(native.revoke).toHaveBeenCalledWith("con_b", "computer-control");
 });
 
-test("a remote device never receives a fake local grant even when this adapter is supported", () => {
-	state.devices.push({ ...firstDevice, id: "dev_b", name: "Work computer", remark: "Studio computer", current: false });
-	const native = adapter();
-	show(native);
-	expect(screen.getByRole("link", { name: "Studio computer" })).toBeVisible();
-	expect(within(group("dev_b")).getByRole("heading", { name: "Studio computer" })).toBeVisible();
-	openRead("dev_b");
-	expect(screen.getByText("Continue in Yonder on Studio computer to enable this connector.")).toBeVisible();
-	expect(screen.getByRole("button", { name: /^Connect$/ })).toBeDisabled();
-	expect(state.create).not.toHaveBeenCalled();
-	expect(native.authorize).not.toHaveBeenCalled();
+test("an offline device says so once in its heading and greys its card", () => {
+	state.devices = [{ ...firstDevice, current: false, status: "offline" }];
+	state.instances = both.map((item) => ({ ...item, status: "offline" as const, currentDevice: false }));
+	show(adapter());
+	expect(within(screen.getByRole("region", { name: "Windows PC" })).getByText(/Offline/)).toBeVisible();
+	expect(screen.getByRole("button", { name: "Connected · Device offline · Computer control" })).toBeVisible();
 });
 
-test("web and unsupported devices are absent from both device navigation and sections", () => {
-	const other = { ...firstDevice, id: "dev_b", name: "Work computer", current: false };
+test("web and unsupported devices get no section", () => {
 	state.devices = [
 		{ ...firstDevice, id: "web", name: "Browser", platform: "web" },
 		{ ...firstDevice, id: "phone", name: "iPhone", platform: "ios", current: false },
-		{ ...firstDevice, current: false },
-		other,
+		firstDevice,
 	];
-	show();
-	const nav = screen.getByRole("navigation", { name: "Device" });
-	expect(within(nav).getAllByRole("link")).toHaveLength(2);
-	expect(screen.queryByRole("region", { name: /Browser|iPhone/ })).toBeNull();
-	expect(within(nav).getByRole("link", { name: "Windows PC" })).toHaveAttribute("aria-current", "true");
-	const link = within(nav).getByRole("link", { name: other.name });
-	const target = group(other.id);
-	const scroll = vi.fn();
-	target.scrollIntoView = scroll;
-	const hash = location.hash;
-	fireEvent.click(link);
-	expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "instant" });
-	expect(location.hash).toBe(hash);
-	expect(target).toHaveFocus();
-	expect(link).toHaveAttribute("aria-current", "true");
-	expect(within(group("dev_a")).getByRole("button", { name: /Read files Find/ })).toBeVisible();
-	expect(screen.queryByRole("combobox")).toBeNull();
-	expect(screen.queryByRole("tab")).toBeNull();
-	expect(state.create).not.toHaveBeenCalled();
+	show(adapter());
+	expect(screen.getAllByRole("region")).toHaveLength(1);
+	expect(within(screen.getByRole("navigation", { name: "Device" })).getAllByRole("button")).toHaveLength(1);
 });
 
-test("shows the connector empty state when all signed-in devices are unsupported", () => {
+test("shows the empty state when no signed-in device can connect", () => {
 	state.devices = [{ ...firstDevice, id: "phone", name: "iPhone", platform: "ios" }];
 	show();
 	expect(screen.queryByRole("navigation", { name: "Device" })).toBeNull();
-	expect(screen.queryByRole("region", { name: /iPhone/ })).toBeNull();
 	expect(screen.getByText("No connectors available")).toBeVisible();
-});
-
-test.each(["online", "offline"] as const)(
-	"an already-connected %s remote device does not ask to enable again",
-	(status) => {
-		state.devices.push({ ...firstDevice, id: "dev_b", name: "Work computer", current: false, status });
-		state.instances = [
-			{
-				...base,
-				id: "con_b",
-				deviceId: "dev_b",
-				deviceName: "Work computer",
-				scope: "device",
-				currentDevice: false,
-				status,
-			},
-		];
-		show(adapter());
-		openRead("dev_b");
-		expect(
-			within(screen.getByRole("dialog", { name: "Read files" })).queryByRole("button", { name: "Try it" }),
-		).toBeNull();
-		expect(screen.queryByText("Continue in Yonder on Work computer to enable this connector.")).toBeNull();
-		expect(state.create).not.toHaveBeenCalled();
-	},
-);
-
-test("a supported current platform with no native adapter offers guidance without creating", () => {
-	show();
-	openRead();
-	expect(screen.getByText("Continue in Yonder on Windows PC to enable this connector.")).toBeVisible();
-	expect(screen.getByRole("button", { name: /^Connect$/ })).toBeDisabled();
-	expect(state.create).not.toHaveBeenCalled();
-});
-
-test("all legacy folder instances remain manageable and disappearing device/instance closes details", () => {
-	state.instances = [base, { ...base, id: "con_second", name: "Other folder" }];
-	const content = (
-		<I18nextProvider i18n={createI18n("en")}>
-			<ConnectorsSection localFiles={adapter()} />
-		</I18nextProvider>
-	);
-	const view = render(content);
-	expect(screen.getByRole("button", { name: "Manage Documents" })).toBeVisible();
-	fireEvent.click(screen.getByRole("button", { name: "Manage Other folder" }));
-	state.instances = [base];
-	view.rerender(
-		<I18nextProvider i18n={createI18n("en")}>
-			<ConnectorsSection localFiles={adapter()} />
-		</I18nextProvider>,
-	);
-	expect(screen.queryByRole("dialog")).toBeNull();
-	openRead();
-	state.devices = [];
-	view.rerender(
-		<I18nextProvider i18n={createI18n("en")}>
-			<ConnectorsSection localFiles={adapter()} />
-		</I18nextProvider>,
-	);
-	expect(screen.queryByRole("dialog")).toBeNull();
-	// An orphaned grant cannot add a device to the overview.
-	expect(screen.getByText("No devices yet")).toBeVisible();
-	expect(screen.queryByRole("radio", { name: "By connector" })).toBeNull();
-	state.instances = [];
-	view.rerender(
-		<I18nextProvider i18n={createI18n("en")}>
-			<ConnectorsSection localFiles={adapter()} />
-		</I18nextProvider>,
-	);
-	expect(screen.getByText("No devices yet")).toBeVisible();
 });

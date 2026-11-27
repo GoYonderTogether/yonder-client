@@ -1,11 +1,11 @@
-import { ListGroup, ListRow } from "@yonder/ui-components";
+import { FolderGlyph, ListGroup, ListRow } from "@yonder/ui-components";
 import { useMemoryFiles, useMemoryFolders } from "@yonder/ui-data";
-import { ChevronDown, ChevronRight, Folder } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
+import { useOpenMemoryFile } from "./memory-file-detail.tsx";
 import { useMinute } from "./memory-format.ts";
-import { useOpenMemoryFile } from "./memory-navigation.ts";
 import { archivedEntries, archivedFolderName, memoryFolderNames, memoryFolderRoute } from "./memory-view.ts";
 import { relativeTime } from "./memory-who.ts";
 
@@ -49,7 +49,7 @@ export function ArchivedGroup() {
 						<ListRow
 							key={`folder:${folder}`}
 							title={archivedFolderName(folder, folderName)}
-							leading={<Folder size={18} aria-hidden />}
+							leading={<FolderGlyph size={20} aria-hidden />}
 							chevron
 							onClick={() => navigate(memoryFolderRoute("archived", folder))}
 						/>
@@ -61,7 +61,7 @@ export function ArchivedGroup() {
 							key={file.path}
 							title={file.title || file.path.split("/").at(-1)}
 							subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
-							onClick={() => openFile(file.path)}
+							onClick={() => openFile(file.path, file.title)}
 						/>
 					))
 				: null}

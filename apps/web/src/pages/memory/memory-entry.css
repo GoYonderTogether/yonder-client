@@ -268,7 +268,7 @@ button.memory-hit {
 	gap: var(--spacing-1);
 }
 .memory-facts .memory-fact-place {
-	color: var(--color-memory-place-fg);
+	color: var(--color-memory-other-fg);
 }
 .memory-people {
 	display: flex;
@@ -297,12 +297,12 @@ button.memory-hit {
 	padding-left: var(--memory-indent);
 	font-size: var(--text-caption);
 	font-weight: var(--font-weight-medium);
-	color: var(--color-memory-place-fg);
+	color: var(--color-memory-other-fg);
 }
 .memory-place .memory-node i {
 	width: var(--memory-node);
 	height: var(--memory-node);
-	background: var(--color-memory-place);
+	background: var(--color-memory-other);
 	color: var(--color-on-media);
 }
 .memory-place small {

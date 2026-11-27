@@ -3,7 +3,15 @@ use crate::local_files_store::{Capabilities, Context, Grant, LocalFilesState};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Manager, WebviewWindow};
+use tauri::{ipc::Response, AppHandle, Manager, WebviewWindow};
+
+#[path = "local_files_preview.rs"]
+mod preview;
+
+enum CommandReply {
+    Json(Value),
+    Bytes(Vec<u8>),
+}
 
 fn main_window(window: &WebviewWindow) -> Result<(), String> {
     if window.label() == "main" {
@@ -223,7 +231,7 @@ pub async fn local_files_execute(
     window: WebviewWindow,
     context: Context,
     command: Value,
-) -> Result<Value, String> {
+) -> Result<Response, String> {
     main_window(&window)?;
     let id = command["id"].as_str().ok_or("path_invalid")?.to_owned();
     let connection_id = command["connectionId"]
@@ -270,10 +278,18 @@ pub async fn local_files_execute(
     let owner = context.clone();
     let signal = cancelled.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
+        if matches!(operation.as_str(), "asset_original" | "file_preview") {
+            return (
+                preview::execute(&selected, &operation, &path, &args, &signal, expires)
+                    .map(CommandReply::Bytes),
+                Vec::new(),
+            );
+        }
         let result = local_files_operations::execute(
             &selected, &owner, &operation, &path, &args, &recovery, &signal, expires,
-        );
-        if result == Err("multiple_matches") {
+        )
+        .map(CommandReply::Json);
+        if matches!(result, Err("multiple_matches")) {
             match local_files_operations::candidate_lines(&selected, &path, &args, &signal, expires)
             {
                 Ok(candidates) => (result, candidates),
@@ -289,18 +305,22 @@ pub async fn local_files_execute(
     let mut store = state.lock().map_err(|_| "read_failed")?;
     store.running.remove(&id);
     if cancelled.load(std::sync::atomic::Ordering::SeqCst) || now_ms() >= expires {
-        return Ok(json!({"ok":false,"error":"cancelled"}));
+        return Ok(Response::new(
+            json!({"ok":false,"error":"cancelled"}).to_string(),
+        ));
     }
     if store.grant_for(&context, &connection_id)?.revision != grant.revision {
         return Err("permission_denied".into());
     }
-    Ok(match result {
-        (Ok(value), _) => json!({"ok":true,"result":value}),
+    let value = match result {
+        (Ok(CommandReply::Bytes(bytes)), _) => return Ok(Response::new(bytes)),
+        (Ok(CommandReply::Json(value)), _) => json!({"ok":true,"result":value}),
         (Err(error), candidates) if error == "multiple_matches" => {
             json!({"ok":false,"error":error,"candidateLines":candidates})
         }
         (Err(error), _) => json!({"ok":false,"error":error}),
-    })
+    };
+    Ok(Response::new(value.to_string()))
 }
 fn now_ms() -> u64 {
     SystemTime::now()

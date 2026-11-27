@@ -95,7 +95,7 @@
 
 | 场景         | 组件                                       | 包         | 主要 props                                                                                                                             |
 | ------------ | ------------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 按钮         | `Button`                                   | components | `variant` primary/secondary/ghost/danger/link，`size` sm/md/lg，`loading`，`block`                                                     |
+| 按钮         | `Button`                                   | components | `variant` primary/secondary/ghost/danger/destructive/link（`destructive` 只给确认弹窗的提交键），`size` sm/md/lg，`loading`，`block`                                                     |
 | 图标按钮     | `IconButton`                               | components | `aria-label` 必填，`size` sm/md                                                                                                        |
 | 文字链接按钮 | `Button variant="link" size="sm"`          | components | 不再手写 `text-accent-text hover:underline`                                                                                            |
 | 卡片面       | `Card` + `CardHeader/Body/Footer`          | components | `variant` plain/raised/interactive                                                                                                     |
@@ -114,7 +114,7 @@
 | 页面骨架     | `PageFrame`、`ListFrame`                   | shell      | `PageFrame width` form/sheet/reading/wide/full                                                                                         |
 | 页头         | `TopBar`                                   | shell      | 只经 `PageFrame`/`ListFrame` 用，页面不自己画                                                                                          |
 | 弹层         | `Overlay`                                  | shell      | `wide`，`mobilePresentation` page/sheet，`footer`，`padded`                                                                            |
-| 确认         | `ConfirmDialog`                            | shell      | `title` `body` `confirmLabel` `cancelLabel` `onConfirm` `onCancel` `tone` danger/primary `busy` `error`                                |
+| 确认         | `ConfirmDialog`                            | shell      | `title`（问句，带对象）`body`（一句后果）`confirmLabel` `cancelLabel` `closeLabel` `onConfirm` `onCancel` `tone` danger/primary `busy` `error` |
 
 组件不带文案：所有可见文字由调用方 `t()` 传入，`zh-CN` 和 `en` 都要有。
 
@@ -144,6 +144,17 @@
 - 桌面居中，`sheet` 560 或 `wide` 880，圆角 panel，阴影 lg。手机上对话框（确认、短表单）用 `mobilePresentation="sheet"` 从底部升起；内容多的弹层可以整页。
 - 内容区新弹层一律 `padded`（20）；操作放 `footer`：靠右，间距 12，取消在左，主要或危险操作在右。
 - 危险操作一律经 `ConfirmDialog`：不用 `window.confirm`，不用行内展开确认，不直接执行。失败原因用 `error` 显示在按钮上方。
+- `ConfirmDialog` 是一个问题，不是表单：`Overlay size="alert"`，宽 `--dialog-width-alert` 360，高随内容，**不走桌面弹窗的方形最小高**，没有页头条、没有右上角 X、没有分隔线。自上而下居中：图标圆（danger 用 `TriangleAlert` + danger-subtle，primary 用 `Info`）、标题、后果一句、两个等宽按钮。
+- 标题写成带对象的问句（`删除「周报」？`），不要和按钮同字（`删除` / `删除`）；正文只说后果（`删除后无法恢复。`）。取消在左，确认在右；不可撤销的确认用 `Button variant="destructive"`（实心 danger），普通确认（重启、继续）用 `tone="primary"`。
+- 手机上固定 `mobilePresentation="sheet"` 从底部升起，退出走手柄、点遮罩、Esc；确认不整页。
+
+## 详情窗格（桌面）
+
+- 头部只有一行：标签（图标 + 标题 + ×）、收起（`ChevronsRightLeft`）、分隔线、全部关闭（`X`，悬停提示带标签数）。没有「详情」标题行。
+- 标签带类型图标（`SidePage.icon`，16px lucide）：文件 FileText/Image/Film/Music，会议 Mic，任务 ListChecks，目标 Target，计划 CalendarClock，群 Users，成员 UserRound，Bot Bot，技能 Sparkles。当前标签用 `--color-bg-selected` 加 medium 字重；非当前标签的 × 悬停或聚焦才显示；标签可收缩，放不下时出现下拉列表。
+- 页面的操作（下载、编辑、删除、打开完整任务、来源状态）一律放进 `SidePageActions`，它渲染在标签行下、正文上，一行，没有内容就不占位。页面不在正文里自己摆操作行。
+- 删除、解散一类的按钮一律 `variant=danger`，点击走 `ConfirmDialog`。
+- 收起后，主区头部的展开按钮显示三点图标，并在打开了多个标签时带上数量。
 
 ## 六、列表和分隔
 
@@ -166,9 +177,10 @@
 
 ## 八、图标
 
-- 只用 `lucide-react`。尺寸只有 `ICON_SIZE.sm/md/lg` = 16/20/24：行内和行首 16，控件里和关闭 20，返回箭头和手机标签栏 24。
+- 通用图标只用 `lucide-react`。尺寸只有 `ICON_SIZE.sm/md/lg` = 16/20/24：行内和行首 16，控件里和关闭 20，返回箭头和手机标签栏 24。
 - 描边 `ICON_STROKE.normal` 1.75，选中（标签栏当前项）`ICON_STROKE.selected` 2.1。
 - 只有图标的按钮必须有 `aria-label`；装饰性图标 `aria-hidden`。
+- 第三方品牌（微信、飞书、QQ 等）一律用官方正版图标，不用 lucide 的通用气泡、纸飞机之类代替，也不手绘仿制。来源按顺序取：该产品 App 自带的官方图标；许可允许的官方品牌矢量（如 simple-icons，CC0）。取得后放进对应包的资源目录，不写颜色值。
 
 ## 九、动效
 

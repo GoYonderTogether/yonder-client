@@ -1,6 +1,8 @@
 import { Button, Checkbox, ListGroup, SearchInput } from "@yonder/ui-components";
 import { useSkillActions, useSkills } from "@yonder/ui-data";
-import { ChevronRight, Plus } from "lucide-react";
+import { useOptionalSidePanel } from "@yonder/ui-shell";
+import { ICON_SIZE } from "@yonder/ui-tokens";
+import { ChevronRight, Plus, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SkillDetailView } from "./skill-detail.tsx";
@@ -29,6 +31,7 @@ function SkillsList({ onOpenPage }: { onOpenPage: (page: string) => void }) {
 	const { t } = useTranslation();
 	const skills = useSkills();
 	const actions = useSkillActions();
+	const side = useOptionalSidePanel();
 	const [search, setSearch] = useState("");
 	const query = search.trim().toLowerCase();
 	const filtered = skills.data?.items.filter((skill) =>
@@ -72,7 +75,16 @@ function SkillsList({ onOpenPage }: { onOpenPage: (page: string) => void }) {
 						>
 							<button
 								type="button"
-								onClick={() => onOpenPage(`view-${skill.id}`)}
+								onClick={() => {
+									if (side) {
+										side.open({
+											key: `skill:${skill.id}`,
+											title: skill.displayNameZh || skill.name,
+											icon: <Sparkles size={ICON_SIZE.sm} aria-hidden="true" />,
+											content: <SkillPane id={skill.id} onOpenPage={onOpenPage} />,
+										});
+									} else onOpenPage(`view-${skill.id}`);
+								}}
 								className="flex min-w-0 flex-1 items-center gap-[var(--spacing-2)] rounded-[var(--radius-sm)] text-start focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 							>
 								<span className="min-w-0 flex-1">
@@ -106,6 +118,21 @@ function SkillsList({ onOpenPage }: { onOpenPage: (page: string) => void }) {
 					{t("skills.actionFailed")}
 				</p>
 			) : null}
+		</div>
+	);
+}
+
+function SkillPane({ id, onOpenPage }: { id: string; onOpenPage: (page: string) => void }) {
+	const side = useOptionalSidePanel();
+	return (
+		<div className="p-[var(--spacing-4)]">
+			<SkillDetailView
+				id={id}
+				onOpenPage={(page) => {
+					side?.close();
+					if (page) onOpenPage(page);
+				}}
+			/>
 		</div>
 	);
 }

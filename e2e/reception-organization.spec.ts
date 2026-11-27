@@ -175,7 +175,7 @@ test.describe("130 proposed changes in a 129-document library", () => {
 		await page.getByRole("button", { name: "Bot 整理", exact: true }).tap();
 		await page.getByRole("button", { name: "让 Bot 整理", exact: true }).tap();
 		await expect.poll(() => prompt.length).toBe(1);
-		expect(prompt[0]).toContain("propose_memory_organization");
+		expect(prompt[0]).toContain("请整理我的对外接待资料和待审核草稿");
 		await expect(page.getByText("已选 130 / 130 项")).toBeVisible();
 		await expect(page.evaluate(() => document.documentElement.scrollWidth)).resolves.toBe(393);
 		await page.screenshot({

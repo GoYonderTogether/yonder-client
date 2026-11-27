@@ -86,6 +86,18 @@ export async function listChatCache<T>(prefix: string): Promise<T[]> {
 	});
 }
 
+export async function chatCacheKeys(prefix: string): Promise<string[]> {
+	const db = await open();
+	return new Promise((resolve, reject) => {
+		const request = db
+			.transaction("records")
+			.objectStore("records")
+			.getAllKeys(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
+		request.onsuccess = () => resolve(request.result.filter((key): key is string => typeof key === "string"));
+		request.onerror = () => reject(request.error);
+	});
+}
+
 export async function clearChatCache(): Promise<void> {
 	generation++;
 	if (!globalThis.indexedDB) return;

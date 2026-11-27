@@ -18,6 +18,7 @@ import {
 	type RegisterLocalProviderEndpoint,
 } from "./provider-location.ts";
 import {
+	discoveredSlot,
 	type ModelSlot,
 	newSlot,
 	PROTOCOL_EXAMPLES,
@@ -191,10 +192,9 @@ export function ProviderEditor({
 		setSlots((current) => {
 			const named = new Set(available);
 			const kept = current.filter((slot) => !slot.id.trim() || !named.has(slot.id.trim()));
-			const fresh = slotsFromProvider(available, metadata, undefined).map((slot) => ({
-				...slot,
-				name: metadata[slot.id]?.name ?? "",
-			}));
+			// Each discovered model arrives filled in: display name, window and levels from its family,
+			// with whatever the endpoint declared taking precedence.
+			const fresh = available.map((id) => discoveredSlot(id, metadata[id]));
 			return fresh.length || kept.length ? [...fresh, ...kept] : current;
 		});
 	}, [available, metadata]);

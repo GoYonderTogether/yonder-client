@@ -52,10 +52,8 @@ export function useDeviceBinding(options: {
 
 	async function resolveTarget(version: number): Promise<NativeProviderBinding> {
 		const { deviceId, endpointId, canRegister, registerEndpoint } = options;
-		// The device gateway records its endpoint as one of two wire names; a four-protocol name is
-		// registered as the device wire it most resembles (see deviceWire on the server).
-		const deviceProtocol: DeviceModelProtocol =
-			options.deviceProtocol === "anthropic-messages" ? "anthropic" : "openai";
+		// A device endpoint speaks the provider's own wire, so the four names travel unchanged.
+		const deviceProtocol: DeviceModelProtocol = options.deviceProtocol;
 		const key = options.canSetLocalKey ? options.localKey.trim() : "";
 		const current = options.device?.modelEndpoints?.find((item) => item.endpointId === endpointId);
 		if (current && !key) return { deviceId, endpointId: current.endpointId };
@@ -64,12 +62,7 @@ export function useDeviceBinding(options: {
 		const address = normaliseUrl(options.localUrl);
 		const previous = registered.current;
 		let target =
-			!current &&
-			previous?.baseUrl === address &&
-			previous.target.deviceId === deviceId &&
-			previous.target.deviceId === deviceId
-				? previous.target
-				: undefined;
+			!current && previous?.baseUrl === address && previous.target.deviceId === deviceId ? previous.target : undefined;
 		let revision = target ? previous?.revision : undefined;
 		if (!target || key) {
 			const local = { deviceId, baseUrl: address, protocol: deviceProtocol, label: t("models.localEndpoint") } as const;
@@ -78,7 +71,12 @@ export function useDeviceBinding(options: {
 					? { deviceId, endpointId: current.endpointId, apiKey: key }
 					: { ...local, ...(key ? { apiKey: key } : {}) },
 			);
-			if ((current && result.endpointId !== current.endpointId) || (result.protocol ?? "openai") !== deviceProtocol)
+			// The shell always names the wire it stored; the old fallback to "openai" would reject every
+			// endpoint once the four names replaced the two.
+			if (
+				(current && result.endpointId !== current.endpointId) ||
+				(result.protocol ?? "openai-chat") !== deviceProtocol
+			)
 				throw new Error("Unexpected endpoint");
 			target = { deviceId, endpointId: result.endpointId };
 			revision = result.revision;

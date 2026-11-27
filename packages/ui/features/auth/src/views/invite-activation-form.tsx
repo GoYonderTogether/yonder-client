@@ -88,7 +88,7 @@ export function InviteActivationForm({
 						className="auth-control"
 						fieldSize="lg"
 						autoComplete="off"
-						autoCapitalize="none"
+						autoCapitalize="characters"
 						spellCheck={false}
 						disabled={busy || expired}
 						value={code}

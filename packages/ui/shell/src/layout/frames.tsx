@@ -5,6 +5,9 @@ import { useShellChrome } from "./shell-context.tsx";
 import { TopBar } from "./top-bar.tsx";
 import { useChromeSize } from "./use-chrome-size.ts";
 
+export const workspaceCardInset = "p-[var(--spacing-2)]";
+export const workspaceCardSurface = "overflow-hidden rounded-[var(--radius-lg)] bg-[var(--color-bg-base)]";
+
 /** Shared list and detail wrappers. The shell supplies the leading navigation control. */
 export function ListFrame({
 	title,
@@ -19,7 +22,7 @@ export function ListFrame({
 	standaloneAction?: boolean;
 	children: ReactNode;
 }) {
-	const { mode, left, right: shellRight, meOpen, scroll } = useShellChrome();
+	const { mode, left, right: shellRight, detailAction, meOpen, scroll } = useShellChrome();
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const scrollKey = scroll?.key;
 	const positions = scroll?.positions;
@@ -38,6 +41,7 @@ export function ListFrame({
 			{standaloneAction ? (
 				<div className="flex shrink-0 justify-end px-[var(--spacing-4)] pt-[calc(var(--safe-area-top,env(safe-area-inset-top))+var(--spacing-3))] pb-[var(--spacing-3)]">
 					{shellRight ?? action}
+					{detailAction}
 				</div>
 			) : (
 				<div ref={header} data-frame-header className="shrink-0">
@@ -53,7 +57,12 @@ export function ListFrame({
 							)
 						}
 						center={meOpen ? title : phone ? heading : null}
-						right={shellRight ?? action}
+						right={
+							<div className="flex items-center gap-[var(--spacing-2)]">
+								{shellRight ?? action}
+								{detailAction}
+							</div>
+						}
 						titleAlign={phone && !meOpen && !title ? "start" : "center"}
 						phone={phone}
 					/>
@@ -104,7 +113,7 @@ export function PageFrame({
 	floatingHeader?: boolean;
 	conversationHeader?: boolean;
 }) {
-	const { mode, left } = useShellChrome();
+	const { mode, left, detailAction } = useShellChrome();
 	const phone = mode === "mobile";
 	const header = useChromeSize("--frame-header-height", !hideHeader, undefined, floatingHeader);
 	return (
@@ -120,10 +129,26 @@ export function PageFrame({
 					{floatingHeader ? (
 						<>
 							{left ? <div data-floating-frame-leading>{left}</div> : null}
-							{action ? <div data-floating-frame-trailing>{action}</div> : null}
+							{action || detailAction ? (
+								<div data-floating-frame-trailing className="flex items-center gap-[var(--spacing-2)]">
+									{action}
+									{detailAction}
+								</div>
+							) : null}
 						</>
 					) : (
-						<TopBar left={left} center={title} right={action} titleAlign={titleAlign} phone={phone} />
+						<TopBar
+							left={left}
+							center={title}
+							right={
+								<div className="flex items-center gap-[var(--spacing-2)]">
+									{action}
+									{detailAction}
+								</div>
+							}
+							titleAlign={titleAlign}
+							phone={phone}
+						/>
 					)}
 					{afterTopBar}
 				</div>

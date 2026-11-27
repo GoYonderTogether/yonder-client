@@ -1,6 +1,5 @@
 import { recordingDuration } from "@yonder/feature-meetings";
 import {
-	formatMeetingTime,
 	formatMeetingTranscript,
 	type MeetingPhoto,
 	type MeetingRecord,
@@ -8,7 +7,7 @@ import {
 } from "@yonder/protocol";
 import { Button, Segmented } from "@yonder/ui-components";
 import { X } from "lucide-react";
-import { useId, useLayoutEffect, useRef } from "react";
+import { type ReactNode, useId, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { MeetingArchiveImage } from "./item-meeting-photos.tsx";
 import { renderMeetingArchiveSvg } from "./meeting-archive-svg.tsx";
@@ -84,6 +83,17 @@ export function recordingParagraphs(
 	);
 }
 
+export type MeetingReadingMode = "notes" | "original";
+
+interface MeetingReadingProps {
+	meeting: MeetingRecord;
+	mode: MeetingReadingMode;
+	source: string | null;
+	onRead: (mode: MeetingReadingMode, source?: string) => void;
+	/** An explicit request can revisit the same citation after the user scrolls elsewhere. */
+	anchorRequest?: { source?: string } | undefined;
+}
+
 export function MeetingReader({
 	meeting,
 	title,
@@ -93,21 +103,13 @@ export function MeetingReader({
 }: {
 	meeting: MeetingRecord;
 	title: string;
-	mode: "notes" | "original";
+	mode: MeetingReadingMode;
 	source: string | null;
-	onOpen: (value: "notes" | "original" | null, source?: string) => void;
+	onOpen: (value: MeetingReadingMode | null, source?: string) => void;
 }) {
 	const { t } = useTranslation();
 	const dialog = useRef<HTMLDialogElement>(null);
 	const heading = useId();
-	const entries = recordingEntries(meeting);
-	const photos = orderedPhotos(meeting.photos);
-	// The 原文 tab reads the shared reading format (the same paragraphs the Bot reads through
-	// `meeting_view`), with pictures kept at the batch boundaries where they were taken.
-	const paragraphs = recordingParagraphs(meeting);
-	const summary = meeting.summary?.trim();
-	const shown = mode === "notes" && summary ? "notes" : "original";
-	const available = entries.some((entry) => entryId(entry) === source);
 	useLayoutEffect(() => {
 		const node = dialog.current;
 		if (!node) return;
@@ -118,13 +120,6 @@ export function MeetingReader({
 			else node.removeAttribute("open");
 		};
 	}, []);
-	useLayoutEffect(() => {
-		if (!source || !available || shown !== "original") return;
-		const node = document.getElementById(source);
-		if (!node || !dialog.current?.contains(node)) return;
-		node?.focus({ preventScroll: true });
-		node.scrollIntoView({ block: "start" });
-	}, [source, shown, available]);
 	return (
 		<dialog
 			ref={dialog}
@@ -136,18 +131,64 @@ export function MeetingReader({
 				onOpen(null);
 			}}
 		>
+			<MeetingReading
+				meeting={meeting}
+				mode={mode}
+				source={source}
+				onRead={onOpen}
+				header={
+					<>
+						<h2 id={heading} className="min-w-0 flex-1 truncate text-h3 font-semibold">
+							{title}
+						</h2>
+						<button
+							type="button"
+							aria-label={t("app.close")}
+							className="flex size-[var(--control-md)] shrink-0 items-center justify-center rounded-[var(--radius-full)] hover:bg-[var(--color-bg-hover)]"
+							onClick={() => onOpen(null)}
+						>
+							<X size={20} aria-hidden="true" />
+						</button>
+					</>
+				}
+			/>
+		</dialog>
+	);
+}
+
+export function MeetingReading({
+	meeting,
+	mode,
+	source,
+	onRead,
+	header,
+	anchorRequest,
+}: MeetingReadingProps & { header?: ReactNode }) {
+	const { t } = useTranslation();
+	const body = useRef<HTMLDivElement>(null);
+	const entries = recordingEntries(meeting);
+	const photos = orderedPhotos(meeting.photos);
+	// The raw view shares the stored paragraphs with the Bot and puts pictures at their batch boundaries.
+	const paragraphs = recordingParagraphs(meeting);
+	const summary = meeting.summary?.trim();
+	const shown = mode === "notes" && summary ? "notes" : "original";
+	const available = entries.some((entry) => entryId(entry) === source);
+	const anchor = anchorRequest ?? source;
+	useLayoutEffect(() => {
+		const id = typeof anchor === "string" ? anchor : anchor?.source;
+		if (!id || !available || shown !== "original") return;
+		// The legacy deep-link dialog enters the top layer in its parent layout effect.
+		const frame = requestAnimationFrame(() => {
+			const node = body.current?.querySelector<HTMLElement>(`[data-recording-source="${CSS.escape(id)}"]`);
+			node?.focus({ preventScroll: true });
+			node?.scrollIntoView({ block: "start" });
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [anchor, shown, available]);
+	return (
+		<>
 			<header className="recording-reader-header">
-				<h2 id={heading} className="min-w-0 flex-1 truncate text-h3 font-semibold">
-					{title}
-				</h2>
-				<button
-					type="button"
-					aria-label={t("app.close")}
-					className="flex size-[var(--control-md)] shrink-0 items-center justify-center rounded-[var(--radius-full)] hover:bg-[var(--color-bg-hover)]"
-					onClick={() => onOpen(null)}
-				>
-					<X size={20} aria-hidden="true" />
-				</button>
+				{header}
 				<Segmented
 					aria-label={t("meetingRecorder.name")}
 					size="lg"
@@ -156,16 +197,16 @@ export function MeetingReader({
 						{ value: "original", label: t("meetingRecorder.archiveOriginal") },
 					]}
 					value={shown}
-					onChange={(value) => onOpen(value === "notes" ? "notes" : "original")}
+					onChange={(value) => onRead(value === "notes" ? "notes" : "original")}
 					className="col-span-full"
 				/>
 			</header>
-			<div className="recording-reader-body" key={shown}>
+			<div ref={body} className="recording-reader-body" key={shown}>
 				{shown === "notes" && summary ? (
 					<MessageContent
 						body={summary}
 						sourceAction={(id) =>
-							entries.some((entry) => entryId(entry) === id) ? () => onOpen("original", id) : undefined
+							entries.some((entry) => entryId(entry) === id) ? () => onRead("original", id) : undefined
 						}
 						renderCodeBlock={(lang, text) =>
 							lang === "svg" ? renderMeetingArchiveSvg(text, t("meetingRecorder.archiveDiagram")) : null
@@ -184,7 +225,13 @@ export function MeetingReader({
 								const id = entryId(entry);
 								const shown = paragraphs.find((group) => group.batch === entry.batch)?.paragraphs ?? [];
 								return (
-									<section key={id} id={id} tabIndex={-1} className="recording-reader-entry">
+									<section
+										key={id}
+										id={header ? id : undefined}
+										data-recording-source={id}
+										tabIndex={-1}
+										className="recording-reader-entry"
+									>
 										{shown.map((paragraph) => (
 											<p key={paragraph.id} className="whitespace-pre-wrap wrap-anywhere">
 												{paragraph.time ? (
@@ -202,7 +249,13 @@ export function MeetingReader({
 							const before = photos[index - 1];
 							const after = photos[index + 1];
 							return (
-								<figure key={id} id={id} tabIndex={-1} className="recording-reader-entry">
+								<figure
+									key={id}
+									id={header ? id : undefined}
+									data-recording-source={id}
+									tabIndex={-1}
+									className="recording-reader-entry"
+								>
 									<figcaption className="text-caption tabular-nums text-[var(--color-text-secondary)]">
 										{t("meetingRecorder.archivePhoto", { time })}
 									</figcaption>
@@ -213,7 +266,7 @@ export function MeetingReader({
 												variant="link"
 												size="sm"
 												disabled={!before}
-												onClick={() => before && onOpen("original", `photo-${before.clientPhotoId}`)}
+												onClick={() => before && onRead("original", `photo-${before.clientPhotoId}`)}
 											>
 												{t("meetingRecorder.archivePrevious")}
 											</Button>
@@ -221,7 +274,7 @@ export function MeetingReader({
 												variant="link"
 												size="sm"
 												disabled={!after}
-												onClick={() => after && onOpen("original", `photo-${after.clientPhotoId}`)}
+												onClick={() => after && onRead("original", `photo-${after.clientPhotoId}`)}
 											>
 												{t("meetingRecorder.archiveNext")}
 											</Button>
@@ -233,6 +286,6 @@ export function MeetingReader({
 					</>
 				)}
 			</div>
-		</dialog>
+		</>
 	);
 }

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { MemoryAbout } from "./memory/memory-about.tsx";
 import { MemoryFilePage } from "./memory/memory-file.tsx";
+import { useOpenMemoryFile } from "./memory/memory-file-detail.tsx";
 import { MemoryFileList } from "./memory/memory-file-list.tsx";
 import { MemoryColumn, MemoryHome, useGroupName } from "./memory/memory-home.tsx";
 import { MemoryTimeline } from "./memory/memory-timeline.tsx";
@@ -14,7 +15,6 @@ import {
 	groupPrefix,
 	type MemoryView,
 	memoryFileParent,
-	memoryFileRoute,
 	memoryFolderNames,
 	memoryFolderRoute,
 } from "./memory/memory-view.ts";
@@ -63,6 +63,7 @@ export function MemoryPage({ view }: { view: MemoryView }) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
 	const navigate = useNavigate();
+	const openFile = useOpenMemoryFile();
 	const person = usePerson();
 	const groupName = useGroupName();
 	const folders = useMemoryFolders();
@@ -86,7 +87,7 @@ export function MemoryPage({ view }: { view: MemoryView }) {
 					group={view.group}
 					directory={view.directory}
 					current={null}
-					onOpen={(path) => navigate(memoryFileRoute(path))}
+					onOpen={openFile}
 					onFolder={(path) => navigate(memoryFolderRoute(view.group, path))}
 				/>
 			</PageFrame>

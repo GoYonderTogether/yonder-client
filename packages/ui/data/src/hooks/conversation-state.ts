@@ -54,22 +54,22 @@ export function useMarkConversationRead(
 ) {
 	const api = useApi();
 	const client = useQueryClient();
-	const ack = useRef<string | undefined>(undefined);
+	const latestRead = useRef<{ scope: string } | undefined>(undefined);
 	useEffect(() => {
 		if (!personId || !conversationId || !messageId || !canRead()) return;
 		const scope = `${personId}:${conversationId}:${messageId}`;
-		if (ack.current === scope) return;
-		let active = true;
+		if (latestRead.current?.scope === scope) return;
+		// Keep the request across focus and pane changes until the latest message advances or it fails.
+		const request = { scope };
+		latestRead.current = request;
 		void api
 			.markConversationRead(conversationId, messageId)
 			.then(() => {
-				if (active) ack.current = scope;
 				if (client.getQueryData<MeResponse>(keys.me())?.member.id === personId)
 					void client.invalidateQueries({ queryKey: keys.conversations.list() });
 			})
-			.catch(() => {});
-		return () => {
-			active = false;
-		};
+			.catch(() => {
+				if (latestRead.current === request) latestRead.current = undefined;
+			});
 	}, [api, canRead, client, conversationId, messageId, personId]);
 }

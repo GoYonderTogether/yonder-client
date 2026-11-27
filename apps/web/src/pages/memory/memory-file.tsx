@@ -1,7 +1,7 @@
 import type { MemoryFileContent } from "@yonder/protocol";
-import { Button, InlineError } from "@yonder/ui-components";
+import { Button, ChatGlyph, InlineError, MEMORY_KIND_GLYPHS, TaskGlyph } from "@yonder/ui-components";
 import { ApiError, useMemoryFile, useMemoryFileActions } from "@yonder/ui-data";
-import { ArchiveRestore, ListChecks, MessageCircle, Mic, Pencil, Trash2 } from "lucide-react";
+import { ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { UserEditedBadge } from "./memory-edited.tsx";
@@ -14,7 +14,7 @@ import { archivedOriginalPath, isAboutMemoryFile, isArchivedMemoryFile } from ".
 import { VisibilityControl } from "./memory-visibility.tsx";
 import { relativeTime, useAuthorName } from "./memory-who.ts";
 
-const SOURCE_ICONS = { meeting: Mic, subtask: ListChecks, schedule: ListChecks } as const;
+const SOURCE_ICONS = { meeting: MEMORY_KIND_GLYPHS.voice, subtask: TaskGlyph, schedule: TaskGlyph } as const;
 const SOURCE_LABELS: Record<string, string> = {
 	chat: "memory.sourceChat",
 	meeting: "memory.sourceMeeting",
@@ -176,7 +176,7 @@ function FileSources({ file }: { file: MemoryFileContent }) {
 			<h3 className="text-caption font-medium text-[var(--color-text-tertiary)]">{t("memory.sources")}</h3>
 			<ul className="flex flex-col gap-[var(--spacing-1)]">
 				{file.sources.map((source) => {
-					const Icon = SOURCE_ICONS[source.connector as keyof typeof SOURCE_ICONS] ?? MessageCircle;
+					const Icon = SOURCE_ICONS[source.connector as keyof typeof SOURCE_ICONS] ?? ChatGlyph;
 					const label = source.title || t(SOURCE_LABELS[source.connector] ?? "memory.sourceChat");
 					const open = navigate.file(source);
 					const content = (

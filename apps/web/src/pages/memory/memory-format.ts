@@ -1,57 +1,17 @@
 import type { MemoryActivity, MemoryBlock, MemoryEntry, MemoryKind } from "@yonder/protocol";
-import type { LucideIcon } from "lucide-react";
-import {
-	Bike,
-	BookOpen,
-	CalendarDays,
-	Car,
-	Circle,
-	Coffee,
-	FileText,
-	Footprints,
-	Images,
-	MapPin,
-	MessageCircle,
-	Mic,
-	Moon,
-	Music,
-	Plane,
-	Sparkles,
-	Tent,
-	TrainFront,
-	Trees,
-	UtensilsCrossed,
-	Waves,
-} from "lucide-react";
+import { ACTIVITY_GLYPHS, MEMORY_KIND_GLYPHS } from "@yonder/ui-components";
+import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
 
-export const KIND_ICONS: Record<MemoryKind, LucideIcon> = {
-	place: MapPin,
-	photo: Images,
-	doc: FileText,
-	voice: Mic,
-	chat: MessageCircle,
-	ai: Sparkles,
-	other: Circle,
-};
+export type IconComponent = ComponentType<{
+	className?: string | undefined;
+	"aria-hidden"?: boolean | "true" | "false" | undefined;
+}>;
 
-const ACTIVITY_ICONS: Record<MemoryActivity, LucideIcon> = {
-	sleep: Moon,
-	walk: Footprints,
-	run: Footprints,
-	bike: Bike,
-	car: Car,
-	train: TrainFront,
-	flight: Plane,
-	food: UtensilsCrossed,
-	coffee: Coffee,
-	music: Music,
-	calendar: CalendarDays,
-	camp: Tent,
-	book: BookOpen,
-	nature: Trees,
-	water: Waves,
-};
+/** Flat two-tone glyphs; the colour is the kind ink from the surrounding --memory-* variables. */
+export const KIND_ICONS: Record<MemoryKind, IconComponent> = MEMORY_KIND_GLYPHS;
+
+const ACTIVITY_ICONS: Record<MemoryActivity, IconComponent> = ACTIVITY_GLYPHS;
 
 export const entryIcon = (entry: MemoryEntry) =>
 	entry.activity ? ACTIVITY_ICONS[entry.activity] : KIND_ICONS[entry.kind];

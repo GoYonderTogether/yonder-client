@@ -283,7 +283,9 @@ test("an unresponsive hidden socket recovers without focus and does not replay t
 	});
 	const ready = {
 		type: "device_model.ready",
-		endpoints: [{ endpointId: "3d9a2c05-5123-4e7a-9091-023471317af2", revision: 1, label: "Mock", protocol: "openai" }],
+		endpoints: [
+			{ endpointId: "3d9a2c05-5123-4e7a-9091-023471317af2", revision: 1, label: "Mock", protocol: "openai-chat" },
+		],
 	} satisfies Parameters<typeof connection.send>[0];
 	const pending = new Set(["in-flight"]);
 	const status = connection.subscribe(() => {
