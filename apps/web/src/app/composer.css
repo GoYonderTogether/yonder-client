@@ -27,7 +27,7 @@
 	position: relative;
 	inset: auto;
 	min-height: var(--composer-button-size);
-	max-height: calc(var(--control-md) * 4);
+	max-height: var(--composer-mobile-max-height, calc(var(--control-md) * 4));
 }
 .composer-text {
 	position: relative;
@@ -359,7 +359,7 @@
 	position: absolute;
 	inset: 0;
 	height: 100%;
-	max-height: calc(var(--control-md) * 4);
+	max-height: var(--composer-mobile-max-height, calc(var(--control-md) * 4));
 	field-sizing: fixed;
 	scrollbar-width: none;
 	color: var(--color-text-primary);

@@ -8,6 +8,9 @@ import type { CompletionToken } from "./completion/tokens.ts";
 
 const DESKTOP_COMPOSER_MAX_LINES = 11;
 const DESKTOP_COMPOSER_MAX_SHARE = 0.4;
+const MOBILE_COMPOSER_MAX_LINES = 5;
+/* The phone draft may take at most this share of the conversation above the dock, keyboard included. */
+const MOBILE_COMPOSER_MAX_SHARE = 0.45;
 
 function resizeDesktopEditor(editor: HTMLTextAreaElement, dock: HTMLElement | null, panel: HTMLElement | null) {
 	const style = getComputedStyle(editor);
@@ -42,6 +45,33 @@ function resizeDesktopEditor(editor: HTMLTextAreaElement, dock: HTMLElement | nu
 	editor.scrollTop = scrollTop;
 }
 
+/**
+ * The phone draft grows with its text until the line count or the share of the conversation above the
+ * dock is reached, then scrolls inside the field. The mirror stays in flow, so it drives the height.
+ */
+function capMobileEditor(
+	editor: HTMLTextAreaElement,
+	mirror: HTMLElement,
+	dock: HTMLElement | null,
+	panel: HTMLElement | null,
+) {
+	const surface = editor.parentElement;
+	const style = getComputedStyle(editor);
+	const lineHeight = Number.parseFloat(style.lineHeight);
+	if (!surface || !lineHeight) return { lines: 1, maxLines: 1 };
+	const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
+	let available = Infinity;
+	if (dock && panel) {
+		const header = panel.querySelector<HTMLElement>("[data-conversation-header]");
+		const chat = panel.getBoundingClientRect().height - (header?.getBoundingClientRect().height ?? 0);
+		const chrome = dock.getBoundingClientRect().height - editor.getBoundingClientRect().height;
+		available = chat * MOBILE_COMPOSER_MAX_SHARE - chrome;
+	}
+	const maxLines = Math.max(1, Math.min(MOBILE_COMPOSER_MAX_LINES, Math.floor((available - padding) / lineHeight)));
+	surface.style.setProperty("--composer-mobile-max-height", `${maxLines * lineHeight + padding}px`);
+	return { lines: Math.max(1, Math.round((mirror.scrollHeight - padding) / lineHeight)), maxLines };
+}
+
 /** Use the same textarea in and out of the top layer: no draft, cursor or IME handoff. */
 export function useComposerEditor(
 	input: RefObject<HTMLTextAreaElement | null>,
@@ -53,6 +83,7 @@ export function useComposerEditor(
 	const surface = useRef<HTMLDialogElement>(null);
 	const highlight = useRef<HTMLDivElement>(null);
 	const [multiline, setMultiline] = useState(false);
+	const [overflow, setOverflow] = useState(false);
 	const fullscreenScope = useRef<string | null>(null);
 	const [fullscreen, setFullscreen] = useState(false);
 
@@ -67,7 +98,7 @@ export function useComposerEditor(
 		const editor = input.current;
 		const mirror = highlight.current;
 		if (!editor || !mirror) return;
-		const dock = mobile ? null : editor.closest<HTMLElement>("[data-native-composer]");
+		const dock = editor.closest<HTMLElement>(mobile ? "[data-mobile-dock]" : "[data-native-composer]");
 		const panel = dock?.parentElement ?? null;
 		const sync = () => {
 			if (mobile) {
@@ -76,7 +107,11 @@ export function useComposerEditor(
 				const layout = editor.closest(".composer-layout");
 				const control = layout?.querySelector<HTMLElement>(".composer-tool, .composer-send, .composer-hold-to-talk");
 				const rowHeight = control?.getBoundingClientRect().height ?? 0;
-				if (rowHeight && !fullscreen && !hidden) setMultiline(Boolean(draft) && mirror.clientHeight > rowHeight + 1);
+				if (rowHeight && !fullscreen && !hidden) {
+					const { lines, maxLines } = capMobileEditor(editor, mirror, dock, panel);
+					setMultiline(Boolean(draft) && mirror.clientHeight > rowHeight + 1);
+					setOverflow(lines > maxLines);
+				}
 			} else {
 				resizeDesktopEditor(editor, dock, panel);
 				mirror.style.width = `${editor.clientWidth}px`;
@@ -128,7 +163,7 @@ export function useComposerEditor(
 		surface.current?.setAttribute("open", "");
 		setFullscreen(false);
 	};
-	return { surface, highlight, multiline, fullscreen, toggle, onClose };
+	return { surface, highlight, multiline, overflow, fullscreen, toggle, onClose };
 }
 
 export function ComposerEditor({
@@ -178,7 +213,7 @@ export function ComposerEditor({
 					<CompletionHighlight text={text} bindings={bindings} token={token} markdown={markdown} />
 				</div>
 				{children}
-				{mobile && (editor.fullscreen || (editor.multiline && !readOnly)) ? (
+				{mobile && (editor.fullscreen || (editor.overflow && !readOnly)) ? (
 					<button
 						type="button"
 						className="composer-tool composer-fullscreen-toggle"
