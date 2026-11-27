@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112718] - 2026-11-27
+
+### Added
+
+- memory：oldest-first timeline opening at the bottom, sky cards, week and month bands on live data
+- contacts：group my bots, friends and group chats on the contacts page
+
 ## [0.3.26112717] - 2026-11-27
 
 ### Fixed
