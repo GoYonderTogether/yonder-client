@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112723] - 2026-11-27
+
+### Added
+
+- terminal：run commands on the device through computer-control
+
 ## [0.3.26112722] - 2026-11-27
 
 ### Added
