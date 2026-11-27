@@ -1,6 +1,6 @@
 import { devices, expect, type Page, test } from "@playwright/test";
 import type { ItemDetail, Message, Run } from "@yonder/protocol";
-import { bot, conversation, isolateChat, message } from "./chat-fixture.ts";
+import { bot, conversation, isolateChat, message, person } from "./chat-fixture.ts";
 
 const question = "帮我整理这周的发布清单";
 const primaryPath = `/messages/${conversation.id}`;
@@ -14,6 +14,43 @@ function waitingReply(input: Message, n: number, status: Run["status"] = "runnin
 		conversationId: input.conversationId,
 		run: { id: `run-${n}`, userMessageId: input.id, messageId: reply.id, conversationId: input.conversationId, status },
 	};
+}
+
+for (const [layout, viewport] of Object.entries({
+	desktop: { width: 1180, height: 760 },
+	phone: devices["iPhone 13"].viewport,
+})) {
+	test(`an owned secondary Bot shows the same waiting bubble on ${layout}`, async ({ page }, testInfo) => {
+		await page.setViewportSize(viewport);
+		const secondaryBot = { ...bot, id: "secondary-bot", displayName: "子 BOT", isDefault: false };
+		const secondary = {
+			...conversation,
+			id: "secondary-chat",
+			isPrimary: false,
+			members: [
+				{ memberId: person.id, ...person },
+				{ memberId: secondaryBot.id, ...secondaryBot },
+			],
+		};
+		const input = { ...message("ask-11", question, true), conversationId: secondary.id };
+		const api = await isolateChat(page, { items: [input] });
+		await page.route("**/v1/conversations", (route) => route.fulfill({ json: { items: [conversation, secondary] } }));
+		await page.route("**/v1/contacts", (route) => route.fulfill({ json: { items: [secondaryBot] } }));
+		await page.goto(`/messages/${secondary.id}`);
+		await expect(page.getByRole("log").getByText(question, { exact: true })).toBeVisible();
+		await expect.poll(api.connected).toBe(true);
+		const waiting = page.locator(dotsSelector);
+		await expect(waiting).toHaveCount(0);
+		const reply = { ...waitingReply(input, 12), senderId: secondaryBot.id };
+		api.create(reply);
+		await expect(waiting).toBeInViewport();
+		await expect(waiting.locator("i")).toHaveCount(3);
+		await page.screenshot({ path: testInfo.outputPath(`${layout}-secondary-bot-waiting.png`) });
+		const body = "第一项：确认本周的上线范围。";
+		api.update({ ...reply, body, version: 2 });
+		await expect(page.getByRole("log").getByText(body, { exact: true })).toBeVisible();
+		await expect(waiting).toHaveCount(0);
+	});
 }
 
 test("primary Bot shows three dots only for an accepted reply run, follows reconnect, and swaps for real text", async ({

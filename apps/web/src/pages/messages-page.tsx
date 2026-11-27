@@ -219,6 +219,7 @@ export function ConversationPage({
 	const conversation = item?.conversation ?? conversations.data?.items.find((item) => item.id === conversationId);
 	const peer = conversation?.kind === "direct" ? conversationPeer(conversation, person?.id) : undefined;
 	const agent = peer?.kind === "bot" ? peer : undefined;
+	const ownedAgent = agent && ownedBotFor(agent.memberId, person?.id, bot, contacts);
 	const mainBotHeader = mainBotHome && (!conversation || Boolean(agent));
 	const mobileBotHome = mainBotHeader && mode === "mobile";
 	const mobileBotHeader = mode === "mobile" && Boolean(agent && !item);
@@ -291,7 +292,7 @@ export function ConversationPage({
 			agent &&
 			!conversation.visit &&
 			isTwoPartyAgentChat(conversation, person.id) &&
-			(item || ((conversation.isPrimary ?? mainBotHome) && agent.memberId === bot?.id)) &&
+			(item || ownedAgent) &&
 			hasPendingBotReply(items, agent.memberId, person.id),
 	);
 	const status = agent && !disconnected ? agentChatStatus(items, agent.memberId, subtasks) : undefined;
@@ -355,7 +356,7 @@ export function ConversationPage({
 								>
 									<BotName
 										name={title}
-										ownedBot={ownedBotFor(agent.memberId, person?.id, bot, contacts)}
+										ownedBot={ownedAgent}
 										owner={conversationBotOwner(agent, conversation)}
 										compact="header"
 									/>
