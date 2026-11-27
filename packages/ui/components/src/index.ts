@@ -14,6 +14,8 @@ export { BOT_FACE_IDS, BotFace, botFaceFor } from "./avatar/bot-face.tsx";
 export type { BadgeProps, BadgeTone } from "./badge/badge.tsx";
 export { Badge } from "./badge/badge.tsx";
 export { UnreadBadge } from "./badge/unread-badge.tsx";
+export type { BrandIconProps, BrandName } from "./brand-icon/brand-icon.tsx";
+export { BRAND_NAMES, BrandIcon } from "./brand-icon/brand-icon.tsx";
 export type { ButtonProps, ButtonSize, ButtonVariant } from "./button/button.tsx";
 export { Button } from "./button/button.tsx";
 export type { CardProps } from "./card/card.tsx";

@@ -39,11 +39,11 @@ import { UpdateTopNotice } from "../updates/top-notice.tsx";
 import { useReconnectNotice } from "./app-notice.tsx";
 import { AskMainBotProvider } from "./ask-main-bot.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
-import { CompactStatus } from "./completion/compact-status.tsx";
 import { completionItems } from "./completion/items.ts";
 import { mentionInDraft } from "./completion/mention-in-draft.ts";
 import { Composer } from "./composer.tsx";
 import { ComposerQuoteContext } from "./composer-quote.tsx";
+import { ComposerStatus } from "./composer-status.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemoryList, MemoryPage, SettingsRoutePage, TaskPage, TasksList } from "./lazy-tabs.ts";
 import { eligibleMeetingTarget, openMeetingSource, useMeetingRecordingSurface } from "./meeting-recording-surface.tsx";
@@ -221,6 +221,7 @@ export function AppFrame() {
 		path: location.pathname,
 	});
 	const memoryView = readMemoryView(tab === "memory" ? selection : null, subSelection);
+	const memoryTimeline = memoryView.kind === "timeline";
 	const segmentRoot = tab === "tasks" && selection === "scheduled";
 	const detailOpen = selection !== null && !segmentRoot;
 	const back = useFrameBack({ navigation, tabs, tab, tabLocation, splitMe, search: location.search });
@@ -370,7 +371,7 @@ export function AppFrame() {
 			visitRelay={tab === "messages" ? chat.visitRelay : undefined}
 			onAcceptCompletion={draft.acceptCompletion}
 			onCompact={compact.run}
-			commandStatus={<CompactStatus command={compact} />}
+			commandStatus={<ComposerStatus compact={compact} />}
 			onSendVoice={chat.submitVoice}
 			speech={{ transcription: api, knownNonce: chat.knownVoiceNonce }}
 			onSend={() => {
@@ -389,8 +390,10 @@ export function AppFrame() {
 	const closed = Boolean(conversation?.closedReason);
 	const dock = taskSelection ? (
 		composer
-	) : tab !== "messages" || visitsRoute || watchingVisit || conversation?.kind === "system" ? null : closed &&
-		conversation ? (
+	) : (tab !== "messages" && !memoryTimeline) ||
+		visitsRoute ||
+		watchingVisit ||
+		conversation?.kind === "system" ? null : closed && conversation ? (
 		<ClosedGroupNotice conversation={conversation} />
 	) : (
 		composer

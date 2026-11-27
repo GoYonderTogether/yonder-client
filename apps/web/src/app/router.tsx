@@ -21,6 +21,7 @@ import { Splash } from "../pages/splash.tsx";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { preloadFrameView } from "./lazy-tabs.ts";
 import { MemberCardRoute, preloadMemberCard } from "./member-card-route.tsx";
+import { NowProvider } from "./now-items.tsx";
 import { TrayMainActions } from "./tray/main-actions.tsx";
 import { warmableImport } from "./warmable-import.ts";
 
@@ -118,7 +119,14 @@ export function AppRoutes() {
 												{/* The old chat path, from links written before the frame changed. */}
 												<Route path="/chat/*" element={<Navigate to="/messages/main" replace />} />
 												{/* The frame reads the URL itself: tab, then what is open inside it. */}
-												<Route path="*" element={<AppFrame />} />
+												<Route
+													path="*"
+													element={
+														<NowProvider>
+															<AppFrame />
+														</NowProvider>
+													}
+												/>
 											</Routes>
 										</RequireSession>
 									}
