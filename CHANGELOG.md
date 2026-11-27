@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112703] - 2026-11-27
+
+### Added
+
+- connectors：one card per connector, device switches inside
+
 ## [0.3.26112702] - 2026-11-27
 
 ### Fixed
