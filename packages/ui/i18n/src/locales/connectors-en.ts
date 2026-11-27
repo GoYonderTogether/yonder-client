@@ -96,8 +96,8 @@ export const connectorMessagesEn = {
 	},
 	computerAccess: {
 		name: "Computer access",
-		apply: "Apply permissions",
-		saveFailed: "Could not save all permissions. Try again.",
+		description: "Read and modify files on this computer.",
+		trial: "Tell me what file operations you can help with on “{{device}}” only. Do not change any files.",
 	},
 	computerControl: {
 		name: "Modify files",

@@ -127,45 +127,42 @@ export function SettingsRoutePage({ path, legacy, ...props }: SettingsRouteProps
 	}
 	if (section !== "reception") {
 		return (
-			<>
-				<MeSectionPage
-					{...legacy}
-					appVersion={BUILD_VERSION}
-					aboutUpdate={<UpdateControls />}
-					generalExtra={
-						<>
-							<NotificationSettings />
-							<DesktopCloseBehavior />
-							<InternalErrorConsent />
-						</>
-					}
-					wechatLink={<WechatWebEntry mode="link" />}
-					checkoutEntry={<CheckoutEntry />}
-					renderDeviceAction={renderMacPermissionManagement}
-					registerProviderEndpoint={registerProviderEndpoint}
-					onProviderAddFailure={internalErrorPilot() ? reportProviderAddFailure : undefined}
-					renderChangePassword={(onDone) => (
-						<PasswordSetupForm
-							mode={hasPassword ? "change" : "set"}
-							onDone={onDone}
-							onSkip={onDone}
-							showHeading={false}
-						/>
-					)}
-					section={section}
-					page={page ?? null}
-					onOpenPage={(next) =>
-						next ? props.onOpen(`/me/${section}/${encodeURIComponent(next)}`) : props.onBack(`/me/${section}`)
-					}
-					onOpenDevices={() => props.onOpen("/me/devices")}
-					onTryConnector={(draft) => ask(draft, true)}
-					onAddDevice={connectDevice.onAddDevice}
-					onSignedOut={() => navigate("/sign-in", { replace: true })}
-					onOpenLegal={(document) => navigate(`/${document}`, { state: { backgroundLocation: location } })}
-					privacy={<PrivacySwitches />}
-				/>
-				{connectDevice.overlay}
-			</>
+			<MeSectionPage
+				{...legacy}
+				appVersion={BUILD_VERSION}
+				aboutUpdate={<UpdateControls />}
+				generalExtra={
+					<>
+						<NotificationSettings />
+						<DesktopCloseBehavior />
+						<InternalErrorConsent />
+					</>
+				}
+				wechatLink={<WechatWebEntry mode="link" />}
+				checkoutEntry={<CheckoutEntry />}
+				renderDeviceAction={renderMacPermissionManagement}
+				registerProviderEndpoint={registerProviderEndpoint}
+				onProviderAddFailure={internalErrorPilot() ? reportProviderAddFailure : undefined}
+				renderChangePassword={(onDone) => (
+					<PasswordSetupForm
+						mode={hasPassword ? "change" : "set"}
+						onDone={onDone}
+						onSkip={onDone}
+						showHeading={false}
+					/>
+				)}
+				section={section}
+				page={page ?? null}
+				onOpenPage={(next) =>
+					next ? props.onOpen(`/me/${section}/${encodeURIComponent(next)}`) : props.onBack(`/me/${section}`)
+				}
+				onOpenDevices={() => props.onOpen("/me/devices")}
+				onTryConnector={(draft) => ask(draft, true)}
+				onAddDevice={connectDevice.onAddDevice}
+				onSignedOut={() => navigate("/sign-in", { replace: true })}
+				onOpenLegal={(document) => navigate(`/${document}`, { state: { backgroundLocation: location } })}
+				privacy={<PrivacySwitches />}
+			/>
 		);
 	}
 	return <ReceptionLibraryPage route={detail.slice(1)} onOpen={props.onOpen} onBack={props.onBack} />;

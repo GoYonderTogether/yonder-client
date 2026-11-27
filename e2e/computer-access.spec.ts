@@ -88,25 +88,27 @@ test("computer access only changes the selected device and permission", async ({
 
 	await page
 		.getByRole("region", { name: /MacBook Pro/ })
-		.getByRole("button", { name: "电脑接管" })
+		.getByRole("button", { name: "连接 · 电脑接管" })
 		.click();
 	const panel = page.getByRole("dialog", { name: "电脑接管" });
-	const read = panel.getByRole("checkbox", { name: "读取文件" });
-	const write = panel.getByRole("checkbox", { name: "修改文件" });
+	const master = panel.getByRole("switch", { name: target.name, exact: true });
+	await expect(master).toHaveAttribute("aria-checked", "false");
+	await expect(panel.getByRole("checkbox")).toHaveCount(0);
+	await panel.getByRole("button", { name: /MacBook Pro/ }).click();
+	const read = panel.getByRole("switch", { name: /读取文件/ });
+	const write = panel.getByRole("switch", { name: /修改文件/ });
 	await expect(read).toBeEnabled();
 	await expect(read).not.toBeChecked();
 	await expect(write).not.toBeChecked();
-	await read.check();
-	await panel.getByRole("button", { name: "应用授权" }).click();
+	await read.click();
 	const fileCalls = () => page.evaluate(() => Reflect.get(window, "fileCalls") as string[]);
 	await expect.poll(fileCalls).toEqual(["local_files_authorize"]);
 	await expect(read).toBeChecked();
 	await expect(write).not.toBeChecked();
-	await expect(panel.getByRole("button", { name: "应用授权" })).toBeDisabled();
+	await expect(master).toHaveAttribute("aria-checked", "mixed");
 	await page.screenshot({ path: info.outputPath("computer-permissions-mac.png"), animations: "disabled" });
-	await read.uncheck();
-	await panel.getByRole("button", { name: "应用授权" }).click();
+	await read.click();
 	await expect.poll(fileCalls).toEqual(["local_files_authorize", "local_files_revoke"]);
-	await expect(panel.getByRole("button", { name: "应用授权" })).toBeDisabled();
 	await expect(read).not.toBeChecked();
+	await expect(master).toHaveAttribute("aria-checked", "false");
 });

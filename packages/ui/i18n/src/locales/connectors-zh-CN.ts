@@ -94,8 +94,8 @@ export const connectorMessagesZhCN = {
 	},
 	computerAccess: {
 		name: "电脑接管",
-		apply: "应用授权",
-		saveFailed: "部分授权未能保存，请重试。",
+		description: "读取和修改这台电脑上的文件。",
+		trial: "请只针对「{{device}}」说明你能协助哪些文件操作，先不要改动任何文件。",
 	},
 	computerControl: {
 		name: "修改文件",
