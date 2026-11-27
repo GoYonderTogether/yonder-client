@@ -1,4 +1,12 @@
+use std::io::{Error, ErrorKind};
 use std::path::{Component, Path, PathBuf};
+
+pub(crate) fn existing_path_error(error: Error) -> &'static str {
+    match error.kind() {
+        ErrorKind::PermissionDenied => "permission_denied",
+        _ => "not_found",
+    }
+}
 
 pub fn resolve(root: &Path, relative: &str) -> Result<PathBuf, &'static str> {
     let path = Path::new(relative);
@@ -29,7 +37,10 @@ pub fn resolve(root: &Path, relative: &str) -> Result<PathBuf, &'static str> {
             return Err("unsupported_file");
         }
     }
-    let target = root.join(path).canonicalize().map_err(|_| "not_found")?;
+    let target = root
+        .join(path)
+        .canonicalize()
+        .map_err(existing_path_error)?;
     if !target.starts_with(root) {
         return Err("path_invalid");
     }
@@ -42,6 +53,16 @@ mod tests {
     use crate::local_files_store::{Capabilities, Context, Grant};
     use serde_json::{json, Value};
     use std::fs;
+
+    #[test]
+    fn separates_permission_errors_from_missing_paths() {
+        assert_eq!(
+            existing_path_error(ErrorKind::PermissionDenied.into()),
+            "permission_denied"
+        );
+        assert_eq!(existing_path_error(ErrorKind::NotFound.into()), "not_found");
+    }
+
     fn execute(root: &Path, operation: &str, path: &str) -> Result<Value, &'static str> {
         let context = Context {
             owner_id: "mem_fixture".into(),

@@ -140,6 +140,8 @@ export const deviceFileMessagesZhCN = {
 	checking: "正在检查文件更新",
 	offline: "源设备离线",
 	offlineCopy: "源设备离线 · 上次读取的版本",
+	sourceNotReady: "源设备在线 · 文件读取暂不可用",
+	sourceNotReadyCopy: "文件读取暂不可用 · 上次读取的版本",
 	updateSource: "请更新源设备上的 Yonder",
 	unavailable: "文件不存在或已无法访问",
 	readFailed: "无法读取文件",
