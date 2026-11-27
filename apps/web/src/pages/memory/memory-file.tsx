@@ -41,10 +41,12 @@ export function MemoryFilePage({
 	path,
 	onDeleted,
 	inPane = false,
+	onDirtyChange,
 }: {
 	path: string;
 	onDeleted: () => void;
 	inPane?: boolean;
+	onDirtyChange?: ((dirty: boolean) => void) | undefined;
 }) {
 	const file = useMemoryFile(path);
 	if (file.error)
@@ -54,10 +56,28 @@ export function MemoryFilePage({
 			</div>
 		);
 	if (file.isPending) return <MemoryLoading />;
-	return <FileBody key={file.data.path} file={file.data} onDeleted={onDeleted} inPane={inPane} />;
+	return (
+		<FileBody
+			key={file.data.path}
+			file={file.data}
+			onDeleted={onDeleted}
+			inPane={inPane}
+			onDirtyChange={onDirtyChange}
+		/>
+	);
 }
 
-function FileBody({ file, onDeleted, inPane }: { file: MemoryFileContent; onDeleted: () => void; inPane: boolean }) {
+function FileBody({
+	file,
+	onDeleted,
+	inPane,
+	onDirtyChange,
+}: {
+	file: MemoryFileContent;
+	onDeleted: () => void;
+	inPane: boolean;
+	onDirtyChange: ((dirty: boolean) => void) | undefined;
+}) {
 	const { t, i18n } = useTranslation();
 	const now = useMinute();
 	const author = useAuthorName();
@@ -118,7 +138,7 @@ function FileBody({ file, onDeleted, inPane }: { file: MemoryFileContent; onDele
 				<MemoryEditor
 					file={file}
 					onDone={() => setEditing(false)}
-					onDirtyChange={inPane ? side?.setDirty : undefined}
+					onDirtyChange={inPane ? side?.setDirty : onDirtyChange}
 				/>
 			) : file.content.trim() ? (
 				<MemoryMarkdown file={file} onOpen={openFile} />

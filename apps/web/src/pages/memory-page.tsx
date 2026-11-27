@@ -58,7 +58,13 @@ export function MemoryList({ view }: { view: MemoryView }) {
 	);
 }
 
-export function MemoryPage({ view }: { view: MemoryView }) {
+export function MemoryPage({
+	view,
+	onFileDirtyChange,
+}: {
+	view: MemoryView;
+	onFileDirtyChange?: (dirty: boolean) => void;
+}) {
 	const { t } = useTranslation();
 	const { mode } = useShellChrome();
 	const navigate = useNavigate();
@@ -74,6 +80,7 @@ export function MemoryPage({ view }: { view: MemoryView }) {
 				<MemoryFilePage
 					key={`${person?.id}:${view.path}`}
 					path={view.path}
+					onDirtyChange={onFileDirtyChange}
 					onDeleted={() => navigate(memoryFileParent(view.path))}
 				/>
 			</PageFrame>

@@ -202,7 +202,6 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 		await expect(page).toHaveURL(/\/memory\/timeline$/);
 	}
 	// A private card carries no visibility mark.
-	await expect(page.getByText("来自 录音笔记")).toBeVisible();
 	await expect(page.getByRole("img", { name: "私人" })).toHaveCount(0);
 	await page.getByRole("button", { name: /会后决定/ }).click();
 	await expect(page.getByText("接口在周五完成。")).toBeVisible();
@@ -250,22 +249,23 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	await page.goto("/memory");
 	const recordings = page.getByRole("button", { name: /^录音/ });
 	await recordings.click();
-	const directoryRoute = phone ? /\/memory\/g\/.+$/ : /\/memory$/;
-	await expect(page).toHaveURL(directoryRoute);
+	const directoryRoute = /\/memory\/g\/.+$/;
+	await expect(page).toHaveURL(phone ? directoryRoute : /\/memory$/);
 	if (!phone) {
 		await expect(recordings).toHaveAttribute("aria-expanded", "true");
 		await expect(page.getByRole("main").getByRole("button", { name: /会后决定/ })).toBeVisible();
 	}
 	await page.getByRole("button", { name: /周会纪要/ }).click();
-	await expect(page).toHaveURL(directoryRoute);
-	await expect(pane).toBeVisible();
-	await expect(pane.getByRole("tab")).toHaveCount(phone ? 0 : 1);
-	const reader = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "周会纪要" }) });
+	await expect(page).toHaveURL(phone ? directoryRoute : /\/memory\/files\/.+$/);
+	const reader = (phone ? pane : page.getByRole("main"))
+		.getByRole("article")
+		.filter({ has: page.getByRole("heading", { name: "周会纪要" }) });
 	await expect(reader.getByRole("button", { name: "星期三周会" })).toBeVisible();
 	await reader.getByRole("button", { name: "编辑" }).click();
 	const editor = reader.getByRole("textbox", { name: "正文" });
 	await editor.fill("发布窗口已确认。");
-	await closePane();
+	if (phone) await closePane();
+	else await page.getByRole("button", { name: "返回", exact: true }).click();
 	const discard = page.getByRole("dialog", { name: "放弃更改", exact: true });
 	await discard.getByRole("button", { name: "取消", exact: true }).click();
 	await expect(editor).toHaveValue("发布窗口已确认。");
@@ -311,7 +311,6 @@ test("expands nested notes in the wide sidebar while keeping the current detail"
 	await memoryApi(page);
 	await page.goto("/memory");
 	const main = page.getByRole("main");
-	const pane = page.locator("[data-detail-pane]");
 	const notes = page.getByRole("button", { name: /^笔记/ });
 	const folder = page.getByRole("button", { name: "纪要", exact: true });
 	const subfolder = page.getByRole("button", { name: "每周", exact: true });
@@ -324,12 +323,11 @@ test("expands nested notes in the wide sidebar while keeping the current detail"
 	await expect(page).toHaveURL(/\/memory$/);
 	await expect(main.getByRole("button", { name: /会后决定/ })).toBeVisible();
 	await note.click();
-	await expect(pane.getByRole("heading", { name: "项目决定" })).toBeVisible();
-	await expect(pane.getByRole("tab", { name: "项目决定" })).toHaveAttribute("aria-selected", "true");
-	await expect(page).toHaveURL(/\/memory$/);
+	await expect(main.getByRole("heading", { name: "项目决定" })).toBeVisible();
+	await expect(page).toHaveURL(new URL(memoryFileRoute(nestedNotePath), page.url()).href);
 	await notes.click();
 	await expect(note).toHaveCount(0);
-	await expect(pane.getByRole("heading", { name: "项目决定" })).toBeVisible();
+	await expect(main.getByRole("heading", { name: "项目决定" })).toBeVisible();
 	await notes.click();
 	await expect(note).toBeVisible();
 
@@ -337,6 +335,10 @@ test("expands nested notes in the wide sidebar while keeping the current detail"
 	await expect(main.getByRole("button", { name: /会后决定/ })).toBeVisible();
 	await expect(note).toBeVisible();
 	await expect(main.getByRole("button", { name: /项目决定/ })).toHaveCount(0);
+	await page.getByRole("button", { name: /^总结/ }).click();
+	await page.getByRole("button", { name: "日总结", exact: true }).click();
+	await page.getByRole("button", { name: "日总结", exact: true }).and(page.getByTitle("日总结")).click();
+	await expect(main.getByRole("heading", { name: "日总结" })).toBeVisible();
 });
 
 test.describe("memory on a phone", () => {

@@ -4,8 +4,8 @@ import { useMemoryFolders } from "@yonder/ui-data";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useOpenMemoryFile } from "./memory-file-detail.tsx";
-import { memoryFolderNames } from "./memory-view.ts";
+import { useNavigate } from "react-router";
+import { memoryFileRoute, memoryFolderNames } from "./memory-view.ts";
 import { VisibilityMark } from "./memory-visibility.tsx";
 
 const ROW =
@@ -40,7 +40,7 @@ export function MemoryFileTree({
 	activePath: string | null;
 }) {
 	const { i18n } = useTranslation();
-	const openFile = useOpenMemoryFile();
+	const navigate = useNavigate();
 	const folders = useMemoryFolders();
 	const folderName = memoryFolderNames(folders.data?.items ?? []);
 	const locale = i18n.resolvedLanguage ?? i18n.language;
@@ -118,7 +118,7 @@ export function MemoryFileTree({
 									aria-current={selected ? "true" : undefined}
 									className={`${ROW} ${selected ? SELECTED : ""}`}
 									style={indent(depth)}
-									onClick={() => openFile(file.path, file.title)}
+									onClick={() => navigate(memoryFileRoute(file.path))}
 								>
 									<Slot />
 									<span className="min-w-0 flex-1 truncate">{name}</span>

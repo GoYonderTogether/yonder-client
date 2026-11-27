@@ -54,7 +54,6 @@ import { useModelDirtyGuard } from "./use-model-dirty-guard.tsx";
 import { type PageNavigationState, usePageNavigation } from "./use-page-navigation.ts";
 import { MAIN_BOT_PATH, usePhoneTabs } from "./use-phone-tabs.ts";
 import { useTaskPreset } from "./use-task-preset.ts";
-/** Assembles the active list and detail; the shell owns their responsive layout. */
 export function AppFrame() {
 	const localFiles = useLocalFilesAdapter();
 	const { t } = useTranslation();
@@ -146,6 +145,7 @@ export function AppFrame() {
 	const {
 		modelDirty,
 		setBotDirty,
+		setMemoryDirty,
 		isDirty,
 		dialog: discardDialog,
 	} = useModelDirtyGuard(layoutMode ?? "mobile", desktop, layers);
@@ -313,7 +313,7 @@ export function AppFrame() {
 			case "memory":
 				return {
 					list: <MemoryList view={memoryView} />,
-					content: <MemoryPage view={memoryView} />,
+					content: <MemoryPage view={memoryView} onFileDirtyChange={setMemoryDirty} />,
 				};
 			case "contacts":
 				if (contactConversation)

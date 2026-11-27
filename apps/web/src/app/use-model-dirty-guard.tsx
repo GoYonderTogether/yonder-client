@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { type BlockerFunction, useBlocker } from "react-router";
 
 /**
- * One router blocker for settings editors and browser Back from the phone detail.
+ * One router blocker for settings and memory editors and browser Back from the phone detail.
  */
 export function useModelDirtyGuard(
 	mode: LayoutMode,
@@ -17,16 +17,24 @@ export function useModelDirtyGuard(
 	const { t } = useTranslation();
 	const modelDirty = useRef(false);
 	const botDirty = useRef(false);
+	const memoryDirty = useRef(false);
+	const setMemoryDirty = useCallback((dirty: boolean) => {
+		memoryDirty.current = dirty;
+	}, []);
 	const setBotDirty = useCallback((dirty: boolean) => {
 		botDirty.current = dirty;
 	}, []);
 	const current = useRef(detail);
 	current.current = detail;
-	const isDirty = useCallback(() => modelDirty.current || botDirty.current || current.current.dirty(), []);
+	const isDirty = useCallback(
+		() => modelDirty.current || botDirty.current || memoryDirty.current || current.current.dirty(),
+		[],
+	);
 	const block = useCallback<BlockerFunction>(
 		({ historyAction, nextLocation }) =>
 			modelDirty.current ||
 			botDirty.current ||
+			memoryDirty.current ||
 			(historyAction === "POP" && current.current.blocksPop(nextLocation.state)),
 		[],
 	);
@@ -43,7 +51,9 @@ export function useModelDirtyGuard(
 			<DiscardChangesDialog
 				open={blocker.state === "blocked"}
 				body={t(
-					botDirty.current || (blocker.state === "blocked" && detail.blocksPop(blocker.location.state))
+					botDirty.current ||
+						memoryDirty.current ||
+						(blocker.state === "blocked" && detail.blocksPop(blocker.location.state))
 						? "bots.discardChanges"
 						: "models.discard",
 				)}
@@ -51,10 +61,11 @@ export function useModelDirtyGuard(
 				onConfirm={() => {
 					modelDirty.current = false;
 					botDirty.current = false;
+					memoryDirty.current = false;
 					blocker.proceed?.();
 				}}
 			/>
 		</ShellProvider>
 	);
-	return { modelDirty, setBotDirty, isDirty, dialog };
+	return { modelDirty, setBotDirty, setMemoryDirty, isDirty, dialog };
 }
