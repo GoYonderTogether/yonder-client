@@ -25,6 +25,7 @@ export function useContactScreens(
 					if (handle) navigate(target, { replace: true, state });
 					else navigation.open(target);
 				}}
+				onOpenGroup={(id) => navigation.open(`/messages/${encodeURIComponent(id)}`)}
 				showRequests={!handle && showRequests}
 				onChange={(requests) => {
 					setShowRequests(requests);
@@ -41,7 +42,7 @@ export function useContactScreens(
 				onOpenPrivacy={() => navigation.open("/me/privacy")}
 				onHome={closeProfile}
 			/>
-		) : !showRequests && contacts?.some((member) => member.kind === "person") ? (
+		) : !showRequests && contacts?.some((member) => member.kind === "person" || member.kind === "bot") ? (
 			<ContactsPagePlaceholder />
 		) : null,
 		onBack: handle ? closeProfile : undefined,
