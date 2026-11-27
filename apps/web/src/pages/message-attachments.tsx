@@ -1,31 +1,74 @@
 import { AttachmentTile, MessageAttachmentsFrame } from "@yonder/chat-presentation";
 import type { Attachment } from "@yonder/protocol";
-import { CircleAlert, CloudDownload, LoaderCircle, Play, RotateCcw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { CircleAlert, CloudDownload, Download, LoaderCircle, Play, RotateCcw } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileTypeIcon } from "../lib/file-type-icon.tsx";
 import { ensureDisplayBlob } from "../lib/image-display.ts";
 import { useObjectUrl } from "../lib/use-object-url.ts";
 import { useVideoPoster } from "../lib/use-video-poster.ts";
-import { AttachmentPreview } from "../preview/attachment-preview.tsx";
+import { AttachmentPreview, downloadAttachment } from "../preview/attachment-preview.tsx";
 import { type PreviewFile, previewKind } from "../preview/file-kind.ts";
 import { usePreviewTranslation } from "../preview/preview-i18n.ts";
 import { useAttachmentBlob } from "../preview/use-attachment-blob.ts";
 
-function MessageAttachment({ attachment }: { attachment: Attachment }) {
+export type AttachmentDownloadItem = {
+	id: "download";
+	label: string;
+	icon: React.ReactNode;
+	run: () => Promise<void>;
+};
+
+const downloadItems = new WeakMap<Element, AttachmentDownloadItem>();
+
+export function getAttachmentDownloadItem(target: EventTarget | null): AttachmentDownloadItem | undefined {
+	const tile = target instanceof Element ? target.closest("[data-attachment-id]") : null;
+	return tile ? downloadItems.get(tile) : undefined;
+}
+
+type LoadAttachment = ReturnType<typeof useAttachmentBlob>["load"];
+
+function MessageAttachment({
+	attachment,
+	loaders,
+	onOpen,
+}: {
+	attachment: Attachment;
+	loaders: Map<string, LoadAttachment>;
+	onOpen: (attachment: Attachment) => void;
+}) {
 	const { t } = useTranslation();
 	const labels = usePreviewTranslation();
 	const original = useAttachmentBlob(attachment);
+	const { load } = original;
+	const downloadLabel = t("landingPage.nav.download");
 	const card = useRef<HTMLDivElement>(null);
 	const [visible, setVisible] = useState(false);
 	const [display, setDisplay] = useState<Blob>();
-	const [selected, setSelected] = useState<PreviewFile>();
 	const kind = previewKind(attachment);
 	const poster = useVideoPoster(kind === "video" ? original.blob : undefined);
 	const url = useObjectUrl(kind === "video" ? poster : display);
-	const media = kind === "image" || (kind === "video" && !!url);
+	const media = !original.error && (kind === "image" || (kind === "video" && !!url));
 	const extension = /\.([a-z0-9]{1,8})$/i.exec(attachment.name)?.[1]?.toUpperCase() ?? attachment.mimeType;
 
+	useLayoutEffect(() => {
+		const tile = card.current;
+		if (!tile) return;
+		loaders.set(attachment.id, load);
+		downloadItems.set(tile, {
+			id: "download",
+			label: downloadLabel,
+			icon: <Download size={16} aria-hidden="true" />,
+			run: async () => {
+				const blob = await load();
+				if (blob) downloadAttachment({ ...attachment, blob });
+			},
+		});
+		return () => {
+			loaders.delete(attachment.id);
+			downloadItems.delete(tile);
+		};
+	}, [attachment, downloadLabel, load, loaders]);
 	useEffect(() => {
 		const observer = new IntersectionObserver((entries) => setVisible(entries.some((entry) => entry.isIntersecting)), {
 			rootMargin: "300px",
@@ -52,16 +95,12 @@ function MessageAttachment({ attachment }: { attachment: Attachment }) {
 			active = false;
 		};
 	}, [original.blob, kind, attachment.name]);
-	async function open() {
-		const blob = await original.load();
-		if (blob) setSelected({ ...attachment, blob });
-	}
 	return (
 		<AttachmentTile as="div" elementRef={card} id={attachment.id}>
 			<button
 				type="button"
 				className={`message-attachment-open ${media ? "message-attachment-media" : "message-attachment-file"}`}
-				onClick={() => void open()}
+				onClick={() => onOpen(attachment)}
 				aria-label={labels("open", { name: attachment.name })}
 				disabled={original.loading}
 			>
@@ -127,17 +166,56 @@ function MessageAttachment({ attachment }: { attachment: Attachment }) {
 					</span>
 				) : null}
 			</button>
-			{selected ? <AttachmentPreview file={selected} onClose={() => setSelected(undefined)} /> : null}
 		</AttachmentTile>
 	);
 }
 
 export function MessageAttachments({ attachments, self = false }: { attachments: Attachment[]; self?: boolean }) {
+	const loaders = useRef(new Map<string, LoadAttachment>());
+	const request = useRef(0);
+	const [selected, setSelected] = useState<PreviewFile>();
+	const images = attachments.filter((attachment) => previewKind(attachment) === "image");
+	const index = images.findIndex((image) => image.id === selected?.id);
+
+	async function open(attachment: Attachment) {
+		const current = ++request.current;
+		const blob = await loaders.current.get(attachment.id)?.();
+		if (blob && current === request.current) setSelected({ ...attachment, blob });
+	}
+
 	return attachments.length ? (
-		<MessageAttachmentsFrame as="div" self={self}>
-			{attachments.map((attachment) => (
-				<MessageAttachment key={attachment.id} attachment={attachment} />
-			))}
-		</MessageAttachmentsFrame>
+		<>
+			<MessageAttachmentsFrame as="div" self={self}>
+				{attachments.map((attachment) => (
+					<MessageAttachment
+						key={attachment.id}
+						attachment={attachment}
+						loaders={loaders.current}
+						onOpen={(file) => void open(file)}
+					/>
+				))}
+			</MessageAttachmentsFrame>
+			{selected ? (
+				<AttachmentPreview
+					file={selected}
+					imageNavigation={
+						index >= 0 && images.length > 1
+							? {
+									position: index + 1,
+									total: images.length,
+									move: (direction) => {
+										const next = images[index + direction];
+										if (next) void open(next);
+									},
+								}
+							: undefined
+					}
+					onClose={() => {
+						request.current++;
+						setSelected(undefined);
+					}}
+				/>
+			) : null}
+		</>
 	) : null;
 }

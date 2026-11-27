@@ -12,7 +12,7 @@ export function ImagePreview({
 }: {
 	file: PreviewFile;
 	onClose: () => void;
-	onSwipe?: (direction: -1 | 1) => void;
+	onSwipe?: ((direction: -1 | 1) => void) | undefined;
 }) {
 	const t = usePreviewTranslation();
 	const area = useRef<HTMLButtonElement>(null);
@@ -81,8 +81,8 @@ export function ImagePreview({
 				className="attachment-image-area"
 				aria-label={t("close")}
 				onPointerDown={(event) => {
-					event.stopPropagation();
-					area.current?.setPointerCapture(event.pointerId);
+					if (event.button !== 0) return;
+					if (event.pointerType === "mouse") area.current?.setPointerCapture(event.pointerId);
 					points.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 					gesture.current.moved = false;
 					gesture.current.blank = event.target === event.currentTarget;
@@ -109,6 +109,7 @@ export function ImagePreview({
 					} else if (scale > 1) setOffset((value) => ({ x: value.x + delta.x, y: value.y + delta.y }));
 				}}
 				onPointerUp={(event) => {
+					if (!points.current.has(event.pointerId)) return;
 					const dx = event.clientX - gesture.current.x;
 					if (
 						onSwipe &&
@@ -118,12 +119,20 @@ export function ImagePreview({
 						Math.abs(dx) > 45 &&
 						Math.abs(dx) > Math.abs(event.clientY - gesture.current.y) * 1.5
 					) {
+						gesture.current.moved = true;
 						onSwipe(dx > 0 ? -1 : 1);
 					}
 					points.current.delete(event.pointerId);
 					if (!points.current.size) gesture.current.distance = 0;
 				}}
-				onPointerCancel={() => points.current.clear()}
+				onPointerCancel={() => {
+					points.current.clear();
+					gesture.current.distance = 0;
+				}}
+				onLostPointerCapture={(event) => {
+					points.current.delete(event.pointerId);
+					if (!points.current.size) gesture.current.distance = 0;
+				}}
 				onClick={(event) => {
 					if (event.detail === 0 || (gesture.current.blank && !gesture.current.moved)) onClose();
 				}}
