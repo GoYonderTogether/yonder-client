@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112722] - 2026-11-27
+
+### Added
+
+- models：a device endpoint may forward to a public https provider, not only loopback
+
 ## [0.3.26112721] - 2026-11-27
 
 ### Fixed
