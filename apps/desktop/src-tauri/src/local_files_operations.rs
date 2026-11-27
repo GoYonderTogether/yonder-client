@@ -27,8 +27,9 @@ static MUTATIONS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 static SCAN: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Bumped when an operation's arguments or results change shape; the server reads it from
-/// `connector.ready` to decide whether to offer this device the newer parameters.
-pub const TOOLS_VERSION: u64 = 4;
+/// `connector.ready` to decide whether to offer this device the newer parameters. The number lives
+/// in `connector_tools.rs` because the terminal reports the same one.
+pub const TOOLS_VERSION: u64 = crate::connector_tools::TOOLS_VERSION;
 
 const READ_OPERATIONS: [&str; 5] = ["list", "read", "search", "index", "grep"];
 const WRITE_OPERATIONS: [&str; 4] = ["create", "edit", "delete", "restore"];

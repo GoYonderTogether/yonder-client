@@ -16,6 +16,12 @@ export interface ConnectorDefinition {
 export type ConnectorScope = "folder" | "device";
 export interface ConnectorCapabilities {
 	fileTools: boolean;
+	/**
+	 * `computer-control` only: the Bot may run any command on this device as the owner's system
+	 * user. Its own capability, never implied by `fileTools`; an existing grant does not gain it
+	 * (TOOLS-V3 §4). Off by default.
+	 */
+	terminal: boolean;
 }
 
 export interface ConnectorInstance {
@@ -42,7 +48,8 @@ export type ConnectorRequestState = "pending" | "dispatched" | "granted" | "canc
  */
 export interface ConnectorRequestView {
 	id: string;
-	connectorIds: FileConnectorId[];
+	/** Any connector a card may name; wider than the file pair so a terminal grant can be asked for. */
+	connectorIds: ConnectorId[];
 	/** The Bot's one-line reason, not the user's own message. */
 	reason: string;
 	state: ConnectorRequestState;
@@ -65,7 +72,8 @@ export interface ConnectorRequestView {
 /** One grant a device session is asked to store; the device reports readiness through `connector.ready`. */
 export interface ConnectorGrant {
 	connectionId: string;
-	connectorId: FileConnectorId;
+	/** As wide as `ConnectorRequestView.connectorIds`: the device stores what the card asked for. */
+	connectorId: ConnectorId;
 	scope: "device";
 	capabilities: ConnectorCapabilities;
 	revision: number;
@@ -127,7 +135,14 @@ export type AppleConnectorOperation =
 	| "apple_voice_memos_list"
 	| "apple_voice_memos_read"
 	| "apple_voice_memos_transcribe";
-export type ConnectorOperation = FileConnectorOperation | AppleConnectorOperation | "asset_original" | "file_preview";
+/** Shell on `computer-control` with `terminal`: start a command, or manage jobs it left running. */
+export type TerminalConnectorOperation = "shell" | "shell_job";
+export type ConnectorOperation =
+	| FileConnectorOperation
+	| TerminalConnectorOperation
+	| AppleConnectorOperation
+	| "asset_original"
+	| "file_preview";
 export interface ConnectorCommandArgs {
 	/** `search`: a file-name substring. `grep`: a regular expression (Rust `regex` syntax). Apple calendar: an event search term. */
 	query?: string;
@@ -149,7 +164,7 @@ export interface ConnectorCommandArgs {
 	/** YYYY-MM-DD in the device's local calendar, inclusive. */
 	dateFrom?: string;
 	dateTo?: string;
-	/** File `read`: the first line to return, 1-based. Apple paging: zero-based. */
+	/** File `read`: the first line to return, 1-based. Apple paging: zero-based. `shell_job` `log`: a byte offset. */
 	offset?: number;
 	/** The page size for file read (1 to 2000), grep (1 to 200), or an Apple list operation. */
 	limit?: number;
@@ -175,6 +190,34 @@ export interface ConnectorCommandArgs {
 	includeIgnored?: boolean;
 	/** `search`/`index`: include dot files and dot directories. */
 	includeHidden?: boolean;
+	/**
+	 * `shell`: the command line to run, verbatim; no allowlist and no rewriting (TOOLS-V3 §4). Unix
+	 * runs it through the owner's default shell, Windows through PowerShell.
+	 */
+	command?: string;
+	/** `shell`: the process's working directory; must be an absolute path. Absent is the user's home. */
+	workdir?: string;
+	/** `shell`: a hard timeout in milliseconds. Unset means none; the foreground window is separate. */
+	timeoutMs?: number;
+	/** `shell`: return a background job at once instead of waiting out the foreground window. */
+	background?: boolean;
+	/** `shell`: notify the Bot when the job finishes. Defaults to true on the server. */
+	notify?: boolean;
+	/** `shell`: open a standard-input pipe the Bot can write to. Default false: no TTY, no stdin. */
+	stdin?: boolean;
+	/** `shell_job`: list | status | log | wait | write | kill. */
+	action?: ShellJobAction;
+	/** `shell_job`: which job, by full id or an unambiguous prefix. */
+	jobId?: string;
+	/**
+	 * `shell_job` `log`: the absolute byte offset to read from; absent is 0. The same field as a
+	 * file `read`'s first line, interpreted per operation.
+	 */
+	// `offset` above is shared with file reads; shell_job reuses it as a byte offset.
+	/** `shell_job` `write`: text for the job's standard input. */
+	text?: string;
+	/** `shell_job` `write`: close standard input after writing. */
+	eof?: boolean;
 }
 
 export interface ConnectorCommand {
@@ -242,6 +285,51 @@ export type LocalFilesResult =
 			replacements?: number;
 	  }
 	| { kind: "delete"; path: string; recoveryId: string };
+
+/** What `computer_shell_job` asks of one background job (TOOLS-V3 §4). */
+export type ShellJobAction = "list" | "status" | "log" | "wait" | "write" | "kill";
+
+/** One background job as `list`, `status` and `wait` report it. */
+export interface ShellJobSummary {
+	jobId: string;
+	/** The first few words of the command, for a human scanning the list. */
+	name: string;
+	status: "running" | "done" | "killed" | "lost";
+	/** Milliseconds since the process started. */
+	elapsedMs: number;
+	/** Present once the process has exited with a known code. */
+	exitCode?: number | null;
+	logPath: string;
+}
+
+export type TerminalConnectorResult =
+	| {
+			kind: "shell";
+			/** `running` means the foreground window ran out: the process continues as `jobId`. */
+			status: "done" | "running";
+			/** Exited: its exit code, or null when a signal ended it. Absent while running. */
+			exitCode?: number | null;
+			/** At most 65536 bytes: the first 16 KiB and the last 48 KiB, cut at a character boundary. */
+			output: string;
+			/** True when the log holds more than `output`. Read it through `outputPath`. */
+			truncated: boolean;
+			/** The full log; `read` pages through it. */
+			outputPath: string;
+			/** Present when `status` is `running`. */
+			jobId?: string;
+	  }
+	| {
+			kind: "shell_job";
+			jobs?: ShellJobSummary[];
+			output?: string;
+			/** The absolute offset `output` starts at. */
+			offset?: number;
+			/** The offset to pass next; below `offset` means that start was already discarded. */
+			next?: number;
+			truncated?: boolean;
+			running?: boolean;
+			exitCode?: number | null;
+	  };
 
 export interface AppleSourceIdentity {
 	globalId?: string;
@@ -331,6 +419,7 @@ export type ConnectorFilePreviewResult =
 
 export type ConnectorResult =
 	| LocalFilesResult
+	| TerminalConnectorResult
 	| AppleConnectorResult
 	| ConnectorFilePreviewResult
 	| { kind: "asset_original"; attachment: Attachment };
@@ -357,6 +446,14 @@ export type ConnectorExecutionError =
 	| "icloud_only"
 	/** The asset itself is absent or the system's copy is unreadable (deleted, still uploading). */
 	| "unavailable"
+	/** A terminal command exceeded its own `timeoutMs` and was killed. */
+	| "timeout"
+	/** The job's log cannot be read now: deleted, unreadable, or before its first byte was written. */
+	| "output_unavailable"
+	/** No job on this device matches the id or prefix. */
+	| "job_not_found"
+	/** The job's process is gone with no `.exit` record: it died across a client restart. */
+	| "job_lost"
 	| "operation_failed";
 export type ConnectorCommandResult =
 	| { ok: true; result: ConnectorResult }

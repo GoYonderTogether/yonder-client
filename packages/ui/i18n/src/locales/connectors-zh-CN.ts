@@ -102,6 +102,12 @@ export const connectorMessagesZhCN = {
 		description: "创建、编辑和移除文件。",
 		trial: "请只针对「{{device}}」说明你能协助哪些文件操作，先不要改动任何文件。",
 	},
+	terminal: {
+		name: "终端",
+		description: "Bot 可以在这台设备上以你的系统账号运行任意命令，包括删除文件和联网。",
+		trial: "请只针对「{{device}}」说明你能用终端协助哪些事情，先不要运行任何命令。",
+		scope: "Bot 可以在这台设备上以你的系统账号运行任意命令，包括删除文件和联网。授权后逐条命令都不再询问，直至你撤回。",
+	},
 	appleCalendar: {
 		iosPermissionDenied: "在系统设置将日历设为「完全访问」。如权限未更新，从后台关闭并重新打开 Yonder，再点连接。",
 		name: "Apple 日历",

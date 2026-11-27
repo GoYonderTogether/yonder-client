@@ -4,7 +4,7 @@ import { Overlay, useShellChrome } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
 import { DeviceSwitches } from "./connector-device-switches.tsx";
-import { type ConnectorGroup, groupKey } from "./connector-groups.ts";
+import { type ConnectorGroup, groupKey, TERMINAL_MEMBER } from "./connector-groups.ts";
 import type { LocalFilesAdapter } from "./local-files-adapter.ts";
 
 export interface ConnectorPanelProps {
@@ -34,7 +34,7 @@ export function ConnectorPanel({ group, devices, instances, localFiles, onTry, o
 					item.deviceId === device.id &&
 					item.scope === "device" &&
 					item.status === "online" &&
-					group.members.some((member) => member.id === item.connectorId),
+					group.members.some((member) => member.id !== TERMINAL_MEMBER && member.id === item.connectorId),
 			),
 	);
 	return (

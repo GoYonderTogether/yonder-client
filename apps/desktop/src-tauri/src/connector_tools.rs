@@ -1,0 +1,17 @@
+//! The connector tools version this device reports, in one place.
+//!
+//! Every local-files / computer-control entry in `connector.ready` carries it, and the server reads
+//! it to decide which arguments it may send (`yonder/packages/platform/connectors/src/versions.ts`).
+//! Bump it when any operation's arguments or results change shape; the number is shared with the
+//! server repository and must change on both sides in the same release.
+//!
+//! | version | adds                                                                    |
+//! | ------- | ----------------------------------------------------------------------- |
+//! | 1       | list, read, create, edit, delete, restore                                |
+//! | 2       | paged reads, in-place edits, grep, includeIgnored/includeHidden          |
+//! | 3       | command-bound original upload from Apple Photos or local files           |
+//! | 4       | command-bound file and directory preview (`asset_original`, `file_preview`) |
+//! | 5       | the read tools' upgrade, built in a parallel task; this task does not touch it |
+//! | 6       | the terminal: `shell`, `shell_job`, `capabilities.terminal`              |
+
+pub const TOOLS_VERSION: u64 = 6;

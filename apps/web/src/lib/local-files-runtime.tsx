@@ -24,11 +24,13 @@ import {
 	resetAppleConnectors,
 	useLocalFilesContext,
 } from "./local-files.ts";
+import { cancelShell, executeShell, listenShellJobFinished } from "./terminal.ts";
 import { beginTrayConnectorWork } from "./tray-bridge.ts";
 
 type PendingCommand = {
 	cancelled: boolean;
 	apple: boolean;
+	terminal: boolean;
 	connectionId: string;
 	revision: number;
 	upload?: AbortController;
@@ -51,6 +53,12 @@ const ERRORS = new Set([
 	// states the server and the model need, never collapsed into a generic read failure.
 	"icloud_only",
 	"unavailable",
+	// The terminal's own errors: a killed command, an unreadable log, a job id nothing matches, and
+	// a job whose process vanished across a restart. Each is a real state the model is told.
+	"timeout",
+	"output_unavailable",
+	"job_not_found",
+	"job_lost",
 ]);
 
 /** A native refusal is the real error code; anything else is a write that did not finish. */
@@ -124,6 +132,26 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 		const eligible = (connectionId: string) =>
 			!revoked.has(connectionId) &&
 			(written.has(connectionId) || (connectionsRef.current ?? []).some((item) => item.id === connectionId));
+		/**
+		 * A terminal command is for one `computer-control` connection whose grant carries `terminal`,
+		 * for this device, with no expiry. Like the runtime's other checks it is a second look in front
+		 * of `shell_execute`, which re-checks the stored grant: the webview may be one list refresh stale.
+		 */
+		const eligibleTerminal = (command: ConnectorCommand) =>
+			files &&
+			!revoked.has(command.connectionId) &&
+			command.deviceId === context.deviceId &&
+			command.connectorId === "computer-control" &&
+			command.scope === "device" &&
+			command.capabilities.terminal === true &&
+			(written.has(command.connectionId) ||
+				(connectionsRef.current ?? []).some(
+					(item) =>
+						item.id === command.connectionId &&
+						item.revision === command.revision &&
+						item.connectorId === "computer-control" &&
+						item.capabilities.terminal === true,
+				));
 		const eligibleApple = (command: ConnectorCommand) =>
 			apple &&
 			!revoked.has(command.connectionId) &&
@@ -131,6 +159,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			command.deviceId === context.deviceId &&
 			command.scope === "device" &&
 			command.capabilities.fileTools === false &&
+			command.capabilities.terminal !== true &&
 			command.path === "" &&
 			appleReady.has(`${command.connectionId}:${command.revision}`) &&
 			(connectionsRef.current ?? []).some(
@@ -139,7 +168,8 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 					item.revision === command.revision &&
 					item.connectorId === command.connectorId &&
 					item.scope === command.scope &&
-					item.capabilities.fileTools === false,
+					item.capabilities.fileTools === false &&
+					item.capabilities.terminal !== true,
 			);
 		const failRequest = (requestId: string, error: string, dispatchSeq?: number) =>
 			api.failConnectorRequest(requestId, error, dispatchSeq).catch(() => {});
@@ -225,9 +255,11 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 		const execute = async (command: ConnectorCommand) => {
 			if (!active || realtime.status !== "open" || pending.has(command.id)) return;
 			const appleCommand = command.connectorId?.startsWith("apple-") ?? false;
+			const terminalCommand = command.operation === "shell" || command.operation === "shell_job";
 			const state: PendingCommand = {
 				cancelled: false,
 				apple: appleCommand,
+				terminal: terminalCommand && !appleCommand,
 				connectionId: command.connectionId,
 				revision: command.revision,
 			};
@@ -241,6 +273,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 						: !files || !eligible(command.connectionId) || command.deviceId !== context.deviceId
 				)
 					result = { ok: false, error: "permission_denied" };
+				else if (terminalCommand && !eligibleTerminal(command)) result = { ok: false, error: "permission_denied" };
 				else if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) result = { ok: false, error: "cancelled" };
 				else {
 					const { origin, ...nativeCommand } = command;
@@ -306,6 +339,11 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 								};
 							} else if (operation === "file_preview") result = { ok: true, result: file };
 							else throw new Error("unsupported_file");
+						} else if (!appleCommand && terminalCommand) {
+							// `shell` and `shell_job` run in the native runner, which owns the process and
+							// its job record; `shell_job` `wait` can take longer than a command's own
+							// expiry, so a finished answer is still accepted after it.
+							result = await executeShell<ConnectorCommandResult>(context, native);
 						} else if (!appleCommand) {
 							result = await invokeLocalFiles<ConnectorCommandResult>("local_files_execute", {
 								context,
@@ -391,6 +429,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			state.upload?.abort();
 			state.tray?.finish();
 			if (state.apple) void cancelAppleResource(id).catch(() => {});
+			else if (state.terminal) void cancelShell(id).catch(() => {});
 			else if (files) void invokeLocalFiles("local_files_cancel", { commandId: id }).catch(() => {});
 		};
 		const stopEvents = realtime.subscribeEvents((event) => {
@@ -416,6 +455,18 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			void refreshReady();
 		});
 		const stopForeground = apple ? subscribeForeground(() => void refreshReady()) : undefined;
+		// A job that finished while the window was closed still has to reach the Bot: the native
+		// watcher sends it once (recorded on disk), and this forwards it on the account socket.
+		let stopShell: (() => void) | undefined;
+		if (files)
+			void listenShellJobFinished((event) => {
+				if (active && realtime.status === "open") realtime.send(event);
+			})
+				.then((stop) => {
+					if (active) stopShell = stop;
+					else stop();
+				})
+				.catch(() => {});
 		// A list that changed since the last one answered for: drop written grants it no longer names (a
 		// cancel or a rollback), then report again so the server sees what this device now serves.
 		syncListRef.current = (listed) => {
@@ -439,6 +490,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			stopStatus();
 			stopGrants();
 			stopForeground?.();
+			stopShell?.();
 			if (apple) void resetAppleConnectors(context).catch(() => {});
 			realtime.send({ type: "connector.ready", connections: [] });
 		};

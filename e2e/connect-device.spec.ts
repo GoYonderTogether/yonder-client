@@ -166,7 +166,6 @@ for (const { label, platform, userAgent, path, failure } of [
 		await isolate(page, platform);
 		const calls = await mockNative(page, userAgent, failure ? "open" : null);
 		await page.goto(path);
-		if (platform === "macos") await page.getByRole("button", { name: "继续使用 Yonder" }).click();
 		await page
 			.getByRole("button", { name: new RegExp(connectLabel) })
 			.first()

@@ -169,7 +169,7 @@ mod tests {
             connection_id: "connection".into(),
             connector_id: "local-files".into(),
             scope: "folder".into(),
-            capabilities: Capabilities { file_tools: false },
+            capabilities: Capabilities { file_tools: false, ..Capabilities::default() },
             revision: 1,
         };
         let bytes = [0, 1, 2, 255];

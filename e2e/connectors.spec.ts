@@ -28,7 +28,7 @@ function grant(id: string, connectorId: ConnectorInstance["connectorId"], on: De
 		deviceName: on.name,
 		name: on.name,
 		scope: "device",
-		capabilities: { fileTools: connectorId === "computer-control" },
+		capabilities: { fileTools: connectorId === "computer-control", terminal: false },
 		revision: 1,
 		status: on.status,
 		currentDevice: false,
@@ -123,7 +123,7 @@ for (const platform of ["macos", "ios"] as const) {
 		const target = device("dev_apple", isMac ? "MacBook Pro" : "iPhone", platform, true);
 		const instance: ConnectorInstance = {
 			...grant("con_apple", connector, target),
-			capabilities: { fileTools: false },
+			capabilities: { fileTools: false, terminal: false },
 			currentDevice: true,
 			status: "offline",
 		};
@@ -244,7 +244,6 @@ for (const platform of ["macos", "ios"] as const) {
 				allowed,
 			);
 		await page.goto("/me/connectors");
-		if (isMac) await page.getByRole("button", { name: "继续使用 Yonder" }).click();
 		const section = page.getByRole("region", { name: target.name });
 		await expect(section.getByText("Apple 备忘录", { exact: true })).toHaveCount(isMac ? 1 : 0);
 		await section.getByRole("button", { name: `连接 · ${name}`, exact: true }).click();

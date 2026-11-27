@@ -32,6 +32,12 @@ impl Context {
 pub struct Capabilities {
     #[serde(default)]
     pub file_tools: bool,
+    /// `computer-control` only: the Bot may run commands as this system user (TOOLS-V3 §4).
+    ///
+    /// Absent in an authorization written before this field existed, and `false` is exactly right
+    /// for it: a grant never widens silently into shell access.
+    #[serde(default)]
+    pub terminal: bool,
 }
 
 #[derive(Clone, Deserialize, Serialize)]

@@ -6103,7 +6103,7 @@ dependencies = [
 
 [[package]]
 name = "yonder-desktop"
-version = "0.3.26112302"
+version = "0.3.26112717"
 dependencies = [
  "cap-fs-ext",
  "cap-primitives",
@@ -6128,6 +6128,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-updater",
  "tokio",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

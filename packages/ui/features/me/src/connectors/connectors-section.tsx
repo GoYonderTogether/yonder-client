@@ -44,7 +44,13 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 									)),
 						) ?? [];
 					return definitions.length
-						? [{ device, cards: groupConnectors(definitions), target: `connector-device-${device.id}` }]
+						? [
+								{
+									device,
+									cards: groupConnectors(definitions, device.platform),
+									target: `connector-device-${device.id}`,
+								},
+							]
 						: [];
 				})
 				.sort((a, b) => ORDER.indexOf(a.device.platform) - ORDER.indexOf(b.device.platform)),

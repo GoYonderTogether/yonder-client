@@ -33,13 +33,13 @@ fn whole_device_fixture_create_cas_delete_restore_and_old_folder_scope() {
         root: PathBuf::new(),
         scope: "device".into(),
         connector_id: "local-files".into(),
-        capabilities: Capabilities { file_tools: false },
+        capabilities: Capabilities { file_tools: false, ..Capabilities::default() },
         revision: 2,
     };
     let write = Grant {
         connection_id: "con_write".into(),
         connector_id: "computer-control".into(),
-        capabilities: Capabilities { file_tools: true },
+        capabilities: Capabilities { file_tools: true, ..Capabilities::default() },
         ..read.clone()
     };
     let cancel = AtomicBool::new(false);
@@ -207,7 +207,7 @@ fn paged_read_and_local_edit_preserve_versions_and_newlines() {
     let write = Grant {
         scope: "device".into(),
         connector_id: "computer-control".into(),
-        capabilities: Capabilities { file_tools: true },
+        capabilities: Capabilities { file_tools: true, ..Capabilities::default() },
         ..read.clone()
     };
     let cancel = AtomicBool::new(false);

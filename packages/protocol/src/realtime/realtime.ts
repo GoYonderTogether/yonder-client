@@ -40,7 +40,24 @@ export type ClientEvent =
 	| { type: "provider.relay.ready"; endpoints: DeviceModelEndpoint[] }
 	| { type: "provider.relay.head"; mode: "device-local"; relayId: string; status: number; contentType?: string }
 	| { type: "provider.relay.chunk"; mode: "device-local"; relayId: string; seq: number; part: string }
-	| { type: "provider.relay.end"; mode: "device-local"; relayId: string; nextSeq: number; error?: DeviceModelError };
+	| { type: "provider.relay.end"; mode: "device-local"; relayId: string; nextSeq: number; error?: DeviceModelError }
+	/**
+	 * A terminal job (started by `shell`, or found on restart) ended. The device reports it once; the
+	 * server turns it into one `【事件 · 终端】` for the owning Bot (TOOLS-V3 §4).
+	 */
+	| {
+			type: "shell.job.finished";
+			connectionId: string;
+			jobId: string;
+			/** The first 80 characters of the command, so the event names what finished. */
+			command: string;
+			status: "done" | "killed" | "lost";
+			/** Absent where no `.exit` record survives (`lost`), never faked as 0. */
+			exitCode?: number | null;
+			elapsedMs: number;
+			/** The log's tail, bounded by the device (16 KiB). */
+			outputTail: string;
+	  };
 
 /** Events this slice actually sends. A member change is what makes a second tab update. */
 export type ServerEvent =

@@ -1,17 +1,17 @@
-import type { ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
+import type { ConnectorId, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 import { ListSwitch } from "@yonder/ui-components";
 import { useConnectorActions } from "@yonder/ui-data";
 import { ChevronDown } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
-import { connectorPresentation } from "./connector-card.tsx";
-import { masterState } from "./connector-groups.ts";
+import { connectorPresentation, terminalPresentation } from "./connector-card.tsx";
+import { type MemberDefinition, masterState, TERMINAL_MEMBER } from "./connector-groups.ts";
 import { canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
 
 export interface DeviceSwitchesProps {
 	/** The catalog entries drawn as one connector; one entry means no expansion. */
-	members: readonly ConnectorDefinition[];
+	members: readonly MemberDefinition[];
 	device: DeviceSummary;
 	/** What this device has granted, folder grants included. */
 	instances: readonly ConnectorInstance[];
@@ -34,22 +34,79 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 	const [busy, setBusy] = useState<string | null>(null);
 	const [error, setError] = useState<{ id: string; key: string } | null>(null);
 	const state = masterState(members, instances);
-	const grantOf = (member: ConnectorDefinition) =>
-		instances.find((item) => item.connectorId === member.id && item.scope === "device");
-	const canGrant = (member: ConnectorDefinition) =>
+	/**
+	 * The grant behind one member. The terminal is not a connector: it is `computer-control`'s
+	 * `terminal` capability, so its switch reads that connection's grant and leaves `terminal` on
+	 * when it turns the same grant off — turning one capability off must not revoke the other.
+	 */
+	const grantOf = (member: MemberDefinition) => {
+		if (member.id === TERMINAL_MEMBER)
+			return instances.find(
+				(item) => item.connectorId === "computer-control" && item.scope === "device" && item.capabilities.terminal,
+			);
+		return instances.find((item) => item.connectorId === member.id && item.scope === "device");
+	};
+	const canGrant = (member: MemberDefinition) =>
 		device.status === "online" && canConfigureConnector(device, member, localFiles);
 	const addable = members.filter((member) => !grantOf(member) && canGrant(member));
+	// The master switch never touches the terminal (see `masterState`): it is granted or revoked only
+	// by the row that explains what it allows.
+	const sweepable = (member: MemberDefinition) => member.id !== TERMINAL_MEMBER;
 
-	async function enable(member: ConnectorDefinition) {
+	async function enable(member: MemberDefinition) {
 		if (!localFiles) throw new Error("permission_denied");
 		// The system's own permission prompt comes first; a refusal never creates a grant.
-		if (member.id.startsWith("apple-") && localFiles.prepare) await localFiles.prepare(member.id);
+		if (member.id.startsWith("apple-") && localFiles.prepare) await localFiles.prepare(member.id as ConnectorId);
+		if (member.id === TERMINAL_MEMBER) {
+			// An existing `computer-control` grant (whatever its file tools) is widened in place; there
+			// is no second connection for a capability of the same connector.
+			const existing = instances.find((item) => item.connectorId === "computer-control" && item.scope === "device");
+			if (existing) {
+				const saved = await actions.update.mutateAsync({
+					id: existing.id,
+					expectedRevision: existing.revision,
+					capabilities: { ...existing.capabilities, terminal: true },
+				});
+				try {
+					await localFiles.authorize(saved);
+				} catch (failure) {
+					// Put the grant back the way it was: the device refused the capability, so the
+					// server must not keep claiming it.
+					await actions.update
+						.mutateAsync({
+							id: existing.id,
+							expectedRevision: saved.revision,
+							capabilities: existing.capabilities,
+						})
+						.catch(() => {});
+					throw failure;
+				}
+				return;
+			}
+			const saved = await actions.create.mutateAsync({
+				connectorId: "computer-control",
+				deviceId: device.id,
+				name: device.name,
+				scope: "device",
+				capabilities: { fileTools: false, terminal: true },
+			});
+			try {
+				await localFiles.authorize(saved);
+			} catch (failure) {
+				await Promise.allSettled([
+					actions.remove.mutateAsync(saved.id),
+					localFiles.revoke(saved.id, "computer-control"),
+				]);
+				throw failure;
+			}
+			return;
+		}
 		const saved = await actions.create.mutateAsync({
 			connectorId: member.id,
 			deviceId: device.id,
 			name: device.name,
 			scope: "device",
-			capabilities: { fileTools: member.id === "computer-control" },
+			capabilities: { fileTools: member.id === "computer-control", terminal: false },
 		});
 		try {
 			await localFiles.authorize(saved);
@@ -59,15 +116,30 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 		}
 	}
 
-	async function disable(member: ConnectorDefinition) {
+	function disable(member: MemberDefinition) {
 		const grant = grantOf(member);
 		if (!grant) return;
-		const local = device.current && localFiles ? localFiles.revoke(grant.id, member.id) : Promise.resolve();
-		const results = await Promise.allSettled([local, actions.remove.mutateAsync(grant.id)]);
-		if (results.some((result) => result.status === "rejected")) throw new Error("disconnect_failed");
+		if (member.id === TERMINAL_MEMBER) {
+			// Only `terminal` goes off; the same grant's file tools and the rest of the connection stay.
+			return actions.update
+				.mutateAsync({
+					id: grant.id,
+					expectedRevision: grant.revision,
+					capabilities: { ...grant.capabilities, terminal: false },
+				})
+				.then(async (saved) => {
+					if (device.current && localFiles) await localFiles.authorize(saved);
+				});
+		}
+		return (async () => {
+			const local =
+				device.current && localFiles ? localFiles.revoke(grant.id, member.id as ConnectorId) : Promise.resolve();
+			const results = await Promise.allSettled([local, actions.remove.mutateAsync(grant.id)]);
+			if (results.some((result) => result.status === "rejected")) throw new Error("disconnect_failed");
+		})();
 	}
 
-	async function run(id: string, targets: readonly ConnectorDefinition[], on: boolean) {
+	async function run(id: string, targets: readonly MemberDefinition[], on: boolean) {
 		if (busy) return;
 		setBusy(id);
 		setError(null);
@@ -109,7 +181,7 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 						className="ms-[var(--spacing-2)] text-[var(--color-accent-text)] underline"
 						onClick={() => {
 							const target = members.find((member) => member.id.startsWith("apple-"));
-							if (target) void localFiles.openPermissionSettings?.(target.id).catch(() => {});
+							if (target) void localFiles.openPermissionSettings?.(target.id as ConnectorId).catch(() => {});
 						}}
 					>
 						{t("connectors.openSystemSettings")}
@@ -120,8 +192,9 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 	}
 
 	/** One capability's switch. Alone in its connector, the row stands for the device and carries its name. */
-	function memberSwitch(member: ConnectorDefinition, alone = false) {
-		const { key } = connectorPresentation[member.id];
+	function memberSwitch(member: MemberDefinition, alone = false) {
+		const terminal = member.id === TERMINAL_MEMBER;
+		const key = terminal ? terminalPresentation.key : connectorPresentation[member.id as ConnectorId].key;
 		const granted = Boolean(grantOf(member));
 		const hint =
 			!granted && !canGrant(member) && device.status === "online"
@@ -131,6 +204,8 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 			<ListSwitch
 				key={member.id}
 				title={alone ? deviceDisplayName(device) : t(`connectors.${key}.name`)}
+				// The terminal's row carries the full consequence all the time, not only while it is
+				// off: it is the one grant that runs any command without asking again (TOOLS-V3 §4).
 				subtitle={hint ?? (alone ? deviceLine : t(`connectors.${key}.description`))}
 				checked={granted}
 				busy={busy === member.id}
@@ -144,8 +219,8 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 	const only = members.length === 1 ? members[0] : undefined;
 	if (only) return memberSwitch(only, true);
 
-	const on = state !== "on" && addable.length > 0;
-	const targets = on ? addable : members.filter((member) => grantOf(member));
+	const on = state !== "on" && addable.some(sweepable);
+	const targets = on ? addable.filter(sweepable) : members.filter((member) => grantOf(member) && sweepable(member));
 	return (
 		<li className="border-b border-dashed border-[var(--color-border)] last:border-b-0">
 			<div className="flex min-h-[var(--row-height)] items-center gap-[var(--spacing-3)] pe-[var(--spacing-4)]">
@@ -175,7 +250,7 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 					ref={(element) => {
 						if (element) element.indeterminate = state === "mixed";
 					}}
-					disabled={busy !== null || (state === "off" && !addable.length)}
+					disabled={busy !== null || (state === "off" && !addable.some(sweepable))}
 					onChange={() => void run("master", targets, on)}
 					className={SWITCH}
 				/>

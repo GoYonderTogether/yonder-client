@@ -159,6 +159,10 @@ export type {
 	FileConnectorId,
 	FileConnectorOperation,
 	LocalFilesResult,
+	ShellJobAction,
+	ShellJobSummary,
+	TerminalConnectorOperation,
+	TerminalConnectorResult,
 	UpdateConnectorRequest,
 } from "./connectors/connectors.ts";
 export type { DeviceListResponse, DeviceSummary, UpdateDeviceRemarkRequest } from "./devices/devices.ts";

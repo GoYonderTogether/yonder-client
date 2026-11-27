@@ -31,6 +31,8 @@ mod contact_window;
 mod desktop_tray;
 
 #[cfg(desktop)]
+mod connector_tools;
+#[cfg(desktop)]
 mod local_files;
 #[cfg(desktop)]
 mod local_files_access;
@@ -53,6 +55,25 @@ mod provider_relay;
 mod local_files_store;
 #[cfg(desktop)]
 mod local_files_text;
+
+#[cfg(desktop)]
+mod shell;
+#[cfg(desktop)]
+mod shell_job;
+#[cfg(desktop)]
+mod shell_jobs;
+#[cfg(desktop)]
+mod shell_limits;
+#[cfg(desktop)]
+mod shell_output;
+#[cfg(desktop)]
+mod shell_process;
+#[cfg(windows)]
+mod shell_process_windows;
+#[cfg(desktop)]
+mod shell_runner;
+#[cfg(test)]
+mod shell_test_support;
 
 #[cfg(target_os = "macos")]
 mod selected_note;
@@ -115,6 +136,8 @@ pub fn run() {
             local_files::local_files_revoke,
             local_files::local_files_ready,
             local_files::local_files_execute,
+            shell::shell_execute,
+            shell::shell_cancel,
             provider_relay::provider_relay_bind,
             provider_relay::provider_relay_cancel,
             provider_relay::provider_relay_execute,
@@ -157,6 +180,15 @@ pub fn run() {
             keyboard_ios::follow(&window);
             #[cfg(desktop)]
             desktop_tray::setup(app.handle());
+            // Terminal jobs are device state: read the records back, re-adopt a process that still
+            // runs, and start the watcher that reports each finish to the webview once.
+            #[cfg(desktop)]
+            {
+                let runner = shell::init(app.handle())?;
+                app.manage(shell::ShellState(std::sync::Arc::new(runner)));
+                shell::resume(app.handle());
+                shell::watch(app.handle().clone());
+            }
             Ok(())
         })
         .build(tauri::generate_context!())

@@ -104,6 +104,14 @@ export const connectorMessagesEn = {
 		description: "Create, edit, and remove files.",
 		trial: "Tell me what file operations you can help with on “{{device}}” only. Do not change any files.",
 	},
+	terminal: {
+		name: "Terminal",
+		description:
+			"Your Bot can run any command on this device as your system user, including deleting files and using the network.",
+		trial: "Tell me what you can help with through the terminal on “{{device}}” only. Do not run any commands.",
+		scope:
+			"Your Bot can run any command on this device as your system user, including deleting files and using the network. After you allow it, no command asks again until you revoke it.",
+	},
 	appleCalendar: {
 		iosPermissionDenied:
 			"Set Calendar to Full Access in Settings. If access hasn’t updated, quit and reopen Yonder, then connect again.",

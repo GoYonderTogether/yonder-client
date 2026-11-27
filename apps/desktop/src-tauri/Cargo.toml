@@ -56,3 +56,9 @@ objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std
 
 [target.'cfg(target_os = "ios")'.dependencies]
 sha2 = "=0.10.9"
+
+# Windows job objects: a command's whole tree is terminated with `kill` (TOOLS-V3 §4). The crate is
+# the one Tauri already pulls in through `tauri-utils`/WebView2, pinned to the same major version.
+[target.'cfg(windows)'.dependencies.windows-sys]
+version = "=0.61.2"
+features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading"]

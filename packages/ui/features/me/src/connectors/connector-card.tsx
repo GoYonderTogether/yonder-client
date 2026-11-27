@@ -9,6 +9,7 @@ import {
 	MonitorCog,
 	NotebookPen,
 	Plus,
+	SquareTerminal as TerminalIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { type ConnectorGroup, groupKey } from "./connector-groups.ts";
@@ -22,6 +23,9 @@ export const connectorPresentation = {
 	"apple-notes": { key: "appleNotes", Icon: NotebookPen },
 	"apple-voice-memos": { key: "appleVoiceMemos", Icon: AudioLines },
 } as const satisfies Record<ConnectorDefinition["id"], { key: string; Icon: typeof FolderSearch }>;
+
+/** The terminal row's copy and icon: a capability of `computer-control`, not a catalog connector. */
+export const terminalPresentation = { key: "terminal", Icon: TerminalIcon } as const;
 
 const folderGlyph = new URL("./assets/folder.svg", import.meta.url).href;
 const desktopGlyph = new URL("./assets/desktop.svg", import.meta.url).href;

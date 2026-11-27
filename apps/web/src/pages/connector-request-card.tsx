@@ -1,6 +1,6 @@
 import { connectorRequestReason } from "@yonder/chat-model";
 import { InteractionCard, InteractionCardActions } from "@yonder/chat-presentation";
-import { ERROR_CODES, type FileConnectorId } from "@yonder/protocol";
+import { type ConnectorId, ERROR_CODES } from "@yonder/protocol";
 import { Button, InlineError, LoadingRow, Spinner } from "@yonder/ui-components";
 import { ApiError, useConnectorRequest, useConnectorRequestActions, useConnectorRequestDevices } from "@yonder/ui-data";
 import { ICON_SIZE, ICON_STROKE } from "@yonder/ui-tokens";
@@ -63,7 +63,7 @@ export function ConnectorRequestCard({ id }: { id: string }) {
 	const storedFailure = row.failure;
 	const Glyph = row.state === "granted" ? Check : row.state === "cancelled" ? X : LockKeyhole;
 
-	function allow(deviceId: string, shownConnectors: FileConnectorId[]) {
+	function allow(deviceId: string, shownConnectors: ConnectorId[]) {
 		actions.confirm.mutate(
 			{ id, connectorIds: shownConnectors, deviceId },
 			{

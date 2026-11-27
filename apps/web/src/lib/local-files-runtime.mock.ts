@@ -84,6 +84,17 @@ export const setup = {
 	executeApple: vi.fn(),
 	executeAppleFile: vi.fn(),
 	cancelApple: vi.fn(async () => undefined),
+	executeShell: vi.fn(),
+	cancelShell: vi.fn(async () => undefined),
+	/** Set by a test to deliver a native `shell-job-finished` payload. */
+	shellFinished: undefined as ((job: unknown) => void) | undefined,
+	listenShellJobFinished: vi.fn(async (listener: (event: unknown) => void) => {
+		// The real wrapper adds the event's `type`; the mock does the same so the test sees the wire shape.
+		setup.shellFinished = (job) => listener({ type: "shell.job.finished", ...(job as object) });
+		return () => {
+			setup.shellFinished = undefined;
+		};
+	}),
 	event: (event: ServerEvent) => onEvent?.(event),
 	revoke: (id: string) => onGrantChange?.(id),
 };
@@ -119,20 +130,25 @@ vi.mock("./apple-resources.ts", () => ({
 	cancelAppleResource: setup.cancelApple,
 }));
 vi.mock("./tray-bridge.ts", () => ({ beginTrayConnectorWork: setup.beginTrayWork }));
+vi.mock("./terminal.ts", () => ({
+	executeShell: setup.executeShell,
+	cancelShell: setup.cancelShell,
+	listenShellJobFinished: setup.listenShellJobFinished,
+}));
 
 /** A `connector.grant.request` item; the server sends `local-files` without file tools. */
 export const grant = (
 	overrides: Partial<{
 		connectionId: string;
 		connectorId: "local-files" | "computer-control";
-		capabilities: { fileTools: boolean };
+		capabilities: { fileTools: boolean; terminal: boolean };
 		revision: number;
 	}> = {},
 ) => ({
 	connectionId: "con_a",
 	connectorId: "local-files" as const,
 	scope: "device" as const,
-	capabilities: { fileTools: false },
+	capabilities: { fileTools: false, terminal: false },
 	revision: 2,
 	...overrides,
 });

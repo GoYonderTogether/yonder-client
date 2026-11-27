@@ -41,7 +41,7 @@ export function ConnectorSetup({ localFiles }: ConnectorSetupProps) {
 	const { device, definitions, instances } = useSetupConnectors(localFiles);
 	const [selected, setSelected] = useState<string | null>(null);
 	if (!device || definitions.length === 0) return null;
-	const groups = groupConnectors(definitions);
+	const groups = groupConnectors(definitions, device.platform);
 	const group = groups.find((item) => item.id === selected);
 	return (
 		<>

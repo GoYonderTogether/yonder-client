@@ -100,8 +100,13 @@ pub async fn local_files_authorize(
         .ok_or("permission_denied")?;
     let caps: Capabilities =
         serde_json::from_value(config["capabilities"].clone()).map_err(|_| "permission_denied")?;
-    if config["capabilities"]["terminal"] == true || (connector == "local-files" && caps.file_tools)
-    {
+    // `terminal` is its own capability on `computer-control` and never arrives through another
+    // connector's file tools (TOOLS-V3 §4). Anything else asking for it is refused, because no
+    // other connector has a shell and a grant must not name a capability nothing implements.
+    if caps.terminal && connector != "computer-control" {
+        return Err("permission_denied".into());
+    }
+    if connector == "local-files" && caps.file_tools {
         return Err("permission_denied".into());
     }
     off_thread(move || {
