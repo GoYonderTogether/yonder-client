@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112707] - 2026-11-27
+
+### Fixed
+
+- chat：show quoted replies below rounded bubbles
+
 ## [0.3.26112706] - 2026-11-27
 
 ### Added
