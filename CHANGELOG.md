@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112705] - 2026-11-27
+
+### Added
+
+- chat：quote, forward, recall, delete and rate messages
+
 ## [0.3.26112704] - 2026-11-27
 
 ### Added
