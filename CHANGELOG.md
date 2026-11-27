@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.26112717] - 2026-11-27
+
+### Fixed
+
+- models：keep the typed address and key on every change, never leave Get models stuck loading, and allow saving a provider without models
+
+### Added
+
+- memory：compact the sidebar file tree
+
 ## [0.3.26112716] - 2026-11-27
 
 ### Fixed
