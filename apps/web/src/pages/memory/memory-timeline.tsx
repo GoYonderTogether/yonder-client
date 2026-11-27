@@ -1,20 +1,27 @@
 import type { MemoryDay, MemoryLink } from "@yonder/protocol";
 import { Button } from "@yonder/ui-components";
 import { useMemoryActions, useMemoryDays } from "@yonder/ui-data";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useOpenAttachmentDetail } from "../../preview/attachment-detail.tsx";
 import { AttachmentPreview } from "../../preview/attachment-preview.tsx";
 import type { PreviewFile } from "../../preview/file-kind.ts";
 import { localDay } from "../items-format.ts";
-import { type DayActions, MemoryDaySection } from "./memory-day.tsx";
+import type { EntryActions } from "./memory-actions.ts";
+import { EntryDrawer } from "./memory-drawer.tsx";
 import { dayName, useMinute } from "./memory-format.ts";
+import { MemoryThumb } from "./memory-media.tsx";
 import { useSourceNavigation } from "./memory-navigation.ts";
 import { useOverlayBox } from "./memory-overlay.ts";
 import { MemoryPinBar } from "./memory-pin.tsx";
 import { MemoryRail, type RailDay } from "./memory-rail.tsx";
 import { MemoryError, useErrorText } from "./memory-status.tsx";
+import { TimelineDaySection, type TimelineHost, TimelineHostProvider } from "./timeline/timeline-cards.tsx";
+import { toTimelineDays } from "./timeline/timeline-model.ts";
+import "./timeline/timeline-cards.css";
+import "./timeline/timeline-cards-parts.css";
+import "./timeline/timeline-cards-drawer.css";
 
 /**
  * Days newest first, each with its entries on one spine. A pinned
@@ -77,7 +84,7 @@ export function MemoryTimeline() {
 		}
 		target.closest(".memory-fold")?.querySelector<HTMLButtonElement>(":scope > button[aria-expanded=false]")?.click();
 		target.scrollIntoView({ block: "center", behavior: "smooth" });
-		if (target.querySelector(".memory-drawer")) setOpen(pending);
+		setOpen(pending);
 		setFlash(pending);
 		setPending(null);
 	});
@@ -95,7 +102,7 @@ export function MemoryTimeline() {
 		const inset = box ? box.top - scroller.offsetTop : 0;
 		scroller.scrollTo({ top: top - inset - 4, behavior: smooth ? "smooth" : "auto" });
 	};
-	const actions: DayActions = {
+	const actions: EntryActions = {
 		open,
 		flash,
 		onToggle: (id) => setOpen((current) => (current === id ? null : id)),
@@ -108,6 +115,80 @@ export function MemoryTimeline() {
 		deleting: remove.isPending ? (remove.variables ?? null) : null,
 		deleteError: remove.error ? { id: remove.variables ?? "", error: remove.error } : null,
 	};
+	const view = toTimelineDays(days, now);
+	const host: TimelineHost = {
+		photos: (step) => ({
+			nodes: (step.media ?? []).slice(0, 4).map((media) => (
+				<MemoryThumb
+					key={media.attachment.id}
+					media={media}
+					onOpen={(file) => {
+						if (!openAttachment(file)) setPreview(file);
+					}}
+				/>
+			)),
+			total: step.media?.length ?? 0,
+		}),
+		onMessage: () => {},
+		state: (event) => ({ open: event.entry?.id === open, flash: event.entry?.id === flash }),
+		openable: (event) => {
+			const e = event.entry;
+			return Boolean(
+				e &&
+					(e.media.length ||
+						e.materials.length ||
+						e.quote ||
+						e.links.length ||
+						e.body ||
+						e.sources.length ||
+						e.deletable ||
+						(e.text && e.size !== "note")),
+			);
+		},
+		onEvent: (event) => {
+			const id = event.entry?.id;
+			if (id) actions.onToggle(id);
+		},
+		detail: (event) =>
+			event.entry && open === event.entry.id ? (
+				<div className="tl-detail" id={`memory-drawer-${event.entry.id}`}>
+					<EntryDrawer entry={event.entry} actions={actions} />
+				</div>
+			) : null,
+	};
+	const landed = useRef(false);
+	const heightBefore = useRef(0);
+	// Open at the bottom, where today is. Older days arriving above keep what is on screen where it is.
+	useLayoutEffect(() => {
+		if (!scroller || !view.length) return;
+		if (!landed.current) {
+			landed.current = true;
+			scroller.scrollTop = scroller.scrollHeight;
+		} else {
+			const grown = scroller.scrollHeight - heightBefore.current;
+			if (grown > 0 && scroller.scrollTop < 400) scroller.scrollTop += grown;
+		}
+		heightBefore.current = scroller.scrollHeight;
+	});
+	// Photos and fonts settle after the first paint; keep the bottom in view until the reader scrolls on their own.
+	useEffect(() => {
+		if (!scroller || !timeline || typeof ResizeObserver === "undefined") return;
+		let following = true;
+		const stop = () => {
+			following = false;
+		};
+		scroller.addEventListener("wheel", stop, { passive: true });
+		scroller.addEventListener("touchstart", stop, { passive: true });
+		const observer = new ResizeObserver(() => {
+			if (following) scroller.scrollTop = scroller.scrollHeight;
+		});
+		observer.observe(timeline);
+		return () => {
+			scroller.removeEventListener("wheel", stop);
+			scroller.removeEventListener("touchstart", stop);
+			observer.disconnect();
+		};
+	}, [scroller, timeline]);
 	const railDays: RailDay[] = days.map((day, i) => {
 		const { name, sub } = dayName(day.date, now, t, i18n.language);
 		const entries = day.blocks.flatMap((block) => (block.type === "entry" ? [block.entry] : block.stay.entries));
@@ -132,9 +213,6 @@ export function MemoryTimeline() {
 			{query.isError && !pageError ? (
 				<MemoryError title={t("memory.loadFailed")} error={query.error} retry={() => void refetch()} />
 			) : null}
-			{days.map((day) => (
-				<MemoryDaySection key={day.date} day={day} now={now} actions={actions} />
-			))}
 			<div ref={more} className="memory-more">
 				{pageError ? (
 					<p role="alert" className="memory-error-line">
@@ -145,6 +223,11 @@ export function MemoryTimeline() {
 					</p>
 				) : null}
 			</div>
+			<TimelineHostProvider value={host}>
+				{view.map((day) => (
+					<TimelineDaySection key={day.date} day={day} now={now} />
+				))}
+			</TimelineHostProvider>
 			{frame && timeline && scroller && box
 				? createPortal(
 						<>
@@ -199,7 +282,8 @@ function timelineDays(days: MemoryDay[], today: string): MemoryDay[] {
 		);
 		return blocks.length || day.digestPath || day.state !== "ready" ? [{ ...day, blocks }] : [];
 	});
-	return [current, ...history];
+	// One direction, like the Photos app: the oldest day at the top, today at the bottom.
+	return [...history.reverse(), current];
 }
 
 const rank = (size: string) => ({ line: 0, note: 1, media: 2, moment: 3 })[size] ?? 0;

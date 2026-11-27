@@ -1,7 +1,7 @@
-import type { PreviewDay } from "./timeline-preview-types.ts";
+import type { TimelineDay } from "../pages/memory/timeline/timeline-types.ts";
 
 /** The four days before that. Quiet and test days are left out: they are not worth reading back. */
-export const daysB: PreviewDay[] = [
+export const daysB: TimelineDay[] = [
 	{
 		date: "2026-11-23",
 		weekday: "周一",

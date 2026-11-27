@@ -343,7 +343,7 @@
 	right: 0;
 	width: 240px;
 	height: auto;
-	mask-image: linear-gradient(to left, #000 45%, transparent);
+	mask-image: linear-gradient(to left, var(--color-text-primary) 45%, transparent);
 	color: color-mix(in srgb, var(--sky-top), var(--sky-bottom));
 	opacity: 0.16;
 	pointer-events: none;

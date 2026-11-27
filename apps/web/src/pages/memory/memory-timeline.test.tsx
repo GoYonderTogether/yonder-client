@@ -94,11 +94,11 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-test("days read newest first with a large title, a digest and entries at their own size", () => {
+test("days read oldest first, today at the bottom, with a large title, a digest and entries at their own size", () => {
 	show();
-	const titles = screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
-	expect(titles[0]).toContain("Today");
-	expect(titles[1]).toContain("Yesterday");
+	// One direction, like the Photos app: the oldest day first, today last.
+	const order = [...document.querySelectorAll("[data-day]")].map((section) => section.getAttribute("data-day"));
+	expect(order).toEqual(["2026-11-08", "2026-11-15", "2026-11-16"]);
 	expect(screen.getByText("6,180 steps")).toBeVisible();
 	const todaySection = screen.getByRole("region", { name: /Today/ });
 	expect(within(todaySection).getByText("Office")).toBeVisible();
@@ -109,16 +109,17 @@ test("days read newest first with a large title, a digest and entries at their o
 	const wake = document.getElementById("memory-entry-wake") as HTMLElement;
 	expect(now).toBeVisible();
 	expect(reading).toHaveClass("memory-upcoming");
-	expect(reading.compareDocumentPosition(now) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-	expect(now.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-	expect(plan.compareDocumentPosition(wake) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-	expect(document.getElementById("memory-entry-plan")).toHaveClass("memory-size-note", "memory-kind-doc");
+	expect(wake.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	expect(plan.compareDocumentPosition(now) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	expect(now.compareDocumentPosition(reading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	expect(document.getElementById("memory-entry-plan")).toHaveAttribute("data-size", "note");
+	expect(document.getElementById("memory-entry-plan")).toHaveAttribute("data-kind", "doc");
 	expect(screen.getByText("#Yonder")).toBeVisible();
 	// Private is the default and is not marked on a card (24 第三节).
 	expect(
 		within(document.getElementById("memory-entry-plan") as HTMLElement).queryByRole("img", { name: "Private" }),
 	).toBeNull();
-	expect(document.getElementById("memory-entry-market")).toHaveClass("memory-size-moment");
+	expect(document.getElementById("memory-entry-market")).toHaveAttribute("data-size", "moment");
 	expect(screen.getByText("Liangzhu Arts Centre")).toBeVisible();
 	expect(screen.getByText("People: 1")).toBeVisible();
 });
@@ -141,7 +142,9 @@ test("an entry opens in place like an accordion, one at a time", () => {
 	expect(market).toHaveAttribute("aria-expanded", "true");
 	expect(plan).toHaveAttribute("aria-expanded", "false");
 	expect(screen.getByText("Demoed Yonder nine times.")).toBeVisible();
-	expect(screen.getByRole("button", { name: "p1.jpg" })).toBeVisible();
+	expect(
+		within(document.getElementById("memory-drawer-market") as HTMLElement).getByRole("button", { name: "p1.jpg" }),
+	).toBeVisible();
 	// A one-line entry with nothing behind it is plain text, not a button.
 	expect(within(document.getElementById("memory-entry-wake") as HTMLElement).queryByRole("button")).toBeNull();
 });
@@ -233,13 +236,11 @@ test("a link inside an opened entry jumps to the entry it continues and opens it
 	expect(target).toHaveClass("memory-flash", "memory-open");
 });
 
-test("older days fold their one-line entries away until asked", () => {
+test("one-line entries of older days are quiet grey lines, shown without folding", () => {
 	show();
-	const toggle = screen.getByRole("button", { name: "Small things: 1" });
-	expect(toggle).toHaveAttribute("aria-expanded", "false");
-	fireEvent.click(toggle);
-	expect(toggle).toHaveAttribute("aria-expanded", "true");
-	expect(screen.getByText("Fixed the demo on the train")).toBeInTheDocument();
+	const line = screen.getByRole("button", { name: "Fixed the demo on the train" });
+	expect(line).toBeVisible();
+	expect(line.closest(".tl-quiet")).not.toBeNull();
 });
 
 test("a failed load shows the server's reason and a retry; no days still shows today's date and time", () => {

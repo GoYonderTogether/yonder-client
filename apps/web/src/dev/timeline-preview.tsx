@@ -1,15 +1,15 @@
 import { ArrowUp, Camera, ChevronRight, MoonStar, Sun, X } from "lucide-react";
 import { createContext, Fragment, useContext, useState } from "react";
+import { Band, isoWeek } from "../pages/memory/timeline/timeline-bands.tsx";
+import { ChatDrawer, type DrawerLine } from "../pages/memory/timeline/timeline-drawer.tsx";
+import { KindIcon } from "../pages/memory/timeline/timeline-kinds.tsx";
+import { type Sky, SkyIcon, SkyMark } from "../pages/memory/timeline/timeline-sky.tsx";
+import type { TimelineDay, TimelineEvent, TimelineStep } from "../pages/memory/timeline/timeline-types.ts";
 import wechatIcon from "./icons/wechat.png";
-import { Band, isoWeek } from "./timeline-bands.tsx";
-import { ChatDrawer, type DrawerLine } from "./timeline-drawer.tsx";
-import { KindIcon } from "./timeline-kinds.tsx";
 import { previewDays } from "./timeline-preview-days.ts";
-import type { PreviewDay, PreviewEvent, PreviewStep } from "./timeline-preview-types.ts";
-import { type Sky, SkyIcon, SkyMark } from "./timeline-sky.tsx";
-import "./timeline-cards.css";
-import "./timeline-cards-parts.css";
-import "./timeline-cards-drawer.css";
+import "../pages/memory/timeline/timeline-cards.css";
+import "../pages/memory/timeline/timeline-cards-parts.css";
+import "../pages/memory/timeline/timeline-cards-drawer.css";
 
 /** Photos next to this file, hashed by Vite; the route is dev-only, so none of them ship. */
 const photos = import.meta.glob("./photos/*.jpg", { eager: true, query: "?url", import: "default" }) as Record<
@@ -19,7 +19,7 @@ const photos = import.meta.glob("./photos/*.jpg", { eager: true, query: "?url", 
 const photoUrl = (name: string) => photos[`./photos/${name}.jpg`] ?? "";
 
 /** Which sky a part of the day sits under, from the clock alone. A span such as 从上午到下午 takes the sky it starts in. */
-const skyOf = (marker: string): Sky => {
+const skyOf = (marker = ""): Sky => {
 	const first = marker.replace(/^从/u, "").split("到")[0] ?? marker;
 	if (/清晨|早上/u.test(first)) return "dawn";
 	if (/傍晚/u.test(first)) return "dusk";
@@ -31,7 +31,7 @@ const skyOf = (marker: string): Sky => {
 type Open = { drawer: { title: string; anchor: string; lines: DrawerLine[] } } | { photo: string; from: string };
 const OpenContext = createContext<(target: Open) => void>(() => {});
 
-const sampleLines = (step: PreviewStep): DrawerLine[] => {
+const sampleLines = (step: TimelineStep): DrawerLine[] => {
 	const who = step.from?.name ?? "";
 	return [
 		{ id: "before", at: step.at, who: "你", text: "（前一句，示意）" },
@@ -41,14 +41,14 @@ const sampleLines = (step: PreviewStep): DrawerLine[] => {
 };
 
 /** What mattered gets a card of its own; a single quiet line of talk does not. */
-const isMajor = (event: PreviewEvent) =>
+const isMajor = (event: TimelineEvent) =>
 	event.steps.length > 1 ||
 	event.steps.some((step) => step.photos?.length || step.from || step.kind === "decision" || step.kind === "recording");
 
-type Block = { card: PreviewEvent } | { quiet: PreviewEvent[] };
+type Block = { card: TimelineEvent } | { quiet: TimelineEvent[] };
 
 /** Time order is kept: neighbouring small things share one quiet list, big things break it. */
-const blocksOf = (events: PreviewEvent[]): Block[] => {
+const blocksOf = (events: TimelineEvent[]): Block[] => {
 	const out: Block[] = [];
 	for (const event of events) {
 		if (isMajor(event)) {
@@ -119,7 +119,7 @@ export default function TimelinePreviewPage() {
 	);
 }
 
-function Day({ day }: { day: PreviewDay }) {
+function Day({ day }: { day: TimelineDay }) {
 	return (
 		<section className="tl-day" aria-label={day.date}>
 			<header className="tl-day-head">
@@ -183,7 +183,7 @@ function NowPanel({ items, running = [] }: { items: string[]; running?: string[]
 }
 
 /** A thing that mattered: a card with its part of the day, one headline, then what happened in it. */
-function Card({ event }: { event: PreviewEvent }) {
+function Card({ event }: { event: TimelineEvent }) {
 	const sky = skyOf(event.marker);
 	return (
 		<li className="tl-card" data-sky={sky}>
@@ -203,7 +203,7 @@ function Card({ event }: { event: PreviewEvent }) {
 }
 
 /** Small things: one grey line each, no card, so they read as small. */
-function Quiet({ events }: { events: PreviewEvent[] }) {
+function Quiet({ events }: { events: TimelineEvent[] }) {
 	return (
 		<li className="tl-quiet">
 			<ul>
@@ -218,7 +218,7 @@ function Quiet({ events }: { events: PreviewEvent[] }) {
 	);
 }
 
-function Step({ step }: { step: PreviewStep }) {
+function Step({ step }: { step: TimelineStep }) {
 	const openTarget = useContext(OpenContext);
 	const count = step.photos?.length ?? 0;
 	if (count) {

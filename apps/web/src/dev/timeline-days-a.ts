@@ -1,7 +1,7 @@
-import type { PreviewDay } from "./timeline-preview-types.ts";
+import type { TimelineDay } from "../pages/memory/timeline/timeline-types.ts";
 
 /** The three newest days, from prod and the owner's own Photos library. Nothing the Bot did for itself. */
-export const daysA: PreviewDay[] = [
+export const daysA: TimelineDay[] = [
 	{
 		date: "2026-11-26",
 		weekday: "周四",
