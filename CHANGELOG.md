@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.26112708] - 2026-11-27
+
+### Fixed
+
+- invite：keep the track at its spots when an account invited more
+
+### Added
+
+- ui：neutral glass materials for floating chrome
+
 ## [0.3.26112707] - 2026-11-27
 
 ### Fixed
