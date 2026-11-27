@@ -35,9 +35,9 @@ Release builds inject the version instead of reading it from the repo:
 | macOS (Apple Silicon) | `Yonder_<version>_aarch64.dmg`   |
 | Windows x64           | `Yonder_<version>_x64-setup.exe` |
 
-`desktop-release.yml` signs and notarizes the macOS app and dmg with Developer ID when the
-certificate secrets are present, or warns and uses ad-hoc signing when they are absent. It builds
-the Windows nsis installer unsigned and uploads both to the GitHub Release and OSS `desktop/<version>/`.
+`desktop-release.yml` supports Developer ID and notarization on macOS and Authenticode on Windows.
+The signed-only release setting and signer configuration are documented in
+[Desktop operating system signing](../../docs/operations/release.md#desktop-operating-system-signing).
 
 ## iOS / Android
 
@@ -71,15 +71,16 @@ npx tauri android init --ci  && node prepare-android.mjs  # signing, Gradle mirr
 - macOS and installed Windows builds display system notifications from the running app. The server
   shares each conversation's unread and mute state across devices. The OS controls notification permission.
 
-### macOS 设备权限与启动
+### 桌面权限、启动与退出
 
-- 首次登录的整窗引导提供完全磁盘访问和辅助功能两个可跳过的条目。「设置 → 设备 → 管理权限」也可管理麦克风和通知。权限向当前 Mac 的系统设置或系统弹窗发起。
-- 完全磁盘访问状态以系统设置为准。配置系统权限与启用具体连接器是独立操作。
-- 「设置 → 通用」提供登录时启动和关闭窗口后继续运行。登录项由 macOS 管理，应用首次启动时尝试注册，之后尊重用户的选择。允许后台运行时，关闭窗口会保留应用进程，主动退出会停止应用。
+- macOS 的「设置 → 设备 → 管理权限」提供麦克风和通知的系统授权入口。曾在旧版本开启完全磁盘访问或辅助功能的用户，可以在 macOS「系统设置 → 隐私与安全性」中撤回。
+- macOS 登录项由用户在「设置 → 通用」开启和关闭。升级会保留既有登录项状态，包括旧版本曾注册的登录项。用户可以在 Yonder 或 macOS 的登录项设置中关闭它。
+- Windows 在没有设置关窗行为时默认退出。用户可以在「设置 → 通用」中选择留在托盘。录音或上传期间关闭窗口会保留可见的托盘控件，用户可在菜单中结束录音或退出应用。
+- 应用重启后，含有已保存音频的录音可在恢复期内由用户继续。Windows 和 macOS 当前会话内的短暂音频中断仍可恢复。
 
 ### Mac 和 iPhone 的 Apple 数据连接器
 
-「设置 → 连接器」为目标设备发起系统授权。连接就绪后，主 Bot 收到接入事件，Agent 可通过对应工具读取和处理用户授权的数据。Mac 的辅助功能与完全磁盘访问引导独立管理系统权限。
+「设置 → 连接器」为目标设备发起该来源的系统授权。连接就绪后，主 Bot 收到接入事件，Agent 可通过对应工具读取和处理用户授权的数据。断开连接器后，Yonder 会停止通过该连接器访问来源。操作系统权限可在各平台的系统设置中管理。
 
 ## Signing material (CI secrets)
 

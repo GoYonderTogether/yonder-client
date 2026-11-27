@@ -26,20 +26,50 @@ export function updaterPublicKey(value) {
 	return pubkey;
 }
 
-export function updaterConfig({ pubkey, version }) {
+export function updaterConfig({ pubkey, version, windowsSigningThumbprint, windowsSigningTimestampUrl }) {
 	if (!parseVersion(version)) throw new Error(`版本号不合法：${version}`);
-	return { version, plugins: { updater: { pubkey: updaterPublicKey(pubkey) } } };
+	const config = { version, plugins: { updater: { pubkey: updaterPublicKey(pubkey) } } };
+	const certificateThumbprint = windowsSigningThumbprint?.trim().toUpperCase();
+	const timestampUrl = windowsSigningTimestampUrl?.trim();
+	if (!certificateThumbprint && !timestampUrl) return config;
+	if (!/^[A-F0-9]{40}$/.test(certificateThumbprint ?? "")) {
+		throw new Error("WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT 必须是 40 位十六进制证书指纹");
+	}
+	const timestamp = URL.parse(timestampUrl ?? "");
+	if (
+		!timestamp ||
+		!["https:", "http:"].includes(timestamp.protocol) ||
+		timestamp.username ||
+		timestamp.password ||
+		timestamp.hash
+	) {
+		throw new Error("WINDOWS_SIGNING_TIMESTAMP_URL 必须是有效的 HTTP 或 HTTPS RFC 3161 地址");
+	}
+	return {
+		...config,
+		bundle: {
+			windows: {
+				certificateThumbprint,
+				digestAlgorithm: "sha256",
+				timestampUrl: timestamp.href,
+				tsp: true,
+				nsis: { installerHooks: "nsis/verify-authenticode.nsh" },
+			},
+		},
+	};
 }
 
 function main(argv) {
 	const flag = (name) => argv[argv.indexOf(name) + 1];
 	try {
 		if (!argv.includes("--output") || !argv.includes("--version")) throw new Error("需要 --output 和 --version");
-		writeFileSync(
-			flag("--output"),
-			`${JSON.stringify(updaterConfig({ pubkey: process.env.TAURI_UPDATER_PUBKEY, version: flag("--version") }), null, 2)}\n`,
-			{ mode: 0o600 },
-		);
+		const config = updaterConfig({
+			pubkey: process.env.TAURI_UPDATER_PUBKEY,
+			version: flag("--version"),
+			windowsSigningThumbprint: process.env.WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT,
+			windowsSigningTimestampUrl: process.env.WINDOWS_SIGNING_TIMESTAMP_URL,
+		});
+		writeFileSync(flag("--output"), `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
 	} catch (error) {
 		console.error(error.message);
 		process.exitCode = 1;

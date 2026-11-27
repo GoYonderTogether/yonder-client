@@ -32,6 +32,43 @@ test("release overlay requires a valid public key and current release version", 
 	assert.throws(() => updaterConfig({ pubkey, version: "invalid" }), /版本号/);
 });
 
+test("Windows release overlay requires a complete SHA-256 Authenticode signing setup", () => {
+	const { pubkey } = signedArtifact(Buffer.from("artifact"));
+	const thumbprint = "ab".repeat(20);
+	const timestampUrls = ["https://timestamp.example.com/rfc3161", "http://timestamp.digicert.com/"];
+	for (const timestampUrl of timestampUrls) {
+		assert.deepEqual(
+			updaterConfig({
+				pubkey,
+				version,
+				windowsSigningThumbprint: thumbprint,
+				windowsSigningTimestampUrl: timestampUrl,
+			}),
+			{
+				version,
+				plugins: { updater: { pubkey } },
+				bundle: {
+					windows: {
+						certificateThumbprint: thumbprint.toUpperCase(),
+						digestAlgorithm: "sha256",
+						timestampUrl,
+						tsp: true,
+						nsis: { installerHooks: "nsis/verify-authenticode.nsh" },
+					},
+				},
+			},
+		);
+	}
+	assert.throws(() => updaterConfig({ pubkey, version, windowsSigningTimestampUrl: timestampUrls[0] }), /THUMBPRINT/);
+	for (const timestamp of ["", "file:///timestamp", "https://user:secret@timestamp.example.com/"]) {
+		assert.throws(
+			() =>
+				updaterConfig({ pubkey, version, windowsSigningThumbprint: thumbprint, windowsSigningTimestampUrl: timestamp }),
+			/TIMESTAMP_URL/,
+		);
+	}
+});
+
 test("signature binds bytes, public key, and the trusted release version", () => {
 	const artifact = Buffer.from("original archive");
 	const { pubkey, signature } = signedArtifact(artifact);

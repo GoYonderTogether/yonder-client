@@ -50,6 +50,7 @@ for (const phone of [false, true]) {
 			await expect(pinnedRow).toHaveAccessibleDescription("置顶");
 			await expect(pinnedRow.locator(".lucide-bell-off")).toBeVisible();
 			await expect(pinnedRow.getByRole("img", { name: "3 条未读消息" })).toBeVisible();
+			if (phone) await pinnedRow.tap({ trial: true });
 			await page.screenshot({
 				path: info.outputPath(phone ? "pinned-list-mobile.png" : "pinned-list-desktop.png"),
 				animations: "disabled",
@@ -63,13 +64,29 @@ for (const phone of [false, true]) {
 				await expect(pinnedRow).toHaveCSS("background-color", "rgba(46, 50, 56, 0.13)");
 				await page.goto("/messages");
 			}
-			await pinnedRow.press("Shift+F10");
-			await list.getByRole("button", { name: "取消置顶", exact: true }).click();
+			const unpin = page.getByRole("menuitem", { name: "取消置顶", exact: true });
+			if (phone) {
+				const box = await pinnedRow.boundingBox();
+				if (!box) throw new Error("Expected a visible conversation row");
+				const touch = await page.context().newCDPSession(page);
+				await touch.send("Input.dispatchTouchEvent", {
+					type: "touchStart",
+					touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }],
+				});
+				await expect(unpin).toBeVisible();
+				await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+				await touch.detach();
+				await expect(page).toHaveURL(/\/messages$/);
+				await expect(unpin).toBeVisible();
+			} else {
+				await pinnedRow.click({ button: "right", position: { x: 24, y: 30 } });
+			}
+			await unpin.click();
 			if (!phone) await page.mouse.move(0, 0);
 			await expect(pinnedRow).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 			await expect(list.getByRole("listitem").first()).toContainText(phone ? normal.title : "界面验收 BOT");
 			await pinnedRow.press("Shift+F10");
-			await list.getByRole("button", { name: "置顶会话", exact: true }).click();
+			await page.getByRole("menuitem", { name: "置顶会话", exact: true }).click();
 			if (!phone) await page.mouse.move(0, 0);
 			await expect(pinnedRow).toHaveCSS("background-color", tint);
 			await expect(list.getByRole("listitem").first()).toContainText("设计小组");

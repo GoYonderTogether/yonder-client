@@ -9,6 +9,13 @@ import { MeList } from "./me-list.tsx";
 const chrome = vi.hoisted(() => ({ mode: "wide" }));
 vi.mock("@yonder/ui-data", () => ({
 	useMe: () => ({ data: { member: { displayName: "A person", handle: "person" } } }),
+	useInvite: () => ({
+		data: {
+			stats: { invitedCount: 2, grantedTotal: 20_000_000 },
+			activation: { limit: 5, used: 2, remaining: 3 },
+			rewardRule: { newUserGets: 10_000_000, inviterGets: 10_000_000, maxInvites: null },
+		},
+	}),
 }));
 vi.mock("@yonder/ui-shell", async (original) => ({
 	...(await original<typeof import("@yonder/ui-shell")>()),
@@ -62,4 +69,18 @@ test("mobile keeps grouped cards, icon tiles, row chevrons and selection", () =>
 	expect(container.querySelectorAll("section > h2").length).toBeGreaterThan(0);
 	expect(models.closest("section li")).not.toBeNull();
 	expect(screen.queryByRole("navigation", { name: "Me" })).toBeNull();
+});
+
+test("mobile lifts the invitation entry under the profile card as an accent card, not a list row", async () => {
+	const { open } = show("mobile");
+	const entry = screen.getByRole("button", { name: /Invite friends to Yonder/ });
+	expect(entry).toHaveClass("bg-[var(--color-accent)]");
+	expect(entry).toHaveTextContent("+10M tokens");
+	expect(entry).toHaveTextContent("3 invitation spots remaining");
+	expect(entry.closest("section")).toBeNull();
+	expect(screen.getByRole("button", { name: "Edit profile" }).compareDocumentPosition(entry)).toBe(
+		Node.DOCUMENT_POSITION_FOLLOWING,
+	);
+	await userEvent.click(entry);
+	expect(open).toHaveBeenCalledWith("invite");
 });

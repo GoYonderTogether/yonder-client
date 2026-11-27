@@ -1,5 +1,10 @@
 {
 	"name": "Yonder",
+	"short_name": "Yonder",
+	"id": "/",
+	"start_url": "/messages/main",
+	"scope": "/",
+	"display": "standalone",
 	"icons": [
 		{
 			"src": "icon-192.png",

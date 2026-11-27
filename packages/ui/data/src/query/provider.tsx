@@ -35,6 +35,8 @@ export interface DataProviderProps {
 	refreshTokenStorage?: { get(): string | null; set(value: string | null): void | Promise<void> };
 	/** Access-only session borrowed by an auxiliary shell window. */
 	refreshAccessToken?: () => Promise<string | null>;
+	/** Allow restoring a web refresh cookie before this local store has recorded a current session. */
+	restoreUnmarkedWebSession?: boolean;
 	/** Close auxiliary windows before the account changes. */
 	onSessionChange?: () => void | Promise<void>;
 	/** Override for tests. */
@@ -65,6 +67,7 @@ export function DataProvider({
 	clientKind,
 	refreshTokenStorage,
 	refreshAccessToken,
+	restoreUnmarkedWebSession = true,
 	onSessionChange,
 	storage: injectedStorage,
 	children,
@@ -161,7 +164,11 @@ export function DataProvider({
 					dehydrateOptions,
 				}}
 			>
-				<SessionBootstrapper web={clientKind === "web"} refreshTokenStorage={refreshTokenStorage} />
+				<SessionBootstrapper
+					web={clientKind === "web"}
+					refreshTokenStorage={refreshTokenStorage}
+					restoreUnmarkedWebSession={restoreUnmarkedWebSession}
+				/>
 				{children}
 			</PersistQueryClientProvider>
 		</DataContext.Provider>
@@ -175,17 +182,22 @@ export function DataProvider({
 function SessionBootstrapper({
 	web,
 	refreshTokenStorage,
+	restoreUnmarkedWebSession,
 }: {
 	web: boolean;
 	refreshTokenStorage: DataProviderProps["refreshTokenStorage"];
+	restoreUnmarkedWebSession: boolean;
 }) {
 	const { client, storage } = useData();
 	const queryClient = useQueryClient();
 	const restoring = useIsRestoring();
 	useEffect(() => {
 		if (restoring) return;
-		let cancelled = false;
 		let expires = web ? storage.get(WEB_SESSION_EXPIRY) : null;
+		if (web && !restoreUnmarkedWebSession && !(Number(expires) > Date.now())) {
+			useSessionStore.setState({ status: "signed-out", booting: false });
+			return;
+		}
 		if (web && expires === null) {
 			// Earlier versions already persist the authenticated profile.
 			const profile = queryClient.getQueryState<MeResponse>(keys.me());
@@ -196,6 +208,7 @@ function SessionBootstrapper({
 		}
 		const known = web ? Number(expires) > Date.now() : Boolean(refreshTokenStorage?.get());
 		useSessionStore.setState(known ? { status: "signed-in", booting: false } : { status: "unknown", booting: true });
+		let cancelled = false;
 		void client
 			.refreshSession({ throwOnUnavailable: true })
 			.then((ok) => {
@@ -209,7 +222,7 @@ function SessionBootstrapper({
 		return () => {
 			cancelled = true;
 		};
-	}, [client, queryClient, refreshTokenStorage, restoring, storage, web]);
+	}, [client, queryClient, refreshTokenStorage, restoreUnmarkedWebSession, restoring, storage, web]);
 
 	return null;
 }

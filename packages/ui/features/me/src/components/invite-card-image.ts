@@ -1,5 +1,18 @@
-/** Save exactly the displayed poster, with inline SVG styles and no remote image requests. */
-export async function saveInviteCard(poster: SVGSVGElement, filename = "yonder-invitation.png"): Promise<void> {
+export const INVITE_CARD_FILENAME = "yonder-invitation.png";
+
+/** Download exactly the displayed poster. */
+export async function saveInviteCard(poster: SVGSVGElement, filename = INVITE_CARD_FILENAME): Promise<void> {
+	const blob = await renderInviteCard(poster);
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement("a");
+	link.href = url;
+	link.download = filename;
+	link.click();
+	setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** The displayed poster as a PNG, with inline SVG styles and no remote image requests. */
+export async function renderInviteCard(poster: SVGSVGElement): Promise<Blob> {
 	const copy = poster.cloneNode(true) as SVGSVGElement;
 	copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
 	// The poster's own viewBox decides the size; jsdom and old engines without one fall back to 600 × 800.
@@ -39,12 +52,7 @@ export async function saveInviteCard(poster: SVGSVGElement, filename = "yonder-i
 		context.drawImage(image, 0, 0, canvas.width, canvas.height);
 		const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
 		if (!blob) throw new Error("image unavailable");
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement("a");
-		link.href = url;
-		link.download = filename;
-		link.click();
-		setTimeout(() => URL.revokeObjectURL(url), 1000);
+		return blob;
 	} finally {
 		URL.revokeObjectURL(source);
 	}

@@ -192,7 +192,10 @@ jobs:
             set -- "$@" desktop-release.yml ios-release.yml
           fi
           for workflow in "$@"; do
-            if ! gh workflow run "$workflow" --ref "v$VERSION" \
+            ref="v$VERSION"
+            # 签名 runner 只接受 main 上的桌面工作流，实际构建仍锁定版本 tag 的 SHA。
+            if [ "$workflow" = desktop-release.yml ]; then ref=main; fi
+            if ! gh workflow run "$workflow" --ref "$ref" \
               -f "version=$VERSION" -f "expected_commit=$sha"; then
               failed="$failed $workflow"
             fi
@@ -204,7 +207,7 @@ jobs:
             if [ -z "$failed" ]; then echo "packages=dispatched"; else echo "packages=pending:$failed"; fi
           } >> "$GITHUB_STEP_SUMMARY"
           if [ -n "$failed" ]; then
-            echo "::warning::Release v$VERSION is public but these builds were not dispatched:$failed. Rerun them manually with workflow_dispatch on tag v$VERSION; do not create a new release."
+            echo "::warning::Release v$VERSION is public but these builds were not dispatched:$failed. Dispatch desktop-release.yml on main and the other workflows on tag v$VERSION; use the existing release."
           fi
         env:
           VERSION: ${{ steps.version.outputs.version }}

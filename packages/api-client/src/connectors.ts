@@ -2,6 +2,7 @@ import type {
 	Attachment,
 	ConnectorCatalogResponse,
 	ConnectorCommandResult,
+	ConnectorFilePreviewStatus,
 	ConnectorId,
 	ConnectorInstance,
 	ConnectorListResponse,
@@ -10,7 +11,11 @@ import type {
 	CreateConnectorRequest,
 	UpdateConnectorRequest,
 } from "@yonder/protocol";
-import type { ApiClient } from "./client.ts";
+import { type ApiClient, ApiError, type ApiResponse } from "./client.ts";
+
+export type ConnectorFileContent =
+	| ConnectorFilePreviewStatus
+	| { kind: "file"; sha256: string; name: string; blob: Blob };
 
 /** Connectors and the results a local connector reports back. */
 export function connectorEndpoints(client: ApiClient) {
@@ -55,6 +60,25 @@ export function connectorEndpoints(client: ApiClient) {
 		},
 		updateConnector(id: string, body: UpdateConnectorRequest): Promise<ConnectorInstance> {
 			return client.request(`/v1/connectors/${encodeURIComponent(id)}`, { method: "PATCH", body });
+		},
+		async connectorFilePreview(
+			id: string,
+			body: { path: string; knownSha256?: string },
+			signal?: AbortSignal,
+		): Promise<ConnectorFileContent> {
+			const response = await client.request<ApiResponse>(`/v1/connectors/${encodeURIComponent(id)}/file-preview`, {
+				body,
+				responseType: "response",
+				...(signal ? { signal } : {}),
+			});
+			const sha256 = response.headers?.get("x-yonder-file-sha256");
+			if (sha256 === null || sha256 === undefined) return (await response.json()) as ConnectorFilePreviewStatus;
+			const name = /filename\*=UTF-8''([^;]+)/i.exec(response.headers?.get("content-disposition") ?? "")?.[1];
+			if (!name || !/^[a-f0-9]{64}$/.test(sha256)) {
+				await response.body?.cancel?.();
+				throw new ApiError({ code: "upstream_unavailable", status: 502, message: "invalid file response" });
+			}
+			return { kind: "file", sha256, name: decodeURIComponent(name), blob: await response.blob() };
 		},
 		uploadConnectorAttachment(commandId: string, file: File, signal: AbortSignal): Promise<Attachment> {
 			const form = new FormData();

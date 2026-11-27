@@ -2,6 +2,7 @@ import { Avatar, cn, IconTile, ListGroup, ListRow } from "@yonder/ui-components"
 import { useMe } from "@yonder/ui-data";
 import { ListFrame, useShellChrome } from "@yonder/ui-shell";
 import { useTranslation } from "react-i18next";
+import { InviteEntryCard } from "../components/invite-entry.tsx";
 import { MeCard } from "../components/me-card.tsx";
 import { ME_GROUPS, sectionLabelKey } from "./sections.tsx";
 
@@ -88,26 +89,29 @@ export function MeList({ current, onOpen }: MeListProps) {
 		<ListFrame title={t("me.title")} standaloneAction={!desktop}>
 			<div className="flex flex-col gap-[var(--spacing-5)]">
 				<MeCard person={person} selected={current === "profile"} onOpen={() => onOpen("profile")} />
+				<InviteEntryCard selected={current === "invite"} onOpen={() => onOpen("invite")} />
 
 				{ME_GROUPS.map((group) => (
 					<ListGroup key={group.id} title={t(`me.groups.${group.id}`)}>
-						{group.sections.map((section) => {
-							const Icon = section.icon;
-							return (
-								<ListRow
-									key={section.id}
-									leading={
-										<IconTile>
-											<Icon size={17} strokeWidth={1.8} />
-										</IconTile>
-									}
-									title={t(sectionLabelKey(section))}
-									chevron
-									selected={current === section.id}
-									onClick={() => onOpen(section.id)}
-								/>
-							);
-						})}
+						{group.sections
+							.filter((section) => section.id !== "invite")
+							.map((section) => {
+								const Icon = section.icon;
+								return (
+									<ListRow
+										key={section.id}
+										leading={
+											<IconTile>
+												<Icon size={17} strokeWidth={1.8} />
+											</IconTile>
+										}
+										title={t(sectionLabelKey(section))}
+										chevron
+										selected={current === section.id}
+										onClick={() => onOpen(section.id)}
+									/>
+								);
+							})}
 					</ListGroup>
 				))}
 			</div>

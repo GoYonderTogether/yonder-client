@@ -242,7 +242,8 @@ export const accountMessagesEn = {
 			closeBehavior: "When closing the window",
 			closeToTray: "Keep running in tray",
 			closeToQuit: "Quit Yonder",
-			closeBehaviorRecording: "Closing the window while recording or uploading a recording keeps Yonder running.",
+			closeBehaviorRecording:
+				"If you close the window during recording or upload, Yonder keeps running. To exit, choose Quit Yonder from the menu bar or system tray.",
 			closeBehaviorError: "Could not access this setting.",
 			internalErrorTitle: "Share pilot error counts",
 			internalErrorDescription:
@@ -306,6 +307,24 @@ export const accountMessagesEn = {
 		signInTitle: "Sign in to Yonder",
 		invitedBy: "Invited by {{name}}",
 		removeInvite: "Remove invitation",
+		inviteActivation: {
+			title: "Enter invitation code",
+			code: "Invitation code",
+			join: "Join the beta",
+			paste: "Paste",
+			pasteHint: "Paste the invitation code directly into the field.",
+			official: "Official Yonder invitation",
+			switchAccount: "Switch account",
+			verifyAgain: "Verify again",
+			errors: {
+				invite_required: "An invitation code is required. Update Yonder or join on the web.",
+				invite_invalid: "That invitation code is invalid. Check it or try another.",
+				invite_full: "This invitation is full. Try another code.",
+				invite_expired: "This invitation has expired. Try another code.",
+				invite_disabled: "This invitation was disabled. Try another code.",
+				invite_ticket_expired: "Your verification has expired. Verify again to continue.",
+			},
+		},
 		phoneLabel: "Phone number",
 		countryLabel: "Country code",
 		countries: {

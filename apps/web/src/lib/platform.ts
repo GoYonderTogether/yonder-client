@@ -4,12 +4,25 @@ export function isDesktopShell(): boolean {
 	return isTauri() && typeof navigator !== "undefined" && !/iPhone|iPad|Android/i.test(navigator.userAgent);
 }
 
+function isIosDevice(): boolean {
+	const { userAgent, maxTouchPoints } = navigator;
+	return /iPhone|iPad/i.test(userAgent) || (/Macintosh/i.test(userAgent) && maxTouchPoints > 1);
+}
+
+export function isIosHomeScreenWebApp(): boolean {
+	return (
+		!isTauri() &&
+		typeof navigator !== "undefined" &&
+		"standalone" in navigator &&
+		navigator.standalone === true &&
+		isIosDevice()
+	);
+}
+
 /** Width changes pane placement; the host decides whether desktop controls remain available. */
 export function isDesktopExperience(): boolean {
 	if (typeof navigator === "undefined") return false;
-	const mobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-	const desktopIpad = /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
-	return !mobile && !desktopIpad;
+	return !isIosDevice() && !/Android/i.test(navigator.userAgent);
 }
 
 export function shouldShowScanner(): boolean {

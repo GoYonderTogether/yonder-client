@@ -27,6 +27,7 @@ export interface SignInRequest {
 	target: string;
 	code: string;
 	inviteCode?: string;
+	inviteFlow?: true;
 	device?: DeviceInfo;
 	/** Must be `true`; the checkbox is never pre-ticked (01-产品功能和页面 第 5.3 节). */
 	agreeTerms: true;
@@ -61,6 +62,20 @@ export interface SignInResponse {
 	isNewAccount: boolean;
 	me: MeResponse;
 	invite: { applied: boolean; invitedBy?: { handle: string; displayName: string } };
+}
+
+export interface InviteRequiredResponse {
+	status: "invite_required";
+	ticket: string;
+	expiresIn: number;
+}
+
+export type VerifySignInResponse = SignInResponse | InviteRequiredResponse;
+
+export interface RedeemInviteRequest {
+	ticket: string;
+	code: string;
+	device?: DeviceInfo;
 }
 
 /** Password sign-in: the second way in, once a password has been set. */
@@ -147,5 +162,6 @@ export interface WechatMiniPhoneRequest {
 	ticket: string;
 	phoneCode: string;
 	inviteCode?: string;
+	inviteFlow?: true;
 	device?: DeviceInfo;
 }

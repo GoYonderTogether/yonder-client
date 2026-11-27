@@ -9,7 +9,25 @@ import { AppNoticeProvider } from "./app-notice.tsx";
 import { useFrameMeeting } from "./use-frame-meeting.ts";
 import { useMeetingRecorder } from "./use-meeting-recorder.ts";
 
-const { invoke, supported } = vi.hoisted(() => ({ invoke: vi.fn(), supported: { value: true } }));
+const { invoke, supported, mac, microphoneStatus, requestMicrophone } = vi.hoisted(() => ({
+	invoke: vi.fn(),
+	supported: { value: true },
+	mac: { enabled: false },
+	microphoneStatus: vi.fn(),
+	requestMicrophone: vi.fn(),
+}));
+vi.mock("../lib/keychain.ts", async (original) => ({
+	...(await original<object>()),
+	isTauri: () => mac.enabled,
+}));
+vi.mock("../lib/platform.ts", async (original) => ({
+	...(await original<object>()),
+	isMacDesktopShell: () => mac.enabled,
+}));
+vi.mock("../lib/mac-permissions.ts", () => ({
+	macPermissionStatus: microphoneStatus,
+	requestMacMicrophone: requestMicrophone,
+}));
 vi.mock("../lib/meeting-recorder.ts", async (original) => ({
 	...(await original<object>()),
 	invokeMeetingRecorder: invoke,
@@ -22,6 +40,7 @@ vi.mock("./use-meeting-upload.ts", () => ({ useMeetingUpload: () => {} }));
 afterEach(() => {
 	vi.clearAllMocks();
 	supported.value = true;
+	mac.enabled = false;
 });
 
 const saved: MeetingRecorderState = {
@@ -44,6 +63,15 @@ const saved: MeetingRecorderState = {
 		},
 	],
 };
+
+const i18n = createI18n("en");
+function NoticeContext({ children }: { children: ReactNode }) {
+	return (
+		<I18nextProvider i18n={i18n}>
+			<AppNoticeProvider scope="person">{children}</AppNoticeProvider>
+		</I18nextProvider>
+	);
+}
 
 test("recovering native state never starts capture, and closing the view never stops it", async () => {
 	invoke.mockResolvedValue(saved);
@@ -139,17 +167,99 @@ test("mobile permission and notification errors become actionable messages witho
 	}
 });
 
+test("Mac capture honors microphone denial and only an explicit action can show a new prompt", async () => {
+	mac.enabled = true;
+	invoke.mockResolvedValue(saved);
+	microphoneStatus.mockResolvedValue({ microphone: "default" });
+	requestMicrophone.mockResolvedValue(false);
+	const onActionError = vi.fn();
+	const { result } = renderHook(() => useMeetingRecorder("person", onActionError));
+	await waitFor(() => expect(result.current.ready).toBe(true));
+	await act(async () => result.current.recover("saved"));
+	expect(requestMicrophone).not.toHaveBeenCalled();
+	expect(invoke.mock.calls.map(([command]) => command)).toEqual(["set_owner"]);
+	await act(async () => result.current.start("Meeting"));
+	expect(requestMicrophone).toHaveBeenCalledTimes(1);
+	expect(onActionError).toHaveBeenLastCalledWith("permission_denied");
+	expect(invoke.mock.calls.map(([command]) => command)).toEqual(["set_owner"]);
+});
+
+test("a microphone grant received after the recorder view closes cannot start capture", async () => {
+	mac.enabled = true;
+	invoke.mockResolvedValue(saved);
+	microphoneStatus.mockResolvedValue({ microphone: "default" });
+	let allow = () => {};
+	requestMicrophone.mockImplementationOnce(
+		() =>
+			new Promise<boolean>((resolve) => {
+				allow = () => resolve(true);
+			}),
+	);
+	const { result, unmount } = renderHook(() => useMeetingRecorder("person"));
+	await waitFor(() => expect(result.current.ready).toBe(true));
+	let attempt: Promise<void> | undefined;
+	await act(async () => {
+		attempt = result.current.start("Meeting");
+	});
+	expect(requestMicrophone).toHaveBeenCalledTimes(1);
+	unmount();
+	allow();
+	await attempt;
+	expect(invoke).not.toHaveBeenCalledWith("start", { ownerId: "person", title: "Meeting" });
+});
+
+test.each(["audio_interrupted", "meeting_app_restarting"])(
+	"opening the app after %s requires a tap to continue the saved recording",
+	async (error) => {
+		mac.enabled = true;
+		microphoneStatus.mockResolvedValue({ microphone: "granted" });
+		invoke.mockResolvedValue({
+			...saved,
+			recordings: saved.recordings.map((recording) => ({ ...recording, error, endedAt: Date.now() })),
+		});
+		const { result } = renderHook(() => useFrameMeeting("person"), { wrapper: NoticeContext });
+		await waitFor(() => expect(result.current.interrupted?.id).toBe("saved"));
+		expect(invoke).not.toHaveBeenCalledWith("resume", { ownerId: "person", recordingId: "saved" });
+		expect(microphoneStatus).not.toHaveBeenCalled();
+		await act(async () => result.current.recorder.resume?.("saved"));
+		expect(invoke).toHaveBeenCalledWith("resume", { ownerId: "person", recordingId: "saved" });
+	},
+);
+
+test("a live Mac recording can recover from a brief audio interruption in the same session", async () => {
+	mac.enabled = true;
+	microphoneStatus.mockResolvedValue({ microphone: "granted" });
+	vi.useFakeTimers();
+	invoke.mockResolvedValue({
+		...saved,
+		activeId: "saved",
+		recordings: saved.recordings.map((recording) => ({ ...recording, state: "recording", endedAt: null })),
+	});
+	const { result, unmount } = renderHook(() => useFrameMeeting("person"), { wrapper: NoticeContext });
+	try {
+		await act(async () => {});
+		expect(result.current.active?.id).toBe("saved");
+		invoke.mockResolvedValue({
+			...saved,
+			recordings: saved.recordings.map((recording) => ({
+				...recording,
+				error: "audio_interrupted",
+				endedAt: Date.now(),
+			})),
+		});
+		await act(async () => vi.advanceTimersByTimeAsync(100));
+		expect(invoke).toHaveBeenCalledWith("resume", { ownerId: "person", recordingId: "saved" });
+		expect(requestMicrophone).not.toHaveBeenCalled();
+	} finally {
+		unmount();
+		vi.useRealTimers();
+	}
+});
+
 test("only an observed interruption of the active recording is announced", async () => {
 	vi.useFakeTimers();
 	invoke.mockResolvedValue(saved);
-	const i18n = createI18n("en");
-	const { unmount } = renderHook(() => useFrameMeeting("person"), {
-		wrapper: ({ children }: { children: ReactNode }) => (
-			<I18nextProvider i18n={i18n}>
-				<AppNoticeProvider scope="person">{children}</AppNoticeProvider>
-			</I18nextProvider>
-		),
-	});
+	const { unmount } = renderHook(() => useFrameMeeting("person"), { wrapper: NoticeContext });
 	try {
 		await act(async () => {});
 		const status = screen.getByRole("status");

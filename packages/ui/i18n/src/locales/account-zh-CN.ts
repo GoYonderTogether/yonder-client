@@ -240,7 +240,8 @@ export const accountMessagesZhCN = {
 			closeBehavior: "关闭窗口时",
 			closeToTray: "留在托盘",
 			closeToQuit: "退出 Yonder",
-			closeBehaviorRecording: "正在录音或上传录音时，关闭窗口会保留后台运行。",
+			closeBehaviorRecording:
+				"录音或上传期间关闭窗口，Yonder 会继续运行。要结束运行，请在菜单栏或系统托盘中选择「退出 Yonder」。",
 			closeBehaviorError: "无法读取或保存此设置。",
 			internalErrorTitle: "共享内测错误计数",
 			internalErrorDescription:
@@ -304,6 +305,24 @@ export const accountMessagesZhCN = {
 		signInTitle: "登录 Yonder",
 		invitedBy: "由 {{name}} 邀请",
 		removeInvite: "移除邀请",
+		inviteActivation: {
+			title: "输入邀请码",
+			code: "邀请码",
+			join: "加入内测",
+			paste: "粘贴",
+			pasteHint: "可在输入框中直接粘贴邀请码。",
+			official: "Yonder 官方邀请",
+			switchAccount: "切换账号",
+			verifyAgain: "重新验证身份",
+			errors: {
+				invite_required: "加入内测需要邀请码。请使用最新版 Yonder 或在网页端开通。",
+				invite_invalid: "邀请码无效，请检查或换一个。",
+				invite_full: "这个邀请的名额已用完，请换一个邀请码。",
+				invite_expired: "这个邀请已过期，请换一个邀请码。",
+				invite_disabled: "这个邀请已停用，请换一个邀请码。",
+				invite_ticket_expired: "身份验证已过期，请重新验证。",
+			},
+		},
 		phoneLabel: "手机号",
 		countryLabel: "国家代码",
 		countries: {

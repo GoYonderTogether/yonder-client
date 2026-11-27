@@ -4,15 +4,11 @@ use tauri::{async_runtime::channel, plugin::TauriPlugin, Runtime, WebviewWindow}
 
 extern "C" {
     fn yonder_mac_open_permissions(permission: i32) -> bool;
-    fn yonder_mac_full_disk_status() -> i32;
-    fn yonder_mac_accessibility_granted() -> bool;
-    fn yonder_mac_request_accessibility();
     fn yonder_mac_microphone_status() -> i32;
     fn yonder_mac_request_microphone(
         context: *mut c_void,
         complete: extern "C" fn(*mut c_void, bool),
     );
-    fn yonder_mac_initialize_login_item();
     fn yonder_mac_login_item_status() -> i32;
     fn yonder_mac_set_login_item(enabled: bool) -> bool;
 }
@@ -20,8 +16,6 @@ extern "C" {
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum Permission {
-    FullDisk,
-    Accessibility,
     Microphone,
     Notifications,
 }
@@ -29,8 +23,6 @@ enum Permission {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PermissionStatus {
-    full_disk: &'static str,
-    accessibility: &'static str,
     microphone: &'static str,
 }
 
@@ -57,16 +49,6 @@ async fn permission_status<R: Runtime>(
 ) -> Result<PermissionStatus, &'static str> {
     on_main(window, || unsafe {
         PermissionStatus {
-            full_disk: match yonder_mac_full_disk_status() {
-                0 => "off",
-                1 => "granted",
-                _ => "manual",
-            },
-            accessibility: if yonder_mac_accessibility_granted() {
-                "granted"
-            } else {
-                "off"
-            },
             microphone: match yonder_mac_microphone_status() {
                 0 => "default",
                 1 => "granted",
@@ -84,10 +66,8 @@ async fn open_settings<R: Runtime>(
     permission: Permission,
 ) -> Result<(), &'static str> {
     let pane = match permission {
-        Permission::FullDisk => 0,
-        Permission::Accessibility => 1,
-        Permission::Microphone => 2,
-        Permission::Notifications => 3,
+        Permission::Microphone => 0,
+        Permission::Notifications => 1,
     };
     on_main(window, move || unsafe { yonder_mac_open_permissions(pane) })
         .await?
@@ -96,15 +76,10 @@ async fn open_settings<R: Runtime>(
 }
 
 #[tauri::command]
-async fn request_accessibility<R: Runtime>(window: WebviewWindow<R>) -> Result<(), &'static str> {
-    on_main(window, || unsafe { yonder_mac_request_accessibility() }).await
-}
-
-#[tauri::command]
-async fn request_microphone<R: Runtime>(window: WebviewWindow<R>) -> Result<(), &'static str> {
-    extern "C" fn complete(context: *mut c_void, _granted: bool) {
-        let sender = unsafe { Box::from_raw(context.cast::<tauri::async_runtime::Sender<()>>()) };
-        let _ = sender.try_send(());
+async fn request_microphone<R: Runtime>(window: WebviewWindow<R>) -> Result<bool, &'static str> {
+    extern "C" fn complete(context: *mut c_void, granted: bool) {
+        let sender = unsafe { Box::from_raw(context.cast::<tauri::async_runtime::Sender<bool>>()) };
+        let _ = sender.try_send(granted);
     }
 
     let (sender, mut receiver) = channel(1);
@@ -152,14 +127,9 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![
             permission_status,
             open_settings,
-            request_accessibility,
             request_microphone,
             login_item_status,
             set_login_item,
         ])
-        .setup(|_, _| {
-            unsafe { yonder_mac_initialize_login_item() };
-            Ok(())
-        })
         .build()
 }

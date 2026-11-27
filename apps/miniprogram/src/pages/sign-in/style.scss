@@ -36,6 +36,26 @@
 	color: var(--color-accent-text);
 	font-size: var(--text-body);
 }
+.mini-auth-invite-label {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--spacing-2);
+}
+.mini-auth-invite-label .mini-auth-label {
+	margin-bottom: 0;
+}
+.mini-auth-invite-action {
+	width: auto;
+	margin: 0;
+	padding: 0 var(--spacing-2);
+	border: 0;
+	background: transparent;
+	line-height: var(--control-md);
+}
+.mini-auth-invite-action::after {
+	border: 0;
+}
 .mini-auth-consent {
 	font-size: var(--text-caption);
 	line-height: var(--text-caption--line-height);

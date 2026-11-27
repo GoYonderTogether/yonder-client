@@ -113,7 +113,6 @@ body:has(.lp) {
 }
 
 .lp-nav-links a,
-.lp-nav-tools button,
 .lp-nav-tools > a:not(.lp-action) {
 	display: inline-flex;
 	min-height: 36px;
@@ -133,7 +132,6 @@ body:has(.lp) {
 }
 
 .lp-nav-links a:hover,
-.lp-nav-tools button:hover,
 .lp-nav-tools > a:not(.lp-action):hover {
 	background: var(--lp-fill);
 	color: var(--lp-ink);
@@ -248,7 +246,6 @@ body:has(.lp) {
 		display: none;
 	}
 
-	.lp-nav-signed-in button,
 	.lp-nav-signed-in .lp-action-small {
 		padding-inline: var(--spacing-2);
 	}

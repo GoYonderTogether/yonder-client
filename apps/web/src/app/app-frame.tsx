@@ -1,4 +1,4 @@
-import { isMeSection, MeList } from "@yonder/feature-me";
+import { InviteRailButton, isMeSection, MeList } from "@yonder/feature-me";
 import { ClosedGroupNotice } from "@yonder/feature-members";
 import { Avatar, Logo } from "@yonder/ui-components";
 import {
@@ -437,6 +437,7 @@ export function AppFrame() {
 					meLabel={t("nav.me")}
 					settingsLabel={t("nav.settings")}
 					updateAction={<UpdateReadyButton />}
+					inviteAction={<InviteRailButton section={section} onOpen={navigation.open} />}
 					onOpenMe={() => navigation.open(splitMe ? meEntry : "/me")}
 					meOpen={meOpen}
 					me={me}

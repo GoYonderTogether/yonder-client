@@ -7,7 +7,7 @@ import { useApi } from "../query/provider.tsx";
 
 export function useInvite() {
 	const api = useApi();
-	return useQuery({ queryKey: keys.invite(), queryFn: () => api.invite(), staleTime: 30_000 });
+	return useQuery({ queryKey: keys.invite(), queryFn: () => api.invite(), refetchOnMount: "always" });
 }
 
 export function useResolvedInvite(code: string | null, enabled = true) {

@@ -37,8 +37,8 @@ for (const androidOnly of ["true", "false"]) {
 		)
 			.trim()
 			.split("\n");
-		const dispatch = (platform) =>
-			`workflow run ${platform}-release.yml --ref v${version} -f version=${version} -f expected_commit=${sha}`;
+		const dispatch = (platform, ref = `v${version}`) =>
+			`workflow run ${platform}-release.yml --ref ${ref} -f version=${version} -f expected_commit=${sha}`;
 		assert.deepEqual(
 			calls,
 			androidOnly === "true"
@@ -46,7 +46,7 @@ for (const androidOnly of ["true", "false"]) {
 				: [
 						`release edit v${version} --draft=false --latest`,
 						dispatch("android"),
-						dispatch("desktop"),
+						dispatch("desktop", "main"),
 						dispatch("ios"),
 					],
 		);

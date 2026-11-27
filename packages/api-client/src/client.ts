@@ -17,6 +17,7 @@ export interface TokenStore {
 }
 
 export type ApiResponse = Pick<Response, "status" | "ok" | "json" | "blob"> & {
+	headers?: Pick<Headers, "get">;
 	body?: { cancel?: () => void | Promise<void> } | null;
 };
 
@@ -76,7 +77,7 @@ export interface RequestOptions {
 	body?: unknown;
 	/** `raw` bodies (an avatar) skip JSON encoding. */
 	raw?: { bytes: BodyInit; contentType?: string };
-	responseType?: "blob";
+	responseType?: "blob" | "response";
 	range?: string;
 	signal?: AbortSignal;
 	idempotencyKey?: string;
@@ -129,6 +130,7 @@ export class ApiClient {
 			});
 		}
 		if (response.status === 204) return undefined as T;
+		if (options.responseType === "response") return response as T;
 		return (options.responseType === "blob" ? await response.blob() : await response.json()) as T;
 	}
 

@@ -46,6 +46,7 @@ export interface AppShellProps {
 	meLabel: string;
 	settingsLabel: string;
 	updateAction?: ReactNode;
+	inviteAction?: ReactNode;
 	onOpenMe: () => void;
 	meOpen: boolean;
 	me?: MeStack | undefined;
@@ -76,6 +77,7 @@ export function AppShell({
 	meLabel,
 	settingsLabel,
 	updateAction,
+	inviteAction,
 	onOpenMe,
 	meOpen,
 	me,
@@ -204,6 +206,7 @@ export function AppShell({
 							meLabel={meLabel}
 							settingsLabel={settingsLabel}
 							updateAction={updateAction}
+							inviteAction={inviteAction}
 							titlebarInset={titlebarInset}
 						/>
 					</div>

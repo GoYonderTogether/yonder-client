@@ -1,11 +1,13 @@
 import type { MeetingRecorderController, MeetingRecorderState } from "@yonder/feature-meetings";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { macPermissionStatus, requestMacMicrophone } from "../lib/mac-permissions.ts";
 import {
 	EMPTY_RECORDER,
 	invokeMeetingRecorder,
 	meetingRecorderSupported,
 	readMeetingAudio,
 } from "../lib/meeting-recorder.ts";
+import { isMacDesktopShell } from "../lib/platform.ts";
 
 /** A shell without the plugin answers nothing, which is not a recording. */
 function recorderState(value: unknown): MeetingRecorderState {
@@ -33,7 +35,7 @@ const ERROR_CODES = new Set([
 	"audio_unavailable",
 ]);
 function errorCode(error: unknown): string {
-	const code = String(error).split(":")[0] ?? "";
+	const code = (error instanceof Error ? error.message : String(error)).split(":")[0] ?? "";
 	if (code === "microphone_denied") return "permission_denied";
 	if (code === "notifications_denied" || code === "notifications_disabled") return "notifications_required";
 	if (code === "meeting_already_recording") return "recording_busy";
@@ -48,7 +50,7 @@ function errorCode(error: unknown): string {
 export function useMeetingRecorder(
 	ownerId: string | null,
 	onActionError?: (code: string) => void,
-): MeetingRecorderController {
+): MeetingRecorderController & { recover: (recordingId: string) => Promise<void> } {
 	const [state, setState] = useState<MeetingRecorderState>(EMPTY_RECORDER);
 	const [stateOwner, setStateOwner] = useState(ownerId);
 	const [ready, setReady] = useState(false);
@@ -70,6 +72,7 @@ export function useMeetingRecorder(
 		}
 	}, [ownerId, supported]);
 	useEffect(() => {
+		actionVersion.current++;
 		setState(EMPTY_RECORDER);
 		setStateOwner(ownerId);
 		setReady(!supported);
@@ -102,21 +105,38 @@ export function useMeetingRecorder(
 		void observe(true);
 		return () => {
 			disposed = true;
+			actionVersion.current++;
 			clearTimeout(timer);
 		};
 	}, [ownerId, supported]);
-	async function action(command: "start" | "stop" | "pause" | "resume", args: Record<string, unknown>) {
+	async function action(
+		command: "start" | "stop" | "pause" | "resume",
+		args: Record<string, unknown>,
+		mayRequestPermission = true,
+	) {
 		if (!supported || !ownerId || busy) return;
-		actionVersion.current++;
+		const version = ++actionVersion.current;
+		const isCurrent = () => owner.current === ownerId && actionVersion.current === version;
 		setBusy(true);
 		try {
+			if ((command === "start" || command === "resume") && isMacDesktopShell()) {
+				const { microphone } = await macPermissionStatus();
+				if (!isCurrent()) return;
+				const granted =
+					microphone === "granted" ||
+					(microphone === "default" && mayRequestPermission && (await requestMacMicrophone()));
+				if (!isCurrent()) return;
+				if (!granted) throw new Error("permission_denied");
+			}
 			const next = recorderState(await invokeMeetingRecorder<unknown>(command, { ownerId, ...args }));
-			actionVersion.current++;
-			if (owner.current === ownerId) setState(next);
+			if (isCurrent()) setState(next);
 		} catch (cause) {
-			if (owner.current === ownerId) onActionError?.(errorCode(cause));
+			if (isCurrent()) onActionError?.(errorCode(cause));
 		} finally {
-			if (owner.current === ownerId) setBusy(false);
+			if (isCurrent()) {
+				actionVersion.current++;
+				setBusy(false);
+			}
 		}
 	}
 	return {
@@ -133,6 +153,7 @@ export function useMeetingRecorder(
 		stop: (recordingId) => action("stop", { recordingId }),
 		pause: (recordingId) => action("pause", { recordingId }),
 		resume: (recordingId) => action("resume", { recordingId }),
+		recover: (recordingId) => action("resume", { recordingId }, false),
 		reload,
 		readAudio: async (recordingId, segmentIndex) => {
 			if (!ownerId || owner.current !== ownerId) throw new Error("owner_mismatch");

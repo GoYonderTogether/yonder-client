@@ -6,6 +6,7 @@ import {
 	type PointerEvent,
 	type ReactElement,
 	type ReactNode,
+	useCallback,
 	useEffect,
 	useId,
 	useRef,
@@ -13,6 +14,7 @@ import {
 } from "react";
 import { Button } from "../button/button.tsx";
 import { cn } from "../cn.ts";
+import { RowContextMenu } from "./row-context-menu.tsx";
 
 export interface RowAction {
 	label: string;
@@ -26,6 +28,7 @@ interface RowActionItemProps {
 	actions?: readonly RowAction[] | undefined;
 	className?: string | undefined;
 	children: ReactElement<ButtonHTMLAttributes<HTMLButtonElement>>;
+	presentation?: "conversation" | undefined;
 }
 
 const HOLD_MS = 450;
@@ -50,20 +53,30 @@ function clampOffset(offset: number, width: number) {
 	return Math.max(0, Math.min(width, offset));
 }
 
-export function RowActionItem({ actions, className, children }: RowActionItemProps) {
+export function RowActionItem({ actions, className, children, presentation }: RowActionItemProps) {
 	if (!actions?.length) return <li className={className}>{children}</li>;
 	return (
-		<GestureRow actions={actions} className={className}>
+		<GestureRow actions={actions} className={className} presentation={presentation}>
 			{children}
 		</GestureRow>
 	);
 }
 
-function GestureRow({ actions, children, className }: RowActionItemProps & { actions: readonly RowAction[] }) {
+function GestureRow({
+	actions,
+	children,
+	className,
+	presentation,
+}: RowActionItemProps & { actions: readonly RowAction[] }) {
 	const row = useRef<HTMLLIElement>(null);
 	const strip = useRef<HTMLDivElement>(null);
 	const control = useRef<HTMLDivElement>(null);
 	const id = useId();
+	const rowId = children.props.id ?? `${id}-row`;
+	const menuId = `${id}-menu`;
+	const isConversation = presentation === "conversation";
+	const [menuPoint, setMenuPoint] = useState<{ x: number; y: number } | null>(null);
+	const dismissMenu = useCallback(() => setMenuPoint(null), []);
 	const [expanded, setExpanded] = useState(false);
 	const [drag, setDrag] = useState<number | null>(null);
 	const hold = useRef<number>(undefined);
@@ -91,11 +104,17 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 		return clampOffset(edge - cardEdge, width);
 	}
 
-	function beginHold(start: RowGesture) {
+	function showMenu(x: number, y: number) {
+		setExpanded(false);
+		setMenuPoint({ x, y });
+	}
+
+	function beginHold(start: RowGesture, x = start.x, y = start.y) {
 		start.mode = "hold";
 		suppressClick.current = true;
 		setDrag(null);
-		setExpanded(true);
+		if (isConversation) showMenu(x, y);
+		else setExpanded(true);
 	}
 
 	function finish(event: PointerEvent, cancelled: boolean) {
@@ -121,6 +140,18 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 		control.current?.querySelector("button")?.focus({ preventScroll: true });
 	}
 
+	function selectAction(event: MouseEvent<HTMLButtonElement>, action: RowAction) {
+		if (consumeGestureClick(event) || gesture.current) return;
+		focusRow();
+		setExpanded(false);
+		dismissMenu();
+		action.onSelect();
+	}
+
+	function allowActionClick() {
+		if (!gesture.current) suppressClick.current = false;
+	}
+
 	// The release click can land on an action revealed under the original press.
 	function consumeGestureClick(event: MouseEvent<HTMLButtonElement>) {
 		if (event.detail === 0 || !suppressClick.current) return false;
@@ -133,14 +164,18 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 	const cardOffset =
 		drag === null ? (expanded ? "var(--row-actions-width)" : "0px") : `min(${drag}px, var(--row-actions-width))`;
 	const stripOffset = drag === null ? (expanded ? "0px" : "100%") : `max(0px, calc(100% - ${drag}px))`;
+	const actionWidth = isConversation
+		? `calc(${actions.length} * (var(--control-md) + var(--spacing-2)) + var(--spacing-2))`
+		: `calc(${actions.length} * var(--control-lg))`;
 	return (
 		<li
 			ref={row}
 			className={cn(
-				"relative isolate overflow-clip [--row-actions-width:min(60%,var(--row-actions-natural-width))] [[data-layout-mode=mobile]_&]:[--row-actions-width:60%]",
+				"relative isolate overflow-clip [--row-actions-width:min(60%,var(--row-actions-natural-width))]",
+				!isConversation && "[[data-layout-mode=mobile]_&]:[--row-actions-width:60%]",
 				className,
 			)}
-			style={{ "--row-actions-natural-width": `calc(${actions.length} * var(--control-lg))` } as CSSProperties}
+			style={{ "--row-actions-natural-width": actionWidth } as CSSProperties}
 			onPointerUp={(event) => finish(event, event.defaultPrevented)}
 			onPointerCancel={(event) => finish(event, true)}
 		>
@@ -153,8 +188,10 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 				style={{ transform: `translateX(calc(0px - ${cardOffset}))` }}
 			>
 				{cloneElement(children, {
-					"aria-controls": id,
-					"aria-expanded": expanded,
+					id: isConversation ? rowId : children.props.id,
+					"aria-controls": menuPoint ? menuId : id,
+					"aria-expanded": expanded || menuPoint !== null,
+					"aria-haspopup": isConversation ? "menu" : children.props["aria-haspopup"],
 					"aria-keyshortcuts": "Shift+F10 ContextMenu ArrowLeft",
 					onPointerDown(event) {
 						children.props.onPointerDown?.(event);
@@ -186,6 +223,7 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 						children.props.onPointerMove?.(event);
 						const start = gesture.current;
 						if (!start || start.id !== event.pointerId || start.mode === "vertical") return;
+						if (isConversation && start.mode === "hold") return;
 						if (start.mode !== "horizontal") {
 							const dx = start.x - event.clientX;
 							const dy = start.y - event.clientY;
@@ -216,8 +254,16 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 						if (event.defaultPrevented) return;
 						event.preventDefault();
 						const start = gesture.current;
-						if (start?.mode === "pending") beginHold(start);
-						else if (!start) setExpanded(true);
+						if (start?.mode === "pending") beginHold(start, event.clientX, event.clientY);
+						else if (!start) {
+							if (isConversation) showMenu(event.clientX, event.clientY);
+							else setExpanded(true);
+						}
+					},
+					onMouseDown(event) {
+						children.props.onMouseDown?.(event);
+						// A touch release can deliver a mouse event that would focus the row and dismiss the menu.
+						if (menuPoint && suppressClick.current) event.preventDefault();
 					},
 					onClick(event) {
 						if (consumeGestureClick(event)) return;
@@ -240,7 +286,10 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 							event.key === "ArrowLeft"
 						) {
 							event.preventDefault();
-							setExpanded(true);
+							if (isConversation && event.key !== "ArrowLeft") {
+								const rect = event.currentTarget.getBoundingClientRect();
+								showMenu(rect.left, rect.bottom);
+							} else setExpanded(true);
 						}
 					},
 				})}
@@ -250,27 +299,29 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 				ref={strip}
 				inert={!expanded || drag !== null}
 				aria-hidden={!expanded || drag !== null || undefined}
-				className={cn("absolute inset-y-0 right-0 flex w-[var(--row-actions-width)]", drag === null && TRANSITION)}
+				className={cn(
+					"absolute inset-y-0 right-0 flex w-[var(--row-actions-width)]",
+					isConversation && "items-center gap-[var(--spacing-2)] px-[var(--spacing-2)]",
+					drag === null && TRANSITION,
+				)}
 				style={{ transform: `translateX(${stripOffset})` }}
 			>
 				{actions.map((action) => (
 					<Button
 						key={action.label}
-						size="lg"
+						size={isConversation ? "md" : "lg"}
 						variant={action.tone === "danger" ? "danger" : "secondary"}
-						className="h-full! min-w-0 flex-1 rounded-none! px-0! focus-visible:outline-offset-[-2px]!"
+						className={cn(
+							"min-w-0 px-0! focus-visible:outline-offset-[-2px]!",
+							isConversation
+								? "aspect-square h-auto! w-[var(--control-md)] rounded-[var(--radius-full)]!"
+								: "h-full! flex-1 rounded-none!",
+						)}
 						aria-label={action.label}
 						title={action.label}
 						disabled={action.disabled}
-						onPointerDown={() => {
-							if (!gesture.current) suppressClick.current = false;
-						}}
-						onClick={(event) => {
-							if (consumeGestureClick(event) || gesture.current) return;
-							focusRow();
-							setExpanded(false);
-							action.onSelect();
-						}}
+						onPointerDown={allowActionClick}
+						onClick={(event) => selectAction(event, action)}
 						onKeyDown={(event) => {
 							if (event.key !== "Escape") return;
 							event.preventDefault();
@@ -282,6 +333,21 @@ function GestureRow({ actions, children, className }: RowActionItemProps & { act
 					</Button>
 				))}
 			</div>
+			{menuPoint ? (
+				<RowContextMenu
+					id={menuId}
+					labelledBy={rowId}
+					point={menuPoint}
+					actions={actions}
+					onDismiss={dismissMenu}
+					onEscape={() => {
+						focusRow();
+						dismissMenu();
+					}}
+					onPointerDown={allowActionClick}
+					onSelect={selectAction}
+				/>
+			) : null}
 		</li>
 	);
 }

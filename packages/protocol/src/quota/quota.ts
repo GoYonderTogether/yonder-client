@@ -69,6 +69,8 @@ export interface InviteResponse {
 	code: string;
 	link: string;
 	stats: { invitedCount: number; grantedTotal: number };
+	/** Present when the service enforces a personal invitation limit. */
+	activation?: { limit: number; used: number; remaining: number };
 	rewardRule: {
 		newUserGets: number;
 		inviterGets: number;
@@ -78,10 +80,9 @@ export interface InviteResponse {
 	};
 }
 
-export interface ResolveInviteResponse {
-	valid: true;
-	inviter: { handle: string; displayName: string; avatarUrl: string | null };
-}
+export type ResolveInviteResponse =
+	| { valid: true; kind?: "personal"; inviter: { handle: string; displayName: string; avatarUrl: string | null } }
+	| { valid: true; kind: "official"; inviter?: never };
 
 export interface LedgerEntry {
 	id: string;

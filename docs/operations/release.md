@@ -26,10 +26,10 @@ failure never leaves a public Release whose commit is not on `main`.
 | --------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ci.yml`                    | push to main, pull_request, workflow_dispatch                                 | lint, typecheck, test, the three `tools/` checks, changelog check, web build, cloud endpoint smoke, macOS `.app` build; one aggregate `CI` job |
 | `release.yml`               | workflow_dispatch only                                                        | tag, CHANGELOG, GitHub Release, dispatch the platform builds                                                                                   |
-| `desktop-release.yml`       | dispatched by `release.yml` (also `release: published` for manual publishing) | macOS Developer ID-signed, notarized dmg (ad-hoc fallback) + unsigned Windows nsis → Release; signed updater artifacts and manifests → OSS     |
+| `desktop-release.yml`       | dispatched by `release.yml` (also `release: published` for manual publishing) | macOS Developer ID and Windows Authenticode when configured; desktop installers → Release; signed updater artifacts and manifests → OSS        |
 | `android-release.yml`       | dispatched by `release.yml`                                                   | signed APK → Release asset `yonder-android.apk` + OSS `android/`                                                                               |
 | `ios-release.yml`           | dispatched by `release.yml`                                                   | archive, export IPA, upload to TestFlight                                                                                                      |
-| `windows-install-check.yml` | workflow_dispatch (input: release tag)                                        | installs the nsis installer on `windows-2025`, launches it, requires 20 s uptime, screenshots, uninstalls                                      |
+| `windows-install-check.yml` | workflow_dispatch (input: release tag)                                        | checks Authenticode, then installs, launches, screenshots, and uninstalls on a clean Windows runner                                            |
 | `auto-release.yml`          | workflow_dispatch only                                                        | does nothing; kept so nobody re-adds automatic releases by accident                                                                            |
 
 ### Removed
@@ -73,8 +73,42 @@ read from the root `package.json`; the date and sequence come from `scripts/rele
 `DEPLOY_SSH_KEY` is used by `web-deploy.yml`, which `release.yml` dispatches after the Release is
 public. See `docs/operations/web-deploy.md`.
 
-If any macOS certificate secret is missing, desktop-release warns and builds an ad-hoc dmg without
-notarization. A Developer ID build requires the existing App Store Connect API secrets as well.
+## Desktop operating system signing
+
+During the development phase, the workflow reports when a Windows build is unsigned or a macOS
+build has an ad-hoc signature without notarization. When both signing paths are provisioned,
+set the repository variable `DESKTOP_REQUIRE_OS_CODE_SIGNING=true` before public production
+distribution. In this mode the corresponding desktop job fails before upload if OS signing is
+missing or fails. macOS Developer ID signing uses the App Store Connect API credentials above
+for Apple notarization.
+
+Windows signing uses the certificate linked to the approved signing provider in
+`Cert:\CurrentUser\My` of the Windows x64 build runner. Set
+`WINDOWS_SIGNING_CERTIFICATE_THUMBPRINT` to the certificate's 40-digit hexadecimal fingerprint
+and `WINDOWS_SIGNING_TIMESTAMP_URL` to the provider's RFC 3161 endpoint. Prefer HTTPS where the
+provider offers it. The certificate private key stays with the signing provider. Tauri signs
+the app payload, installer and uninstaller. The NSIS build checks the app and uninstaller
+signatures and timestamps before bundling completes. The workflow checks the final installer's
+signature, timestamp and certificate fingerprint before generating the Tauri updater signature.
+
+For a dedicated release runner, set `WINDOWS_SIGNING_RUNNER` to its unique runner label. Use an
+organization runner group restricted to the repository and to
+`GoYonderTogether/yonder-client/.github/workflows/desktop-release.yml@refs/heads/main` under
+**Selected workflows**. This limits exposure of the signing identity on the public repository.
+Provision PowerShell 7, Git, GitHub CLI, the Visual Studio C++ build tools and the Windows SDK.
+The signer's key provider must work non-interactively for the runner account.
+If those workflow restrictions are unavailable, the GitHub-hosted runner needs the approved
+provider's bootstrap to install its key provider and make the certificate available to SignTool.
+Desktop release dispatches run on `main` and build the SHA pinned to the release tag.
+[Runner group access](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/manage-access)
+
+Use a clean Windows runner for the signed candidate's installation check. Set
+`require_authenticode=true` to verify the installer, installed app and uninstaller before
+enabling the signed-only release policy, then test the app update from an existing build.
+Set `expected_signer_thumbprint` if verifying a release signed with a previous certificate.
+Test the browser download separately with Windows and 360 protections enabled to exercise the
+SmartScreen flow. Use a new release version when migrating to Authenticode so an existing
+version keeps its original artifact hashes.
 
 ## App updates
 
@@ -160,17 +194,17 @@ the changelog check), and exercise the platform workflows against a throwaway ta
 A green build job proves the bundle was produced, not that it installs. What each artifact was
 actually checked against for `v0.3.26111301`:
 
-| platform | how it was checked                                                                                                                                                                                                                                                                                                     |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| macOS    | downloaded the dmg from the Release, mounted it, copied `Yonder.app` to a temp folder, launched it, read the version from the window, quit, detached, deleted. `codesign --verify --deep --strict` passes; `spctl` **rejects** it (ad-hoc signature, no Developer ID), so a browser download needs right-click → Open. |
-| Windows  | `windows-install-check.yml`: installs the nsis silently, checks the exe's `FileVersion`, requires the process to survive 20 s, screenshots, uninstalls and asserts the directory is gone.                                                                                                                              |
-| Android  | installed the Release APK on the `yonder-36` emulator (`-no-window -memory 2048 -no-snapshot-save`), launched it, screenshotted with `adb exec-out screencap -p`. Start the emulator only when no local Rust build is running.                                                                                         |
-| iOS      | the `上传 TestFlight` step reports `UPLOAD SUCCEEDED` and a Delivery UUID; the archive step prints the `CFBundleShortVersionString` / `CFBundleVersion` it is about to upload.                                                                                                                                         |
+| platform | how it was checked                                                                                                                                                                                                                                              |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS    | downloaded the dmg from the Release, mounted it, copied `Yonder.app` to a temp folder, launched it, read the version from the window, quit, detached, deleted. `codesign --verify --deep --strict` passes. Gatekeeper **rejects** this historical ad-hoc build. |
+| Windows  | `windows-install-check.yml`: installs the nsis silently, checks the exe's `FileVersion`, requires the process to survive 20 s, screenshots, uninstalls and asserts the directory is gone.                                                                       |
+| Android  | installed the Release APK on the `yonder-36` emulator (`-no-window -memory 2048 -no-snapshot-save`), launched it, screenshotted with `adb exec-out screencap -p`. Start the emulator only when no local Rust build is running.                                  |
+| iOS      | the `上传 TestFlight` step reports `UPLOAD SUCCEEDED` and a Delivery UUID; the archive step prints the `CFBundleShortVersionString` / `CFBundleVersion` it is about to upload.                                                                                  |
 
 For new Developer ID builds, `desktop-release.yml` verifies the signed dmg and the app mounted from
-it, including both notarization staples and Gatekeeper's disk-image and app assessments. A signed,
-notarized download should open without right-click → Open; the ad-hoc fallback still needs that
-override. The workflow also reports the `spctl -t install` result, but uses `-t open --context
+it, including both notarization staples and Gatekeeper's disk-image and app assessments. Gatekeeper
+must accept the downloaded production installer. The workflow also reports the
+`spctl -t install` result, but uses `-t open --context
 context:primary-signature` for the dmg because the install policy is for installer packages. These
 checks do not replace testing an actual downloaded release on a Mac. The iOS archive check reads the
 app's `Info.plist` and requires `ITSAppUsesNonExemptEncryption=false`.

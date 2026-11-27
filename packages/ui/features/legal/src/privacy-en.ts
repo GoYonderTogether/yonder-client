@@ -16,16 +16,17 @@ export const enPrivacy: LegalDocument = {
 				"**Sign-in and profile**: We use your mobile number and SMS code for registration, sign-in or password reset. If you sign in through the WeChat mini program, we store your mini program identity to recognize your account. You can also set a password, display name, avatar, public number and bio.",
 				"**Devices and sessions**: We record device type, device name and sign-in time to manage sessions. If you turn on notifications, we store the device’s push identifier to send notifications to it. When handling SMS code and password sign-in requests, we use your IP address and store its hash to protect accounts and the service.",
 				"**Conversations and content**: We process your messages with your Bot and the images, files and voice you send, to display conversations and generate replies. Your Bot turns lasting parts of conversations into memory (impression, recent and timeline cards). You can view, edit, make public or delete this memory at any time.",
-				"**Meeting recordings**: When you use meeting recording, we process the recording, its transcript and the meeting summary, and keep them in your account until you delete them.",
+				"**Meeting recordings**: When you use meeting recording, we process the recording, its transcript, the meeting summary, and any photos you take with the meeting camera. We keep them in your account until you delete them.",
 				"**Devices and files**: After you authorize a device, your Bot can read, organize or modify files on that device within the authorized scope. File content your Bot reads may be used as context and handled as described in “AI and model providers” below.",
 				"**Channel messages**: After you connect your Bot to channels such as Feishu or WeChat, we receive and process messages that you and others send to your Bot there, and send your Bot’s replies back. Those messages are also subject to the channel platform’s own rules.",
 				"**Quota, invitations and friends**: We record quota grants, invite rewards and consumption, plus friend requests and visit records, to calculate your quota and provide social features. Anyone opening your invite link can see your display name and avatar.",
 			],
 		},
 		{
-			heading: "System permissions",
+			heading: "System permissions and connectors",
 			paragraphs: [
-				"We request permissions only when you use the related feature, for example: microphone (voice input and meeting recording), camera (scanning codes), notifications (new-message alerts) and device files (your Bot accessing files you authorize). You can withdraw a permission in system settings at any time. Withdrawing it may make the related feature unavailable but does not affect other features. Granting a system permission is not consent to any other use.",
+				"We request access when you choose the related feature. We use the microphone for voice input and meeting recording, the camera for scanning codes or taking meeting photos on supported devices, and notifications for new-message alerts. You can withdraw access in your operating system settings. Features that need that permission may become unavailable.",
+				"When you enable a connector for supported Apple sources such as Calendar, Photos, Notes or Voice Memos, your Bot may automatically read and import authorized content to set up and update the source, and use it to handle your requests. Operating system permission and Yonder connector access are separate. You can disconnect the source in Yonder to stop future access through that connector. Content already saved to your account stays there until you delete it.",
 			],
 		},
 		{

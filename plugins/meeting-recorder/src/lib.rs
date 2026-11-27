@@ -181,7 +181,7 @@ async fn resume<R: Runtime>(
         .resume(owner_id, recording_id)
 }
 
-/// Called by the updater just before it relaunches the app, so a recording continues afterwards.
+/// Called by the updater before relaunching, so the user can continue their saved recording.
 #[tauri::command]
 async fn interrupt_for_restart<R: Runtime>(
     app: AppHandle<R>,

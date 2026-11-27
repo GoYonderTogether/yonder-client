@@ -27,7 +27,8 @@ test("the filing appears in both languages on the filed host only", async ({ pag
 	await page.goto("https://yonderbot.net/");
 	await expect(filing).toHaveText("ICP filing: 鄂ICP备2026027205号-2");
 	await expect(filing).toHaveAttribute("href", "https://beian.miit.gov.cn/");
-	await page.getByRole("button", { name: "中文", exact: true }).click();
+	await page.getByRole("button", { name: "Language", exact: true }).click();
+	await page.getByRole("menuitem", { name: "中文", exact: true }).click();
 	await expect(filing).toHaveText("鄂ICP备2026027205号-2");
 	await page.locator("footer").screenshot({ path: info.outputPath("yonderbot-icp-footer.png") });
 	for (const url of ["https://yonder.zethai.cn/", "/"]) {
@@ -430,16 +431,39 @@ test("the guest auth action and protected deep-link redirect remain intact", asy
 	expect(new URL(page.url()).searchParams.get("next")).toBe("/messages/main?from=test#item");
 });
 
-test("the signed-in header keeps both app and download visible at narrow mobile widths", async ({ page }) => {
+test("the signed-in header keeps app, download and the language menu usable at 320 px", async ({ page }) => {
 	await page.setViewportSize({ width: 320, height: 700 });
 	await isolateChat(page);
 	await page.goto("/");
 	const header = page.locator(".lp-nav");
+	const language = header.getByRole("button", { name: "语言", exact: true });
+	const menu = header.getByRole("menu", { name: "语言", exact: true });
+	const chineseDownload = header.getByRole("link", { name: "下载", exact: true });
+	const englishDownload = header.getByRole("link", { name: "Download", exact: true });
 	await expect(header.getByRole("link", { name: "打开应用", exact: true })).toBeInViewport({ ratio: 1 });
-	await expect(header.getByRole("link", { name: "下载", exact: true })).toBeInViewport({ ratio: 1 });
-	await header.getByRole("button", { name: "English" }).click();
+	await expect(chineseDownload).toBeInViewport({ ratio: 1 });
+	await expect(chineseDownload).toHaveAttribute("href", "/download");
+	await expect(language).toBeInViewport({ ratio: 1 });
+	await expect(language).toHaveText("");
+	await expect(language.locator("svg.lucide-globe")).toHaveAttribute("aria-hidden", "true");
+	await language.press("ArrowDown");
+	await expect(menu).toBeInViewport({ ratio: 1 });
+	await expect(menu.getByRole("menuitem", { name: "中文", exact: true })).toBeVisible();
+	await expect(menu.getByRole("menuitem").first()).toBeFocused();
+	await page.keyboard.press("Escape");
+	await expect(menu).toHaveCount(0);
+	await expect(language).toBeFocused();
+	await language.press("Enter");
+	await menu.getByRole("menuitem", { name: "English", exact: true }).click();
+	const englishLanguage = header.getByRole("button", { name: "Language", exact: true });
+	await expect(englishLanguage).toBeInViewport({ ratio: 1 });
 	await expect(header.getByRole("link", { name: "Open app", exact: true })).toBeInViewport({ ratio: 1 });
-	await expect(header.getByRole("link", { name: "Download", exact: true })).toBeInViewport({ ratio: 1 });
+	await expect(englishDownload).toBeInViewport({ ratio: 1 });
+	await expect(englishDownload).toHaveAttribute("href", "/download");
+	await englishLanguage.click();
+	await expect(header.getByRole("menu", { name: "Language", exact: true })).toBeInViewport({ ratio: 1 });
+	await englishDownload.click();
+	await expect(page).toHaveURL(/\/download$/);
 });
 
 test("a restored native shell still starts directly in the app", async ({ page }) => {

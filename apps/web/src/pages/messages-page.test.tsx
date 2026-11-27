@@ -106,10 +106,10 @@ test("row actions unpin and require confirmation before deleting from Messages",
 	expect(screen.queryByText("Hidden conversation")).toBeNull();
 	const row = screen.getByRole("button", { name: /Stranger/ });
 	fireEvent.contextMenu(row);
-	fireEvent.click(screen.getByRole("button", { name: "Unpin conversation" }));
+	fireEvent.click(screen.getByRole("menuitem", { name: "Unpin conversation" }));
 	expect(data.pin).toHaveBeenCalledWith({ id: "visit-conversation", pinned: false });
 	fireEvent.contextMenu(row);
-	fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
+	fireEvent.click(screen.getByRole("menuitem", { name: "Delete conversation" }));
 	const dialog = within(screen.getByRole("dialog", { name: "Delete conversation?" }));
 	expect(dialog.getByText(/Your chat history stays/)).toBeInTheDocument();
 	expect(data.remove).not.toHaveBeenCalled();

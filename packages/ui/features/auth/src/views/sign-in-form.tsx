@@ -7,7 +7,9 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next";
 import type { FailureMessage, Translate } from "../hooks/describe-failure.ts";
 import { describeFailure } from "../hooks/describe-failure.ts";
+import { readInviteVerification, storeInviteVerification } from "../hooks/invite-verification.ts";
 import { COUNTRY_CODES, DEFAULT_COUNTRY_CODE, formatNational, isValidE164, toE164 } from "../hooks/phone.ts";
+import { InviteActivationForm } from "./invite-activation-form.tsx";
 import { SignInCodeField } from "./sign-in-code-field.tsx";
 import { TermsConsent } from "./terms-consent.tsx";
 
@@ -39,6 +41,7 @@ export function SignInForm({
 	const { storage } = useData();
 	const [inviteCode, setInviteCode] = useState(() => readInvite(storage));
 	const invite = useResolvedInvite(inviteCode);
+	const [inviteTicket, setInviteTicket] = useState(readInviteVerification);
 
 	const [mode, setMode] = useState<AuthMode>(initialMode);
 	const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
@@ -112,9 +115,15 @@ export function SignInForm({
 					target,
 					code: submittedCode ?? code,
 					...(storedInvite ? { inviteCode: storedInvite } : {}),
+					inviteFlow: true,
 					agreeTerms: true,
 					device,
 				});
+				if ("status" in result) {
+					storeInviteVerification(result);
+					setInviteTicket(result.ticket);
+					return;
+				}
 				clearInvite(storage);
 				onSignedIn(result);
 			} catch (error) {
@@ -143,6 +152,29 @@ export function SignInForm({
 			setSubmitting(false);
 		}
 	}, [api, device, onSignedIn, password, requireTerms, storage, t, target]);
+
+	if (inviteTicket) {
+		return (
+			<InviteActivationForm
+				ticket={inviteTicket}
+				prefill={inviteCode}
+				device={device}
+				onSignedIn={(result) => {
+					storeInviteVerification(null);
+					clearInvite(storage);
+					onSignedIn(result);
+				}}
+				onSwitchAccount={() => {
+					storeInviteVerification(null);
+					setInviteTicket(null);
+					setStage("phone");
+					setPhoneInput("");
+					setCode("");
+					setRetryAt(null);
+				}}
+			/>
+		);
+	}
 
 	return (
 		<form
@@ -232,9 +264,13 @@ export function SignInForm({
 				</AuthConsent>
 
 				<AuthActions as="div">
-					{inviteCode && invite.data?.valid && invite.data.inviter ? (
+					{inviteCode && invite.data?.valid ? (
 						<div className="flex items-center justify-between text-caption text-[var(--color-text-secondary)]">
-							<span>{t("auth.invitedBy", { name: invite.data.inviter.displayName })}</span>
+							<span>
+								{invite.data.kind === "official"
+									? t("auth.inviteActivation.official")
+									: t("auth.invitedBy", { name: invite.data.inviter.displayName })}
+							</span>
 							<IconButton
 								size="sm"
 								aria-label={t("auth.removeInvite")}

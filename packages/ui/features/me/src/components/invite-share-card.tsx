@@ -1,15 +1,17 @@
 import { BrandedQrCode, Button, Logo } from "@yonder/ui-components";
 import { GesturePanel, useDismiss } from "@yonder/ui-shell";
-import { Copy, Download, X } from "lucide-react";
+import { Copy, Download, Share2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { saveInviteCard } from "./invite-card-image.ts";
+import { INVITE_CARD_FILENAME, renderInviteCard, saveInviteCard } from "./invite-card-image.ts";
 import { InviteLifeIllustration } from "./invite-life-illustration.tsx";
+import { canShareNatively, shareNatively } from "./invite-share.ts";
 
 export function InviteShareCard({
 	name,
 	code,
 	link,
+	shareText,
 	onClose,
 	onCopy,
 	copied,
@@ -17,6 +19,7 @@ export function InviteShareCard({
 	name: string;
 	code: string;
 	link: string;
+	shareText: string;
 	onClose: () => void;
 	onCopy: () => void;
 	copied: boolean;
@@ -25,7 +28,8 @@ export function InviteShareCard({
 	const english = !(i18n.resolvedLanguage ?? i18n.language).startsWith("zh");
 	const poster = useRef<SVGSVGElement>(null);
 	const [saving, setSaving] = useState(false);
-	const [message, setMessage] = useState<"saved" | "saveFailed" | null>(null);
+	const [sharing, setSharing] = useState(false);
+	const [message, setMessage] = useState<"saved" | "saveFailed" | "shareFailed" | null>(null);
 	useDismiss(true, onClose, 30);
 	async function save() {
 		if (!poster.current) return;
@@ -38,6 +42,22 @@ export function InviteShareCard({
 			setMessage("saveFailed");
 		} finally {
 			setSaving(false);
+		}
+	}
+	/** The card image where the sheet takes files (phones, macOS); otherwise the link and text. */
+	async function share() {
+		if (!poster.current) return;
+		setSharing(true);
+		setMessage(null);
+		try {
+			const file = new File([await renderInviteCard(poster.current)], INVITE_CARD_FILENAME, { type: "image/png" });
+			await shareNatively(
+				navigator.canShare?.({ files: [file] }) ? { files: [file], text: shareText } : { text: shareText, url: link },
+			);
+		} catch {
+			setMessage("shareFailed");
+		} finally {
+			setSharing(false);
 		}
 	}
 	const shortName = [...name].length > 11 ? `${[...name].slice(0, 10).join("")}…` : name;
@@ -77,7 +97,7 @@ export function InviteShareCard({
 						x="44"
 						y="176"
 						fill="var(--color-text-primary)"
-						fontSize={english ? 42 : 46}
+						fontSize={english ? 40 : 46}
 						fontWeight="600"
 						letterSpacing="-1.2"
 					>
@@ -115,6 +135,17 @@ export function InviteShareCard({
 					</g>
 				</svg>
 				<div className="flex max-w-full flex-wrap justify-center gap-[var(--spacing-2)]">
+					{canShareNatively() ? (
+						<Button
+							loading={sharing}
+							variant="primary"
+							onClick={() => void share()}
+							className="!rounded-[var(--radius-full)]"
+						>
+							<Share2 size={16} aria-hidden="true" />
+							{t("inviteExperience.shareNow")}
+						</Button>
+					) : null}
 					<Button
 						loading={saving}
 						onClick={() => void save()}
