@@ -64,7 +64,7 @@ export function useProviderSubmit(options: {
 			}
 		} finally {
 			writing.current = false;
-			if (version === options.version.current) setFetching(false);
+			setFetching(false);
 		}
 	}
 
@@ -80,10 +80,6 @@ export function useProviderSubmit(options: {
 		const startedAt = performance.now();
 		const version = options.nextVersion();
 		const slots = completeSlots(options.slots);
-		if (!slots.length) {
-			setError(t("models.invalid"));
-			return false;
-		}
 		let saved = false;
 		writing.current = true;
 		setSaving(true);

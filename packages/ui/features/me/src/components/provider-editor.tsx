@@ -233,7 +233,6 @@ export function ProviderEditor({
 			setError(t("models.deviceUnavailable"));
 			return;
 		}
-		if (target && localKey) setLocalKey("");
 		await discover(target, onDevice ? "" : apiKey.trim());
 	}
 
@@ -329,7 +328,6 @@ export function ProviderEditor({
 							value={selectedEndpointId}
 							onChange={(value) => {
 								setEndpointId(value);
-								setLocalKey("");
 								resetDiscovery();
 							}}
 							options={[
@@ -348,7 +346,6 @@ export function ProviderEditor({
 							onChange={(event) => {
 								if (onDevice) {
 									setLocalUrl(event.target.value);
-									setLocalKey("");
 								} else setBaseUrl(event.target.value);
 								resetDiscovery();
 							}}
@@ -367,7 +364,6 @@ export function ProviderEditor({
 					disabled={saving || (onDevice && (Boolean(endpoint) || Boolean(fixedDeviceProtocol)))}
 					onChange={(value) => {
 						setProtocol(value as ProviderProtocol);
-						setLocalKey("");
 						resetDiscovery();
 					}}
 					hint={onDevice ? undefined : t("models.protocolHint")}

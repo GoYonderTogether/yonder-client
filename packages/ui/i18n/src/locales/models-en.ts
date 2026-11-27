@@ -70,7 +70,7 @@ export const modelMessagesEn = {
 	cannotDeleteDefault: "The provider in use cannot be deleted",
 	chooseAgain: "Change preset",
 	saveFailed: "Could not save provider",
-	invalid: "Enter a name, a valid URL, a key and at least one model.",
+	invalid: "Enter a name, a valid URL and a key.",
 	invalidUrl: "Enter a public HTTPS address.",
 	discard: "Discard your changes?",
 	note: "Note",

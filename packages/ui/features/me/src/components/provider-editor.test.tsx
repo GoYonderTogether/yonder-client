@@ -61,7 +61,7 @@ test("editing never displays a stored key and discovery reuses it only by provid
 	expect(screen.getByRole("button", { name: "Get models" })).toBeDisabled();
 });
 
-test("empty name or models cannot be saved with an existing key", () => {
+test("an empty name cannot be saved, but a provider may be saved without models", async () => {
 	actions.save.mockClear();
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
@@ -71,13 +71,13 @@ test("empty name or models cannot be saved with an existing key", () => {
 	const name = screen.getByRole("textbox", { name: "Name" });
 	fireEvent.change(name, { target: { value: " " } });
 	fireEvent.click(screen.getByRole("button", { name: "Save" }));
-	expect(screen.getByRole("alert")).toHaveTextContent("Enter a name, a valid URL, a key and at least one model.");
+	expect(screen.getByRole("alert")).toHaveTextContent("Enter a name, a valid URL and a key.");
+	expect(actions.save).not.toHaveBeenCalled();
 	fireEvent.change(name, { target: { value: "Provider" } });
-	// Blanking the only row's request model leaves nothing to save.
+	// A provider may be saved without any model: they can be fetched or added later.
 	fireEvent.change(screen.getByRole("textbox", { name: "Request model" }), { target: { value: " " } });
 	fireEvent.click(screen.getByRole("button", { name: "Save" }));
-	expect(screen.getByRole("alert")).toHaveTextContent("Enter a name, a valid URL, a key and at least one model.");
-	expect(actions.save).not.toHaveBeenCalled();
+	await waitFor(() => expect(actions.save).toHaveBeenCalledTimes(1));
 });
 
 const myDevice: DeviceSummary = {
@@ -203,7 +203,7 @@ test("a local key is discarded when its address changes, and switching where the
 	fireEvent.change(screen.getByRole("textbox", { name: "Request URL" }), {
 		target: { value: "http://localhost:11434/v1" },
 	});
-	expect(screen.getByLabelText("API key")).toHaveValue("");
+	expect(screen.getByLabelText("API key")).toHaveValue("synthetic-a");
 	fireEvent.change(screen.getByLabelText("API key"), { target: { value: "synthetic-b" } });
 	chooseDevice(/^Cloud$/);
 	// Choosing where the call runs keeps the key and the address the person typed.
@@ -230,7 +230,8 @@ test("changing protocol at the same local URL requires a separately approved end
 	fireEvent.change(screen.getByLabelText("API key"), { target: { value: "synthetic-old-protocol-key" } });
 	fireEvent.click(screen.getByRole("button", { name: /^Protocol:/ }));
 	fireEvent.click(screen.getByRole("option", { name: "Anthropic Messages" }));
-	expect(screen.getByLabelText("API key")).toHaveValue("");
+	// Changing the protocol keeps the key the person typed.
+	expect(screen.getByLabelText("API key")).toHaveValue("synthetic-old-protocol-key");
 	fireEvent.click(screen.getByRole("button", { name: "Get models" }));
 	await waitFor(() =>
 		expect(actions.discoverModels).toHaveBeenLastCalledWith({
@@ -247,6 +248,8 @@ test("changing protocol at the same local URL requires a separately approved end
 		baseUrl: "http://127.0.0.1:8788/v1",
 		label: "Local model",
 		protocol: "anthropic-messages",
+		// The key typed before the protocol changed travels with the new registration.
+		apiKey: "synthetic-old-protocol-key",
 	});
 });
 

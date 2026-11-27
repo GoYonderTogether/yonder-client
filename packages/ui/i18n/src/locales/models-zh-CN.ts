@@ -70,7 +70,7 @@ export const modelMessagesZhCN = {
 	cannotDeleteDefault: "使用中的供应商不能删除",
 	chooseAgain: "更换预设",
 	saveFailed: "供应商没有保存成功",
-	invalid: "请填写名称、有效的地址、密钥和至少一个模型。",
+	invalid: "请填写名称、有效的地址和密钥。",
 	invalidUrl: "请输入公开的 HTTPS 地址。",
 	discard: "放弃尚未保存的修改吗？",
 	note: "备注",
