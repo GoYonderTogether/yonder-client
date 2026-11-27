@@ -33,7 +33,7 @@ function ModelSlotRow({
 }) {
 	const { t } = useTranslation();
 	return (
-		<div className="@container flex min-w-0 flex-col gap-[var(--spacing-3)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] p-[var(--spacing-3)]">
+		<div className="@container flex min-w-0 flex-col gap-[var(--spacing-2)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] p-[var(--spacing-3)]">
 			<div className="flex items-center justify-between gap-[var(--spacing-2)]">
 				<span className="text-caption text-[var(--color-text-tertiary)] tabular-nums">{index + 1}</span>
 				<div className="flex items-center gap-[var(--spacing-1)]">
@@ -58,7 +58,7 @@ function ModelSlotRow({
 					</IconButton>
 				</div>
 			</div>
-			<div className="grid min-w-0 gap-[var(--spacing-3)] @md:grid-cols-2">
+			<div className="grid min-w-0 gap-[var(--spacing-2)] @md:grid-cols-2">
 				<TextField
 					label={t("models.slotName")}
 					value={slot.name}
@@ -88,13 +88,22 @@ function ModelSlotRow({
 						disabled={disabled}
 					/>
 				)}
+			</div>
+			<div className="grid min-w-0 gap-[var(--spacing-2)] @md:grid-cols-3">
 				<TextField
 					label={t("models.slotContext")}
-					type="number"
-					inputMode="numeric"
+					inputMode="text"
 					value={slot.contextLength}
 					onChange={(event) => onChange({ contextLength: event.target.value })}
 					placeholder={t("models.slotContextHint")}
+					disabled={disabled}
+				/>
+				<TextField
+					label={t("models.slotMaxOutput")}
+					inputMode="text"
+					value={slot.maxOutput}
+					onChange={(event) => onChange({ maxOutput: event.target.value })}
+					placeholder={t("models.slotMaxOutputHint")}
 					disabled={disabled}
 				/>
 				<EffortField selected={slot.efforts} disabled={disabled} onChange={(efforts) => onChange({ efforts })} />
@@ -131,7 +140,7 @@ export function ProviderModelSlots({
 }) {
 	const { t } = useTranslation();
 	return (
-		<div className="flex min-w-0 flex-col gap-[var(--spacing-3)]">
+		<div className="flex min-w-0 flex-col gap-[var(--spacing-2)]">
 			{slots.map((slot, index) => (
 				<ModelSlotRow
 					key={slot.key}

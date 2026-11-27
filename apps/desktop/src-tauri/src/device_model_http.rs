@@ -165,7 +165,7 @@ fn check_openai_body(body: &Value) -> Result<(), Error> {
             )
         )
         || body.get("stream").and_then(Value::as_bool) != Some(true)
-        || !body.get("max_tokens").and_then(Value::as_u64).is_some_and(|tokens| (1..=8192).contains(&tokens))
+        || !body.get("max_tokens").and_then(Value::as_u64).is_some_and(|tokens| (1..=10_000_000).contains(&tokens))
         || serde_json::to_vec(body).map_err(|_| "upstream_rejected")?.len() > MAX_REQUEST
     {
         return Err("upstream_rejected");
@@ -213,7 +213,7 @@ fn check_anthropic_body(body: &Value) -> Result<(), Error> {
         || !body.get("messages").and_then(Value::as_array)
             .is_some_and(|messages| !messages.is_empty() && messages.iter().all(anthropic_message))
         || body.get("stream").and_then(Value::as_bool) != Some(true)
-        || !body.get("max_tokens").and_then(Value::as_u64).is_some_and(|tokens| (1..=8192).contains(&tokens))
+        || !body.get("max_tokens").and_then(Value::as_u64).is_some_and(|tokens| (1..=10_000_000).contains(&tokens))
         || body.get("tools").is_some_and(|tools| !tools.as_array().is_some_and(|tools| tools.iter().all(|tool|
             only_fields(tool, &["name", "description", "input_schema"])
                 && string_field(tool, "name") && string_field(tool, "description")

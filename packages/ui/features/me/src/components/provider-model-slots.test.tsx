@@ -9,8 +9,8 @@ import { type ModelSlot, saveMetadata } from "./provider-model-slots.ts";
 import { ProviderModelSlots } from "./provider-model-slots.tsx";
 
 const initial: ModelSlot[] = [
-	{ key: "one", id: "m1", name: "First", contextLength: "4096", efforts: ["medium"] },
-	{ key: "two", id: "m2", name: "Second", contextLength: "8192", efforts: [] },
+	{ key: "one", id: "m1", name: "First", contextLength: "4096", maxOutput: "", efforts: ["medium"] },
+	{ key: "two", id: "m2", name: "Second", contextLength: "8K", maxOutput: "4K", efforts: [] },
 ];
 
 function TestSlots() {
@@ -63,7 +63,7 @@ test.each([
 	const metadata = () => JSON.parse(screen.getByLabelText("metadata").textContent ?? "{}");
 	expect(metadata()).toEqual({
 		m1: { name: "First", contextLength: 4096, efforts: ["low", "medium", "max"] },
-		m2: { name: "Second", contextLength: 8192 },
+		m2: { name: "Second", contextLength: 8000, maxOutput: 4000 },
 	});
 	for (const level of ["low", "medium", "max"]) fireEvent.click(option(level));
 	expect(metadata().m1).toEqual({ name: "First", contextLength: 4096 });

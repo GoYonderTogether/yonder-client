@@ -1,5 +1,5 @@
 import type { DeviceSummary, Provider, ProviderModelMetadata, ProviderProtocol } from "@yonder/protocol";
-import { Button, Field, PasswordField, SelectField, TextField } from "@yonder/ui-components";
+import { Button, Field, FormFooter, FormSection, PasswordField, SelectField, TextField } from "@yonder/ui-components";
 import { DiscardChangesDialog } from "@yonder/ui-shell";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -300,186 +300,191 @@ export function ProviderEditor({
 				</div>
 			) : null}
 
-			{/* Name and note read as one line: both describe the provider, neither is an address. */}
-			<div className="grid gap-[var(--spacing-2)] sm:grid-cols-2">
-				<TextField
-					label={t("models.name")}
-					value={name}
-					onChange={(event) => setName(event.target.value)}
-					required
-					requiredMark
-					disabled={saving}
-				/>
-				<TextField
-					label={t("models.note")}
-					value={note}
-					onChange={(event) => setNote(event.target.value)}
-					placeholder={t("models.noteHint")}
-					disabled={saving}
-				/>
-			</div>
-
-			{/* Where the call runs and where it is sent belong together: one address, two origins. */}
-			<div className="grid gap-[var(--spacing-2)] sm:grid-cols-2">
-				{locationOptions.length > 1 || isLoopbackProviderAddress(baseUrl) ? (
-					<SelectField
-						label={t("models.location")}
-						value={deviceId}
-						options={locationOptions}
-						onChange={chooseLocation}
-						disabled={saving || !!provider}
-						requiredMark={!onDevice && isLoopbackProviderAddress(baseUrl)}
-					/>
-				) : null}
-				{onDevice && !addEndpoint ? (
-					<SelectField
-						label={t("models.baseUrl")}
-						requiredMark
-						disabled={saving || !!currentTarget}
-						value={selectedEndpointId}
-						onChange={(value) => {
-							setEndpointId(value);
-							setLocalKey("");
-							resetDiscovery();
-						}}
-						options={[
-							{ value: "", label: t("models.chooseEndpoint") },
-							...known.map((entry) => ({ value: entry.endpointId, label: entry.label })),
-							...(selectedEndpointId && !endpoint
-								? [{ value: selectedEndpointId, label: t("models.deviceUnavailable") }]
-								: []),
-						]}
-					/>
-				) : (
+			<FormSection>
+				{/* Name and note read as one line: both describe the provider, neither is an address. */}
+				<div className="grid gap-[var(--spacing-2)] sm:grid-cols-2">
 					<TextField
-						label={t("models.baseUrl")}
-						type="url"
-						value={onDevice ? localUrl : baseUrl}
-						onChange={(event) => {
-							if (onDevice) {
-								setLocalUrl(event.target.value);
-								setLocalKey("");
-							} else setBaseUrl(event.target.value);
-							resetDiscovery();
-						}}
-						placeholder={PROTOCOL_EXAMPLES[onDevice ? deviceProtocol : protocol].placeholder}
-						hint={onDevice ? undefined : t("models.baseUrlHint", { path: PROTOCOL_EXAMPLES[protocol].path })}
+						label={t("models.name")}
+						value={name}
+						onChange={(event) => setName(event.target.value)}
 						required
 						requiredMark
 						disabled={saving}
 					/>
-				)}
-			</div>
-
-			<SelectField
-				label={t("models.protocol")}
-				value={onDevice ? deviceProtocol : protocol}
-				disabled={saving || (onDevice && (Boolean(endpoint) || Boolean(fixedDeviceProtocol)))}
-				onChange={(value) => {
-					setProtocol(value as ProviderProtocol);
-					setLocalKey("");
-					resetDiscovery();
-				}}
-				hint={onDevice ? undefined : t("models.protocolHint")}
-				options={PROTOCOL_OPTIONS.map((value) => ({ value, label: t(`models.protocolName.${value}`) }))}
-			/>
-
-			{canSetLocalKey || needsKey ? (
-				<Field
-					label={t("models.apiKey")}
-					htmlFor="provider-key"
-					requiredMark={needsKey}
-					action={
-						!onDevice && preset?.keyUrl ? (
-							<a
-								className="inline-flex items-center gap-[var(--spacing-1)] text-caption text-[var(--color-accent-text)] underline"
-								href={preset.keyUrl}
-								target="_blank"
-								rel="noreferrer"
-							>
-								{t("models.getKey")} <ExternalLink size={12} aria-hidden="true" />
-							</a>
-						) : undefined
-					}
-				>
-					<PasswordField
-						id="provider-key"
-						aria-label={t("models.apiKey")}
-						value={onDevice ? localKey : apiKey}
+					<TextField
+						label={t("models.note")}
+						value={note}
+						onChange={(event) => setNote(event.target.value)}
+						placeholder={t("models.noteHint")}
 						disabled={saving}
-						onChange={(event) => {
-							if (onDevice) setLocalKey(event.target.value);
-							else setApiKey(event.target.value);
-							resetDiscovery();
-						}}
-						showLabel={t("models.showKey")}
-						hideLabel={t("models.hideKey")}
-						autoComplete="off"
-						autoCapitalize="off"
-						required={needsKey}
 					/>
-				</Field>
-			) : !onDevice ? (
-				<div className="flex items-center justify-between">
-					<span className="text-caption text-[var(--color-text-secondary)]">
-						{t("models.apiKey")} · {t("models.keySaved")}
-					</span>
-					<Button variant="link" size="sm" onClick={() => setReplacing(true)}>
-						{t("models.replaceKey")}
-					</Button>
 				</div>
-			) : null}
 
-			<div className="flex flex-col gap-[var(--spacing-2)]">
-				<div className="flex items-center justify-between gap-[var(--spacing-2)]">
-					<span className="text-caption text-[var(--color-text-secondary)]">{t("models.modelsTitle")}</span>
-					{/* Discovery is a small action beside the table, not the form's main step. */}
-					<Button
-						type="button"
-						variant="link"
-						size="sm"
-						onClick={() => void startDiscover()}
-						loading={fetching}
-						disabled={
-							saving ||
-							(onDevice
-								? !targetReady || device?.status !== "online"
-								: !baseUrl.trim() || (needsKey && !apiKey.trim() && !isLoopbackProviderAddress(baseUrl)))
+				{/* Where the call runs and where it is sent belong together: one address, two origins. */}
+				<div className="grid gap-[var(--spacing-2)] sm:grid-cols-2">
+					{locationOptions.length > 1 || isLoopbackProviderAddress(baseUrl) ? (
+						<SelectField
+							label={t("models.location")}
+							value={deviceId}
+							options={locationOptions}
+							onChange={chooseLocation}
+							disabled={saving || !!provider}
+							requiredMark={!onDevice && isLoopbackProviderAddress(baseUrl)}
+						/>
+					) : null}
+					{onDevice && !addEndpoint ? (
+						<SelectField
+							label={t("models.baseUrl")}
+							requiredMark
+							disabled={saving || !!currentTarget}
+							value={selectedEndpointId}
+							onChange={(value) => {
+								setEndpointId(value);
+								setLocalKey("");
+								resetDiscovery();
+							}}
+							options={[
+								{ value: "", label: t("models.chooseEndpoint") },
+								...known.map((entry) => ({ value: entry.endpointId, label: entry.label })),
+								...(selectedEndpointId && !endpoint
+									? [{ value: selectedEndpointId, label: t("models.deviceUnavailable") }]
+									: []),
+							]}
+						/>
+					) : (
+						<TextField
+							label={t("models.baseUrl")}
+							type="url"
+							value={onDevice ? localUrl : baseUrl}
+							onChange={(event) => {
+								if (onDevice) {
+									setLocalUrl(event.target.value);
+									setLocalKey("");
+								} else setBaseUrl(event.target.value);
+								resetDiscovery();
+							}}
+							placeholder={PROTOCOL_EXAMPLES[onDevice ? deviceProtocol : protocol].placeholder}
+							hint={onDevice ? undefined : t("models.baseUrlHint", { path: PROTOCOL_EXAMPLES[protocol].path })}
+							required
+							requiredMark
+							disabled={saving}
+						/>
+					)}
+				</div>
+
+				<SelectField
+					label={t("models.protocol")}
+					value={onDevice ? deviceProtocol : protocol}
+					disabled={saving || (onDevice && (Boolean(endpoint) || Boolean(fixedDeviceProtocol)))}
+					onChange={(value) => {
+						setProtocol(value as ProviderProtocol);
+						setLocalKey("");
+						resetDiscovery();
+					}}
+					hint={onDevice ? undefined : t("models.protocolHint")}
+					options={PROTOCOL_OPTIONS.map((value) => ({ value, label: t(`models.protocolName.${value}`) }))}
+				/>
+
+				{canSetLocalKey || needsKey ? (
+					<Field
+						label={t("models.apiKey")}
+						htmlFor="provider-key"
+						requiredMark={needsKey}
+						action={
+							!onDevice && preset?.keyUrl ? (
+								<a
+									className="inline-flex items-center gap-[var(--spacing-1)] text-caption text-[var(--color-accent-text)] underline"
+									href={preset.keyUrl}
+									target="_blank"
+									rel="noreferrer"
+								>
+									{t("models.getKey")} <ExternalLink size={12} aria-hidden="true" />
+								</a>
+							) : undefined
 						}
 					>
-						{t("models.fetchModels")}
-					</Button>
+						<PasswordField
+							id="provider-key"
+							aria-label={t("models.apiKey")}
+							value={onDevice ? localKey : apiKey}
+							disabled={saving}
+							onChange={(event) => {
+								if (onDevice) setLocalKey(event.target.value);
+								else setApiKey(event.target.value);
+								resetDiscovery();
+							}}
+							showLabel={t("models.showKey")}
+							hideLabel={t("models.hideKey")}
+							autoComplete="off"
+							autoCapitalize="off"
+							required={needsKey}
+						/>
+					</Field>
+				) : !onDevice ? (
+					<div className="flex items-center justify-between">
+						<span className="text-caption text-[var(--color-text-secondary)]">
+							{t("models.apiKey")} · {t("models.keySaved")}
+						</span>
+						<Button variant="link" size="sm" onClick={() => setReplacing(true)}>
+							{t("models.replaceKey")}
+						</Button>
+					</div>
+				) : null}
+			</FormSection>
+
+			<FormSection title={t("models.modelsTitle")}>
+				<div className="flex flex-col gap-[var(--spacing-2)]">
+					<div className="flex items-center justify-end gap-[var(--spacing-2)]">
+						{/* Discovery is a small action beside the table, not the form's main step. */}
+						<Button
+							type="button"
+							variant="link"
+							size="sm"
+							onClick={() => void startDiscover()}
+							loading={fetching}
+							disabled={
+								saving ||
+								(onDevice
+									? !targetReady || device?.status !== "online"
+									: !baseUrl.trim() || (needsKey && !apiKey.trim() && !isLoopbackProviderAddress(baseUrl)))
+							}
+						>
+							{t("models.fetchModels")}
+						</Button>
+					</div>
+					<ProviderModelSlots
+						slots={slots}
+						available={available}
+						disabled={saving}
+						testing={testing}
+						errorOf={(key) => results[key]}
+						onChange={(next) => {
+							setSlots(next);
+							nextVersion();
+						}}
+						onTest={(slot) => {
+							const model = slot.id.trim();
+							if (!model) return;
+							setTesting(slot.key);
+							void test(model).then((result) => {
+								setResults((current) => ({ ...current, [slot.key]: result }));
+								setTesting(null);
+							});
+						}}
+					/>
 				</div>
-				<ProviderModelSlots
-					slots={slots}
-					available={available}
-					disabled={saving}
-					testing={testing}
-					errorOf={(key) => results[key]}
-					onChange={(next) => {
-						setSlots(next);
-						nextVersion();
-					}}
-					onTest={(slot) => {
-						const model = slot.id.trim();
-						if (!model) return;
-						setTesting(slot.key);
-						void test(model).then((result) => {
-							setResults((current) => ({ ...current, [slot.key]: result }));
-							setTesting(null);
-						});
-					}}
-				/>
-			</div>
+			</FormSection>
 
 			{error ? (
 				<p role="alert" className="text-caption text-[var(--color-danger)]">
 					{error}
 				</p>
 			) : null}
-			<Button type="submit" variant="primary" disabled={fetching} loading={saving}>
-				{t("app.save")}
-			</Button>
+			<FormFooter>
+				<Button type="submit" variant="primary" disabled={fetching} loading={saving}>
+					{t("app.save")}
+				</Button>
+			</FormFooter>
 			<DiscardChangesDialog
 				open={confirmPreset}
 				body={t("models.discard")}
