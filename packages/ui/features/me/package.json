@@ -1,18 +1,18 @@
 {
 	"name": "@yonder/feature-me",
 	"private": true,
-	"version": "0.3.26112713",
+	"version": "0.3.26112714",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@yonder/protocol": "0.3.26112713",
-		"@yonder/ui-components": "0.3.26112713",
-		"@yonder/ui-data": "0.3.26112713",
-		"@yonder/ui-i18n": "0.3.26112713",
-		"@yonder/ui-shell": "0.3.26112713",
-		"@yonder/ui-tokens": "0.3.26112713",
+		"@yonder/protocol": "0.3.26112714",
+		"@yonder/ui-components": "0.3.26112714",
+		"@yonder/ui-data": "0.3.26112714",
+		"@yonder/ui-i18n": "0.3.26112714",
+		"@yonder/ui-shell": "0.3.26112714",
+		"@yonder/ui-tokens": "0.3.26112714",
 		"lucide-react": "1.72.0"
 	},
 	"peerDependencies": {
