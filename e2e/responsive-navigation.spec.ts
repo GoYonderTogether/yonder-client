@@ -334,8 +334,6 @@ test("a macOS Tauri host keeps desktop navigation and clears the traffic lights 
 		});
 	});
 	await page.goto("/messages");
-	// A Mac signing in for the first time sees the permission step once; this test is about what follows it.
-	await page.getByRole("button", { name: "Continue to Yonder" }).click();
 	await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "compact");
 	await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
 	await expect(page.getByRole("button", { name: /Test Bot/ })).toBeVisible();
