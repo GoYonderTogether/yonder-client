@@ -133,7 +133,7 @@ export function ItemsList({ onOpen }: { onOpen: (id: string) => void }) {
 				</ListGroup>
 			) : null}
 			{!query.isLoading && !query.isError && items.length === 0 && upcoming.length === 0 ? (
-				<EmptyState icon={<TaskGlyph size={24} />} title={t("tasks.emptyTitle")} />
+				<EmptyState icon={<TaskGlyph size={24} />} title={t("tasks.emptyTitle")} body={t("tasks.itemsEmptyBody")} />
 			) : null}
 			{groups.map((section) => {
 				const earlier = section.group === "earlier";

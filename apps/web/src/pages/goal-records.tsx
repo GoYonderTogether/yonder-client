@@ -105,7 +105,12 @@ export function GoalsTab() {
 			) : null}
 			{!live.length && !plans.length && !failed ? (
 				<ListGroup>
-					<EmptyState as="li" icon={<Target size={24} strokeWidth={1.6} />} title={t("tasks.goalsEmptyGoals")} />
+					<EmptyState
+						as="li"
+						icon={<Target size={24} strokeWidth={1.6} />}
+						title={t("tasks.goalsEmptyGoals")}
+						body={t("tasks.goalsEmptyBody")}
+					/>
 				</ListGroup>
 			) : null}
 		</div>

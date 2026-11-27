@@ -413,6 +413,8 @@ export const en = {
 		progressTitle: "Progress",
 		runsTitle: "Recent runs",
 		goalsEmptyGoals: "No goals yet",
+		goalsEmptyBody: "Just tell your Bot, for example “remind me to drink water at 8 every day”.",
+		itemsEmptyBody: "Tell your Bot something to do, for example “look up the expense rules for me”.",
 		presetItem: "Help me with: ",
 		presetGoal: "Help me pursue this goal: ",
 		presetGoalEdit: "Change the goal 「{{title}}」 to: ",

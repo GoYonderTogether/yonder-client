@@ -418,6 +418,8 @@ export const zhCN: Messages = {
 		progressTitle: "进展",
 		runsTitle: "最近几次",
 		goalsEmptyGoals: "还没有目标",
+		goalsEmptyBody: "对 Bot 说一句就行，比如「每天 8 点提醒我喝水」。",
+		itemsEmptyBody: "对 Bot 说一件要做的事，比如「帮我查一下报销规则」。",
 		presetItem: "帮我做一件事：",
 		presetGoal: "帮我推进这个目标：",
 		presetGoalEdit: "把目标「{{title}}」改成：",
