@@ -118,7 +118,7 @@ export function Composer({
 	const hasContent = Boolean(draft.trim() || files.length);
 	const voiceSending = voiceSendingScope === scope;
 	const holdMode = mobilePicker && voiceScope === scope;
-	const editor = useComposerEditor(input, draft, mobilePicker, scope, holdMode, files.length);
+	const editor = useComposerEditor(input, draft, mobilePicker, scope, holdMode);
 	const showSend = !mobilePicker || streaming || sending || (hasContent && !holdMode && !voiceSending);
 	const voiceUnavailable = disabled || readOnly || disconnected || microphoneOccupied || !onSendVoice;
 	const canSend = !disabled && !disconnected && !streaming && hasContent;
@@ -321,11 +321,7 @@ export function Composer({
 					) : null}
 					<ComposerLayout
 						as="div"
-						expanded={
-							mobilePicker
-								? !holdMode && (editor.multiline || files.length > 0)
-								: editor.expanded || draft.includes("\n") || files.length > 0
-						}
+						expanded={mobilePicker ? !holdMode && (editor.multiline || files.length > 0) : files.length > 0}
 					>
 						{mobilePicker ? (
 							<button
@@ -437,7 +433,7 @@ export function Composer({
 									send();
 								}}
 								data-empty={mobilePicker && !draft ? true : undefined}
-								className="composer-text composer-text-style max-h-[calc(var(--control-md)*4)] min-h-[var(--composer-row-height)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none [field-sizing:content] placeholder:text-[var(--color-text-tertiary)]"
+								className="composer-text composer-text-style min-h-[var(--composer-row-height)] min-w-0 w-full resize-none overflow-y-auto overscroll-contain bg-transparent outline-none placeholder:text-[var(--color-text-tertiary)]"
 							/>
 						</ComposerEditor>
 						{mobilePicker && onSendVoice ? (
