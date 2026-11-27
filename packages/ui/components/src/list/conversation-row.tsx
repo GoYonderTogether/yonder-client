@@ -36,7 +36,7 @@ export function ConversationRow({
 	...rest
 }: ConversationRowProps) {
 	return (
-		<RowActionItem actions={actions} className="rounded-[var(--radius-control)]">
+		<RowActionItem actions={actions} presentation="conversation" className="rounded-[var(--radius-control)]">
 			<button
 				type={type}
 				aria-current={selected ? "true" : undefined}

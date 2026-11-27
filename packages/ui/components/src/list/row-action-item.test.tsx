@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { ConversationRow, ListRow, type RowAction } from "@yonder/ui-components";
 import { expect, test, vi } from "vitest";
 
-test("reveals the same icon actions on hold and left swipe without opening the row", () => {
+test("opens conversation actions at the press without sliding and preserves the generic action strip", () => {
 	const onOpen = vi.fn();
 	const onDelete = vi.fn();
 	const actions: RowAction[] = [{ label: "Delete", icon: <svg />, onSelect: onDelete, tone: "danger" }];
@@ -16,18 +16,31 @@ test("reveals the same icon actions on hold and left swipe without opening the r
 			</ul>,
 		);
 		const group = screen.getByRole("button", { name: "Group" });
+		const restingTransform = group.parentElement?.style.transform;
 		const task = screen.getByRole("button", { name: "Task" });
 		const point = { pointerType: "touch", pointerId: 1, isPrimary: true, button: 0, clientX: 200, clientY: 100 };
 		const taskStrip = document.getElementById(task.getAttribute("aria-controls") ?? "");
 		if (!taskStrip) throw new Error("Expected task action strip");
 		vi.spyOn(taskStrip, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 120, 60));
 
+		fireEvent.contextMenu(group, { clientX: 140, clientY: 80 });
+		expect(screen.getByRole("menu", { name: "Group" })).toHaveStyle({ left: "140px", top: "80px" });
+		const deleteMenuItem = screen.getByRole("menuitem", { name: "Delete" });
+		expect(deleteMenuItem).toHaveFocus();
+		fireEvent.keyDown(deleteMenuItem, { key: "Escape" });
+		expect(group).toHaveFocus();
+		expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
 		fireEvent.pointerDown(group, point);
 		act(() => vi.advanceTimersByTime(500));
-		fireEvent.pointerUp(group, point);
+		fireEvent.pointerMove(group, { ...point, clientX: 130 });
+		fireEvent.pointerUp(group, { ...point, clientX: 130 });
+		expect(fireEvent.mouseDown(group, { detail: 1 })).toBe(false);
 		fireEvent.click(group, { detail: 1 });
 		expect(group).toHaveAttribute("aria-expanded", "true");
-		expect(screen.getByRole("button", { name: "Delete" })).toBeVisible();
+		expect(screen.getByRole("menu", { name: "Group" })).toHaveStyle({ left: "200px", top: "100px" });
+		expect(screen.getByRole("menuitem", { name: "Delete" })).toHaveFocus();
+		expect(group.parentElement?.style.transform).toBe(restingTransform);
 		expect(onOpen).not.toHaveBeenCalled();
 		expect(onDelete).not.toHaveBeenCalled();
 
@@ -37,6 +50,7 @@ test("reveals the same icon actions on hold and left swipe without opening the r
 		act(() => vi.advanceTimersByTime(500));
 		expect(group).toHaveAttribute("aria-expanded", "false");
 		expect(task).toHaveAttribute("aria-expanded", "false");
+		expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 
 		fireEvent.pointerDown(task, point);
 		fireEvent.pointerMove(task, { ...point, clientX: 130 });
