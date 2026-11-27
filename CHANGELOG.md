@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112710] - 2026-11-27
+
+### Added
+
+- web：the present above the main composer, built-in brand icons, official channel icons
+
 ## [0.3.26112709] - 2026-11-27
 
 ### Added
