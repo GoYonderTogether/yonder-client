@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112725] - 2026-11-27
+
+### Fixed
+
+- terminal：the Windows runner compiles: compare the exit code as u32 and drop the unused imports
+
 ## [0.3.26112724] - 2026-11-27
 
 ### Fixed
