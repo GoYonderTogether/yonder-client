@@ -393,6 +393,7 @@ export const zhCN: Messages = {
 		itemRecordingSummary: "录音摘要",
 		itemUpcoming: "即将执行",
 		itemStateRunning: "进行中",
+		itemRuntime: "已运行 {{minutes}}m{{seconds}}s",
 		itemStateWaitingUser: "等你",
 		itemStatePaused: "已暂停",
 		itemStateFailed: "失败",

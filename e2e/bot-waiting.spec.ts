@@ -114,6 +114,88 @@ test("primary Bot shows three dots only for an accepted reply run, follows recon
 	await expect(waiting).toHaveCount(0);
 });
 
+test("task rows show independent timers and follow a recording item's private reply", async ({ page }, testInfo) => {
+	await page.setViewportSize({ width: 1180, height: 760 });
+	const now = Date.now();
+	const recording: ItemDetail = {
+		id: "recording-item",
+		title: "录音功能测试",
+		source: "meeting",
+		state: "completed",
+		botMemberId: bot.id,
+		conversationId: conversation.id,
+		startedAt: new Date(now - 5 * 60_000).toISOString(),
+		endedAt: new Date(now - 4 * 60_000).toISOString(),
+		result: null,
+		failureReason: null,
+		instruction: null,
+		steps: [],
+		cancellable: false,
+		pausable: false,
+	};
+	const running: ItemDetail = {
+		...recording,
+		id: "running-item",
+		title: "定时执行每日邮件汇总和会议简报",
+		source: "conversation",
+		state: "running",
+		conversationId: "running-item",
+		startedAt: new Date(now - 75_000).toISOString(),
+		endedAt: null,
+	};
+	const session = { ...conversation, id: "recording-session", isPrimary: false };
+	const history: Message[] = [];
+	const api = await isolateChat(page);
+	await page.route("**/v1/items", (route) =>
+		route.fulfill({ json: { items: [running, recording], nextCursor: null } }),
+	);
+	for (const [item, chat] of [
+		[recording, session],
+		[running, { ...session, id: running.id }],
+	] as const) {
+		await page.route(`**/v1/items/${item.id}`, (route) => route.fulfill({ json: item }));
+		await page.route(`**/v1/items/${item.id}/session`, (route) => route.fulfill({ json: { conversation: chat } }));
+		await page.route(`**/v1/conversations/${chat.id}/messages?**`, (route) =>
+			route.fulfill({ json: { items: chat.id === session.id ? history : [], nextCursor: null, hasMore: false } }),
+		);
+	}
+	await page.goto(`/tasks/${recording.id}`);
+	await expect(page.getByRole("log")).toBeVisible();
+	await expect.poll(api.connected).toBe(true);
+	const recordingRow = page.getByRole("button", { name: /^录音功能测试/ });
+	const runningRow = page.getByRole("button", { name: /^定时执行/ });
+	const recordingTimer = recordingRow.getByText(/^已运行 0m\d{2}s$/);
+	const otherTimer = runningRow.getByText(/^已运行 1m\d{2}s$/);
+	await expect(recordingTimer).toHaveCount(0);
+	await expect(otherTimer).toBeVisible();
+	const input = {
+		...message("ask-11", "为什么不入记忆呢", true),
+		conversationId: session.id,
+		createdAt: new Date().toISOString(),
+	};
+	history.push(input);
+	api.create(input);
+	await expect(page.getByRole("log").getByText(input.body ?? "", { exact: true })).toBeVisible();
+	const reply = { ...waitingReply(input, 12), createdAt: input.createdAt };
+	history.push(reply);
+	api.create(reply);
+	await expect(page.locator(dotsSelector)).toBeVisible();
+	await expect(recordingTimer).toBeVisible();
+	await expect(recordingRow.locator("svg.lucide-loader-circle")).toHaveCSS("animation-name", "spin");
+	const firstTime = await recordingTimer.textContent();
+	await expect(recordingTimer).not.toHaveText(firstTime ?? "");
+	await page.screenshot({ path: testInfo.outputPath("task-list-running.png"), scale: "css" });
+
+	await runningRow.click();
+	await expect(page).toHaveURL(/\/tasks\/running-item$/);
+	await expect(recordingTimer).toBeVisible();
+	const finished = { ...reply.run, status: "completed" as const };
+	history[1] = { ...reply, run: finished };
+	api.updateRun(finished);
+	await expect(recordingTimer).toHaveCount(0);
+	await expect(otherTimer).toBeVisible();
+});
+
 test.describe("phone", () => {
 	const { viewport, userAgent, isMobile, hasTouch, deviceScaleFactor } = devices["iPhone 13"];
 	test.use({ viewport, userAgent, isMobile, hasTouch, deviceScaleFactor });

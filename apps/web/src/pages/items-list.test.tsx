@@ -38,6 +38,7 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 			refetch: async () => {},
 		};
 	},
+	useItemPendingReply: () => undefined,
 	useContacts: () => ({ data: { items: state.contacts } }),
 	useSchedules: () => ({ data: { items: [] } }),
 	useItemListAction: () => ({ mutate: state.change, mutateAsync: state.change, reset: vi.fn() }),
@@ -91,7 +92,8 @@ test("items are grouped into today, yesterday and earlier, with earlier collapse
 	]);
 	const headings = [...container.querySelectorAll("h2")].map((heading) => heading.textContent);
 	expect(headings).toEqual(["Today", "Yesterday", "Earlier"]);
-	expect(screen.getByText("今天的事")).toBeVisible();
+	const today = screen.getByRole("button", { name: /^今天的事/ });
+	expect(within(today).getByText(/^Running 0m\d{2}s$/)).toBeVisible();
 	expect(screen.getByText("昨天的事")).toBeVisible();
 	expect(screen.getByText("很久以前的事")).toBeVisible();
 });

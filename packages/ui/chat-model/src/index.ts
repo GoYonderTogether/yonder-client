@@ -187,14 +187,18 @@ export function groupMessages<T extends Message>(
 }
 
 /** Only a server-accepted owner turn with a live, still-empty Bot response can show waiting dots. */
-export function hasPendingBotReply(items: readonly Message[] | undefined, botId: string, ownerId: string): boolean {
-	if (!items) return false;
+export function findPendingBotReply(
+	items: readonly Message[] | undefined,
+	botId: string,
+	ownerId: string,
+): Message | undefined {
+	if (!items) return undefined;
 	const accepted = new Set(
 		items
 			.filter((item) => item.senderId === ownerId && item.type === "text" && !item.id.startsWith("temp_"))
 			.map(({ id }) => id),
 	);
-	return items.some(
+	return items.find(
 		(message) =>
 			message.senderId === botId &&
 			(message.run?.status === "queued" || message.run?.status === "running") &&

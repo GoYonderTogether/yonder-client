@@ -73,6 +73,7 @@ export {
 	useItem,
 	useItemActions,
 	useItemListAction,
+	useItemPendingReply,
 	useItemSession,
 	useItems,
 	useRenameItemSession,

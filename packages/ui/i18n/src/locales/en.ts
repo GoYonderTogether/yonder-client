@@ -388,6 +388,7 @@ export const en = {
 		itemRecordingSummary: "Recording summary",
 		itemUpcoming: "Coming up",
 		itemStateRunning: "Running",
+		itemRuntime: "Running {{minutes}}m{{seconds}}s",
 		itemStateWaitingUser: "Waiting for you",
 		itemStatePaused: "Paused",
 		itemStateFailed: "Failed",
