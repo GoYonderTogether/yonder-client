@@ -19,11 +19,13 @@ function stateClass(item: ItemSummary): string {
  */
 export function ItemRow({
 	item,
+	selected,
 	botName,
 	onOpen,
 	actions,
 }: {
 	item: ItemSummary;
+	selected: boolean;
 	botName: string | null;
 	onOpen: () => void;
 	actions: readonly RowAction[];
@@ -36,6 +38,7 @@ export function ItemRow({
 	return (
 		<ListRow
 			actions={actions}
+			selected={selected}
 			onClick={onOpen}
 			title={item.title}
 			subtitle={meta ? <span className="text-[var(--color-text-tertiary)]">{meta}</span> : undefined}

@@ -290,7 +290,7 @@ export const en = {
 		viewProfile: "View profile",
 		mentionTa: "Mention",
 		settings: "Chat settings",
-		agentStatus: { typing: "Typing", processing: "Working on: {{titles}}", separator: ", " },
+		agentStatus: { working: "Working hard", typing: "Typing", processing: "Working on: {{titles}}", separator: ", " },
 		activityMore: "{{count}} activities",
 		sources: "Sources",
 		uploadFiles: "Upload files",

@@ -109,6 +109,7 @@
 	flex-direction: column;
 }
 .attachment-image-area {
+	container-type: size;
 	width: 100%;
 	padding: 0;
 	border: 0;
@@ -126,6 +127,11 @@
 	max-height: 100%;
 	object-fit: contain;
 	will-change: transform;
+}
+/* Odd quarter turns exchange the space available to the image's intrinsic width and height. */
+.attachment-image-area img[data-sideways] {
+	max-width: 100cqh;
+	max-height: 100cqw;
 }
 .attachment-document-scroll {
 	flex: 1;

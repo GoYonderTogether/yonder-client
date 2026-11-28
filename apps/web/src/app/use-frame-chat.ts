@@ -9,6 +9,7 @@ import {
 	useMessages,
 	useSendMessage,
 } from "@yonder/ui-data";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { type ChatVoice, voiceDuration, voiceFiles } from "../lib/chat-voice.ts";
 import { isDesktopExperience } from "../lib/platform.ts";
 import { conversationTitle } from "../pages/conversation-presentation.tsx";
@@ -32,6 +33,23 @@ export function useFrameChat({
 	const target = task ? itemSession.data?.conversation : conversation;
 	const scope = creating ? "new-item" : target?.id;
 	const draft = useChatDraft(personId, scope);
+	const editorRef = useRef<HTMLTextAreaElement>(null);
+	const [imageDrop, setImageDrop] = useState<{ personId: string; conversationId: string; files: File[] }>();
+	const addDroppedImages = useEffectEvent((files: File[]) => {
+		draft.addFiles(files);
+		const editor = editorRef.current;
+		if (!editor) return;
+		editor.focus({ preventScroll: true });
+		editor.setSelectionRange(editor.value.length, editor.value.length);
+	});
+	useEffect(() => {
+		if (!imageDrop) return;
+		if (imageDrop.personId !== personId) setImageDrop(undefined);
+		else if (imageDrop.conversationId === scope && draft.loaded) {
+			setImageDrop(undefined);
+			addDroppedImages(imageDrop.files);
+		}
+	}, [imageDrop, personId, scope, draft.loaded]);
 	const history = useMessages(target?.id ?? null);
 	const send = useSendMessage(target?.id ?? null, personId);
 	const directAttachments = useDirectAttachmentSend({
@@ -107,6 +125,10 @@ export function useFrameChat({
 
 	return {
 		draft,
+		editorRef,
+		queueImageDrop: (drop: { conversationId: string; files: File[] }) => {
+			if (personId) setImageDrop({ ...drop, personId });
+		},
 		quote: {
 			conversationId: draft.loaded && !target?.closedReason && target?.visit?.role !== "host" ? target?.id : undefined,
 			quote: draft.quote,

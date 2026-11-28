@@ -108,7 +108,7 @@ export function ListRow({
 					"transition-colors duration-[var(--duration-fast)]",
 					"enabled:hover:bg-[var(--color-bg-hover)] enabled:active:bg-[var(--color-bg-active)] disabled:cursor-default",
 					"focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]",
-					selected && "bg-[var(--color-bg-selected)]",
+					selected && "bg-[var(--color-bg-selected)] aria-[current=true]:enabled:hover:bg-[var(--color-bg-selected)]",
 					className,
 				)}
 				{...rest}

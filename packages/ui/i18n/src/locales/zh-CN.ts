@@ -296,7 +296,7 @@ export const zhCN: Messages = {
 		viewProfile: "查看资料",
 		mentionTa: "@Ta",
 		settings: "聊天设置",
-		agentStatus: { typing: "正在输入", processing: "正在处理：{{titles}}", separator: "、" },
+		agentStatus: { working: "努力工作中", typing: "正在输入", processing: "正在处理：{{titles}}", separator: "、" },
 		activityMore: "等 {{count}} 项",
 		sources: "来源",
 		uploadFiles: "上传文件",

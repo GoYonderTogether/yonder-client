@@ -156,10 +156,7 @@ export function AppFrame() {
 		const entry = member ? memberDetail(member, person?.id, bot, contacts.data?.items, conversation?.id) : null;
 		if (entry) layers.open(entry);
 	});
-	/**
-	 * A deleted Bot's chat leaves the list over the socket; if it is the one on screen, the frame
-	 * goes back to the message list rather than showing an empty page (17 3.1).
-	 */
+	/** A deleted Bot's chat leaves the list over the socket; if it is on screen, go back to the list (17 3.1). */
 	const removedConversation = useEffectEvent((conversationId: string) => {
 		layers.removeConversation(conversationId);
 		const open = locate(navigation.current());
@@ -257,8 +254,10 @@ export function AppFrame() {
 						contacts={contacts.data?.items}
 						incoming={incoming}
 						visitsSelected={visitsRoute || watchingVisit}
+						acceptImageDrop={desktop && !incoming && !meOpen}
 						onOpenVisits={() => (visitsRoute ? !visitFolder && back() : tabs.go(BOT_VISITS_PATH))}
-						onOpen={(id) => {
+						onOpen={(id, drop) => {
+							if (drop) chat.queueImageDrop(drop);
 							setChatOpen((previous) => previous + 1);
 							tabs.go(`${incoming ? BOT_VISITS_PATH : "/messages"}/${encodeURIComponent(id)}`);
 						}}
@@ -294,6 +293,7 @@ export function AppFrame() {
 					list: (
 						<TasksList
 							scheduled={selection === "scheduled"}
+							selectedItemId={desktop ? taskSelection : null}
 							onChange={(value) => navigation.open(value ? "/tasks/scheduled" : "/tasks")}
 							onOpenItem={(id) => navigation.open(`/tasks/${encodeURIComponent(id)}`)}
 							onAddItem={preset.addItem}
@@ -346,6 +346,7 @@ export function AppFrame() {
 			draft={draft.text}
 			onDraftChange={draft.setText}
 			readOnly={!draft.loaded}
+			editorRef={chat.editorRef}
 			files={draft.files}
 			onFiles={draft.addFiles}
 			pickedFiles={chat.directAttachments.enabled ? chat.directAttachments : undefined}
@@ -389,13 +390,12 @@ export function AppFrame() {
 		memory: t("nav.memory"),
 		contacts: t("chatActions.contacts"),
 	};
-	const closed = Boolean(conversation?.closedReason);
 	const dock = taskSelection ? (
 		composer
 	) : (tab !== "messages" && !memoryTimeline && !contactConversation) ||
 		visitsRoute ||
 		watchingVisit ||
-		conversation?.kind === "system" ? null : closed && conversation ? (
+		conversation?.kind === "system" ? null : conversation?.closedReason && conversation ? (
 		<ClosedGroupNotice conversation={conversation} />
 	) : (
 		composer

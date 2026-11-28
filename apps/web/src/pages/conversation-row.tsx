@@ -3,9 +3,20 @@ import { BotName, type Translate } from "@yonder/feature-members";
 import type { Conversation, Member } from "@yonder/protocol";
 import { ConversationRow, type RowAction } from "@yonder/ui-components";
 import { BellOff } from "lucide-react";
+import { type DragEvent, useRef, useState } from "react";
+import { isImageFile } from "../lib/prepare-image.ts";
 import { ConversationAvatar, conversationPeer, conversationTitle } from "./conversation-presentation.tsx";
 import { rowPreview } from "./message-preview.ts";
 import { UnreadBadge } from "./unread-badge.tsx";
+
+function isImageDrag({ dataTransfer }: DragEvent<HTMLButtonElement>) {
+	if (!dataTransfer.types.includes("Files")) return false;
+	// The browser may hide a file's type until drop, especially in WebKit.
+	return (
+		!dataTransfer.items.length ||
+		Array.from(dataTransfer.items).some((item) => item.kind === "file" && (!item.type || isImageFile("", item.type)))
+	);
+}
 
 /**
  * One row of the message list (19 第三节): who, the last line of the conversation in the reader's
@@ -24,6 +35,7 @@ export function ConversationEntry({
 	locale,
 	actions,
 	onOpen,
+	onDropImages,
 	t,
 }: {
 	conversation: Conversation;
@@ -39,7 +51,11 @@ export function ConversationEntry({
 	actions: readonly RowAction[];
 	t: Translate;
 	onOpen: () => void;
+	/** Desktop only: dropping image files on the row opens it and puts them in its draft. */
+	onDropImages?: ((files: File[]) => void) | undefined;
 }) {
+	const dragDepth = useRef(0);
+	const [dragOver, setDragOver] = useState(false);
 	const peer = conversation.kind === "direct" ? conversationPeer(conversation, personId) : undefined;
 	const title =
 		conversation.kind === "system" ? t("friendRequests.notifications") : conversationTitle(conversation, personId);
@@ -99,6 +115,32 @@ export function ConversationEntry({
 			aria-description={conversation.pinned ? t("messages.pinned") : undefined}
 			selected={selected}
 			onClick={onOpen}
+			data-image-drag-over={Boolean(onDropImages && dragOver) || undefined}
+			className={onDropImages && !selected ? "data-[image-drag-over]:bg-[var(--color-bg-hover)]" : undefined}
+			onDragEnter={(event) => {
+				if (!onDropImages || !isImageDrag(event)) return;
+				event.preventDefault();
+				dragDepth.current += 1;
+				setDragOver(true);
+			}}
+			onDragOver={(event) => {
+				if (!onDropImages || !isImageDrag(event)) return;
+				event.preventDefault();
+				event.dataTransfer.dropEffect = "copy";
+			}}
+			onDragLeave={() => {
+				if (!dragDepth.current) return;
+				dragDepth.current -= 1;
+				if (!dragDepth.current) setDragOver(false);
+			}}
+			onDrop={(event) => {
+				if (!onDropImages || !event.dataTransfer.types.includes("Files")) return;
+				event.preventDefault();
+				dragDepth.current = 0;
+				setDragOver(false);
+				const images = Array.from(event.dataTransfer.files).filter((file) => isImageFile(file.name, file.type));
+				if (images.length) onDropImages(images);
+			}}
 		/>
 	);
 }

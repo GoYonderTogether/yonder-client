@@ -1,4 +1,4 @@
-import { Maximize, Minus, Plus } from "lucide-react";
+import { Maximize, Minus, Plus, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ensureDisplayBlob } from "../lib/image-display.ts";
 import { useObjectUrl } from "../lib/use-object-url.ts";
@@ -9,15 +9,18 @@ export function ImagePreview({
 	file,
 	onClose,
 	onSwipe,
+	canRotate = false,
 }: {
 	file: PreviewFile;
 	onClose?: (() => void) | undefined;
 	onSwipe?: ((direction: -1 | 1) => void) | undefined;
+	canRotate?: boolean;
 }) {
 	const t = usePreviewTranslation();
 	const area = useRef<HTMLButtonElement>(null);
 	const [display, setDisplay] = useState<Blob>();
 	const [error, setError] = useState(false);
+	const [quarterTurns, setQuarterTurns] = useState(0);
 	const [scale, setScale] = useState(1);
 	const [offset, setOffset] = useState({ x: 0, y: 0 });
 	const points = useRef(new Map<number, { x: number; y: number }>());
@@ -32,6 +35,7 @@ export function ImagePreview({
 		let active = true;
 		setDisplay(undefined);
 		setError(false);
+		setQuarterTurns(0);
 		setScale(1);
 		setOffset({ x: 0, y: 0 });
 		void ensureDisplayBlob(file.blob, file.name)
@@ -71,6 +75,19 @@ export function ImagePreview({
 				<button type="button" aria-label={t("zoomIn")} onClick={() => zoom(scale * 1.25)}>
 					<Plus size={18} />
 				</button>
+				{canRotate ? (
+					<button
+						type="button"
+						aria-label={t("rotate")}
+						title={t("rotate")}
+						onClick={() => {
+							setQuarterTurns((value) => (value + 1) % 4);
+							reset();
+						}}
+					>
+						<RotateCw size={18} aria-hidden="true" />
+					</button>
+				) : null}
 				<button type="button" aria-label={t("fit")} onClick={reset}>
 					<Maximize size={18} />
 				</button>
@@ -150,7 +167,10 @@ export function ImagePreview({
 						src={url}
 						alt={file.name}
 						draggable={false}
-						style={{ transform: `translate(${offset.x}px,${offset.y}px) scale(${scale})` }}
+						data-sideways={quarterTurns % 2 === 1 || undefined}
+						style={{
+							transform: `translate(${offset.x}px,${offset.y}px) rotate(${quarterTurns * 90}deg) scale(${scale})`,
+						}}
 					/>
 				) : (
 					<p role="status">{t("loading")}</p>

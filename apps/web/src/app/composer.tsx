@@ -65,11 +65,13 @@ export function Composer({
 	scope = "composer",
 	error,
 	readOnly = false,
+	editorRef,
 	microphoneOccupied = false,
 	onVoiceActivityChange,
 }: ComposerProps) {
 	const { t } = useTranslation();
-	const input = useRef<HTMLTextAreaElement>(null);
+	const localInput = useRef<HTMLTextAreaElement>(null);
+	const input = editorRef ?? localInput;
 
 	const picker = useRef<HTMLInputElement>(null);
 	const imagePicker = useRef<HTMLInputElement>(null);

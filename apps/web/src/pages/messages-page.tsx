@@ -54,6 +54,7 @@ export function MessagesList({
 	current,
 	contacts,
 	onOpen,
+	acceptImageDrop = false,
 	onOpenVisits,
 	incoming = false,
 	visitsSelected = false,
@@ -61,7 +62,8 @@ export function MessagesList({
 }: {
 	current: string | null;
 	contacts?: readonly Member[] | undefined;
-	onOpen: (id: string) => void;
+	onOpen: (id: string, drop?: { conversationId: string; files: File[] }) => void;
+	acceptImageDrop?: boolean;
 	onOpenVisits?: () => void;
 	incoming?: boolean;
 	visitsSelected?: boolean;
@@ -89,6 +91,11 @@ export function MessagesList({
 	const visits = visible?.filter((conversation) => conversation.visit?.role === "host");
 	const visitUnread = visits?.some((visit) => visit.unreadCount > 0) ? 1 : 0;
 	const label = t(incoming ? "visits.incoming" : "nav.messages");
+	const openEntry = (conversation: Conversation, files?: File[]) =>
+		onOpen(
+			conversation.id === primary?.id ? MAIN_CONVERSATION : conversation.id,
+			files ? { conversationId: conversation.id, files } : undefined,
+		);
 	const showEntry = (conversation: Conversation) => (
 		<ConversationEntry
 			key={conversation.id}
@@ -123,7 +130,15 @@ export function MessagesList({
 					disabled: busy,
 				},
 			]}
-			onOpen={() => onOpen(conversation.id === primary?.id ? MAIN_CONVERSATION : conversation.id)}
+			onOpen={() => openEntry(conversation)}
+			onDropImages={
+				acceptImageDrop &&
+				conversation.kind !== "system" &&
+				!conversation.closedReason &&
+				conversation.visit?.role !== "host"
+					? (files) => openEntry(conversation, files)
+					: undefined
+			}
 		/>
 	);
 	return (
@@ -319,6 +334,7 @@ export function ConversationPage({
 							ownedAgent={ownedAgent}
 							title={title}
 							statusText={statusText}
+							working={showReplyDots}
 							onOpen={mobileBotHeader ? openPeer : undefined}
 						/>
 					) : null

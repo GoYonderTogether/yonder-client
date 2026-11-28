@@ -92,7 +92,8 @@ export function AttachmentReader({
 			</p>
 		);
 	let viewer: React.ReactNode;
-	if (kind === "image") viewer = <ImagePreview file={file} onClose={onClose} onSwipe={imageNavigation?.move} />;
+	if (kind === "image")
+		viewer = <ImagePreview file={file} onClose={onClose} onSwipe={imageNavigation?.move} canRotate />;
 	else if (kind === "pdf") viewer = <PdfPreview file={file} />;
 	else if (kind === "docx") viewer = <DocxPreview file={file} />;
 	else if (kind === "text" || kind === "markdown" || kind === "doc") viewer = <TextPreview file={file} kind={kind} />;

@@ -10,6 +10,7 @@ export function ConversationAgentHeader({
 	ownedAgent,
 	title,
 	statusText,
+	working,
 	onOpen,
 }: {
 	agent: ConversationMember;
@@ -17,9 +18,12 @@ export function ConversationAgentHeader({
 	ownedAgent: Member | undefined;
 	title: string;
 	statusText: string | undefined;
+	/** The Bot has an accepted reply still running: the name line says so until the reply lands. */
+	working: boolean;
 	onOpen: (() => void) | undefined;
 }) {
 	const { t } = useTranslation();
+	const workingLabel = working ? t("chat.agentStatus.working") : undefined;
 	const Identity = onOpen ? "button" : "div";
 	return (
 		<section
@@ -51,17 +55,21 @@ export function ConversationAgentHeader({
 				<span
 					data-chat-agent-name
 					className={`w-fit ${onOpen ? "max-w-full" : "max-w-[75%]"} text-center text-body font-medium text-[var(--color-text-primary)]`}
-					title={title}
+					title={workingLabel ?? title}
 				>
-					<BotName
-						name={title}
-						ownedBot={ownedAgent}
-						owner={conversationBotOwner(agent, conversation)}
-						compact="header"
-					/>
+					{working ? (
+						<span className="block truncate">{workingLabel}</span>
+					) : (
+						<BotName
+							name={title}
+							ownedBot={ownedAgent}
+							owner={conversationBotOwner(agent, conversation)}
+							compact="header"
+						/>
+					)}
 				</span>
 			</Identity>
-			{statusText ? (
+			{!working && statusText ? (
 				<div
 					role="status"
 					className="max-w-full text-center text-caption text-[var(--color-text-secondary)]"

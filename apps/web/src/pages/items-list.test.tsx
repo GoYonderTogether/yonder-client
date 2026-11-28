@@ -71,12 +71,12 @@ const item = (extra: Partial<ItemSummary>): ItemSummary => ({
 	...extra,
 });
 
-function show(items: ItemSummary[]) {
+function show(items: ItemSummary[], selectedItemId: string | null = null) {
 	state.items = items;
 	state.contacts = [bot];
 	return render(
 		<I18nextProvider i18n={createI18n("en")}>
-			<ItemsList onOpen={() => {}} />
+			<ItemsList selectedItemId={selectedItemId} onOpen={() => {}} />
 		</I18nextProvider>,
 	);
 }
@@ -133,6 +133,19 @@ test("a failure shows the state word and the Bot, not a result line, and never a
 	expect(within(row).getByText(/我的 Bot/)).toBeVisible();
 	expect(within(row).queryByText("Background quota is used up")).toBeNull();
 	expect(within(row).queryByText("半截")).toBeNull();
+});
+
+test("only the open item's row is marked current, so the desktop list keeps it highlighted", () => {
+	show([item({ id: "a", title: "打开的事" }), item({ id: "b", title: "没打开的事" })], "a");
+	const open = screen.getByRole("button", { name: /^打开的事/ });
+	const other = screen.getByRole("button", { name: /^没打开的事/ });
+	expect(open).toHaveAttribute("aria-current", "true");
+	expect(other).not.toHaveAttribute("aria-current");
+});
+
+test("no row is marked current when nothing is open", () => {
+	show([item({ id: "a", title: "打开的事" })]);
+	expect(screen.getByRole("button", { name: /^打开的事/ })).not.toHaveAttribute("aria-current");
 });
 
 test("an empty account is told so", () => {

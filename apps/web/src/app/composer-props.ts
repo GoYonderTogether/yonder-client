@@ -1,5 +1,5 @@
 import type { Endpoints } from "@yonder/api-client";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { ChatVoice } from "../lib/chat-voice.ts";
 import type { CompletionBinding, CompletionMarker, TextEditRange } from "./completion/bindings.ts";
 import type { CompletionItem } from "./completion/tokens.ts";
@@ -46,6 +46,7 @@ export interface ComposerProps {
 	scope?: string;
 	error?: string;
 	readOnly?: boolean;
+	editorRef?: RefObject<HTMLTextAreaElement | null>;
 	microphoneOccupied?: boolean;
 	onVoiceActivityChange?: (active: boolean) => void;
 }

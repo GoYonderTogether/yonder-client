@@ -10,7 +10,7 @@ import { VisibilityMark } from "./memory-visibility.tsx";
 
 const ROW =
 	"flex w-full items-center gap-[var(--spacing-1)] rounded-[var(--radius-sm)] py-[var(--spacing-1)] pe-[var(--spacing-2)] text-start text-body text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-accent)]";
-const SELECTED = "bg-[var(--color-bg-hover)] font-medium";
+const SELECTED = "bg-[var(--color-bg-selected)] hover:bg-[var(--color-bg-selected)] font-medium";
 
 function indent(depth: number) {
 	return { paddingInlineStart: `calc(var(--spacing-2) + ${depth} * var(--spacing-3))` };
