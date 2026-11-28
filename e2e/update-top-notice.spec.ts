@@ -178,7 +178,7 @@ for (const name of ["mobile", "desktop"] as const) {
 						"[data-layout-mode]",
 						'[data-page-layer="detail"] [data-chat-agent-title]',
 						'[role="log"]',
-						'[data-page-layer="detail"] .composer-layout',
+						mobile ? "[data-mobile-dock-root] .composer-layout" : '[data-page-layer="detail"] .composer-layout',
 						mobile ? "[data-mobile-dock] nav" : "nav:has([data-tauri-drag-region])",
 					];
 					return selectors.map((selector) => {

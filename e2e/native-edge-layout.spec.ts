@@ -158,7 +158,7 @@ for (const native of [false, true]) {
 				pointerEvents: style.pointerEvents,
 			};
 		});
-		expect(blur.blur).toBe("blur(24px)");
+		expect(blur.blur).toBe("blur(22px)");
 		expect(blur.mask).toContain("linear-gradient");
 		expect(blur.height).toBeGreaterThan(0);
 		expect(headerBox.y + blur.height).toBeCloseTo(avatarBox.y, 0);

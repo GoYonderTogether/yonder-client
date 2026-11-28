@@ -38,6 +38,10 @@ async function assertNoShadows(page: Page) {
 			)
 				return [];
 			const shadow = getComputedStyle(node).boxShadow;
+			// The glass dock has one inset hairline and casts no drop shadow.
+			const opacity = document.documentElement.dataset.theme === "dark" ? 0.1 : 0.6;
+			const hairline = `rgba(255, 255, 255, ${opacity}) 0px 0.5px 0px 0px inset`;
+			if (node.matches(".material-bar") && shadow === hairline) return [];
 			return shadow === "none" ? [] : [{ tag: node.tagName, className: node.className, shadow }];
 		}),
 	);
@@ -98,7 +102,7 @@ async function assertBubbles(page: Page) {
 	expect(geometry.incomingTail).toBe("none");
 	expect(geometry.outgoingTail).toBe("none");
 }
-async function assertComposer(page: Page, onMultiline?: () => Promise<void>) {
+async function assertComposer(page: Page, maxLines: number, onMultiline?: () => Promise<void>) {
 	const input = page.getByRole("textbox", { name: /^对 界面验收/ });
 	const initial = await input.boundingBox();
 	expect(initial).not.toBeNull();
@@ -113,6 +117,8 @@ async function assertComposer(page: Page, onMultiline?: () => Promise<void>) {
 		return {
 			paddingLeft: parseFloat(style.paddingLeft),
 			paddingRight: parseFloat(style.paddingRight),
+			lineHeight: parseFloat(style.lineHeight),
+			paddingBlock: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom),
 			spacing2: (() => {
 				const probe = document.createElement("div");
 				probe.style.gap = "var(--spacing-2)";
@@ -139,8 +145,10 @@ async function assertComposer(page: Page, onMultiline?: () => Promise<void>) {
 	expect(single.paddingRight).toBe(single.spacing2);
 	expect(single.center).toBeCloseTo(single.buttonCenter, 0);
 	await input.fill("多行文本\n".repeat(30));
-	// Four control heights, the composer's cap; it grows with the interface size.
-	await expect.poll(async () => (await input.boundingBox())?.height).toBeCloseTo(single.controlMd * 4, 0);
+	// At these viewport heights, the desktop or phone line cap is reached before the panel cap.
+	await expect
+		.poll(async () => (await input.boundingBox())?.height)
+		.toBeCloseTo(single.lineHeight * maxLines + single.paddingBlock, 0);
 	await expect.poll(() => input.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
 	await onMultiline?.();
 	await input.fill("");
@@ -155,7 +163,7 @@ for (const dark of [false, true]) {
 		await isolateChat(page, { dark });
 		await openChat(page);
 		await assertBubbles(page);
-		await assertComposer(page, () => capture(page, testInfo, `desktop-${dark ? "dark" : "light"}-multiline`));
+		await assertComposer(page, 11, () => capture(page, testInfo, `desktop-${dark ? "dark" : "light"}-multiline`));
 		const inset = await page.locator('[data-page-layer="detail"]').evaluate((element) => {
 			const main = element.querySelector("main");
 			if (!main) throw new Error("Expected the product main panel");
@@ -492,7 +500,7 @@ test.describe("actual phone conversation route", () => {
 			await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "mobile");
 			await expect(page.locator("[data-mobile-dock]")).toHaveCount(1);
 			await assertBubbles(page);
-			await assertComposer(page, () => capture(page, testInfo, `phone-${dark ? "dark" : "light"}-multiline`));
+			await assertComposer(page, 5, () => capture(page, testInfo, `phone-${dark ? "dark" : "light"}-multiline`));
 			expect(
 				await page.locator("[data-mobile-dock]").evaluate((element) => getComputedStyle(element).borderTopWidth),
 			).toBe("0px");

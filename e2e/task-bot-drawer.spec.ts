@@ -68,8 +68,8 @@ test.describe("phone", () => {
 		await swipe(page, viewport.width / 2, box.y / 4, box.y / 2);
 		await expect(drawer).toHaveCount(0);
 		await expect(page).toHaveURL(/\/tasks\/scheduled$/);
-		// 「事项」 starts an item sentence instead, from the same button.
-		await page.getByRole("radio", { name: "事项", exact: true }).click();
+		// The 「任务」 segment starts an item sentence instead, from the same button.
+		await page.getByRole("radiogroup", { name: "任务" }).getByRole("radio", { name: "任务", exact: true }).click();
 		await expect(page).toHaveURL(/\/tasks$/);
 		await openPreset(page);
 		await expect(input).toHaveValue(itemPreset);

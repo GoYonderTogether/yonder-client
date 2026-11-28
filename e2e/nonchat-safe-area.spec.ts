@@ -72,7 +72,7 @@ for (const native of [false, true]) {
 			await page.screenshot({ path: info.outputPath("privacy.png"), animations: "disabled" });
 			expect(chrome).toEqual(
 				native
-					? { backdrop: "blur(20px)", height: `${safeTop}px`, content: '""', padding: `${safeTop}px` }
+					? { backdrop: "blur(22px) saturate(1.5)", height: `${safeTop}px`, content: '""', padding: `${safeTop}px` }
 					: { backdrop: "none", height: "auto", content: "none", padding: "0px" },
 			);
 			expect(await legal.evaluate((element) => getComputedStyle(element, "::before").height)).toBe(

@@ -6,6 +6,7 @@ import { conversation, isolateChat } from "./chat-fixture.ts";
 test.use({ reducedMotion: "reduce" });
 
 const neutralText = (dark: boolean) => (dark ? "rgb(249, 249, 249)" : "rgb(28, 31, 35)");
+const iconAccent = (dark: boolean) => (dark ? "rgb(84, 169, 255)" : "rgb(0, 100, 250)");
 const neutralSelection = (dark: boolean) => (dark ? "rgba(255, 255, 255, 0.2)" : "rgba(46, 50, 56, 0.13)");
 
 async function capture(page: Page, info: TestInfo, name: string) {
@@ -43,10 +44,10 @@ async function selectStyle(page: Page, style: "classic" | "glow") {
 	await expect(page.locator("html")).toHaveAttribute("data-style", style);
 }
 
-async function assertNeutralNavigation(page: Page, dark: boolean) {
+async function assertNavigationSelection(page: Page, dark: boolean) {
 	const selected = page.getByRole("navigation", { name: "主导航" }).locator('[aria-current="page"]');
 	await expect(selected).toHaveCSS("color", neutralText(dark));
-	await expect(selected.locator("svg")).toHaveCSS("color", neutralText(dark));
+	await expect(selected.locator("svg")).toHaveCSS("color", iconAccent(dark));
 }
 
 async function assertChatSurfaces(page: Page, dark: boolean, style: "classic" | "glow") {
@@ -69,17 +70,19 @@ async function assertChatSurfaces(page: Page, dark: boolean, style: "classic" | 
 	expect(surfaces.mainImage).toBe("none");
 	expect(surfaces.style).toBe(style);
 	expect(surfaces.overflow).toBe(false);
-	if (style === "glow") expect(surfaces.chromeImage).toContain("linear-gradient(201.15deg");
-	else expect(surfaces.chromeImage).toBe("none");
+	const chromeGradient = dark
+		? "linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 60%)"
+		: "linear-gradient(rgba(46, 50, 56, 0.05), rgba(46, 50, 56, 0) 60%)";
+	expect(surfaces.chromeImage).toBe(style === "glow" ? chromeGradient : "none");
 	const input = page.getByRole("textbox", { name: /^对 界面验收/ });
 	await input.focus();
 	await expect(page.locator(".composer-box")).toHaveCSS("outline-style", "solid");
 	await input.blur();
 	if ((await page.locator("[data-layout-mode]").getAttribute("data-layout-mode")) === "wide") {
-		await assertNeutralNavigation(page, dark);
+		await assertNavigationSelection(page, dark);
 		await expect(page.getByRole("navigation", { name: "主导航" }).locator('[aria-current="page"]')).toHaveCSS(
 			"background-color",
-			neutralSelection(dark),
+			"rgba(0, 0, 0, 0)",
 		);
 		const selected = page.locator('aside button[aria-current="true"]');
 		await expect(selected).toHaveCSS("background-color", neutralSelection(dark));
@@ -159,7 +162,7 @@ test.describe("phone styles", () => {
 				await capture(page, info, `phone-chat-${style}-${dark ? "dark" : "light"}`);
 				await page.goto("/messages");
 				await expect(page.getByRole("button", { name: /界面验收 BOT/ }).first()).toBeVisible();
-				await assertNeutralNavigation(page, dark);
+				await assertNavigationSelection(page, dark);
 				await capture(page, info, `phone-list-${style}-${dark ? "dark" : "light"}`);
 			});
 		}
