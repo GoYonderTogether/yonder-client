@@ -20,6 +20,10 @@ also clears the account's beta selection. This affects release access on the exi
 leaves stored product data available. Backend migrations must keep both supported clients and the
 rollback backend compatible with the production database.
 
+An installed stable build from before the channel setting needs the first-use Web entry
+`/beta/me/about?beta-setup=1` or the signed beta installer. Once a build with the setting has been
+promoted, eligible accounts can choose beta directly in stable **检查更新**.
+
 The Web executor keeps the newest five snapshots plus both channels' current and previous
 snapshots. Promote the accepted build while it is retained. TestFlight and the WeChat experience
 build keep their own eligibility and distribution. For a public iOS or WeChat release, confirm the
