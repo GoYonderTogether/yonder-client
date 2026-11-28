@@ -46,9 +46,13 @@ export function appStoreConnectApi(jwt, request = fetch) {
 	};
 }
 
+export function isExactBuildNumber(value) {
+	return typeof value === "string" && value.length <= 18 && /^\d+(?:\.\d+){0,2}$/.test(value);
+}
+
 export async function testFlightStatus(get, { bundleId, buildNumber }) {
 	if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(bundleId ?? "")) throw new StatusError("Expected an app bundle ID");
-	if (typeof buildNumber !== "string" || buildNumber.length > 18 || !/^\d+(?:\.\d+){0,2}$/.test(buildNumber)) {
+	if (!isExactBuildNumber(buildNumber)) {
 		throw new StatusError("Expected an exact CFBundleVersion");
 	}
 	const { data: apps } = await get(

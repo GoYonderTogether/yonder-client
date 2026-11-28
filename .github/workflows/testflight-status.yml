@@ -11,6 +11,10 @@ on:
         description: Exact iOS build number (CFBundleVersion)
         required: true
         type: string
+      assign_internal_group:
+        description: Exact internal TestFlight group name to assign and verify
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -30,6 +34,7 @@ jobs:
           ISSUER_ID: ${{ secrets[inputs.bundle_id == 'net.yonderbot.ios' && 'ASC_IOS_NEXT_API_ISSUER_ID' || 'ASC_API_ISSUER_ID'] }}
           BUNDLE_ID: ${{ inputs.bundle_id }}
           BUILD_NUMBER: ${{ inputs.build_number }}
+          INTERNAL_GROUP_NAME: ${{ inputs.assign_internal_group }}
         run: |
           set -eu
           [ -n "$KEY_BASE64" ] && [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] || {
@@ -40,4 +45,8 @@ jobs:
           trap 'rm -f "$key_path"' EXIT
           printf '%s' "$KEY_BASE64" | base64 --decode > "$key_path"
           unset KEY_BASE64
-          KEY_PATH="$key_path" node scripts/release/testflight-outer.mjs
+          if [ -n "$INTERNAL_GROUP_NAME" ]; then
+            KEY_PATH="$key_path" node scripts/release/testflight-ready.mjs
+          else
+            KEY_PATH="$key_path" node scripts/release/testflight-outer.mjs
+          fi

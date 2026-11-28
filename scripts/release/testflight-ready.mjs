@@ -3,8 +3,10 @@
 import { createSign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
+import { isExactBuildNumber } from "./testflight-outer.mjs";
 
-const { KEY_ID, ISSUER_ID, KEY_PATH, BUNDLE_ID, BUILD_NUMBER } = process.env;
+const { KEY_ID, ISSUER_ID, KEY_PATH, BUNDLE_ID, BUILD_NUMBER, INTERNAL_GROUP_NAME } = process.env;
+if (!isExactBuildNumber(BUILD_NUMBER)) throw new Error("Expected an exact CFBundleVersion");
 const key = readFileSync(KEY_PATH, "utf8");
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const token = () => {
@@ -29,20 +31,32 @@ if (!app) throw new Error(`no app record for bundle ${BUNDLE_ID}`);
 console.log(`app ${app.id} ${app.attributes?.name}`);
 
 // Apple allows POST/DELETE on the betaGroups relationship, but only the builds include can read it.
-const findBuild = () =>
-	api(`/v1/builds?filter[app]=${app.id}&filter[version]=${BUILD_NUMBER}&limit=1&include=betaGroups`);
+const findBuild = async () => {
+	const limit = INTERNAL_GROUP_NAME ? "2&filter[preReleaseVersion.platform]=IOS" : "1";
+	const list = await api(
+		`/v1/builds?filter[app]=${app.id}&filter[version]=${BUILD_NUMBER}&limit=${limit}&include=betaGroups`,
+	);
+	if (
+		INTERNAL_GROUP_NAME &&
+		list.data?.length &&
+		(list.data.length !== 1 || list.data[0].attributes?.version !== BUILD_NUMBER)
+	) {
+		throw new Error(`App Store Connect did not return exactly one iOS build with CFBundleVersion ${BUILD_NUMBER}`);
+	}
+	return list;
+};
 const internalGroups = (list) =>
 	(list.included ?? []).filter((group) => group.type === "betaGroups" && group.attributes.isInternalGroup);
 
 let build;
-let group;
+let attachedGroups;
 for (let attempt = 0; attempt < 60; attempt++) {
 	const list = await findBuild();
 	build = list.data?.[0];
 	const state = build?.attributes?.processingState;
 	console.log(`attempt ${attempt + 1}: processingState=${state ?? "(no build yet)"}`);
 	if (state === "VALID") {
-		group = internalGroups(list)[0];
+		attachedGroups = internalGroups(list);
 		break;
 	}
 	if (state === "FAILED" || state === "INVALID") {
@@ -58,24 +72,34 @@ if (build.attributes.usesNonExemptEncryption == null) {
 	throw new Error(`build ${BUILD_NUMBER} is missing an export compliance answer`);
 }
 
-let attached = Boolean(group);
+let group = INTERNAL_GROUP_NAME ? undefined : attachedGroups[0];
 if (!group) {
-	const groups = await api(`/v1/betaGroups?filter[app]=${app.id}&limit=200`);
-	const internal = groups.data.filter((item) => item.attributes.isInternalGroup);
+	const target = INTERNAL_GROUP_NAME
+		? `&filter[name]=${encodeURIComponent(INTERNAL_GROUP_NAME)}&filter[isInternalGroup]=true`
+		: "";
+	const groups = await api(`/v1/betaGroups?filter[app]=${app.id}&limit=200${target}`);
+	const internal = groups.data.filter(
+		(item) =>
+			item.attributes.isInternalGroup === true &&
+			(!INTERNAL_GROUP_NAME || item.attributes.name === INTERNAL_GROUP_NAME),
+	);
+	if (INTERNAL_GROUP_NAME && (internal.length !== 1 || groups.links?.next)) {
+		throw new Error(`expected one exact internal TestFlight group named ${JSON.stringify(INTERNAL_GROUP_NAME)}`);
+	}
 	if (internal.length !== 1) {
 		throw new Error(`app has ${internal.length} internal TestFlight groups; expected exactly one to assign the build`);
 	}
 	group = internal[0];
-	if (!group.attributes.hasAccessToAllBuilds) {
-		await api(`/v1/builds/${build.id}/relationships/betaGroups`, {
-			method: "POST",
-			body: JSON.stringify({ data: [{ type: "betaGroups", id: group.id }] }),
-		});
-		console.log(`assigned build ${BUILD_NUMBER} to internal group ${group.attributes.name}`);
-	}
 }
 
-attached ||= group.attributes.hasAccessToAllBuilds === true;
+let attached = group.attributes.hasAccessToAllBuilds === true || attachedGroups.some((item) => item.id === group.id);
+if (!attached) {
+	await api(`/v1/builds/${build.id}/relationships/betaGroups`, {
+		method: "POST",
+		body: JSON.stringify({ data: [{ type: "betaGroups", id: group.id }] }),
+	});
+	console.log(`assigned build ${BUILD_NUMBER} to internal group ${group.attributes.name}`);
+}
 let state;
 for (let attempt = 0; attempt < 20; attempt++) {
 	if (!attached) attached = internalGroups(await findBuild()).some((item) => item.id === group.id);

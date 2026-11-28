@@ -329,6 +329,7 @@ jobs:
           KEY_BASE64: ${{ secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_PRIVATE_KEY_BASE64' || 'ASC_API_PRIVATE_KEY_BASE64'] }}
           KEY_ID: ${{ secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_KEY_ID' || 'ASC_API_KEY_ID'] }}
           ISSUER_ID: ${{ secrets[inputs.ios_app == 'next' && 'ASC_IOS_NEXT_API_ISSUER_ID' || 'ASC_API_ISSUER_ID'] }}
+          INTERNAL_GROUP_NAME: ${{ inputs.ios_app != 'next' && '团队内测试' || '' }}
         run: |
           set -eu
           keydir="$RUNNER_TEMP/asc"
