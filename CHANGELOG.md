@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112806] - 2026-11-28
+
+### Added
+
+- chat：a member's namecard shown as a message card
+- protocol：namecard fields, two audiences and a member card message
+
 ## [0.3.26112805] - 2026-11-28
 
 ### Added
