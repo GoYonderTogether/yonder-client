@@ -1,25 +1,34 @@
 import type { Provider } from "@yonder/protocol";
-import { Button, IconButton, IconTile } from "@yonder/ui-components";
+import { Button, IconButton, IconTile, ListOption } from "@yonder/ui-components";
 import { Overlay, useShellChrome } from "@yonder/ui-shell";
-import { Boxes, Check, MoreHorizontal, Pencil } from "lucide-react";
+import { Cloud, Laptop, MoreHorizontal, Pencil } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+/**
+ * One provider of the person's own. The heading is only what they named it — its note when they wrote
+ * one, and an icon saying whether the call leaves from the cloud or from one of their devices. The
+ * provider's models are a single-choice list underneath: picking one answers with that provider and
+ * that model, and picking elsewhere (or an official model above) takes the choice away again.
+ */
 export function ProviderRow({
 	provider,
-	deviceLabel,
+	chosenModel,
+	busy,
 	notice,
+	onChoose,
 	onEdit,
-	onDefault,
 	onDuplicate,
 	onTest,
 	onDelete,
 }: {
 	provider: Provider;
-	deviceLabel?: string | undefined;
+	/** The model this provider answers with, when it is the one in use. */
+	chosenModel: string | null;
+	busy: boolean;
 	notice: boolean | null;
+	onChoose: (model: string) => void;
 	onEdit?: (() => void) | undefined;
-	onDefault: () => void;
 	onDuplicate?: (() => void) | undefined;
 	onTest: () => void;
 	onDelete: () => void;
@@ -29,7 +38,8 @@ export function ProviderRow({
 	const [actionsOpen, setActionsOpen] = useState(false);
 	if (provider.scope !== "user") return null;
 	const configured = provider.keyConfigured || (provider.origin === "device" && !!provider.endpointId);
-	const active = provider.isDefault && provider.enabled && configured;
+	const active = provider.isDefault && chosenModel !== null;
+	const Icon = provider.origin === "device" ? Laptop : Cloud;
 	const closeActions = () => setActionsOpen(false);
 	function runAction(action: () => void) {
 		closeActions();
@@ -37,64 +47,69 @@ export function ProviderRow({
 	}
 	return (
 		<li
-			className={`flex flex-wrap items-center gap-[var(--spacing-2)] rounded-[var(--radius-card)] border p-[var(--spacing-3)] ${active ? "border-[var(--color-border-strong)] bg-[var(--color-bg-selected)]" : "border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]"}`}
+			className={`flex flex-col gap-[var(--spacing-2)] rounded-[var(--radius-card)] border p-[var(--spacing-3)] ${active ? "border-[var(--color-border-strong)] bg-[var(--color-bg-selected)]" : "border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]"}`}
 		>
-			<IconTile>
-				<Boxes size={17} aria-hidden="true" />
-			</IconTile>
-			<div className="min-w-0 flex-1">
-				<p className="truncate text-body font-medium">
-					{provider.name}
-					{active ? (
-						<span className="ms-[var(--spacing-2)] text-caption text-[var(--color-text-primary)]">
-							{t("models.inUse")}
-						</span>
+			<div className="flex items-center gap-[var(--spacing-2)]">
+				<IconTile>
+					<Icon size={17} aria-hidden="true" />
+				</IconTile>
+				<div className="min-w-0 flex-1">
+					<p className="truncate text-body font-medium">{provider.name}</p>
+					{provider.note ? (
+						<p className="truncate text-caption text-[var(--color-text-secondary)]">{provider.note}</p>
 					) : null}
-				</p>
-				<p className="truncate text-caption text-[var(--color-text-secondary)]">
-					{deviceLabel ?? (provider.note || provider.website || provider.baseUrl)}
-				</p>
-				{provider.models.length > 0 ? (
-					<p className="break-words text-caption text-[var(--color-text-secondary)]">
-						{t("models.availableModels", { models: provider.models.join(", ") })}
-					</p>
+				</div>
+				{active ? (
+					<span className="shrink-0 text-caption text-[var(--color-text-primary)]">{t("models.inUse")}</span>
 				) : null}
-				{!configured || !provider.enabled ? (
-					<p className="text-caption text-[var(--color-text-tertiary)]">
-						{t(!configured ? "models.notConfigured" : "models.disabled")}
-					</p>
-				) : null}
-				{notice !== null ? (
-					<p
-						role="status"
-						className={notice ? "text-caption text-[var(--color-success)]" : "text-caption text-[var(--color-danger)]"}
+				<div className="flex shrink-0 items-center">
+					{onEdit ? (
+						<IconButton size="sm" aria-label={t("models.editAction")} title={t("models.editAction")} onClick={onEdit}>
+							<Pencil size={16} aria-hidden="true" />
+						</IconButton>
+					) : null}
+					<IconButton
+						size="sm"
+						aria-label={t("models.moreActions")}
+						title={t("models.moreActions")}
+						aria-haspopup="dialog"
+						aria-expanded={actionsOpen}
+						onClick={() => setActionsOpen(true)}
 					>
-						{t(notice ? "models.testPassed" : "models.testFailed")}
-					</p>
-				) : null}
+						<MoreHorizontal size={16} aria-hidden="true" />
+					</IconButton>
+				</div>
 			</div>
-			<div className="flex items-center">
-				{!provider.isDefault ? (
-					<IconButton size="sm" aria-label={t("models.setDefault")} title={t("models.setDefault")} onClick={onDefault}>
-						<Check size={16} aria-hidden="true" />
-					</IconButton>
-				) : null}
-				{onEdit ? (
-					<IconButton size="sm" aria-label={t("models.editAction")} title={t("models.editAction")} onClick={onEdit}>
-						<Pencil size={16} aria-hidden="true" />
-					</IconButton>
-				) : null}
-				<IconButton
-					size="sm"
-					aria-label={t("models.moreActions")}
-					title={t("models.moreActions")}
-					aria-haspopup="dialog"
-					aria-expanded={actionsOpen}
-					onClick={() => setActionsOpen(true)}
+			{provider.models.length > 0 ? (
+				<ul className="flex flex-col gap-0">
+					{provider.models.map((model) => (
+						<ListOption
+							key={model}
+							name="provider-model"
+							value={`${provider.id}:${model}`}
+							title={model}
+							checked={chosenModel === model}
+							disabled={busy || !configured || !provider.enabled}
+							onSelect={() => onChoose(model)}
+						/>
+					))}
+				</ul>
+			) : (
+				<p className="text-caption text-[var(--color-text-tertiary)]">{t("models.noModels")}</p>
+			)}
+			{!configured || !provider.enabled ? (
+				<p className="text-caption text-[var(--color-text-tertiary)]">
+					{t(!configured ? "models.notConfigured" : "models.disabled")}
+				</p>
+			) : null}
+			{notice !== null ? (
+				<p
+					role="status"
+					className={notice ? "text-caption text-[var(--color-success)]" : "text-caption text-[var(--color-danger)]"}
 				>
-					<MoreHorizontal size={16} aria-hidden="true" />
-				</IconButton>
-			</div>
+					{t(notice ? "models.testPassed" : "models.testFailed")}
+				</p>
+			) : null}
 			<Overlay
 				open={actionsOpen}
 				onClose={closeActions}

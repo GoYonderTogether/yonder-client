@@ -41,6 +41,15 @@ export function useProviderActions() {
 		},
 		remove: useMutation({ mutationFn: (id: string) => api.deleteProvider(id), onSuccess: refresh }),
 		setDefault: useMutation({ mutationFn: (id: string) => api.setDefaultProvider(id), onSuccess: refresh }),
+		// Choosing a model inside one provider: remember it on the provider, then make that provider
+		// the account's answer. The model goes first so the default never points at the old one.
+		chooseProviderModel: useMutation({
+			mutationFn: async ({ id, model }: { id: string; model: string }) => {
+				await api.updateProviderDefaultModel(id, model);
+				await api.setDefaultProvider(id);
+			},
+			onSuccess: refresh,
+		}),
 		test: useMutation({ mutationFn: ({ id, model }: { id: string; model?: string }) => api.testProvider(id, model) }),
 	};
 }

@@ -4,7 +4,7 @@ import { Overlay } from "@yonder/ui-shell";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ModelSlot } from "./provider-model-slots.ts";
-import { completeSlots, discoveredSlot, newSlot } from "./provider-model-slots.ts";
+import { completeSlots, discoveredSlot } from "./provider-model-slots.ts";
 
 /**
  * The model picker, laid out the way CC Switch does it: a search field, select-all and select-none,
@@ -188,7 +188,7 @@ function PickerRow({
 }
 
 /** `256K · 推理 · 图片`, the same read-only summary CC Switch shows per row. */
-function summaryOf(id: string, declared: ProviderModelMetadata | undefined, t: (key: string) => string): string {
+function summaryOf(_id: string, declared: ProviderModelMetadata | undefined, t: (key: string) => string): string {
 	const parts: string[] = [];
 	if (declared?.contextLength) parts.push(formatTokens(declared.contextLength));
 	if (declared?.efforts?.length) parts.push(t("models.picker.reasoning"));

@@ -10,7 +10,6 @@ import {
 	localProviderBinding,
 	type ProviderAddFailure,
 	type ProviderPreset,
-	providerDeviceLabel,
 	type RegisterLocalProviderEndpoint,
 } from "./provider-location.ts";
 import { ProviderRow } from "./provider-row.tsx";
@@ -40,7 +39,7 @@ export function ModelsSection({
 	registerEndpoint?: RegisterLocalProviderEndpoint | undefined;
 	onAddFailure?: ProviderAddFailure | undefined;
 }) {
-	const { t, i18n } = useTranslation();
+	const { t } = useTranslation();
 	const devices = useDevices();
 	const location = { devices: devices.data?.items, registerEndpoint };
 	const providers = useProviders();
@@ -175,16 +174,11 @@ export function ModelsSection({
 						<ProviderRow
 							key={provider.id}
 							provider={provider}
-							deviceLabel={(() => {
-								if (provider.origin !== "device") return undefined;
-								const device = devices.data?.items.find(({ id }) => id === provider.deviceId);
-								return device
-									? providerDeviceLabel(device, t, i18n.resolvedLanguage ?? i18n.language)
-									: (provider.deviceName ?? t("models.deviceUnavailable"));
-							})()}
+							chosenModel={provider.isDefault ? (provider.models[0] ?? null) : null}
+							busy={actions.setDefault.isPending}
 							notice={notice?.id === provider.id ? notice.ok : null}
 							onEdit={isLegacyDeviceProvider(provider) ? undefined : () => onOpenPage(`edit-${provider.id}`)}
-							onDefault={() => actions.setDefault.mutate(provider.id)}
+							onChoose={(model) => actions.chooseProviderModel.mutate({ id: provider.id, model })}
 							onDuplicate={isLegacyDeviceProvider(provider) ? undefined : () => onOpenPage(`duplicate-${provider.id}`)}
 							onTest={() => {
 								setNotice(null);

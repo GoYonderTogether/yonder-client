@@ -71,8 +71,8 @@ function show(locale: Locale = "en", page: string | null = null, onOpenPage = vi
 }
 
 test.each([
-	["zh-CN", "编辑供应商", "搜索模型或供应商", "主模型"],
-	["en", "Edit provider", "Search models or providers", "Main model"],
+	["zh-CN", "编辑供应商", "搜索模型或供应商", "官方模型"],
+	["en", "Edit provider", "Search models or providers", "Official models"],
 ] as const)(
 	"lists platform models without vendor metadata and keeps custom management in %s",
 	(locale, edit, searchLabel, mainTitle) => {
@@ -90,8 +90,10 @@ test.each([
 				/RightCode|upstream\.example|vendor\.example|private platform|another-model|平台供应商|Platform provider/,
 			),
 		).toBeNull();
-		expect(within(userRow).getByText("https://personal.example.net")).toBeVisible();
-		expect(within(userRow).getByText(/personal-model/)).toBeVisible();
+		// The row is only what the person named it; the address and the device are never shown there.
+		expect(within(userRow).queryByText("https://personal.example.net")).toBeNull();
+		// Its models are the choices inside the row, one per model.
+		expect(within(userRow).getByRole("radio", { name: "personal-model" })).toBeVisible();
 		expect(within(userRow).getByRole("button", { name: edit })).toBeVisible();
 	},
 );
@@ -141,16 +143,15 @@ test("provider actions open outside the clipped list and return focus on Escape"
 	expect(onOpenPage).toHaveBeenCalledWith("duplicate-user");
 });
 
-test("the main model is one list of platform models and own providers, and picking one saves its provider", async () => {
+test("the official list holds only platform models; a provider's own model is chosen in its own block", async () => {
 	show("en");
-	const group = screen.getByText("Main model").closest("section") ?? document.body;
-	const radios = within(group as HTMLElement).getAllByRole("radio");
+	const official = screen.getByText("Official models").closest("section") ?? document.body;
+	const radios = within(official as HTMLElement).getAllByRole("radio");
 	expect(radios.map((radio) => radio.getAttribute("aria-label"))).toEqual([
 		"glm-5.3-flash",
 		"DeepSeek-V4.1-Flash-1017",
-		"Personal provider",
 	]);
 	expect(radios[0]).toBeChecked();
-	await userEvent.click(radios[2] as HTMLElement);
-	expect(setDefault).toHaveBeenCalledWith("user");
+	// A provider of the person's own never appears in the official list.
+	expect(radios.some((radio) => radio.getAttribute("aria-label") === "Personal provider")).toBe(false);
 });

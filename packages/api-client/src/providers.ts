@@ -47,5 +47,10 @@ export function providerEndpoints(client: ApiClient) {
 		setDefaultProvider(id: string): Promise<{ ok: true }> {
 			return client.request(`/v1/providers/${encodeURIComponent(id)}/default`, { body: {} });
 		},
+
+		/** Which of the provider's models it answers with; the server keeps it in `default_model`. */
+		updateProviderDefaultModel(id: string, model: string): Promise<{ ok: true }> {
+			return client.request(`/v1/providers/${encodeURIComponent(id)}/default-model`, { body: { model } });
+		},
 	};
 }
