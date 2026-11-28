@@ -1,4 +1,5 @@
-import { Button, cn } from "@yonder/ui-components";
+import { cn } from "@yonder/ui-components";
+import { ArrowDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { dayName, memoryFormat } from "./memory-format.ts";
@@ -79,6 +80,13 @@ export function MemoryPinBar({
 	const isToday = date === today;
 	return (
 		<div ref={bar} className={cn("memory-pin", day && "memory-pin-shown")} aria-hidden={!day}>
+			<div className="memory-pin-fog" aria-hidden>
+				<i />
+				<i />
+				<i />
+				<i />
+				<i />
+			</div>
 			<div ref={inner} className={cn("memory-pin-inner", isToday && "memory-pin-today")}>
 				{day ? (
 					<>
@@ -91,9 +99,14 @@ export function MemoryPinBar({
 								{t("memory.now", { time: memoryFormat.time(now, i18n.language) })}
 							</span>
 						) : (
-							<Button size="sm" variant="link" className="memory-pin-side" onClick={onToday}>
-								{t("memory.backToToday")}
-							</Button>
+							<button
+								type="button"
+								className="memory-pin-side memory-pin-down"
+								aria-label={t("memory.backToToday")}
+								onClick={onToday}
+							>
+								<ArrowDown size={16} aria-hidden />
+							</button>
 						)}
 					</>
 				) : null}

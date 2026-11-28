@@ -1,0 +1,105 @@
+/* Adjustments from the first look at the live page: smaller cards, one scrollbar, clearer days, a sky colour for each part of the day. */
+
+[data-frame-scroll]:has(.memory-timeline) {
+	scrollbar-width: none;
+}
+[data-frame-scroll]:has(.memory-timeline)::-webkit-scrollbar {
+	display: none;
+}
+
+/* A day: set apart by a rule and air above it. Its date no longer sticks, so the frosted pinned bar is the only thing at the top. */
+.tl-day {
+	padding-bottom: var(--spacing-4);
+}
+.tl-day + .tl-day {
+	margin-top: var(--spacing-8);
+	padding-top: var(--spacing-6);
+	border-top: 1px solid var(--color-border-default);
+}
+.tl-day-head {
+	position: static;
+	padding: 0 0 var(--spacing-2);
+	border-bottom: 0;
+	background: transparent;
+}
+.tl-day-head strong {
+	font-size: var(--text-h1);
+}
+.tl-narration {
+	margin: var(--spacing-2) 0 var(--spacing-4);
+	font-size: var(--text-body);
+	line-height: 1.7;
+}
+
+/* Cards: several fit on one screen. */
+.tl-blocks {
+	gap: var(--spacing-2);
+}
+.tl-card {
+	--sky-alpha: 0.24;
+	padding: var(--spacing-3) var(--spacing-4);
+}
+.tl-card-title {
+	margin: var(--spacing-2) 0 var(--spacing-2);
+	font-size: var(--text-h3);
+	line-height: 1.45;
+}
+.tl-steps {
+	gap: var(--spacing-2);
+	padding-top: var(--spacing-2);
+}
+.tl-chip {
+	padding: 0 8px 0 6px;
+	font-size: var(--text-micro);
+}
+.tl-card[data-sky] > .tl-mark {
+	width: 150px;
+}
+
+/* The sky follows the part of the day: pale blue morning, bright noon, golden afternoon, rose-to-amber dusk, deep blue evening, near-black night. */
+.tl-card[data-part="predawn"] {
+	--sky-top: var(--color-sky-part-predawn-top);
+	--sky-bottom: var(--color-sky-part-predawn-bottom);
+}
+.tl-card[data-part="dawn"] {
+	--sky-top: var(--color-sky-part-dawn-top);
+	--sky-bottom: var(--color-sky-part-dawn-bottom);
+}
+.tl-card[data-part="morning"] {
+	--sky-top: var(--color-sky-part-morning-top);
+	--sky-bottom: var(--color-sky-part-morning-bottom);
+}
+.tl-card[data-part="noon"] {
+	--sky-top: var(--color-sky-part-noon-top);
+	--sky-bottom: var(--color-sky-part-noon-bottom);
+}
+.tl-card[data-part="afternoon"] {
+	--sky-top: var(--color-sky-part-afternoon-top);
+	--sky-bottom: var(--color-sky-part-afternoon-bottom);
+}
+.tl-card[data-part="dusk"] {
+	--sky-top: var(--color-sky-part-dusk-top);
+	--sky-bottom: var(--color-sky-part-dusk-bottom);
+}
+.tl-card[data-part="evening"] {
+	--sky-top: var(--color-sky-part-evening-top);
+	--sky-bottom: var(--color-sky-part-evening-bottom);
+}
+.tl-card[data-part="night"] {
+	--sky-top: var(--color-sky-part-night-top);
+	--sky-bottom: var(--color-sky-part-night-bottom);
+}
+
+/* Back to today: a round arrow, no words. */
+.memory-pin-down {
+	display: grid;
+	place-items: center;
+	width: var(--spacing-8);
+	height: var(--spacing-8);
+	border: 0;
+	border-radius: var(--radius-full);
+	background: var(--color-bg-raised);
+	box-shadow: var(--shadow-sm);
+	color: var(--color-accent-text);
+	cursor: pointer;
+}

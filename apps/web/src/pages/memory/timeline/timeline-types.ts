@@ -23,6 +23,8 @@ export interface TimelineStep {
 	photos?: string[];
 	/** The account's own photos and videos. */
 	media?: MemoryMedia[];
+	/** How many photos the entry holds in all; the organizer may show only a few of them. */
+	photoCount?: number;
 	/** Under a photo strip: how many and where, never who is in the picture. */
 	photoNote?: string;
 	/** A message that reached the owner over WeChat. */

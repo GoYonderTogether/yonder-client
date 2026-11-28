@@ -22,6 +22,8 @@ import { toTimelineDays } from "./timeline/timeline-model.ts";
 import "./timeline/timeline-cards.css";
 import "./timeline/timeline-cards-parts.css";
 import "./timeline/timeline-cards-drawer.css";
+import "./timeline/timeline-cards-tune.css";
+import "./timeline/timeline-cards-flow.css";
 
 /**
  * Days newest first, each with its entries on one spine. A pinned
@@ -127,7 +129,7 @@ export function MemoryTimeline() {
 					}}
 				/>
 			)),
-			total: step.media?.length ?? 0,
+			total: step.photoCount ?? step.media?.length ?? 0,
 		}),
 		onMessage: () => {},
 		state: (event) => ({ open: event.entry?.id === open, flash: event.entry?.id === flash }),
@@ -199,6 +201,7 @@ export function MemoryTimeline() {
 			sub,
 			lead: lead && lead.size !== "line" ? lead.title : "",
 			moment: entries.some((entry) => entry.size === "moment"),
+			count: entries.length,
 			monthStart: i === 0 || day.date.slice(0, 7) !== days[i - 1]?.date.slice(0, 7),
 		};
 	});

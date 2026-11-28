@@ -8,7 +8,8 @@
 		"./css": "./src/tokens.css",
 		"./glow.css": "./src/glow.css",
 		"./motion.css": "./src/motion.css",
-		"./materials.css": "./src/materials.css"
+		"./materials.css": "./src/materials.css",
+		"./sky.css": "./src/sky.css"
 	},
 	"scripts": {
 		"typecheck": "tsc -b"

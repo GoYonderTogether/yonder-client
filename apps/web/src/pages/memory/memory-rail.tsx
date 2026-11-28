@@ -9,6 +9,8 @@ export interface RailDay {
 	sub: string;
 	lead: string;
 	moment: boolean;
+	/** How many things the day holds; the bar at rest is as long as the day is full. */
+	count: number;
 	monthStart: boolean;
 }
 
@@ -104,6 +106,7 @@ export function MemoryRail({
 			const scale = y == null ? 0 : Math.max(0, 1 - Math.abs(p - y) / REACH) ** 0.8;
 			const label = i === focus ? 1 : (scale > 0.05 || days[i]?.monthStart) && shown.has(i) ? Math.max(0.45, scale) : 0;
 			item.style.top = `${Math.min(height, Math.max(0, p))}px`;
+			item.style.setProperty("--memory-rail-len", String(days[i]?.count ?? 1));
 			item.style.setProperty("--memory-rail-scale", scale.toFixed(3));
 			item.style.setProperty("--memory-rail-label", label.toFixed(2));
 			item.classList.toggle("memory-rail-focus", i === focus);

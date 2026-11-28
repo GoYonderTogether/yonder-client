@@ -1,0 +1,38 @@
+/* Sky colours for the timeline cards, one top and bottom stop for each of the eight parts of the day. */
+:root,
+[data-theme="light"] {
+	--color-sky-part-predawn-top: #1f2a5a;
+	--color-sky-part-predawn-bottom: #4a4f8f;
+	--color-sky-part-dawn-top: #f6a9a0;
+	--color-sky-part-dawn-bottom: #ffe9d2;
+	--color-sky-part-morning-top: #8ec9f5;
+	--color-sky-part-morning-bottom: #e8f5ff;
+	--color-sky-part-noon-top: #7cc4ff;
+	--color-sky-part-noon-bottom: #fff4c2;
+	--color-sky-part-afternoon-top: #ffc93c;
+	--color-sky-part-afternoon-bottom: #fff1b8;
+	--color-sky-part-dusk-top: #b36bd0;
+	--color-sky-part-dusk-bottom: #ffa56b;
+	--color-sky-part-evening-top: #2c3e8f;
+	--color-sky-part-evening-bottom: #6a7bc4;
+	--color-sky-part-night-top: #121a3d;
+	--color-sky-part-night-bottom: #2a3170;
+}
+[data-theme="dark"] {
+	--color-sky-part-predawn-top: #0f1630;
+	--color-sky-part-predawn-bottom: #262a52;
+	--color-sky-part-dawn-top: #5b3a5a;
+	--color-sky-part-dawn-bottom: #b9735a;
+	--color-sky-part-morning-top: #2f5f93;
+	--color-sky-part-morning-bottom: #4a7ba8;
+	--color-sky-part-noon-top: #2f5f93;
+	--color-sky-part-noon-bottom: #8a7a3a;
+	--color-sky-part-afternoon-top: #8a6410;
+	--color-sky-part-afternoon-bottom: #6e5a1c;
+	--color-sky-part-dusk-top: #4a2a6a;
+	--color-sky-part-dusk-bottom: #b8553a;
+	--color-sky-part-evening-top: #1a2560;
+	--color-sky-part-evening-bottom: #2f3f80;
+	--color-sky-part-night-top: #0a0f28;
+	--color-sky-part-night-bottom: #1a2050;
+}

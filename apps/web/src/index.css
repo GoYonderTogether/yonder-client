@@ -2,6 +2,7 @@
 @import "@yonder/ui-tokens/css";
 @import "@yonder/ui-tokens/motion.css";
 @import "@yonder/ui-tokens/materials.css";
+@import "@yonder/ui-tokens/sky.css";
 /* After the themes: the glow style overrides their surfaces. */
 @import "@yonder/ui-tokens/glow.css";
 

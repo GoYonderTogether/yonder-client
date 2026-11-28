@@ -220,7 +220,7 @@ export function AppFrame() {
 				? `memory:${memoryView.path}`
 				: null;
 	const sideControls = useMemo(() => ({ ...layers.controls, primaryResource }), [layers.controls, primaryResource]);
-	const memoryTimeline = memoryView.kind === "timeline";
+	const memoryTimeline = memoryView.kind === "timeline" || (memoryView.kind === "home" && layoutMode === "wide");
 	const segmentRoot = tab === "tasks" && selection === "scheduled";
 	const detailOpen = selection !== null && !segmentRoot;
 	const back = useFrameBack({ navigation, tabs, tab, tabLocation, splitMe, search: location.search });

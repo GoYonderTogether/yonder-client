@@ -100,21 +100,7 @@
 	touch-action: none;
 }
 .memory-rail-grip {
-	position: absolute;
-	right: 3px;
-	width: var(--spacing-1);
-	height: var(--spacing-10);
-	border-radius: var(--radius-full);
-	background: var(--color-text-tertiary);
-	opacity: 0;
-	transform: translateY(-50%);
-	transition: opacity var(--duration-base) var(--ease-standard);
-}
-.memory-rail-scrolling .memory-rail-grip {
-	opacity: 0.55;
-}
-.memory-rail-open .memory-rail-grip {
-	opacity: 0;
+	display: none;
 }
 .memory-rail-scrim {
 	position: absolute;
@@ -150,31 +136,30 @@
 	gap: var(--spacing-2);
 	height: 0;
 	white-space: nowrap;
-	opacity: 0;
+	opacity: 1;
 	transition:
 		top 90ms linear,
 		opacity var(--duration-base) var(--ease-standard);
-}
-.memory-rail-open .memory-rail-item {
-	opacity: 1;
 }
 .memory-rail-focus {
 	z-index: 1;
 }
 .memory-rail-tick {
-	width: calc(6px + 14px * var(--memory-rail-scale, 0));
-	height: 2px;
+	width: calc(6px + min(var(--memory-rail-len, 1), 8) * 2px + 16px * var(--memory-rail-scale, 0));
+	height: 3px;
 	margin-right: 6px;
 	border-radius: var(--radius-full);
-	background: var(--color-border-strong);
+	background: color-mix(in srgb, var(--color-text-tertiary) 40%, transparent);
 	transition: width 90ms linear;
 }
 .memory-rail-month .memory-rail-tick {
-	background: var(--color-text-tertiary);
+	width: calc(18px + 10px * var(--memory-rail-scale, 0));
+	background: color-mix(in srgb, var(--color-text-tertiary) 70%, transparent);
 }
 .memory-rail-moment .memory-rail-tick {
+	width: calc(14px + 14px * var(--memory-rail-scale, 0));
 	height: var(--spacing-1);
-	background: var(--color-memory-place);
+	background: color-mix(in srgb, var(--color-memory-place) 65%, transparent);
 }
 .memory-rail-active .memory-rail-tick {
 	background: var(--color-accent);
@@ -236,4 +221,107 @@
 	.memory-rail-tick {
 		transition: none;
 	}
+}
+
+/* Date index: at rest only short and long bars show, faintly coloured, longer for fuller days; the pointer opens them and the day under it grows and names itself. The old grip is gone, so only one indicator is left on the edge. */
+.memory-rail:not(.memory-rail-open) .memory-rail-label {
+	opacity: 0;
+}
+
+/* Pinned bar, fourth pass: a progressive blur. Five stacked blur layers, strongest right under the date and weaker further down, each faded in and out by its own mask so the blur eases away with no edge; a thin page-colour veil keeps the date readable. */
+.memory-pin::before,
+.memory-pin::after {
+	content: none;
+}
+.memory-pin-fog {
+	position: absolute;
+	inset: 0 0 calc(-1 * var(--spacing-12));
+	z-index: -1;
+	pointer-events: none;
+}
+.memory-pin-fog i {
+	position: absolute;
+	inset: 0;
+}
+.memory-pin-fog::after {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		to bottom,
+		color-mix(in srgb, var(--memory-page) 82%, transparent),
+		color-mix(in srgb, var(--memory-page) 40%, transparent) 55%,
+		transparent
+	);
+	content: "";
+}
+.memory-pin-fog i:nth-child(1) {
+	-webkit-backdrop-filter: blur(calc(var(--system-bar-blur) * 0.8));
+	backdrop-filter: blur(calc(var(--system-bar-blur) * 0.8));
+	-webkit-mask-image: linear-gradient(
+		to bottom,
+		var(--color-mask-solid) 0%,
+		var(--color-mask-solid) 35%,
+		transparent 50%
+	);
+	mask-image: linear-gradient(to bottom, var(--color-mask-solid) 0%, var(--color-mask-solid) 35%, transparent 50%);
+}
+.memory-pin-fog i:nth-child(2) {
+	-webkit-backdrop-filter: blur(calc(var(--system-bar-blur) * 0.4));
+	backdrop-filter: blur(calc(var(--system-bar-blur) * 0.4));
+	-webkit-mask-image: linear-gradient(
+		to bottom,
+		transparent 15%,
+		var(--color-mask-solid) 30%,
+		var(--color-mask-solid) 45%,
+		transparent 60%
+	);
+	mask-image: linear-gradient(
+		to bottom,
+		transparent 15%,
+		var(--color-mask-solid) 30%,
+		var(--color-mask-solid) 45%,
+		transparent 60%
+	);
+}
+.memory-pin-fog i:nth-child(3) {
+	-webkit-backdrop-filter: blur(calc(var(--system-bar-blur) * 0.2));
+	backdrop-filter: blur(calc(var(--system-bar-blur) * 0.2));
+	-webkit-mask-image: linear-gradient(
+		to bottom,
+		transparent 30%,
+		var(--color-mask-solid) 45%,
+		var(--color-mask-solid) 60%,
+		transparent 75%
+	);
+	mask-image: linear-gradient(
+		to bottom,
+		transparent 30%,
+		var(--color-mask-solid) 45%,
+		var(--color-mask-solid) 60%,
+		transparent 75%
+	);
+}
+.memory-pin-fog i:nth-child(4) {
+	-webkit-backdrop-filter: blur(calc(var(--system-bar-blur) * 0.1));
+	backdrop-filter: blur(calc(var(--system-bar-blur) * 0.1));
+	-webkit-mask-image: linear-gradient(
+		to bottom,
+		transparent 45%,
+		var(--color-mask-solid) 60%,
+		var(--color-mask-solid) 75%,
+		transparent 90%
+	);
+	mask-image: linear-gradient(
+		to bottom,
+		transparent 45%,
+		var(--color-mask-solid) 60%,
+		var(--color-mask-solid) 75%,
+		transparent 90%
+	);
+}
+.memory-pin-fog i:nth-child(5) {
+	-webkit-backdrop-filter: blur(calc(var(--system-bar-blur) * 0.05));
+	backdrop-filter: blur(calc(var(--system-bar-blur) * 0.05));
+	-webkit-mask-image: linear-gradient(to bottom, transparent 60%, var(--color-mask-solid) 75%, transparent 100%);
+	mask-image: linear-gradient(to bottom, transparent 60%, var(--color-mask-solid) 75%, transparent 100%);
 }

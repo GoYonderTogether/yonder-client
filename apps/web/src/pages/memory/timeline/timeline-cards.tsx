@@ -1,5 +1,5 @@
 import { BrandIcon, cn } from "@yonder/ui-components";
-import { Camera, Footprints, Images, MapPin } from "lucide-react";
+import { Footprints, Images, MapPin } from "lucide-react";
 import type { ReactNode } from "react";
 import { createContext, useContext } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +8,7 @@ import { dayName, daysAgo, memoryFormat } from "../memory-format.ts";
 import { isoWeek } from "./timeline-bands.tsx";
 import { KindIcon } from "./timeline-kinds.tsx";
 import { skyOfPart } from "./timeline-model.ts";
-import { type Sky, SkyIcon, SkyMark } from "./timeline-sky.tsx";
+import type { Sky } from "./timeline-sky.tsx";
 import type { TimelineDay, TimelineEvent, TimelineStep } from "./timeline-types.ts";
 
 /** What the page around the cards supplies: how a step's pictures are drawn, and what a message or a card opens. */
@@ -187,58 +187,57 @@ function Card({ event }: { event: TimelineEvent }) {
 			)}
 			data-sky={sky}
 			data-size={event.entry?.size}
+			data-part={event.part}
 			data-kind={event.entry?.kind}
 			data-upcoming={event.upcoming || undefined}
 			id={event.entry ? `memory-entry-${event.entry.id}` : undefined}
 		>
-			<SkyMark sky={sky} />
-			{label ? (
-				<span className="tl-chip">
-					<SkyIcon sky={sky} size={16} />
-					{label}
-				</span>
-			) : null}
-			<h3 className="tl-card-title">
-				{host.onEvent && host.openable?.(event) !== false ? (
-					<button
-						type="button"
-						className="tl-card-open"
-						aria-expanded={state.open}
-						aria-controls={event.entry ? `memory-drawer-${event.entry.id}` : undefined}
-						onClick={() => host.onEvent?.(event)}
-					>
-						{event.headline}
-					</button>
-				) : (
-					event.headline
-				)}
-			</h3>
-			{event.entry && (event.entry.tags.length || event.entry.place || event.entry.people.length) ? (
-				<div className="tl-facts">
-					{event.entry.place ? (
-						<span className="tl-fact">
-							<MapPin aria-hidden />
-							{event.entry.place}
-						</span>
-					) : null}
-					{event.entry.people.length ? (
-						<span className="tl-fact">{t("memory.people", { count: event.entry.people.length })}</span>
-					) : null}
-					{event.entry.tags.map((tag) => (
-						<span key={tag} className="tl-fact">
-							#{tag}
-						</span>
-					))}
-				</div>
-			) : null}
-			{host.detail?.(event)}
-			{event.steps.length ? (
-				<ol className="tl-steps">
-					{event.steps.map((step) => (
-						<Step key={`${step.at}:${step.text}`} step={step} />
-					))}
-				</ol>
-			) : null}
+			<time className="tl-at" title={label}>
+				{event.entry ? memoryFormat.time(event.entry.at, "en-GB") : (event.steps[0]?.at ?? "")}
+			</time>
+			<div className="tl-body">
+				<h3 className="tl-card-title">
+					{host.onEvent && host.openable?.(event) !== false ? (
+						<button
+							type="button"
+							className="tl-card-open"
+							aria-expanded={state.open}
+							aria-controls={event.entry ? `memory-drawer-${event.entry.id}` : undefined}
+							onClick={() => host.onEvent?.(event)}
+						>
+							{event.headline}
+						</button>
+					) : (
+						event.headline
+					)}
+				</h3>
+				{event.entry && (event.entry.tags.length || event.entry.place || event.entry.people.length) ? (
+					<div className="tl-facts">
+						{event.entry.place ? (
+							<span className="tl-fact">
+								<MapPin aria-hidden />
+								{event.entry.place}
+							</span>
+						) : null}
+						{event.entry.people.length ? (
+							<span className="tl-fact">{t("memory.people", { count: event.entry.people.length })}</span>
+						) : null}
+						{event.entry.tags.map((tag) => (
+							<span key={tag} className="tl-fact">
+								#{tag}
+							</span>
+						))}
+					</div>
+				) : null}
+				{host.detail?.(event)}
+				{event.steps.length ? (
+					<ol className="tl-steps">
+						{event.steps.map((step) => (
+							<Step key={`${step.at}:${step.text}`} step={step} />
+						))}
+					</ol>
+				) : null}
+			</div>
 		</li>
 	);
 }
@@ -293,12 +292,12 @@ function Step({ step }: { step: TimelineStep }) {
 				<li className="tl-step tl-step-photo">
 					<div className={`tl-strip tl-strip-${Math.min(nodes.length, 4)}`}>
 						{nodes}
-						{total > 4 ? <span className="tl-strip-more">+{total - 4}</span> : null}
+						{total > nodes.length ? (
+							<span className="tl-strip-more" title={t("memory.photoCount", { count: total })}>
+								+{total - nodes.length}
+							</span>
+						) : null}
 					</div>
-					<p className="tl-photo-note">
-						<Camera size={12} aria-hidden />
-						{[step.at, step.text, step.photoNote].filter(Boolean).join(" · ")}
-					</p>
 				</li>
 			);
 		}
