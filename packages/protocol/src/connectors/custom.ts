@@ -102,6 +102,13 @@ export interface CustomConnectorProposal {
 	slug: string;
 	manifest: CustomConnectorManifest;
 	entrySha256: string;
+	/**
+	 * The revision this proposal confirms, and the one the device must name in `connector.custom.ready`.
+	 * A first proposal is 1, the revision its new connection will have; a re-proposal after a hash
+	 * change (`needs_reauth`) is the next revision of the same connection, so the device card cannot
+	 * fall back to 1 and a stale confirmation is refused by the same check.
+	 */
+	revision: number;
 	deviceId: string | null;
 	deviceName: string | null;
 }

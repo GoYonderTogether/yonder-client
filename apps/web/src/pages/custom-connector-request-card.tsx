@@ -26,12 +26,6 @@ export function CustomConnectorRequestCard({ row }: { row: ConnectorRequestView 
 	// the card normally names none: the device then makes the id itself and its ready report creates
 	// the row with it (03 §3). A connection the card does name is reused.
 	const connectionId = row.connectionIds[0];
-	/**
-	 * The entry-hash revision the server expects on the ready report. The proposal payload does not
-	 * carry it yet (the server's `CustomConnectorProposal` has no `revision`), and a first proposal
-	 * starts at 1; a re-proposed connector needs the field on the card to be confirmable here.
-	 */
-	const proposalRevision = (proposal as { revision?: number }).revision ?? 1;
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string>();
 	const settled = row.state === "granted" || row.state === "cancelled";
@@ -48,12 +42,14 @@ export function CustomConnectorRequestCard({ row }: { row: ConnectorRequestView 
 		setError(undefined);
 		try {
 			// The shell re-reads the package, checks the hash against this card's value, writes the
-			// grant and emits `connector.custom.ready`, which the runtime forwards on the socket.
+			// grant at the proposal's revision and emits `connector.custom.ready`, which the runtime
+			// forwards on the socket. The revision is the card's own: a re-proposal after a hash change
+			// confirms the next revision, and guessing 1 would be refused.
 			await invokeLocalFiles("custom_connector_confirm", {
 				context,
 				confirm: {
 					...(connectionId ? { connectionId } : {}),
-					revision: proposalRevision,
+					revision: proposal.revision,
 					slug: proposal.slug,
 					entrySha256: proposal.entrySha256,
 				},

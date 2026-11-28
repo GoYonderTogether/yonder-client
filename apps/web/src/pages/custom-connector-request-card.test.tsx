@@ -68,6 +68,7 @@ function view(overrides: Partial<ConnectorRequestView> = {}): ConnectorRequestVi
 			slug: "notes",
 			manifest,
 			entrySha256: "a".repeat(64),
+			revision: 1,
 			deviceId: "dev_a",
 			deviceName: "MacBook Pro",
 		},
@@ -104,6 +105,31 @@ test("on the target device, confirming calls the device's own command with the h
 		expect(state.invoke).toHaveBeenCalledWith("custom_connector_confirm", {
 			context: state.context,
 			confirm: { connectionId: "con_c", revision: 1, slug: "notes", entrySha256: "a".repeat(64) },
+		}),
+	);
+});
+
+test("a re-proposal confirms at the card's own revision and hash, never a guessed 1", async () => {
+	state.invoke.mockResolvedValue("ok");
+	show(
+		view({
+			connectionIds: [],
+			proposal: {
+				connectorId: "custom:notes",
+				slug: "notes",
+				manifest,
+				entrySha256: "b".repeat(64),
+				revision: 2,
+				deviceId: "dev_a",
+				deviceName: "MacBook Pro",
+			},
+		}),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Allow" }));
+	await waitFor(() =>
+		expect(state.invoke).toHaveBeenCalledWith("custom_connector_confirm", {
+			context: state.context,
+			confirm: { revision: 2, slug: "notes", entrySha256: "b".repeat(64) },
 		}),
 	);
 });

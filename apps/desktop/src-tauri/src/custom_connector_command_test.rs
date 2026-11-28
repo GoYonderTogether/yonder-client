@@ -149,3 +149,82 @@ fn a_changed_entry_names_the_observed_hash_for_the_ready_report() {
     assert!(reauth_report(&grants_file, &packages, &other, "con_a").is_none());
     let _ = fs::remove_dir_all(base);
 }
+
+#[test]
+fn a_re_confirmation_replaces_the_grant_at_the_new_revision_and_hash() {
+    use crate::custom_connector_commands::{check_call, confirm_in, reauth_report, CallInput, ConfirmInput};
+    let base = std::env::temp_dir().join(format!("yonder-custom-{}-reconfirm", std::process::id()));
+    let _ = fs::remove_dir_all(&base);
+    let packages = base.join("connectors");
+    let root = packages.join("notes");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("manifest.json"), serde_json::to_vec(&manifest("notes", false)).unwrap()).unwrap();
+    let entry = root.join("run.sh");
+    fs::write(&entry, "#!/bin/sh\ncat\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&entry, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let first = custom_connectors::load("notes", &root).unwrap();
+    let grants_file = base.join("grants.json");
+    let connection = "con_0123456789ABCDEFGHJKMNPQRS".to_string();
+    let (grant, _) = confirm_in(
+        &grants_file,
+        &packages,
+        &context(),
+        &ConfirmInput {
+            connection_id: Some(connection.clone()),
+            revision: 1,
+            slug: "notes".into(),
+            entry_sha256: first.sha256.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!(grant.revision, 1);
+    // The Bot edits the entry: the old revision is refused and the observed hash is reported.
+    fs::write(&entry, "#!/bin/sh\nprintf '{\"edited\":true}'").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&entry, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let edited = custom_connectors::load("notes", &root).unwrap();
+    assert!(reauth_report(&grants_file, &packages, &context(), &connection).is_some());
+    // The re-proposal carries revision 2; confirming it replaces the one local grant and names the
+    // new hash and revision, which is exactly what the ready report and every later call read.
+    let (reconfirmed, _) = confirm_in(
+        &grants_file,
+        &packages,
+        &context(),
+        &ConfirmInput {
+            connection_id: Some(connection.clone()),
+            revision: 2,
+            slug: "notes".into(),
+            entry_sha256: edited.sha256.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!((reconfirmed.revision, &reconfirmed.entry_sha256), (2, &edited.sha256));
+    let stored = store::load_grants(&grants_file).unwrap();
+    assert_eq!(stored.len(), 1, "a re-confirmation replaces, never appends a second grant");
+    assert_eq!((stored[0].revision, &stored[0].entry_sha256), (2, &edited.sha256));
+    assert_eq!(reauth_report(&grants_file, &packages, &context(), &connection), None);
+    // A call at the stale revision is refused; at the new one it passes every check.
+    let call = CallInput {
+        call_id: "ccc_2".into(),
+        connection_id: connection,
+        revision: 2,
+        tool: "lookup".into(),
+        args: json!({}),
+        expires_at: "2030-01-01T00:00:00.000Z".into(),
+    };
+    assert!(check_call(&grants_file, &packages, &context(), &call, 1).is_ok());
+    assert_eq!(
+        check_call(&grants_file, &packages, &context(), &CallInput { revision: 1, ..call }, 1)
+            .err()
+            .as_deref(),
+        Some("needs_reauth")
+    );
+    let _ = fs::remove_dir_all(base);
+}
