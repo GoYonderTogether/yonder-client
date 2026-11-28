@@ -115,12 +115,16 @@ async function wav(request: Request) {
 }
 
 async function mockVoicePreview(page: Page, finalText?: string) {
+	let pcmBytes = 0;
 	await page.routeWebSocket(
 		(url) => url.pathname === "/v1/audio/transcriptions/realtime",
 		(socket) => {
 			let sessionId: string;
 			socket.onMessage((message) => {
-				if (typeof message !== "string") return;
+				if (typeof message !== "string") {
+					pcmBytes += message.length;
+					return;
+				}
 				const event = JSON.parse(message);
 				if (event.type === "finish" && finalText) {
 					socket.send(JSON.stringify({ type: "transcript", sessionId, sentenceId: 1, text: finalText, final: true }));
@@ -141,6 +145,7 @@ async function mockVoicePreview(page: Page, finalText?: string) {
 			});
 		},
 	);
+	return () => pcmBytes;
 }
 
 async function pressToTalk(page: Page, button: Locator, hint = "松手发语音") {
@@ -184,6 +189,7 @@ test("a slow microphone shows the pressed effect immediately and late capture ca
 		};
 	});
 	const wire = await speechWire(page);
+	const capturedBytes = await mockVoicePreview(page);
 	await page.goto("/messages/main");
 	await page.getByRole("button", { name: "语音输入", exact: true }).tap();
 	const hold = page.getByRole("button", { name: "按住说话", exact: true });
@@ -212,11 +218,13 @@ test("a slow microphone shows the pressed effect immediately and late capture ca
 	expect(wire.sent).toEqual([]);
 	expect(wire.uploaded.size).toBe(0);
 	expect(wire.recognized).toEqual([]);
+	expect(capturedBytes()).toBe(0);
 	const press = await pressToTalk(page, hold, "正在启动录音…");
 	await expect(body).toHaveAttribute("data-pending-microphone", "3");
 	await page.evaluate(() => window.dispatchEvent(new Event("test:microphone-ready")));
 	await expect(overlay.locator(".composer-recording-label")).toHaveText("松手发语音");
-	await page.waitForTimeout(700); // Leave enough real audio to pass the minimum-duration guard on release.
+	// The recording label appears before the audio thread delivers samples.
+	await expect.poll(capturedBytes).toBeGreaterThan(16_000 * 2 * 0.15);
 	expect(wire.sent).toEqual([]);
 	await press.release();
 	await expect
