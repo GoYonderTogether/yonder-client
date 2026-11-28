@@ -1,21 +1,10 @@
 import Taro from "@tarojs/taro";
-import type { Attachment } from "@yonder/protocol";
 import { useEffect, useRef, useState } from "react";
+import type { LocalChatFile } from "../../lib/chat-outbox";
 import { t } from "../../lib/i18n";
 import { fitLocalImage } from "../../lib/local-image";
-import { newNonce, uploadAttachment } from "../../lib/runtime";
-import { uploadCancellation } from "./upload-cancel";
+import { newNonce } from "../../lib/runtime";
 
-export type ChatUpload = {
-	key: string;
-	path: string;
-	name: string;
-	size: number;
-	kind: "image" | "file";
-	attachment?: Attachment;
-	error?: string;
-	uploading: boolean;
-};
 const maxBytes = 20 * 1024 * 1024;
 export function useChatUploads(ownerId: string | undefined, conversationId: string) {
 	const scope = `${ownerId ?? ""}:${conversationId}`;
@@ -23,11 +12,10 @@ export function useChatUploads(ownerId: string | undefined, conversationId: stri
 	const renderScope = useRef(scope);
 	renderScope.current = scope;
 	const active = useRef(true);
-	const values = useRef<ChatUpload[]>([]);
-	const tasks = useRef(new Map<string, ReturnType<typeof uploadCancellation>>());
-	const [uploads, setUploads] = useState<ChatUpload[]>([]);
+	const values = useRef<LocalChatFile[]>([]);
+	const [uploads, setUploads] = useState<LocalChatFile[]>([]);
 	const [error, setError] = useState("");
-	const change = (next: ChatUpload[]) => {
+	const change = (next: LocalChatFile[]) => {
 		if (currentScope.current !== renderScope.current) return;
 		values.current = next;
 		setUploads(next);
@@ -40,47 +28,8 @@ export function useChatUploads(ownerId: string | undefined, conversationId: stri
 		setError("");
 		return () => {
 			active.current = false;
-			for (const task of tasks.current.values()) task.abort();
-			tasks.current.clear();
 		};
 	}, [scope]);
-	const upload = async (file: ChatUpload) => {
-		if (tasks.current.has(file.key)) return;
-		const expected = currentScope.current;
-		const controller = uploadCancellation();
-		tasks.current.set(file.key, controller);
-		change(
-			values.current.map((item) => (item.key === file.key ? { ...item, error: undefined, uploading: true } : item)),
-		);
-		try {
-			const attachment = await uploadAttachment(file.path, file.key, controller.signal);
-			if (
-				active.current &&
-				expected === currentScope.current &&
-				expected === renderScope.current &&
-				!controller.signal.aborted
-			)
-				change(
-					values.current.map((item) => (item.key === file.key ? { ...item, attachment, uploading: false } : item)),
-				);
-		} catch {
-			if (
-				active.current &&
-				expected === currentScope.current &&
-				expected === renderScope.current &&
-				!controller.signal.aborted
-			)
-				change(
-					values.current.map((item) =>
-						item.key === file.key
-							? { ...item, uploading: false, error: t("上传失败，请重试", "Upload failed. Try again.") }
-							: item,
-					),
-				);
-		} finally {
-			if (tasks.current.get(file.key) === controller) tasks.current.delete(file.key);
-		}
-	};
 	const add = async (kind: "image" | "file") => {
 		const expected = currentScope.current;
 		const remaining = 10 - values.current.length;
@@ -119,9 +68,8 @@ export function useChatUploads(ownerId: string | undefined, conversationId: stri
 			const accepted = files.filter((file) => file.size <= maxBytes).slice(0, 10 - values.current.length);
 			if (accepted.length !== files.length)
 				setError(t("最多选择10个文件，每个不超过20 MiB", "Choose up to 10 files, each no larger than 20 MiB"));
-			const additions: ChatUpload[] = accepted.map((file) => ({ ...file, key: newNonce(), kind, uploading: true }));
+			const additions: LocalChatFile[] = accepted.map((file) => ({ ...file, key: newNonce(), kind }));
 			change([...values.current, ...additions]);
-			for (const file of additions) void upload(file);
 		} catch (e) {
 			if (
 				!(e as { errMsg?: string })?.errMsg?.includes("cancel") &&
@@ -133,8 +81,6 @@ export function useChatUploads(ownerId: string | undefined, conversationId: stri
 		}
 	};
 	const removeUpload = (key: string) => {
-		tasks.current.get(key)?.abort();
-		tasks.current.delete(key);
 		change(values.current.filter((item) => item.key !== key));
 	};
 	return {
@@ -143,10 +89,6 @@ export function useChatUploads(ownerId: string | undefined, conversationId: stri
 		addImages: () => add("image"),
 		addFiles: () => add("file"),
 		removeUpload,
-		retryUpload: (key: string) => {
-			const file = values.current.find((item) => item.key === key);
-			if (file && !file.attachment) void upload(file);
-		},
 		clearSentUploads: (keys: string[]) => {
 			const sent = new Set(keys);
 			change(values.current.filter((item) => !sent.has(item.key)));

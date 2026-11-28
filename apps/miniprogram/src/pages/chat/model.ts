@@ -1,6 +1,7 @@
 import { conversationPeer, mergeMessage } from "@yonder/chat-model";
-import type { Conversation, Message, Run } from "@yonder/protocol";
-export type ChatMessage = Message & { sendFailed?: boolean; pending?: boolean; skillIds?: string[] };
+import type { Conversation, Run } from "@yonder/protocol";
+import type { OutboxMessage } from "../../lib/chat-outbox";
+export type ChatMessage = OutboxMessage;
 export function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
 	const rows = [...current];
 	for (const item of incoming) {

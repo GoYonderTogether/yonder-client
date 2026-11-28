@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import type { Message, ServerEvent } from "@yonder/protocol";
+import { ApiError, NetworkError } from "@yonder/api-client";
+import type { Message, SendMessageRequest, ServerEvent } from "@yonder/protocol";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, test, vi } from "vitest";
@@ -10,13 +11,29 @@ const mock = vi.hoisted(() => ({
 	retry: vi.fn(),
 	stop: vi.fn(),
 	send: vi.fn(),
+	upload: vi.fn(),
 	rejectPendingWrites: false,
 	subscribe: vi.fn(),
 	owner: "a",
+	nonce: 0,
+	files: new Map<string, string>(),
 	store: new Map<string, unknown>(),
 }));
 vi.mock("@tarojs/taro", () => ({
 	default: {
+		env: { USER_DATA_PATH: "/data" },
+		getStorageInfoSync: () => ({ keys: [...mock.store.keys()] }),
+		getFileSystemManager: () => ({
+			copyFileSync: (source: string, target: string) => {
+				const file = mock.files.get(source);
+				if (file === undefined) throw new Error("missing local file");
+				mock.files.set(target, file);
+			},
+			accessSync: (path: string) => {
+				if (!mock.files.has(path)) throw new Error("missing local file");
+			},
+			unlinkSync: (path: string) => mock.files.delete(path),
+		}),
 		getStorageSync: (key: string) => mock.store.get(key),
 		setStorageSync: (key: string, value: unknown) => {
 			if (mock.rejectPendingWrites && Array.isArray(value) && value.length) throw new Error("storage full");
@@ -26,21 +43,30 @@ vi.mock("@tarojs/taro", () => ({
 	useDidShow: () => {},
 }));
 vi.mock("../../lib/i18n", () => ({ t: (zh: string) => zh }));
-vi.mock("../../lib/runtime", () => ({
-	api: {
-		messages: mock.messages,
-		conversations: mock.conversations,
-		retryMessage: mock.retry,
-		stopMessage: mock.stop,
-		sendMessage: mock.send,
-	},
-	newNonce: () => "nonce",
-	invalidateAttachmentMedia() {},
-	subscribeEvents: mock.subscribe,
-	useRealtimeRevision: () => 0,
-	useSession: () => ({ status: "signed-in", me: null, memberId: mock.owner }),
-}));
+vi.mock("../../lib/runtime", async () => {
+	const { createChatOutbox } = await import("../../lib/chat-outbox");
+	return {
+		api: {
+			messages: mock.messages,
+			conversations: mock.conversations,
+			retryMessage: mock.retry,
+			stopMessage: mock.stop,
+		},
+		chatOutbox: createChatOutbox({
+			source: "test",
+			owner: () => mock.owner,
+			send: mock.send,
+			upload: mock.upload,
+		}),
+		newNonce: () => `nonce${++mock.nonce}`,
+		invalidateAttachmentMedia() {},
+		subscribeEvents: mock.subscribe,
+		useRealtimeRevision: () => 0,
+		useSession: () => ({ status: "signed-in", me: null, memberId: mock.owner }),
+	};
+});
 
+import { chatOutbox } from "../../lib/runtime";
 import { useChat } from "./use-chat";
 
 let state: ReturnType<typeof useChat>;
@@ -162,7 +188,7 @@ test("retries the original user message once for a failed run", async () => {
 		void state.action(failed);
 	});
 	expect(mock.retry).toHaveBeenCalledTimes(1);
-	expect(mock.retry).toHaveBeenCalledWith("original", "nonce");
+	expect(mock.retry).toHaveBeenCalledWith("original", expect.stringMatching(/^nonce/));
 	await act(async () => {
 		finish({ message: row });
 		await first;
@@ -202,12 +228,104 @@ test("does not send or clear the user's draft if the outbox cannot be saved", as
 	await act(async () => root.render(createElement(Probe, { id: "one" })));
 	let result: boolean | undefined;
 	await act(async () => {
-		result = await state.send("keep this", [], []);
+		result = state.send("keep this", [], []);
 	});
 	expect(result).toBeUndefined();
 	expect(mock.send).not.toHaveBeenCalled();
 	expect(state.error).toContain("无法保存");
 	mock.rejectPendingWrites = false;
+	await act(async () => root.unmount());
+});
+
+const sent = (request: SendMessageRequest) => ({
+	message: { ...row, id: `sent-${request.clientNonce}`, body: request.body, clientNonce: request.clientNonce },
+	clientNonce: request.clientNonce,
+});
+
+test("queues two messages immediately and delivers in order after a request is lost and the chat is closed", async () => {
+	mock.owner = "a";
+	mock.store.clear();
+	mock.messages.mockReset().mockResolvedValue({ items: [], nextCursor: null });
+	let disconnect = () => {};
+	mock.send
+		.mockReset()
+		.mockImplementationOnce(
+			() =>
+				new Promise((_, reject) => {
+					disconnect = () => reject(new NetworkError(new Error("offline")));
+				}),
+		)
+		.mockImplementation(async (_id, request: SendMessageRequest) => sent(request));
+	const root = createRoot(document.createElement("div"));
+	await act(async () => root.render(createElement(Probe, { id: "one" })));
+	await act(async () => {
+		expect(state.send("first", [], [])).toBe(true);
+		expect(state.send("second", [], [])).toBe(true);
+	});
+	const rows = state.messages.map(({ body, clientNonce, pending }) => ({ body, clientNonce, pending }));
+	expect(rows).toEqual([
+		expect.objectContaining({ body: "first", pending: true }),
+		expect.objectContaining({ body: "second", pending: true }),
+	]);
+	expect(mock.send).toHaveBeenCalledTimes(1);
+	await act(async () => root.unmount());
+	disconnect();
+	await vi.waitFor(() => expect(mock.store.get("yonder.mini.outbox.a.one")).toHaveLength(2));
+	chatOutbox.resume();
+	await vi.waitFor(() => expect(mock.store.get("yonder.mini.outbox.a.one")).toEqual([]));
+	expect(mock.send.mock.calls.map(([, request]) => request.clientNonce)).toEqual([
+		rows[0].clientNonce,
+		rows[0].clientNonce,
+		rows[1].clientNonce,
+	]);
+});
+
+test("persists local attachments before upload and keeps them with a rejected message for retry", async () => {
+	mock.owner = "a";
+	mock.store.clear();
+	mock.files.clear();
+	mock.files.set("/temp/photo.jpg", "photo bytes");
+	mock.messages.mockReset().mockResolvedValue({ items: [], nextCursor: null });
+	let finishUpload = (_value: { id: string }) => {};
+	mock.upload
+		.mockReset()
+		.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					finishUpload = resolve;
+				}),
+		)
+		.mockResolvedValue({ id: "asset" });
+	mock.send
+		.mockReset()
+		.mockRejectedValueOnce(new ApiError({ code: "compact_busy", status: 409, message: "busy" }))
+		.mockImplementation(async (_id, request: SendMessageRequest) => sent(request));
+	const root = createRoot(document.createElement("div"));
+	await act(async () => root.render(createElement(Probe, { id: "one" })));
+	await act(async () => {
+		expect(
+			state.send(
+				"with a photo",
+				[{ key: "photo", path: "/temp/photo.jpg", name: "photo.jpg", kind: "image", size: 5 }],
+				[],
+			),
+		).toBe(true);
+	});
+	expect(state.messages[0]).toMatchObject({
+		body: "with a photo",
+		localFiles: [{ path: "/data/yonder-outbox-photo.jpg" }],
+		pending: true,
+	});
+	expect(mock.send).not.toHaveBeenCalled();
+	await act(async () => finishUpload({ id: "asset" }));
+	expect(state.messages[0]).toMatchObject({ body: "with a photo", sendFailed: true });
+	expect(mock.files.get("/data/yonder-outbox-photo.jpg")).toBe("photo bytes");
+	await act(async () => state.action(state.messages[0]));
+	expect(state.messages[0]).toMatchObject({ body: "with a photo", id: expect.stringMatching(/^sent-/) });
+	expect(mock.upload.mock.calls.map(([, key]) => key)).toEqual(["photo", "photo"]);
+	expect(mock.send.mock.calls[0][1].attachmentIds).toEqual(["asset"]);
+	expect(mock.send.mock.calls[1][1].clientNonce).toBe(mock.send.mock.calls[0][1].clientNonce);
+	expect(mock.files.has("/data/yonder-outbox-photo.jpg")).toBe(false);
 	await act(async () => root.unmount());
 });
 

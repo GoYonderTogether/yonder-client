@@ -1,20 +1,15 @@
 import Taro, { useDidShow } from "@tarojs/taro";
 import { ApiError } from "@yonder/api-client";
 import { chatHistoryTimeOffset, isNewChatHistoryCutoff } from "@yonder/chat-model";
-import type {
-	Attachment,
-	ChatHistoryCutoff,
-	Conversation,
-	Message,
-	MessagePage,
-	SendMessageRequest,
-} from "@yonder/protocol";
+import type { ChatHistoryCutoff, Conversation, Message, MessagePage } from "@yonder/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { chatOutboxKey, type LocalChatFile } from "../../lib/chat-outbox";
 import { t } from "../../lib/i18n";
 import { patchConversation } from "../../lib/member-cache";
 import { METADATA_FRESH_MS, metadataKey, readSnapshot, updateSnapshots, writeSnapshot } from "../../lib/metadata-cache";
 import {
 	api,
+	chatOutbox,
 	invalidateAttachmentMedia,
 	newNonce,
 	subscribeEvents,
@@ -28,15 +23,12 @@ import { isVisitErrorCode, visitErrorSentence } from "./visits";
 export function useChat(id: string) {
 	const { me, memberId, status } = useSession();
 	const revision = useRealtimeRevision();
-	const outboxKey = `yonder.mini.outbox.${memberId ?? ""}.${id}`;
+	const outboxKey = chatOutboxKey(memberId ?? "", id);
 	const historyKey = memberId ? metadataKey(memberId, "messages", id) : "";
 	const messagesOwner = useRef(outboxKey);
 	const [messages, setMessages] = useState<ChatMessage[]>(() => {
 		try {
-			const stored = memberId ? Taro.getStorageSync(outboxKey) : [];
-			const drafts = Array.isArray(stored)
-				? stored.map((message: ChatMessage) => ({ ...message, pending: false, sendFailed: true }))
-				: [];
+			const drafts = memberId ? chatOutbox.read(outboxKey) : [];
 			return mergeMessages(drafts, (historyKey && readSnapshot<MessagePage>(historyKey)?.data.items) || []);
 		} catch {
 			return [];
@@ -52,26 +44,12 @@ export function useChat(id: string) {
 	const [cursor, setCursor] = useState<string | null>(null);
 	// A latest-page refresh retains the oldest message already loaded for this chat.
 	const [hasFullHistory, setHasFullHistory] = useState(false);
-	const [sending, setSending] = useState(false);
 	const [olderLoading, setOlderLoading] = useState(false);
 	const [olderError, setOlderError] = useState(false);
-	const sendLock = useRef(false);
 	const actionLock = useRef(false);
 	const cursorRef = useRef<string | null>(null);
-	useEffect(() => {
-		if (status !== "signed-in" || !memberId || messagesOwner.current !== outboxKey) return;
-		try {
-			Taro.setStorageSync(
-				outboxKey,
-				messages.filter((message) => message.pending || message.sendFailed),
-			);
-		} catch {
-			setError(t("无法保存待发送消息，请重试", "Could not save the pending message. Try again."));
-		}
-	}, [messages, outboxKey, status, memberId]);
 	const active = useRef(true);
 	const epoch = useRef(0);
-	const requests = useRef(new Map<string, SendMessageRequest>());
 	const latestLoad = useRef<{ scope: string; promise: Promise<boolean> } | null>(null);
 	const olderLoad = useRef<{ scope: string; cursor: string; promise: Promise<boolean> } | null>(null);
 	const historyCutoff = useRef<ChatHistoryCutoff>();
@@ -120,16 +98,10 @@ export function useChat(id: string) {
 		setError("");
 		setClosedError("");
 		setVisitError("");
-		sendLock.current = false;
 		actionLock.current = false;
-		setSending(false);
-		requests.current.clear();
 		messagesOwner.current = outboxKey;
 		try {
-			const stored = memberId ? Taro.getStorageSync(outboxKey) : [];
-			const drafts = Array.isArray(stored)
-				? stored.map((message: ChatMessage) => ({ ...message, pending: false, sendFailed: true }))
-				: [];
+			const drafts = memberId ? chatOutbox.read(outboxKey) : [];
 			const cached = historyKey ? readSnapshot<MessagePage>(historyKey)?.data : undefined;
 			setMessages(mergeMessages(drafts, cached?.items ?? []));
 			if (cached) setLoading(false);
@@ -163,6 +135,7 @@ export function useChat(id: string) {
 			const applyPage = (page: MessagePage) => {
 				applyHistoryCutoff(page.historyClearedThrough);
 				cutoff = historyCutoff.current;
+				for (const message of page.items) chatOutbox.confirm(message);
 				setMessages((current) => mergeMessages(current, page.items));
 				if (older || cursorRef.current === null) {
 					cursorRef.current = page.nextCursor;
@@ -320,99 +293,52 @@ export function useChat(id: string) {
 			}
 		});
 	}, [id, status, load, refresh, acceptConversation, acceptMessage]);
-	const send = async (body: string, attachments: Attachment[], skillIds: string[], retryNonce?: string) => {
-		if (sendLock.current || !id || !memberId || messagesOwner.current !== outboxKey) return;
-		sendLock.current = true;
-		const ticket = epoch.current;
-		const nonce = retryNonce ?? newNonce();
-		const request = requests.current.get(nonce) ?? {
-			type: "text" as const,
-			body,
-			attachmentIds: attachments.map((file) => file.id),
-			clientNonce: nonce,
-			...(skillIds.length ? { skillIds } : {}),
-		};
-		requests.current.set(nonce, request);
-		setSending(true);
+	useEffect(() => {
+		if (status !== "signed-in") return;
+		return chatOutbox.subscribe((key, { message, refusal }) => {
+			if (!active.current || key !== outboxKey || messagesOwner.current !== outboxKey) return;
+			if (refusal?.code === "conversation_closed") setClosedError(closureText(conversation?.closedReason));
+			if (refusal && isVisitErrorCode(refusal.code)) {
+				setVisitError(t(visitErrorSentence(refusal.code, "zh-CN"), visitErrorSentence(refusal.code, "en")));
+				void refresh();
+			}
+			if (message.pending || message.sendFailed) {
+				setMessages((current) => mergeMessages(current, [message]));
+			} else acceptMessage(message);
+		});
+	}, [acceptMessage, conversation?.closedReason, outboxKey, refresh, status]);
+	const enqueue = (row: ChatMessage, files: LocalChatFile[]) => {
 		setError("");
 		setClosedError("");
 		setVisitError("");
-		const pending: ChatMessage = {
-			id: `temp_${nonce}`,
-			conversationId: id,
-			senderId: memberId,
-			senderKind: "person",
-			type: "text",
-			body: request.body,
-			attachments,
-			replyToId: null,
-			createdAt: new Date().toISOString(),
-			editedAt: null,
-			streaming: false,
-			version: 0,
-			clientNonce: nonce,
-			pending: true,
-			skillIds: request.skillIds,
-		};
 		try {
-			const stored = Taro.getStorageSync(outboxKey);
-			const existing = Array.isArray(stored) ? stored.filter((item: ChatMessage) => item.clientNonce !== nonce) : [];
-			Taro.setStorageSync(outboxKey, [...existing, pending]);
+			return chatOutbox.enqueue(row, files);
 		} catch {
-			requests.current.delete(nonce);
-			sendLock.current = false;
-			setSending(false);
 			setError(t("无法保存待发送消息，请重试", "Could not save the pending message. Try again."));
-			return;
 		}
-		setMessages((current) => mergeMessages(current, [pending]));
-		try {
-			const result = await api.sendMessage(id, request);
-			if (active.current && ticket === epoch.current)
-				acceptMessage({ ...result.message, clientNonce: result.clientNonce });
-			requests.current.delete(nonce);
-			return true;
-		} catch (cause) {
-			if (active.current && ticket === epoch.current) {
-				// A closed group says so, with the real reason, instead of pretending to retry.
-				if (cause instanceof ApiError && cause.code === "conversation_closed") {
-					setClosedError(closureText(conversation?.closedReason));
-					Taro.removeStorageSync(outboxKey);
-					setMessages((current) => current.filter((message) => message.clientNonce !== nonce));
-				} else if (cause instanceof ApiError && isVisitErrorCode(cause.code)) {
-					// The visit ladder refused it: the server stored nothing, so the pending row goes too, and
-					// the refusal is shown as its own red line rather than as something the Bot said.
-					setVisitError(t(visitErrorSentence(cause.code, "zh-CN"), visitErrorSentence(cause.code, "en")));
-					void refresh();
-					try {
-						const stored = Taro.getStorageSync(outboxKey);
-						if (Array.isArray(stored))
-							Taro.setStorageSync(
-								outboxKey,
-								stored.filter((item: ChatMessage) => item.clientNonce !== nonce),
-							);
-					} catch {
-						// The request was refused either way; a full store must not turn it into a send error.
-					}
-					setMessages((current) => current.filter((message) => message.clientNonce !== nonce));
-				} else {
-					setError(t("发送失败，请重试", "Could not send. Try again."));
-					setMessages((current) =>
-						current.map((message) =>
-							message.clientNonce === nonce && message.id.startsWith("temp_")
-								? { ...message, pending: false, sendFailed: true }
-								: message,
-						),
-					);
-				}
-			}
-			return false;
-		} finally {
-			if (active.current && ticket === epoch.current) {
-				sendLock.current = false;
-				setSending(false);
-			}
-		}
+	};
+	const send = (body: string, files: LocalChatFile[], skillIds: string[], retryNonce?: string) => {
+		if (!id || !memberId || status !== "signed-in" || messagesOwner.current !== outboxKey) return;
+		const nonce = retryNonce ?? newNonce();
+		return enqueue(
+			{
+				id: `temp_${nonce}`,
+				conversationId: id,
+				senderId: memberId,
+				senderKind: "person",
+				type: "text",
+				body,
+				attachments: files.map(({ key, kind, name, size }) => ({ id: key, kind, name, size, mimeType: "" })),
+				replyToId: null,
+				createdAt: new Date().toISOString(),
+				editedAt: null,
+				streaming: false,
+				version: 0,
+				clientNonce: nonce,
+				skillIds,
+			},
+			files,
+		);
 	};
 	const action = async (message: ChatMessage) => {
 		if (
@@ -426,7 +352,7 @@ export function useChat(id: string) {
 		setError("");
 		try {
 			if (message.sendFailed) {
-				await send(message.body ?? "", message.attachments, message.skillIds ?? [], message.clientNonce ?? undefined);
+				enqueue({ ...message, clientNonce: message.clientNonce ?? newNonce() }, []);
 				return;
 			}
 			const result = await api.retryMessage(message.run?.userMessageId ?? message.id, newNonce());
@@ -477,7 +403,6 @@ export function useChat(id: string) {
 		hasFullHistory: messagesOwner.current === outboxKey && hasFullHistory,
 		olderLoading: messagesOwner.current === outboxKey && olderLoading,
 		olderError: messagesOwner.current === outboxKey && olderError,
-		sending: messagesOwner.current === outboxKey && sending,
 		load,
 		applyQuestionMessages,
 		send,

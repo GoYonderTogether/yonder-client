@@ -1,3 +1,4 @@
+import Taro from "@tarojs/taro";
 import type { MemoryDayPage, MemoryEntry, MeResponse } from "@yonder/protocol";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -345,6 +346,31 @@ test("signing out clears the local session even when the server refuses the requ
 	expect(mock.store.has("yonder.mini.draft.one")).toBe(false);
 	expect(mock.reLaunch).toHaveBeenCalledWith({ url: "/pages/sign-in/index" });
 });
+
+test.each(["outbox storage inventory", "outbox row"])(
+	"signing out still clears the session when %s cannot be read",
+	async (failure) => {
+		const runtime = await import("./runtime");
+		await runtime.startSession({ accessToken: "a", refreshToken: "ra", me: me() });
+		const key = "yonder.mini.outbox.test-person.one";
+		mock.store.set(key, []);
+		const broken = vi.spyOn(Taro, failure === "outbox row" ? "getStorageSync" : "getStorageInfoSync");
+		const failRead = () => {
+			throw new Error("storage read failed");
+		};
+		if (failure === "outbox row") broken.mockImplementationOnce(failRead);
+		else broken.mockImplementation(failRead);
+		try {
+			await runtime.signOut();
+		} finally {
+			broken.mockRestore();
+		}
+		expect(runtime.useSession().status).toBe("signed-out");
+		expect(runtime.client.accessToken).toBeNull();
+		expect(mock.store.has(runtime.REFRESH_STORAGE_KEY)).toBe(false);
+		if (failure === "outbox row") expect(mock.store.has(key)).toBe(false);
+	},
+);
 
 test("own and Bot avatar uploads use only the prepared bytes and retain the correct routes", async () => {
 	const runtime = await import("./runtime");

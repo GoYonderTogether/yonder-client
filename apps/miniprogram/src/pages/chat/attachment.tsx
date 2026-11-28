@@ -10,11 +10,13 @@ import { ChatView } from "./host";
 
 export function MessageAttachment({
 	file,
+	localPath,
 	timeline,
 	persistent = true,
 	onSizeChange,
 }: {
 	file: Attachment;
+	localPath?: string;
 	timeline?: boolean;
 	persistent?: boolean;
 	onSizeChange?: () => void;
@@ -27,12 +29,13 @@ export function MessageAttachment({
 	const { id: fileId, kind, name } = file;
 	const image = kind === "image";
 	const path =
-		loaded && loaded.owner === memberId && loaded.fileId === fileId && loaded.persistent === persistent
+		localPath ??
+		(loaded && loaded.owner === memberId && loaded.fileId === fileId && loaded.persistent === persistent
 			? loaded.path
-			: "";
+			: "");
 	const { id, visible } = useVisibleImage(image, timeline ? undefined : ".mini-message-list");
 	useEffect(() => {
-		if (!image || !visible || !memberId) return;
+		if (localPath || !image || !visible || !memberId) return;
 		let active = true;
 		setError("");
 		setLoading(true);
@@ -49,12 +52,12 @@ export function MessageAttachment({
 		return () => {
 			active = false;
 		};
-	}, [fileId, image, kind, memberId, name, persistent, visible]);
+	}, [fileId, image, kind, localPath, memberId, name, persistent, visible]);
 	const open = async () => {
 		try {
 			setError("");
 			setPreviewing(true);
-			const local = await downloadAttachment(file, "original", persistent);
+			const local = localPath ?? (await downloadAttachment(file, "original", persistent));
 			if (image) await Taro.previewImage({ urls: [local], current: local });
 			else if (file.kind === "audio") {
 				const audio = Taro.createInnerAudioContext();

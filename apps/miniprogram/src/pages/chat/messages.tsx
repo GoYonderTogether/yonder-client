@@ -223,7 +223,13 @@ export function renderMessageBlock(
 					const file = attachments[0];
 					const voice = file && attachments.every(({ kind }) => kind === "audio") ? message.voice : undefined;
 					const reply = optionCards.replies.get(message.id);
-					const canChoose = message.id === optionCards.openId && !chat.sending && !reply;
+					const canChoose = message.id === optionCards.openId && !reply;
+					const visit = chat.conversation?.visit;
+					const sendBlocked =
+						chat.conversation?.closedReason ||
+						message.deliveryError === "conversation_closed" ||
+						(visit?.role === "visitor" &&
+							(visit.state === "pending" || visit.state === "capped" || visit.state === "denied"));
 					return (
 						<View
 							className={`mini-chat-entry ${self ? "mini-chat-entry-self" : ""}`}
@@ -283,15 +289,19 @@ export function renderMessageBlock(
 							{!voice && attachments.length ? (
 								<MessageAttachmentsFrame as={ChatView} self={self}>
 									{attachments.map((file) => (
-										<MessageAttachment key={file.id} file={file} onSizeChange={followAfterLayout} />
+										<MessageAttachment
+											key={file.id}
+											file={file}
+											localPath={message.localFiles?.find(({ key }) => key === file.id)?.path}
+											onSizeChange={followAfterLayout}
+										/>
 									))}
 								</MessageAttachmentsFrame>
 							) : null}
 							{voice?.transcription === "pending" ? (
 								<Text className="mini-muted">{t("正在转录…", "Transcribing…")}</Text>
 							) : null}
-							{message.pending ? <Text className="mini-muted">{t("发送中…", "Sending…")}</Text> : null}
-							{message.sendFailed ? (
+							{message.sendFailed && !sendBlocked ? (
 								<Button secondary onClick={() => void chat.action(message)}>
 									{t("发送失败，重试", "Send failed · Retry")}
 								</Button>

@@ -28,7 +28,7 @@ export default function Chat() {
 	const id = useRouter().params.id ?? "";
 	const { locale } = useLocale();
 	const chat = useChat(id);
-	const uploads = useChatUploads(chat.me?.member.id, id);
+	const uploads = useChatUploads(chat.memberId ?? undefined, id);
 	const { contentHeight, keyboardVisible, onFocus, onBlur } = useChatViewport();
 	const draftKey = `yonder.mini.draft.${chat.memberId ?? ""}.${id}`;
 	const draftKeyRef = useRef(draftKey);
@@ -60,7 +60,6 @@ export default function Chat() {
 	} | null>(null);
 	const [anchorRevision, setAnchorRevision] = useState(0);
 	const [scrollTop, setScrollTop] = useState<number>();
-	const sending = useRef(false);
 	const lastScrollTop = useRef(0);
 	const followRef = useRef(follow);
 	followRef.current = follow;
@@ -115,9 +114,8 @@ export default function Chat() {
 	const optionCards = optionCardState(chat.messages, chat.me?.member.id);
 	const expanded = text.includes("\n") || uploads.uploads.length > 0 || showSkills;
 	const layoutSignature = `${contentHeight}:${expanded}`;
-	const canSend =
-		Boolean(text.trim() || uploads.uploads.length) &&
-		uploads.uploads.every((file) => file.attachment && !file.uploading);
+	const canSend = Boolean(text.trim() || uploads.uploads.length);
+	const submitted = useRef<{ draft: typeof draft; files: typeof uploads.uploads }>();
 
 	useEffect(() => {
 		pendingOlderAnchor.current = null;
@@ -175,33 +173,15 @@ export default function Chat() {
 			setAnchorRevision(pending.revision);
 		}
 	};
-	const send = async () => {
-		if (
-			sending.current ||
-			chat.sending ||
-			!canSend ||
-			uploads.uploads.some((file) => !file.attachment || file.uploading)
-		)
-			return;
-		sending.current = true;
+	const send = () => {
+		const files = uploads.uploads;
+		if (!canSend || (submitted.current?.draft === draft && submitted.current.files === files)) return;
+		if (!chat.send(text, files, [...selected])) return;
+		submitted.current = { draft, files };
 		setFollow(true);
 		setScrollTop(undefined);
-		const scope = draftKey;
-		const body = text;
-		const files = uploads.uploads.flatMap((file) => (file.attachment ? [file.attachment] : []));
-		const uploadKeys = uploads.uploads.filter((file) => file.attachment).map((file) => file.key);
-		const skillIds = [...selected];
-		try {
-			const result = await chat.send(body, files, skillIds);
-			if (result !== undefined && scope === draftKeyRef.current) {
-				uploads.clearSentUploads(uploadKeys);
-				setDraft((current) =>
-					current.scope === scope && current.value === body ? { ...current, value: "" } : current,
-				);
-			}
-		} finally {
-			sending.current = false;
-		}
+		uploads.clearSentUploads(files.map(({ key }) => key));
+		setDraft((current) => (current === draft ? { ...current, value: "" } : current));
 	};
 
 	const openSkills = async () => {
@@ -375,19 +355,6 @@ export default function Chat() {
 												<Text>{file.name}</Text>
 											</View>
 										</View>
-										{file.error ? (
-											<NativeButton
-												className="composer-file-state mini-chat-upload-retry"
-												ariaLabel={t("上传失败，重试", "Upload failed, retry")}
-												onClick={() => uploads.retryUpload(file.key)}
-											>
-												{t("上传失败 · 重试", "Upload failed · Retry")}
-											</NativeButton>
-										) : (
-											<View className={`composer-file-state ${file.uploading ? "mini-chat-uploading" : ""}`}>
-												{file.uploading ? t("上传中…", "Uploading…") : t("已上传", "Uploaded")}
-											</View>
-										)}
 										<NativeButton
 											className="composer-file-remove mini-chat-icon-button"
 											ariaLabel={t("移除文件", "Remove file")}
@@ -472,8 +439,8 @@ export default function Chat() {
 							<NativeButton
 								className="composer-send mini-chat-send"
 								ariaLabel={t("发送", "Send")}
-								disabled={!canSend || chat.sending ? true : undefined}
-								onClick={() => void send()}
+								disabled={!canSend || undefined}
+								onClick={send}
 							>
 								<Text className="mini-chat-send-icon">↑</Text>
 							</NativeButton>

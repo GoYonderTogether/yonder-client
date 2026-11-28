@@ -1,13 +1,29 @@
 import Taro from "@tarojs/taro";
 import { ApiClient, ApiError, createEndpoints, NetworkError } from "@yonder/api-client";
-import type { Attachment, ConnectorFilePreviewStatus, DeviceInfo, Member, MeResponse } from "@yonder/protocol";
+import { chatHistoryTimeOffset, mergeMessage } from "@yonder/chat-model";
+import type {
+	Attachment,
+	ConnectorFilePreviewStatus,
+	DeviceInfo,
+	Member,
+	MeResponse,
+	MessagePage,
+} from "@yonder/protocol";
 import { useSyncExternalStore } from "react";
+import { createChatOutbox } from "./chat-outbox";
 import { type DeviceFile, verifyDeviceFile } from "./device-file-bytes";
 import { setLocale } from "./i18n";
 import { mediaCache, removeMediaFile } from "./image-cache";
 import { type ChosenImage, readAvatar } from "./local-image";
 import { upsertOwnedBot } from "./member-cache";
-import { MINI_CACHE_PREFIX, purgeSecretTimelineSnapshots, updateMetadataForEvent } from "./metadata-cache";
+import {
+	MINI_CACHE_PREFIX,
+	metadataKey,
+	purgeSecretTimelineSnapshots,
+	readSnapshot,
+	updateMetadataForEvent,
+	writeSnapshot,
+} from "./metadata-cache";
 import {
 	configureRealtime,
 	resumeRealtime as connectRealtime,
@@ -67,23 +83,28 @@ function publishMe(me: MeResponse): void {
 	}
 	setLocale(me.settings.locale);
 	publish({ status: "signed-in", me });
+	chatOutbox.resume();
 }
 
 function clearLocal(): void {
 	generation += 1;
 	suspendRealtime();
+	chatOutbox.clear();
 	if (savedMemberId) memberMedia(savedMemberId).remove(() => true);
 	media = undefined;
 	client.clearTokens();
 	clearDeviceFileCache();
-	const storage = Taro.getStorageInfoSync();
-	for (const key of storage.keys)
-		if (
-			key.startsWith("yonder.mini.draft.") ||
-			key.startsWith("yonder.mini.outbox.") ||
-			key.startsWith(MINI_CACHE_PREFIX)
-		)
-			Taro.removeStorageSync(key);
+	try {
+		for (const key of Taro.getStorageInfoSync().keys)
+			if (
+				key.startsWith("yonder.mini.draft.") ||
+				key.startsWith("yonder.mini.outbox.") ||
+				key.startsWith(MINI_CACHE_PREFIX)
+			)
+				Taro.removeStorageSync(key);
+	} catch {
+		// The local session is already cleared even if private storage is unavailable.
+	}
 	publish({ status: "signed-out", me: null });
 }
 
@@ -131,6 +152,35 @@ export const api = {
 	},
 };
 
+export const chatOutbox = createChatOutbox({
+	source: baseUrl,
+	owner: () => (session.status === "signed-in" ? savedMemberId : null),
+	ready: () => Boolean(client.accessToken),
+	send: api.sendMessage,
+	upload: uploadAttachment,
+	cache: (owner, message) => {
+		const key = metadataKey(owner, "messages", message.conversationId);
+		const page = readSnapshot<MessagePage>(key)?.data;
+		if (
+			!page ||
+			(page.historyClearedThrough && chatHistoryTimeOffset(message.createdAt, page.historyClearedThrough) <= 0)
+		)
+			return;
+		const previous = page.items.find(({ id }) => id === message.id);
+		const items = previous
+			? page.items.map((row) => (row === previous ? mergeMessage(row, message) : row))
+			: [...page.items, message];
+		writeSnapshot(key, { ...page, items });
+	},
+});
+
+Taro.onNetworkStatusChange?.(({ isConnected }) => {
+	if (isConnected) {
+		chatOutbox.resume();
+		void resumeRealtime();
+	}
+});
+
 configureRealtime({
 	baseUrl,
 	token: () => client.accessToken,
@@ -139,6 +189,7 @@ configureRealtime({
 });
 
 subscribeEvents((event) => {
+	if (event.type === "message.created" || event.type === "message.updated") chatOutbox.confirm(event.message);
 	if (event.type === "connectors.changed") clearDeviceFileCache();
 	if (savedMemberId) updateMetadataForEvent(savedMemberId, event, invalidateAttachmentMedia, clearConversationMedia);
 	const me = session.me;
