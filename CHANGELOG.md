@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112802] - 2026-11-28
+
+### Added
+
+- memory：a flat time-ordered timeline, oldest first
+
 ## [0.3.26112801] - 2026-11-28
 
 ### Added
