@@ -6,6 +6,12 @@
 /** What a `desktop_input` call does (design §5). */
 export type DesktopInputAction = "click" | "type" | "key" | "scroll" | "drag";
 
+/** How input reaches the window: background never raises it; foreground raises it and moves the real cursor. */
+export type DesktopInputDelivery = "background" | "foreground";
+
+/** The system permissions desktop control can be missing, named so the owner can turn on the right one. */
+export type DesktopPermission = "accessibility" | "screen_recording";
+
 /** A window-relative rectangle in points (screen pixels before Retina scaling). */
 export interface DesktopBounds {
 	x: number;
@@ -44,4 +50,4 @@ export type DesktopConnectorResult =
 			image: { base64: string; mimeType: string; width: number; height: number };
 			capturedAt: string;
 	  }
-	| { kind: "desktop_input"; ok: true; delivered: "background" | "foreground"; changed?: boolean };
+	| { kind: "desktop_input"; ok: true; delivered: DesktopInputDelivery; changed?: boolean };

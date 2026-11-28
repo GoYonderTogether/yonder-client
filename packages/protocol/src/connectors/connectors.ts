@@ -1,6 +1,6 @@
 import type { DeviceInfo } from "../auth/auth.ts";
 import type { Attachment } from "../chat/chat.ts";
-import type { DesktopConnectorResult, DesktopInputAction } from "./desktop.ts";
+import type { DesktopConnectorResult, DesktopInputAction, DesktopPermission } from "./desktop.ts";
 import type { ShellJobAction, TerminalConnectorResult } from "./terminal.ts";
 
 // Desktop and terminal shapes live in their own modules, re-exported here for one entry point.
@@ -494,5 +494,5 @@ export type ConnectorCommandResult =
 			/** `binary_file` only: the recognised kind (`sqlite`, `pdf`, `zip`, `gzip`, `png`, `jpeg`, `gif`) or `unknown`. */
 			fileType?: string;
 			/** `desktop_permission_required` only: which macOS permission is missing. */
-			permission?: "accessibility" | "screen_recording";
+			permission?: DesktopPermission;
 	  };
