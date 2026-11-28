@@ -256,6 +256,11 @@ export const accountMessagesEn = {
 			restartConfirm:
 				"Restart to install the update? This closes the client. A recording in progress is saved first and continues after restart; uploads resume afterwards. Other local tasks may be interrupted, so finish or save your work first. Local changes may already have taken effect without a receipt; do not automatically retry them. Task recovery is not guaranteed.",
 			check: "Check for updates",
+			channelTitle: "Update channel",
+			channelFailed: "Couldn’t change the update channel. Try again.",
+			beta: "Update to the latest beta",
+			stable: "Return to the stable version",
+			noticeBeta: "Open beta version",
 			checking: "Checking for updates…",
 			upToDate: "You're up to date",
 			available: "Version {{version}} is available",

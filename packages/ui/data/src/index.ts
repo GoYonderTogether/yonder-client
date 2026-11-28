@@ -119,6 +119,7 @@ export {
 	useSocialLibrary,
 	useSocialPersona,
 } from "./hooks/social.ts";
+export { type ReleaseChannel, type UpdateChannel, useUpdateChannel } from "./hooks/update-channel.ts";
 export { useOutwardActions, useStartBotChat, useVisitActions } from "./hooks/visits.ts";
 export {
 	AvatarImageTooLargeError,

@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useTopNoticeTarget } from "../app/app-notice.tsx";
 import { useForeground } from "../lib/foreground.ts";
-import { useOfferedUpdate, useUpdater } from "./provider.tsx";
+import { browserBeta, releasePath } from "./channel-path.ts";
+import { useOfferedUpdate, useUpdater, useUpdateSettings } from "./provider.tsx";
 import type { Updater, UpdateState } from "./state.ts";
 import type { UpdateOffer } from "./update-offer.ts";
 import "./top-notice.css";
@@ -22,6 +23,28 @@ async function openTestFlight(url: string) {
 export function UpdateTopNotice(guard: Guard) {
 	const target = useTopNoticeTarget();
 	const context = useOfferedUpdate();
+	const channel = useUpdateSettings()?.state.data?.channel;
+	const latest = useRef(guard);
+	latest.current = guard;
+	const returnToStable = channel === "stable" && browserBeta(window.location.pathname);
+	useEffect(() => {
+		if (!returnToStable) return;
+		let cancelled = false;
+		let timer: ReturnType<typeof setTimeout>;
+		async function leave() {
+			if (cancelled) return;
+			const blocked = () => latest.current.recording || latest.current.busy();
+			const ready = !blocked() && (await latest.current.persist().catch(() => false));
+			if (cancelled) return;
+			if (ready && !blocked()) window.location.replace(releasePath("stable", window.location));
+			else timer = setTimeout(() => void leave(), 1000);
+		}
+		void leave();
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+		};
+	}, [returnToStable]);
 	const updater = useUpdater();
 	const offer = context?.offer;
 	const snapshot = useSyncExternalStore(
@@ -56,7 +79,9 @@ export function UpdateTopNotice(guard: Guard) {
 				: "noticeRestart"
 			: "noticeDownload"
 		: offer.platform === "web"
-			? "noticeReload"
+			? offer.channel === "beta" && !browserBeta(window.location.pathname)
+				? "noticeBeta"
+				: "noticeReload"
 			: "noticeTestFlight";
 	if (!target) return null;
 	return createPortal(
@@ -83,7 +108,7 @@ function TopNotice({
 }: {
 	offer: UpdateOffer;
 	guard: Guard;
-	action: "noticeRestart" | "androidInstall" | "noticeDownload" | "noticeReload" | "noticeTestFlight";
+	action: "noticeRestart" | "androidInstall" | "noticeDownload" | "noticeReload" | "noticeBeta" | "noticeTestFlight";
 	acknowledge: (offer: UpdateOffer) => void;
 	dismiss: (id: string) => void;
 	updater: Updater | null;
@@ -151,7 +176,9 @@ function TopNotice({
 			}
 			if (offer.platform === "web") {
 				dismiss(offer.id);
-				window.location.reload();
+				const channel = offer.channel === "beta" ? "beta" : "stable";
+				if (browserBeta(window.location.pathname) === (channel === "beta")) window.location.reload();
+				else window.location.assign(releasePath(channel, window.location));
 			} else if (offer.platform === "ios" && offer.url) {
 				await openTestFlight(offer.url);
 				if (mounted.current) dismiss(offer.id);

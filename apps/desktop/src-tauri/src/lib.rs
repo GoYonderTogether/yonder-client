@@ -29,6 +29,8 @@ mod contact_window;
 
 #[cfg(desktop)]
 mod desktop_tray;
+#[cfg(desktop)]
+mod desktop_update;
 
 #[cfg(desktop)]
 mod connector_tools;
@@ -147,6 +149,7 @@ pub fn run() {
             desktop_tray::tray_get_activity,
             desktop_tray::tray_publish_activity,
             desktop_tray::tray_panel_action,
+            desktop_update::restore_channel_update,
             contact_window::open_add_contacts,
             contact_window::request_main_session,
             contact_window::provide_contacts_session,

@@ -3,6 +3,7 @@
  * so the About section and the server can be compared without asking the network.
  */
 export const BUILD_VERSION: string = __YONDER_VERSION__;
+export const NATIVE_BUILD_CHANNEL = import.meta.env.VITE_YONDER_BUILD_CHANNEL === "beta" ? "beta" : "stable";
 
 /** The production API origin, used by a shell build that was not given one at build time. */
 export const PRODUCTION_API_ORIGIN = "https://yonderbot.net";

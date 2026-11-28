@@ -32,6 +32,8 @@ import { resetMeetingRecorder } from "../lib/meeting-recorder.ts";
 import { isNativeMobileNotifications } from "../lib/native-notifications.ts";
 import { isIosHomeScreenWebApp } from "../lib/platform.ts";
 import { ProviderRelayRuntime, providerRelaySupported } from "../lib/provider-relay-runtime.tsx";
+import { BetaWebAccess } from "../updates/beta-web-access.tsx";
+import { browserBeta } from "../updates/channel-path.ts";
 import { UpdateOfferProvider, UpdateProvider } from "../updates/provider.tsx";
 import { AppNoticeProvider } from "./app-notice.tsx";
 import { ConnectorContinuationNotices } from "./connector-continuation-notices.tsx";
@@ -125,14 +127,18 @@ function Localised() {
 					<LocalFilesRuntime files={localFilesSupported()} apple={appleResourcesSupported()} />
 				) : null}
 				{providerRelaySupported() ? <ProviderRelayRuntime /> : null}
-				<UpdateProvider>
-					<UpdateOfferProvider
-						owner={signedIn && registration.isSuccess && !isContactWindow() ? personId : undefined}
-						devicePlatform={device.platform}
-					>
-						<AppRouter />
-					</UpdateOfferProvider>
-				</UpdateProvider>
+				<UpdateOfferProvider
+					owner={signedIn && !isContactWindow() ? personId : undefined}
+					offersEnabled={registration.isSuccess}
+					devicePlatform={device.platform}
+					activePreview={!isTauri() && browserBeta(window.location.pathname)}
+				>
+					<UpdateProvider>
+						<BetaWebAccess owner={signedIn ? personId : undefined}>
+							<AppRouter />
+						</BetaWebAccess>
+					</UpdateProvider>
+				</UpdateOfferProvider>
 			</AppNoticeProvider>
 		</I18nextProvider>
 	);

@@ -1,13 +1,61 @@
-import { ListGroup, ListRow } from "@yonder/ui-components";
-import { useState, useSyncExternalStore } from "react";
+import { ListGroup, ListRow, ListSwitch } from "@yonder/ui-components";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
-import { useUpdater } from "./provider.tsx";
+import { useOfferedUpdate, useUpdater, useUpdateSettings } from "./provider.tsx";
 import { RestartUpdateDialog } from "./restart-dialog.tsx";
 import type { Updater } from "./state.ts";
 
 export function UpdateControls() {
 	const updater = useUpdater();
-	return updater ? <UpdateControlsView updater={updater} /> : null;
+	const { t } = useTranslation();
+	const settings = useUpdateSettings();
+	const refresh = useOfferedUpdate()?.refresh;
+	const [checking, setChecking] = useState(false);
+	const [message, setMessage] = useState<"upToDate" | "checkFailed">();
+	const eligible = settings?.state.data?.betaEnabled === true;
+	const canRefreshSettings = settings?.state.isEnabled;
+	const refreshSettings = settings?.state.refetch;
+	useEffect(() => {
+		if (canRefreshSettings) void refreshSettings?.({ cancelRefetch: false });
+	}, [canRefreshSettings, refreshSettings]);
+	if (!eligible) return updater ? <UpdateControlsView updater={updater} /> : null;
+
+	async function checkOffer() {
+		setChecking(true);
+		setMessage(undefined);
+		try {
+			if (!(await refresh?.())) setMessage("upToDate");
+		} catch {
+			setMessage("checkFailed");
+		} finally {
+			setChecking(false);
+		}
+	}
+
+	const status = settings.change.isError ? "channelFailed" : checking ? "checking" : message;
+	return (
+		<>
+			<ListGroup footer={status ? <span role="status">{t(`me.update.${status}`)}</span> : undefined}>
+				<ListSwitch
+					title={t("me.update.beta")}
+					checked={settings.state.data?.channel === "beta"}
+					disabled={settings.change.isPending}
+					onChange={(checked) => {
+						setMessage(undefined);
+						settings.change.mutate(checked ? "beta" : "stable");
+					}}
+				/>
+				{!updater ? (
+					<ListRow
+						title={t("me.update.check")}
+						disabled={checking || settings.change.isPending}
+						onClick={() => void checkOffer()}
+					/>
+				) : null}
+			</ListGroup>
+			{updater ? <UpdateControlsView updater={updater} /> : null}
+		</>
+	);
 }
 
 export function UpdateControlsView({ updater }: { updater: Updater }) {

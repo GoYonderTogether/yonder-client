@@ -17,7 +17,9 @@ import {
 	useSearchParams,
 } from "react-router";
 import { defaultMessagePath } from "../lib/default-message-path.ts";
+import { isTauri } from "../lib/keychain.ts";
 import { Splash } from "../pages/splash.tsx";
+import { BETA_PATH, browserBeta } from "../updates/channel-path.ts";
 import { ChunkBoundary } from "./chunk-boundary.tsx";
 import { preloadFrameView } from "./lazy-tabs.ts";
 import { MemberCardRoute, preloadMemberCard } from "./member-card-route.tsx";
@@ -51,9 +53,10 @@ const publicRoutes = [
 ];
 
 export function preloadPublicEntry(pathname: string) {
-	const route = publicRoutes.find(({ path }) => matchPath(path, pathname));
+	const localPath = !isTauri() && browserBeta(pathname) ? pathname.slice(BETA_PATH.length) || "/" : pathname;
+	const route = publicRoutes.find(({ path }) => matchPath(path, localPath));
 	if (route) void route.load().catch(() => undefined);
-	else preloadMemberCard(pathname);
+	else preloadMemberCard(localPath);
 }
 
 const SetupPage = lazy(() => import("../pages/setup/setup-page.tsx").then((module) => ({ default: module.SetupPage })));
@@ -67,7 +70,8 @@ const ComponentsPage = import.meta.env.DEV ? lazy(() => import("../dev/component
 const TimelinePreviewPage = import.meta.env.DEV ? lazy(() => import("../dev/timeline-preview.tsx")) : null;
 const DeveloperPanel = import.meta.env.DEV ? lazy(() => import("../dev/panel/index.tsx")) : null;
 
-const router = createBrowserRouter([{ path: "*", element: <AppRoutes /> }]);
+const preview = typeof window !== "undefined" && !isTauri() && browserBeta(window.location.pathname);
+const router = createBrowserRouter([{ path: "*", element: <AppRoutes /> }], preview ? { basename: BETA_PATH } : {});
 
 export function AppRouter() {
 	return <RouterProvider router={router} />;

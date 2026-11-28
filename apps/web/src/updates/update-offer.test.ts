@@ -31,3 +31,11 @@ test("TestFlight accepts only an exact HTTPS Apple invitation approved by the se
 		url,
 	});
 });
+
+test("only an installed beta can be offered an older stable Web or desktop build", () => {
+	const release = { ...candidate, version: "0.3.97" };
+	expect(readUpdateOffer({ release }, "web", "beta", "0.3.98", "beta")).toEqual(release);
+	expect(readUpdateOffer({ release }, "web", "beta", "0.3.98")).toBeNull();
+	const android = { ...release, platform: "android" };
+	expect(readUpdateOffer({ release: android }, "android", "stable", "0.3.98", "beta")).toBeNull();
+});

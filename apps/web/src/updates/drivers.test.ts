@@ -57,3 +57,25 @@ test("desktop uses Tauri download then user-initiated install and relaunch", asy
 	expect(update.install).toHaveBeenCalledOnce();
 	expect(relaunch).toHaveBeenCalledOnce();
 });
+
+test("Android rechecks the candidate channel before handing off a staged beta installer", async () => {
+	const { invoke } = await import("@tauri-apps/api/core");
+	vi.mocked(invoke).mockClear();
+	vi.mocked(invoke).mockImplementation(async (command) =>
+		command === "plugin:android-update|versionCode" ? ({ versionCode: 26111501 } as never) : (undefined as never),
+	);
+	const manifest = {
+		version: "0.3.26111502",
+		versionCode: 26111502,
+		url: "https://dl.zethai.cn/android/yonder-0.3.26111502.apk",
+		sha256: "b".repeat(64),
+	};
+	const offer = { id: "beta", channel: "beta", platform: "android", version: manifest.version, manifest } as const;
+	const read = vi.fn().mockResolvedValueOnce(offer).mockResolvedValueOnce(null);
+	const candidate = await updateDriver("android", read).check();
+	expect(candidate).toBeTruthy();
+	await candidate?.download(() => {});
+	expect(invoke).not.toHaveBeenCalledWith("plugin:android-update|latest");
+	await expect(candidate?.install?.()).rejects.toThrow("Update is no longer available");
+	expect(invoke).not.toHaveBeenCalledWith("plugin:android-update|install", expect.anything());
+});

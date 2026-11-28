@@ -11,6 +11,7 @@ import { isTauri } from "./lib/keychain.ts";
 import { initializeNativeMobile } from "./lib/platform.ts";
 import { isTrayPanel } from "./lib/tray-bridge.ts";
 import { registerWebAppWorker } from "./lib/web-push.ts";
+import { browserBeta } from "./updates/channel-path.ts";
 
 initializeNativeMobile();
 setShellHaptics(haptic);
@@ -22,6 +23,12 @@ const tray = isTrayPanel();
 if (!tray) preloadPublicEntry(location.pathname);
 createRoot(root).render(<StrictMode>{tray ? <TrayPanel /> : <App />}</StrictMode>);
 
-if (import.meta.env.PROD && !isTauri() && window.isSecureContext && "serviceWorker" in navigator) {
+if (
+	import.meta.env.PROD &&
+	!isTauri() &&
+	!browserBeta(window.location.pathname) &&
+	window.isSecureContext &&
+	"serviceWorker" in navigator
+) {
 	window.addEventListener("load", () => void registerWebAppWorker().catch(() => {}), { once: true });
 }

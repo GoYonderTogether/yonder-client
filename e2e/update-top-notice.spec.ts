@@ -122,6 +122,10 @@ async function prepare(page: Page, platform: Shell, absent = false, holdStage = 
 			},
 			{ platform, currentVersion, version, versionCode, sha, holdStage },
 		);
+	if (platform === "ios" && !absent)
+		await page.route("**/v1/me/update-channel", (route) =>
+			route.fulfill({ json: { betaEnabled: true, channel: "beta" } }),
+		);
 	const post: unknown[] = [];
 	const get: string[] = [];
 	await page.route("**/v1/devices/update**", async (route) => {
@@ -344,11 +348,7 @@ test.describe("Android", () => {
 
 test.describe("iOS", () => {
 	test.use(ios);
-	test("internal build opens only the confirmed Apple invitation upon explicit click", async ({ page }, info) => {
-		test.skip(
-			process.env.YONDER_TESTFLIGHT_FIXTURE !== "1",
-			"Build this isolated browser fixture with the TestFlight internal channel",
-		);
+	test("an eligible account opens only the confirmed Apple invitation upon explicit click", async ({ page }, info) => {
 		const { notice, get } = await prepare(page, "ios");
 		await assertSingleLine(notice, "打开 TestFlight");
 		expect(get).toContain("testflight-internal");
@@ -459,4 +459,63 @@ test.describe("Web", () => {
 		await expect(text).toHaveValue("不能丢掉的本地草稿。");
 		expect(navigated).toBe(false);
 	});
+});
+
+test("a granted account can enter and leave the beta with its chat intact, while ordinary accounts stay stable", async ({
+	page,
+	browser,
+}, info) => {
+	const history = "正式版和测试版都能打开这条原有消息。";
+	let channel: "stable" | "beta" = "stable";
+	let betaEnabled = true;
+	await isolateChat(page, { items: [message("shared-preview-history", history, true)] });
+	await page.route("**/v1/me/update-channel", async (route) => {
+		if (route.request().method() === "PUT") {
+			const desired = (route.request().postDataJSON() as { channel: "stable" | "beta" }).channel;
+			channel = betaEnabled ? desired : "stable";
+		}
+		await route.fulfill({ json: { betaEnabled, channel } });
+	});
+	await page.goto("/beta/me/about?beta-setup=1");
+	const selectBeta = () => page.getByRole("switch", { name: "更新到最新测试版" });
+	await expect(selectBeta()).toBeVisible();
+	await expect(selectBeta()).not.toBeChecked();
+	await selectBeta().click();
+	await expect(page).toHaveURL(/\/beta\/me\/about$/);
+	await expect(selectBeta()).toBeChecked();
+	await page.screenshot({ path: info.outputPath("beta-update-settings.png"), animations: "disabled" });
+	await page.goto("/beta/messages/main");
+	await expect(page.getByText(history)).toBeVisible();
+
+	await page.goto("/beta/me/about");
+	await selectBeta().click();
+	await expect(page).toHaveURL(/\/me\/about$/);
+	await expect(page).not.toHaveURL(/\/beta\//);
+	await expect(selectBeta()).not.toBeChecked();
+	await page.goto("/messages/main");
+	await expect(page.getByText(history)).toBeVisible();
+
+	channel = "beta";
+	await page.goto("/beta/messages/main");
+	await expect(page.getByText(history)).toBeVisible();
+	betaEnabled = false;
+	channel = "stable";
+	await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
+	await expect(page).toHaveURL(/\/messages\/main$/);
+	await expect(page).not.toHaveURL(/\/beta\//);
+	await expect(page.getByText(history)).toBeVisible();
+
+	const ordinaryContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+	try {
+		const ordinary = await ordinaryContext.newPage();
+		await isolateChat(ordinary, { items: [] });
+		await ordinary.route("**/v1/me/update-channel", (route) =>
+			route.fulfill({ json: { betaEnabled: false, channel: "stable" } }),
+		);
+		await ordinary.goto("/beta/me/about?beta-setup=1");
+		await expect(ordinary).not.toHaveURL(/\/beta\//);
+		await expect(ordinary.getByRole("switch", { name: "更新到最新测试版" })).toHaveCount(0);
+	} finally {
+		await ordinaryContext.close();
+	}
 });

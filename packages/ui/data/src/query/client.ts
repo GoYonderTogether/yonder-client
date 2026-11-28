@@ -38,6 +38,7 @@ export const dehydrateOptions: DehydrateOptions = {
 			"member-profile",
 			"agent-card",
 			"provider-device-endpoints",
+			"update-channel",
 		].includes(String(query.queryKey[0])) &&
 		(defaultShouldDehydrateQuery(query) ||
 			(isMessageHistory(query.queryKey) &&

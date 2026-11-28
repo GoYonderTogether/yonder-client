@@ -254,6 +254,11 @@ export const accountMessagesZhCN = {
 			restartConfirm:
 				"现在重启安装更新？这会关闭客户端。正在录音会先保存，重启后自动接着录；上传会在重启后继续。其他本地任务可能被中断，请先完成或保存工作。本地操作可能已生效但未回执，请勿自动重试；不能保证任务自动恢复。",
 			check: "检查更新",
+			channelTitle: "更新渠道",
+			channelFailed: "更新渠道切换失败，请重试",
+			beta: "更新到最新测试版",
+			stable: "返回正式版",
+			noticeBeta: "打开测试版",
 			checking: "正在检查更新…",
 			upToDate: "已是最新版本",
 			available: "发现新版本 {{version}}",

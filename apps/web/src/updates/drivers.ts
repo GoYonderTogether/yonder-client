@@ -1,6 +1,7 @@
-import { BUILD_VERSION } from "../lib/config.ts";
+import { BUILD_VERSION, NATIVE_BUILD_CHANNEL } from "../lib/config.ts";
 import { isTauri } from "../lib/keychain.ts";
 import type { UpdateCandidate, UpdateDriver, UpdatePlatform } from "./state.ts";
+import type { UpdateOffer } from "./update-offer.ts";
 import { compareVersions } from "./version.ts";
 
 export function updatePlatform(): UpdatePlatform | null {
@@ -11,13 +12,45 @@ export function updatePlatform(): UpdatePlatform | null {
 	return /Macintosh|Mac OS X|Windows/i.test(ua) ? "desktop" : null;
 }
 
-export function updateDriver(platform: UpdatePlatform): UpdateDriver {
-	return { platform, check: platform === "desktop" ? checkDesktop : checkAndroid };
+type ReadOffer = () => Promise<UpdateOffer | null>;
+
+export function updateDriver(platform: UpdatePlatform, readOffer?: ReadOffer): UpdateDriver {
+	return {
+		platform,
+		async check() {
+			const offer = readOffer ? await readOffer() : null;
+			if (readOffer && !offer?.manifest) return null;
+			const candidate = await (platform === "desktop" ? checkDesktop(offer) : checkAndroid(offer));
+			if (!candidate || !offer || !readOffer) return candidate;
+			if (candidate.version !== offer.version) {
+				await candidate.close?.();
+				throw new Error("Update version changed");
+			}
+			return {
+				...candidate,
+				async install() {
+					if ((await readOffer())?.id !== offer.id) throw new Error("Update is no longer available");
+					await candidate.install?.();
+				},
+			};
+		},
+	};
 }
 
-async function checkDesktop(): Promise<UpdateCandidate | null> {
-	const { check } = await import("@tauri-apps/plugin-updater");
-	const update = await check();
+async function checkDesktop(offer: UpdateOffer | null): Promise<UpdateCandidate | null> {
+	const updater = await import("@tauri-apps/plugin-updater");
+	let update: Awaited<ReturnType<typeof updater.check>>;
+	if (offer?.manifest) {
+		const { invoke } = await import("@tauri-apps/api/core");
+		const metadata = await invoke<ConstructorParameters<typeof updater.Update>[0] | null>("restore_channel_update", {
+			manifest: offer.manifest,
+			expectedVersion: offer.version,
+			returningToStable: NATIVE_BUILD_CHANNEL === "beta" && offer.channel === "stable",
+		});
+		update = metadata ? new updater.Update(metadata) : null;
+	} else {
+		update = await updater.check();
+	}
 	if (!update) return null;
 	let downloaded = 0;
 	let total = 0;
@@ -83,11 +116,11 @@ export function parseAndroidManifest(value: unknown): AndroidManifest {
 	};
 }
 
-async function checkAndroid(): Promise<UpdateCandidate | null> {
+async function checkAndroid(offer: UpdateOffer | null): Promise<UpdateCandidate | null> {
 	const { invoke, Channel } = await import("@tauri-apps/api/core");
 	const [current, raw] = await Promise.all([
 		invoke<{ versionCode: number }>("plugin:android-update|versionCode"),
-		invoke<unknown>("plugin:android-update|latest"),
+		offer?.manifest ?? invoke<unknown>("plugin:android-update|latest"),
 	]);
 	if (!Number.isSafeInteger(current.versionCode) || current.versionCode < 1)
 		throw new Error("Invalid installed version");
