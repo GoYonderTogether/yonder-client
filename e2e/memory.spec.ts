@@ -256,16 +256,16 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 		await expect(page.getByRole("main").getByRole("button", { name: /会后决定/ })).toBeVisible();
 	}
 	await page.getByRole("button", { name: /周会纪要/ }).click();
-	await expect(page).toHaveURL(phone ? directoryRoute : /\/memory\/files\/.+$/);
-	const reader = (phone ? pane : page.getByRole("main"))
+	await expect(page).toHaveURL((url) => url.pathname === memoryFileRoute(notePath));
+	const reader = page
+		.getByRole("main")
 		.getByRole("article")
 		.filter({ has: page.getByRole("heading", { name: "周会纪要" }) });
 	await expect(reader.getByRole("button", { name: "星期三周会" })).toBeVisible();
 	await reader.getByRole("button", { name: "编辑" }).click();
 	const editor = reader.getByRole("textbox", { name: "正文" });
 	await editor.fill("发布窗口已确认。");
-	if (phone) await closePane();
-	else await page.getByRole("button", { name: "返回", exact: true }).click();
+	await page.getByRole("button", { name: "返回", exact: true }).click();
 	const discard = page.getByRole("dialog", { name: "放弃更改", exact: true });
 	await discard.getByRole("button", { name: "取消", exact: true }).click();
 	await expect(editor).toHaveValue("发布窗口已确认。");

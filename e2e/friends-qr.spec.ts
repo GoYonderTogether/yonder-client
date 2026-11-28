@@ -95,6 +95,8 @@ test("mobile friend search sends a pending request and clearing search restores 
 test("invitation rules, share card and downloaded PNG retain the real invitation QR", async ({ page }) => {
 	await mkdir(previewDir, { recursive: true });
 	await isolateChat(page);
+	// The browser's fallback opens the same poster used by the explicit invitation-card action.
+	await page.addInitScript(() => Object.defineProperty(navigator, "share", { value: undefined }));
 	await page.route("**/v1/me", (route) =>
 		route.fulfill({
 			json: {
@@ -118,19 +120,20 @@ test("invitation rules, share card and downloaded PNG retain the real invitation
 		}),
 	);
 	await page.goto("/me/invite");
-	await expect(page.getByRole("button", { name: "立即分享" })).toBeVisible();
+	await expect(page.getByRole("button", { name: "分享", exact: true })).toBeVisible();
 	await page.screenshot({ path: `${previewDir}/invite-mobile.png`, animations: "disabled" });
 	await page.getByRole("button", { name: "规则", exact: true }).click();
 	const rules = page.getByRole("dialog", { name: "规则", exact: true });
-	await expect(rules.getByText("isolated-invite", { exact: true })).toBeVisible();
+	await expect(rules.getByText(link, { exact: true })).toBeVisible();
+	await expect(rules.getByText("已有账号不重复获得新用户奖励。", { exact: true })).toBeVisible();
 	await rules.getByRole("button", { name: "关闭", exact: true }).click();
-	await page.getByRole("button", { name: "立即分享" }).click();
+	await page.getByRole("button", { name: "分享", exact: true }).click();
 	const card = page.getByRole("dialog", { name: "邀请卡", exact: true });
 	await expect(card.getByRole("img", { name: "邀请卡", exact: true })).toBeVisible();
-	await expect(card.getByText("生活琐事，", { exact: true })).toBeVisible();
-	await expect(card.getByText("交给 Yonder。", { exact: true })).toBeVisible();
-	await expect(card.getByText("把时间留给真正重要的事。", { exact: true })).toBeVisible();
-	await expect(card.getByText("从日程、待办和零散信息开始。", { exact: true })).toBeVisible();
+	await expect(card.getByText("带着你的上下文，", { exact: true })).toBeVisible();
+	await expect(card.getByText("一起奔向 AGI 时代。", { exact: true })).toBeVisible();
+	await expect(card.getByText("Yonder，你的上下文中心", { exact: true })).toBeVisible();
+	await expect(card.getByText("把散在各处的上下文收进一个 AI，", { exact: true })).toBeVisible();
 	await expectPosterTextInside(card.getByRole("img", { name: "邀请卡", exact: true }));
 	await page.screenshot({ path: `${previewDir}/invite-share-mobile.png`, animations: "disabled" });
 	const downloadPromise = page.waitForEvent("download");
@@ -205,14 +208,14 @@ test("invitation share actions remain opaque with English copy, a long name and 
 		}),
 	);
 	await page.goto("/me/invite");
-	await expect(page.getByRole("button", { name: "Share now" })).toBeVisible();
-	await expect(page.getByText(/We're building a personal AI/)).toBeVisible();
+	await expect(page.getByRole("button", { name: "Share", exact: true })).toBeVisible();
+	await expect(page.getByText(/Bring your context, and let's head into the AGI era/)).toBeVisible();
 	await page.screenshot({ path: `${previewDir}/invite-en-mobile-dark.png`, animations: "disabled" });
-	await page.getByRole("button", { name: "Share now" }).click();
+	await page.getByRole("button", { name: "Invitation card", exact: true }).click();
 	const card = page.getByRole("dialog", { name: "Invitation card", exact: true });
 	const poster = card.getByRole("img", { name: "Invitation card", exact: true });
-	await expect(card.getByText("Life's little tasks,", { exact: true })).toBeVisible();
-	await expect(card.getByText("leave them to Yonder.", { exact: true })).toBeVisible();
+	await expect(card.getByText("Bring your context,", { exact: true })).toBeVisible();
+	await expect(card.getByText("head into the AGI era.", { exact: true })).toBeVisible();
 	await expectPosterTextInside(poster);
 	await page.screenshot({ path: `${previewDir}/invite-share-en-mobile-dark.png`, animations: "disabled" });
 	const colors = await card.locator("button").evaluateAll((buttons) =>

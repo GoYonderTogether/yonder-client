@@ -305,14 +305,21 @@ for (const layout of ["desktop", "mobile"] as const) {
 				route.fulfill({ json: { ...recording, segments, durationMs: 16_000, uploadedDurationMs: 16_000 } }),
 			);
 			const cloudParts: number[] = [];
-			await page.route(`**/v1/meetings/${meetingId}/segments/*/content`, (route) => {
+			const segmentUrl = "https://recording-media.example.test/meeting-part-2.wav";
+			await page.route(`**/v1/meetings/${meetingId}/segments/*/download`, (route) => {
 				expect(route.request().headers().authorization).toBe("Bearer isolated-chat-ui");
 				const index = Number(new URL(route.request().url()).pathname.split("/").at(-2));
 				cloudParts.push(index);
 				if (index !== 2) return route.fulfill({ status: 404, json: { error: { code: "not_found" } } });
+				return route.fulfill({ json: { url: segmentUrl } });
+			});
+			let mediaDownloads = 0;
+			await page.route(segmentUrl, (route) => {
+				expect(route.request().headers().authorization).toBeUndefined();
+				mediaDownloads++;
 				const wav = Buffer.alloc(header.length + 128_000);
 				wav.set(header);
-				return route.fulfill({ contentType: "audio/wav", body: wav });
+				return route.fulfill({ contentType: "audio/wav", body: wav, headers: { "access-control-allow-origin": "*" } });
 			});
 			await page.goto("/messages/main");
 			await page.getByRole("button", { name: `查看录音笔记 · ${recording.title}` }).click();
@@ -399,6 +406,7 @@ for (const layout of ["desktop", "mobile"] as const) {
 			expect(cloudParts).toContain(3);
 			expect(cloudParts).not.toContain(0);
 			expect(cloudParts).not.toContain(1);
+			expect(mediaDownloads).toBe(1);
 			if (layout === "desktop") {
 				await page.setViewportSize({ width: 1024, height: 760 });
 				await expect(slider).toBeVisible();

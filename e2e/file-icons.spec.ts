@@ -15,7 +15,7 @@ const samples = [
 		buffer: readFileSync(`${fixtures}/document.docx`),
 	},
 	{ name: "unknown.bin", mime: "application/octet-stream", type: "generic", buffer: Buffer.from([0, 1, 2, 3]) },
-];
+] as const;
 
 async function color(icon: Locator) {
 	return icon.evaluate((element) => {
@@ -29,7 +29,7 @@ async function color(icon: Locator) {
 	});
 }
 
-test("PDF red, Word blue and unknown blank gray icons stay consistent in sent cards and draft filenames", async ({
+test("PDF, Word and unknown files keep distinct neutral glyphs in sent cards and draft filenames", async ({
 	browser,
 	baseURL,
 }) => {
@@ -78,17 +78,16 @@ test("PDF red, Word blue and unknown blank gray icons stay consistent in sent ca
 					)
 					.toBeCloseTo(0, 1);
 			}
+			const colors = new Map<string, number[]>();
+			const cutouts = { pdf: 2, word: 1, generic: 0 };
 			for (const sample of samples) {
 				const icon = page.locator(`[data-attachment-id="${sample.name}"] .message-attachment-icon > .file-type-icon`);
 				await expect(icon).toHaveAttribute("data-file-type", sample.type);
 				const channels = await color(icon);
 				const [red = 0, green = 0, blue = 0] = channels;
-				if (sample.type === "pdf") expect(red - Math.max(green, blue)).toBeGreaterThan(40);
-				else if (sample.type === "word") expect(blue - red).toBeGreaterThan(40);
-				else {
-					expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThan(15);
-					await expect(icon).toHaveText("");
-				}
+				expect(Math.max(red, green, blue) - Math.min(red, green, blue)).toBeLessThan(15);
+				colors.set(sample.type, channels);
+				await expect(icon.locator("svg mask g > *")).toHaveCount(cutouts[sample.type]);
 			}
 			expect(originalRequests).toBe(0);
 			await page
@@ -99,6 +98,8 @@ test("PDF red, Word blue and unknown blank gray icons stay consistent in sent ca
 				const nameIcon = tile.locator(".composer-file-name > .file-type-icon");
 				await expect(nameIcon).toHaveAttribute("data-file-type", sample.type);
 				await expect(nameIcon).toBeVisible();
+				expect(await color(nameIcon)).toEqual(colors.get(sample.type));
+				await expect(nameIcon.locator("svg mask g > *")).toHaveCount(cutouts[sample.type]);
 				await expect(tile.locator(".composer-file-name")).toContainText(sample.name);
 			}
 			await page.screenshot({ scale: "css", path: `${evidence}/${mobile ? "mobile" : "desktop"}-file-icons.png` });

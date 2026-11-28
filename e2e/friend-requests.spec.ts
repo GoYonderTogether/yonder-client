@@ -108,8 +108,8 @@ for (const mobile of [false, true]) {
 		await expect(accepted).toHaveCount(0);
 		await expect(contacts.getByText("Charlie")).toHaveCount(0);
 		await alice.click();
-		const pane = mobile ? page.locator('[data-page-layer="side"]') : page.locator("[data-detail-pane]");
-		await expect(page).toHaveURL(mobile ? /\/messages$/ : /\/contacts$/);
+		const pane = mobile ? page.locator('[data-page-layer="side"]') : page.getByRole("main");
+		await expect(page).toHaveURL(mobile ? /\/messages$/ : /\/contacts\/profile\/alice$/);
 		await expect(pane.getByRole("heading", { name: "Alice", exact: true })).toBeVisible();
 
 		await page.goto("/messages/notifications");
@@ -198,24 +198,26 @@ test("desktop Contacts keeps its selected tab across widths and navigation", asy
 	await expect(page.getByText("选择联系人查看名片")).toBeVisible();
 	await row.click();
 	const pane = page.locator("[data-detail-pane]");
-	await expect(pane.getByRole("tab", { name: "林晓" })).toBeVisible();
-	await expect(pane.getByRole("heading", { name: "林晓" })).toBeVisible();
-	await expect(page).toHaveURL(/\/contacts$/);
+	const profile = page.getByRole("main").getByRole("heading", { name: "林晓" });
+	await expect(profile).toBeVisible();
+	await expect(pane.getByRole("tab", { name: "林晓" })).toHaveCount(0);
+	await expect(page).toHaveURL(/\/contacts\/profile\/alice$/);
 	await page.screenshot({ path: info.outputPath("desktop-contact-detail.png"), animations: "disabled" });
 
 	await list.getByRole("radio", { name: "好友申请", exact: true }).click();
 	await expect(page).toHaveURL(/\/contacts$/);
 	await expect(page.getByText("选择联系人查看名片")).toHaveCount(0);
 	await expect(list.getByText("暂无好友申请")).toBeVisible();
-	await expect(pane.getByRole("heading", { name: "林晓" })).toBeVisible();
-	await pane.getByRole("button", { name: "关闭全部", exact: true }).click();
+	await expect(profile).toHaveCount(0);
+	await expect(list.getByRole("radio", { name: "好友申请", exact: true })).toBeChecked();
 
 	await list.getByRole("radio", { name: "联系人", exact: true }).click();
 	await page.setViewportSize({ width: 500, height: 900 });
 	await row.click();
-	await expect(pane.getByRole("heading", { name: "林晓" })).toBeVisible();
+	await expect(profile).toBeVisible();
+	await expect(page).toHaveURL(/\/contacts\/profile\/alice$/);
+	await page.getByRole("button", { name: "返回", exact: true }).click();
 	await expect(page).toHaveURL(/\/contacts$/);
-	await pane.getByRole("button", { name: "关闭全部", exact: true }).click();
 	await expect(contacts).toHaveAttribute("aria-current", "page");
 	await page.reload();
 	await expect(row).toBeVisible();
@@ -223,8 +225,8 @@ test("desktop Contacts keeps its selected tab across widths and navigation", asy
 	await expect(page).toHaveURL(/\/tasks$/);
 	await expect(rail.getByRole("button", { name: "任务", exact: true })).toHaveAttribute("aria-current", "page");
 	await page.goto("/contacts/profile/alice");
-	await expect(page.getByRole("main").getByRole("heading", { name: "林晓" })).toBeVisible();
-	await expect(pane).toHaveCount(0);
+	await expect(profile).toBeVisible();
+	await expect(pane.getByRole("tab", { name: "林晓" })).toHaveCount(0);
 	await page.goto("/@alice");
 	await expect(page.getByRole("heading", { name: "林晓" })).toBeVisible();
 	await expect(pane).toHaveCount(0);

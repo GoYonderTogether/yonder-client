@@ -70,16 +70,13 @@ for (const mobile of [false, true]) {
 				expect(await card.evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(
 					(await card.evaluate((node) => node.clientWidth)) + 2,
 				);
-				await expect(card.locator("svg[stroke-linecap=round] path").first()).toHaveAttribute(
-					"d",
-					"M4 10v4 M7.2 6.5v11 M10.4 2.5v19 M13.6 7.5v9 M16.8 4.5v15 M20 9v6",
-				);
+				await expect(card.locator('svg[viewBox="0 0 48 48"] g[mask] rect')).toHaveCount(5);
 			}
 			await page.screenshot({ path: info.outputPath("recording-history.png"), animations: "disabled", scale: "css" });
 
 			await page.getByRole("button", { name: "添加附件" }).click();
 			const entry = page.getByRole("button", { name: "录音笔记", exact: true });
-			await expect(entry.locator("svg path")).toHaveAttribute("d", /^M4 10v4/);
+			await expect(entry.locator('svg[viewBox="0 0 48 48"] g[mask] rect')).toHaveCount(5);
 			await page.screenshot({ path: info.outputPath("recording-entry.png"), animations: "disabled", scale: "css" });
 
 			await page.goto("/messages");

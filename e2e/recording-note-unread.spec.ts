@@ -43,6 +43,9 @@ test("opening the owning Bot chat reads the recording capsule and leaves later u
 		return route.fulfill({ json: { ok: true } });
 	});
 
+	const warmHistory = page.waitForResponse(
+		(response) => new URL(response.url()).pathname === `/v1/conversations/${conversation.id}/messages`,
+	);
 	await page.goto("/messages");
 	const nav = page.getByRole("navigation", { name: "主导航" });
 	const mainBot = nav.getByRole("button", { name: bot.displayName, exact: true });
@@ -51,6 +54,7 @@ test("opening the owning Bot chat reads the recording capsule and leaves later u
 	const row = page.getByRole("list", { name: "消息" }).getByRole("button", { name: new RegExp(bot.displayName) });
 	await expect(badge(mainBot)).toBeVisible();
 	await expect(row).toHaveCount(0);
+	await warmHistory;
 	expect(reads).toEqual([]);
 	await page.screenshot({ path: testInfo.outputPath("recording-unread-before-opening.png") });
 

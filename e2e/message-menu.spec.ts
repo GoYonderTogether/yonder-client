@@ -17,7 +17,7 @@ const longText =
 	"这是一段足够长的中文，用来确认聊天气泡的正文会排满自己的行，并且多行气泡仍然是一个完整矩形，不会因为头像而变窄或被切断。";
 const messageMenu = (page: Page) => page.getByRole("menu", { name: "消息菜单" });
 const composer = (page: Page) => page.getByRole("textbox", { name: /^对 / });
-const profile = (page: Page) => page.getByRole("dialog", { name: "资料", exact: true });
+const desktopProfile = (page: Page) => page.locator("[data-detail-pane]");
 
 function fromMember(id: string, body: string): Message {
 	return { ...message(id, body), senderId: member.memberId, senderKind: member.kind };
@@ -88,18 +88,20 @@ test("the name, avatar and Bot tag open the profile or the owner's Bot settings"
 	await expect(menuTarget.locator("[data-message-sender-name]")).toHaveText(member.displayName);
 	await expect(menuTarget.locator("[data-message-sender-avatar]")).toBeVisible();
 	await other.locator("[data-message-sender-name]").click();
-	const card = profile(page);
+	const card = desktopProfile(page);
+	await expect(card.getByRole("tab", { name: member.displayName })).toHaveAttribute("aria-selected", "true");
 	await expect(card.getByRole("heading", { name: member.displayName })).toBeVisible();
-	await card.getByRole("button", { name: "关闭", exact: true }).click();
-	await expect(card).toBeHidden();
+	await card.getByRole("button", { name: "关闭全部", exact: true }).click();
+	await expect(card.getByRole("tab", { name: member.displayName })).toHaveCount(0);
 	await expect(composer(page)).toHaveValue("");
 
 	const botRun = run(bot.id);
 	await expect(botRun.locator("[data-message-avatar-button] [data-bot-label]")).toBeVisible();
 	await botRun.locator("[data-bot-label]").click();
-	const settings = page.getByRole("dialog", { name: bot.displayName, exact: true });
+	const settings = desktopProfile(page);
+	await expect(settings.getByRole("tab", { name: bot.displayName })).toHaveAttribute("aria-selected", "true");
 	await expect(settings.getByRole("button", { name: /^基本资料/ })).toBeVisible();
-	await settings.getByRole("button", { name: "关闭", exact: true }).click();
+	await settings.getByRole("button", { name: "关闭全部", exact: true }).click();
 	await botRun.locator("[data-message-sender-avatar]").click({ button: "right" });
 	await messageMenu(page).getByRole("menuitem", { name: "查看资料" }).click();
 	await expect(settings.getByRole("button", { name: /^基本资料/ })).toBeVisible();
@@ -112,9 +114,10 @@ test("right-clicking another group member's avatar offers profile and a bound @ 
 	await avatar.click({ button: "right" });
 	await expect(menu.getByRole("menuitem")).toHaveText(["查看资料", "@Ta"]);
 	await menu.getByRole("menuitem", { name: "查看资料" }).click();
-	const card = profile(page);
+	const card = desktopProfile(page);
+	await expect(card.getByRole("tab", { name: member.displayName })).toHaveAttribute("aria-selected", "true");
 	await expect(card.getByRole("heading", { name: member.displayName })).toBeVisible();
-	await card.getByRole("button", { name: "关闭", exact: true }).click();
+	await card.getByRole("button", { name: "关闭全部", exact: true }).click();
 
 	await avatar.click({ button: "right" });
 	await menu.getByRole("menuitem", { name: "@Ta" }).click();
@@ -256,7 +259,7 @@ test.describe("touch", () => {
 		const { run } = await openGroup(page);
 		const sender = run(member.memberId);
 		const avatar = sender.locator("[data-message-sender-avatar]");
-		const card = profile(page);
+		const card = page.getByRole("dialog", { name: member.displayName, exact: true });
 		await avatar.tap();
 		await expect(card.getByRole("heading", { name: member.displayName })).toBeVisible();
 		await card.getByRole("button", { name: "返回", exact: true }).click();

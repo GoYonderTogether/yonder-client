@@ -243,7 +243,8 @@ export function ConversationPage({
 		item || conversation?.visit?.role === "visitor" ? undefined : agent?.memberId,
 	);
 	const quota = useQuota();
-	const messages = useMessages(conversationId);
+	// The frame can prefetch history before this view opens. Verify the latest history when opening an unread chat.
+	const messages = useMessages(conversationId, Boolean(item || conversation?.unreadCount));
 	const { fetchNextPage } = messages;
 	const loadEarlier = useCallback(() => void fetchNextPage({ cancelRefetch: false }), [fetchNextPage]);
 	const actions = useRunActions();
