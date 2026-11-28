@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112804] - 2026-11-28
+
+### Added
+
+- connectors：administrator execution as computer_shell's elevated argument
+
 ## [0.3.26112803] - 2026-11-28
 
 ### Fixed
