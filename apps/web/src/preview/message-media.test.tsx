@@ -4,32 +4,28 @@ import type { Attachment } from "@yonder/protocol";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { getAttachmentDownloadItem, MessageAttachments } from "../pages/message-attachments.tsx";
 
-const { cached, fetchContent, readChatCache } = vi.hoisted(() => ({
+const { cached, fetchContent } = vi.hoisted(() => ({
 	cached: new Map<string, Blob>(),
 	fetchContent: vi.fn(),
-	readChatCache: vi.fn(),
 }));
 
 vi.mock("@yonder/ui-data", () => ({
 	useApi: () => api,
 	usePerson: () => ({ id: "me" }),
-	attachmentCacheKey: (_owner: string, id: string) => id,
 	chatCacheGeneration: () => 0,
-	readChatCache,
-	writeChatCache: async (key: string, blob: Blob) => cached.set(key, blob),
-	onImageInvalidated: () => () => {},
-	loadImage: async (
+	onMediaInvalidated: () => () => {},
+	loadMedia: async (
 		_owner: string,
 		{ attachmentId }: { attachmentId: string },
 		variant: "thumb" | "original",
-		sign: () => Promise<{ url: string | null }>,
-		local: () => Promise<Blob>,
+		download?: { sign: () => Promise<{ url: string | null }>; local: () => Promise<Blob> },
 	) => {
 		const key = `${variant}:${attachmentId}`;
-		const existing = cached.get(key);
+		const existing = cached.get(key) ?? cached.get(attachmentId);
 		if (existing) return { blob: existing };
-		expect(await sign()).toEqual({ url: null });
-		const blob = await local();
+		if (!download) return;
+		expect(await download.sign()).toEqual({ url: null });
+		const blob = await download.local();
 		cached.set(key, blob);
 		return { blob };
 	},
@@ -54,7 +50,6 @@ beforeEach(() => {
 	cached.clear();
 	fetchContent.mockReset();
 	api.attachmentDownload.mockClear();
-	readChatCache.mockReset().mockImplementation(async (id: string) => cached.get(id));
 	download.mockClear();
 	vi.stubGlobal(
 		"IntersectionObserver",
@@ -108,6 +103,7 @@ test("downloads cached original bytes without fetching", async () => {
 	await act(item(file.name).run);
 	expect(download).toHaveBeenCalledExactlyOnceWith(file.name, "blob:original-6");
 	expect(fetchContent).not.toHaveBeenCalled();
+	expect(api.attachmentDownload).not.toHaveBeenCalled();
 });
 
 test("fetches an uncached original before downloading it", async () => {

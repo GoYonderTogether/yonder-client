@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Page, State } from "../../components/ui";
 import { useResource } from "../../components/use-resource";
 import { t, useLocale } from "../../lib/i18n";
-import { metadataKey, readSnapshot, timelinePageAffected } from "../../lib/metadata-cache";
-import { api, invalidateImages, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
+import { metadataKey, readSnapshot, timelinePageAffected, timelineSnapshot } from "../../lib/metadata-cache";
+import { api, invalidateAttachmentMedia, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
 import { MessageAttachment } from "../chat/attachment";
 import { MessageBody } from "../chat/markdown";
 import { affectsMemory } from "./realtime";
@@ -250,9 +250,9 @@ function timelineImages(page: MemoryDayPage) {
 }
 
 function reconcileTimelineImages(before: MemoryDayPage, after: MemoryDayPage) {
-	const current = new Set(timelineImages(after));
+	const current = new Set(timelineImages(timelineSnapshot(after)));
 	const days = before.items.filter((day) => timelinePageAffected(after, [day.date], false));
-	invalidateImages(timelineImages({ ...before, items: days }).filter((id) => !current.has(id)));
+	invalidateAttachmentMedia(timelineImages({ ...before, items: days }).filter((id) => !current.has(id)));
 }
 
 function TimelineBlock({ block, now }: { block: MemoryBlock; now: number | undefined }) {
@@ -291,7 +291,12 @@ function TimelineCard({ entry, now }: { entry: MemoryEntry; now: number | undefi
 				.filter(({ attachment }) => attachment.kind === "image")
 				.slice(0, 4)
 				.map(({ attachment }) => (
-					<MessageAttachment key={attachment.id} file={attachment} timeline />
+					<MessageAttachment
+						key={attachment.id}
+						file={attachment}
+						timeline
+						persistent={entry.visibility !== "secret"}
+					/>
 				))}
 			{sources.length ? <Text className="mini-muted">{sources.join(t("、", ", "))}</Text> : null}
 		</View>

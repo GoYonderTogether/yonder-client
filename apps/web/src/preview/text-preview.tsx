@@ -1,12 +1,11 @@
-import { useApi } from "@yonder/ui-data";
 import { useEffect, useState } from "react";
 import { decodeAttachmentText } from "../lib/attachment-text.ts";
 import { MessageContent } from "../pages/message-content.tsx";
 import type { PreviewFile } from "./file-kind.ts";
+import { readLegacyWord } from "./legacy-word.ts";
 import { usePreviewTranslation } from "./preview-i18n.ts";
 
 export function TextPreview({ file, kind }: { file: PreviewFile; kind: "text" | "markdown" | "doc" }) {
-	const api = useApi();
 	const t = usePreviewTranslation();
 	const [text, setText] = useState<string>();
 	const [partial, setPartial] = useState(false);
@@ -22,12 +21,7 @@ export function TextPreview({ file, kind }: { file: PreviewFile; kind: "text" | 
 		setPartial(false);
 		void (async () => {
 			if (kind === "doc") {
-				const result = file.id
-					? await api.attachmentPreviewText(file.id, controller.signal)
-					: await api.previewAttachmentText(
-							new File([file.blob], file.name, { type: file.mimeType }),
-							controller.signal,
-						);
+				const result = await readLegacyWord(file.blob, controller.signal);
 				if (active) {
 					setText(result.text);
 					setPartial(result.truncated);
@@ -44,7 +38,7 @@ export function TextPreview({ file, kind }: { file: PreviewFile; kind: "text" | 
 			active = false;
 			controller.abort();
 		};
-	}, [file, kind, api]);
+	}, [file.blob, kind]);
 	const shown = text?.slice(offset, offset + chunk);
 	return (
 		<div className="attachment-text-reader">

@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
@@ -9,6 +10,14 @@ const apiTarget = process.env.YONDER_API_PROXY ?? "http://127.0.0.1:8090";
 
 export default defineConfig({
 	plugins: [react(), tailwindcss()],
+	resolve: {
+		// The legacy Word worker uses the same OLE reader as the server, with browser streams.
+		alias: [
+			{ find: /^stream$/, replacement: createRequire(import.meta.url).resolve("readable-stream/lib/ours/browser.js") },
+			{ find: /^buffer$/, replacement: "buffer/" },
+			{ find: /^events$/, replacement: "events/" },
+		],
+	},
 	define: {
 		__YONDER_VERSION__: JSON.stringify(manifest.version),
 		__YONDER_PILOT_API_LOCAL__: JSON.stringify(

@@ -80,6 +80,9 @@ export function meetingEndpoints(client: ApiClient) {
 				...(signal ? { signal } : {}),
 			});
 		},
+		meetingAudioDownload(id: string, index: number, signal: AbortSignal): Promise<{ url: string | null }> {
+			return client.request(`/v1/meetings/${encodeURIComponent(id)}/segments/${index}/download`, { signal });
+		},
 		meetingPhoto(id: string, photoId: string, signal?: AbortSignal): Promise<Blob> {
 			return client.request(
 				`/v1/meetings/${encodeURIComponent(id)}/live/photos/${encodeURIComponent(photoId)}/content`,

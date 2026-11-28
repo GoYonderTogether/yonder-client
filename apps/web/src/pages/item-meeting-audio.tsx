@@ -1,7 +1,7 @@
 import { recordingDuration } from "@yonder/feature-meetings";
 import type { MeetingRecord } from "@yonder/protocol";
 import { IconButton } from "@yonder/ui-components";
-import { ApiError, useApi } from "@yonder/ui-data";
+import { ApiError, chatCacheGeneration, loadMedia, useApi } from "@yonder/ui-data";
 import { LoaderCircle, Pause, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -58,6 +58,10 @@ export function MeetingAudio({ meeting, ownerId }: { meeting: MeetingRecord; own
 	);
 
 	useEffect(() => {
+		if (meeting.audioRetained === false) pause();
+	}, [meeting.audioRetained, pause]);
+
+	useEffect(() => {
 		if (state !== "playing") return;
 		const timer = window.setInterval(() => {
 			const session = playback.current;
@@ -73,20 +77,36 @@ export function MeetingAudio({ meeting, ownerId }: { meeting: MeetingRecord; own
 		setState("loading");
 		try {
 			context.current ??= new AudioContext();
+			const generation = chatCacheGeneration();
 			const session = playMeetingAudio(
 				context.current,
 				timeline,
 				start,
 				async (part, signal) => {
+					const valid = () => {
+						signal.throwIfAborted();
+						if (generation !== chatCacheGeneration()) throw new RecordingAudioUnavailable();
+					};
+					let local: Awaited<ReturnType<typeof readMeetingAudio>> | undefined;
 					try {
-						const bytes = await readMeetingAudio(ownerId, meeting.clientRecordingId, part.index);
-						return new Uint8Array(bytes).buffer;
+						local = await readMeetingAudio(ownerId, meeting.clientRecordingId, part.index);
 					} catch {
 						signal.throwIfAborted();
 					}
-					if (!part.uploaded) throw new RecordingAudioUnavailable();
+					valid();
+					if (local) return new Uint8Array(local).buffer;
+					if (!part.uploaded || meeting.audioRetained === false) throw new RecordingAudioUnavailable();
 					try {
-						return await (await api.meetingAudio(meeting.id, part.index, signal)).arrayBuffer();
+						const media = await loadMedia(ownerId, { meetingId: meeting.id, segmentIndex: part.index }, "original", {
+							sign: () => api.meetingAudioDownload(meeting.id, part.index, signal),
+							local: () => api.meetingAudio(meeting.id, part.index, signal),
+							kind: "audio",
+							byteLength: part.byteLength,
+							signal,
+						});
+						valid();
+						if (!media) throw new RecordingAudioUnavailable();
+						return await media.blob.arrayBuffer();
 					} catch (error) {
 						if (error instanceof ApiError && error.status === 404) throw new RecordingAudioUnavailable();
 						throw error;

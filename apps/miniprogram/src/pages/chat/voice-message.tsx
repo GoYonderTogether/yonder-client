@@ -1,5 +1,6 @@
 import { Button, Text } from "@tarojs/components";
 import Taro from "@tarojs/taro";
+import type { Attachment } from "@yonder/protocol";
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../lib/i18n";
 import { downloadAttachment } from "../../lib/runtime";
@@ -8,7 +9,7 @@ type PlaybackState = "idle" | "loading" | "playing" | "paused" | "error";
 type Playback = { audio: ReturnType<typeof Taro.createInnerAudioContext>; release: () => void };
 let stopPreviousVoice: (() => void) | undefined;
 
-export function VoiceMessage({ fileIds, durationMs, self }: { fileIds: string[]; durationMs: number; self: boolean }) {
+export function VoiceMessage({ files, durationMs, self }: { files: Attachment[]; durationMs: number; self: boolean }) {
 	const [state, setState] = useState<PlaybackState>("idle");
 	const playback = useRef<Playback | null>(null);
 	useEffect(() => () => playback.current?.release(), []);
@@ -56,14 +57,14 @@ export function VoiceMessage({ fileIds, durationMs, self }: { fileIds: string[];
 		let next = 0;
 		async function playNext() {
 			if (playback.current?.audio !== audio) return;
-			const id = fileIds[next++];
-			if (!id) {
+			const file = files[next++];
+			if (!file) {
 				stop();
 				return;
 			}
 			setState("loading");
 			try {
-				const path = await downloadAttachment(id);
+				const path = await downloadAttachment(file);
 				if (playback.current?.audio !== audio) return;
 				audio.src = path;
 				audio.play();

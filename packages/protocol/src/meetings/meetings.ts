@@ -72,6 +72,8 @@ export interface MeetingRecord {
 	uploadedDurationMs: number;
 	status: MeetingStatus;
 	segments: MeetingSegment[];
+	/** Whether uploaded segments remain available from cloud storage. Local recordings are independent. */
+	audioRetained?: boolean;
 	photos?: MeetingPhoto[];
 	batches: MeetingTranscriptBatch[];
 	/** Completed batches in source order; batch coverage remains authoritative. */

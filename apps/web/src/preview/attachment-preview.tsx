@@ -9,7 +9,7 @@ import { MediaPreview } from "./media-preview.tsx";
 import { PreviewBoundary } from "./preview-boundary.tsx";
 import { usePreviewTranslation } from "./preview-i18n.ts";
 import { TextPreview } from "./text-preview.tsx";
-import { useAttachmentImageRevoked } from "./use-image-blob.ts";
+import { useAttachmentRevoked } from "./use-media-blob.ts";
 import { usePreviewHistory } from "./use-preview-history.ts";
 import "./preview.css";
 
@@ -84,7 +84,7 @@ export function AttachmentReader({
 	const pane = useRef<HTMLElement>(null);
 	useImageKeys(pane, imageNavigation?.move);
 	const kind = previewKind(file);
-	const revoked = useAttachmentImageRevoked(kind === "image" ? file.id : undefined);
+	const revoked = useAttachmentRevoked(file.id);
 	if (revoked)
 		return (
 			<p role="status" className="attachment-reader-notice">
@@ -151,7 +151,7 @@ export function AttachmentPreview({
 	usePreviewHistory(onClose);
 	const layer = useRef<HTMLDivElement>(null);
 	useImageKeys(layer, imageNavigation?.move);
-	const revoked = useAttachmentImageRevoked(previewKind(file) === "image" ? file.id : undefined);
+	const revoked = useAttachmentRevoked(file.id);
 	useEffect(() => {
 		if (revoked) onClose();
 	}, [revoked, onClose]);

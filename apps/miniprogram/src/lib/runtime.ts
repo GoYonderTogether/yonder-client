@@ -4,10 +4,10 @@ import type { Attachment, ConnectorFilePreviewStatus, DeviceInfo, Member, MeResp
 import { useSyncExternalStore } from "react";
 import { type DeviceFile, verifyDeviceFile } from "./device-file-bytes";
 import { setLocale } from "./i18n";
-import { imageCache, removeImageFile } from "./image-cache";
+import { mediaCache, removeMediaFile } from "./image-cache";
 import { type ChosenImage, readAvatar } from "./local-image";
 import { upsertOwnedBot } from "./member-cache";
-import { MINI_CACHE_PREFIX, updateMetadataForEvent } from "./metadata-cache";
+import { MINI_CACHE_PREFIX, purgeSecretTimelineSnapshots, updateMetadataForEvent } from "./metadata-cache";
 import {
 	configureRealtime,
 	resumeRealtime as connectRealtime,
@@ -35,8 +35,7 @@ let session: { status: "booting" | "signed-out" | "signed-in"; me: MeResponse | 
 	status: hasSavedSession ? "signed-in" : "booting",
 	me: null,
 };
-const downloaded = new Map<string, string>();
-let images: { owner: string; cache: ReturnType<typeof imageCache> } | undefined;
+let media: { owner: string; cache: ReturnType<typeof mediaCache> } | undefined;
 let lastDeviceFile: { key: string; file: DeviceFile } | undefined;
 let deviceFileGeneration = 0;
 let generation = 0;
@@ -59,6 +58,7 @@ function publish(next: typeof session): void {
 function publishMe(me: MeResponse): void {
 	if (savedMemberId !== me.member.id) {
 		savedMemberId = me.member.id;
+		purgeSecretTimelineSnapshots(savedMemberId, invalidateAttachmentMedia);
 		try {
 			Taro.setStorageSync(memberIdStorageKey, savedMemberId);
 		} catch {
@@ -69,19 +69,12 @@ function publishMe(me: MeResponse): void {
 	publish({ status: "signed-in", me });
 }
 
-function removeDownloaded(filePath: string): void {
-	if (process.env.TARO_ENV === "h5") URL.revokeObjectURL(filePath);
-	else Taro.getFileSystemManager().unlink({ filePath, fail() {} });
-}
-
 function clearLocal(): void {
 	generation += 1;
 	suspendRealtime();
-	if (savedMemberId) memberImages(savedMemberId).remove(() => true);
-	images = undefined;
+	if (savedMemberId) memberMedia(savedMemberId).remove(() => true);
+	media = undefined;
 	client.clearTokens();
-	for (const filePath of downloaded.values()) removeDownloaded(filePath);
-	downloaded.clear();
 	clearDeviceFileCache();
 	const storage = Taro.getStorageInfoSync();
 	for (const key of storage.keys)
@@ -147,7 +140,7 @@ configureRealtime({
 
 subscribeEvents((event) => {
 	if (event.type === "connectors.changed") clearDeviceFileCache();
-	if (savedMemberId) updateMetadataForEvent(savedMemberId, event, invalidateImages, clearConversationImages);
+	if (savedMemberId) updateMetadataForEvent(savedMemberId, event, invalidateAttachmentMedia, clearConversationMedia);
 	const me = session.me;
 	if (!me) return;
 	if (event.type === "member.removed" && cachedBots.some((bot) => bot.id === event.memberId)) {
@@ -311,62 +304,45 @@ export async function uploadBotAvatar(id: string, file: ChosenImage): Promise<Me
 	return bot;
 }
 
-export async function downloadAttachment(id: string): Promise<string> {
-	const expected = generation;
-	const key = `${expected}:${id}`;
-	const cached = downloaded.get(key);
-	if (cached) return cached;
-	const get = () =>
-		Taro.downloadFile({
-			url: `${baseUrl}/v1/attachments/${encodeURIComponent(id)}/content`,
-			header: { authorization: `Bearer ${client.accessToken}` },
-		});
-	let result = await get();
-	if (result.statusCode === 401 && (await client.refreshSession())) result = await get();
-	if (result.statusCode < 200 || result.statusCode >= 300) throw new Error(`HTTP ${result.statusCode}`);
-	if (expected !== generation) {
-		removeDownloaded(result.tempFilePath);
-		assertCurrent(expected);
-	}
-	downloaded.set(key, result.tempFilePath);
-	return result.tempFilePath;
+const attachmentMediaKey = (id: string) => `attachment:${encodeURIComponent(id)}:`;
+
+function memberMedia(owner: string) {
+	if (media?.owner !== owner) media = { owner, cache: mediaCache(`${baseUrl}:${owner}`) };
+	return media.cache;
 }
 
-const imageAttachmentKey = (id: string) => `attachment:${encodeURIComponent(id)}:`;
-
-function memberImages(owner: string) {
-	if (images?.owner !== owner) images = { owner, cache: imageCache(`${baseUrl}:${owner}`) };
-	return images.cache;
-}
-
-export function invalidateImages(ids: Iterable<string>): void {
+export function invalidateAttachmentMedia(ids: Iterable<string>): void {
 	if (!savedMemberId) return;
-	const prefixes = Array.from(ids, imageAttachmentKey);
-	if (prefixes.length) memberImages(savedMemberId).remove((key) => prefixes.some((prefix) => key.startsWith(prefix)));
+	const prefixes = Array.from(ids, attachmentMediaKey);
+	if (prefixes.length) memberMedia(savedMemberId).remove((key) => prefixes.some((prefix) => key.startsWith(prefix)));
 }
 
-function clearConversationImages(): void {
-	if (savedMemberId) memberImages(savedMemberId).remove((key) => key.startsWith("attachment:"));
+if (savedMemberId) purgeSecretTimelineSnapshots(savedMemberId, invalidateAttachmentMedia);
+
+function clearConversationMedia(): void {
+	if (savedMemberId) memberMedia(savedMemberId).remove((key) => key.startsWith("attachment:"));
 }
 
 async function downloadMedia(url: string): Promise<string> {
 	const result = await Taro.downloadFile({ url, withCredentials: false });
 	if (result.statusCode !== 200 || !result.tempFilePath) {
-		if (result.tempFilePath) removeImageFile(result.tempFilePath);
+		if (result.tempFilePath) removeMediaFile(result.tempFilePath);
 		throw new Error(`HTTP ${result.statusCode}`);
 	}
 	return result.tempFilePath;
 }
 
-export function downloadAttachmentImage(
+export function downloadAttachment(
 	file: Pick<Attachment, "id" | "kind" | "name">,
-	variant: "thumb" | "original",
+	variant: "thumb" | "original" = "original",
+	persistent = true,
 ): Promise<string> {
-	if (!savedMemberId || file.kind !== "image") return Promise.reject(new Error("image unavailable"));
+	if (!savedMemberId || (variant === "thumb" && file.kind !== "image"))
+		return Promise.reject(new Error("attachment unavailable"));
 	const expected = generation;
-	return memberImages(savedMemberId)
+	return memberMedia(savedMemberId)
 		.get(
-			`${imageAttachmentKey(file.id)}${variant === "thumb" ? "thumb-v1" : variant}`,
+			`${attachmentMediaKey(file.id)}${variant === "thumb" ? "thumb-v1" : variant}${persistent ? "" : ":session"}`,
 			async () => {
 				assertCurrent(expected);
 				const { url } = await api.attachmentDownload(file.id, variant);
@@ -382,13 +358,14 @@ export function downloadAttachmentImage(
 						result = await get();
 					}
 					if (result.statusCode === 200 && result.tempFilePath) return result.tempFilePath;
-					if (result.tempFilePath) removeImageFile(result.tempFilePath);
+					if (result.tempFilePath) removeMediaFile(result.tempFilePath);
 					throw new Error(`HTTP ${result.statusCode}`);
 				}
-				if (!url?.startsWith("https://")) throw new Error("invalid image URL");
+				if (typeof url !== "string" || !url.startsWith("https://")) throw new Error("invalid attachment URL");
 				return downloadMedia(url);
 			},
-			variant === "thumb" ? undefined : file.name.split(".").at(-1),
+			variant === "thumb" ? undefined : /\.([a-z0-9]{1,5})$/i.exec(file.name)?.[1],
+			persistent,
 		)
 		.then((path) => {
 			assertCurrent(expected);
@@ -401,7 +378,7 @@ export function downloadAvatarImage(src: string): Promise<string> {
 	const url = src.startsWith("/") && !src.startsWith("//") ? `${baseUrl}${src}` : src;
 	if (!url.startsWith("https://") && !(baseUrl?.startsWith("http://") && url.startsWith(`${baseUrl}/files/`)))
 		return Promise.reject(new Error("invalid image URL"));
-	return memberImages(savedMemberId).get(`avatar:${url}`, () => downloadMedia(url));
+	return memberMedia(savedMemberId).get(`avatar:${url}`, () => downloadMedia(url));
 }
 
 export function clearDeviceFileCache() {

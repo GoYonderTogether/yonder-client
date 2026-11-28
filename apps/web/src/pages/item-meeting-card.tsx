@@ -1,6 +1,6 @@
 import { recordingDuration } from "@yonder/feature-meetings";
 import { Button } from "@yonder/ui-components";
-import { useMeeting } from "@yonder/ui-data";
+import { meetingAccessLost, useMeeting } from "@yonder/ui-data";
 import { ChevronRight } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,7 +20,7 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 	const { t, i18n } = useTranslation();
 	const detailsId = useId();
 	const query = useMeeting(id);
-	const meeting = query.data;
+	const meeting = meetingAccessLost(query.error) ? undefined : query.data;
 	const [params, setParams] = useSearchParams();
 	const location = useLocation();
 	const navigate = useNavigate();

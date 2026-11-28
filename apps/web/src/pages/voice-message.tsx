@@ -57,18 +57,17 @@ export function VoiceMessage({
 		playback.current = { context, finish };
 		stopPreviousVoice = stop;
 		setState("loading");
-		const ids = additional.map(({ id }) => id);
 		async function playPart(part: Promise<Blob | undefined>, index: number) {
 			const blob = await part;
 			if (playback.current?.context !== context) return;
 			if (!blob) throw new Error("voice_part_missing");
-			const decoder = ids.length ? new OfflineAudioContext(1, 1, 16_000) : context;
+			const decoder = additional.length ? new OfflineAudioContext(1, 1, 16_000) : context;
 			const buffer = await decoder.decodeAudioData(await blob.arrayBuffer());
 			if (playback.current?.context !== context) return;
 			const source = context.createBufferSource();
 			source.buffer = buffer;
 			source.connect(context.destination);
-			const next = ids[index];
+			const next = additional[index];
 			source.onended = next
 				? () => {
 						if (playback.current?.context === context)

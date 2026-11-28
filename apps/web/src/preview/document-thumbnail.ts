@@ -1,6 +1,7 @@
 import { readTextThumbnail } from "../lib/attachment-text.ts";
 import { validateDocxSize } from "./docx-size.ts";
 import { type PreviewFile, previewKind } from "./file-kind.ts";
+import { readLegacyWord } from "./legacy-word.ts";
 
 export async function createDocumentThumbnail(
 	file: PreviewFile,
@@ -8,6 +9,7 @@ export async function createDocumentThumbnail(
 ): Promise<{ text?: string; blob?: Blob }> {
 	const kind = previewKind(file);
 	if (kind === "text" || kind === "markdown") return { text: await readTextThumbnail(file.blob) };
+	if (kind === "doc") return { text: (await readLegacyWord(file.blob, signal)).text.slice(0, 600) };
 	if (kind === "pdf") {
 		const { createPdfThumbnail } = await import("./pdf-thumbnail.ts");
 		if (signal.aborted) return {};

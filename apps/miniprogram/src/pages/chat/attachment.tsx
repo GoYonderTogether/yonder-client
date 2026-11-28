@@ -5,35 +5,40 @@ import type { Attachment } from "@yonder/protocol";
 import { useEffect, useState } from "react";
 import { useVisibleImage } from "../../components/visible-image";
 import { t } from "../../lib/i18n";
-import { downloadAttachment, downloadAttachmentImage, useSession } from "../../lib/runtime";
+import { downloadAttachment, useSession } from "../../lib/runtime";
 import { ChatView } from "./host";
 
 export function MessageAttachment({
 	file,
 	timeline,
+	persistent = true,
 	onSizeChange,
 }: {
 	file: Attachment;
 	timeline?: boolean;
+	persistent?: boolean;
 	onSizeChange?: () => void;
 }) {
-	const [loaded, setLoaded] = useState<{ fileId: string; owner: string; path: string }>();
+	const [loaded, setLoaded] = useState<{ fileId: string; owner: string; path: string; persistent: boolean }>();
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [previewing, setPreviewing] = useState(false);
 	const { memberId } = useSession();
 	const { id: fileId, kind, name } = file;
 	const image = kind === "image";
-	const path = loaded && loaded.owner === memberId && loaded.fileId === fileId ? loaded.path : "";
+	const path =
+		loaded && loaded.owner === memberId && loaded.fileId === fileId && loaded.persistent === persistent
+			? loaded.path
+			: "";
 	const { id, visible } = useVisibleImage(image, timeline ? undefined : ".mini-message-list");
 	useEffect(() => {
 		if (!image || !visible || !memberId) return;
 		let active = true;
 		setError("");
 		setLoading(true);
-		void downloadAttachmentImage({ id: fileId, kind, name }, "thumb")
+		void downloadAttachment({ id: fileId, kind, name }, "thumb", persistent)
 			.then((value) => {
-				if (active) setLoaded({ fileId, owner: memberId, path: value });
+				if (active) setLoaded({ fileId, owner: memberId, path: value, persistent });
 			})
 			.catch(() => {
 				if (active) setError(t("下载失败，请重试", "Download failed. Try again."));
@@ -44,12 +49,12 @@ export function MessageAttachment({
 		return () => {
 			active = false;
 		};
-	}, [fileId, image, kind, memberId, name, visible]);
+	}, [fileId, image, kind, memberId, name, persistent, visible]);
 	const open = async () => {
 		try {
 			setError("");
 			setPreviewing(true);
-			const local = image ? await downloadAttachmentImage(file, "original") : await downloadAttachment(file.id);
+			const local = await downloadAttachment(file, "original", persistent);
 			if (image) await Taro.previewImage({ urls: [local], current: local });
 			else if (file.kind === "audio") {
 				const audio = Taro.createInnerAudioContext();

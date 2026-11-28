@@ -260,12 +260,7 @@ export function renderMessageBlock(
 									}
 								/>
 							) : voice && file ? (
-								<VoiceMessage
-									key={file.id}
-									fileIds={attachments.map(({ id }) => id)}
-									durationMs={voice.durationMs}
-									self={self}
-								/>
+								<VoiceMessage key={file.id} files={attachments} durationMs={voice.durationMs} self={self} />
 							) : message.body?.trim() || (message.streaming && message.senderKind !== "bot") ? (
 								<MessageBubble as={ChatView} self={self}>
 									{message.questionReply?.question ? (

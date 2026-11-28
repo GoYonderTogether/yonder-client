@@ -3,6 +3,7 @@ import sha256 from "node-forge/lib/sha256.js";
 
 const LIMIT = 80 * 1024 * 1024;
 const MAX_FILES = 256;
+// Keep the existing index and file paths so a client upgrade can reuse cached images.
 const cacheNamespace = "yonder.mini.images.v1.";
 const digest = (value: string) => {
 	const hash = sha256.create();
@@ -12,13 +13,13 @@ const digest = (value: string) => {
 const root = () => `${Taro.env.USER_DATA_PATH}/yonder-images-v1`;
 const preview = () => process.env.TARO_ENV === "h5";
 
-interface ImageFile {
+interface MediaFile {
 	path: string;
 	bytes: number;
 	used: number;
 }
 
-export function removeImageFile(path: string): void {
+export function removeMediaFile(path: string): void {
 	try {
 		if (preview()) URL.revokeObjectURL(path);
 		else Taro.getFileSystemManager().unlink({ filePath: path, fail() {} });
@@ -27,23 +28,23 @@ export function removeImageFile(path: string): void {
 	}
 }
 
-export function imageCache(scope: string) {
+export function mediaCache(scope: string) {
 	const id = cacheNamespace + digest(scope);
 	const pending = new Map<string, Promise<string>>();
 	const transient = new Map<string, string>();
-	const readIndex = (): Record<string, ImageFile> => {
+	const readIndex = (): Record<string, MediaFile> => {
 		try {
 			return Taro.getStorageSync(id) || {};
 		} catch {
 			return {};
 		}
 	};
-	const saveIndex = (index: Record<string, ImageFile>) => {
+	const saveIndex = (index: Record<string, MediaFile>) => {
 		try {
 			Taro.setStorageSync(id, index);
 			return true;
 		} catch {
-			// A full storage partition must still allow the temporary image to be displayed.
+			// A full storage partition can still open the temporary file.
 			return false;
 		}
 	};
@@ -59,12 +60,12 @@ export function imageCache(scope: string) {
 		const index = readIndex();
 		for (const [key, file] of Object.entries(index)) {
 			if (!test(key)) continue;
-			removeImageFile(file.path);
+			removeMediaFile(file.path);
 			delete index[key];
 		}
 		for (const [key, path] of transient) {
 			if (!test(key)) continue;
-			removeImageFile(path);
+			removeMediaFile(path);
 			transient.delete(key);
 		}
 		for (const key of pending.keys()) if (test(key)) pending.delete(key);
@@ -73,31 +74,33 @@ export function imageCache(scope: string) {
 	};
 	return {
 		remove,
-		get(key: string, download: () => Promise<string>, extension?: string): Promise<string> {
+		get(key: string, download: () => Promise<string>, extension?: string, persistent = true): Promise<string> {
 			const inFlight = pending.get(key);
 			if (inFlight) return inFlight;
 			const cached = transient.get(key);
 			if (cached) return Promise.resolve(cached);
-			const files = preview() ? undefined : Taro.getFileSystemManager();
-			const index = readIndex();
-			const existing = index[key];
-			if (files && existing) {
-				try {
-					files.accessSync(existing.path);
-					existing.used = Date.now();
-					saveIndex(index);
-					return Promise.resolve(existing.path);
-				} catch {
-					delete index[key];
-					saveIndex(index);
+			const files = persistent && !preview() ? Taro.getFileSystemManager() : undefined;
+			if (files) {
+				const index = readIndex();
+				const existing = index[key];
+				if (existing) {
+					try {
+						files.accessSync(existing.path);
+						existing.used = Date.now();
+						saveIndex(index);
+						return Promise.resolve(existing.path);
+					} catch {
+						delete index[key];
+						saveIndex(index);
+					}
 				}
 			}
 			const operation = Promise.resolve()
 				.then(download)
 				.then((path) => {
 					if (pending.get(key) !== operation) {
-						removeImageFile(path);
-						throw Object.assign(new Error("image scope changed"), { name: "AbortError" });
+						removeMediaFile(path);
+						throw Object.assign(new Error("media scope changed"), { name: "AbortError" });
 					}
 					if (files) {
 						try {

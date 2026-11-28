@@ -5,7 +5,7 @@ import { Image } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useObjectUrl } from "../lib/use-object-url.ts";
-import { useImageBlob } from "../preview/use-image-blob.ts";
+import { useMediaBlob } from "../preview/use-media-blob.ts";
 
 export function MeetingArchiveImage({
 	meetingId,
@@ -24,11 +24,12 @@ export function MeetingArchiveImage({
 	const { t } = useTranslation();
 	const photoId = photo.clientPhotoId;
 	const variant = original ? "original" : "thumb";
-	const { blob, error, load } = useImageBlob(
+	const { blob, error, load } = useMediaBlob(
 		useMemo(
 			() => ({
 				resource: { meetingId, photoId },
 				variant,
+				kind: "image",
 				sign: () => api.meetingPhotoDownload(meetingId, photoId, variant),
 				local: () => api.meetingPhoto(meetingId, photoId),
 			}),

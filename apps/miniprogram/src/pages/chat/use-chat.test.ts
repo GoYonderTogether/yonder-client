@@ -35,7 +35,7 @@ vi.mock("../../lib/runtime", () => ({
 		sendMessage: mock.send,
 	},
 	newNonce: () => "nonce",
-	invalidateImages() {},
+	invalidateAttachmentMedia() {},
 	subscribeEvents: mock.subscribe,
 	useRealtimeRevision: () => 0,
 	useSession: () => ({ status: "signed-in", me: null, memberId: mock.owner }),

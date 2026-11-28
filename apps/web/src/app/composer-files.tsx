@@ -1,5 +1,4 @@
 import { UploadTile } from "@yonder/chat-presentation";
-import { useApi } from "@yonder/ui-data";
 import { LoaderCircle, Play, RotateCcw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -31,7 +30,6 @@ function DraftFileTile({
 	onPreview: () => void;
 }) {
 	const { t } = useTranslation();
-	const api = useApi();
 	const selected = selectedDraftFile(file);
 	const thumbnail = file.optimized ?? selected;
 	const image = isImageFile(file.name, file.mimeType);
@@ -53,13 +51,6 @@ function DraftFileTile({
 					if (active) setDisplay(blob);
 				})
 				.catch(() => {});
-		else if (kind === "doc")
-			void api
-				.previewAttachmentText(new File([file.blob], file.name, { type: file.mimeType }), controller.signal)
-				.then((result) => {
-					if (active) setText(result.text.slice(0, 600));
-				})
-				.catch(() => {});
 		else if (!video)
 			void createDocumentThumbnail({ name: file.name, mimeType: file.mimeType, blob: file.blob }, controller.signal)
 				.then((result) => {
@@ -74,8 +65,6 @@ function DraftFileTile({
 			controller.abort();
 		};
 	}, [
-		api,
-		kind,
 		video,
 		image,
 		file.imagePrepared,

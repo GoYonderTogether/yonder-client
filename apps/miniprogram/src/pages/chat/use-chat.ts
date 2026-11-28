@@ -13,7 +13,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../lib/i18n";
 import { patchConversation } from "../../lib/member-cache";
 import { METADATA_FRESH_MS, metadataKey, readSnapshot, updateSnapshots, writeSnapshot } from "../../lib/metadata-cache";
-import { api, invalidateImages, newNonce, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
+import {
+	api,
+	invalidateAttachmentMedia,
+	newNonce,
+	subscribeEvents,
+	useRealtimeRevision,
+	useSession,
+} from "../../lib/runtime";
 import { type ChatMessage, mergeMessages, updateRun } from "./model";
 import { closureText } from "./sentences";
 import { isVisitErrorCode, visitErrorSentence } from "./visits";
@@ -75,7 +82,7 @@ export function useChat(id: string) {
 			if (historyKey)
 				updateSnapshots<MessagePage>(historyKey, (page) => {
 					if (!isNewChatHistoryCutoff(cutoff, page.historyClearedThrough)) return page;
-					invalidateImages(
+					invalidateAttachmentMedia(
 						page.items
 							.filter((message) => chatHistoryTimeOffset(message.createdAt, cutoff) <= 0)
 							.flatMap((message) => message.attachments.map(({ id }) => id)),
@@ -199,7 +206,7 @@ export function useChat(id: string) {
 						if (removed.length) {
 							const missing = new Set(removed.map((message) => message.id));
 							setMessages((current) => current.filter((message) => !missing.has(message.id)));
-							invalidateImages(removed.flatMap((message) => message.attachments.map(({ id }) => id)));
+							invalidateAttachmentMedia(removed.flatMap((message) => message.attachments.map(({ id }) => id)));
 						}
 					}
 					applyPage(page);
@@ -209,7 +216,7 @@ export function useChat(id: string) {
 					if (currentRequest()) {
 						if (historyKey && cause instanceof ApiError && [401, 403, 404].includes(cause.status)) {
 							updateSnapshots<MessagePage>(historyKey, (page) => {
-								invalidateImages(page.items.flatMap((message) => message.attachments.map(({ id }) => id)));
+								invalidateAttachmentMedia(page.items.flatMap((message) => message.attachments.map(({ id }) => id)));
 								return undefined;
 							});
 							setMessages((current) => current.filter((message) => message.pending || message.sendFailed));

@@ -78,7 +78,7 @@ export {
 	useItems,
 	useRenameItemSession,
 } from "./hooks/items.ts";
-export { useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
+export { meetingAccessLost, useMeeting, useMeetingActions, useMeetings } from "./hooks/meetings.ts";
 export { useMemberProfile, usePublicMemberProfile } from "./hooks/members.ts";
 export {
 	deviceTimeZone,
@@ -164,8 +164,8 @@ export {
 	updateChatCache,
 	writeChatCache,
 } from "./storage/chat-cache.ts";
-export type { ImageResource, ImageVariant } from "./storage/image-cache.ts";
-export { loadImage, onImageInvalidated } from "./storage/image-cache.ts";
 export type { Storage } from "./storage/index.ts";
 export { createBrowserStorage, createDefaultStorage, createMemoryStorage } from "./storage/index.ts";
 export { clearInvite, readInvite, saveInvite } from "./storage/invite.ts";
+export type { MediaDownload, MediaResource, MediaVariant } from "./storage/media-cache.ts";
+export { discardMedia, loadMedia, onMediaInvalidated } from "./storage/media-cache.ts";

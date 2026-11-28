@@ -6,7 +6,7 @@ import { invalidateMemoryFiles } from "../query/memory-files.ts";
 import { useApi } from "../query/provider.tsx";
 import { deviceTimeZone, timelineSnapshot } from "../query/timeline-snapshot.ts";
 import { chatCacheGeneration } from "../storage/chat-cache.ts";
-import { discardImages } from "../storage/image-cache.ts";
+import { discardMedia } from "../storage/media-cache.ts";
 
 export { deviceTimeZone } from "../query/timeline-snapshot.ts";
 
@@ -54,10 +54,10 @@ export function useMemoryActions() {
 					)
 					.find((entry) => entry.id === id);
 				if (owner && entry) {
-					const photos = [...entry.media, ...entry.materials].flatMap(({ attachment }) =>
-						attachment?.mimeType.startsWith("image/") ? [{ attachmentId: attachment.id }] : [],
+					const attachments = [...entry.media, ...entry.materials].flatMap(({ attachment }) =>
+						attachment ? [{ attachmentId: attachment.id }] : [],
 					);
-					discardImages(owner, photos);
+					discardMedia(owner, attachments);
 				}
 				return client.invalidateQueries({ queryKey });
 			},

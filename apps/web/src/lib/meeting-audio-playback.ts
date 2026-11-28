@@ -38,6 +38,12 @@ export function playMeetingAudio(
 		await context.resume();
 		for (const part of timeline) {
 			if (part.end <= position) continue;
+			// The active part already has a successor queued. Wait before reading more audio.
+			if (next) {
+				await current?.finished;
+				current = next;
+				next = undefined;
+			}
 			signal.throwIfAborted();
 			let buffer: AudioBuffer;
 			try {
@@ -48,11 +54,6 @@ export function playMeetingAudio(
 				// Let already scheduled audio finish if a later part is missing.
 				if (!signal.aborted) await (next ?? current)?.finished;
 				throw error;
-			}
-			if (next) {
-				await current?.finished;
-				current = next;
-				next = undefined;
 			}
 			signal.throwIfAborted();
 

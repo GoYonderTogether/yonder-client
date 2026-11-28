@@ -1,5 +1,5 @@
 import { Button } from "@yonder/ui-components";
-import { useMeeting } from "@yonder/ui-data";
+import { meetingAccessLost, useMeeting } from "@yonder/ui-data";
 import { useOptionalSidePanel } from "@yonder/ui-shell";
 import { ICON_SIZE } from "@yonder/ui-tokens";
 import { Mic } from "lucide-react";
@@ -35,7 +35,7 @@ function MeetingDetail({ id, options }: { id: string; options: MeetingReadingLoc
 		setRequested(options);
 		setLocation(options);
 	}
-	if (!query.data)
+	if (!query.data || meetingAccessLost(query.error))
 		return (
 			<div role="status" className="p-[var(--spacing-4)] text-[var(--color-text-secondary)]">
 				{t(query.isError ? "app.loadFailed" : "app.loading")}

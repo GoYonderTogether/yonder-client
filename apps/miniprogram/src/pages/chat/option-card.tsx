@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useVisibleImage } from "../../components/visible-image";
 import { PREVIEW_MAX_LINES, previewHeightLines } from "../../lib/agent-card-view";
 import { t } from "../../lib/i18n";
-import { downloadAttachmentImage, useSession } from "../../lib/runtime";
+import { downloadAttachment, useSession } from "../../lib/runtime";
 import { ChatView } from "./host";
 import { MessageBody } from "./markdown";
 
@@ -20,7 +20,7 @@ export function OptionImage({ file }: { file: Attachment }) {
 		if (!visible || !memberId) return;
 		let active = true;
 		setFailed(false);
-		void downloadAttachmentImage({ id: fileId, kind, name }, "thumb").then(
+		void downloadAttachment({ id: fileId, kind, name }, "thumb").then(
 			(value) => {
 				if (active) setLoaded({ fileId, owner: memberId, path: value });
 			},
