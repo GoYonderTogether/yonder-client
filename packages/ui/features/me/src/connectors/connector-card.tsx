@@ -15,7 +15,7 @@ import {
 	WifiOff,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { type ConnectorGroup, groupKey } from "./connector-groups.ts";
+import { type CatalogConnectorId, type ConnectorGroup, groupKey } from "./connector-groups.ts";
 
 /** The connector's own copy lives under `connectors.<key>`; the id is kebab-case, the key is not. */
 export const connectorPresentation = {
@@ -25,7 +25,7 @@ export const connectorPresentation = {
 	"apple-photos": { key: "applePhotos", Icon: Images },
 	"apple-notes": { key: "appleNotes", Icon: NotebookPen },
 	"apple-voice-memos": { key: "appleVoiceMemos", Icon: AudioLines },
-} as const satisfies Record<ConnectorDefinition["id"], { key: string; Icon: typeof FolderSearch }>;
+} as const satisfies Record<CatalogConnectorId, { key: string; Icon: typeof FolderSearch }>;
 
 /** The terminal row's copy and icon: a capability of `computer-control`, not a catalog connector. */
 export const terminalPresentation = { key: "terminal", Icon: TerminalIcon } as const;
@@ -51,8 +51,13 @@ function Glyph({ src }: { src: string }) {
 	);
 }
 
+/**
+ * A Bot-written connector has no entry in `connectorPresentation`: its manifest carries a `brand`,
+ * which the registry draws. With no brand either it falls back to the generic folder glyph, never
+ * to a made-up brand icon.
+ */
 export function ConnectorArtwork({ id, brand }: { id: ConnectorDefinition["id"]; brand?: BrandId | undefined }) {
-	const { Icon } = connectorPresentation[id];
+	const { Icon } = connectorPresentation[id as CatalogConnectorId] ?? { Icon: FolderSearch };
 	return (
 		<span
 			aria-hidden

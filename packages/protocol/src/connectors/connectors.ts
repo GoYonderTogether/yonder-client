@@ -8,6 +8,7 @@ import type {
 	BrowserExecutionError,
 	BrowserSessionAction,
 } from "./browser.ts";
+import type { CustomConnectorProposal } from "./custom.ts";
 import type { DesktopConnectorResult, DesktopInputAction, DesktopPermission } from "./desktop.ts";
 import type { ShellJobAction, TerminalConnectorResult } from "./terminal.ts";
 
@@ -18,7 +19,13 @@ export * from "./desktop.ts";
 export * from "./terminal.ts";
 
 export type FileConnectorId = "local-files" | "computer-control";
-export type ConnectorId = FileConnectorId | AppleConnectorId;
+/**
+ * A connector the Bot wrote for one device (20261128-people-archive 03). The `custom:` prefix is
+ * part of the id everywhere it appears — the connection row, the request card, the event source —
+ * so a built-in id and a Bot-written one can never collide.
+ */
+export type CustomConnectorId = `custom:${string}`;
+export type ConnectorId = FileConnectorId | AppleConnectorId | CustomConnectorId;
 
 export interface ConnectorDefinition {
 	id: ConnectorId;
@@ -97,6 +104,12 @@ export interface ConnectorRequestView {
 	continuation?: "pending" | "started" | "failed";
 	/** A permanent continuation failure; keep the grant and show the reason in the card. */
 	continuationFailure?: "grant_changed" | "target_unavailable";
+	/**
+	 * A custom connector the Bot proposed: the card shows what it will do on the device. Its
+	 * confirmation happens on the target device, not by the in-app allow, so the screen renders the
+	 * manifest instead of a device picker.
+	 */
+	proposal?: CustomConnectorProposal;
 }
 
 /** One grant a device session is asked to store; the device reports readiness through `connector.ready`. */
