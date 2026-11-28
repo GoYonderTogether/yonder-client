@@ -7,6 +7,7 @@ import { I18nextProvider } from "react-i18next";
 import { expect, test, vi } from "vitest";
 
 const setDefault = vi.hoisted(() => vi.fn());
+const chooseModel = vi.hoisted(() => vi.fn());
 vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@yonder/ui-data")>()),
 	useProviders: () => ({
@@ -33,7 +34,8 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 					name: "Personal provider",
 					baseUrl: "https://personal.example.net",
 					protocol: "openai-chat",
-					models: ["personal-model"],
+					models: ["personal-model", "personal-model-cheap"],
+					defaultModel: "personal-model-cheap",
 					enabled: true,
 					keyConfigured: true,
 					isDefault: false,
@@ -55,6 +57,7 @@ vi.mock("@yonder/ui-data", async (importOriginal) => ({
 	useDevices: () => ({ data: { items: [] } }),
 	useProviderActions: () => ({
 		setDefault: { mutate: setDefault, isPending: false, isError: false, isSuccess: false },
+		chooseProviderModel: { mutate: chooseModel, isPending: false, isError: false, isSuccess: false },
 		remove: {},
 		test: {},
 	}),
@@ -141,6 +144,17 @@ test("provider actions open outside the clipped list and return focus on Escape"
 		within(screen.getByRole("dialog", { name: "Personal provider" })).getByRole("button", { name: "Duplicate" }),
 	);
 	expect(onOpenPage).toHaveBeenCalledWith("duplicate-user");
+});
+
+test("picking a model row chooses that model, never the provider or its first model", async () => {
+	show("en");
+	const row = screen.getByText("Personal provider", { selector: "p, p *" }).closest("li");
+	if (!row) throw new Error("provider row missing");
+	// The provider name is a sentence, not a switch: no radio carries the provider's name.
+	expect(within(row as HTMLElement).queryByRole("radio", { name: "Personal provider" })).toBeNull();
+	// Ticking one model names that model, not the provider's first in the list.
+	await userEvent.click(within(row as HTMLElement).getByRole("radio", { name: "personal-model-cheap" }));
+	expect(chooseModel).toHaveBeenCalledWith({ id: "user", model: "personal-model-cheap" });
 });
 
 test("the official list holds only platform models; a provider's own model is chosen in its own block", async () => {

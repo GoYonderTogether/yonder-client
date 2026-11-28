@@ -174,7 +174,7 @@ export function ModelsSection({
 						<ProviderRow
 							key={provider.id}
 							provider={provider}
-							chosenModel={provider.isDefault ? (provider.models[0] ?? null) : null}
+							chosenModel={provider.isDefault ? (provider.defaultModel ?? provider.models[0] ?? null) : null}
 							busy={actions.setDefault.isPending}
 							notice={notice?.id === provider.id ? notice.ok : null}
 							onEdit={isLegacyDeviceProvider(provider) ? undefined : () => onOpenPage(`edit-${provider.id}`)}

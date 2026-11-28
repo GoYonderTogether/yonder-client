@@ -46,9 +46,7 @@ export function ProviderRow({
 		action();
 	}
 	return (
-		<li
-			className={`flex flex-col gap-[var(--spacing-2)] rounded-[var(--radius-card)] border p-[var(--spacing-3)] ${active ? "border-[var(--color-border-strong)] bg-[var(--color-bg-selected)]" : "border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]"}`}
-		>
+		<li className="flex flex-col gap-[var(--spacing-2)] rounded-[var(--radius-card)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] p-[var(--spacing-3)]">
 			<div className="flex items-center gap-[var(--spacing-2)]">
 				<IconTile>
 					<Icon size={17} aria-hidden="true" />

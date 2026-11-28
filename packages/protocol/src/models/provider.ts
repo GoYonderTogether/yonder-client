@@ -21,6 +21,8 @@ export interface Provider {
 	 */
 	protocol: ProviderProtocol | "openai" | "anthropic";
 	models: string[];
+	/** The model this provider answers with; null when it has none. */
+	defaultModel?: string | null;
 	/** Per-model display names, windows and declared effort levels, keyed by model id. */
 	metadata?: Record<string, ProviderModelMetadata>;
 	keyConfigured: boolean;
