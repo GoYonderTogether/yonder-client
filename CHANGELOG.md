@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112818] - 2026-11-28
+
+### Fixed
+
+- chat：allow sending while a Bot replies
+
 ## [0.3.26112817] - 2026-11-28
 
 ### Fixed
