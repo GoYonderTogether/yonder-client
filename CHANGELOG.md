@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.3.26112813] - 2026-11-28
+
+### Added
+
+- release：publish beta by default and promote verified stable builds
+- updates：select account release channels
+
+### Fixed
+
+- updates：acknowledge only stable Android notifications
+- updates：keep channel switches on the same origin
+- web：restore the selected item highlight, the working status, image drops on conversation rows and image rotation
+
 ## [0.3.26112812] - 2026-11-28
 
 ### Fixed
