@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112807] - 2026-11-28
+
+### Fixed
+
+- models：a provider shows and answers with its chosen model, and only that model row is marked
+
 ## [0.3.26112806] - 2026-11-28
 
 ### Added
