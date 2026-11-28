@@ -6,6 +6,7 @@ export type MemoryFileKind =
 	| "recent"
 	| "profile"
 	| "proactive"
+	| "lessons"
 	| "note"
 	| "archive"
 	| "digest"
