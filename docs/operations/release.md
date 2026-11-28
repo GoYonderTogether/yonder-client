@@ -37,17 +37,17 @@ process separately.
 
 ## Workflows
 
-| Workflow | Trigger | Result |
-| --- | --- | --- |
-| `ci.yml` | Push, pull request, or dispatch | Aggregate `CI` check |
-| `release.yml` | Manual dispatch | Tag, changelog, GitHub prerelease and beta build dispatch |
-| `desktop-release.yml` | Beta release dispatch | Signed macOS and Windows packages and beta updates |
-| `android-release.yml` | Beta release dispatch | Signed APK and beta update manifest |
-| `ios-release.yml` | Beta release dispatch or dedicated iOS dispatch | TestFlight delivery |
-| `web-deploy.yml` | Beta release dispatch | Beta Web snapshot |
-| `promote-stable.yml` | Manual dispatch for a verified candidate | Stable Web, OSS and GitHub Latest |
-| `windows-install-check.yml` | Manual dispatch for a tag | Authenticode and clean Windows install/launch |
-| `auto-release.yml` | Manual dispatch | No publication |
+| Workflow                    | Trigger                                         | Result                                                    |
+| --------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| `ci.yml`                    | Push, pull request, or dispatch                 | Aggregate `CI` check                                      |
+| `release.yml`               | Manual dispatch                                 | Tag, changelog, GitHub prerelease and beta build dispatch |
+| `desktop-release.yml`       | Beta release dispatch                           | Signed macOS and Windows packages and beta updates        |
+| `android-release.yml`       | Beta release dispatch                           | Signed APK and beta update manifest                       |
+| `ios-release.yml`           | Beta release dispatch or dedicated iOS dispatch | TestFlight delivery                                       |
+| `web-deploy.yml`            | Beta release dispatch                           | Beta Web snapshot                                         |
+| `promote-stable.yml`        | Manual dispatch for a verified candidate        | Stable Web, OSS and GitHub Latest                         |
+| `windows-install-check.yml` | Manual dispatch for a tag                       | Authenticode and clean Windows install/launch             |
+| `auto-release.yml`          | Manual dispatch                                 | No publication                                            |
 
 ### Removed
 
