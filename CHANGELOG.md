@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112819] - 2026-11-28
+
+### Fixed
+
+- chat：show outgoing messages before background delivery
+- miniprogram：queue messages locally before delivery
+
 ## [0.3.26112818] - 2026-11-28
 
 ### Fixed
