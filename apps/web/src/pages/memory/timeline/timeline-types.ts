@@ -7,18 +7,31 @@
  * that step really happened, never when the review ran. Days run oldest first, like the Photos app.
  */
 
-import type { MemoryEntry, MemoryMedia } from "@yonder/protocol";
+import type { BrandId, MemoryEntry, MemoryMedia } from "@yonder/protocol";
 
 export type StepKind = "thought" | "talk" | "decision" | "photo" | "message" | "recording";
 
 /** A part of the day, from the clock alone; the page words it in the reader's language. */
 export type DayPart = "predawn" | "dawn" | "morning" | "noon" | "afternoon" | "dusk" | "evening" | "night";
 
+/**
+ * Where a step came from: a brand in the registry (04 图标登记表) and one quoted line naming it. A
+ * step with a source draws that brand's official icon; a step without one keeps the plain drawing
+ * the timeline always had, so an older entry reads exactly as before.
+ */
+export interface TimelineSource {
+	brand: BrandId;
+	/** One short quoted line, such as 「来自微信」, worded by whoever supplied the source. */
+	label: string;
+}
+
 export interface TimelineStep {
 	at: string;
 	kind: StepKind;
 	text: string;
 	detail?: string;
+	/** The connector or channel this step reached the owner through, when it is known. */
+	source?: TimelineSource;
 	/** Preview only: files under `dev/photos/`. */
 	photos?: string[];
 	/** The account's own photos and videos. */
@@ -29,7 +42,7 @@ export interface TimelineStep {
 	photoCount?: number;
 	/** Under a photo strip: how many and where, never who is in the picture. */
 	photoNote?: string;
-	/** A message that reached the owner over WeChat. */
+	/** A message that reached the owner over a channel; `source` says which one, when it is known. */
 	from?: { name: string };
 }
 

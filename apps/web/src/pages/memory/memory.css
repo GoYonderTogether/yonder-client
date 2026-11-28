@@ -168,6 +168,27 @@
 .memory-about-document .memory-markdown ol {
 	list-style: decimal;
 }
+/* An `entity:<id>` link in a file body or a timeline card (02 链接): the person's picture or initial,
+   then their name, opening their page in the existing file pane. */
+.memory-entity-link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-1);
+	vertical-align: text-bottom;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--color-accent-text);
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}
+.memory-entity-link:hover {
+	color: var(--color-accent);
+}
+.memory-entity-link svg {
+	flex: none;
+}
 .memory-about-document .memory-markdown :is(a, .memory-markdown-link) {
 	color: var(--color-accent-text);
 	text-decoration: underline;

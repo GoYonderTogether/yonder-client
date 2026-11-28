@@ -1,9 +1,11 @@
+import { BRANDS } from "@yonder/protocol";
 import { BrandIcon, cn } from "@yonder/ui-components";
 import { Footprints, Images, MapPin } from "lucide-react";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DaySummary } from "../memory-day-summary.tsx";
+import { EntityText } from "../memory-entity-link.tsx";
 import { dayName, daysAgo, memoryFormat } from "../memory-format.ts";
 import { isoWeek } from "./timeline-bands.tsx";
 import { KindIcon } from "./timeline-kinds.tsx";
@@ -306,7 +308,7 @@ function Quiet({ events }: { events: TimelineEvent[] }) {
 }
 
 function Step({ step }: { step: TimelineStep }) {
-	const { t } = useTranslation();
+	const { i18n } = useTranslation();
 	const host = useContext(HostContext);
 	if (step.kind === "photo") {
 		const { nodes } = host.photos(step);
@@ -319,15 +321,29 @@ function Step({ step }: { step: TimelineStep }) {
 		}
 	}
 	if (step.from) {
+		// A source draws its brand's official icon and one quoted line; without one the message keeps
+		// the plain drawing it always had (04 图标登记表 展示).
+		const brand = step.source?.brand;
+		const brandName = brand ? BRANDS.find((item) => item.id === brand)?.name : undefined;
+		const brandTitle = brand ? (i18n.language.startsWith("zh") ? brandName?.zh : brandName?.en) : undefined;
 		return (
 			<li className="tl-step tl-step-message">
 				<time className="tl-time">{step.at}</time>
 				<button type="button" className="tl-msg" onClick={() => host.onMessage(step)}>
-					<BrandIcon name="wechat" size={28} title={t("memory.brandWechat")} className="tl-msg-icon" />
+					{brand ? (
+						<BrandIcon name={brand} size={28} {...(brandTitle ? { title: brandTitle } : {})} className="tl-msg-icon" />
+					) : null}
 					<div>
+						{step.source ? <p className="tl-msg-source">{step.source.label}</p> : null}
 						<p className="tl-msg-from">{step.from.name}</p>
-						<p className="tl-msg-text">{step.text}</p>
-						{step.detail ? <p className="tl-msg-detail">{step.detail}</p> : null}
+						<p className="tl-msg-text">
+							<EntityText text={step.text} />
+						</p>
+						{step.detail ? (
+							<p className="tl-msg-detail">
+								<EntityText text={step.detail} />
+							</p>
+						) : null}
 					</div>
 				</button>
 			</li>
@@ -340,9 +356,13 @@ function Step({ step }: { step: TimelineStep }) {
 			<div className="tl-step-body">
 				<p className="tl-step-text">
 					{kind ? <KindIcon kind={kind} size={14} /> : null}
-					{step.text}
+					<EntityText text={step.text} />
 				</p>
-				{step.detail ? <p className="tl-step-detail">{step.detail}</p> : null}
+				{step.detail ? (
+					<p className="tl-step-detail">
+						<EntityText text={step.detail} />
+					</p>
+				) : null}
 			</div>
 		</li>
 	);

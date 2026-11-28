@@ -24,6 +24,7 @@ export const keys = {
 		revisions: (path: string) => ["memory", "file", path, "revisions"] as const,
 		organization: () => ["memory", "organization"] as const,
 		folders: () => ["memory", "folders"] as const,
+		entity: (id: string) => ["memory", "entity", id] as const,
 	},
 	quota: () => ["quota"] as const,
 	quotaConfig: () => ["quota", "config"] as const,

@@ -1,4 +1,5 @@
-import type { ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
+import type { BrandId, ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
+import { BrandIcon } from "@yonder/ui-components";
 import {
 	AudioLines,
 	CalendarDays,
@@ -45,7 +46,7 @@ function Glyph({ src }: { src: string }) {
 	);
 }
 
-export function ConnectorArtwork({ id }: { id: ConnectorDefinition["id"] }) {
+export function ConnectorArtwork({ id, brand }: { id: ConnectorDefinition["id"]; brand?: BrandId | undefined }) {
 	const { Icon } = connectorPresentation[id];
 	return (
 		<span
@@ -53,7 +54,11 @@ export function ConnectorArtwork({ id }: { id: ConnectorDefinition["id"] }) {
 			className="grid size-[var(--spacing-10)] shrink-0 place-items-center overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)]"
 		>
 			<span className="block size-[var(--spacing-6)] text-[var(--color-text-secondary)]">
-				{id === "local-files" ? (
+				{brand ? (
+					// A connector that names a brand draws that brand's official icon, the same component the
+					// channels page and a person's material index use (04 图标登记表 展示).
+					<BrandIcon name={brand} size={24} />
+				) : id === "local-files" ? (
 					<Glyph src={folderGlyph} />
 				) : id === "computer-control" ? (
 					<Glyph src={desktopGlyph} />
@@ -124,7 +129,10 @@ export function ConnectorCard({ group, device, instances, onOpen }: ConnectorCar
 			onClick={onOpen}
 			className={`flex w-full items-center gap-[var(--spacing-3)] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] p-[var(--spacing-3)] text-start focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] ${device.status === "offline" ? "opacity-60" : ""}`}
 		>
-			<ConnectorArtwork id={group.id === "computer" ? "computer-control" : group.id} />
+			<ConnectorArtwork
+				id={group.id === "computer" ? "computer-control" : group.id}
+				brand={group.id === "computer" ? undefined : group.members[0]?.brand}
+			/>
 			<span className="min-w-0 flex-1">
 				<span className="block text-body font-medium">{t(`connectors.${key}.name`)}</span>
 				<span className="block text-caption text-[var(--color-text-tertiary)]">

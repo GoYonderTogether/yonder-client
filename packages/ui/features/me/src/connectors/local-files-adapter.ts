@@ -1,4 +1,4 @@
-import type { ConnectorDefinition, ConnectorId, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
+import type { BrandId, ConnectorDefinition, ConnectorId, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 
 /**
  * A catalog entry or one of the `computer-control` capability members (terminal, desktop control).
@@ -11,6 +11,8 @@ export interface MemberDefinition {
 	name: string;
 	description: string;
 	platforms: DeviceSummary["platform"][];
+	/** The brand whose own app this connector reads, when it declares one (04 图标登记表). */
+	brand?: BrandId;
 }
 
 export interface LocalFilesAdapter {

@@ -68,7 +68,7 @@ export function ChannelDirectory({
 		return (
 			<ListRow
 				key={channel}
-				leading={<BrandIcon name={channel} size={32} />}
+				leading={<BrandIcon name={connection?.brand ?? channel} size={32} />}
 				title={title}
 				subtitle={connection?.name !== title ? connection?.name : undefined}
 				trailing={status === "connected" ? undefined : t(`channels.${status ?? action}`)}
