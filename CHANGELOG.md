@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112815] - 2026-11-28
+
+### Added
+
+- media：cache signed files and recording segments
+
 ## [0.3.26112814] - 2026-11-28
 
 ### Added
