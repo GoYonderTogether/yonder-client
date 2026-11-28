@@ -154,7 +154,7 @@ pub fn read_page(
     cancelled: &AtomicBool,
     expires: u64,
 ) -> Result<(Page, String), &'static str> {
-    let mut file = open_regular(path)?;
+    let file = open_regular(path)?;
     let before = file.metadata().map_err(|_| "operation_failed")?;
     let size = before.len();
     // A byte position at or past the end is an empty page, as a line past the end is.
@@ -182,6 +182,105 @@ pub fn read_page(
         end_byte: 0,
         line_bytes: None,
     };
+    let hash = scan_text(path, file, before, cancelled, expires, |pos, bytes| {
+        for (i, &b) in bytes.iter().enumerate() {
+            let p = pos + i as u64;
+            if b == b'\n' {
+                scan.end_line(p);
+            } else {
+                scan.byte(p, b);
+            }
+        }
+    })?;
+    if scan.line_len > 0 {
+        scan.end_line(size);
+    }
+    let start_line = if scan.started {
+        scan.start_line
+    } else if from_byte.is_some() {
+        scan.total + 1
+    } else {
+        offset
+    };
+    let end_line = start_line - 1 + scan.returned;
+    let (start_byte, end_byte) = if scan.started {
+        (scan.start_byte, scan.end_byte)
+    } else {
+        (size, size)
+    };
+    let page = Page {
+        content: scan.content,
+        start_line,
+        end_line,
+        total_lines: scan.total,
+        truncated: scan.line_bytes.is_some() || end_line < scan.total,
+        line_bytes: scan.line_bytes,
+        start_byte,
+        end_byte,
+    };
+    Ok((page, hash))
+}
+
+pub struct PreviewPage {
+    pub content: Vec<u8>,
+    pub next_offset: Option<u64>,
+    pub sha256: String,
+}
+
+/// Preserve the file's exact UTF-8 bytes so the viewer can concatenate its pages.
+pub fn read_preview_page(
+    path: &Path,
+    offset: u64,
+    expected_sha256: Option<&str>,
+    cancelled: &AtomicBool,
+    expires: u64,
+) -> Result<PreviewPage, &'static str> {
+    let file = open_regular(path)?;
+    let before = file.metadata().map_err(|_| "operation_failed")?;
+    let size = before.len();
+    let mut content = Vec::new();
+    let sha256 = scan_text(path, file, before, cancelled, expires, |pos, bytes| {
+        let start = offset.saturating_sub(pos);
+        if start < bytes.len() as u64 && content.len() <= MAX_PAGE_BYTES {
+            let remaining = &bytes[start as usize..];
+            let count = remaining.len().min(MAX_PAGE_BYTES + 1 - content.len());
+            content.extend_from_slice(&remaining[..count]);
+        }
+    })?;
+    if expected_sha256.is_some_and(|expected| expected != sha256) {
+        return Err("conflict");
+    }
+    let continuation = |byte: &u8| byte & 0xC0 == 0x80;
+    if offset > size || content.first().is_some_and(continuation) {
+        return Err("path_invalid");
+    }
+    if content.len() > MAX_PAGE_BYTES {
+        let mut end = MAX_PAGE_BYTES;
+        while continuation(&content[end]) {
+            end -= 1;
+        }
+        if content[end - 1] == b'\r' && content[end] == b'\n' {
+            end -= 1;
+        }
+        content.truncate(end);
+    }
+    let end = offset + content.len() as u64;
+    Ok(PreviewPage {
+        content,
+        next_offset: (end < size).then_some(end),
+        sha256,
+    })
+}
+
+fn scan_text(
+    path: &Path,
+    mut file: fs::File,
+    before: fs::Metadata,
+    cancelled: &AtomicBool,
+    expires: u64,
+    mut process: impl FnMut(u64, &[u8]),
+) -> Result<String, &'static str> {
+    let size = before.len();
     let mut hasher = Sha256::new();
     let mut chunk = [0u8; SNIFF_BYTES];
     let mut carry: Vec<u8> = Vec::new();
@@ -212,21 +311,11 @@ pub fn read_page(
             }
             Err(_) => return Err("unsupported_file"),
         }
-        for (i, &b) in bytes.iter().enumerate() {
-            let p = pos + i as u64;
-            if b == b'\n' {
-                scan.end_line(p);
-            } else {
-                scan.byte(p, b);
-            }
-        }
+        process(pos, bytes);
         pos += n as u64;
     }
     if !carry.is_empty() {
         return Err("unsupported_file");
-    }
-    if scan.line_len > 0 {
-        scan.end_line(pos);
     }
     if pos != size
         || open_regular(path)
@@ -240,28 +329,5 @@ pub fn read_page(
         return Err("conflict");
     }
     check(cancelled, expires)?;
-    let start_line = if scan.started {
-        scan.start_line
-    } else if from_byte.is_some() {
-        scan.total + 1
-    } else {
-        offset
-    };
-    let end_line = start_line - 1 + scan.returned;
-    let (start_byte, end_byte) = if scan.started {
-        (scan.start_byte, scan.end_byte)
-    } else {
-        (size, size)
-    };
-    let page = Page {
-        content: scan.content,
-        start_line,
-        end_line,
-        total_lines: scan.total,
-        truncated: scan.line_bytes.is_some() || end_line < scan.total,
-        line_bytes: scan.line_bytes,
-        start_byte,
-        end_byte,
-    };
-    Ok((page, format!("{:x}", hasher.finalize())))
+    Ok(format!("{:x}", hasher.finalize()))
 }

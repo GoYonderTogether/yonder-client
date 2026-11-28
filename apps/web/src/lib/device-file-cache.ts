@@ -9,6 +9,20 @@ const revisionKey = (connection: ConnectorInstance) => `${encodeURIComponent(con
 export const deviceFileCacheKey = (account: string, connection: ConnectorInstance, path: string) =>
 	`${prefix(account)}${revisionKey(connection)}${encodeURIComponent(path)}`;
 
+const versionPrefix = (key: string, sha256 = "") => `${key}:version:${sha256}`;
+
+export const deviceFileVersionKey = (key: string, sha256: string, part: number | "original") =>
+	`${versionPrefix(key, sha256)}:${part}`;
+
+export async function clearDeviceFileCache(key: string, keepSha256?: string) {
+	const keys = await chatCacheKeys(versionPrefix(key));
+	const keep = keepSha256 && `${versionPrefix(key, keepSha256)}:`;
+	await Promise.all([
+		keep ? undefined : removeChatCache(key),
+		...keys.filter((part) => !keep || !part.startsWith(keep)).map(removeChatCache),
+	]);
+}
+
 /** Closed readers also lose cached bytes when their grant is removed or replaced. */
 export function useDeviceFileCacheMaintenance(account: string | undefined) {
 	const { api, realtime } = useData();

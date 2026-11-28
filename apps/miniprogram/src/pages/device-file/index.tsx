@@ -1,23 +1,22 @@
 import { Text, View } from "@tarojs/components";
 import { useDidShow, useLoad } from "@tarojs/taro";
 import { type DeviceFileReference, deviceFileChild, deviceFileName } from "@yonder/chat-model";
-import type { ConnectorFilePreviewStatus, ConnectorInstance } from "@yonder/protocol";
+import type { ConnectorInstance } from "@yonder/protocol";
 import { useCallback, useEffect, useState } from "react";
 import { Page, Row, State } from "../../components/ui";
-import type { DeviceFile } from "../../lib/device-file-bytes";
 import { takeDeviceFile } from "../../lib/device-file-navigation";
+import type { DeviceFileReading } from "../../lib/device-file-transfer";
 import { t } from "../../lib/i18n";
 import { api, clearDeviceFileCache, downloadDeviceFile, subscribeEvents, useSession } from "../../lib/runtime";
+import { PagedDeviceText } from "./paged-text";
 import { DeviceFileBody } from "./reader";
 import "./style.scss";
-
-type Result = Exclude<ConnectorFilePreviewStatus, { kind: "unchanged" }> | (DeviceFile & { stale?: boolean });
 
 export default function DeviceFilePage() {
 	const { me } = useSession();
 	const [reference, setReference] = useState<DeviceFileReference>();
 	const [choices, setChoices] = useState<ConnectorInstance[]>([]);
-	const [result, setResult] = useState<Result>();
+	const [result, setResult] = useState<DeviceFileReading>();
 	const [source, setSource] = useState<ConnectorInstance>();
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -27,7 +26,7 @@ export default function DeviceFilePage() {
 	useEffect(
 		() =>
 			subscribeEvents((event) => {
-				if (event.type !== "connectors.changed") return;
+				if (event.type !== "connectors.changed" && event.type !== "devices.changed") return;
 				setResult(undefined);
 				refresh();
 			}),
@@ -57,42 +56,44 @@ export default function DeviceFilePage() {
 
 		async function load() {
 			if (!reference) return;
-			const connections = await api.connectors().then(
-				({ items }) => items.filter((item) => item.connectorId === "local-files"),
-				(error: unknown) => {
-					if (!reference.connectionId) throw error;
-					return undefined;
-				},
-			);
+			const { items } = await api.connectors();
+			const connections = items.filter((item) => item.connectorId === "local-files");
 			if (!active) return;
-			let selected = connections?.find((item) => item.id === reference.connectionId);
+			let selected = connections.find((item) => item.id === reference.connectionId);
 			if (!reference.connectionId) {
-				const allowed = connections?.filter((item) => item.scope === "device") ?? [];
+				const allowed = connections.filter((item) => item.scope === "device");
 				if (allowed.length > 1) {
 					setChoices(allowed);
 					return;
 				}
 				selected = allowed[0];
 			}
-			const id = reference.connectionId ?? selected?.id;
-			if (!id || (connections && !selected)) {
-				if (connections) clearDeviceFileCache();
+			if (!selected) {
+				clearDeviceFileCache();
 				setResult(undefined);
 				setError(t("没有可读取此文件的授权设备", "No authorized device can read this file"));
 				return;
 			}
 			setSource(selected);
-			const value = await downloadDeviceFile(id, reference.path, controller?.signal);
+			const value = await downloadDeviceFile(selected, reference.path, controller?.signal);
 			if (active) setResult(value);
 		}
 	}, [accountId, reference]);
+	const path = reference?.path;
+	const loadPage = useCallback(
+		(offset: number, expectedSha256: string, signal?: AbortSignal) => {
+			if (!source || !path) return Promise.reject(new Error("file source unavailable"));
+			return downloadDeviceFile(source, path, signal, { offset, expectedSha256 });
+		},
+		[path, source],
+	);
 
 	const open = (next: DeviceFileReference) => {
 		setResult(undefined);
 		setSource(undefined);
 		setReference(next);
 	};
-	const title = result?.kind === "file" ? result.name : reference ? deviceFileName(reference.path) : t("文件", "File");
+	const title = result && result.kind !== "directory" ? result.name : path ? deviceFileName(path) : t("文件", "File");
 	return (
 		<Page title={title}>
 			<View className="mini-device-file">
@@ -109,11 +110,12 @@ export default function DeviceFilePage() {
 						{t("正在检查更新…", "Checking for updates…")}
 					</Text>
 				) : null}
-				{result?.kind === "file" ? (
-					<>
-						{result.stale ? <Text className="mini-muted">{t("上次读取的版本", "Last available version")}</Text> : null}
-						<DeviceFileBody key={result.sha256} file={result} />
-					</>
+				{result && result.kind !== "directory" && result.stale ? (
+					<Text className="mini-muted">{t("上次读取的版本", "Last available version")}</Text>
+				) : null}
+				{result?.kind === "file" ? <DeviceFileBody key={result.sha256} file={result} /> : null}
+				{result?.kind === "text_page" ? (
+					<PagedDeviceText key={result.sha256} first={result} load={loadPage} refresh={refresh} />
 				) : null}
 				{result?.kind === "directory" && reference ? (
 					<>

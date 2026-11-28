@@ -12,7 +12,12 @@ interface Snapshot<T> {
 	savedAt: number;
 }
 
-export function metadataKey(owner: string, kind: "messages" | "timeline" | "memory", key = "", page = "") {
+export function metadataKey(
+	owner: string,
+	kind: "messages" | "timeline" | "memory" | "device-file",
+	key = "",
+	page = "",
+) {
 	return [MINI_CACHE_PREFIX.slice(0, -1), source, owner, kind, key, page]
 		.map((part, index) => (index === 0 ? part : encodeURIComponent(part).replaceAll(".", "%2E")))
 		.join(".");
@@ -149,7 +154,10 @@ export function timelinePageAffected(page: MemoryDayPage, dates: string[] | unde
 
 export function writeSnapshot<T>(key: string, data: T): void {
 	try {
-		const pages = Taro.getStorageInfoSync().keys.filter((name) => name.startsWith(MINI_CACHE_PREFIX) && name !== key);
+		const deviceFile = (value: string) => value.slice(MINI_CACHE_PREFIX.length).split(".")[2] === "device-file";
+		const pages = Taro.getStorageInfoSync().keys.filter(
+			(name) => name.startsWith(MINI_CACHE_PREFIX) && name !== key && deviceFile(name) === deviceFile(key),
+		);
 		const oldest = pages.map((name) => ({ name, at: readSnapshot(name)?.savedAt ?? 0 })).sort((a, b) => a.at - b.at);
 		for (const { name } of oldest.slice(0, Math.max(0, oldest.length - MAX_PAGES + 1))) Taro.removeStorageSync(name);
 	} catch {

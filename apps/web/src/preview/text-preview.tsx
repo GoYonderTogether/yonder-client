@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { splitTextAttachment } from "@yonder/chat-model";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { decodeAttachmentText } from "../lib/attachment-text.ts";
 import { MessageContent } from "../pages/message-content.tsx";
 import type { PreviewFile } from "./file-kind.ts";
@@ -10,14 +11,13 @@ export function TextPreview({ file, kind }: { file: PreviewFile; kind: "text" | 
 	const [text, setText] = useState<string>();
 	const [partial, setPartial] = useState(false);
 	const [error, setError] = useState(false);
-	const [offset, setOffset] = useState(0);
-	const chunk = 32_000;
+	const [visiblePages, setVisiblePages] = useState(1);
 	useEffect(() => {
 		let active = true;
 		const controller = new AbortController();
 		setText(undefined);
 		setError(false);
-		setOffset(0);
+		setVisiblePages(1);
 		setPartial(false);
 		void (async () => {
 			if (kind === "doc") {
@@ -39,47 +39,59 @@ export function TextPreview({ file, kind }: { file: PreviewFile; kind: "text" | 
 			controller.abort();
 		};
 	}, [file.blob, kind]);
-	const shown = text?.slice(offset, offset + chunk);
+	const pages = useMemo(() => (text && kind !== "markdown" ? splitTextAttachment(text) : []), [kind, text]);
+	return (
+		<TextPreviewViewport
+			onReachEnd={visiblePages < pages.length ? () => setVisiblePages((count) => count + 1) : undefined}
+		>
+			{partial ? <p role="status">{t("partial")}</p> : null}
+			{error ? (
+				<p className="attachment-reader-notice" role="status">
+					{t("failed")}
+				</p>
+			) : text === undefined ? (
+				<p role="status" className="attachment-reader-notice">
+					{t("loading")}
+				</p>
+			) : kind === "markdown" ? (
+				<article className="attachment-document-content">
+					<MessageContent body={text} />
+				</article>
+			) : (
+				<pre className="attachment-text-content">{pages.slice(0, visiblePages)}</pre>
+			)}
+		</TextPreviewViewport>
+	);
+}
+
+/** The text reader requests more only when pending content nears its scroll viewport. */
+export function TextPreviewViewport({
+	children,
+	onReachEnd,
+}: {
+	children: ReactNode;
+	onReachEnd?: (() => void) | undefined;
+}) {
+	const scroll = useRef<HTMLDivElement>(null);
+	const nextPage = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const root = scroll.current;
+		const target = nextPage.current;
+		if (!root || !target || !onReachEnd) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) onReachEnd();
+			},
+			{ root, rootMargin: "512px 0px" },
+		);
+		observer.observe(target);
+		return () => observer.disconnect();
+	}, [onReachEnd]);
 	return (
 		<div className="attachment-text-reader">
-			{(text?.length ?? 0) > chunk ? (
-				<div className="attachment-reader-toolbar">
-					<button type="button" disabled={!offset} onClick={() => setOffset((value) => Math.max(0, value - chunk))}>
-						{t("textPrevious")}
-					</button>
-					<span>
-						{t("textRange", {
-							start: offset + 1,
-							end: Math.min(text?.length ?? 0, offset + chunk),
-							count: text?.length ?? 0,
-						})}
-					</span>
-					<button
-						type="button"
-						disabled={offset + chunk >= (text?.length ?? 0)}
-						onClick={() => setOffset((value) => value + chunk)}
-					>
-						{t("textNext")}
-					</button>
-				</div>
-			) : null}
-			<div className="attachment-document-scroll">
-				{partial ? <p role="status">{t("partial")}</p> : null}
-				{error ? (
-					<p className="attachment-reader-notice" role="status">
-						{t("failed")}
-					</p>
-				) : text === undefined ? (
-					<p role="status" className="attachment-reader-notice">
-						{t("loading")}
-					</p>
-				) : kind === "markdown" ? (
-					<article className="attachment-document-content">
-						<MessageContent body={shown ?? ""} />
-					</article>
-				) : (
-					<pre className="attachment-text-content">{shown}</pre>
-				)}
+			<div ref={scroll} className="attachment-document-scroll">
+				{children}
+				{onReachEnd ? <div ref={nextPage} aria-hidden="true" /> : null}
 			</div>
 		</div>
 	);

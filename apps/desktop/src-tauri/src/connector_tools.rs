@@ -16,5 +16,6 @@
 //! | 8       | administrator execution: `computer_shell`'s `elevated`, `justification`  |
 //! | 9       | desktop control: `desktop_windows`, `desktop_ax`, `desktop_shot`, `desktop_input`, `capabilities.desktop` |
 //! | 10      | browser control: `browser_status`, `browser_session`, `browser_navigate`, `browser_observe`, `browser_act`, `capabilities.browser` |
+//! | 11      | `file_preview` text pages anchored to the original SHA-256 and byte offset |
 
-pub const TOOLS_VERSION: u64 = 10;
+pub const TOOLS_VERSION: u64 = 11;

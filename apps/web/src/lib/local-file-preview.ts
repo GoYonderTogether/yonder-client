@@ -2,14 +2,19 @@ import type {
 	ConnectorCommand,
 	ConnectorCommandResult,
 	ConnectorFilePreviewStatus,
+	ConnectorFileTextPage,
 	ConnectorInstance,
 } from "@yonder/protocol";
 import { invokeLocalFiles, type LocalFilesContext } from "./local-files.ts";
 
 const MAX_ORIGINAL_BYTES = 20 * 1024 * 1024;
 const MAX_METADATA_BYTES = 512 * 1024;
+const MAX_PAGE_BYTES = 64 * 1024;
 
-export type NativeFilePreview = ConnectorFilePreviewStatus | { kind: "file"; sha256: string; name: string; blob: File };
+export type NativeFilePreview =
+	| ConnectorFilePreviewStatus
+	| ConnectorFileTextPage
+	| { kind: "file"; sha256: string; name: string; blob: File };
 
 /** Same small metadata prefix used by the Apple resources bridge, followed by the exact original. */
 export function decodeLocalFilePreview(buffer: ArrayBuffer): NativeFilePreview {
@@ -27,11 +32,40 @@ export function decodeLocalFilePreview(buffer: ArrayBuffer): NativeFilePreview {
 		if (buffer.byteLength - offset > MAX_ORIGINAL_BYTES) throw new Error("too_large");
 		return { kind: "file", name, sha256, blob: new File([new Uint8Array(buffer, offset)], name, { type: mimeType }) };
 	}
+	if (offset === buffer.byteLength && header.kind === "text_page") return decodeTextPage(header);
 	if (offset === buffer.byteLength && header.kind === "unchanged" && validHash(header.sha256))
 		return { kind: "unchanged", sha256: header.sha256 };
 	if (offset === buffer.byteLength && header.kind === "directory" && Array.isArray(header.entries))
 		return { kind: "directory", entries: header.entries, truncated: header.truncated === true };
 	throw new Error("read_failed");
+}
+
+function decodeTextPage(header: Record<string, unknown>): ConnectorFileTextPage {
+	const { name, mimeType, sha256, offset, nextOffset, content, pageSha256 } = header;
+	if (
+		typeof name !== "string" ||
+		!name ||
+		typeof mimeType !== "string" ||
+		!mimeType ||
+		!validHash(sha256) ||
+		!validHash(pageSha256) ||
+		typeof offset !== "number" ||
+		!Number.isSafeInteger(offset) ||
+		offset < 0 ||
+		typeof content !== "string"
+	)
+		throw new Error("read_failed");
+	const length = new TextEncoder().encode(content).byteLength;
+	if (
+		length > MAX_PAGE_BYTES ||
+		(nextOffset !== null &&
+			(typeof nextOffset !== "number" ||
+				!Number.isSafeInteger(nextOffset) ||
+				!length ||
+				nextOffset !== offset + length))
+	)
+		throw new Error("read_failed");
+	return { kind: "text_page", name, mimeType, sha256, offset, nextOffset, content, pageSha256 };
 }
 
 export function validHash(value: unknown): value is string {
@@ -77,14 +111,22 @@ export async function executeLocalFilePreview(
 			command,
 		});
 		signal?.throwIfAborted();
-		if (result instanceof ArrayBuffer) return decodeLocalFilePreview(result);
+		const decode = (bytes: ArrayBuffer) => {
+			const preview = decodeLocalFilePreview(bytes);
+			const page = command.args?.textPage;
+			if (page?.expectedSha256 && (preview.kind !== "text_page" || preview.sha256 !== page.expectedSha256))
+				throw new Error("conflict");
+			if (preview.kind === "text_page" && preview.offset !== page?.offset) throw new Error("read_failed");
+			return preview;
+		};
+		if (result instanceof ArrayBuffer) return decode(result);
 		// WKWebView's postMessage fallback returns raw IPC responses as JSON byte arrays.
 		if (Array.isArray(result)) {
 			if (result.length > MAX_ORIGINAL_BYTES + MAX_METADATA_BYTES + 4) throw new Error("too_large");
 			for (const byte of result) {
 				if (!Number.isInteger(byte) || byte < 0 || byte > 255) throw new Error("read_failed");
 			}
-			return decodeLocalFilePreview(Uint8Array.from(result).buffer);
+			return decode(Uint8Array.from(result).buffer);
 		}
 		throw new Error(result.ok ? "read_failed" : result.error);
 	} finally {

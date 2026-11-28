@@ -1,4 +1,4 @@
-import { isTextAttachment } from "../lib/attachment-text.ts";
+import { isTextAttachment } from "@yonder/chat-model";
 
 export interface PreviewFile {
 	name: string;
@@ -10,7 +10,7 @@ export type PreviewKind = "image" | "pdf" | "docx" | "doc" | "markdown" | "text"
 
 export function previewKind(file: Pick<PreviewFile, "name" | "mimeType">): PreviewKind {
 	const name = file.name.toLowerCase();
-	const mime = file.mimeType.toLowerCase();
+	const mime = (file.mimeType.split(";", 1)[0] ?? "").trim().toLowerCase();
 	if (mime.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|avif|heic|heif|svg)$/.test(name)) return "image";
 	if (mime === "application/pdf" || name.endsWith(".pdf")) return "pdf";
 	if (name.endsWith(".docx") || mime.includes("wordprocessingml")) return "docx";

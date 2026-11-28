@@ -1,6 +1,7 @@
 import { Image, Text, Video, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
-import { useEffect, useRef, useState } from "react";
+import { isTextAttachment, splitTextAttachment } from "@yonder/chat-model";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button, State } from "../../components/ui";
 import { type DeviceFile, decodeFileText } from "../../lib/device-file-bytes";
 import { t } from "../../lib/i18n";
@@ -9,25 +10,74 @@ import { MessageBody } from "../chat/markdown";
 
 const imageTypes = /^image\/(?:png|jpeg|gif|webp|bmp)$/i;
 const documentTypes = /^(?:pdf|docx?|xlsx?|pptx?)$/i;
-const sourceTypes = /^(?:md|markdown|txt|json|csv|yaml|yml|log)$/i;
+
+interface TextSection {
+	offset: number;
+	text: string;
+}
 
 export function DeviceFileBody({ file }: { file: DeviceFile }) {
-	const extension = file.name.split(".").at(-1)?.toLowerCase() ?? "";
-	if (file.bytes.byteLength <= 1024 * 1024 && (file.mime.startsWith("text/") || sourceTypes.test(extension))) {
+	const { name, mime, bytes } = file;
+	const extension = name.split(".").at(-1)?.toLowerCase() ?? "";
+	const parts = useMemo(() => {
+		if (!isTextAttachment(name, mime)) return null;
 		try {
-			const body = decodeFileText(file.bytes);
-			return /^(md|markdown)$/.test(extension) || file.mime === "text/markdown" ? (
-				<MessageBody body={body} />
-			) : (
-				<Text selectable userSelect className="mini-device-file-text">
-					{body}
-				</Text>
-			);
+			const body = decodeFileText(bytes);
+			if (body.includes("\0")) return null;
+			let offset = 0;
+			return splitTextAttachment(body, 8192).map((text) => {
+				const part = { offset, text };
+				offset += text.length;
+				return part;
+			});
 		} catch {
-			// A file with invalid UTF-8 still has the original verified bytes.
+			return null;
 		}
+	}, [bytes, mime, name]);
+	if (parts) {
+		const markdown = /^(md|markdown)$/.test(extension) || mime === "text/markdown";
+		if (markdown && parts.length <= 1) return <MessageBody body={parts[0]?.text ?? ""} />;
+		return <DeviceText parts={parts} />;
 	}
 	return <DeviceMedia file={file} extension={extension} />;
+}
+
+function DeviceText({ parts }: { parts: TextSection[] }) {
+	const reactId = useId();
+	const [count, setCount] = useState(1);
+	const more = count < parts.length;
+	const tail = `device-text-tail-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}-${count}`;
+	useEffect(() => {
+		if (!more) return;
+		const page = Taro.getCurrentInstance().page;
+		if (!page) return;
+		let active = true;
+		let observer: Taro.IntersectionObserver | undefined;
+		Taro.nextTick(() => {
+			if (!active) return;
+			observer = Taro.createIntersectionObserver(page, { thresholds: [0, 0.01] });
+			observer.relativeToViewport({ bottom: 400 }).observe(`#${tail}`, ({ intersectionRatio }) => {
+				if (!active || !intersectionRatio) return;
+				active = false;
+				observer?.disconnect();
+				setCount(count + 1);
+			});
+		});
+		return () => {
+			active = false;
+			observer?.disconnect();
+		};
+	}, [count, more, tail]);
+	return (
+		<View className="mini-device-file-text">
+			{parts.slice(0, count).map(({ offset, text }) => (
+				<Text key={offset} selectable userSelect>
+					{text}
+				</Text>
+			))}
+			{more ? <View id={tail} className="mini-device-file-text-tail" ariaHidden /> : null}
+		</View>
+	);
 }
 
 function DeviceMedia({ file, extension }: { file: DeviceFile; extension: string }) {
@@ -43,6 +93,10 @@ function DeviceMedia({ file, extension }: { file: DeviceFile; extension: string 
 	useEffect(() => () => audioContext.current?.destroy(), []);
 	useEffect(() => {
 		if (!supported) return;
+		if (file.localPath) {
+			setPath(file.localPath);
+			return;
+		}
 		if (h5) {
 			const url = URL.createObjectURL(new Blob([file.bytes], { type: file.mime }));
 			setPath(url);

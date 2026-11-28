@@ -10,12 +10,14 @@ import type {
 } from "./browser.ts";
 import type { CustomConnectorProposal } from "./custom.ts";
 import type { DesktopConnectorResult, DesktopInputAction, DesktopPermission } from "./desktop.ts";
+import type { ConnectorFilePreviewResult, ConnectorFileTextPageRequest } from "./preview.ts";
 import type { ShellJobAction, TerminalConnectorResult } from "./terminal.ts";
 
 // Desktop, terminal and browser shapes live in their own modules, re-exported here for one entry point.
 export * from "./apple.ts";
 export * from "./browser.ts";
 export * from "./desktop.ts";
+export * from "./preview.ts";
 export * from "./terminal.ts";
 
 export type FileConnectorId = "local-files" | "computer-control";
@@ -187,6 +189,8 @@ export interface ConnectorCommandArgs {
 	expectedHash?: string;
 	/** `file_preview`: the exact version the requesting client already verified. */
 	knownSha256?: string;
+	/** V11: an opt-in page anchored to the original file's byte offset and version. */
+	textPage?: ConnectorFileTextPageRequest;
 	recoveryId?: string;
 	/** OS-local resource id, never a filesystem path or a script. */
 	id?: string;
@@ -374,14 +378,6 @@ export type LocalFilesResult =
 			replacements?: number;
 	  }
 	| { kind: "delete"; path: string; recoveryId: string };
-
-export type ConnectorFilePreviewStatus =
-	| { kind: "directory"; entries: { name: string; type: "file" | "directory" }[]; truncated: boolean }
-	| { kind: "unchanged"; sha256: string };
-
-export type ConnectorFilePreviewResult =
-	| ConnectorFilePreviewStatus
-	| { kind: "file"; sha256: string; attachment: Attachment };
 
 export type ConnectorResult =
 	| LocalFilesResult

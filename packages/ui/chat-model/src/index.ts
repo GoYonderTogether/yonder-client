@@ -41,6 +41,7 @@ export {
 	scheduleFailureText,
 } from "./run-failure.ts";
 export { runSources } from "./run-sources.ts";
+export { isTextAttachment, splitTextAttachment } from "./text-attachment.ts";
 export { visitAvatarOverlay, visitBot, visitRelayTarget } from "./visit-presentation.ts";
 
 import type { Message } from "@yonder/protocol";

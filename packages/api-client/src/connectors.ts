@@ -2,7 +2,10 @@ import type {
 	Attachment,
 	ConnectorCatalogResponse,
 	ConnectorCommandResult,
+	ConnectorFileDownload,
+	ConnectorFilePreviewRequest,
 	ConnectorFilePreviewStatus,
+	ConnectorFileTextPage,
 	ConnectorId,
 	ConnectorInstance,
 	ConnectorListResponse,
@@ -15,6 +18,8 @@ import { type ApiClient, ApiError, type ApiResponse } from "./client.ts";
 
 export type ConnectorFileContent =
 	| ConnectorFilePreviewStatus
+	| ConnectorFileTextPage
+	| ConnectorFileDownload
 	| { kind: "file"; sha256: string; name: string; blob: Blob };
 
 /** Connectors and the results a local connector reports back. */
@@ -63,7 +68,7 @@ export function connectorEndpoints(client: ApiClient) {
 		},
 		async connectorFilePreview(
 			id: string,
-			body: { path: string; knownSha256?: string },
+			body: ConnectorFilePreviewRequest,
 			signal?: AbortSignal,
 		): Promise<ConnectorFileContent> {
 			const response = await client.request<ApiResponse>(`/v1/connectors/${encodeURIComponent(id)}/file-preview`, {
@@ -72,13 +77,25 @@ export function connectorEndpoints(client: ApiClient) {
 				...(signal ? { signal } : {}),
 			});
 			const sha256 = response.headers?.get("x-yonder-file-sha256");
-			if (sha256 === null || sha256 === undefined) return (await response.json()) as ConnectorFilePreviewStatus;
+			if (sha256 === null || sha256 === undefined)
+				return (await response.json()) as ConnectorFilePreviewStatus | ConnectorFileTextPage | ConnectorFileDownload;
 			const name = /filename\*=UTF-8''([^;]+)/i.exec(response.headers?.get("content-disposition") ?? "")?.[1];
 			if (!name || !/^[a-f0-9]{64}$/.test(sha256)) {
 				await response.body?.cancel?.();
 				throw new ApiError({ code: "upstream_unavailable", status: 502, message: "invalid file response" });
 			}
 			return { kind: "file", sha256, name: decodeURIComponent(name), blob: await response.blob() };
+		},
+		acknowledgeConnectorFilePreview(
+			id: string,
+			receipt: string,
+			sha256: string,
+			signal?: AbortSignal,
+		): Promise<{ ok: true }> {
+			return client.request(
+				`/v1/connectors/${encodeURIComponent(id)}/file-preview/${encodeURIComponent(receipt)}/ack`,
+				{ body: { sha256 }, ...(signal ? { signal } : {}) },
+			);
 		},
 		uploadConnectorAttachment(commandId: string, file: File, signal: AbortSignal): Promise<Attachment> {
 			const form = new FormData();

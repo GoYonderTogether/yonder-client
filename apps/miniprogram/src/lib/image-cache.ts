@@ -28,6 +28,15 @@ export function removeMediaFile(path: string): void {
 	}
 }
 
+export async function downloadMedia(url: string): Promise<string> {
+	const result = await Taro.downloadFile({ url, withCredentials: false });
+	if (result.statusCode !== 200 || !result.tempFilePath) {
+		if (result.tempFilePath) removeMediaFile(result.tempFilePath);
+		throw new Error(`HTTP ${result.statusCode}`);
+	}
+	return result.tempFilePath;
+}
+
 export function mediaCache(scope: string) {
 	const id = cacheNamespace + digest(scope);
 	const pending = new Map<string, Promise<string>>();
@@ -74,6 +83,17 @@ export function mediaCache(scope: string) {
 	};
 	return {
 		remove,
+		persistentPath(key: string): string | undefined {
+			if (preview()) return;
+			const file = readIndex()[key];
+			if (!file) return;
+			try {
+				Taro.getFileSystemManager().accessSync(file.path);
+				return file.path;
+			} catch {
+				remove((candidate) => candidate === key);
+			}
+		},
 		get(key: string, download: () => Promise<string>, extension?: string, persistent = true): Promise<string> {
 			const inFlight = pending.get(key);
 			if (inFlight) return inFlight;

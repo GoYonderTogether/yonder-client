@@ -1,19 +1,12 @@
 import Taro from "@tarojs/taro";
-import { ApiClient, ApiError, createEndpoints, NetworkError } from "@yonder/api-client";
+import { ApiClient, createEndpoints } from "@yonder/api-client";
 import { chatHistoryTimeOffset, mergeMessage } from "@yonder/chat-model";
-import type {
-	Attachment,
-	ConnectorFilePreviewStatus,
-	DeviceInfo,
-	Member,
-	MeResponse,
-	MessagePage,
-} from "@yonder/protocol";
+import type { Attachment, ConnectorInstance, DeviceInfo, Member, MeResponse, MessagePage } from "@yonder/protocol";
 import { useSyncExternalStore } from "react";
 import { createChatOutbox } from "./chat-outbox";
-import { type DeviceFile, verifyDeviceFile } from "./device-file-bytes";
+import { clearDeviceFileTransfers, type DeviceFilePosition, readDeviceFile } from "./device-file-transfer";
 import { setLocale } from "./i18n";
-import { mediaCache, removeMediaFile } from "./image-cache";
+import { downloadMedia, mediaCache, removeMediaFile } from "./image-cache";
 import { type ChosenImage, readAvatar } from "./local-image";
 import { upsertOwnedBot } from "./member-cache";
 import {
@@ -31,7 +24,7 @@ import {
 	subscribeEvents,
 	suspendRealtime,
 } from "./realtime";
-import { localFile, type MiniResponse, miniFetch } from "./transport";
+import { localFile, miniFetch } from "./transport";
 
 export { subscribeEvents, suspendRealtime, useRealtimeRevision } from "./realtime";
 
@@ -52,7 +45,6 @@ let session: { status: "booting" | "signed-out" | "signed-in"; me: MeResponse | 
 	me: null,
 };
 let media: { owner: string; cache: ReturnType<typeof mediaCache> } | undefined;
-let lastDeviceFile: { key: string; file: DeviceFile } | undefined;
 let deviceFileGeneration = 0;
 let generation = 0;
 
@@ -92,8 +84,8 @@ function clearLocal(): void {
 	chatOutbox.clear();
 	if (savedMemberId) memberMedia(savedMemberId).remove(() => true);
 	media = undefined;
-	client.clearTokens();
 	clearDeviceFileCache();
+	client.clearTokens();
 	try {
 		for (const key of Taro.getStorageInfoSync().keys)
 			if (
@@ -190,7 +182,7 @@ configureRealtime({
 
 subscribeEvents((event) => {
 	if (event.type === "message.created" || event.type === "message.updated") chatOutbox.confirm(event.message);
-	if (event.type === "connectors.changed") clearDeviceFileCache();
+	if (event.type === "connectors.changed" || event.type === "devices.changed") clearDeviceFileCache();
 	if (savedMemberId) updateMetadataForEvent(savedMemberId, event, invalidateAttachmentMedia, clearConversationMedia);
 	const me = session.me;
 	if (!me) return;
@@ -374,15 +366,6 @@ function clearConversationMedia(): void {
 	if (savedMemberId) memberMedia(savedMemberId).remove((key) => key.startsWith("attachment:"));
 }
 
-async function downloadMedia(url: string): Promise<string> {
-	const result = await Taro.downloadFile({ url, withCredentials: false });
-	if (result.statusCode !== 200 || !result.tempFilePath) {
-		if (result.tempFilePath) removeMediaFile(result.tempFilePath);
-		throw new Error(`HTTP ${result.statusCode}`);
-	}
-	return result.tempFilePath;
-}
-
 export function downloadAttachment(
 	file: Pick<Attachment, "id" | "kind" | "name">,
 	variant: "thumb" | "original" = "original",
@@ -434,55 +417,30 @@ export function downloadAvatarImage(src: string): Promise<string> {
 
 export function clearDeviceFileCache() {
 	deviceFileGeneration += 1;
-	lastDeviceFile = undefined;
+	clearDeviceFileTransfers(savedMemberId, baseUrl);
 }
 
 export async function downloadDeviceFile(
-	connectionId: string,
+	source: ConnectorInstance,
 	path: string,
 	signal?: AbortSignal,
-): Promise<Extract<ConnectorFilePreviewStatus, { kind: "directory" }> | (DeviceFile & { stale?: boolean })> {
+	position?: DeviceFilePosition,
+) {
+	const owner = savedMemberId;
+	if (!owner || source.connectorId !== "local-files") throw new Error("permission_denied");
 	const expected = generation;
 	const expectedFiles = deviceFileGeneration;
-	const key = JSON.stringify([connectionId, path]);
-	const cached = lastDeviceFile?.key === key ? lastDeviceFile.file : undefined;
-	try {
-		const response = await client.request<MiniResponse>(
-			`/v1/connectors/${encodeURIComponent(connectionId)}/file-preview`,
-			{
-				body: { path, ...(cached ? { knownSha256: cached.sha256 } : {}) },
-				responseType: "response",
-				signal,
-			},
-		);
-		assertCurrent(expected);
-		if (signal?.aborted || expectedFiles !== deviceFileGeneration) throw new Error("file read superseded");
-		const hash = response.headers?.get("x-yonder-file-sha256");
-		if (!hash) {
-			const status = (await response.json()) as ConnectorFilePreviewStatus;
-			if (status?.kind === "unchanged" && cached && status.sha256 === cached.sha256) return cached;
-			if (status?.kind === "directory" && Array.isArray(status.entries)) return status;
-			throw new Error("invalid device file response");
-		}
-		const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(response.headers?.get("content-disposition") ?? "")?.[1];
-		if (!response.bytes || !encodedName || !verifyDeviceFile(response.bytes, hash))
-			throw new Error("file checksum failed");
-		const file = {
-			kind: "file" as const,
-			name: decodeURIComponent(encodedName),
-			mime: response.headers?.get("content-type")?.split(";")[0] ?? "application/octet-stream",
-			bytes: response.bytes,
-			sha256: hash,
-		};
-		// ponytail: keep at most one small verified file in memory until app restart or sign-out.
-		lastDeviceFile = file.bytes.byteLength <= 8 * 1024 * 1024 ? { key, file } : undefined;
-		return file;
-	} catch (error) {
-		assertCurrent(expected);
-		if (signal?.aborted || expectedFiles !== deviceFileGeneration) throw error;
-		if (cached && (error instanceof NetworkError || (error instanceof ApiError && error.status === 503)))
-			return { ...cached, stale: true };
-		if (lastDeviceFile?.key === key) lastDeviceFile = undefined;
-		throw error;
-	}
+	return readDeviceFile({
+		client,
+		owner,
+		baseUrl,
+		source,
+		path,
+		signal,
+		position,
+		current: () => {
+			assertCurrent(expected);
+			if (signal?.aborted || expectedFiles !== deviceFileGeneration) throw new Error("file read superseded");
+		},
+	});
 }

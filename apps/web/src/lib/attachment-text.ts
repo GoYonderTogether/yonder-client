@@ -1,7 +1,3 @@
-export const isTextAttachment = (name: string, mime: string) =>
-	mime.startsWith("text/") ||
-	/\.(?:txt|md|markdown|csv|json|log|ya?ml|xml|html?|css|[cm]?jsx?|tsx?|py|sh)$/i.test(name);
-
 export function decodeAttachmentText(bytes: Uint8Array, partial = false): string {
 	if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder("utf-16le").decode(bytes, { stream: partial });
 	if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder("utf-16be").decode(bytes, { stream: partial });

@@ -20,9 +20,6 @@ const zh = {
 	semantic: "连续阅读",
 	partial: "当前显示部分内容，可下载原文件查看完整内容。",
 	tooLarge: "此文件超过在线预览上限，可下载原文件。",
-	textPrevious: "上一段",
-	textNext: "下一段",
-	textRange: "第 {{start}}–{{end}} 字符，共 {{count}} 字符",
 	open: "打开 {{name}}",
 };
 const en: Record<keyof typeof zh, string> = {
@@ -45,9 +42,6 @@ const en: Record<keyof typeof zh, string> = {
 	semantic: "Continuous reading",
 	partial: "Only part of the content is shown. Download the original for the complete file.",
 	tooLarge: "This file exceeds the preview limit. Download the original.",
-	textPrevious: "Previous section",
-	textNext: "Next section",
-	textRange: "Characters {{start}}–{{end}} of {{count}}",
 	open: "Open {{name}}",
 };
 

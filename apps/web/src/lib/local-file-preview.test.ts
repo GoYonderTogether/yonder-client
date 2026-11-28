@@ -39,6 +39,15 @@ beforeEach(() => {
 	invokeLocalFiles.mockReset();
 });
 
+function nativePacket(metadata: object, body = new Uint8Array()) {
+	const header = new TextEncoder().encode(JSON.stringify(metadata));
+	const packet = new Uint8Array(4 + header.length + body.length);
+	new DataView(packet.buffer).setUint32(0, header.length);
+	packet.set(header, 4);
+	packet.set(body, 4 + header.length);
+	return packet;
+}
+
 test("same-device reading initializes the existing grant and preserves every authorized local connector", async () => {
 	const control: ConnectorInstance = {
 		...source,
@@ -73,13 +82,7 @@ test("same-device initialization rejects expired revisions and stops if the read
 test.each(["fetch", "postMessage"])("the %s native IPC transport preserves the original bytes", async (transport) => {
 	const original = Uint8Array.of(0, 128, 255, 10);
 	const sha256 = createHash("sha256").update(original).digest("hex");
-	const header = new TextEncoder().encode(
-		JSON.stringify({ kind: "file", name: "文件.md", mimeType: "text/markdown", sha256 }),
-	);
-	const packet = new Uint8Array(4 + header.length + original.length);
-	new DataView(packet.buffer).setUint32(0, header.length);
-	packet.set(header, 4);
-	packet.set(original, 4 + header.length);
+	const packet = nativePacket({ kind: "file", name: "文件.md", mimeType: "text/markdown", sha256 }, original);
 	invokeLocalFiles.mockResolvedValueOnce(transport === "fetch" ? packet.buffer : Array.from(packet));
 	const result = await executeLocalFilePreview(context, command);
 	expect(result.kind).toBe("file");
@@ -88,6 +91,45 @@ test.each(["fetch", "postMessage"])("the %s native IPC transport preserves the o
 	expect(result.sha256).toBe(sha256);
 	expect(new Uint8Array(await result.blob.arrayBuffer())).toEqual(original);
 });
+
+test.each(["fetch", "postMessage"])(
+	"the %s transport preserves the exact UTF-8 text page and cursor",
+	async (transport) => {
+		const content = "\uFEFF点石\r\n始于一页";
+		const pageSha256 = createHash("sha256").update(content).digest("hex");
+		const sha256 = "5".repeat(64);
+		const page = {
+			kind: "text_page",
+			name: "文件.md",
+			mimeType: "text/markdown",
+			sha256,
+			offset: 0,
+			nextOffset: Buffer.byteLength(content),
+			content,
+			pageSha256,
+		};
+		const packet = nativePacket(page);
+		invokeLocalFiles.mockResolvedValueOnce(transport === "fetch" ? packet.buffer : Array.from(packet));
+		await expect(executeLocalFilePreview(context, { ...command, args: { textPage: { offset: 0 } } })).resolves.toEqual(
+			page,
+		);
+
+		invokeLocalFiles.mockResolvedValueOnce(nativePacket({ ...page, nextOffset: content.length }).buffer);
+		await expect(executeLocalFilePreview(context, { ...command, args: { textPage: { offset: 0 } } })).rejects.toThrow(
+			"read_failed",
+		);
+
+		invokeLocalFiles.mockResolvedValueOnce(
+			nativePacket({ kind: "file", name: page.name, mimeType: page.mimeType, sha256 }).buffer,
+		);
+		await expect(
+			executeLocalFilePreview(context, {
+				...command,
+				args: { textPage: { offset: page.nextOffset, expectedSha256: sha256 } },
+			}),
+		).rejects.toThrow("conflict");
+	},
+);
 
 test("the fallback rejects invalid bytes and oversized packets before converting them", async () => {
 	for (const payload of [
