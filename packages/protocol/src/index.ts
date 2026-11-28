@@ -169,6 +169,7 @@ export type {
 	ConnectorScope,
 	ConnectorStopReason,
 	CreateConnectorRequest,
+	CustomConnectorId,
 	DesktopAxNode,
 	DesktopBounds,
 	DesktopConnectorOperation,
@@ -184,6 +185,25 @@ export type {
 	TerminalConnectorResult,
 	UpdateConnectorRequest,
 } from "./connectors/connectors.ts";
+export type {
+	CustomCallRequest,
+	CustomCallResult,
+	CustomConnectorEventInput,
+	CustomConnectorEventSpec,
+	CustomConnectorManifest,
+	CustomConnectorPollSpec,
+	CustomConnectorProposal,
+	CustomConnectorStatus,
+	CustomConnectorToolSpec,
+	CustomConnectorView,
+	CustomEventBatch,
+	CustomToolMode,
+} from "./connectors/custom.ts";
+export {
+	CUSTOM_CALL_RESULT_MAX_BYTES,
+	CUSTOM_EVENT_BODY_MAX,
+	CUSTOM_POLL_MIN_SECONDS,
+} from "./connectors/custom.ts";
 export type { DeviceListResponse, DeviceSummary, UpdateDeviceRemarkRequest } from "./devices/devices.ts";
 export type {
 	CreateMeetingRequest,

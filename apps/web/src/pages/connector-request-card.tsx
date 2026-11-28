@@ -7,6 +7,7 @@ import { ICON_SIZE, ICON_STROKE } from "@yonder/ui-tokens";
 import { Check, LockKeyhole, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CustomConnectorRequestCard } from "./custom-connector-request-card.tsx";
 
 export function ConnectorRequestCard({ id }: { id: string }) {
 	const { t } = useTranslation();
@@ -18,9 +19,13 @@ export function ConnectorRequestCard({ id }: { id: string }) {
 	const focusPicker = useRef(false);
 	const row = request.data;
 	const retry = row?.state === "expired" || row?.state === "failed";
-	const confirmable = row?.state === "pending" || retry;
+	// A custom proposal is confirmed on its device, so this card never fetches a device list for it.
+	const confirmable = (row?.state === "pending" || retry) && !row?.proposal;
 	const devices = useConnectorRequestDevices(id, confirmable);
 	if (request.isPending) return <LoadingRow label={t("app.loading")} />;
+	// A Bot-written connector's card is its own shape: it shows the manifest and is confirmed on
+	// the target device, never by the in-app allow that this card pushes (03 §2).
+	if (row?.proposal) return <CustomConnectorRequestCard row={row} />;
 	const connectorIds = row?.connectorIds;
 	if (
 		!row ||

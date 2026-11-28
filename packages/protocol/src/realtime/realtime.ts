@@ -8,6 +8,7 @@ import type { Conversation, Message, Run } from "../chat/chat.ts";
 import type { Schedule } from "../chat/schedule.ts";
 import type { SubtaskSummary } from "../chat/subtask.ts";
 import type { ConnectorCommand, ConnectorGrant, ConnectorRequestView } from "../connectors/connectors.ts";
+import type { CustomCallRequest, CustomCallResult, CustomEventBatch } from "../connectors/custom.ts";
 import type { FriendRequest } from "../member/friend-request.ts";
 import type { Member } from "../member/member.ts";
 import type {
@@ -33,6 +34,24 @@ export type ClientEvent =
 	| { type: "connector.ready"; connectionIds: string[] }
 	/** `toolsVersion` is the device's connector command version; a device that omits it is V1. */
 	| { type: "connector.ready"; connections: { id: string; revision: number; toolsVersion?: number }[] }
+	/** A custom connector's device reports it stored the package and confirmed the entry hash (03 §3). */
+	| {
+			type: "connector.custom.ready";
+			connectionId: string;
+			slug: string;
+			entrySha256: string;
+			revision: number;
+	  }
+	/** The device's answer to one `connector.custom.call`; refused when it names no live call it was given. */
+	| ({ type: "connector.custom.result" } & CustomCallResult)
+	/** One batch from polling a custom package; the cursor advances only after the server's ack. */
+	| {
+			type: "connector.event";
+			connectionId: string;
+			revision: number;
+			batchId: string;
+			events: CustomEventBatch["events"];
+	  }
 	/** The device answers one relayed provider call: a head, then body parts, then an end. */
 	| { type: "provider.relay.head"; relayId: string; status: number; contentType?: string }
 	| { type: "provider.relay.chunk"; relayId: string; part: string }
@@ -112,7 +131,14 @@ export type ServerEvent =
 			body: string;
 	  }
 	| ({ type: "provider.relay.request"; eventId: string; at: string; relayId: string } & DeviceLocalRelayRequest)
-	| { type: "provider.relay.cancel"; eventId: string; at: string; relayId: string; mode?: "device-local" };
+	| { type: "provider.relay.cancel"; eventId: string; at: string; relayId: string; mode?: "device-local" }
+	/**
+	 * Sent only to the target device's sessions: start the package's entry without a shell, pass
+	 * `args` as JSON on stdin, and answer with `connector.custom.result` (03 §4).
+	 */
+	| { type: "connector.custom.call"; eventId: string; at: string; call: CustomCallRequest }
+	/** The server accepted one event batch; the device may now advance its cursor (03b). */
+	| { type: "connector.event.ack"; eventId: string; at: string; connectionId: string; batchId: string };
 
 export type ServerEventType = ServerEvent["type"];
 

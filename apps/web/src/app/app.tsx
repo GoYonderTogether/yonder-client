@@ -20,6 +20,7 @@ import {
 	requestMainAccessToken,
 	serveContactWindowSession,
 } from "../lib/contact-window.ts";
+import { CustomConnectorsRuntime, customConnectorsSupported } from "../lib/custom-connectors-runtime.tsx";
 import { useDeviceFileCacheMaintenance } from "../lib/device-file-cache.ts";
 import { loadSystemDeviceName, SystemDeviceName, useDeviceInfo } from "../lib/device-info.ts";
 import { DeviceModelRuntime } from "../lib/device-model-runtime.tsx";
@@ -128,6 +129,7 @@ function Localised() {
 					<LocalFilesRuntime files={localFilesSupported()} apple={appleResourcesSupported()} />
 				) : null}
 				{providerRelaySupported() ? <ProviderRelayRuntime /> : null}
+				{customConnectorsSupported() ? <CustomConnectorsRuntime /> : null}
 				<UpdateOfferProvider
 					owner={signedIn && !isContactWindow() ? personId : undefined}
 					offersEnabled={registration.isSuccess}

@@ -11,7 +11,13 @@ import {
 	desktopPresentation,
 	terminalPresentation,
 } from "./connector-card.tsx";
-import { DESKTOP_MEMBER, type MemberDefinition, masterState, TERMINAL_MEMBER } from "./connector-groups.ts";
+import {
+	type CatalogConnectorId,
+	DESKTOP_MEMBER,
+	type MemberDefinition,
+	masterState,
+	TERMINAL_MEMBER,
+} from "./connector-groups.ts";
 import type { BrowserStatus } from "./local-files-adapter.ts";
 import { BROWSER_MEMBER, canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
 
@@ -305,7 +311,7 @@ export function DeviceSwitches({
 					? desktopPresentation.key
 					: member.id === BROWSER_MEMBER
 						? browserPresentation.key
-						: connectorPresentation[member.id as ConnectorId].key;
+						: (connectorPresentation[member.id as CatalogConnectorId]?.key ?? "custom");
 		const granted = Boolean(grantOf(member));
 		const onDevice =
 			!granted && !canGrant(member) && device.status === "online"

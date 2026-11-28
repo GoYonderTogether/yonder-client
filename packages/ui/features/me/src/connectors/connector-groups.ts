@@ -1,6 +1,13 @@
 import type { ConnectorDefinition, ConnectorId, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 import { BROWSER_MEMBER, type MemberDefinition } from "./local-files-adapter.ts";
 
+/**
+ * The catalog's own connectors. `ConnectorId` also admits a Bot-written `custom:<slug>`, which has no
+ * catalog entry and no icon in this registry (04 gives those their own brand registry); a map keyed
+ * by the catalog's ids is deliberately narrower than the whole union.
+ */
+export type CatalogConnectorId = Exclude<ConnectorId, `custom:${string}`>;
+
 /** One card on the page: a connector, or catalog entries the owner sees as one connector. */
 export interface ConnectorGroup {
 	id: "computer" | ConnectorId;
@@ -16,7 +23,7 @@ export interface ConnectorGroup {
  * desktop, because the native runner/backend that executes them ships in those builds and nowhere
  * else.
  */
-const COMPUTER: readonly ConnectorId[] = ["local-files", "computer-control"];
+const COMPUTER: readonly CatalogConnectorId[] = ["local-files", "computer-control"];
 
 /** The terminal member's id inside the computer card. It names no catalog connector or grant. */
 export const TERMINAL_MEMBER = "computer-control:terminal";
@@ -90,14 +97,16 @@ export function groupConnectors(
 	if (desktop && computer.length) computer.push(desktop);
 	const groups: ConnectorGroup[] = [];
 	for (const definition of definitions) {
-		if (!COMPUTER.includes(definition.id)) groups.push({ id: definition.id, members: [definition] });
+		// `COMPUTER.includes` is typed to the catalog ids, so the wider id is narrowed once here.
+		if (!COMPUTER.includes(definition.id as CatalogConnectorId))
+			groups.push({ id: definition.id, members: [definition] });
 		else if (!groups.some((group) => group.id === "computer")) groups.push({ id: "computer", members: computer });
 	}
 	return groups;
 }
 
 /** The key a group's copy lives under in `connectors.<key>`; the computer card has its own copy. */
-const COPY_KEYS: Record<ConnectorId, string> = {
+const COPY_KEYS: Record<CatalogConnectorId, string> = {
 	"local-files": "localFiles",
 	"computer-control": "computerControl",
 	"apple-calendar": "appleCalendar",
@@ -107,7 +116,9 @@ const COPY_KEYS: Record<ConnectorId, string> = {
 };
 
 export function groupKey(group: ConnectorGroup): string {
-	return group.id === "computer" ? "computerAccess" : COPY_KEYS[group.id];
+	if (group.id === "computer") return "computerAccess";
+	// A custom connector's copy is its own manifest's name, not this table; the card falls back to it.
+	return COPY_KEYS[group.id as CatalogConnectorId] ?? "custom";
 }
 
 export type SwitchState = "on" | "off" | "mixed";

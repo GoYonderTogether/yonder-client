@@ -34,6 +34,19 @@ mod desktop_update;
 
 #[cfg(desktop)]
 mod connector_tools;
+/// A connector package the owner's Bot wrote for this device (20261128-people-archive 03, 03b).
+#[cfg(desktop)]
+mod custom_connector_commands;
+#[cfg(desktop)]
+mod custom_connector_paths;
+#[cfg(desktop)]
+mod custom_connector_runner;
+#[cfg(desktop)]
+mod custom_connector_store;
+#[cfg(desktop)]
+mod custom_connector_support;
+#[cfg(desktop)]
+mod custom_connectors;
 #[cfg(desktop)]
 mod desktop;
 #[cfg(desktop)]
@@ -176,7 +189,13 @@ pub fn run() {
             local_files::local_files_revoke,
             local_files::local_files_ready,
             local_files::local_files_execute,
-            shell::shell_execute,
+            custom_connector_commands::custom_connector_confirm,
+            custom_connector_commands::custom_connector_execute,
+            custom_connector_commands::custom_connector_cancel,
+            custom_connector_commands::custom_connector_poll,
+            custom_connector_commands::custom_connector_collect,
+            custom_connector_commands::custom_connector_ack,
+                        shell::shell_execute,
             shell::shell_cancel,
             desktop_command::desktop_execute,
             browser_commands::browser_execute,
@@ -197,6 +216,7 @@ pub fn run() {
             device_model::device_model_cancel
         ])
         .manage(local_files_store::LocalFilesState::default())
+        .manage(custom_connector_support::CustomConnectorState::default())
         .manage(browser_commands::BrowserState::local())
         .manage(device_model::DeviceModelState::default())
         .plugin(provider_relay::init())
