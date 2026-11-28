@@ -122,8 +122,8 @@ export function Composer({
 	const holdMode = mobilePicker && voiceScope === scope;
 	const editor = useComposerEditor(input, draft, mobilePicker, scope, holdMode);
 	const showSend = !mobilePicker || sending || (hasContent && !holdMode && !voiceSending);
-	const voiceUnavailable = disabled || readOnly || disconnected || microphoneOccupied || !onSendVoice;
-	const canSend = !disabled && !disconnected && hasContent;
+	const voiceUnavailable = disabled || readOnly || microphoneOccupied || !onSendVoice;
+	const canSend = !disabled && hasContent;
 	function toggleVoiceMode() {
 		setHoldError(undefined);
 		if (holdMode) {
@@ -170,7 +170,6 @@ export function Composer({
 		editor: input,
 		sending,
 		disabled,
-		disconnected,
 		canSend,
 		hasFiles: files.length > 0,
 		microphoneOccupied,
@@ -463,7 +462,7 @@ export function Composer({
 						{showSend ? (
 							<button
 								type="button"
-								disabled={iosAttachments.importing || (!sending && (disconnected || (!canSend && !voiceActive)))}
+								disabled={iosAttachments.importing || (!sending && !canSend && !voiceActive)}
 								onClick={sending ? onCancelSend : send}
 								aria-label={t(sending ? "chat.stopSend" : "chat.disabledSend")}
 								className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"

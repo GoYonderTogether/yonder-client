@@ -1,4 +1,11 @@
-import { attachmentCacheKey, chatCacheGeneration, openChatCache, readChatCache } from "./chat-cache.ts";
+import {
+	attachmentCacheKey,
+	chatCacheGeneration,
+	LOCAL_OUTBOX_ATTACHMENT,
+	openChatCache,
+	readChatCache,
+	readOutgoingAttachment,
+} from "./chat-cache.ts";
 
 export type MediaVariant = "thumb" | "original";
 export type MediaResource =
@@ -140,6 +147,12 @@ export function loadMedia(
 ): Promise<MediaResult | undefined> {
 	const signal = download?.signal;
 	if (signal?.aborted) return Promise.reject(signal.reason);
+	if ("attachmentId" in resource && resource.attachmentId.startsWith(LOCAL_OUTBOX_ATTACHMENT)) {
+		const generation = chatCacheGeneration();
+		return readOutgoingAttachment(owner, resource.attachmentId).then((blob) =>
+			blob && generation === chatCacheGeneration() && !signal?.aborted ? { blob } : undefined,
+		);
+	}
 	if (!persistent && !download) return Promise.resolve(undefined);
 	const identity = keyFor(owner, resource, variant, persistent);
 	const key = download ? identity : `${identity}|cached`;
@@ -171,9 +184,12 @@ export function loadMedia(
 		}
 		const cached = await editIndex(owner, generation, (entries, store) => {
 			if (!valid()) return () => undefined;
-			const hit = entries.find((entry) => entry.key === binaryKey);
+			const originalKey =
+				variant === "thumb" && "attachmentId" in resource ? blobKey(owner, resource, "original") : undefined;
+			const hit =
+				entries.find((entry) => entry.key === binaryKey) ?? entries.find((entry) => entry.key === originalKey);
 			if (hit) hit.accessedAt = Date.now();
-			const read = store.get(binaryKey);
+			const read = store.get(hit?.key ?? binaryKey);
 			return () => read.result as Blob | undefined;
 		}).catch(() => undefined);
 		if (!valid()) return;

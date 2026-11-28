@@ -4,6 +4,7 @@ import type { Message } from "@yonder/protocol";
 export type CachedMessage = Message & {
 	sendType?: "voice";
 	pending?: boolean;
+	queuedLocally?: boolean;
 	sendFailed?: boolean;
 	skillIds?: string[];
 	mentionedMemberIds?: string[];

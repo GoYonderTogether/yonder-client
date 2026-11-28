@@ -2,6 +2,7 @@ import type { Attachment, SendMessageRequest } from "@yonder/protocol";
 import {
 	attachmentCacheKey,
 	chatCacheGeneration,
+	type OutgoingFile,
 	readChatCache,
 	removeChatCache,
 	updateChatCache,
@@ -10,7 +11,7 @@ import {
 } from "@yonder/ui-data";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { pcm16WavDurationMs } from "../lib/browser-meeting-wav.ts";
-import { canPrepareLargeImage, isImageFile, type PreparedImage, prepareImage } from "../lib/prepare-image.ts";
+import { isImageFile, type PreparedImage, prepareImage } from "../lib/prepare-image.ts";
 import {
 	boundMemberIds,
 	boundSkillIds,
@@ -21,35 +22,32 @@ import {
 } from "./completion/bindings.ts";
 import { completionHistory } from "./completion/history.ts";
 import { type DraftQuote, quoteInput } from "./composer-quote.tsx";
+import {
+	CHAT_ATTACHMENT_LIMIT,
+	CHAT_ATTACHMENT_MAX_BYTES,
+	canAttachFile,
+	type DraftFile,
+	draftFile,
+	outgoingFile,
+	selectedDraftFile,
+} from "./draft-file.ts";
 import { type PresetDraft, takePreset, withPreset } from "./draft-preset.ts";
 import { AttachmentTooLargeError, sendErrorMessageKey } from "./draft-send-error.ts";
 
+export {
+	CHAT_ATTACHMENT_LIMIT,
+	CHAT_ATTACHMENT_MAX_BYTES,
+	canAttachFile,
+	type DraftFile,
+	draftFile,
+	selectedDraftFile,
+} from "./draft-file.ts";
 export { AttachmentTooLargeError, sendErrorMessageKey } from "./draft-send-error.ts";
-
-export interface DraftFile {
-	id: string;
-	name: string;
-	mimeType: string;
-	blob: Blob;
-	status: "ready" | "preparing" | "uploading" | "failed";
-	uploaded?: Attachment;
-	optimized?: PreparedImage | undefined;
-	imagePrepared?: boolean;
-	imageError?: boolean;
-	sendOriginal?: boolean;
-	/** Null while a recorded message for a Bot still needs transcription. */
-	voiceTranscript?: string | null;
-}
 
 /** A draft just loaded: a preset aimed at this chat applies now, if the draft is still empty. */
 function withPresetFor(key: string, draft: Draft): Draft {
 	const phrase = takePreset(key, draft as PresetDraft);
 	return phrase ? (withPreset(draft as PresetDraft, phrase) as Draft) : draft;
-}
-
-export function selectedDraftFile(file: DraftFile) {
-	if (file.optimized && !file.sendOriginal) return { ...file.optimized, original: false };
-	return { blob: file.blob, name: file.name, mimeType: file.mimeType, nonce: file.id, original: true };
 }
 
 interface Draft {
@@ -61,26 +59,6 @@ interface Draft {
 	quote?: DraftQuote | undefined;
 }
 const empty = (): Draft => ({ text: "", files: [], revision: 0 });
-export const CHAT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
-export const CHAT_ATTACHMENT_LIMIT = 10;
-
-export function canAttachFile(file: File, sendOriginal = false) {
-	return (
-		file.size <= CHAT_ATTACHMENT_MAX_BYTES || (!sendOriginal && canPrepareLargeImage(file.name, file.type, file.size))
-	);
-}
-
-export function draftFile(file: File, voiceTranscript?: string | null): DraftFile {
-	return {
-		id: crypto.randomUUID(),
-		name: file.name,
-		mimeType: file.type,
-		blob: file,
-		status: isImageFile(file.name, file.type) ? "preparing" : "ready",
-		...(voiceTranscript !== undefined ? { voiceTranscript } : {}),
-	};
-}
-
 export function useChatDraft(owner: string | undefined, conversation: string | undefined) {
 	const api = useApi();
 	const key = owner && conversation ? `draft:${owner}:${conversation}` : "";
@@ -276,9 +254,10 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 
 	async function submit(
 		send: (
-			input: SendMessageRequest & { attachments: Attachment[] } & ReturnType<typeof quoteInput>,
+			input: SendMessageRequest & { attachments: Attachment[]; files?: OutgoingFile[] } & ReturnType<typeof quoteInput>,
 		) => Promise<unknown>,
 		voice?: { file: File; transcribe: boolean },
+		local = false,
 	) {
 		if (
 			inFlightSend.current ||
@@ -303,6 +282,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 		const nonce = draft.clientNonce ?? crypto.randomUUID();
 		const controller = new AbortController();
 		const hasVoice = draft.files.some((file) => file.voiceTranscript !== undefined);
+		const queueFiles = local && !hasVoice;
 		const interrupted = () =>
 			cacheGeneration !== chatCacheGeneration() || controller.signal.aborted || (hasVoice && liveKey.current !== scope);
 		const pending = { controller, preparingVoiceKey: hasVoice ? scope : undefined };
@@ -314,7 +294,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 			if (!draft.clientNonce) await change((value) => ({ ...value, clientNonce: nonce }), scope);
 			const attachments: Attachment[] = [];
 			const transcripts: string[] = [];
-			for (const file of draft.files) {
+			for (const file of queueFiles ? [] : draft.files) {
 				if (interrupted()) return;
 				let transcript = file.voiceTranscript;
 				if (transcript === null) {
@@ -347,6 +327,7 @@ export function useChatDraft(owner: string | undefined, conversation: string | u
 				clientNonce: nonce,
 				attachmentIds: attachments.map((file) => file.id),
 				attachments,
+				...(queueFiles && draft.files.length ? { files: draft.files.map(outgoingFile) } : {}),
 				...(durationMs > 0 && durationMs <= 120_000 && attachments[0]?.kind === "audio"
 					? { voice: { durationMs } }
 					: {}),

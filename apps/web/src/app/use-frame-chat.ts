@@ -1,20 +1,13 @@
 import { conversationPeer, visitRelayTarget } from "@yonder/chat-model";
 import type { Attachment, Conversation, SendMessageRequest } from "@yonder/protocol";
-import {
-	outboxCacheKey,
-	readChatCache,
-	useCompactConversation,
-	useCreateItem,
-	useItemSession,
-	useMessages,
-	useSendMessage,
-} from "@yonder/ui-data";
+import { useCompactConversation, useCreateItem, useItemSession, useMessages, useSendMessage } from "@yonder/ui-data";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { type ChatVoice, voiceDuration, voiceFiles } from "../lib/chat-voice.ts";
 import { isDesktopExperience } from "../lib/platform.ts";
 import { conversationTitle } from "../pages/conversation-presentation.tsx";
 import { quoteInput } from "./composer-quote.tsx";
-import { draftFile, useChatDraft } from "./use-chat-draft.ts";
+import { draftFile, outgoingFile } from "./draft-file.ts";
+import { useChatDraft } from "./use-chat-draft.ts";
 import { useDirectAttachmentSend } from "./use-direct-attachment-send.ts";
 
 export function useFrameChat({
@@ -55,8 +48,7 @@ export function useFrameChat({
 	const directAttachments = useDirectAttachmentSend({
 		owner: isDesktopExperience() ? undefined : personId,
 		conversation: target?.id,
-		uploadFile: draft.uploadDirectFile,
-		send: send.mutateAsync,
+		send: send.enqueue,
 		quote: draft.quote,
 		onQuotedSend: (id) => draft.setQuote(undefined, id),
 		knownNonce: (nonce) =>
@@ -69,53 +61,46 @@ export function useFrameChat({
 	const knownVoiceNonce = (nonce: string) =>
 		history.data?.pages.some((page) => page.items.some((message) => message.clientNonce === nonce)) ?? false;
 
-	async function sendToTarget(
-		input: SendMessageRequest & { attachments: Attachment[] } & ReturnType<typeof quoteInput>,
-	) {
-		if (!creating) return void (await send.mutateAsync(input));
-		const { attachments: _attachments, replyTo: _replyTo, ...body } = input;
-		const result = await create.mutateAsync(body);
-		onCreated(result.item.id);
-	}
-
 	async function submit() {
 		if (!creating && !target) return;
 		let createdId: string | undefined;
-		const sent = await draft.submit(async (input) => {
-			if (!creating) return send.mutateAsync(input);
-			const { attachments: _attachments, replyTo: _replyTo, ...body } = input;
-			const result = await create.mutateAsync(body);
-			createdId = result.item.id;
-		});
+		const sent = await draft.submit(
+			async (input) => {
+				if (!creating) return send.enqueue(input);
+				const { attachments: _attachments, files: _files, replyTo: _replyTo, ...body } = input;
+				const result = await create.mutateAsync(body);
+				createdId = result.item.id;
+			},
+			undefined,
+			!creating,
+		);
 		if (sent && createdId) onCreated(createdId);
 	}
 
 	async function submitVoice(recording: ChatVoice, signal: AbortSignal) {
 		if (!creating && !target) throw new Error("voice_conversation_missing");
-		const attachments: Attachment[] = [];
-		for (const [index, file] of voiceFiles(recording, 240_000).entries()) {
-			signal.throwIfAborted();
-			const { attachment } = await draft.uploadDirectFile(
-				{ ...draftFile(file), id: `${recording.nonce}:${index}` },
-				signal,
-			);
-			attachments.push(attachment);
-		}
+		const files = voiceFiles(recording, 240_000).map((file, index) => ({
+			...draftFile(file),
+			id: `${recording.nonce}:${index}`,
+		}));
+		const voice: SendMessageRequest = {
+			type: "voice",
+			body: "",
+			clientNonce: recording.nonce,
+			voice: { durationMs: voiceDuration(recording), ...(hasBot ? { transcribe: true } : {}) },
+		};
 		signal.throwIfAborted();
-		try {
-			await sendToTarget({
-				type: "voice",
-				body: "",
-				clientNonce: recording.nonce,
-				attachmentIds: attachments.map(({ id }) => id),
-				attachments,
-				...quoteInput(draft.quote),
-				voice: { durationMs: voiceDuration(recording), ...(hasBot ? { transcribe: true } : {}) },
-			});
-		} catch (error) {
-			// After upload, let the timeline own retries if its message already survived to the outbox.
-			const queued = personId && target && (await readChatCache(outboxCacheKey(personId, target.id, recording.nonce)));
-			if (!queued) throw error;
+		if (creating) {
+			const attachments: Attachment[] = [];
+			for (const file of files) {
+				signal.throwIfAborted();
+				attachments.push((await draft.uploadDirectFile(file, signal)).attachment);
+			}
+			signal.throwIfAborted();
+			const result = await create.mutateAsync({ ...voice, attachmentIds: attachments.map(({ id }) => id) });
+			onCreated(result.item.id);
+		} else {
+			await send.enqueue({ ...voice, ...quoteInput(draft.quote), files: files.map(outgoingFile) });
 		}
 		if (draft.quote) draft.setQuote(undefined, draft.quote.replyTo.id);
 	}
@@ -152,14 +137,10 @@ export function useFrameChat({
 				: undefined,
 		blocked:
 			(!target && !creating) ||
+			Boolean(target?.closedReason) ||
 			!personId ||
 			!draft.loaded ||
-			history.isLoading ||
-			history.isError ||
 			draft.sending ||
-			directAttachments.sending ||
-			!directAttachments.ready ||
-			send.isPending ||
 			create.isPending,
 	};
 }

@@ -15,7 +15,7 @@ import type {
 	SendMessageRequest,
 	SendMessageResponse,
 } from "@yonder/protocol";
-import type { ApiClient } from "./client.ts";
+import type { ApiClient, RequestOptions } from "./client.ts";
 
 /** Conversations, messages, attachments and voice: what the chat view reads and sends. */
 export function conversationEndpoints(client: ApiClient) {
@@ -89,10 +89,15 @@ export function conversationEndpoints(client: ApiClient) {
 			});
 		},
 
-		sendMessage(conversationId: string, body: SendMessageRequest): Promise<SendMessageResponse> {
+		sendMessage(
+			conversationId: string,
+			body: SendMessageRequest,
+			options: Pick<RequestOptions, "retried"> = {},
+		): Promise<SendMessageResponse> {
 			return client.request(`/v1/conversations/${encodeURIComponent(conversationId)}/messages`, {
 				body,
 				idempotencyKey: body.clientNonce,
+				...options,
 			});
 		},
 
@@ -139,7 +144,12 @@ export function conversationEndpoints(client: ApiClient) {
 			});
 		},
 
-		uploadAttachment(file: File, clientNonce: string = crypto.randomUUID(), signal?: AbortSignal): Promise<Attachment> {
+		uploadAttachment(
+			file: File,
+			clientNonce: string = crypto.randomUUID(),
+			signal?: AbortSignal,
+			options: Pick<RequestOptions, "retried"> = {},
+		): Promise<Attachment> {
 			const form = new FormData();
 			form.set("file", file);
 			form.set("clientNonce", clientNonce);
@@ -147,6 +157,7 @@ export function conversationEndpoints(client: ApiClient) {
 				raw: { bytes: form },
 				idempotencyKey: clientNonce,
 				...(signal ? { signal } : {}),
+				...options,
 			});
 		},
 

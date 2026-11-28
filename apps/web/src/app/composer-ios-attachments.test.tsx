@@ -222,7 +222,7 @@ test("confirmed Album selections and Files send independently, while Camera fail
 	});
 	const directSend = vi.fn();
 	const { attach, onSend, onFiles } = renderIphone(17, {
-		pickedFiles: { send: directSend, retry: vi.fn(), discard: vi.fn(), sending: false, failed: false },
+		pickedFiles: { send: directSend, retry: vi.fn(), discard: vi.fn(), failed: false },
 	});
 	attach();
 	fireEvent.click(screen.getByRole("button", { name: "Album" }));
@@ -281,7 +281,7 @@ test("mobile Web uses its actual image input without accepting a result from an 
 	const directSend = vi.fn();
 	const { attach, onFiles, switchChat } = renderIphone(
 		17,
-		{ pickedFiles: { send: directSend, retry: vi.fn(), discard: vi.fn(), sending: false, failed: false } },
+		{ pickedFiles: { send: directSend, retry: vi.fn(), discard: vi.fn(), failed: false } },
 		false,
 	);
 	const photo = new File(["photo"], "one.png", { type: "image/png" });

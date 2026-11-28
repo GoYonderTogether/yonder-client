@@ -37,6 +37,7 @@ import { browserBeta } from "../updates/channel-path.ts";
 import { UpdateOfferProvider, UpdateProvider } from "../updates/provider.tsx";
 import { AppNoticeProvider } from "./app-notice.tsx";
 import { ConnectorContinuationNotices } from "./connector-continuation-notices.tsx";
+import { prepareOutgoingFile } from "./draft-file.ts";
 import { NativePushRegistration } from "./native-push-registration.tsx";
 import { AppRouter } from "./router.tsx";
 import { WebPushRegistration } from "./web-push-registration.tsx";
@@ -96,7 +97,7 @@ function Localised() {
 	const { locale } = useLocalePreference();
 	useTheme();
 	const i18n = useMemo(() => createI18n(locale as Locale), [locale]);
-	useRealtimeSync();
+	useRealtimeSync(prepareOutgoingFile);
 	useDeviceFileCacheMaintenance(signedIn && !isContactWindow() ? personId : undefined);
 	useEffect(() => {
 		let stop: (() => void) | undefined;

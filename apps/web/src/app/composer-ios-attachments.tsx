@@ -209,10 +209,10 @@ export function IosAttachmentSendStatus({
 	disabled: boolean;
 }) {
 	const { t } = useTranslation();
-	if (importing || pickedFiles?.sending)
+	if (importing)
 		return (
 			<p role="status" className="text-caption text-[var(--color-text-secondary)]">
-				{t(importing ? "composerAttachments.preparingAttachments" : "chat.sending")}
+				{t("composerAttachments.preparingAttachments")}
 			</p>
 		);
 	if (!pickedFiles?.failed) return null;

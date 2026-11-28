@@ -108,7 +108,7 @@ export function HoldToTalk({
 		wasCancelling.current = cancelling;
 	}, [held, recording, cancelling]);
 	const finishing = voice.phase === "sending" || voice.phase === "transcribing";
-	const finishLabel = voice.phase === "transcribing" ? "chat.transcribing" : "chat.sending";
+	const transcribing = voice.phase === "transcribing";
 	const locked = voice.phase === "locked";
 	const saved = voice.phase === "saved";
 	const restore = useRef(onRestore);
@@ -196,7 +196,7 @@ export function HoldToTalk({
 					)
 				: null}
 			<span role="status" className="sr-only">
-				{held ? hint : locked ? t("chat.voiceLocked") : finishing ? t(finishLabel) : ""}
+				{held ? hint : locked ? t("chat.voiceLocked") : transcribing ? t("chat.transcribing") : ""}
 			</span>
 			{(held || locked) &&
 				createPortal(
@@ -324,7 +324,7 @@ export function HoldToTalk({
 						}
 					}}
 				>
-					<span className="truncate">{t(finishing ? finishLabel : "chat.holdToTalk")}</span>
+					<span className="truncate">{t(transcribing ? "chat.transcribing" : "chat.holdToTalk")}</span>
 				</button>
 			)}
 		</>

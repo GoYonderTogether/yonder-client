@@ -123,7 +123,7 @@ test("desktop Enter sends, while Shift, composition and mobile Enter do not", ()
 		</I18nextProvider>,
 	);
 	expect(screen.queryByRole("status")).not.toBeInTheDocument();
-	expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+	expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
 	view.rerender(
 		<I18nextProvider i18n={createI18n("en")}>
 			<Composer {...props} sendOnEnter disconnected disabled />
@@ -175,7 +175,7 @@ test.each([false, true])(
 test.each([
 	{ draft: " \n ", disabled: false, disconnected: false, blocked: true, label: "Send" },
 	{ draft: "draft", disabled: true, disconnected: false, blocked: true, label: "Send" },
-	{ draft: "draft", disabled: false, disconnected: true, blocked: true, label: "Send" },
+	{ draft: "draft", disabled: false, disconnected: true, blocked: false, label: "Send" },
 	{ draft: "draft", disabled: false, disconnected: false, blocked: false, label: "Send" },
 ])("composer action gates: $label, draft=$draft, blocked=$blocked", (state) => {
 	const send = vi.fn();

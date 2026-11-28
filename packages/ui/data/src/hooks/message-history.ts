@@ -70,10 +70,13 @@ export function shareMessageHistory(oldData: unknown, newData: unknown): unknown
 		return true;
 	};
 	const keepAfterClear = (item: CachedMessage) =>
-		!incomingCutoff || item.pending || item.sendFailed || chatHistoryTimeOffset(item.createdAt, incomingCutoff) > 0;
+		!incomingCutoff ||
+		(!item.queuedLocally && (item.pending || item.sendFailed)) ||
+		chatHistoryTimeOffset(item.createdAt, incomingCutoff) > 0;
 	const reconcile = (item: CachedMessage, latest: CachedMessage | undefined) => {
 		if (!latest) return item;
-		if (item.id.startsWith("temp_")) return latest.id.startsWith("temp_") ? item : latest;
+		if (item.id.startsWith("temp_"))
+			return latest.id.startsWith("temp_") && latest === original.find(latest) ? item : latest;
 		let merged = latest.recalled && !item.recalled ? latest : mergeMessage(latest, item);
 		const originalMessage = original.find(latest);
 		// Feedback is viewer state and can change at the same message version.

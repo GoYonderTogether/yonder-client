@@ -435,7 +435,10 @@ export function ConversationPage({
 								onMention={onMention}
 								onJumpToQuote={jumpToQuote}
 								{...(openItem ? { onOpenMeeting: openItem } : {})}
-								onResend={(message) =>
+								onResend={async (message) => {
+									const nonce = message.clientNonce;
+									if (nonce && (await send.retryQueued(nonce).catch(() => true))) return;
+									if (message.queuedLocally) return;
 									send.mutate({
 										type: message.sendType ?? "text",
 										body: message.body ?? "",
@@ -447,8 +450,8 @@ export function ConversationPage({
 										...(message.voice ? { voice: message.voice } : {}),
 										...(message.skillIds ? { skillIds: message.skillIds } : {}),
 										...(message.mentionedMemberIds ? { mentionedMemberIds: message.mentionedMemberIds } : {}),
-									})
-								}
+									});
+								}}
 								onRetry={(id) => actions.retry.mutate(id)}
 								onChooseOption={
 									send.isPending

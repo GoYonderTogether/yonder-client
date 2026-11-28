@@ -286,17 +286,17 @@ test("private text and attachment messages share one avatar per sender run witho
 	vi.unstubAllGlobals();
 });
 
-test("grouping preserves streaming placeholders, pending and failure actions on each message", () => {
+test("grouping preserves streaming placeholders, quiet queued messages and failure actions", () => {
 	const onResend = vi.fn(),
 		onRetry = vi.fn();
 	const failed = message("failed", "self", {
-		pending: true,
 		sendFailed: true,
 		clientNonce: "nonce",
 		skillIds: ["skill-one"],
 	});
 	const items = [
 		message("stream", "alice", { body: null, streaming: true }),
+		message("queued", "self", { pending: true, queuedLocally: true }),
 		failed,
 		message("run", "alice", {
 			run: {
@@ -318,11 +318,12 @@ test("grouping preserves streaming placeholders, pending and failure actions on 
 			},
 		}),
 	];
-	const { container, getAllByRole, getByText } = render(view(items, { onResend, onRetry }));
+	const { container, getAllByRole, getByText, queryByText } = render(view(items, { onResend, onRetry }));
 	expect(container.querySelector('[data-message-id="stream"] .message-bubble [role="status"]')?.textContent).toBe(
 		"回复中…",
 	);
-	expect(getByText("发送中…")).toBeTruthy();
+	expect(getByText("正文 queued")).toBeVisible();
+	expect(queryByText("发送中…")).not.toBeInTheDocument();
 	// A failure is the chat's own line, not a caption inside the message: it carries the reply's id
 	// and stands beside the run, with no reason code in it.
 	const notice = container.querySelector('[data-message-id="event-run"][role="alert"]');

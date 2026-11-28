@@ -3,7 +3,7 @@ import type { MeResponse } from "@yonder/protocol";
 import { useEffect, useRef } from "react";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
-import { applyChatHistoryClear } from "../realtime/message-cache.ts";
+import { applyChatHistoryClear, discardQueuedOutgoingMessages } from "../realtime/message-cache.ts";
 
 export function useSetConversationMuted(conversationId: string) {
 	const api = useApi();
@@ -36,10 +36,11 @@ export function useResetBotConversation(conversationId: string) {
 	const personId = () => client.getQueryData<MeResponse>(keys.me())?.member.id;
 	return useMutation({
 		mutationFn: (clearHistory: boolean) => api.resetConversation(conversationId, clearHistory),
-		onMutate: personId,
-		onSuccess: (result, clearHistory, owner) => {
-			if (!clearHistory || !result.historyClearedThrough || !owner || personId() !== owner) return;
-			applyChatHistoryClear(client, conversationId, result.historyClearedThrough);
+		onMutate: () => ({ owner: personId(), startedAt: new Date().toISOString() }),
+		onSuccess: (result, clearHistory, context) => {
+			if (!clearHistory || !context?.owner || personId() !== context.owner) return;
+			discardQueuedOutgoingMessages(client, conversationId, context.startedAt);
+			if (result.historyClearedThrough) applyChatHistoryClear(client, conversationId, result.historyClearedThrough);
 			void client.invalidateQueries({ queryKey: keys.conversations.list() });
 		},
 	});

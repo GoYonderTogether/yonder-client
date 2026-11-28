@@ -173,6 +173,7 @@ afterEach(() => {
 });
 
 test("Me layers preserve the selected chat, composer, parent instance and original history entry", async () => {
+	await import("./settings-pages.tsx");
 	const router = createMemoryRouter([{ path: "*", element: <AppFrame /> }], {
 		initialEntries: ["/messages/main?source=list#latest"],
 	});

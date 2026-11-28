@@ -33,9 +33,7 @@ export interface ComposerProps {
 	visitRelay?: { conversationId: string; messageId: string | undefined; pending: boolean } | undefined;
 	files?: DraftFile[];
 	onFiles?: (files: File[]) => void;
-	pickedFiles?:
-		| Pick<ReturnType<typeof useDirectAttachmentSend>, "send" | "retry" | "discard" | "sending" | "failed">
-		| undefined;
+	pickedFiles?: Pick<ReturnType<typeof useDirectAttachmentSend>, "send" | "retry" | "discard" | "failed"> | undefined;
 	onRemoveFile?: (id: string) => void;
 	onRetryFile?: (id: string) => void;
 	onOriginalFileChange?: (id: string, original: boolean) => void;

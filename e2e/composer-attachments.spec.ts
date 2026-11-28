@@ -1,12 +1,12 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { expect, test } from "@playwright/test";
+import { devices, expect, test } from "@playwright/test";
 import { conversation, isolateChat, message } from "./chat-fixture.ts";
 
 const path = `/messages/${conversation.id}`;
 const image = resolve("brand/assets/png/yonder-tile-ink-1024.png");
 
-test("text, attachment bytes and failed messages persist; confirmation never erases later typing", async ({
+test("a reloaded attachment draft enters the conversation before upload and preserves later typing", async ({
 	page,
 }, testInfo) => {
 	await page.setViewportSize({ width: 1180, height: 760 });
@@ -44,17 +44,25 @@ test("text, attachment bytes and failed messages persist; confirmation never era
 		mimeType: "image/png",
 		size: 100,
 	};
-	await page.route("**/v1/attachments", (route) => route.fulfill({ json: attachment }));
-	let confirm!: () => void;
-	const response = new Promise<void>((resolve) => {
-		confirm = resolve;
+	const attachmentReads: string[] = [];
+	page.on("request", (request) => {
+		const path = new URL(request.url()).pathname;
+		if (path.startsWith(`/v1/attachments/${attachment.id}/`)) attachmentReads.push(path);
 	});
+	const uploadStarted = Promise.withResolvers<void>();
+	const uploadResponse = Promise.withResolvers<void>();
+	await page.route("**/v1/attachments", async (route) => {
+		uploadStarted.resolve();
+		await uploadResponse.promise;
+		return route.fulfill({ json: attachment });
+	});
+	const messageResponse = Promise.withResolvers<void>();
 	let sentNonce = "";
 	await page.route("**/v1/conversations/*/messages", async (route) => {
 		if (route.request().method() !== "POST") return route.fallback();
 		const sent = route.request().postDataJSON();
 		sentNonce = sent.clientNonce;
-		await response;
+		await messageResponse.promise;
 		await route.fulfill({
 			json: {
 				message: { ...message("saved-17", sent.body, true), clientNonce: sent.clientNonce, attachments: [attachment] },
@@ -62,12 +70,35 @@ test("text, attachment bytes and failed messages persist; confirmation never era
 			},
 		});
 	});
-	await page.getByRole("button", { name: "发送", exact: true }).click();
-	await expect.poll(() => sentNonce).not.toBe("");
-	await input.fill("后写的新提示词不能被清除");
-	confirm();
+	try {
+		await page.getByRole("button", { name: "发送", exact: true }).click();
+		await uploadStarted.promise;
+		await expect(input).toHaveValue("");
+		await expect(page.locator(".composer-file")).toHaveCount(0);
+		await expect(page.getByRole("log").getByText("这是还没有发送的多行提示词。", { exact: false })).toBeVisible();
+		const photo = page.getByRole("log").locator("img.message-attachment-image");
+		await expect(photo).toBeVisible();
+		await expect.poll(() => photo.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0);
+		await expect(page.getByText("发送中…", { exact: true })).toHaveCount(0);
+		await page.screenshot({
+			path: testInfo.outputPath("previews/desktop-attachment-before-upload.png"),
+			animations: "disabled",
+		});
+		expect(sentNonce).toBe("");
+		await input.fill("后写的新提示词不能被清除");
+		uploadResponse.resolve();
+		await expect.poll(() => sentNonce).not.toBe("");
+		await expect(input).toHaveValue("后写的新提示词不能被清除");
+	} finally {
+		uploadResponse.resolve();
+		messageResponse.resolve();
+	}
+	await expect(page.locator('[data-message-id="saved-17"]')).toBeVisible();
 	await expect(input).toHaveValue("后写的新提示词不能被清除");
-	await expect(page.locator(".message-attachment-image")).toBeVisible();
+	const savedPhoto = page.locator('[data-message-id="saved-17"] img.message-attachment-image');
+	await expect(savedPhoto).toBeVisible();
+	await expect.poll(() => savedPhoto.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0);
+	expect(attachmentReads).toEqual([]);
 	await expect(page.locator(".composer-file")).toHaveCount(0);
 	await page.reload();
 	await expect(input).toHaveValue("后写的新提示词不能被清除");
@@ -104,6 +135,59 @@ test("a file drag shows feedback over both the message list and composer, while 
 	});
 	await log.dispatchEvent("dragenter", { dataTransfer: text });
 	await expect(page.locator(".file-drop-overlay")).toHaveCount(0);
+});
+
+test("the mobile photo picker puts the photo in the conversation before upload completes", async ({
+	browser,
+	baseURL,
+}, testInfo) => {
+	const { defaultBrowserType: _browser, ...phone } = devices["iPhone 13"];
+	const context = await browser.newContext({ ...phone, baseURL });
+	const uploadResponse = Promise.withResolvers<void>();
+	try {
+		const page = await context.newPage();
+		const api = await isolateChat(page, { items: [] });
+		const attachment = {
+			id: "att_mobile_photo",
+			kind: "image",
+			name: "yonder-tile-ink-1024.png",
+			mimeType: "image/png",
+			size: 100,
+		};
+		let uploading = false;
+		await page.route("**/v1/attachments", async (route) => {
+			uploading = true;
+			await uploadResponse.promise;
+			return route.fulfill({ json: attachment });
+		});
+		await page.goto(path);
+		await page.getByRole("button", { name: "添加附件", exact: true }).click();
+		const chooser = page.waitForEvent("filechooser");
+		await page.locator(".composer-mobile-attachment-grid").getByRole("button", { name: "相册", exact: true }).click();
+		await (await chooser).setFiles(image);
+		await expect.poll(() => uploading).toBe(true);
+		const photo = page.getByRole("log").locator("img.message-attachment-image");
+		await expect(photo).toBeVisible();
+		await expect.poll(() => photo.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0);
+		const caption = "这是刚选好的图片。";
+		const input = page.getByRole("textbox", { name: /^对 界面验收/ });
+		await input.fill(caption);
+		await page.getByRole("button", { name: "发送", exact: true }).click();
+		await expect(page.getByRole("log").getByText(caption, { exact: true })).toBeVisible();
+		await expect(input).toHaveValue("");
+		await expect(page.getByText("发送中…", { exact: true })).toHaveCount(0);
+		await page.screenshot({
+			path: testInfo.outputPath("mobile-attachment-before-upload.png"),
+			animations: "disabled",
+			scale: "css",
+		});
+		expect(api.sent).toEqual([]);
+		uploadResponse.resolve();
+		await expect.poll(() => api.sent).toMatchObject([{ attachmentIds: [attachment.id] }, { body: caption }]);
+	} finally {
+		uploadResponse.resolve();
+		await context.close();
+	}
 });
 
 test("mobile separates image and file pickers and naturally wrapped text puts controls beneath it", async ({

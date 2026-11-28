@@ -47,6 +47,7 @@ export {
 } from "./hooks/channels.ts";
 export type { CachedMessage } from "./hooks/chat.ts";
 export { useConversations, useMessages, useRunActions, useSendMessage } from "./hooks/chat.ts";
+export type { OutgoingFile } from "./hooks/chat-outbox.ts";
 export { useBillingActions, useBillingCatalog, useWechatWebActions, useWechatWebEnabled } from "./hooks/commerce.ts";
 export { useCompactConversation } from "./hooks/compact.ts";
 export {

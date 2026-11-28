@@ -70,7 +70,8 @@ test("primary Bot shows three dots only for an accepted reply run, follows recon
 	await expect.poll(api.connected).toBe(true);
 	await composer(page).fill(question);
 	await page.getByRole("button", { name: "发送", exact: true }).click();
-	await expect(page.getByText("发送中…", { exact: true })).toBeVisible();
+	await expect(page.getByRole("log").getByText(question, { exact: true })).toBeVisible();
+	await expect(page.getByText("发送中…", { exact: true })).toHaveCount(0);
 	const waiting = page.locator(dotsSelector);
 	await expect(waiting).toHaveCount(0);
 	accepted.resolve();

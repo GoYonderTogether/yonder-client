@@ -358,7 +358,7 @@ export function AppFrame() {
 			onAttachmentPanelChange={mobileBot && !preset.drawerOpen ? setComposerAttachmentOpen : undefined}
 			onMeeting={recordingConversation ? () => recordingSurface.start(recordingConversation) : undefined}
 			error={draft.error || chat.directAttachments.error}
-			disabled={chat.blocked || disconnected}
+			disabled={chat.blocked || (taskSelection === "new" && disconnected)}
 			disconnected={disconnected}
 			sendOnEnter={desktop}
 			completionItems={completionItems(

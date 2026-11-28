@@ -1,22 +1,15 @@
-import type { Attachment, SendMessageRequest } from "@yonder/protocol";
+import type { SendMessageRequest } from "@yonder/protocol";
 import {
-	attachmentCacheKey,
 	chatCacheGeneration,
+	type OutgoingFile,
 	outboxCacheKey,
 	readChatCache,
-	removeChatCache,
 	updateChatCache,
 	writeChatCache,
 } from "@yonder/ui-data";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type DraftQuote, quoteInput } from "./composer-quote.tsx";
-import {
-	AttachmentTooLargeError,
-	CHAT_ATTACHMENT_LIMIT,
-	canAttachFile,
-	type DraftFile,
-	draftFile,
-} from "./use-chat-draft.ts";
+import { CHAT_ATTACHMENT_LIMIT, canAttachFile, type DraftFile, draftFile, outgoingFile } from "./draft-file.ts";
 
 type Upload = { nonce: string; files: DraftFile[]; quote?: DraftQuote | undefined };
 type Failure = { key: string; upload: Upload };
@@ -28,7 +21,6 @@ function removeUpload(key: string, nonce: string, generation = chatCacheGenerati
 export function useDirectAttachmentSend({
 	owner,
 	conversation,
-	uploadFile,
 	send,
 	quote,
 	onQuotedSend,
@@ -36,10 +28,7 @@ export function useDirectAttachmentSend({
 }: {
 	owner: string | undefined;
 	conversation: string | undefined;
-	uploadFile: (file: DraftFile, signal: AbortSignal) => Promise<{ attachment: Attachment; blob: Blob }>;
-	send: (
-		request: SendMessageRequest & { attachments: Attachment[] } & ReturnType<typeof quoteInput>,
-	) => Promise<unknown>;
+	send: (request: SendMessageRequest & { files: OutgoingFile[] } & ReturnType<typeof quoteInput>) => Promise<unknown>;
 	quote?: DraftQuote | undefined;
 	onQuotedSend?: (id: string) => void;
 	knownNonce: (nonce: string) => boolean;
@@ -48,10 +37,9 @@ export function useDirectAttachmentSend({
 	const visibleKey = useRef(key);
 	visibleKey.current = key;
 	const [loadedKey, setLoadedKey] = useState("");
-	const [sendingKey, setSendingKey] = useState("");
 	const [failed, setFailed] = useState<Failure>();
 	const [error, setError] = useState<{ key: string; message: string }>();
-	const inFlight = useRef<{ key: string; controller: AbortController } | undefined>(undefined);
+	const inFlight = useRef<string | undefined>(undefined);
 
 	useLayoutEffect(() => {
 		if (!owner || !conversation || !key) return;
@@ -74,12 +62,6 @@ export function useDirectAttachmentSend({
 		return () => {
 			active = false;
 			setLoadedKey("");
-			const interrupted = inFlight.current;
-			if (interrupted?.key === key) {
-				inFlight.current = undefined;
-				interrupted.controller.abort();
-				setSendingKey("");
-			}
 		};
 	}, [conversation, key, owner]);
 
@@ -91,67 +73,38 @@ export function useDirectAttachmentSend({
 		void removeUpload(key, postedNonce).catch(() => {});
 	}, [postedNonce, key]);
 
-	async function run(upload: Upload, retrying = false) {
-		if (!owner || !conversation || !key || visibleKey.current !== key || loadedKey !== key || inFlight.current) return;
-		const controller = new AbortController();
-		const active = { key, controller };
+	async function run(upload: Upload) {
+		if (!key || visibleKey.current !== key || inFlight.current) return;
 		const generation = chatCacheGeneration();
-		const interrupted = () =>
-			controller.signal.aborted || visibleKey.current !== key || generation !== chatCacheGeneration();
-		inFlight.current = active;
-		setSendingKey(key);
+		const visible = () => visibleKey.current === key && generation === chatCacheGeneration();
+		inFlight.current = upload.nonce;
 		setError(undefined);
-		if (!retrying) setFailed(undefined);
-		const staged: { attachment: Attachment; blob: Blob }[] = [];
-		let handedOff = false;
 		try {
-			if (!retrying)
-				await writeChatCache(key, upload, generation).catch(() => {
-					if (!interrupted()) setError({ key, message: "chat.cacheFailed" });
-				});
-			for (const file of upload.files) {
-				if (interrupted()) return;
-				staged.push(await uploadFile(file, controller.signal));
-			}
-			if (interrupted()) return;
-
-			// The existing timeline outbox owns retries as soon as the message mutation creates its entry.
-			for (const { attachment, blob } of staged)
-				void writeChatCache(attachmentCacheKey(owner, attachment.id), blob, generation).catch(() => {});
-			const attachments = staged.map(({ attachment }) => attachment);
-			handedOff = true;
 			await send({
 				type: "text",
 				body: "",
 				clientNonce: upload.nonce,
-				attachmentIds: attachments.map(({ id }) => id),
-				attachments,
+				files: upload.files.map(outgoingFile),
 				...quoteInput(upload.quote),
 			});
-			if (generation === chatCacheGeneration())
-				for (const { id } of attachments) void removeChatCache(attachmentCacheKey(owner, id)).catch(() => {});
-		} catch (cause) {
-			if (!handedOff && !interrupted()) {
-				if (cause instanceof AttachmentTooLargeError) setError({ key, message: "chat.fileTooLarge" });
-				setFailed({ key, upload });
+			if (visible()) {
+				if (upload.quote) onQuotedSend?.(upload.quote.replyTo.id);
+				setFailed(undefined);
+			}
+			void removeUpload(key, upload.nonce, generation).catch(() => {});
+		} catch {
+			if (generation === chatCacheGeneration()) {
+				void writeChatCache(key, upload, generation).catch(() => {});
+				if (visible()) setFailed({ key, upload });
 			}
 		} finally {
-			if (handedOff) {
-				if (upload.quote && !interrupted()) onQuotedSend?.(upload.quote.replyTo.id);
-				await removeUpload(key, upload.nonce, generation).catch(() => {});
-			}
-			if (inFlight.current === active) {
-				inFlight.current = undefined;
-				setSendingKey("");
-				if (handedOff) setFailed(undefined);
-			}
+			inFlight.current = undefined;
 		}
 	}
 
 	return {
 		enabled: Boolean(key),
 		ready: !key || loadedKey === key,
-		sending: Boolean(key && sendingKey === key),
 		failed: Boolean(uploadToRetry && !postedNonce),
 		error: error?.key === key ? error.message : "",
 		send: (files: File[], sendOriginal: boolean) => {
@@ -167,7 +120,7 @@ export function useDirectAttachmentSend({
 			});
 		},
 		retry: () => {
-			if (uploadToRetry && !postedNonce) void run(uploadToRetry, true);
+			if (uploadToRetry && !postedNonce) void run(uploadToRetry);
 		},
 		discard: () => {
 			if (!uploadToRetry || inFlight.current || visibleKey.current !== key) return;

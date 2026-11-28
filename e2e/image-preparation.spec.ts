@@ -48,7 +48,7 @@ async function generatedImage(page: Page, type: "image/jpeg" | "image/png", widt
 	);
 }
 
-async function captureUploads(page: Page) {
+async function captureUploads(page: Page, rejectFirstUpload = false) {
 	const uploads: Upload[] = [];
 	await page.route("**/v1/attachments", async (route) => {
 		const request = route.request();
@@ -65,6 +65,8 @@ async function captureUploads(page: Page) {
 			mime: file.type,
 		};
 		uploads.push(upload);
+		if (rejectFirstUpload && uploads.length === 1)
+			return route.fulfill({ status: 400, json: { error: { code: "invalid_request" } } });
 		await route.fulfill({
 			json: {
 				id: `att_preview_${uploads.length}`,
@@ -75,21 +77,20 @@ async function captureUploads(page: Page) {
 			},
 		});
 	});
-	await page.route("**/v1/conversations/*/messages", (route) =>
-		route.request().method() === "POST" ? route.abort("failed") : route.fallback(),
-	);
 	return uploads;
 }
 
 test("default image compression, original choice and text thumbnails survive refresh with stable byte identities", async ({
 	page,
 }, testInfo) => {
-	await isolateChat(page);
+	const api = await isolateChat(page);
 	await page.goto(`/messages/${conversation.id}`);
-	const uploads = await captureUploads(page);
+	const uploads = await captureUploads(page, true);
 	const original = Buffer.from(await generatedImage(page, "image/jpeg", 4000, 2400), "base64");
-	await page.getByLabel("上传文件", { exact: true }).setInputFiles([
-		{ name: "photo.jpg", mimeType: "image/jpeg", buffer: original },
+	const photo = { name: "photo.jpg", mimeType: "image/jpeg", buffer: original };
+	const picker = page.getByLabel("上传文件", { exact: true });
+	await picker.setInputFiles([
+		photo,
 		{
 			name: "会议纪要.txt",
 			mimeType: "text/plain",
@@ -99,16 +100,12 @@ test("default image compression, original choice and text thumbnails survive ref
 			]),
 		},
 	]);
-	const image = page.locator('[data-attachment-name="photo.jpg"]');
-	const text = page.locator('[data-attachment-name="会议纪要.txt"]');
+	const composer = page.locator(".composer-box");
+	const image = composer.locator('[data-attachment-name="photo.jpg"]');
+	const text = composer.locator('[data-attachment-name="会议纪要.txt"]');
 	await expect(image.getByText("已压缩", { exact: true })).toBeVisible();
 	await expect(text.locator("pre")).toContainText("这是文档开头的中文内容。");
 	expect(await text.locator("pre").evaluate((element) => getComputedStyle(element).maskImage)).not.toBe("none");
-	await page.getByRole("button", { name: "发送", exact: true }).click();
-	await expect.poll(() => uploads.length).toBe(2);
-	await expect(page.getByText(/尚未确认发送/)).toBeVisible();
-	expect(uploads[0]?.bytes.length).toBeLessThan(original.length);
-	const optimized = uploads[0];
 	await image.getByRole("checkbox", { name: /原图/ }).check();
 	// The draft is written to IndexedDB asynchronously; a reload before that write commits loses it.
 	await expect
@@ -131,19 +128,27 @@ test("default image compression, original choice and text thumbnails survive ref
 	await page.reload();
 	await expect(image.getByRole("checkbox", { name: /原图/ })).toBeChecked();
 	await expect(text.locator("pre")).toContainText("这是文档开头的中文内容。");
-	await page
-		.locator(".composer-box")
-		.screenshot({ path: testInfo.outputPath("original-and-text-thumbnail.png"), animations: "disabled" });
-	await page.getByRole("button", { name: "发送", exact: true }).click();
-	await expect.poll(() => uploads.length).toBe(4);
-	await expect(page.getByText(/尚未确认发送/)).toBeVisible();
-	expect(uploads[2]?.bytes.equals(original)).toBe(true);
-	expect(uploads[2]?.nonce).not.toBe(optimized?.nonce);
-	await image.getByRole("checkbox", { name: /原图/ }).uncheck();
-	await page.getByRole("button", { name: "发送", exact: true }).click();
-	await expect.poll(() => uploads.length).toBe(6);
-	expect(uploads[4]?.bytes.equals(optimized?.bytes ?? Buffer.alloc(0))).toBe(true);
-	expect(uploads[4]?.nonce).toBe(optimized?.nonce);
+	await composer.screenshot({ path: testInfo.outputPath("original-and-text-thumbnail.png"), animations: "disabled" });
+	const send = page.getByRole("button", { name: "发送", exact: true });
+	await send.click();
+	const failed = page.getByRole("log").getByRole("alert");
+	await expect(failed).toContainText("消息没有发出");
+	await expect(composer.locator(".composer-file")).toHaveCount(0);
+	expect(uploads[0]?.bytes.equals(original)).toBe(true);
+	await failed.getByRole("button", { name: "重试", exact: true }).click();
+	await expect.poll(() => api.sent.length).toBe(1);
+	const [initialUpload, retriedUpload] = uploads.filter((upload) => upload.name === photo.name);
+	expect(retriedUpload?.bytes.equals(original)).toBe(true);
+	expect(retriedUpload?.nonce).toBe(initialUpload?.nonce);
+	await expect(failed).toHaveCount(0);
+	await picker.setInputFiles(photo);
+	await expect(image.getByText("已压缩", { exact: true })).toBeVisible();
+	await send.click();
+	await expect.poll(() => api.sent.length).toBe(2);
+	const optimized = uploads.at(-1);
+	expect(optimized?.name).toBe(photo.name);
+	expect(optimized?.bytes.length).toBeLessThan(original.length);
+	expect(optimized?.nonce).not.toBe(initialUpload?.nonce);
 });
 
 test("transparent pixels and EXIF rotation survive browser-native preparation", async ({ page }) => {

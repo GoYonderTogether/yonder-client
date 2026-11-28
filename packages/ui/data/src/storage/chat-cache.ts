@@ -113,3 +113,35 @@ export async function clearChatCache(): Promise<void> {
 export const attachmentCacheKey = (owner: string, id: string) => `blob:${owner}:${id}`;
 export const outboxCacheKey = (owner: string, conversation: string, nonce = "") =>
 	`outbox:${owner}:${conversation}:${nonce}`;
+
+export const LOCAL_OUTBOX_ATTACHMENT = "outbox-attachment:";
+
+export async function readOutgoingAttachment(owner: string, id: string): Promise<Blob | undefined> {
+	const [conversation, nonce, index] = id.slice(LOCAL_OUTBOX_ATTACHMENT.length).split(":");
+	if (!conversation || !nonce || index === undefined) return;
+	const record = await readChatCache<{ files: { blob: Blob }[] }>(
+		outboxCacheKey(owner, decodeURIComponent(conversation), decodeURIComponent(nonce)),
+	);
+	return record?.files?.[Number(index)]?.blob;
+}
+
+export async function discardOutgoingDraftRecords(owner: string, conversation: string, through?: string) {
+	const current = generation;
+	const db = await openChatCache();
+	if (current !== generation) return;
+	const prefix = outboxCacheKey(owner, conversation);
+	return new Promise<void>((resolve, reject) => {
+		const transaction = db.transaction("records", "readwrite");
+		const request = transaction.objectStore("records").openCursor(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
+		request.onsuccess = () => {
+			const cursor = request.result;
+			if (!cursor || current !== generation) return;
+			const message = cursor.value.message as { createdAt: string } | undefined;
+			if (message && (!through || message.createdAt <= through)) cursor.delete();
+			cursor.continue();
+		};
+		transaction.oncomplete = () => resolve();
+		transaction.onerror = () => reject(transaction.error);
+		transaction.onabort = () => reject(transaction.error);
+	});
+}

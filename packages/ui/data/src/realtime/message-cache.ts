@@ -10,6 +10,7 @@ import type {
 	Run,
 } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
+import { discardOutgoingDraftRecords } from "../storage/chat-cache.ts";
 import { discardMedia, type MediaResource } from "../storage/media-cache.ts";
 import type { CachedMessage } from "./cached-message.ts";
 
@@ -118,6 +119,19 @@ function cachedConversation(client: QueryClient, id: string) {
 	return client.getQueryData<ConversationList>(keys.conversations.list())?.items.find((item) => item.id === id);
 }
 
+export function discardQueuedOutgoingMessages(client: QueryClient, conversation: string, through?: string) {
+	const owner = client.getQueryData<MeResponse>(keys.me())?.member.id;
+	if (!owner) return;
+	void discardOutgoingDraftRecords(owner, conversation, through).catch(() => {});
+	const history = client.getQueryData<InfiniteData<MessagePage>>(keys.messages.latest(conversation));
+	for (const page of history?.pages ?? []) {
+		for (const message of page.items as CachedMessage[]) {
+			if (message.queuedLocally && (!through || message.createdAt <= through))
+				removeMessage(client, conversation, message.id);
+		}
+	}
+}
+
 export function applyChatHistoryClear(client: QueryClient, id: string, cutoff: ChatHistoryCutoff): void {
 	const listKey = keys.conversations.list();
 	const historyKey = keys.messages.latest(id);
@@ -144,24 +158,21 @@ export function applyChatHistoryClear(client: QueryClient, id: string, cutoff: C
 	}
 	const current = client.getQueryData<InfiniteData<MessagePage>>(historyKey);
 	if (!isNewChatHistoryCutoff(cutoff, current?.pages[0]?.historyClearedThrough)) return;
+	const owner = client.getQueryData<MeResponse>(keys.me())?.member.id;
+	const beforeCutoff = (message: CachedMessage) => chatHistoryTimeOffset(message.createdAt, cutoff) <= 0;
+	const shouldKeep = (message: CachedMessage) =>
+		(!message.queuedLocally && (message.pending || message.sendFailed)) || !beforeCutoff(message);
+	if (owner) void discardOutgoingDraftRecords(owner, id, cutoff.createdAt).catch(() => {});
 	discardMessageMedia(
 		client,
-		(current?.pages ?? []).flatMap((page) =>
-			page.items.filter(
-				(message: CachedMessage) =>
-					!message.pending && !message.sendFailed && chatHistoryTimeOffset(message.createdAt, cutoff) <= 0,
-			),
-		),
+		(current?.pages ?? []).flatMap((page) => page.items.filter((message) => !shouldKeep(message))),
 	);
 	void client.cancelQueries({ queryKey: historyKey });
 	// TanStack cancellation restores the fetch-start snapshot; clear the latest realtime state instead.
 	client.setQueryData<InfiniteData<MessagePage>>(historyKey, () => {
 		if (!current) return current;
 		const pages = current.pages.map((page) => {
-			const items = page.items.filter(
-				(message: CachedMessage) =>
-					message.pending || message.sendFailed || chatHistoryTimeOffset(message.createdAt, cutoff) > 0,
-			);
+			const items = page.items.filter(shouldKeep);
 			return {
 				...page,
 				items,

@@ -170,9 +170,6 @@ export function MessageEntry({
 					{...(onOpenMeeting ? { onOpen: onOpenMeeting } : {})}
 				/>
 			) : null}
-			{message.pending ? (
-				<span className="text-caption text-[var(--color-text-secondary)]">{t("chat.sending")}</span>
-			) : null}
 			{message.sendFailed ? (
 				<SystemNotice
 					as="div"

@@ -1,34 +1,43 @@
 import { type InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Attachment, MeResponse, Message, MessagePage, SendMessageRequest } from "@yonder/protocol";
+import type { MeResponse, Message, MessagePage } from "@yonder/protocol";
+import { useEffect } from "react";
 import { keys } from "../query/keys.ts";
 import { useApi } from "../query/provider.tsx";
 import type { CachedMessage } from "../realtime/cached-message.ts";
 import { updateMessage } from "../realtime/message-cache.ts";
-import { listChatCache, outboxCacheKey, removeChatCache, writeChatCache } from "../storage/chat-cache.ts";
+import {
+	chatCacheGeneration,
+	listChatCache,
+	outboxCacheKey,
+	removeChatCache,
+	writeChatCache,
+} from "../storage/chat-cache.ts";
+import { usePerson } from "./account.ts";
+import { chatOutbox, type OutboxRecord, outgoingMessage, type SendInput, showOutgoingMessage } from "./chat-outbox.ts";
 import { fetchHistoryPage, shareMessageHistory } from "./message-history.ts";
 
 export type { CachedMessage };
-
-type SendInput = SendMessageRequest & { attachments?: Attachment[]; replyTo?: NonNullable<Message["replyTo"]> };
 
 /** Nonces whose request is still in flight in this tab; a history refresh must not call those failed. */
 const inFlightSends = new Set<string>();
 
 export function mergeOutbox(
 	server: Message[],
-	outbox: CachedMessage[],
+	outbox: (CachedMessage | OutboxRecord)[],
 	inFlight: ReadonlySet<string> = inFlightSends,
 ): CachedMessage[] {
 	const nonces = new Set(server.map((message) => message.clientNonce).filter(Boolean));
 	return [
 		...server,
-		...outbox
-			.filter((message) => !nonces.has(message.clientNonce))
-			.map((message) =>
-				message.clientNonce && inFlight.has(message.clientNonce)
-					? { ...message, pending: true, sendFailed: false }
-					: { ...message, pending: false, sendFailed: true },
-			),
+		...outbox.flatMap((record) => {
+			if ("request" in record) return nonces.has(record.message.clientNonce) ? [] : [record.message];
+			if (nonces.has(record.clientNonce)) return [];
+			return [
+				record.clientNonce && inFlight.has(record.clientNonce)
+					? { ...record, pending: true, sendFailed: false }
+					: { ...record, pending: false, sendFailed: true },
+			];
+		}),
 	];
 }
 
@@ -44,6 +53,23 @@ export function useMessages(
 ) {
 	const api = useApi();
 	const client = useQueryClient();
+	const personId = usePerson()?.id;
+	useEffect(() => {
+		if (!conversationId || !personId) return;
+		let active = true;
+		const generation = chatCacheGeneration();
+		void listChatCache<OutboxRecord | CachedMessage>(outboxCacheKey(personId, conversationId))
+			.then((outbox) => {
+				if (!active || generation !== chatCacheGeneration()) return;
+				for (const record of outbox) {
+					if ("request" in record) showOutgoingMessage(client, record.message);
+				}
+			})
+			.catch(() => {});
+		return () => {
+			active = false;
+		};
+	}, [client, conversationId, personId]);
 	return useInfiniteQuery({
 		queryKey: keys.messages.latest(conversationId ?? ""),
 		queryFn: ({ pageParam }) =>
@@ -51,10 +77,13 @@ export function useMessages(
 				const page = await api.messages(conversationId ?? "", pageParam, { markRead: false });
 				const owner = client.getQueryData<MeResponse>(keys.me())?.member.id;
 				if (pageParam || !owner || !conversationId) return page;
-				const outbox = await listChatCache<CachedMessage>(outboxCacheKey(owner, conversationId)).catch(() => []);
-				for (const message of outbox) {
-					if (page.items.some((item) => item.clientNonce === message.clientNonce))
-						void removeChatCache(outboxCacheKey(owner, conversationId, message.clientNonce ?? "")).catch(() => {});
+				const outbox = await listChatCache<CachedMessage | OutboxRecord>(outboxCacheKey(owner, conversationId)).catch(
+					() => [],
+				);
+				for (const record of outbox) {
+					const nonce = "request" in record ? record.request.clientNonce : record.clientNonce;
+					if (nonce && page.items.some((item) => item.clientNonce === nonce))
+						void removeChatCache(outboxCacheKey(owner, conversationId, nonce)).catch(() => {});
 				}
 				return { ...page, items: mergeOutbox(page.items, outbox) };
 			}),
@@ -72,35 +101,15 @@ export function useMessages(
 export function useSendMessage(conversationId: string | null, personId: string | undefined) {
 	const api = useApi();
 	const client = useQueryClient();
-	return useMutation({
+	const mutation = useMutation({
 		mutationKey: ["send-message", personId, conversationId],
-		mutationFn: ({ attachments: _attachments, replyTo: _replyTo, ...body }: SendInput) =>
+		mutationFn: ({ attachments: _attachments, files: _files, replyTo: _replyTo, ...body }: SendInput) =>
 			api.sendMessage(conversationId ?? "", body),
 		onMutate: async (body) => {
 			if (!conversationId) return;
 			await client.cancelQueries({ queryKey: keys.messages.latest(conversationId) });
 			if (client.getQueryData<MeResponse>(keys.me())?.member.id !== personId) throw new Error("session_changed");
-			const message: CachedMessage = {
-				id: `temp_${body.clientNonce}`,
-				conversationId,
-				senderId: personId ?? "",
-				senderKind: "person",
-				type: "text",
-				body: body.body,
-				attachments: body.attachments ?? [],
-				...(body.voice ? { voice: body.voice } : {}),
-				...(body.type === "voice" ? { sendType: body.type } : {}),
-				replyToId: body.replyToId ?? null,
-				...(body.replyTo ? { replyTo: body.replyTo } : {}),
-				createdAt: new Date().toISOString(),
-				editedAt: null,
-				streaming: false,
-				version: 0,
-				clientNonce: body.clientNonce,
-				pending: true,
-				...(body.skillIds ? { skillIds: body.skillIds } : {}),
-				...(body.mentionedMemberIds ? { mentionedMemberIds: body.mentionedMemberIds } : {}),
-			};
+			const message = outgoingMessage(conversationId, personId ?? "", body);
 			if (personId) {
 				// The outbox is a convenience for a reload, not a precondition: a full or blocked store must not
 				// stop the request from going out.
@@ -122,28 +131,22 @@ export function useSendMessage(conversationId: string | null, personId: string |
 			if (!conversationId) return;
 			if (client.getQueryData<MeResponse>(keys.me())?.member.id !== personId) return;
 			updateMessage(client, {
-				id: `temp_${body.clientNonce}`,
-				conversationId,
-				senderId: personId ?? "",
-				senderKind: "person",
-				type: "text",
-				body: body.body,
-				attachments: body.attachments ?? [],
-				...(body.voice ? { voice: body.voice } : {}),
-				...(body.type === "voice" ? { sendType: body.type } : {}),
-				replyToId: body.replyToId ?? null,
-				...(body.replyTo ? { replyTo: body.replyTo } : {}),
-				createdAt: new Date().toISOString(),
-				editedAt: null,
-				streaming: false,
-				version: 0,
-				clientNonce: body.clientNonce,
+				...outgoingMessage(conversationId, personId ?? "", body),
+				pending: false,
 				sendFailed: true,
-				...(body.skillIds ? { skillIds: body.skillIds } : {}),
-				...(body.mentionedMemberIds ? { mentionedMemberIds: body.mentionedMemberIds } : {}),
 			});
 		},
 	});
+	const outbox = chatOutbox(client, api);
+	return {
+		...mutation,
+		enqueue: async (body: SendInput) => {
+			if (!conversationId || !personId) throw new Error("outbox_conversation_missing");
+			await outbox.enqueue(conversationId, personId, body);
+		},
+		retryQueued: (nonce: string) =>
+			conversationId && personId ? outbox.retry(conversationId, personId, nonce) : Promise.resolve(false),
+	};
 }
 
 export function useRunActions() {
