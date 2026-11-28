@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26112805] - 2026-11-28
+
+### Added
+
+- models：official models and own providers are separate lists; a provider picks its own model
+- memory：part-of-day group heads with flat coloured animated icons
+
 ## [0.3.26112804] - 2026-11-28
 
 ### Added
