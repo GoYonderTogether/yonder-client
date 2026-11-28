@@ -168,7 +168,7 @@ export function useUpdateOffer(owner: string | undefined, platform: string, choi
 	const visible = offer?.id === dismissalId ? null : offer;
 	const acknowledge = useCallback(
 		(offer: UpdateOffer) => {
-			if (!scope || offer.platform !== "android") return;
+			if (!scope || offer.platform !== "android" || offer.channel !== "stable") return;
 			const key = `${scope}:${offer.id}`;
 			if (acknowledged.current.has(key)) return;
 			acknowledged.current.add(key);
