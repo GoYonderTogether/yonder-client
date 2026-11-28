@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112809] - 2026-11-28
+
+### Fixed
+
+- connectors：the elevated terminal's output reaches the log, and kill reaches the tree
+
 ## [0.3.26112808] - 2026-11-28
 
 ### Added
