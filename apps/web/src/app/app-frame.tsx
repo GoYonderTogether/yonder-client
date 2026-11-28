@@ -361,7 +361,6 @@ export function AppFrame() {
 			disabled={chat.blocked || disconnected}
 			disconnected={disconnected}
 			sendOnEnter={desktop}
-			streaming={chat.streaming}
 			completionItems={completionItems(
 				chat.hasBot ? (skills.data?.items ?? []) : [],
 				contacts.data?.items ?? [],

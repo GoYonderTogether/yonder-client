@@ -23,7 +23,6 @@ test("meeting capture blocks only chat microphone startup, while its own pause s
 		draft: "",
 		onDraftChange: vi.fn(),
 		onSend: vi.fn(),
-		streaming: false,
 		disabled: false,
 		disconnected: false,
 		sendOnEnter: true,
@@ -80,7 +79,6 @@ test("entering mobile voice mode prepares permission, and release during permiss
 					onDraftChange={vi.fn()}
 					onSend={vi.fn()}
 					onSendVoice={onSendVoice}
-					streaming={false}
 					disabled={false}
 					disconnected={false}
 					sendOnEnter={true}

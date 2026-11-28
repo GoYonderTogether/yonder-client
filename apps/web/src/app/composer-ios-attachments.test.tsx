@@ -60,7 +60,6 @@ function renderIphone(major: number, overrides: Partial<ComposerProps> = {}, nat
 		onDraftChange: vi.fn(),
 		onSend: vi.fn(),
 		onFiles,
-		streaming: false,
 		disabled: false,
 		disconnected: false,
 		sendOnEnter: false,

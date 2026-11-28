@@ -113,15 +113,9 @@ export default function Chat() {
 	);
 	const presentation = { showMessageAvatars, showSenderNames: isGroup, locale, contacts: useCachedBots() };
 	const optionCards = optionCardState(chat.messages, chat.me?.member.id);
-	const hasActiveRun = chat.messages.some(
-		(message) =>
-			message.senderKind === "bot" &&
-			(message.streaming || message.run?.status === "queued" || message.run?.status === "running"),
-	);
 	const expanded = text.includes("\n") || uploads.uploads.length > 0 || showSkills;
 	const layoutSignature = `${contentHeight}:${expanded}`;
 	const canSend =
-		!hasActiveRun &&
 		Boolean(text.trim() || uploads.uploads.length) &&
 		uploads.uploads.every((file) => file.attachment && !file.uploading);
 

@@ -64,9 +64,6 @@ export function useFrameChat({
 	});
 	const create = useCreateItem(personId);
 	const compact = useCompactConversation(target?.id);
-	const streaming = history.data?.pages
-		.flatMap((page) => page.items)
-		.findLast((message) => message.senderKind === "bot" && message.streaming && !message.questionCard);
 	const hasBot = creating || (target?.members.some((member) => member.kind === "bot") ?? false);
 
 	const knownVoiceNonce = (nonce: string) =>
@@ -153,7 +150,6 @@ export function useFrameChat({
 						...visitRelayTarget(history.data?.pages.toReversed().flatMap((page) => page.items) ?? [], personId),
 					}
 				: undefined,
-		streaming: Boolean(streaming),
 		blocked:
 			(!target && !creating) ||
 			!personId ||

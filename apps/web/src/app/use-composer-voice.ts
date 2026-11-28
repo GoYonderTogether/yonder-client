@@ -24,7 +24,6 @@ export interface ComposerVoiceOptions {
 	sending: boolean;
 	disabled: boolean;
 	disconnected: boolean;
-	streaming: boolean;
 	canSend: boolean;
 	hasFiles: boolean;
 	microphoneOccupied: boolean;
@@ -45,7 +44,6 @@ export function useComposerVoice({
 	sending,
 	disabled,
 	disconnected,
-	streaming,
 	canSend,
 	hasFiles,
 	microphoneOccupied,
@@ -122,8 +120,7 @@ export function useComposerVoice({
 		});
 	}
 	function send() {
-		if (sending || waitingToSend.current || disabled || disconnected || streaming || (!canSend && !session.current))
-			return;
+		if (sending || waitingToSend.current || disabled || disconnected || (!canSend && !session.current)) return;
 		const current = session.current;
 		if (!current) {
 			onSend();

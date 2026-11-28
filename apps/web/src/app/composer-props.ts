@@ -18,7 +18,6 @@ export interface ComposerProps {
 		transcription?: Pick<Endpoints, "openVoiceSocket" | "transcribeAudio"> | undefined;
 		knownNonce?: ((nonce: string) => boolean) | undefined;
 	};
-	streaming: boolean;
 	/** A send (upload included) is in flight; the button becomes a working cancel. */
 	sending?: boolean;
 	onCancelSend?: () => void;

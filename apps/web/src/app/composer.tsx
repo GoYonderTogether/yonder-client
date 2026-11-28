@@ -40,7 +40,6 @@ export function Composer({
 	onSend,
 	onSendVoice,
 	speech,
-	streaming,
 	sending = false,
 	onCancelSend,
 	disabled,
@@ -106,7 +105,7 @@ export function Composer({
 		scope,
 		items: completionItems,
 		selectedIds: selectedSkillIds,
-		blocked: disabled || readOnly || streaming,
+		blocked: disabled || readOnly,
 		onAccept: (text, marker, edit) => {
 			interrupt();
 			onAcceptCompletion?.(text, marker, edit);
@@ -122,9 +121,9 @@ export function Composer({
 	const voiceSending = voiceSendingScope === scope;
 	const holdMode = mobilePicker && voiceScope === scope;
 	const editor = useComposerEditor(input, draft, mobilePicker, scope, holdMode);
-	const showSend = !mobilePicker || streaming || sending || (hasContent && !holdMode && !voiceSending);
+	const showSend = !mobilePicker || sending || (hasContent && !holdMode && !voiceSending);
 	const voiceUnavailable = disabled || readOnly || disconnected || microphoneOccupied || !onSendVoice;
-	const canSend = !disabled && !disconnected && !streaming && hasContent;
+	const canSend = !disabled && !disconnected && hasContent;
 	function toggleVoiceMode() {
 		setHoldError(undefined);
 		if (holdMode) {
@@ -172,13 +171,12 @@ export function Composer({
 		sending,
 		disabled,
 		disconnected,
-		streaming,
 		canSend,
 		hasFiles: files.length > 0,
 		microphoneOccupied,
 		onActivityChange: mobilePicker ? undefined : onVoiceActivityChange,
 	});
-	const attachmentPickerBlocked = Boolean(pickedFiles && (streaming || pickedFiles.failed));
+	const attachmentPickerBlocked = Boolean(pickedFiles?.failed);
 	const filePicker = useFilePicker({
 		scope,
 		mobile: mobilePicker,
@@ -269,11 +267,7 @@ export function Composer({
 					{t(visibleError)}
 				</p>
 			) : null}
-			<IosAttachmentSendStatus
-				pickedFiles={pickedFiles}
-				importing={iosAttachments.importing}
-				disabled={disabled || streaming}
-			/>
+			<IosAttachmentSendStatus pickedFiles={pickedFiles} importing={iosAttachments.importing} disabled={disabled} />
 			{visitRelay ? <VisitRelay key={visitRelay.conversationId} {...visitRelay} disabled={disconnected} /> : null}
 			<fieldset
 				aria-label={t("chat.attach")}
@@ -449,7 +443,7 @@ export function Composer({
 								visible={holdMode}
 								{...speech}
 								textEditor={input}
-								disabled={voiceUnavailable || menu || iosAttachments.busy || sending || streaming}
+								disabled={voiceUnavailable || menu || iosAttachments.busy || sending}
 								pendingMicrophonePermission={() => microphonePreparation.current}
 								onSend={sendVoice}
 								onText={fillVoiceDraft}
@@ -469,9 +463,7 @@ export function Composer({
 						{showSend ? (
 							<button
 								type="button"
-								disabled={
-									iosAttachments.importing || (!sending && (streaming || disconnected || (!canSend && !voiceActive)))
-								}
+								disabled={iosAttachments.importing || (!sending && (disconnected || (!canSend && !voiceActive)))}
 								onClick={sending ? onCancelSend : send}
 								aria-label={t(sending ? "chat.stopSend" : "chat.disabledSend")}
 								className="composer-send flex size-[var(--composer-button-size)] shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-text-tertiary)]"

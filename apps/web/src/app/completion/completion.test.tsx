@@ -46,7 +46,6 @@ function CompletionFrame({
 			draft={text}
 			onDraftChange={setText}
 			onSend={() => sent(text)}
-			streaming={false}
 			disabled={false}
 			disconnected={false}
 			sendOnEnter

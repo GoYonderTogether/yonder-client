@@ -19,7 +19,6 @@ test.each([false, true])("own Bot attachment menu opens before a picker (mobile=
 				draft=""
 				onDraftChange={vi.fn()}
 				onSend={vi.fn()}
-				streaming={false}
 				disabled={false}
 				disconnected={false}
 				sendOnEnter={!mobilePicker}
@@ -53,7 +52,6 @@ test("mobile swaps the empty composer between typing and holding to talk", async
 		onDraftChange: vi.fn(),
 		onSend: send,
 		onSendVoice: vi.fn().mockResolvedValue(undefined),
-		streaming: false,
 		disabled: false,
 		disconnected: false,
 		sendOnEnter: false,
@@ -97,7 +95,6 @@ test("desktop Enter sends, while Shift, composition and mobile Enter do not", ()
 		draft: "hello",
 		onDraftChange: vi.fn(),
 		onSend: send,
-		streaming: false,
 		disabled: false,
 		disconnected: false,
 	};
@@ -122,14 +119,7 @@ test("desktop Enter sends, while Shift, composition and mobile Enter do not", ()
 	expect(send).toHaveBeenCalledTimes(2);
 	view.rerender(
 		<I18nextProvider i18n={createI18n("en")}>
-			<Composer {...props} sendOnEnter streaming />
-		</I18nextProvider>,
-	);
-	expect(screen.queryByRole("button", { name: "Stop generating" })).not.toBeInTheDocument();
-	expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
-	view.rerender(
-		<I18nextProvider i18n={createI18n("en")}>
-			<Composer {...props} sendOnEnter streaming disconnected />
+			<Composer {...props} sendOnEnter disconnected />
 		</I18nextProvider>,
 	);
 	expect(screen.queryByRole("status")).not.toBeInTheDocument();
@@ -154,7 +144,6 @@ test.each([false, true])(
 					draft="中文"
 					onDraftChange={vi.fn()}
 					onSend={send}
-					streaming={false}
 					disabled={false}
 					disconnected={false}
 					sendOnEnter
@@ -184,12 +173,10 @@ test.each([false, true])(
 );
 
 test.each([
-	{ draft: " \n ", disabled: false, disconnected: false, streaming: false, blocked: true, label: "Send" },
-	{ draft: "draft", disabled: true, disconnected: false, streaming: false, blocked: true, label: "Send" },
-	{ draft: "draft", disabled: false, disconnected: true, streaming: false, blocked: true, label: "Send" },
-	{ draft: "draft", disabled: false, disconnected: false, streaming: false, blocked: false, label: "Send" },
-	{ draft: "draft", disabled: false, disconnected: false, streaming: true, blocked: true, label: "Send" },
-	{ draft: "draft", disabled: false, disconnected: true, streaming: true, blocked: true, label: "Send" },
+	{ draft: " \n ", disabled: false, disconnected: false, blocked: true, label: "Send" },
+	{ draft: "draft", disabled: true, disconnected: false, blocked: true, label: "Send" },
+	{ draft: "draft", disabled: false, disconnected: true, blocked: true, label: "Send" },
+	{ draft: "draft", disabled: false, disconnected: false, blocked: false, label: "Send" },
 ])("composer action gates: $label, draft=$draft, blocked=$blocked", (state) => {
 	const send = vi.fn();
 	render(
@@ -211,7 +198,6 @@ test("native candidate confirmation and newline keys keep their browser default;
 		draft: "first\nsecond",
 		onDraftChange: vi.fn(),
 		onSend: vi.fn(),
-		streaming: false,
 		disabled: false,
 		disconnected: false,
 	};
@@ -252,7 +238,6 @@ test("an in-flight send turns the send arrow into a working cancel", () => {
 		onDraftChange: vi.fn(),
 		onSend: send,
 		onCancelSend: cancel,
-		streaming: false,
 		disabled: false,
 		disconnected: false,
 		sendOnEnter: true,
