@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112811] - 2026-11-28
+
+### Added
+
+- memory：photo cards in a feed-style grid, and no seam under the top bar
+
 ## [0.3.26112810] - 2026-11-28
 
 ### Changed
