@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { buildDesktopManifest, uploadDesktopRelease, verifyUpdaterSignature } from "./desktop.mjs";
+import { promoteNative } from "./promote-native.mjs";
 import { updaterConfig } from "./tauri-updater-config.mjs";
 
 const version = "0.3.26111502";
@@ -103,6 +104,20 @@ test("manifest uses Tauri static schema and only the selected platform", () => {
 	assert.throws(
 		() => buildDesktopManifest({ version, target: "darwin-aarch64", artifactName: "../archive", signature: "sig" }),
 		/更新包/,
+	);
+});
+
+test("stable promotion cannot write anything when the exact tested build is missing", async () => {
+	await assert.rejects(
+		promoteNative({
+			version,
+			transport: {
+				getObject: async () => null,
+				getPublicReleaseObject: async () => assert.fail("must verify the pinned candidate manifest first"),
+				putObject: async () => assert.fail("must keep stable untouched"),
+			},
+		}),
+		/候选产物尚未核验/,
 	);
 });
 

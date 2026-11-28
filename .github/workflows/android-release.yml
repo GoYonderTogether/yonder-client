@@ -4,7 +4,7 @@
 # --ref v$VERSION -f version=… -f expected_commit=…`）。不要依赖 `release: published`：本仓的 Release 由
 # release.yml 用 GITHUB_TOKEN 创建，GITHUB_TOKEN 产生的事件不会再触发任何工作流，那个触发器在本仓永远不会来；
 # 它保留只为手工在网页上公开 Release 的场合。此时没有 version 输入，版本取 `github.event.release.tag_name`。
-name: Android release
+name: Android beta release
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ on:
         required: true
         type: string
       expected_commit:
-        description: 发版 tag 应指向的完整 40 位提交 SHA；留空表示在所选 ref 上直接构建（手工重建用，不核对 tag）
+        description: 可选的完整 40 位提交 SHA，必须与发版 tag 相符
         required: false
         default: ""
         type: string
@@ -27,8 +27,6 @@ on:
         description: 从已有 GitHub Release 取签名 APK，仅补发 OSS
         type: boolean
         default: false
-  release:
-    types: [published]
 
 permissions:
   contents: write
@@ -42,12 +40,12 @@ jobs:
     name: Signed Android APK
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      VITE_YONDER_BUILD_CHANNEL: beta
     steps:
       - uses: actions/checkout@v4
         with:
-          # 正式发版用 tag；手工重建（expected_commit 留空）用所选 ref，与 ios-release.yml 一致。
-          # 只有这样才能在不发新版本的前提下，用修好的代码重出同一个版本的安装包。
-          ref: ${{ inputs.expected_commit && inputs.version && format('v{0}', inputs.version) || github.event.release.tag_name || github.ref }}
+          ref: ${{ format('v{0}', inputs.version) }}
           fetch-depth: 1
       # 版本只在这里确定并写进 GITHUB_ENV：apps/desktop 不在 npm workspaces，bump-versions.mjs 不改它的
       # package.json / tauri.conf.json，所以不从仓库文件读版本，后面各步一律用 $VERSION。
@@ -55,11 +53,10 @@ jobs:
         env:
           INPUT_VERSION: ${{ inputs.version }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eu
-          tag="${INPUT_VERSION:-$RELEASE_TAG}"
-          tag="v${tag#v}"
+          tag="v${INPUT_VERSION#v}"
           version="${tag#v}"
           [[ "$version" =~ ^0\.[0-9]+\.[0-9]{8}$ ]] || {
             echo "::error::版本不是 0.<minor>.<YYMMDDNN>：$version"
@@ -72,15 +69,10 @@ jobs:
               echo "::error::$tag 指向 $head_sha，不是预期的 $EXPECTED_COMMIT"
               exit 1
             }
-          else
-            # 手工重建：产物仍然追加到同一个 tag 的 Release，所以 tag 必须已经存在。
-            # 不核对提交是有意的——重建的全部意义就是用修好的代码重出旧版本号的包。
-            git fetch --depth 1 origin "refs/tags/$tag:refs/tags/$tag" 2>/dev/null || {
-              echo "::error::tag $tag 不存在；手工重建只能追加到已有 Release"
-              exit 1
-            }
-            echo "手工重建：在 $head_sha 上构建 $version，产物上传到已有的 $tag"
           fi
+          state="$(gh release view "$tag" --json isDraft,isPrerelease --jq \
+            'if (.isDraft | not) and .isPrerelease then "beta" else "other" end')"
+          [ "$state" = "beta" ] || { echo "Release $tag is not a published beta"; exit 1; }
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "TAG=$tag" >> "$GITHUB_ENV"
           echo "版本 $version，tag $tag，提交 $head_sha"
@@ -220,7 +212,7 @@ jobs:
           "$apksigner" verify --print-certs dist-android/yonder-android.apk
           aapt="$(dirname "$apksigner")/aapt"
           [ -x "$aapt" ] || { echo "::error::build-tools 里没有 aapt，无法读取 APK 版本"; exit 1; }
-          node scripts/release/android.mjs --version "$VERSION" --apk dist-android/yonder-android.apk --aapt "$aapt" --dry-run
+          node scripts/release/android.mjs --beta --version "$VERSION" --apk dist-android/yonder-android.apk --aapt "$aapt" --dry-run
           sha256sum dist-android/yonder-android.apk
           ls -l dist-android/yonder-android.apk
 
@@ -228,14 +220,13 @@ jobs:
         if: ${{ !inputs.reuse_signed_apk }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$TAG" dist-android/yonder-android.apk --clobber
+        run: gh release upload "$TAG" dist-android/yonder-android.apk
 
       - name: 发布到 OSS
         env:
           ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
           ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
           MIN_SUPPORTED_VERSION: ${{ inputs.min_supported_version }}
           REUSE_SIGNED_APK: ${{ inputs.reuse_signed_apk }}
         run: |
@@ -244,20 +235,16 @@ jobs:
           [ -n "${ALIBABA_CLOUD_ACCESS_KEY_SECRET:-}" ] || { echo "::error::缺少 secret ALIBABA_CLOUD_ACCESS_KEY_SECRET"; exit 1; }
           notes="$RUNNER_TEMP/android-notes.md"
           gh release view "$TAG" --json body --jq .body > "$notes"
-          # 手工重建出的是同一个版本号的包：versionCode 不变、APK 摘要不同，所以走 --rebuild
-          # （只放行「同版本」，降级仍拒绝）。用 --repair 不行，它要求摘要完全一致。
           publication=()
           if [ "$REUSE_SIGNED_APK" = true ]; then
             publication=(--reuse)
-          elif [ -z "$EXPECTED_COMMIT" ]; then
-            publication=(--rebuild)
           fi
           sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
           aapt="$(find "$sdk/build-tools" -name aapt -type f | sort -V | tail -1)"
           [ -n "$aapt" ] || { echo "::error::build-tools 里没有 aapt，无法读取 APK 版本"; exit 1; }
           minimum=()
           [ -z "$MIN_SUPPORTED_VERSION" ] || minimum=(--min-supported-version "$MIN_SUPPORTED_VERSION")
-          node scripts/release/android.mjs --version "$VERSION" \
+          node scripts/release/android.mjs --beta --version "$VERSION" \
             --apk dist-android/yonder-android.apk --aapt "$aapt" --notes "$notes" "${minimum[@]}" "${publication[@]}"
 
       - name: 清理签名材料

@@ -1,8 +1,7 @@
 # 发版走 CI：由这里统一包版本、写 CHANGELOG、打 tag、推 main 并建 Release。
 # 顺序固定：发版提交直接接在 main tip 上 → 构建打包 → 原子推送 tag 与 main → 最后建 Release。
-# 任何一步失败都不会留下一个 main 里不存在的正式 Release。
-# 官网由本仓库 web-deploy.yml 部署，主机与密钥仅在 Actions secrets。
-name: Release
+# 只发布测试渠道。正式版由 promote-stable.yml 晋升该 tag 的已有产物。
+name: Release beta
 
 on:
   workflow_dispatch:
@@ -28,7 +27,7 @@ on:
         default: ""
         type: string
       android_only:
-        description: 只发布 Android；不发布 iOS、桌面或 Web，也不替换 GitHub 的全平台 Latest
+        description: 只发布 Android 测试版，不派发 iOS、桌面或 Web
         required: false
         default: false
         type: boolean
@@ -44,6 +43,7 @@ concurrency:
 
 jobs:
   release:
+    if: github.ref == 'refs/heads/main'
     name: Tag, CHANGELOG and GitHub Release
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -143,8 +143,7 @@ jobs:
           exit 1
         env:
           VERSION: ${{ steps.version.outputs.version }}
-      # Release 最后创建，而且先建成草稿再公开：正式版一旦公开，releases/latest 与发布 watcher
-      # 都会立刻读到它。各平台的安装包由下面派发的工作流随后追加到同一个 Release。
+      # 预发布永远不会替换 GitHub 的正式 Latest。
       - name: 创建 GitHub Release（草稿）
         run: |
           node scripts/release/changelog.mjs --body "$VERSION" > release-notes.md
@@ -152,7 +151,7 @@ jobs:
             gh release create "v$VERSION" \
               --title "Yonder $VERSION" \
               --notes-file release-notes.md \
-              --draft --verify-tag && exit 0
+              --draft --prerelease --verify-tag && exit 0
             sleep 15
           done
           echo "::error::草稿 Release 创建失败。tag v$VERSION 与 main 已推送，不要重新发版；修好原因后手工执行 gh release create 补建"
@@ -161,15 +160,9 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: 公开 Release
-        run: |
-          if [ "$ANDROID_ONLY" = "true" ]; then
-            gh release edit "v$VERSION" --draft=false --latest=false
-          else
-            gh release edit "v$VERSION" --draft=false --latest
-          fi
+        run: gh release edit "v$VERSION" --draft=false --prerelease --latest=false
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          ANDROID_ONLY: ${{ inputs.android_only }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # GITHUB_TOKEN 推送的提交不会再触发 push 事件，发版提交与 tag 因此从来没有跑过 CI。
       # 这里以 tag 为 ref 显式派发一次，让 CI 跑在发布出来的那个提交上；结论在 Actions 里看，
@@ -213,7 +206,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANDROID_ONLY: ${{ inputs.android_only }}
-      - name: Dispatch official web deployment
+      - name: Dispatch beta web deployment
         if: ${{ !inputs.android_only }}
         continue-on-error: true
         run: gh workflow run web-deploy.yml --ref "v$VERSION" -f "tag=v$VERSION"

@@ -13,23 +13,23 @@ const step = (name) => {
 	return workflow.slice(start).split("\n      - name: ")[0];
 };
 
-test("Android-only dispatch is opt-in and skips Web publication", () => {
+test("an ordinary release stays a prerelease, and Android-only skips Web publication", () => {
 	assert.match(workflow, / {6}android_only:\n[^\n]+\n {8}required: false\n {8}default: false\n {8}type: boolean/);
-	assert.match(step("Dispatch official web deployment"), / {8}if: \$\{\{ !inputs\.android_only \}\}/);
+	assert.match(step("Dispatch beta web deployment"), / {8}if: \$\{\{ !inputs\.android_only \}\}/);
 	const publish = step("公开 Release");
+	assert.match(publish, /gh release edit "v\$VERSION" --draft=false --prerelease --latest=false/);
 	assert.match(publish, /GH_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
 });
 
 for (const androidOnly of ["true", "false"]) {
 	test(`release routing with android_only=${androidOnly}`, { skip: process.platform === "win32" }, () => {
-		const scripts = ["公开 Release", "派发安卓 APK、iOS TestFlight 与桌面安装包构建"].map((name) => {
-			const run = step(name).split("        run: |\n")[1]?.split("\n        env:")[0];
-			assert.ok(run);
-			return run;
-		});
+		const run = step("派发安卓 APK、iOS TestFlight 与桌面安装包构建")
+			.split("        run: |\n")[1]
+			?.split("\n        env:")[0];
+		assert.ok(run);
 		const calls = execFileSync(
 			"/bin/bash",
-			["-e", "-c", `gh() { printf '%s\\n' "$*"; }\ngit() { echo "${sha}"; }\n${scripts.join("\n")}`],
+			["-e", "-c", `gh() { printf '%s\\n' "$*"; }\ngit() { echo "${sha}"; }\n${run}`],
 			{
 				encoding: "utf8",
 				env: { VERSION: version, ANDROID_ONLY: androidOnly, GITHUB_STEP_SUMMARY: devNull },
@@ -42,13 +42,8 @@ for (const androidOnly of ["true", "false"]) {
 		assert.deepEqual(
 			calls,
 			androidOnly === "true"
-				? [`release edit v${version} --draft=false --latest=false`, dispatch("android")]
-				: [
-						`release edit v${version} --draft=false --latest`,
-						dispatch("android"),
-						dispatch("desktop", "main"),
-						dispatch("ios"),
-					],
+				? [dispatch("android")]
+				: [dispatch("android"), dispatch("desktop", "main"), dispatch("ios")],
 		);
 	});
 }

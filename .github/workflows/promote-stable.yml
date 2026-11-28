@@ -1,0 +1,86 @@
+name: Promote stable release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 已通过验收的完整测试版 tag，例如 v0.3.26112812
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  checks: read
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: 核对候选版本、产物与发布提交
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v0\.[0-9]+\.[0-9]{8}$ ]] || { echo "::error::无效的 release tag：'$TAG'"; exit 1; }
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)
+          relationship=$(gh api "repos/$GITHUB_REPOSITORY/compare/$sha...main" --jq .status)
+          case "$relationship" in identical|ahead) ;; *) echo '::error::发布提交不在 main 上'; exit 1 ;; esac
+          release=$(gh release view "$TAG" --json isDraft,isPrerelease,assets)
+          jq -e '.isDraft | not' <<< "$release" >/dev/null
+          is_beta=$(jq -r .isPrerelease <<< "$release")
+          if [ "$is_beta" != true ]; then
+            latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+            [ "$latest" = "$TAG" ] || { echo '::error::只能晋升测试版'; exit 1; }
+          fi
+          version=${TAG#v}
+          for asset in "Yonder_${version}_aarch64.dmg" "Yonder_${version}_x64-setup.exe" yonder-android.apk; do
+            jq -e --arg name "$asset" '.assets | any(.name == $name and .size > 0)' <<< "$release" >/dev/null ||
+              { echo "::error::缺少已验收的候选产物 $asset"; exit 1; }
+          done
+          node scripts/release/ci-status.mjs --sha "$sha"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "WEB_RELEASE=$version-${sha:0:12}" >> "$GITHUB_ENV"
+      - name: 确认服务器保有该测试版 Web 构建
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s %s\n' "$DEPLOY_HOST" "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+          printf 'check %s\n' "$WEB_RELEASE" | ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=20 "root@$DEPLOY_HOST"
+      - name: 晋升既有桌面及 Android 签名包
+        env:
+          ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
+          ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
+          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+        run: node scripts/release/promote-native.mjs "$VERSION"
+      - name: 晋升既有 Web 构建
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          printf 'promote %s\n' "$WEB_RELEASE" | ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=20 "root@$DEPLOY_HOST"
+      - name: 切换 GitHub 正式 Latest
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$TAG" --prerelease=false --latest

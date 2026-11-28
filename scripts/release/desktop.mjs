@@ -81,6 +81,7 @@ export async function uploadDesktopRelease({
 	bucket = BUCKET,
 	endpoint = REGION_ENDPOINT,
 	now = new Date(),
+	beta = false,
 	dryRun = false,
 	log = console.log,
 	transport = { putObject, getObject, getPublicReleaseObject },
@@ -102,7 +103,9 @@ export async function uploadDesktopRelease({
 		notes,
 		publishedAt: now.toISOString(),
 	});
-	const manifestKey = `desktop/${TARGETS[target]}.json`;
+	const platform = TARGETS[target];
+	const manifestKey = `${beta ? "beta/" : ""}desktop/${platform}.json`;
+	const candidateKey = `beta/desktop/${version}/${platform}.json`;
 	const artifactKey = `desktop/${version}/${artifactName}`;
 	if (dryRun) {
 		log(`dry-run: ${artifactKey}, ${manifestKey}`);
@@ -119,26 +122,36 @@ export async function uploadDesktopRelease({
 		if (compareVersions(version, current.version) < 0)
 			throw new Error(`${version} 低于线上 ${current.version}，拒绝覆盖`);
 	}
-	await transport.putObject({
-		key: artifactKey,
-		body: artifact,
-		contentType: contentTypeFor(artifactName),
-		credentials,
-		bucket,
-		endpoint,
-	});
+	const candidate = beta && (await transport.getObject({ key: candidateKey, credentials, bucket, endpoint }));
+	if (candidate) {
+		const prior = JSON.parse(candidate.toString("utf8"));
+		if (prior.platforms?.[target]?.url !== manifest.platforms[target].url) {
+			throw new Error(`${candidateKey} 已锁定更新包`);
+		}
+		verifyUpdaterSignature({ artifact, signature: prior.platforms[target].signature, pubkey, version });
+	} else {
+		await transport.putObject({
+			key: artifactKey,
+			body: artifact,
+			contentType: contentTypeFor(artifactName),
+			credentials,
+			bucket,
+			endpoint,
+		});
+	}
 	// Do not advertise a signed artifact that the public updater could not actually download.
 	const publicArtifact = await transport.getPublicReleaseObject(artifactKey);
 	if (!publicArtifact.equals(artifact)) throw new Error(`${artifactKey} 公开下载与待发布更新包不一致`);
-	await transport.putObject({
-		key: manifestKey,
-		body: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`),
+	const publication = {
+		body: candidate || Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`),
 		contentType: "application/json; charset=utf-8",
 		ossHeaders: { "Cache-Control": "no-cache" },
 		credentials,
 		bucket,
 		endpoint,
-	});
+	};
+	if (beta && !candidate) await transport.putObject({ ...publication, key: candidateKey });
+	await transport.putObject({ ...publication, key: manifestKey });
 	log(`已上传 ${artifactKey}、${manifestKey}`);
 	return { manifest, uploaded: true };
 }
@@ -164,6 +177,7 @@ async function main(argv) {
 			pubkey: process.env.TAURI_UPDATER_PUBKEY,
 			notes: notesPath ? readFileSync(notesPath, "utf8").trim() : undefined,
 			credentials: dryRun ? null : readCredentials(),
+			beta: argv.includes("--beta"),
 			dryRun,
 		});
 	} catch (error) {

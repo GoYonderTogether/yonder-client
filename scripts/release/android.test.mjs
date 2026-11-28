@@ -187,6 +187,32 @@ test("上传顺序：先比对线上清单，再版本化 APK → 固定名 APK 
 	);
 });
 
+test("测试 APK 只推进测试清单，保留正式清单和下载地址", async (t) => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "yonder-android-beta-"));
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const apkPath = path.join(dir, "yonder-android.apk");
+	fs.writeFileSync(apkPath, APK);
+	const writes = [];
+	const version = "0.3.26110205";
+	await uploadAndroidRelease({
+		version,
+		versionCode: 26110205,
+		apkPath,
+		beta: true,
+		log: () => {},
+		transport: {
+			getObject: async () => null,
+			getPublicReleaseObject: async () => APK,
+			putObject: async ({ key }) => writes.push(key),
+		},
+	});
+	assert.deepEqual(writes, [
+		`android/yonder-${version}.apk`,
+		`beta/android/${version}/latest.json`,
+		"beta/android/latest.json",
+	]);
+});
+
 test("补传拒绝覆盖同版异摘要，公开下载不匹配时不更新清单", async (t) => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "yonder-android-reuse-"));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

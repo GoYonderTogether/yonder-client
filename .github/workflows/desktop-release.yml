@@ -1,9 +1,7 @@
-# 桌面应用产物：正式 Release 发布后构建 macOS dmg 与 Windows nsis，追加到同一个 GitHub Release，
-# 并上传 OSS desktop/<version>/。
+# 桌面应用测试包：在预发布上附加签名安装包，推进测试渠道清单。
 #
 # 触发：本仓 Release 由 release.yml 用 GITHUB_TOKEN 创建，GITHUB_TOKEN 产生的 Release 不会再触发
 # 其他 workflow，所以实际入口是 release.yml 在公开 Release 后从 main 显式派发本 workflow。
-# release: published 是外部手动发布的兜底，使用专用签名 runner 时须从 main 手动派发。
 #
 # 版本不从仓库文件读：release.yml 已经用 sync-desktop-version.mjs 把版本写进 apps/desktop 的三个
 # 清单，构建时仍用 `tauri build --config '{"version":…}'` 再钉一次，产物名与 tag 一致。
@@ -24,8 +22,6 @@ on:
         description: Full 40-character commit SHA of the release tag
         required: true
         type: string
-  release:
-    types: [published]
 
 permissions:
   contents: write
@@ -55,7 +51,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          INPUT_VERSION: ${{ inputs.version || github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
           REQUIRE_OS_CODE_SIGNING: ${{ vars.DESKTOP_REQUIRE_OS_CODE_SIGNING }}
           WINDOWS_SIGNING_RUNNER: ${{ vars.WINDOWS_SIGNING_RUNNER }}
@@ -76,10 +72,10 @@ jobs:
           if [ -n "$EXPECTED_COMMIT" ] && [ "$actual" != "$EXPECTED_COMMIT" ]; then
             echo "Tag $tag points at $actual, not $EXPECTED_COMMIT"; exit 1
           fi
-          # 只给已发布的正式 Release 出桌面包；草稿与预发布都不构建。
+          # 只从公开测试版生成产物；正式晋升使用已签名的同一份字节。
           state="$(gh release view "$tag" --json isDraft,isPrerelease --jq \
-            'if .isDraft or .isPrerelease then "unstable" else "stable" end')"
-          [ "$state" = "stable" ] || { echo "Release $tag is not a published stable release"; exit 1; }
+            'if (.isDraft | not) and .isPrerelease then "beta" else "other" end')"
+          [ "$state" = "beta" ] || { echo "Release $tag is not a published beta"; exit 1; }
           relationship="$(gh api "repos/{owner}/{repo}/compare/$actual...main" --jq .status)"
           case "$relationship" in
             identical|ahead) ;;
@@ -111,6 +107,7 @@ jobs:
     timeout-minutes: 60
     env:
       VERSION: ${{ needs.resolve.outputs.version }}
+      VITE_YONDER_BUILD_CHANNEL: beta
     steps:
       - uses: actions/checkout@v4
         with:
@@ -247,8 +244,16 @@ jobs:
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ needs.resolve.outputs.tag }}" "dist/${{ steps.artifact.outputs.file }}" --clobber
-      - name: Upload to OSS
+        run: gh release upload "${{ needs.resolve.outputs.tag }}" "dist/${{ steps.artifact.outputs.file }}"
+      - name: Publish updater archive and manifest
+        env:
+          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+          ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
+          ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
+        run: >-
+          node scripts/release/desktop.mjs --beta --version "$VERSION" --target darwin-aarch64
+          --artifact dist/Yonder.app.tar.gz --signature dist/Yonder.app.tar.gz.sig
+      - name: Upload versioned macOS installer
         env:
           ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
           ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
@@ -256,14 +261,6 @@ jobs:
           node scripts/release/oss.mjs --put
           --key "desktop/${{ needs.resolve.outputs.version }}/${{ steps.artifact.outputs.file }}"
           --file "dist/${{ steps.artifact.outputs.file }}"
-      - name: Publish updater archive and manifest
-        env:
-          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
-          ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
-          ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
-        run: >-
-          node scripts/release/desktop.mjs --version "$VERSION" --target darwin-aarch64
-          --artifact dist/Yonder.app.tar.gz --signature dist/Yonder.app.tar.gz.sig
       - name: Remove macOS signing materials
         if: ${{ always() }}
         run: |
@@ -280,6 +277,7 @@ jobs:
     timeout-minutes: 60
     env:
       VERSION: ${{ needs.resolve.outputs.version }}
+      VITE_YONDER_BUILD_CHANNEL: beta
     steps:
       - uses: actions/checkout@v4
         with:
@@ -369,7 +367,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ needs.resolve.outputs.tag }}" "dist/${{ steps.artifact.outputs.file }}" --clobber
+        run: gh release upload "${{ needs.resolve.outputs.tag }}" "dist/${{ steps.artifact.outputs.file }}"
       - name: Publish updater installer and manifest
         shell: bash
         env:
@@ -377,5 +375,5 @@ jobs:
           ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
           ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
         run: >-
-          node scripts/release/desktop.mjs --version "$VERSION" --target windows-x86_64
+          node scripts/release/desktop.mjs --beta --version "$VERSION" --target windows-x86_64
           --artifact "dist/${{ steps.artifact.outputs.file }}" --signature "dist/${{ steps.artifact.outputs.file }}.sig"

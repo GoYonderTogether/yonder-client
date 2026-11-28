@@ -151,6 +151,7 @@ jobs:
       - name: 安装依赖
         env:
           VITE_YONDER_UPDATE_CHANNEL: ${{ inputs.testflight_internal && 'testflight-internal' || '' }}
+          VITE_YONDER_BUILD_CHANNEL: ${{ (inputs.testflight_internal || github.ref_type == 'tag') && 'beta' || '' }}
         run: |
           npm ci
           npm pkg set "version=$MARKETING_VERSION" --workspace @yonder/web

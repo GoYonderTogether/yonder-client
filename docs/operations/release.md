@@ -1,36 +1,53 @@
 # Releases
 
-Releases are manual. Nothing publishes automatically. During the current development phase,
-formal version numbers identify dev-test releases, not production acceptance. See
-[verification and ownership in AGENTS.md](../../AGENTS.md#发版与测试2026-11-24-起).
+Releases are dispatched from `main`. The normal release command publishes only to the beta
+channel. Production keeps serving both channels from the same backend and database.
+
+```sh
+gh workflow run release.yml --ref main -f ref=main
+gh workflow run promote-stable.yml --ref main -f tag=v0.3.26112813
+```
+
+Run the first command for day-to-day releases. Use the second for the exact candidate accepted
+for public release. Its tag CI must be green, the signed macOS, Windows and Android artifacts must
+exist, and the matching Web snapshot must still be on the server. Promotion reuses the exact
+candidate bytes, advances stable updates and the public Web root, then changes GitHub's Latest.
+Stable promotion can be retried with the same tag if a later step fails.
+
+Operators grant **启用测试版** from the user's account detail with the dedicated beta operation
+credential. The user can then choose the latest beta in **检查更新**. Turning off eligibility
+also clears the account's beta selection. This affects release access on the existing account and
+leaves stored product data available. Backend migrations must keep both supported clients and the
+rollback backend compatible with the production database.
+
+The Web executor keeps the newest five snapshots plus both channels' current and previous
+snapshots. Promote the accepted build while it is retained. TestFlight and the WeChat experience
+build keep their own eligibility and distribution. For a public iOS or WeChat release, confirm the
+matching candidate from the intended group and complete that platform's formal publishing
+process separately.
 
 ## Flow
 
-```
-Release (workflow_dispatch, release.yml)
-  └─ verify ref is in main, fast-forward to origin/main
-  └─ optionally (`require_ci=true`) wait for the aggregate `CI` check; by default it does not wait:
-     release first, CI runs alongside (AGENTS.md「发版与测试」)
-  └─ bump every workspace version + apps/desktop, write CHANGELOG, commit, tag v<version>
-  └─ build the web bundle (the release must be buildable before anything is pushed)
-  └─ push tag + main atomically, create a draft Release, publish it
-  └─ dispatch: ci.yml on the tag, then android-release / desktop-release / ios-release
-```
-
-The tag is pushed before the Release exists, and the Release is a draft until it is published, so a
-failure never leaves a public Release whose commit is not on `main`.
+1. `release.yml` verifies the requested ref is in `main` and fast-forwards to the tip. Passing
+   `require_ci=true` waits for CI. The default lets candidate publication and CI run together.
+2. It increments the shared version, updates the changelog, builds Web, then atomically pushes
+   the release commit and tag. The GitHub Release is a prerelease and never becomes Latest here.
+3. It dispatches CI on the tagged commit and builds the candidate packages. It deploys the Web
+   candidate to `/beta/` and advances the beta native update manifests after verification.
 
 ## Workflows
 
-| workflow                    | trigger                                                                       | what it does                                                                                                                                   |
-| --------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`                    | push to main, pull_request, workflow_dispatch                                 | lint, typecheck, test, the three `tools/` checks, changelog check, web build, cloud endpoint smoke, macOS `.app` build; one aggregate `CI` job |
-| `release.yml`               | workflow_dispatch only                                                        | tag, CHANGELOG, GitHub Release, dispatch the platform builds                                                                                   |
-| `desktop-release.yml`       | dispatched by `release.yml` (also `release: published` for manual publishing) | macOS Developer ID and Windows Authenticode when configured; desktop installers → Release; signed updater artifacts and manifests → OSS        |
-| `android-release.yml`       | dispatched by `release.yml`                                                   | signed APK → Release asset `yonder-android.apk` + OSS `android/`                                                                               |
-| `ios-release.yml`           | dispatched by `release.yml`                                                   | archive, export IPA, upload to TestFlight                                                                                                      |
-| `windows-install-check.yml` | workflow_dispatch (input: release tag)                                        | checks Authenticode, then installs, launches, screenshots, and uninstalls on a clean Windows runner                                            |
-| `auto-release.yml`          | workflow_dispatch only                                                        | does nothing; kept so nobody re-adds automatic releases by accident                                                                            |
+| Workflow | Trigger | Result |
+| --- | --- | --- |
+| `ci.yml` | Push, pull request, or dispatch | Aggregate `CI` check |
+| `release.yml` | Manual dispatch | Tag, changelog, GitHub prerelease and beta build dispatch |
+| `desktop-release.yml` | Beta release dispatch | Signed macOS and Windows packages and beta updates |
+| `android-release.yml` | Beta release dispatch | Signed APK and beta update manifest |
+| `ios-release.yml` | Beta release dispatch or dedicated iOS dispatch | TestFlight delivery |
+| `web-deploy.yml` | Beta release dispatch | Beta Web snapshot |
+| `promote-stable.yml` | Manual dispatch for a verified candidate | Stable Web, OSS and GitHub Latest |
+| `windows-install-check.yml` | Manual dispatch for a tag | Authenticode and clean Windows install/launch |
+| `auto-release.yml` | Manual dispatch | No publication |
 
 ### Removed
 
@@ -125,17 +142,16 @@ checks report an error rather than claiming to be current.
 The desktop workflow signs the updater artifact with `tauri signer sign --app-version`, then
 `scripts/release/desktop.mjs` verifies the artifact, signature, public key and version before
 uploading the versioned artifact and finally its static JSON manifest. The current build matrix
-publishes `desktop/darwin.json` for Apple Silicon and `desktop/windows.json` for Windows x64 at
+publishes `beta/desktop/darwin.json` for Apple Silicon and `beta/desktop/windows.json` for Windows x64 at
 `https://dl.zethai.cn/`. The macOS updater archive contains the same signed app as the dmg; Apple
 notarization still depends on the Apple secrets described above. Users of builds made before the
 updater was included need to install an updater-enabled build first.
 
-Android publishes `android/latest.json` only after its versioned APK. The publisher reads the
+Android publishes `beta/android/latest.json` only after its versioned APK. The publisher reads the
 actual APK `versionCode` and `versionName` with Android build-tools `aapt`, checks them against the
 release version, and records the APK SHA-256. `minSupportedVersion` is `null` by default; the
 optional `min_supported_version` input on a manually dispatched `android-release.yml` run sets it
-to a valid version no newer than the release. Each publication, rebuild or repair uses its own
-input; specify the minimum again to retain it, otherwise it returns to `null`. Existing apps below
+to a valid version no newer than the release. To set a minimum, pass it on the initial candidate publication. Promotion preserves that manifest. Existing apps below
 that version are told an update is required but are not blocked. After the user chooses to download, the app verifies the hash and
 opens Android's package installer; the user may need to allow installs from this app in system
 settings and must confirm installation. Android refuses to replace an app signed with a different
@@ -150,28 +166,12 @@ signing it again. After the updated workflow is on `main`, dispatch:
 gh workflow run android-release.yml --ref main -f version=<version> -f reuse_signed_apk=true
 ```
 
-The workflow checks the GitHub asset SHA-256, APK signature and embedded version. It uploads large APKs
-in 2 MiB parts to the versioned key and uses OSS CopyObject for the fixed-name APK. It verifies that
-both APK URLs return the expected SHA-256 without credentials before updating `android/latest.json`.
-Recovery accepts a newer version or the same version with the same APK
-digest. If the release requires a minimum supported version, supply `min_supported_version` on recovery.
+The workflow checks the GitHub asset SHA-256, APK signature and embedded version. Recovery
+accepts the same bytes for that exact candidate. The stable aliases are changed only by promotion.
 
-A release that fails in a platform workflow leaves a published Release with some artifacts missing.
-Do **not** publish a new version for that: re-run the failed workflow against `main` with the fix
-merged, and it appends to the same Release (`gh release upload --clobber`).
-
-```
-gh workflow run android-release.yml --ref main -f version=<version>     # expected_commit left empty
-gh workflow run ios-release.yml     --ref main -f version=<version>     # expected_commit left empty
-```
-
-With `expected_commit` empty both workflows check out the dispatched ref instead of the tag, and
-skip the tag → SHA equality check; the tag must still exist, because the artifact is uploaded to
-that Release. `android-release.yml` additionally passes `--rebuild` to `scripts/release/android.mjs`
-so `android/latest.json` accepts an unchanged `versionCode` (a downgrade is still refused).
-
-TestFlight is the exception: it rejects a second upload with a `CFBundleVersion` it already has. If
-an iOS build already reached TestFlight, the version has to move forward.
+Rerun an interrupted workflow with the same tag to repair a transient failure before its
+artifact is published. If a fix changes source or already-published signed bytes, publish a
+new beta. TestFlight also requires a new build number after a successful upload.
 
 ## What the first release of the shell cost, and why
 
@@ -219,16 +219,16 @@ For the Windows check, the installed executable is named after the Cargo package
 
 - **macOS Apple silicon / Windows x64:** use the existing Tauri manifests
   `https://dl.zethai.cn/desktop/darwin.json` and
-  `https://dl.zethai.cn/desktop/windows.json` through the signed updater. The publisher
+  `https://dl.zethai.cn/desktop/windows.json` through the signed updater. Beta inserts
+  `/beta` before `/desktop`. The publisher
   verifies the exact version signature and then compares the bytes served by the public
   download endpoint before advancing the manifest. GitHub tag/Release creation and the
   separate installer upload do not count.
-- **Android:** use `https://dl.zethai.cn/android/latest.json`. The publisher checks the signed
-  APK's version in the Android release job and verifies the public versioned APK and fixed
-  alias against the built APK's size and SHA-256 before advancing the manifest.
-- **Web:** use the live origin's `/version.json`, not a GitHub tag or the API's health
-  version. The atomic deploy executor checks exact version and commit through nginx;
-  `/build-version.json` is the deploy verification record.
+- **Android:** use `https://dl.zethai.cn/android/latest.json` for stable or
+  `https://dl.zethai.cn/beta/android/latest.json` for beta. The release verifies the public
+  versioned APK size and SHA-256. Stable promotion additionally verifies the fixed download alias.
+- **Web:** use the live origin's `/version.json` or `/beta/version.json`. The executor checks the
+  exact version and commit through nginx at the corresponding `build-version.json`.
 - **iOS:** an IPA asset or `altool` upload receipt only proves submission. Confirm the
   marketing version and build number against the workflow, then verify the exact build
   under the Yonder iOS app in App Store Connect, available for testing by the intended

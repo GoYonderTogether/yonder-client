@@ -1,40 +1,32 @@
 # Web deploy
 
-The web app is served at `https://yonder.zethai.cn` — the primary name, because `yonderbot.net` has no
-ICP filing (备案) in mainland China. `https://yonderbot.net` answers with a 301 to it. Both names point
-at the same server (`47.98.126.143`); the page, `/api/` and the WebSocket routes live on the zethai
-name only.
+The production Web site is `https://yonderbot.net`. Stable is served at the root and beta at
+`/beta/`. Both use the same API origin and shared content-hashed assets. Account eligibility
+and the user's selection are checked by the app before opening the beta experience.
 
 ## How a release reaches the site
 
-1. `release.yml` publishes the GitHub Release, then dispatches `web-deploy.yml` in this repository with
-   `tag=v<version>`. If that dispatch fails, the release stays published and a warning tells you to
-   run it by hand: `gh workflow run web-deploy.yml -f tag=v<version>`.
-2. `web-deploy.yml` resolves the tag to its commit, checks out that commit, confirms
-   `apps/web/package.json` has the tag's version, runs `npm ci && npm run build`, writes
-   `version.json` and `build-version.json` into `apps/web/dist`, and tars `apps/web/dist`.
-3. It connects to the server with the `DEPLOY_SSH_KEY` secret. The host key is pinned in the workflow.
-   On the server that key is bound by `command=` in `authorized_keys` to
-   `/opt/yonder-card/bin/yonder-web-deploy`; it can do nothing else.
-4. The executor answers `status` with `current=<version>-<sha12>`; the workflow skips the upload when
-   the site already runs that build. Otherwise it streams `<version>-<sha12> <tar sha256>` plus the tar.
-   The executor checks the hash, requires `index.html`, `version.json` and `yonder-sw.js` in the bundle,
-   unpacks into `web/releases/<version>-<sha12>`, switches `web/current` atomically, keeps the
-   previous release as `web/previous`, and prunes all but the newest five.
-5. Finally the executor fetches `https://yonder.zethai.cn/build-version.json` through nginx on the server
-   itself and fails the run unless it reports the new version. GitHub's runners are outside China and
-   their TLS to the public site is reset, so this local check is the authoritative one.
+1. `release.yml` dispatches `web-deploy.yml` for the published prerelease tag.
+2. `web-deploy.yml` resolves the tag to its commit, checks out that commit, confirms the
+   Web package version, builds it, and adds `version.json` and `build-version.json`.
+3. The workflow connects with the restricted `DEPLOY_SSH_KEY` and pinned host key. The
+   server's forced command is `/opt/yonder-card/bin/yonder-web-deploy`.
+4. `beta-status` reads the beta pointer. When it differs from the candidate, the job sends
+   `beta <version>-<sha12> <tar sha256>` followed by the tar. The executor verifies the
+   bundle and switches `web/beta-current`.
+5. `promote-stable.yml` checks the accepted candidate is retained, then switches
+   `web/current` to that same directory. Both commands verify the version and commit through
+   local nginx. An unsuccessful probe restores the prior live target.
 
-The executor never restarts a service and never touches nginx or the backend. `/api/` on the site
-still goes to the old backend on port 18051, so the page shows the server's version next to its own
-and marks the difference. Replacing the backend is a separate step.
+The executor retains the newest five snapshots plus the current and previous snapshot of each
+channel. Candidate uploads and stable promotion leave the backend deployment as a separate step.
 
 ## Rollback
 
-Run `web-deploy.yml` with the earlier tag. The executor keeps the last five releases, so a redeploy
-of a recent one is a pointer switch. The bundle that was live before the rebuild is
-`0.3.26111201-58dad81e91fd` from the old repository layout; it cannot be rebuilt by this workflow,
-but its directory is still on the server while it is among the newest five or is `web/previous`.
+Revoke beta access to return an affected user to stable. For a public Web regression, an
+operator can restore the retained stable `web/previous` pointer and check
+`/build-version.json`, or promote a newer fixed candidate. The regular beta workflow only
+advances the beta pointer.
 
 ## History
 
@@ -63,7 +55,7 @@ maintained as `deploy/yonder-web-deploy`. HTML, `version.json`, `build-version.j
 Missing assets return 404. Existing root, TLS, gzip, API and attachment routes remain in the site.
 
 All assets from the five releases present at rollout were seeded to `/opt/yonder-card/web/shared/assets`.
-Every later publish adds its assets before switching `current`; same-name different-content assets
+Every later publish adds its assets before switching a channel pointer; same-name different-content assets
 stop the publish. Retention is independent of the five release directories, which still govern rollback.
 The shared directory is not automatically pruned: storage grows with new unique assets. At rollout it
 contained 12 files totaling 3,481,574 bytes; the filesystem had about 3.2 GiB free. Monitor growth and

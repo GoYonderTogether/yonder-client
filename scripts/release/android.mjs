@@ -123,6 +123,7 @@ export async function uploadAndroidRelease({
 	// 降级仍然拒绝；与 repair 的区别是不要求摘要一致。
 	rebuild = false,
 	reuse = false,
+	beta = false,
 	bucket = BUCKET,
 	endpoint = REGION_ENDPOINT,
 	now = new Date(),
@@ -139,39 +140,51 @@ export async function uploadAndroidRelease({
 		notes,
 		publishedAt: now.toISOString(),
 	});
+	const manifestKey = `${beta ? "beta/" : ""}${LATEST_OBJECT}`;
+	const candidateKey = `beta/android/${version}/latest.json`;
 	if (dryRun) {
 		log(
 			JSON.stringify(
-				{ apk: basename(apkPath), objects: [versionedApkPath(version), APK_OBJECT, LATEST_OBJECT], manifest },
+				{
+					apk: basename(apkPath),
+					objects: [versionedApkPath(version), beta ? candidateKey : APK_OBJECT, manifestKey],
+					manifest,
+				},
 				null,
 				2,
 			),
 		);
 		return { manifest, uploaded: false };
 	}
-	const existing = await transport.getObject({ key: LATEST_OBJECT, credentials, bucket, endpoint });
+	const existing = await transport.getObject({ key: manifestKey, credentials, bucket, endpoint });
 	if (existing) {
 		let parsed;
 		try {
 			parsed = JSON.parse(existing.toString("utf8"));
 		} catch {
-			throw new Error(`${LATEST_OBJECT} 不是合法 JSON，拒绝覆盖`);
+			throw new Error(`${manifestKey} 不是合法 JSON，拒绝覆盖`);
 		}
 		const same = parsed.versionCode === manifest.versionCode && parsed.sha256 === manifest.sha256;
 		if (repair && !same) throw new Error("repair 只允许修正同一 versionCode 与同一 APK 摘要的清单");
-		if (!repair && !(reuse && same)) assertNewerManifest(manifest, parsed, { rebuild });
+		if (!repair && !((reuse || beta) && same)) assertNewerManifest(manifest, parsed, { rebuild });
 	}
 	const versionedKey = versionedApkPath(version);
 	const writeTarget = { credentials, bucket, endpoint };
-	const started = Date.now();
-	await transport.putObject({
-		...writeTarget,
-		key: versionedKey,
-		body: apk,
-		contentType: "application/vnd.android.package-archive",
-		multipart: true,
-	});
-	log(`已上传 ${versionedKey}（${Date.now() - started} ms）`);
+	const candidate = beta && (await transport.getObject({ ...writeTarget, key: candidateKey }));
+	if (candidate) {
+		const prior = JSON.parse(candidate.toString("utf8"));
+		if (prior.sha256 !== manifest.sha256) throw new Error(`${candidateKey} 已锁定不同摘要的 APK`);
+	} else {
+		const started = Date.now();
+		await transport.putObject({
+			...writeTarget,
+			key: versionedKey,
+			body: apk,
+			contentType: "application/vnd.android.package-archive",
+			multipart: true,
+		});
+		log(`已上传 ${versionedKey}（${Date.now() - started} ms）`);
+	}
 	async function verifyPublic(key) {
 		const readStarted = Date.now();
 		const downloaded = await transport.getPublicReleaseObject(key);
@@ -181,19 +194,21 @@ export async function uploadAndroidRelease({
 		log(`公开下载校验通过：${key} SHA-256 ${manifest.sha256}（${Date.now() - readStarted} ms）`);
 	}
 	await verifyPublic(versionedKey);
-	const copyStarted = Date.now();
-	await transport.putObject({ ...writeTarget, key: APK_OBJECT, copyFrom: versionedKey });
-	log(`已桶内复制 ${APK_OBJECT}（${Date.now() - copyStarted} ms）`);
-	await verifyPublic(APK_OBJECT);
-	await transport.putObject({
-		key: LATEST_OBJECT,
-		body: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`),
+	if (!beta) {
+		const copyStarted = Date.now();
+		await transport.putObject({ ...writeTarget, key: APK_OBJECT, copyFrom: versionedKey });
+		log(`已桶内复制 ${APK_OBJECT}（${Date.now() - copyStarted} ms）`);
+		await verifyPublic(APK_OBJECT);
+	}
+	const publication = {
+		...writeTarget,
+		body: candidate || Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`),
 		contentType: "application/json; charset=utf-8",
-		credentials,
-		bucket,
-		endpoint,
-	});
-	log(`已上传 ${versionedApkPath(version)}、${APK_OBJECT}、${LATEST_OBJECT}（versionCode ${manifest.versionCode}）`);
+		...(beta ? { ossHeaders: { "Cache-Control": "no-cache" } } : {}),
+	};
+	if (beta && !candidate) await transport.putObject({ ...publication, key: candidateKey });
+	await transport.putObject({ ...publication, key: manifestKey });
+	log(`已上传 ${manifestKey}（versionCode ${manifest.versionCode}）`);
 	return { manifest, uploaded: true };
 }
 
@@ -226,6 +241,7 @@ function main(argv) {
 			repair,
 			rebuild,
 			reuse: argv.includes("--reuse"),
+			beta: argv.includes("--beta"),
 			credentials,
 			dryRun,
 		}).then(
