@@ -83,6 +83,7 @@ export { meetingAccessLost, useMeeting, useMeetingActions, useMeetings } from ".
 export { useMemberProfile, usePublicMemberProfile } from "./hooks/members.ts";
 export {
 	deviceTimeZone,
+	useEntityProfile,
 	useMemoryActions,
 	useMemoryDays,
 	useMemoryFile,

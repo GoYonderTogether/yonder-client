@@ -1,4 +1,5 @@
 import type {
+	EntityProfile,
 	MemoryDayPage,
 	MemoryEntry,
 	MemoryFileContent,
@@ -78,6 +79,13 @@ export function memoryEndpoints(client: ApiClient) {
 		},
 		revertMemoryFile(body: RevertMemoryFileRequest): Promise<{ ok: true }> {
 			return client.request(`${filesPath}/revert`, { method: "POST", body });
+		},
+		/**
+		 * `GET /v1/entities/:id`: the name, page and picture an `entity:<id>` link opens (02 链接).
+		 * An old id of a merged entity answers with the survivor.
+		 */
+		entity(id: string): Promise<EntityProfile> {
+			return client.request(`/v1/entities/${encodeURIComponent(id)}`);
 		},
 	};
 }

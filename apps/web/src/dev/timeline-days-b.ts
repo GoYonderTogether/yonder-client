@@ -45,6 +45,7 @@ export const daysB: TimelineDay[] = [
 						at: "17:18",
 						kind: "message",
 						from: { name: "张颖丽" },
+						source: { brand: "wechat", label: "来自微信" },
 						text: "连尚集团云汉投资的张颖丽发来 AI 创业者招募计划：50 万到 200 万，5% 到 10% 早期股权。",
 						detail: "她问你有没有 demo 或 MVP。",
 					},

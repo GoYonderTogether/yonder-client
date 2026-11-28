@@ -255,6 +255,23 @@ export type {
 	SocialLibraryFolder,
 } from "./member/social.ts";
 export type {
+	EntityAlias,
+	EntityAliasKind,
+	EntityAvatar,
+	EntityContact,
+	EntityContactKind,
+	EntityDetail,
+	EntityFrontMatter,
+	EntityProfile,
+	EntityReference,
+	EntityReferenceKind,
+	EntityReferenceRole,
+	EntityReferenceState,
+	EntityRelation,
+	EntitySummary,
+	EntityType,
+} from "./memory/entities.ts";
+export type {
 	MemoryFileAuthor,
 	MemoryFileContent,
 	MemoryFileKind,

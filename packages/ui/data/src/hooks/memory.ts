@@ -89,6 +89,20 @@ export function useMemoryFileRevisions(path?: string) {
 	});
 }
 
+/**
+ * One entity as an `entity:<id>` link names it (02 链接): the name, the page to open and the picture.
+ * Read when a link is drawn or clicked; an old id of a merged entity answers with the survivor, so
+ * this is fetched by id rather than kept in a list.
+ */
+export function useEntityProfile(id?: string | null) {
+	const api = useApi();
+	return useQuery({
+		queryKey: keys.memory.entity(id ?? ""),
+		queryFn: id ? () => api.entity(id) : skipToken,
+		staleTime: 60_000,
+	});
+}
+
 export function useMemoryFileActions() {
 	const api = useApi();
 	const client = useQueryClient();
