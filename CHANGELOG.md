@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.26112817] - 2026-11-28
+
+### Fixed
+
+- connectors：补齐 browser 能力字段并适配桌面控制合入后的类型
+
+### Added
+
+- connectors：browser control on computer-control through BrowserSkill
+
 ## [0.3.26112816] - 2026-11-28
 
 ### Added
