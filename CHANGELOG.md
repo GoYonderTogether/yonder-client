@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.3.26112814] - 2026-11-28
+
+### Added
+
+- connectors：connect button, offline mark with retry, cancel while waiting, close on all devices
+
+### Fixed
+
+- memory：open public, other connector and archived files in the main pane
+- web：show private friend cards and align task headers
+- release：isolate Android beta concurrency
+- memory：open notes, recordings and summaries in the main pane instead of the side panel
+
 ## [0.3.26112813] - 2026-11-28
 
 ### Added
