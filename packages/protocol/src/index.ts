@@ -11,6 +11,7 @@ export type {
 	CardSource,
 	CardTarget,
 } from "./cards/agent-card.ts";
+
 /**
  * `@yonder/protocol` — the shared vocabulary. Format definitions only: no logic, no runtime
  * dependencies, no import from any other workspace package.
@@ -43,6 +44,8 @@ export type {
 } from "./auth/auth.ts";
 export type { WechatWebAttempt, WechatWebStatus } from "./auth/wechat-web.ts";
 export type { BillingOrder, BillingProduct, BillingProvider, CheckoutOrder } from "./billing/billing.ts";
+export type { Brand, BrandId, BrandKind } from "./brands.ts";
+export { BRANDS } from "./brands.ts";
 export type {
 	ChannelAttempt,
 	ChannelConnection,
