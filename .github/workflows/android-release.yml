@@ -1,9 +1,5 @@
-# 安卓 APK 构建与分发：签名 APK → GitHub Release 资产 `yonder-android.apk` + OSS。
-#
-# 触发方式：`release.yml` 在正式 Release 公开后以发版 tag 显式派发（`gh workflow run android-release.yml
-# --ref v$VERSION -f version=… -f expected_commit=…`）。不要依赖 `release: published`：本仓的 Release 由
-# release.yml 用 GITHUB_TOKEN 创建，GITHUB_TOKEN 产生的事件不会再触发任何工作流，那个触发器在本仓永远不会来；
-# 它保留只为手工在网页上公开 Release 的场合。此时没有 version 输入，版本取 `github.event.release.tag_name`。
+# 构建签名 APK，附加到 GitHub 预发布，并推进 OSS 测试清单。
+# release.yml 创建预发布后显式派发。手工重试可从 main 派发，构建仍锁定版本 tag。
 name: Android beta release
 
 on:
@@ -32,7 +28,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: android-release
+  group: android-beta-release
   cancel-in-progress: false
 
 jobs:
