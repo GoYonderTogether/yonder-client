@@ -128,6 +128,13 @@ export const connectorMessagesZhCN = {
 		scope:
 			"Bot 可以看到这台设备的屏幕，并操作鼠标和键盘。默认在后台操作、不抢窗口焦点；需要真实光标或前台窗口时才改为前台，运行步骤会注明。授权后每次操作都不再询问，直至你撤回。",
 	},
+	browser: {
+		name: "浏览器控制",
+		description: "Bot 可以在你的浏览器里打开页面、点击和输入。",
+		install: "安装浏览器控制",
+		installing: "正在安装…",
+		installFailed: "没能安装浏览器控制。请重试，或在终端里手动安装。",
+	},
 	appleCalendar: {
 		iosPermissionDenied: "在系统设置将日历设为「完全访问」。如权限未更新，从后台关闭并重新打开 Yonder，再点连接。",
 		name: "Apple 日历",

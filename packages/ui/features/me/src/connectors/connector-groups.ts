@@ -1,5 +1,5 @@
 import type { ConnectorDefinition, ConnectorId, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
-import type { MemberDefinition } from "./local-files-adapter.ts";
+import { BROWSER_MEMBER, type MemberDefinition } from "./local-files-adapter.ts";
 
 /** One card on the page: a connector, or catalog entries the owner sees as one connector. */
 export interface ConnectorGroup {
@@ -59,11 +59,31 @@ export function desktopMember(platform: DeviceSummary["platform"]): MemberDefini
 	};
 }
 
+/**
+ * Browser control as a member definition. Like the terminal it is a capability of
+ * `computer-control`, not a catalog entry. It appears only on a macOS or Windows desktop, because
+ * that is where `bsk` ships (specs/connectors/browser.md §2).
+ */
+export function browserMember(platform: DeviceSummary["platform"]): MemberDefinition | null {
+	if (platform !== "macos" && platform !== "windows") return null;
+	return {
+		id: BROWSER_MEMBER,
+		kind: "device",
+		name: "browser",
+		description: "browser",
+		platforms: ["macos", "windows"],
+	};
+}
+
 export function groupConnectors(
 	definitions: readonly ConnectorDefinition[],
 	platform?: DeviceSummary["platform"],
 ): ConnectorGroup[] {
 	const computer: MemberDefinition[] = COMPUTER.flatMap((id) => definitions.filter((item) => item.id === id));
+	if (computer.length && platform) {
+		const browser = browserMember(platform);
+		if (browser) computer.push(browser);
+	}
 	const terminal = platform ? terminalMember(platform) : null;
 	if (terminal && computer.length) computer.push(terminal);
 	const desktop = platform ? desktopMember(platform) : null;
@@ -95,16 +115,19 @@ export type SwitchState = "on" | "off" | "mixed";
 /**
  * The master switch of one device: every member granted, none, or some of them.
  *
- * The terminal and desktop control are left out on purpose. Each is the kind of capability whose card
- * says "run any command" / "see the screen and operate the mouse and keyboard", so it can only be
- * granted by its own switch — a master switch that swept it in would grant it without the row that
- * explains it being read.
+ * The terminal, desktop control and browser control are left out on purpose. Each is the kind of
+ * capability whose card says what it allows — "run any command", "see the screen and operate the
+ * mouse and keyboard", "open pages, click and type in your browser" — so it can only be granted by
+ * its own switch: a master switch that swept it in would grant it without the row that explains it
+ * being read.
  */
 export function masterState(
 	members: readonly MemberDefinition[],
 	instances: readonly ConnectorInstance[],
 ): SwitchState {
-	const covered = members.filter((member) => member.id !== TERMINAL_MEMBER && member.id !== DESKTOP_MEMBER);
+	const covered = members.filter(
+		(member) => member.id !== TERMINAL_MEMBER && member.id !== DESKTOP_MEMBER && member.id !== BROWSER_MEMBER,
+	);
 	const granted = covered.filter((member) =>
 		instances.some((item) => item.connectorId === member.id && item.scope === "device"),
 	);

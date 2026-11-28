@@ -35,6 +35,46 @@ export interface ShellJobFinished {
 export type ShellJobFinishedEvent = { type: "shell.job.finished" } & ShellJobFinished;
 
 /**
+ * Whether a dispatched terminal command may run here: it names a `computer-control` device grant
+ * that still carries `terminal`, for this device, holding the current revision, not revoked, and —
+ * when the grant was written by this runtime — already recorded. A second look in front of
+ * `shell_execute`, which re-checks the stored grant (TOOLS-V3 §4).
+ */
+export function terminalEligible(
+	command: {
+		connectionId: string;
+		deviceId: string;
+		connectorId: string;
+		scope: string;
+		capabilities: { terminal?: boolean };
+		revision: number;
+	},
+	state: {
+		deviceId: string;
+		revoked: ReadonlySet<string>;
+		written: ReadonlySet<string>;
+		granted: readonly { id: string; revision: number; connectorId: string; capabilities: { terminal?: boolean } }[];
+	},
+): boolean {
+	const id = command.connectionId;
+	return (
+		command.deviceId === state.deviceId &&
+		command.connectorId === "computer-control" &&
+		command.scope === "device" &&
+		command.capabilities.terminal === true &&
+		!state.revoked.has(id) &&
+		(state.written.has(id) ||
+			state.granted.some(
+				(item) =>
+					item.id === id &&
+					item.revision === command.revision &&
+					item.connectorId === "computer-control" &&
+					item.capabilities.terminal === true,
+			))
+	);
+}
+
+/**
  * Follow finished jobs. The native watcher sends each one once (`notified` is recorded on disk, so
  * a reconnect or a restart does not send it twice); the runtime forwards it on its own socket.
  */

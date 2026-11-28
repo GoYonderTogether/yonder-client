@@ -3,6 +3,7 @@ import {
 	AudioLines,
 	CalendarDays,
 	Check,
+	Compass,
 	FolderSearch,
 	Images,
 	Loader,
@@ -30,6 +31,9 @@ export const terminalPresentation = { key: "terminal", Icon: TerminalIcon } as c
 
 /** Desktop control's copy and icon: another capability of `computer-control`, not a catalog connector. */
 export const desktopPresentation = { key: "desktop", Icon: MonitorCog } as const;
+
+/** The browser-control row's copy and icon: also a capability of `computer-control`. */
+export const browserPresentation = { key: "browser", Icon: Compass } as const;
 
 const folderGlyph = new URL("./assets/folder.svg", import.meta.url).href;
 const desktopGlyph = new URL("./assets/desktop.svg", import.meta.url).href;

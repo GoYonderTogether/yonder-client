@@ -5,9 +5,15 @@ import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
-import { connectorPresentation, desktopPresentation, terminalPresentation } from "./connector-card.tsx";
+import {
+	browserPresentation,
+	connectorPresentation,
+	desktopPresentation,
+	terminalPresentation,
+} from "./connector-card.tsx";
 import { DESKTOP_MEMBER, type MemberDefinition, masterState, TERMINAL_MEMBER } from "./connector-groups.ts";
-import { canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
+import type { BrowserStatus } from "./local-files-adapter.ts";
+import { BROWSER_MEMBER, canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
 
 export interface DeviceSwitchesProps {
 	/** The catalog entries drawn as one connector; one entry means no expansion. */
@@ -28,6 +34,16 @@ export const WAITING_TIMEOUT_MS = 60_000;
 const SWITCH =
 	"relative h-[var(--spacing-6)] w-[var(--spacing-10)] shrink-0 cursor-pointer appearance-none rounded-[var(--radius-full)] bg-[var(--color-border-strong)] transition-colors duration-[var(--duration-fast)] checked:bg-[var(--color-accent)] indeterminate:bg-[var(--color-accent)] indeterminate:opacity-60 disabled:cursor-not-allowed disabled:opacity-60 before:absolute before:top-[var(--spacing-1)] before:left-[var(--spacing-1)] before:size-[var(--spacing-4)] before:rounded-[var(--radius-full)] before:bg-[var(--color-switch-thumb)] before:transition-transform before:duration-[var(--duration-fast)] before:content-[''] checked:before:translate-x-[var(--spacing-4)] indeterminate:before:translate-x-[var(--spacing-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]";
 
+/** A capability of `computer-control` rather than a connector of its own: it widens the one grant. */
+type CapabilityMember = "terminal" | "desktop" | "browser";
+
+function capabilityOf(member: MemberDefinition): CapabilityMember | null {
+	if (member.id === TERMINAL_MEMBER) return "terminal";
+	if (member.id === DESKTOP_MEMBER) return "desktop";
+	if (member.id === BROWSER_MEMBER) return "browser";
+	return null;
+}
+
 /**
  * One device inside a connector: a master switch that grants or revokes every member at once, and
  * under it, opened by tapping the row anywhere but the switch, one switch per member. A connector
@@ -47,39 +63,67 @@ export function DeviceSwitches({
 	const [open, setOpen] = useState(false);
 	const [busy, setBusy] = useState<string | null>(null);
 	const [error, setError] = useState<{ id: string; key: string } | null>(null);
+	/** The device's own `bsk` state, read once the browser row is opened. `null` until it answers. */
+	const [browser, setBrowser] = useState<BrowserStatus | null>(null);
+	const [installing, setInstalling] = useState(false);
 	const state = masterState(members, instances);
 	/**
-	 * The grant behind one member. The terminal and desktop control are not connectors: each is a
-	 * capability of `computer-control`, so its switch reads that connection's grant and leaves the
-	 * others on when it turns its own capability off — turning one capability off must not revoke
-	 * another.
+	 * The grant behind one member. The terminal, desktop control and browser control are not
+	 * connectors: each is a capability of `computer-control`, so its switch reads that connection's
+	 * grant and leaves the others on when it turns its own capability off — turning one capability
+	 * off must not revoke another.
 	 */
 	const grantOf = (member: MemberDefinition) => {
-		if (member.id === TERMINAL_MEMBER)
+		const capability = capabilityOf(member);
+		if (capability)
 			return instances.find(
-				(item) => item.connectorId === "computer-control" && item.scope === "device" && item.capabilities.terminal,
-			);
-		if (member.id === DESKTOP_MEMBER)
-			return instances.find(
-				(item) => item.connectorId === "computer-control" && item.scope === "device" && item.capabilities.desktop,
+				(item) => item.connectorId === "computer-control" && item.scope === "device" && item.capabilities[capability],
 			);
 		return instances.find((item) => item.connectorId === member.id && item.scope === "device");
 	};
 	const canGrant = (member: MemberDefinition) =>
 		device.status === "online" && canConfigureConnector(device, member, localFiles);
 	const addable = members.filter((member) => !grantOf(member) && canGrant(member));
-	// The master switch never touches the terminal or desktop control (see `masterState`): each is
-	// granted or revoked only by the row that explains what it allows.
-	const sweepable = (member: MemberDefinition) => member.id !== TERMINAL_MEMBER && member.id !== DESKTOP_MEMBER;
+	// The master switch never touches the terminal, desktop control or browser control (see
+	// `masterState`): each is granted or revoked only by the row that explains what it allows.
+	const sweepable = (member: MemberDefinition) => capabilityOf(member) === null;
+	/** Read the device's bsk state again, after an install, so the row flips to its new step. */
+	async function readBrowser() {
+		if (!localFiles?.browserStatus) return;
+		try {
+			setBrowser(await localFiles.browserStatus());
+		} catch {
+			setBrowser(null);
+		}
+	}
+	const browserStatus = localFiles?.browserStatus;
+	// The browser row's hint and install button come from the device; read them as soon as the panel
+	// that holds the row exists, so the row is never a switch with no explanation under it. `browserStatus`
+	// is the adapter's stable function, so the read runs once per adapter rather than per render.
+	const hasBrowser = members.some((member) => member.id === BROWSER_MEMBER);
+	useEffect(() => {
+		if (!hasBrowser || !browserStatus) return;
+		let active = true;
+		void browserStatus()
+			.then((next) => {
+				if (active) setBrowser(next);
+			})
+			.catch(() => {
+				if (active) setBrowser(null);
+			});
+		return () => {
+			active = false;
+		};
+	}, [hasBrowser, browserStatus]);
 
 	async function enable(member: MemberDefinition) {
 		if (!localFiles) throw new Error("permission_denied");
 		// The system's own permission prompt comes first; a refusal never creates a grant.
 		if (member.id.startsWith("apple-") && localFiles.prepare) await localFiles.prepare(member.id as ConnectorId);
-		if (member.id === TERMINAL_MEMBER || member.id === DESKTOP_MEMBER) {
+		const capability = capabilityOf(member);
+		if (capability) {
 			// An existing `computer-control` grant (whatever its other capabilities) is widened in place;
 			// there is no second connection for a capability of the same connector.
-			const capability = member.id === TERMINAL_MEMBER ? "terminal" : "desktop";
 			const existing = instances.find((item) => item.connectorId === "computer-control" && item.scope === "device");
 			if (existing) {
 				const saved = await actions.update.mutateAsync({
@@ -110,8 +154,9 @@ export function DeviceSwitches({
 				scope: "device",
 				capabilities: {
 					fileTools: false,
-					terminal: member.id === TERMINAL_MEMBER,
-					desktop: member.id === DESKTOP_MEMBER,
+					terminal: capability === "terminal",
+					desktop: capability === "desktop",
+					browser: capability === "browser",
 				},
 			});
 			try {
@@ -125,17 +170,19 @@ export function DeviceSwitches({
 			}
 			return;
 		}
+		// Past the capability branch, a member is a catalog connector and its id is a ConnectorId.
+		const connectorId = member.id as ConnectorId;
 		const saved = await actions.create.mutateAsync({
-			connectorId: member.id,
+			connectorId,
 			deviceId: device.id,
 			name: device.name,
 			scope: "device",
-			capabilities: { fileTools: member.id === "computer-control", terminal: false, desktop: false },
+			capabilities: { fileTools: connectorId === "computer-control", terminal: false, desktop: false, browser: false },
 		});
 		try {
 			await localFiles.authorize(saved);
 		} catch (failure) {
-			await Promise.allSettled([actions.remove.mutateAsync(saved.id), localFiles.revoke(saved.id, member.id)]);
+			await Promise.allSettled([actions.remove.mutateAsync(saved.id), localFiles.revoke(saved.id, connectorId)]);
 			throw failure;
 		}
 	}
@@ -143,10 +190,9 @@ export function DeviceSwitches({
 	function disable(member: MemberDefinition) {
 		const grant = grantOf(member);
 		if (!grant) return;
-		if (member.id === TERMINAL_MEMBER || member.id === DESKTOP_MEMBER) {
-			// Only this capability goes off; the same grant's file tools, terminal and the rest of the
-			// connection stay.
-			const capability = member.id === TERMINAL_MEMBER ? "terminal" : "desktop";
+		const capability = capabilityOf(member);
+		if (capability) {
+			// Only this capability goes off; the same grant's file tools and the other capabilities stay.
 			return actions.update
 				.mutateAsync({
 					id: grant.id,
@@ -257,20 +303,23 @@ export function DeviceSwitches({
 				? terminalPresentation.key
 				: member.id === DESKTOP_MEMBER
 					? desktopPresentation.key
-					: connectorPresentation[member.id as ConnectorId].key;
+					: member.id === BROWSER_MEMBER
+						? browserPresentation.key
+						: connectorPresentation[member.id as ConnectorId].key;
 		const granted = Boolean(grantOf(member));
-		const hint =
+		const onDevice =
 			!granted && !canGrant(member) && device.status === "online"
 				? t("connectors.onDevice", { device: deviceDisplayName(device) })
 				: undefined;
+		const hint = member.id === BROWSER_MEMBER ? browserHint() : undefined;
 		return (
 			<ListSwitch
 				key={member.id}
 				title={alone ? deviceDisplayName(device) : t(`connectors.${key}.name`)}
-				// The terminal's and desktop control's rows carry the full consequence all the time, not
-				// only while off: each is a capability that lets the Bot act on the device without asking
-				// again (TOOLS-V3 §4, desktop control design §5).
-				subtitle={hint ?? (alone ? deviceLine : t(`connectors.${key}.description`))}
+				// The terminal's, desktop control's and browser rows carry the full consequence all the time, not
+				// only while off: each is a capability that lets the Bot act on the device without asking again
+				// (TOOLS-V3 §4, desktop control design §5, browser.md §2).
+				subtitle={hint ?? onDevice ?? (alone ? deviceLine : t(`connectors.${key}.description`))}
 				checked={granted}
 				busy={busy === member.id}
 				disabled={busy !== null || (!granted && !canGrant(member))}
@@ -278,6 +327,51 @@ export function DeviceSwitches({
 				onChange={(on) => void run(member.id, [member], on)}
 			/>
 		);
+	}
+
+	/**
+	 * What the browser row says near its switch: the consequence all the time, then — when bsk is not
+	 * yet usable — the device's own next step, and, when bsk is missing, a single install button. No
+	 * other UI.
+	 */
+	function browserHint() {
+		const description = t("connectors.browser.description");
+		if (!browser) return description;
+		const installable = !browser.installed && Boolean(browser.install) && device.current;
+		return (
+			<>
+				{description} {browser.hint}
+				{installable ? (
+					<button
+						type="button"
+						className="ms-[var(--spacing-2)] text-[var(--color-accent-text)] underline"
+						disabled={installing}
+						// It sits inside the row's `<label>`: without this, clicking install would also flip the switch.
+						onClick={(event) => {
+							event.preventDefault();
+							event.stopPropagation();
+							void installBrowser();
+						}}
+					>
+						{installing ? t("connectors.browser.installing") : t("connectors.browser.install")}
+					</button>
+				) : null}
+			</>
+		);
+	}
+
+	async function installBrowser() {
+		if (!localFiles?.installBrowser || installing) return;
+		setInstalling(true);
+		setError(null);
+		try {
+			await localFiles.installBrowser();
+			await readBrowser();
+		} catch {
+			setError({ id: BROWSER_MEMBER, key: "connectors.browser.installFailed" });
+		} finally {
+			setInstalling(false);
+		}
 	}
 
 	const noteClass =

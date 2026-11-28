@@ -7,7 +7,7 @@ const device: ConnectorInstance = {
 	id: "con_file_preview",
 	connectorId: "local-files",
 	scope: "device",
-	capabilities: { fileTools: false, terminal: false },
+	capabilities: { fileTools: false, terminal: false, browser: false },
 	revision: 1,
 	deviceId: "device_mac",
 	deviceName: "工作 Mac",

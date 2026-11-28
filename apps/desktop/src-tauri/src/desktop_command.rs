@@ -50,6 +50,7 @@ fn authorize(app: &AppHandle, context: &Context, command: &Value) -> Result<(), 
         file_tools: commanded["fileTools"].as_bool().unwrap_or(false),
         terminal: commanded["terminal"].as_bool().unwrap_or(false),
         desktop: commanded["desktop"].as_bool().unwrap_or(false),
+        browser: commanded["browser"].as_bool().unwrap_or(false),
     };
     if grant.connector_id != "computer-control"
         || !granted.desktop

@@ -15,5 +15,6 @@
 //! | 6       | the terminal: `shell`, `shell_job`, `capabilities.terminal`              |
 //! | 8       | administrator execution: `computer_shell`'s `elevated`, `justification`  |
 //! | 9       | desktop control: `desktop_windows`, `desktop_ax`, `desktop_shot`, `desktop_input`, `capabilities.desktop` |
+//! | 10      | browser control: `browser_status`, `browser_session`, `browser_navigate`, `browser_observe`, `browser_act`, `capabilities.browser` |
 
-pub const TOOLS_VERSION: u64 = 9;
+pub const TOOLS_VERSION: u64 = 10;

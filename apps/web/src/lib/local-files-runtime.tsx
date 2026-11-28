@@ -14,6 +14,7 @@ import {
 	executeAppleResourceFile,
 	readyAppleResourceGrants,
 } from "./apple-resources.ts";
+import { browserActivityKey, browserEligible, cancelBrowser, executeBrowser, isBrowserCommand } from "./browser.ts";
 import { executeDesktop } from "./desktop.ts";
 import { isForeground, subscribeForeground } from "./foreground.ts";
 import { executeLocalFilePreview } from "./local-file-preview.ts";
@@ -26,19 +27,10 @@ import {
 	useLocalFilesContext,
 } from "./local-files.ts";
 import { CONNECTOR_ERRORS, grantError } from "./local-files-errors.ts";
+import type { PendingCommand } from "./local-files-runtime-types.ts";
 import { cancelShell, executeShell, listenShellJobFinished } from "./terminal.ts";
 import { beginTrayConnectorWork } from "./tray-bridge.ts";
 
-type PendingCommand = {
-	cancelled: boolean;
-	apple: boolean;
-	terminal: boolean;
-	desktop: boolean;
-	connectionId: string;
-	revision: number;
-	upload?: AbortController;
-	tray?: ReturnType<typeof beginTrayConnectorWork>;
-};
 const DESKTOP_OPERATIONS = new Set(["desktop_windows", "desktop_ax", "desktop_shot", "desktop_input"]);
 
 /**
@@ -137,6 +129,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			command.scope === "device" &&
 			command.capabilities.fileTools === false &&
 			command.capabilities.terminal !== true &&
+			command.capabilities.browser !== true &&
 			command.path === "" &&
 			appleReady.has(`${command.connectionId}:${command.revision}`) &&
 			(connectionsRef.current ?? []).some(
@@ -146,8 +139,17 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 					item.connectorId === command.connectorId &&
 					item.scope === command.scope &&
 					item.capabilities.fileTools === false &&
-					item.capabilities.terminal !== true,
+					item.capabilities.terminal !== true &&
+					item.capabilities.browser !== true,
 			);
+		const eligibleBrowser = (command: ConnectorCommand) =>
+			files &&
+			browserEligible(command, {
+				deviceId: context.deviceId,
+				revoked,
+				written: new Set(written.keys()),
+				granted: connectionsRef.current ?? [],
+			});
 		const failRequest = (requestId: string, error: string, dispatchSeq?: number) =>
 			api.failConnectorRequest(requestId, error, dispatchSeq).catch(() => {});
 		/**
@@ -234,11 +236,13 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			const appleCommand = command.connectorId?.startsWith("apple-") ?? false;
 			const terminalCommand = command.operation === "shell" || command.operation === "shell_job";
 			const desktopCommand = DESKTOP_OPERATIONS.has(command.operation);
+			const browserCommand = isBrowserCommand(command.operation);
 			const state: PendingCommand = {
 				cancelled: false,
 				apple: appleCommand,
 				terminal: terminalCommand && !appleCommand,
 				desktop: desktopCommand && !appleCommand,
+				browser: browserCommand && !appleCommand,
 				connectionId: command.connectionId,
 				revision: command.revision,
 			};
@@ -254,12 +258,13 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 					result = { ok: false, error: "permission_denied" };
 				else if (terminalCommand && !eligibleTerminal(command)) result = { ok: false, error: "permission_denied" };
 				else if (desktopCommand && !eligibleDesktop(command)) result = { ok: false, error: "permission_denied" };
+				else if (browserCommand && !eligibleBrowser(command)) result = { ok: false, error: "permission_denied" };
 				else if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) result = { ok: false, error: "cancelled" };
 				else {
 					const { origin, ...nativeCommand } = command;
 					const readsOriginal = command.operation === "asset_original" || command.operation === "file_preview";
 					const activity = activityLabel.current(
-						`tray.connector.${appleCommand ? (command.operation.endsWith("_list") ? "list" : "read") : readsOriginal ? "read" : command.operation}`,
+						`tray.connector.${appleCommand ? (command.operation.endsWith("_list") ? "list" : "read") : readsOriginal ? "read" : browserCommand ? browserActivityKey(command.operation) : command.operation}`,
 					);
 					const identify = (items: Conversation[] | undefined) => {
 						const conversation = items?.find((item) => item.id === origin?.conversationId);
@@ -319,6 +324,10 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 								};
 							} else if (operation === "file_preview") result = { ok: true, result: file };
 							else throw new Error("unsupported_file");
+						} else if (!appleCommand && browserCommand) {
+							// Browser control runs through the device's `bsk` (browser.md §4); the native
+							// command is what the server dispatched, with the expiry as a number.
+							result = await executeBrowser<ConnectorCommandResult>(context, native);
 						} else if (!appleCommand && terminalCommand) {
 							// `shell` and `shell_job` run in the native runner, which owns the process and
 							// its job record; `shell_job` `wait` can take longer than a command's own
@@ -414,6 +423,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			state.tray?.finish();
 			if (state.apple) void cancelAppleResource(id).catch(() => {});
 			else if (state.terminal) void cancelShell(id).catch(() => {});
+			else if (state.browser) void cancelBrowser(id).catch(() => {});
 			else if (files) void invokeLocalFiles("local_files_cancel", { commandId: id }).catch(() => {});
 		};
 		const stopEvents = realtime.subscribeEvents((event) => {

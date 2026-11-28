@@ -14,7 +14,7 @@ const command = {
 	deviceId: context.deviceId,
 	connectorId: "local-files",
 	scope: "device",
-	capabilities: { fileTools: false, terminal: false, desktop: false },
+	capabilities: { fileTools: false, terminal: false, desktop: false, browser: false },
 	revision: 1,
 	operation: "file_preview",
 	path: "~/Documents/文件.md",
@@ -44,7 +44,7 @@ test("same-device reading initializes the existing grant and preserves every aut
 		...source,
 		id: "con_control",
 		connectorId: "computer-control",
-		capabilities: { fileTools: true, terminal: false, desktop: false },
+		capabilities: { fileTools: true, terminal: false, desktop: false, browser: false },
 	};
 	const remote = { ...source, id: "con_remote", deviceId: "dev_other", currentDevice: false };
 	const grantList = [

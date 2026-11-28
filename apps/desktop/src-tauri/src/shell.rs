@@ -63,11 +63,14 @@ fn authorize(app: &AppHandle, context: &Context, command: &Value) -> Result<(), 
         file_tools: commanded["fileTools"].as_bool().unwrap_or(false),
         terminal: commanded["terminal"].as_bool().unwrap_or(false),
         desktop: commanded["desktop"].as_bool().unwrap_or(false),
+        browser: commanded["browser"].as_bool().unwrap_or(false),
     };
     if grant.connector_id != "computer-control"
         || !granted.terminal
         || !asked.terminal
         || asked.file_tools != granted.file_tools
+        || asked.desktop != granted.desktop
+        || asked.browser != granted.browser
         || commanded["terminal"].as_bool() != Some(true)
         || command["connectorId"].as_str() != Some("computer-control")
         || grant.revision != revision

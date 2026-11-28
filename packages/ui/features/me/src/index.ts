@@ -24,7 +24,7 @@ export { exhaustedPools, QuotaLowBanner } from "./components/quota-low-banner.ts
 export { QuotaSection } from "./components/quota-section.tsx";
 export { ConnectorSetup, useSetupConnectors } from "./connectors/connector-setup.tsx";
 export { ConnectorsSection } from "./connectors/connectors-section.tsx";
-export type { LocalFilesAdapter } from "./connectors/local-files-adapter.ts";
+export type { BrowserStatus, LocalFilesAdapter } from "./connectors/local-files-adapter.ts";
 export type { MeListProps } from "./views/me-list.tsx";
 export { MeList } from "./views/me-list.tsx";
 export type { MeSectionPageProps } from "./views/me-section-page.tsx";

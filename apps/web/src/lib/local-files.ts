@@ -1,4 +1,4 @@
-import type { LocalFilesAdapter } from "@yonder/feature-me";
+import type { BrowserStatus, LocalFilesAdapter } from "@yonder/feature-me";
 import type { AppleConnectorId, ConnectorId } from "@yonder/protocol";
 import { useDevices, useMe, useSessionStore, useSessions } from "@yonder/ui-data";
 import { useEffect, useMemo, useState } from "react";
@@ -120,7 +120,20 @@ export function createLocalFilesAdapter(
 			else await invokeLocalFiles("local_files_revoke", { context, connectionId });
 			changed(connectionId);
 		},
+		// Browser control's state comes from the device's own `bsk`, read for the connector page: the
+		// device is what knows whether it is installed, running and connected (browser.md §2).
+		async browserStatus() {
+			return invokeLocalFiles<BrowserStatus>("browser_status", { platform: browserPlatform() });
+		},
+		async installBrowser() {
+			await invokeLocalFiles("browser_install", { platform: browserPlatform() });
+		},
 	};
+}
+
+/** The platform name the device's install command is chosen by; the browser runs on macOS or Windows. */
+function browserPlatform(): string {
+	return typeof navigator !== "undefined" && /Windows/i.test(navigator.userAgent) ? "windows" : "macos";
 }
 
 export function useLocalFilesContext(): LocalFilesContext | null {

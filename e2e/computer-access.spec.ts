@@ -41,7 +41,7 @@ test("computer access only changes the selected device and permission", async ({
 					connectorId: "local-files",
 					name: target.name,
 					scope: "device",
-					capabilities: { fileTools: false, terminal: false, desktop: false },
+					capabilities: { fileTools: false, terminal: false, desktop: false, browser: false },
 				});
 				grant = {
 					...input,
@@ -135,7 +135,7 @@ test("the terminal is its own switch: a full warning, no master sweep, and a cap
 		deviceName: target.name,
 		name: target.name,
 		scope: "device",
-		capabilities: { fileTools: true, terminal: false },
+		capabilities: { fileTools: true, terminal: false, browser: false },
 		revision: 1,
 		status: "online",
 		currentDevice: true,
@@ -145,7 +145,7 @@ test("the terminal is its own switch: a full warning, no master sweep, and a cap
 		...write,
 		id: "con_read",
 		connectorId: "local-files",
-		capabilities: { fileTools: false, terminal: false },
+		capabilities: { fileTools: false, terminal: false, browser: false },
 	};
 	let items = [read, write];
 	const patches: unknown[] = [];
@@ -196,7 +196,7 @@ test("the terminal is its own switch: a full warning, no master sweep, and a cap
 	await terminal.click();
 	await expect
 		.poll(() => patches)
-		.toEqual([{ expectedRevision: 1, capabilities: { fileTools: true, terminal: true } }]);
+		.toEqual([{ expectedRevision: 1, capabilities: { fileTools: true, terminal: true, browser: false } }]);
 	await expect(terminal).toBeChecked();
 	// A capability change on the same connection: no new grant, no revocation.
 	await expect
@@ -207,8 +207,8 @@ test("the terminal is its own switch: a full warning, no master sweep, and a cap
 	await expect
 		.poll(() => patches)
 		.toEqual([
-			{ expectedRevision: 1, capabilities: { fileTools: true, terminal: true } },
-			{ expectedRevision: 2, capabilities: { fileTools: true, terminal: false } },
+			{ expectedRevision: 1, capabilities: { fileTools: true, terminal: true, browser: false } },
+			{ expectedRevision: 2, capabilities: { fileTools: true, terminal: false, browser: false } },
 		]);
 	await expect(terminal).not.toBeChecked();
 });
