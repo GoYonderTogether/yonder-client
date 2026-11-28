@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.3.26112812] - 2026-11-28
+
+### Fixed
+
+- mobile：stabilize navigation and the bottom dock
+- contacts：open a contact chat in the full right pane instead of the bot profile side panel
+
+### Added
+
+- media：cache images locally and load thumbnails directly from OSS
+
 ## [0.3.26112811] - 2026-11-28
 
 ### Added
