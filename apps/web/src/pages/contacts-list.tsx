@@ -15,13 +15,15 @@ export interface ContactPosition {
 }
 
 interface ContactsListProps {
+	/** Opens the contact in the page's own content pane instead of the side panel. */
+	inline?: boolean | undefined;
 	onOpen: (handle: string) => void;
 	overlay?: { close: () => void; reopen: () => void; position: RefObject<ContactPosition | null> } | undefined;
 	/** Opens a group chat's conversation; without it the group section is not shown. */
 	onOpenGroup?: ((conversationId: string) => void) | undefined;
 }
 
-export function ContactsList({ onOpen, overlay, onOpenGroup }: ContactsListProps) {
+export function ContactsList({ onOpen, overlay, onOpenGroup, inline = false }: ContactsListProps) {
 	const { t } = useTranslation();
 	const contacts = useContacts();
 	const conversations = useConversations();
@@ -68,7 +70,7 @@ export function ContactsList({ onOpen, overlay, onOpenGroup }: ContactsListProps
 									key={member.id}
 									member={member}
 									onOpen={() => {
-										if (!openMember) return onOpen(member.handle);
+										if (!openMember || inline) return onOpen(member.handle);
 										const scrollTop = rows.current?.closest<HTMLElement>("[data-overlay-body]")?.scrollTop ?? 0;
 										openMember(
 											member.handle,
@@ -159,7 +161,7 @@ export function ContactsPageList({
 			center={<ContactsViewSwitch showRequests={showRequests} onChange={onChange} />}
 		>
 			<div className="px-[var(--spacing-2)]">
-				{showRequests ? <FriendRequestsList /> : <ContactsList onOpen={onOpen} onOpenGroup={onOpenGroup} />}
+				{showRequests ? <FriendRequestsList /> : <ContactsList inline onOpen={onOpen} onOpenGroup={onOpenGroup} />}
 			</div>
 		</ListFrame>
 	);

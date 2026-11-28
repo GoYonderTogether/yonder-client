@@ -38,7 +38,9 @@ export function QuotaLowBanner({ quota, onOpenInvite, onOpenUsage }: QuotaLowBan
 	const locale = i18n.resolvedLanguage ?? i18n.language;
 	const pools = exhaustedPools(quota);
 	if (pools.length === 0) return null;
-	const reset = new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(quota.cycle.resetsAt));
+	const reset = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(
+		new Date(quota.cycle.resetsAt),
+	);
 	const labels = new Intl.ListFormat(locale, { type: "conjunction" }).format(
 		pools.map((pool) => t(`me.quota.pools.${pool}`)),
 	);

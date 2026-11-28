@@ -1,16 +1,7 @@
 import { InviteRailButton, isMeSection, MeList } from "@yonder/feature-me";
 import { ClosedGroupNotice } from "@yonder/feature-members";
 import { Avatar, Logo } from "@yonder/ui-components";
-import {
-	keys,
-	useBot,
-	useContacts,
-	useConversations,
-	useData,
-	useDataQueryClient,
-	usePerson,
-	useSkills,
-} from "@yonder/ui-data";
+import { useBot, useContacts, useConversations, useData, usePerson, useSkills } from "@yonder/ui-data";
 import type { LayoutMode, TabId } from "@yonder/ui-shell";
 import {
 	AppShell,
@@ -25,7 +16,6 @@ import type { ReactNode } from "react";
 import { Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
-import { listenForContactAdded } from "../lib/contact-window.ts";
 import { useLocalFilesAdapter } from "../lib/local-files.ts";
 import { isDesktopExperience, isMacDesktopShell } from "../lib/platform.ts";
 import { messageListUnread, primaryConversation, selectedConversation } from "../pages/conversation-presentation.tsx";
@@ -43,6 +33,7 @@ import { mentionInDraft } from "./completion/mention-in-draft.ts";
 import { Composer } from "./composer.tsx";
 import { ComposerQuoteContext } from "./composer-quote.tsx";
 import { ComposerStatus } from "./composer-status.tsx";
+import { directConversationFor } from "./contact-conversation.ts";
 import { useContactScreens } from "./contact-screens.tsx";
 import { FileDropZone } from "./file-drop-zone.tsx";
 import { MemoryList, MemoryPage, SettingsRoutePage, TaskPage, TasksList } from "./lazy-tabs.ts";
@@ -52,6 +43,7 @@ import { PresenceReporter } from "./presence-reporter.tsx";
 import { settingsPagePaths } from "./settings-navigation.ts";
 import { DetailDiscardDialog, memberDetail, useSideStack } from "./side-panel.tsx";
 import { BotPresetOverlay } from "./task-bot-drawer.tsx";
+import { useContactAdded } from "./use-contact-added.ts";
 import { useDetailTabs } from "./use-detail-tabs.ts";
 import { useFrameBack } from "./use-frame-back.ts";
 import { useFrameChat } from "./use-frame-chat.ts";
@@ -115,26 +107,17 @@ export function AppFrame() {
 		}
 	}, [splitMe, meOpen, first, person, meEntry, navigate, location.state]);
 	const navigation = usePageNavigation(tabLocation);
-	const queryClient = useDataQueryClient();
-	const contactAdded = useEffectEvent((id: string) => {
-		void queryClient.invalidateQueries({ queryKey: keys.conversations.list() });
-		void queryClient.invalidateQueries({ queryKey: keys.contacts() });
-		navigation.open(`/messages/${encodeURIComponent(id)}`);
-	});
-	useEffect(() => {
-		let disposed = false;
-		let cleanup: (() => void) | undefined;
-		void listenForContactAdded((id) => contactAdded(id)).then((unlisten) => {
-			if (disposed) unlisten();
-			else cleanup = unlisten;
-		});
-		return () => {
-			disposed = true;
-			cleanup?.();
-		};
-	}, []);
+	useContactAdded(navigation);
 	const messageSelection = tab === "messages" ? selection : null;
-	const conversation = selectedConversation(conversations.data?.items, messageSelection, bot?.id, visitsRoute);
+	const contactConversation = directConversationFor(
+		tab === "contacts" ? selection : null,
+		contacts.data?.items,
+		conversations.data?.items,
+	);
+	const conversation =
+		tab === "contacts"
+			? contactConversation
+			: selectedConversation(conversations.data?.items, messageSelection, bot?.id, visitsRoute);
 	const watchingVisit = conversation?.visit?.role === "host";
 	const taskSelection = tab === "tasks" && selection !== "scheduled" ? selection : null;
 	const chat = useFrameChat({
@@ -332,6 +315,21 @@ export function AppFrame() {
 					content: <MemoryPage view={memoryView} />,
 				};
 			case "contacts":
+				if (contactConversation)
+					return {
+						...contactScreens,
+						content: (
+							<ConversationPage
+								key={contactConversation.id}
+								conversationId={contactConversation.id}
+								disconnected={disconnected}
+								contacts={contacts.data?.items}
+								readActive={!meOpen && !sideCover && !preset.drawerOpen}
+								onOpenMember={openMember}
+								onMention={draft.loaded ? (id, name) => mentionInDraft(draft, id, name) : undefined}
+							/>
+						),
+					};
 				return side.expanded && selection === null ? { ...contactScreens, content: null } : contactScreens;
 		}
 	}
@@ -339,7 +337,11 @@ export function AppFrame() {
 		<Composer
 			microphoneOccupied={Boolean(meeting.active || meeting.interrupted || meeting.recorder.busy)}
 			onVoiceActivityChange={meeting.setShortVoiceActive}
-			recipientName={(taskSelection || tab === "messages" ? chat.recipientName : undefined) ?? bot?.displayName ?? null}
+			recipientName={
+				(taskSelection || tab === "messages" || contactConversation ? chat.recipientName : undefined) ??
+				bot?.displayName ??
+				null
+			}
 			draft={draft.text}
 			onDraftChange={draft.setText}
 			readOnly={!draft.loaded}
@@ -388,7 +390,7 @@ export function AppFrame() {
 	const closed = Boolean(conversation?.closedReason);
 	const dock = taskSelection ? (
 		composer
-	) : (tab !== "messages" && !memoryTimeline) ||
+	) : (tab !== "messages" && !memoryTimeline && !contactConversation) ||
 		visitsRoute ||
 		watchingVisit ||
 		conversation?.kind === "system" ? null : closed && conversation ? (
