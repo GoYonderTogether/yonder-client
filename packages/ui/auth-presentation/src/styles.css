@@ -97,17 +97,3 @@
 	background: var(--color-bg-subtle);
 	color: var(--color-text-primary);
 }
-.auth-check,
-.auth-consent input[type="checkbox"] {
-	box-sizing: border-box;
-	width: 18px;
-	height: 18px;
-	border: 2px solid var(--color-text-tertiary);
-	border-radius: 5px;
-	background: var(--color-bg-subtle);
-}
-.auth-check-checked,
-.auth-consent input[type="checkbox"]:checked {
-	border-color: var(--color-text-primary);
-	background: var(--color-bg-selected);
-}

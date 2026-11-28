@@ -29,7 +29,7 @@ export interface SignInRequest {
 	inviteCode?: string;
 	inviteFlow?: true;
 	device?: DeviceInfo;
-	/** Must be `true`; the checkbox is never pre-ticked (01-产品功能和页面 第 5.3 节). */
+	/** Must be `true`; the sign-in notice explains that proceeding indicates agreement. */
 	agreeTerms: true;
 }
 

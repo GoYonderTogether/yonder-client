@@ -128,10 +128,9 @@ for (const dark of [false, true]) {
 			}
 			await page.route("**/v1/auth/refresh", (route) => route.fulfill({ status: 401, json: {} }));
 			await page.goto("/sign-in");
-			const checkbox = page.getByRole("checkbox");
-			await checkbox.check();
-			await expect(checkbox).toHaveCSS("background-color", neutralSelection(dark));
-			await expect(checkbox).toHaveCSS("border-top-color", neutralText(dark));
+			for (const name of ["用户协议", "隐私政策"]) {
+				await expect(page.getByRole("link", { name, exact: true })).toHaveCSS("text-decoration-line", "underline");
+			}
 			await page.locator('[aria-haspopup="listbox"]').first().click();
 			const option = page.getByRole("option", { selected: true });
 			await expect(option).toHaveCSS("background-color", neutralSelection(dark));

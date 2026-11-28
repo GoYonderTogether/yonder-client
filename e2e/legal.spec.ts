@@ -33,13 +33,14 @@ test("legal pages open from sign-in and About and return to the original screen"
 	expect(typedPhone.replace(/\s/g, "")).toBe(phone.replace("+86", ""));
 
 	for (const [name, path] of legalPages) {
-		await page.getByRole("link", { name, exact: true }).click();
+		const link = page.getByRole("link", { name, exact: true });
+		await link.click();
 		await expect(page).toHaveURL(new RegExp(`/${path}$`));
 		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 		await page.getByRole("button", { name: "Back", exact: true }).click();
 		await expect(page).toHaveURL(/\/sign-in$/);
 		await expect(phoneInput).toHaveValue(typedPhone);
-		await expect(page.getByRole("checkbox")).not.toBeChecked();
+		await expect(link).toBeFocused();
 	}
 	await page.route("**/v1/auth/refresh", (route) =>
 		route.fulfill({ json: { accessToken: "public-ui-test", refreshToken: "public-ui-test" } }),

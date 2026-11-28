@@ -27,29 +27,28 @@ const device = { name: "Browser", platform: "web" as const, appVersion: "test" }
 
 beforeEach(() => sessionStorage.clear());
 
-test("the consent links navigate independently of the checkbox and its text toggles it", () => {
+test("the sign-in notice links to both legal documents without a checkbox", () => {
 	const open = vi.fn();
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
 			<SignInForm device={device} onSignedIn={vi.fn()} onOpenLegal={open} />
 		</I18nextProvider>,
 	);
-	const checkbox = screen.getByRole("checkbox");
+	expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+	expect(screen.getByRole("paragraph")).toHaveTextContent(
+		"By signing in or signing up, you agree to the Terms of service and Privacy policy.",
+	);
 	const terms = screen.getByRole("link", { name: "Terms of service" });
 	const privacy = screen.getByRole("link", { name: "Privacy policy" });
 	expect(terms).toHaveAttribute("href", "/terms");
 	expect(privacy).toHaveAttribute("href", "/privacy");
 	fireEvent.click(terms);
 	expect(open).toHaveBeenCalledWith("terms", terms);
-	expect(checkbox).not.toBeChecked();
-	fireEvent.click(screen.getByText("I have read and agree to the"));
-	expect(checkbox).toBeChecked();
 	fireEvent.click(privacy);
 	expect(open).toHaveBeenCalledWith("privacy", privacy);
-	expect(checkbox).toBeChecked();
 });
 
-test("password sign-in requires consent before making a request", async () => {
+test("password sign-in submits directly", async () => {
 	api.signInWithPassword.mockClear();
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
@@ -59,11 +58,13 @@ test("password sign-in requires consent before making a request", async () => {
 	fireEvent.change(screen.getByLabelText("Phone number"), { target: { value: "13800138000" } });
 	fireEvent.change(screen.getByLabelText("Password"), { target: { value: "example-password" } });
 	fireEvent.click(screen.getByRole("button", { name: /^Sign in$/ }));
-	expect(screen.getByRole("alert")).toHaveTextContent("Please accept the terms first.");
-	expect(api.signInWithPassword).not.toHaveBeenCalled();
-	fireEvent.click(screen.getByRole("checkbox"));
-	fireEvent.click(screen.getByRole("button", { name: /^Sign in$/ }));
-	await waitFor(() => expect(api.signInWithPassword).toHaveBeenCalledTimes(1));
+	await waitFor(() =>
+		expect(api.signInWithPassword).toHaveBeenCalledExactlyOnceWith({
+			target: "+8613800138000",
+			password: "example-password",
+			device,
+		}),
+	);
 });
 
 test("holds the verified user at the invite form and retries a bad code without another SMS", async () => {
@@ -78,12 +79,12 @@ test("holds the verified user at the invite form and retries a bad code without 
 		</I18nextProvider>
 	);
 	const { unmount } = render(form());
+	expect(screen.getByRole("paragraph")).toHaveTextContent("登录或注册即同意用户协议和隐私政策。");
 	fireEvent.change(screen.getByLabelText("手机号"), { target: { value: "13800138000" } });
-	fireEvent.click(screen.getByRole("checkbox"));
 	fireEvent.click(screen.getByRole("button", { name: "获取验证码" }));
 	fireEvent.change(await screen.findByLabelText("6 位验证码"), { target: { value: "123456" } });
 	expect(await screen.findByRole("heading", { name: "输入邀请码" })).toBeVisible();
-	expect(api.signIn).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ inviteFlow: true }));
+	expect(api.signIn).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ inviteFlow: true, agreeTerms: true }));
 	expect(onSignedIn).not.toHaveBeenCalled();
 	unmount();
 	render(form());

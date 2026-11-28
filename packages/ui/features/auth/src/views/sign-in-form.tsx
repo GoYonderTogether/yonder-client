@@ -3,7 +3,7 @@ import type { DeviceInfo } from "@yonder/protocol";
 import { Button, cn, Field, IconButton, PasswordField, PhoneField } from "@yonder/ui-components";
 import { clearInvite, readInvite, useApi, useData, useResolvedInvite } from "@yonder/ui-data";
 import { X } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FailureMessage, Translate } from "../hooks/describe-failure.ts";
 import { describeFailure } from "../hooks/describe-failure.ts";
@@ -22,7 +22,7 @@ export interface SignInFormProps {
 	device: DeviceInfo;
 	initialMode?: AuthMode;
 	onOpenLegal: (document: "terms" | "privacy", trigger: HTMLAnchorElement) => void;
-	renderAlternative?: (options: { requireTerms: () => boolean; disabled: boolean }) => ReactNode;
+	renderAlternative?: (options: { disabled: boolean }) => ReactNode;
 }
 
 /**
@@ -48,7 +48,6 @@ export function SignInForm({
 	const [phoneInput, setPhoneInput] = useState("");
 	const [code, setCode] = useState("");
 	const [password, setPassword] = useState("");
-	const [acceptedTerms, setAcceptedTerms] = useState(false);
 	const [stage, setStage] = useState<"phone" | "code">("phone");
 	const [sending, setSending] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
@@ -56,7 +55,6 @@ export function SignInForm({
 	const [maskedTarget, setMaskedTarget] = useState("");
 	const [retryAt, setRetryAt] = useState<number | null>(null);
 	const [secondsLeft, setSecondsLeft] = useState(0);
-	const termsRef = useRef<HTMLInputElement>(null);
 
 	const target = toE164(countryCode, phoneInput);
 	const phoneValid = isValidE164(target);
@@ -93,20 +91,9 @@ export function SignInForm({
 		}
 	}, [api, phoneValid, t, target]);
 
-	const requireTerms = useCallback(() => {
-		if (acceptedTerms) {
-			setFailure(null);
-			return true;
-		}
-		setFailure({ text: t("auth.termsRequired") });
-		termsRef.current?.focus();
-		return false;
-	}, [acceptedTerms, t]);
-
 	const submit = useCallback(
 		async (submittedCode?: string) => {
 			setFailure(null);
-			if (!requireTerms()) return;
 			setSubmitting(true);
 			try {
 				const storedInvite = readInvite(storage);
@@ -135,12 +122,11 @@ export function SignInForm({
 				setSubmitting(false);
 			}
 		},
-		[api, code, device, onSignedIn, requireTerms, storage, t, target],
+		[api, code, device, onSignedIn, storage, t, target],
 	);
 
 	const submitPassword = useCallback(async () => {
 		setFailure(null);
-		if (!requireTerms()) return;
 		setSubmitting(true);
 		try {
 			const result = await api.signInWithPassword({ target, password, device });
@@ -151,7 +137,7 @@ export function SignInForm({
 		} finally {
 			setSubmitting(false);
 		}
-	}, [api, device, onSignedIn, password, requireTerms, storage, t, target]);
+	}, [api, device, onSignedIn, password, storage, t, target]);
 
 	if (inviteTicket) {
 		return (
@@ -260,7 +246,7 @@ export function SignInForm({
 				) : null}
 
 				<AuthConsent as="div">
-					<TermsConsent ref={termsRef} checked={acceptedTerms} onChange={setAcceptedTerms} onOpenLegal={onOpenLegal} />
+					<TermsConsent onOpenLegal={onOpenLegal} />
 				</AuthConsent>
 
 				<AuthActions as="div">
@@ -324,7 +310,7 @@ export function SignInForm({
 				>
 					{mode === "code" ? t("auth.usePassword") : t("auth.useCode")}
 				</Button>
-				{renderAlternative?.({ requireTerms, disabled: sending || submitting })}
+				{renderAlternative?.({ disabled: sending || submitting })}
 			</AuthStack>
 		</form>
 	);

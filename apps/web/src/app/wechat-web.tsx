@@ -20,7 +20,6 @@ type Props =
 			mode: "sign-in";
 			device: DeviceInfo;
 			disabled: boolean;
-			requireTerms: () => boolean;
 			onSignedIn: (result: SignInResponse) => Promise<void>;
 	  };
 
@@ -80,7 +79,6 @@ export function WechatWebEntry(props: Props) {
 	}, [attempt, enabled, open, phase]);
 
 	function begin() {
-		if (props.mode === "sign-in" && !props.requireTerms()) return;
 		setOpen(true);
 		setAttempt(undefined);
 		setPhase("starting");

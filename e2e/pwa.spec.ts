@@ -92,7 +92,6 @@ test.describe("iOS standalone launch", () => {
 		await page.getByRole("button", { name: "用密码登录" }).click();
 		await page.getByLabel("手机号").fill("13800138000");
 		await page.getByLabel("密码", { exact: true }).fill("example-password");
-		await page.getByRole("checkbox").check();
 		await page.getByRole("button", { name: "登录", exact: true }).click();
 		await expect(page.getByText(bodies.question, { exact: true })).toBeVisible();
 		await expect(page).toHaveURL((url) => url.pathname === launchPath);

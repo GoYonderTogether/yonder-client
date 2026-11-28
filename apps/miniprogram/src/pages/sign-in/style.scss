@@ -56,33 +56,6 @@
 .mini-auth-invite-action::after {
 	border: 0;
 }
-.mini-auth-consent {
-	font-size: var(--text-caption);
-	line-height: var(--text-caption--line-height);
-	color: var(--color-text-secondary);
-}
-.mini-auth-check-wrap {
-	position: relative;
-	width: 18px;
-	height: 20px;
-	flex: none;
-}
-.mini-auth-check-wrap .auth-check {
-	position: absolute;
-	top: 1px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: var(--color-text-primary);
-	font-size: 14px;
-	font-weight: 700;
-	line-height: 1;
-}
-.mini-auth-checkbox {
-	position: absolute;
-	inset: -3px;
-	opacity: 0;
-}
 .mini-auth-error {
 	color: var(--color-danger);
 	font-size: var(--text-caption);
@@ -102,14 +75,6 @@
 .mini-auth-phone-input {
 	flex: 1;
 	min-width: 0;
-}
-.mini-auth-consent {
-	display: flex;
-	align-items: flex-start;
-	gap: var(--spacing-4);
-}
-.mini-auth-consent-text {
-	flex: 1;
 }
 .mini-auth-consent .mini-auth-link {
 	font-size: inherit;

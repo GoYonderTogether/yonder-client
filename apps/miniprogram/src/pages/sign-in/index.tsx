@@ -38,7 +38,6 @@ export default function SignIn() {
 	const countries = ["+86", "+852", "+853", "+886", "+1", "+44", "+81", "+65"];
 	const [code, setCode] = useState("");
 	const [password, setPassword] = useState("");
-	const [agree, setAgree] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState("");
@@ -60,12 +59,8 @@ export default function SignIn() {
 			void Taro.reLaunch({ url: next });
 	}, [status, next, entry, inviteTicket]);
 	const send = async () => {
-		const gate = smsGate(sendingRef.current || busy, agree, seconds, valid);
+		const gate = smsGate(sendingRef.current || busy, seconds, valid);
 		if (gate === "busy") return;
-		if (gate === "terms") {
-			setError(t("请先阅读并同意用户协议与隐私政策", "Please agree to the terms and privacy policy"));
-			return;
-		}
 		if (gate === "invalid") {
 			setError(
 				t(
@@ -98,10 +93,6 @@ export default function SignIn() {
 		if (signingIn.current || busy) return;
 		if (!valid || (!password && mode !== "code") || (!/^\d{6}$/.test(code) && mode !== "password")) {
 			setError(t("请检查手机号、验证码或密码", "Check your phone number, verification code or password"));
-			return;
-		}
-		if (!agree) {
-			setError(t("请先阅读并同意用户协议与隐私政策", "Please agree to the terms and privacy policy"));
 			return;
 		}
 		signingIn.current = true;
@@ -145,12 +136,8 @@ export default function SignIn() {
 	const verify = async (result: VerifySignInResponse | PasswordSignInResponse) =>
 		"status" in result ? setInviteTicket(result.ticket) : finish(result);
 	const wechat = async () => {
-		const gate = wechatGate(busy || signingIn.current, agree, process.env.TARO_ENV !== "h5");
+		const gate = wechatGate(busy || signingIn.current, process.env.TARO_ENV !== "h5");
 		if (gate === "busy") return;
-		if (gate === "terms") {
-			setError(t("请先阅读并同意用户协议与隐私政策", "Please agree to the terms and privacy policy"));
-			return;
-		}
 		if (gate === "unavailable") {
 			setError(t("请在微信小程序中使用微信登录", "WeChat sign-in is available in the mini program"));
 			return;
@@ -182,12 +169,8 @@ export default function SignIn() {
 		}
 	};
 	const phoneAuth = async (phoneCode?: string) => {
-		const gate = phoneGate(busy || signingIn.current, agree, phoneCode, ticketExpires, Date.now());
+		const gate = phoneGate(busy || signingIn.current, phoneCode, ticketExpires, Date.now());
 		if (gate === "busy") return;
-		if (gate === "terms") {
-			setError(t("请先同意协议", "Please agree to the terms"));
-			return;
-		}
 		if (gate === "declined") {
 			setError(t("未授权手机号，可重试或使用手机号登录", "Phone access declined; retry or use phone sign-in"));
 			return;
@@ -397,22 +380,21 @@ export default function SignIn() {
 									)}
 								</>
 							)}
-							<AuthConsent as={AuthView}>
-								<Consent agree={agree} onChange={setAgree} />
-							</AuthConsent>
+							{(entry === "wechat" || mode !== "reset") && (
+								<AuthConsent as={AuthView}>
+									<Consent />
+								</AuthConsent>
+							)}
 							{error && <Text className="mini-auth-error">{error}</Text>}
 							<AuthActions as={AuthView}>
 								{entry === "wechat" ? (
 									ticket ? (
 										<NativeButton
 											className={`auth-primary mini-auth-button ${busy ? "is-busy" : ""}`}
-											openType={agree && !busy ? "getPhoneNumber" : undefined}
+											openType={busy ? undefined : "getPhoneNumber"}
 											disabled={busy || undefined}
 											loading={busy || undefined}
 											onGetPhoneNumber={(e) => void phoneAuth(e.detail.code)}
-											onClick={() => {
-												if (!agree) setError(t("请先同意协议", "Please agree to the terms"));
-											}}
 										>
 											{t("授权手机号", "Authorize phone number")}
 										</NativeButton>

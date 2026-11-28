@@ -85,7 +85,7 @@ async function wechatFrame(page: Page, title: string) {
 	return authorizationFrame;
 }
 
-test("WeChat sign-in fixture uses consent, device metadata and the usual signed-in destination", async ({
+test("WeChat sign-in starts directly and uses device metadata and the usual signed-in destination", async ({
 	page,
 }, info) => {
 	await isolateCommerce(page);
@@ -133,13 +133,8 @@ test("WeChat sign-in fixture uses consent, device metadata and the usual signed-
 	});
 
 	await page.goto("/sign-in?next=%2Fmessages");
-	const start = page.getByRole("button", { name: "微信登录" });
-	await start.click();
-	await expect(page.getByRole("alert")).toHaveText("请先勾选同意。");
-	await expect(page.getByRole("checkbox")).toBeFocused();
-	expect(starts).toBe(0);
-	await page.getByRole("checkbox").check();
-	await start.click();
+	await expect(page.getByRole("checkbox")).toHaveCount(0);
+	await page.getByRole("button", { name: "微信登录" }).click();
 	const dialog = page.getByRole("dialog", { name: "微信登录" });
 	const frame = await wechatFrame(page, "微信登录");
 	await page.evaluate(
