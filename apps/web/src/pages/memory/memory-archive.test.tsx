@@ -122,6 +122,15 @@ test("the archived group is folded, exists only while something is archived, and
 	await waitFor(() => expect(path).toBe(`/memory/g/${encodeURIComponent("archived/notes")}`));
 });
 
+test("a file archived from the root opens on its own page rather than in the side panel", async () => {
+	serve([summary("/archive/根文件.md"), summary("/notes/live.md")]);
+	show(<ArchivedGroup />);
+	(await screen.findByRole("button", { name: "Archived" })).click();
+	const file = await screen.findByRole("button", { name: /根文件\.md/ });
+	file.click();
+	await waitFor(() => expect(decodeURIComponent(path)).toBe("/memory/files//archive/根文件.md"));
+});
+
 test("an empty archive draws nothing", async () => {
 	serve([summary("/notes/live.md")]);
 	const { container } = show(<ArchivedGroup />);

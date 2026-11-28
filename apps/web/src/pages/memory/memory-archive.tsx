@@ -4,9 +4,14 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { useOpenMemoryFile } from "./memory-file-detail.tsx";
 import { useMinute } from "./memory-format.ts";
-import { archivedEntries, archivedFolderName, memoryFolderNames, memoryFolderRoute } from "./memory-view.ts";
+import {
+	archivedEntries,
+	archivedFolderName,
+	memoryFileRoute,
+	memoryFolderNames,
+	memoryFolderRoute,
+} from "./memory-view.ts";
 import { relativeTime } from "./memory-who.ts";
 
 /**
@@ -19,7 +24,6 @@ export function ArchivedGroup() {
 	const { t, i18n } = useTranslation();
 	const now = useMinute();
 	const navigate = useNavigate();
-	const openFile = useOpenMemoryFile();
 	const query = useMemoryFiles();
 	const folders = useMemoryFolders();
 	const folderName = memoryFolderNames(folders.data?.items ?? []);
@@ -61,7 +65,7 @@ export function ArchivedGroup() {
 							key={file.path}
 							title={file.title || file.path.split("/").at(-1)}
 							subtitle={relativeTime(file.updatedAt, now, locale, t("memory.justNow"))}
-							onClick={() => openFile(file.path, file.title)}
+							onClick={() => navigate(memoryFileRoute(file.path))}
 						/>
 					))
 				: null}

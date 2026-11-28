@@ -54,8 +54,14 @@ export function fileGroup(path: string): string | null {
 	return source ? `sources:${source}` : null;
 }
 
+/**
+ * On a wide window every live group (notes, recordings and other connectors, summaries, public)
+ * expands in the list column, so a file opens on the page beside it rather than under a list that
+ * would otherwise sit in the middle. The archived group keeps its own page: its files are read-only
+ * and folded apart from the live ones.
+ */
 export function isInlineMemoryGroup(group: string): boolean {
-	return group === "notes" || group === "digests" || group === "sources:recordings";
+	return !group.startsWith("archived");
 }
 
 export function showsMemoryBack(view: MemoryView): boolean {

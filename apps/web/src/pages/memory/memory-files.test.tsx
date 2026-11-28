@@ -9,6 +9,7 @@ import {
 	archivedOriginalPath,
 	fileGroup,
 	groupFolderPath,
+	isInlineMemoryGroup,
 	memoryFileParent,
 	memoryFileRoute,
 	memoryFolderNames,
@@ -86,6 +87,17 @@ describe("folder names come from the server", () => {
 });
 
 describe("routes", () => {
+	test("every live group expands in the list so a file opens beside it, and only the archive has its own page", () => {
+		// Notes, recordings and other connectors, summaries and public are all inline; a file opens
+		// on the page beside the list rather than under a list left in the middle.
+		for (const group of ["notes", "digests", "digests:day", "sources:recordings", "sources:引入", "public"]) {
+			expect(isInlineMemoryGroup(group)).toBe(true);
+		}
+		// The archived group keeps its own page: its files are read-only and folded apart.
+		expect(isInlineMemoryGroup("archived")).toBe(false);
+		expect(isInlineMemoryGroup("archived/notes")).toBe(false);
+	});
+
 	test("every file has its own page; back goes to its group, AI profile files back to the private overview", () => {
 		expect(memoryFileRoute("/notes/a b.md")).toBe(`/memory/files/${encodeURIComponent("/notes/a b.md")}`);
 		expect(memoryFileParent("/sources/recordings/x.md")).toBe(`/memory/g/${encodeURIComponent("sources:recordings")}`);
