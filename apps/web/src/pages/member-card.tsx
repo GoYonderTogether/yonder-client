@@ -1,14 +1,16 @@
 import { MemberProfile, memberFailureText } from "@yonder/feature-members";
-import { Button, EmptyState, IconButton } from "@yonder/ui-components";
+import { Avatar, Button, EmptyState, IconButton } from "@yonder/ui-components";
 import {
 	ApiError,
 	useContactActions,
+	useContacts,
 	useFriendRequestActions,
 	useMemberProfile,
 	usePublicMemberProfile,
 	useStartBotChat,
 } from "@yonder/ui-data";
-import { Settings } from "lucide-react";
+import { ICON_SIZE } from "@yonder/ui-tokens";
+import { LockKeyhole, Settings } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -24,7 +26,7 @@ export interface MemberCardHandlers {
 	onHome: () => void;
 }
 
-/** The one neutral answer for "no such handle" and "closed to you" alike (19 4.2). */
+/** The neutral response when the server does not disclose why the card is unavailable. */
 export function CardNotFound({ onHome }: { onHome: () => void }) {
 	const { t } = useTranslation();
 	return (
@@ -36,6 +38,30 @@ export function CardNotFound({ onHome }: { onHome: () => void }) {
 				</Button>
 			}
 		/>
+	);
+}
+
+function PrivateContactCard({ handle }: { handle: string }) {
+	const { t } = useTranslation();
+	const contacts = useContacts();
+	const contact = contacts.data?.items.find((member) => member.kind === "person" && member.handle === handle);
+
+	return (
+		<div className="flex flex-col items-center gap-[var(--spacing-4)] px-[var(--spacing-6)] pt-[var(--spacing-10)] pb-[var(--spacing-6)] text-center">
+			<div className="relative flex" aria-hidden="true">
+				<Avatar
+					name={contact?.displayName ?? handle}
+					src={contact?.avatarUrl}
+					color={contact?.avatarColor}
+					size={64}
+					className="opacity-70 grayscale"
+				/>
+				<span className="absolute -end-1 -bottom-1 flex size-6 items-center justify-center rounded-full bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)] ring-2 ring-[var(--color-bg-surface)]">
+					<LockKeyhole size={ICON_SIZE.sm} />
+				</span>
+			</div>
+			<h2 className="text-h3 font-semibold text-[var(--color-text-primary)]">{t("members.card.private")}</h2>
+		</div>
 	);
 }
 
@@ -65,7 +91,6 @@ function LoadFailure({ error, onRetry }: { error: unknown; onRetry: () => void }
 	);
 }
 
-/** A 404 is the only answer for "no such handle" and "not for you"; there is no second question to ask. */
 export function isCardNotFound(error: unknown): boolean {
 	return error instanceof ApiError && error.status === 404;
 }
@@ -88,6 +113,12 @@ export function MemberCardView({ handle, ...handlers }: MemberCardHandlers & { h
 
 	// A reopened card needs a fresh visibility decision before displaying cached details.
 	if (!profile.isFetchedAfterMount) return <Loading />;
+	if (
+		profile.error instanceof ApiError &&
+		profile.error.status === 404 &&
+		profile.error.details?.reason === "member_card_private"
+	)
+		return <PrivateContactCard handle={handle} />;
 	if (isCardNotFound(profile.error)) return <CardNotFound onHome={handlers.onHome} />;
 	if (profile.isError || !profile.data)
 		return (
