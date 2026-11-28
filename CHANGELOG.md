@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.26112810] - 2026-11-28
+
+### Changed
+
+- protocol：name the desktop delivery and permission types, as the server does
+
+### Added
+
+- connectors：desktop control (computer use) device side
+
 ## [0.3.26112809] - 2026-11-28
 
 ### Fixed
