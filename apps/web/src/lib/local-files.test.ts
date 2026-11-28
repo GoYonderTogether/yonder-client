@@ -27,7 +27,7 @@ test("explicit authorization preserves scope, capabilities and revision without 
 		id: "con_a",
 		connectorId: "local-files" as const,
 		scope: "device" as const,
-		capabilities: { fileTools: false, terminal: false, desktop: false },
+		capabilities: { fileTools: false, terminal: false, desktop: false, browser: false },
 		revision: 2,
 	};
 	await adapter.authorize(config);
@@ -62,7 +62,7 @@ test("a failed native authorization surfaces the real error and notifies nobody"
 			id: "con_a",
 			connectorId: "local-files",
 			scope: "device",
-			capabilities: { fileTools: false, terminal: false, desktop: false },
+			capabilities: { fileTools: false, terminal: false, desktop: false, browser: false },
 			revision: 2,
 		}),
 	).rejects.toThrow("permission_denied");

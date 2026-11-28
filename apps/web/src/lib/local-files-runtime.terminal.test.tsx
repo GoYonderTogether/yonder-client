@@ -26,7 +26,7 @@ const shell = {
 	revision: 3,
 	connectorId: "computer-control",
 	scope: "device",
-	capabilities: { fileTools: false, terminal: true, desktop: false },
+	capabilities: { fileTools: false, terminal: true, desktop: false, browser: false },
 } as const;
 
 function command(overrides: Partial<ConnectorCommand> = {}): ConnectorCommand {
@@ -86,7 +86,7 @@ test("a shell command goes to the native runner and its result goes back unchang
 
 test("a shell command on a grant without terminal is refused before the device is asked", async () => {
 	setup.connections.set([
-		{ ...shell, id: "con_write", capabilities: { fileTools: true, terminal: false, desktop: false }, revision: 4 },
+		{ ...shell, id: "con_write", capabilities: { fileTools: true, terminal: false, desktop: false, browser: false }, revision: 4 },
 	]);
 	setup.invoke.mockImplementation(async (name: string) =>
 		name === "local_files_ready" ? [{ id: "con_write", revision: 4 }] : undefined,
@@ -96,7 +96,7 @@ test("a shell command on a grant without terminal is refused before the device i
 	dispatch(
 		command({
 			connectionId: "con_write",
-			capabilities: { fileTools: true, terminal: false, desktop: false },
+			capabilities: { fileTools: true, terminal: false, desktop: false, browser: false },
 			revision: 4,
 		}),
 	);

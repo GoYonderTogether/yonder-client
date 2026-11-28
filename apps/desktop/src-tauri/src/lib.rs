@@ -45,6 +45,20 @@ mod desktop_time;
 #[cfg(windows)]
 mod desktop_windows;
 #[cfg(desktop)]
+mod browser;
+#[cfg(desktop)]
+mod browser_bsk;
+#[cfg(desktop)]
+mod browser_commands;
+#[cfg(desktop)]
+mod browser_limits;
+#[cfg(desktop)]
+mod browser_ops;
+#[cfg(desktop)]
+mod browser_png;
+#[cfg(windows)]
+mod browser_windows;
+#[cfg(desktop)]
 mod local_files;
 #[cfg(desktop)]
 mod local_files_access;
@@ -165,6 +179,10 @@ pub fn run() {
             shell::shell_execute,
             shell::shell_cancel,
             desktop_command::desktop_execute,
+            browser_commands::browser_execute,
+            browser_commands::browser_cancel,
+            browser_commands::browser_status,
+            browser_commands::browser_install,
             provider_relay::provider_relay_bind,
             provider_relay::provider_relay_cancel,
             provider_relay::provider_relay_execute,
@@ -179,6 +197,7 @@ pub fn run() {
             device_model::device_model_cancel
         ])
         .manage(local_files_store::LocalFilesState::default())
+        .manage(browser_commands::BrowserState::local())
         .manage(device_model::DeviceModelState::default())
         .plugin(provider_relay::init())
         .plugin(tauri_plugin_notification::init())

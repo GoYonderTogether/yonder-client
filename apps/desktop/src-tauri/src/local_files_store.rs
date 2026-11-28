@@ -45,6 +45,11 @@ pub struct Capabilities {
     /// into desktop control.
     #[serde(default)]
     pub desktop: bool,
+    /// `computer-control` only: the Bot may drive a Chrome or Edge window through `bsk`
+    /// (specs/connectors/browser.md §2). Absent in an older grant and read as `false`: browser
+    /// control is never widened on silently, and its own switch grants it.
+    #[serde(default)]
+    pub browser: bool,
 }
 
 #[derive(Clone, Deserialize, Serialize)]

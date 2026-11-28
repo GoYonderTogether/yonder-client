@@ -134,6 +134,19 @@ export type {
 	AppleConnectorResult,
 	AppleNoteAttachment,
 	AppleSourceIdentity,
+} from "./connectors/apple.ts";
+export type {
+	BrowserActAction,
+	BrowserConnectorOperation,
+	BrowserConnectorResult,
+	BrowserElement,
+	BrowserExecutionError,
+	BrowserScreenshot,
+	BrowserSessionAction,
+	BrowserSessionSummary,
+	BrowserSummary,
+} from "./connectors/browser.ts";
+export type {
 	ConnectorCapabilities,
 	ConnectorCatalogResponse,
 	ConnectorCommand,

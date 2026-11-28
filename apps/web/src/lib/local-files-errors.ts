@@ -37,6 +37,11 @@ export const CONNECTOR_ERRORS = new Set([
 	"desktop_permission_required",
 	"window_not_found",
 	"element_not_found",
+	// Browser control: bsk is not installed, no browser is attached, or the session a call named is
+	// gone. Each is passed through so the model tells the owner the right next step (browser.md §5).
+	"browser_not_installed",
+	"browser_disconnected",
+	"browser_session_not_found",
 ]);
 
 /** A native refusal is the real error code; anything else is a write that did not finish. */

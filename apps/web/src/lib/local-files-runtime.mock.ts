@@ -87,6 +87,8 @@ export const setup = {
 	executeShell: vi.fn(),
 	cancelShell: vi.fn(async () => undefined),
 	executeDesktop: vi.fn(),
+	executeBrowser: vi.fn(),
+	cancelBrowser: vi.fn(async () => undefined),
 	/** Set by a test to deliver a native `shell-job-finished` payload. */
 	shellFinished: undefined as ((job: unknown) => void) | undefined,
 	listenShellJobFinished: vi.fn(async (listener: (event: unknown) => void) => {
@@ -131,28 +133,40 @@ vi.mock("./apple-resources.ts", () => ({
 	cancelAppleResource: setup.cancelApple,
 }));
 vi.mock("./tray-bridge.ts", () => ({ beginTrayConnectorWork: setup.beginTrayWork }));
-vi.mock("./terminal.ts", () => ({
-	executeShell: setup.executeShell,
-	cancelShell: setup.cancelShell,
-	listenShellJobFinished: setup.listenShellJobFinished,
-}));
+vi.mock("./terminal.ts", async () => {
+	const actual = (await vi.importActual("./terminal.ts")) as typeof import("./terminal.ts");
+	return {
+		terminalEligible: actual.terminalEligible,
+		executeShell: setup.executeShell,
+		cancelShell: setup.cancelShell,
+		listenShellJobFinished: setup.listenShellJobFinished,
+	};
+});
 vi.mock("./desktop.ts", () => ({
 	executeDesktop: setup.executeDesktop,
 }));
+vi.mock("./browser.ts", async () => {
+	const actual = (await vi.importActual("./browser.ts")) as typeof import("./browser.ts");
+	return {
+		browserEligible: actual.browserEligible,
+		isBrowserCommand: actual.isBrowserCommand,
+		browserActivityKey: actual.browserActivityKey,
+		executeBrowser: setup.executeBrowser,
+		cancelBrowser: setup.cancelBrowser,
+	};
+});
 
 /** A `connector.grant.request` item; the server sends `local-files` without file tools. */
 export const grant = (
 	overrides: Partial<{
 		connectionId: string;
 		connectorId: "local-files" | "computer-control";
-		capabilities: { fileTools: boolean; terminal: boolean; desktop: boolean };
 		revision: number;
 	}> = {},
 ) => ({
 	connectionId: "con_a",
 	connectorId: "local-files" as const,
 	scope: "device" as const,
-	capabilities: { fileTools: false, terminal: false, desktop: false },
 	revision: 2,
 	...overrides,
 });

@@ -4,6 +4,10 @@
 
 ## [0.3.26112816] - 2026-11-28
 
+### Added
+
+- connectors：browser control on `computer-control` through Tencent's BrowserSkill `bsk` CLI — status, Agent Window sessions, navigate, observe and act; its own `browser` capability and a connector-page switch with the install entry
+
 ### Fixed
 
 - speech：reuse finalized live transcripts

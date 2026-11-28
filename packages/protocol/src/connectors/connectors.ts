@@ -1,14 +1,23 @@
 import type { DeviceInfo } from "../auth/auth.ts";
 import type { Attachment } from "../chat/chat.ts";
+import type { AppleConnectorId, AppleConnectorOperation, AppleConnectorResult } from "./apple.ts";
+import type {
+	BrowserActAction,
+	BrowserConnectorOperation,
+	BrowserConnectorResult,
+	BrowserExecutionError,
+	BrowserSessionAction,
+} from "./browser.ts";
 import type { DesktopConnectorResult, DesktopInputAction, DesktopPermission } from "./desktop.ts";
 import type { ShellJobAction, TerminalConnectorResult } from "./terminal.ts";
 
-// Desktop and terminal shapes live in their own modules, re-exported here for one entry point.
+// Desktop, terminal and browser shapes live in their own modules, re-exported here for one entry point.
+export * from "./apple.ts";
+export * from "./browser.ts";
 export * from "./desktop.ts";
 export * from "./terminal.ts";
 
 export type FileConnectorId = "local-files" | "computer-control";
-export type AppleConnectorId = "apple-calendar" | "apple-photos" | "apple-notes" | "apple-voice-memos";
 export type ConnectorId = FileConnectorId | AppleConnectorId;
 
 export interface ConnectorDefinition {
@@ -35,6 +44,13 @@ export interface ConnectorCapabilities {
 	 * `computer-control`, and only on macOS and Windows builds.
 	 */
 	desktop: boolean;
+	/**
+	 * `computer-control` only: the Bot may drive a Chrome or Edge window on this device through the
+	 * browser-control connector. Its own capability, never implied by `terminal` or `fileTools`; an
+	 * existing grant does not gain it, and only a device that reports version 10 executes it. Off by
+	 * default.
+	 */
+	browser: boolean;
 }
 
 export interface ConnectorInstance {
@@ -136,18 +152,6 @@ export type FileConnectorOperation =
 	| "edit"
 	| "delete"
 	| "restore";
-export type AppleConnectorOperation =
-	| "apple_calendar_list"
-	| "apple_calendar_read"
-	| "apple_photos_list"
-	| "apple_photos_read"
-	| "apple_photos_image"
-	| "apple_notes_list"
-	| "apple_notes_read"
-	| "apple_notes_attachment_read"
-	| "apple_voice_memos_list"
-	| "apple_voice_memos_read"
-	| "apple_voice_memos_transcribe";
 /** Shell on `computer-control` with `terminal`: start a command, or manage jobs it left running. */
 export type TerminalConnectorOperation = "shell" | "shell_job";
 /** Computer use on `computer-control` with `desktop` (design §5): windows, AX tree, shot, input. */
@@ -155,7 +159,8 @@ export type DesktopConnectorOperation = "desktop_windows" | "desktop_ax" | "desk
 export type ConnectorOperation =
 	| FileConnectorOperation
 	| TerminalConnectorOperation
-	| DesktopConnectorOperation
+		| DesktopConnectorOperation
+		| BrowserConnectorOperation
 	| AppleConnectorOperation
 	| "asset_original"
 	| "file_preview";
@@ -225,8 +230,8 @@ export interface ConnectorCommandArgs {
 	elevated?: boolean;
 	/** `shell`: the question the owner answers in the elevation dialog. Present exactly when `elevated` is true. */
 	justification?: string;
-	/** `shell_job`: list | status | log | wait | write | kill. `desktop_input`: what the operation does. */
-	action?: ShellJobAction | DesktopInputAction;
+		/** `shell_job`: list | status | log | wait | write | kill. `desktop_input`: what the operation does. `browser_session`: start | stop | list. `browser_act`: click | fill | press | select | hover | scroll | screenshot. */
+		action?: ShellJobAction | DesktopInputAction | BrowserSessionAction | BrowserActAction;
 	/** `shell_job`: which job, by full id or an unambiguous prefix. */
 	jobId?: string;
 	/**
@@ -264,6 +269,18 @@ export interface ConnectorCommandArgs {
 	toY?: number;
 	/** `desktop_input`: `background` (default, does not take focus) or `foreground` (may take focus and move the cursor). */
 	delivery?: "background" | "foreground";
+	/** `browser_session` `start`/`stop`, `browser_observe`, `browser_act`: which Agent Window session. */
+	sessionId?: string;
+	/** `browser_navigate`: the http(s) URL, or `about:blank`. Never file: or javascript:. */
+	url?: string;
+	/** `browser_navigate`: wait until the document loads, or only until the DOM is ready. Default load. */
+	waitUntil?: "load" | "domcontentloaded";
+	/** `browser_observe`: `text` (default) for readable text, `snapshot` for ref-addressable elements. */
+	mode?: "text" | "snapshot";
+	/** `browser_act` `fill`: the text to type. `select`: the option value or label. */
+	value?: string;
+	/** `browser_act` `screenshot`: capture the whole scrollable page instead of the viewport. Default false. */
+	fullPage?: boolean;
 }
 
 export interface ConnectorCommand {
@@ -344,84 +361,6 @@ export type LocalFilesResult =
 	  }
 	| { kind: "delete"; path: string; recoveryId: string };
 
-export interface AppleSourceIdentity {
-	globalId?: string;
-	contentSha256?: string;
-}
-
-export interface AppleNoteAttachment {
-	id: string;
-	name: string;
-	mimeType: string;
-	size?: number;
-}
-
-export interface AppleCalendarEvent {
-	id: string;
-	title: string;
-	startsAt: string;
-	endsAt: string;
-	allDay: boolean;
-	calendar: string;
-	sourceIdentity?: AppleSourceIdentity;
-}
-
-export type AppleConnectorResult =
-	| { kind: "apple_calendar_list"; events: AppleCalendarEvent[]; more: boolean }
-	| {
-			kind: "apple_calendar_read";
-			event: AppleCalendarEvent & { notes?: string; location?: string; url?: string };
-	  }
-	| {
-			kind: "apple_photos_list";
-			photos: {
-				id: string;
-				createdAt: string | null;
-				width: number;
-				height: number;
-				sourceIdentity?: AppleSourceIdentity;
-			}[];
-			more: boolean;
-	  }
-	| {
-			kind: "apple_photos_read";
-			id: string;
-			text: string;
-			truncated?: boolean;
-			labels?: string[];
-			/** Which local copy the text came from: the original on the device, or the system thumbnail. */
-			source?: "local" | "thumbnail";
-	  }
-	/** `view` asked for one photo's picture; carries the normalized copy, never the original. */
-	| { kind: "apple_photos_image"; id: string; attachment: Attachment }
-	| {
-			kind: "apple_notes_list";
-			notes: { id: string; title: string; modifiedAt: string | null; sourceIdentity?: AppleSourceIdentity }[];
-			more: boolean;
-	  }
-	| {
-			kind: "apple_notes_read";
-			id: string;
-			text: string;
-			truncated?: boolean;
-			attachments?: AppleNoteAttachment[];
-			moreAttachments?: boolean;
-	  }
-	| { kind: "apple_notes_attachment_read"; id: string; attachmentId: string; attachment: Attachment }
-	| {
-			kind: "apple_voice_memos_list";
-			recordings: {
-				id: string;
-				title: string;
-				createdAt: string | null;
-				durationMs: number | null;
-				sourceIdentity?: AppleSourceIdentity;
-			}[];
-			more: boolean;
-	  }
-	| { kind: "apple_voice_memos_read"; id: string; attachment: Attachment }
-	| { kind: "apple_voice_memos_transcribe"; id: string; text: string };
-
 export type ConnectorFilePreviewStatus =
 	| { kind: "directory"; entries: { name: string; type: "file" | "directory" }[]; truncated: boolean }
 	| { kind: "unchanged"; sha256: string };
@@ -433,7 +372,8 @@ export type ConnectorFilePreviewResult =
 export type ConnectorResult =
 	| LocalFilesResult
 	| TerminalConnectorResult
-	| DesktopConnectorResult
+		| DesktopConnectorResult
+		| BrowserConnectorResult
 	| AppleConnectorResult
 	| ConnectorFilePreviewResult
 	| { kind: "asset_original"; attachment: Attachment };
@@ -482,7 +422,9 @@ export type ConnectorExecutionError =
 	| "element_not_found"
 	| "operation_failed"
 	/** `read` met a binary file (a NUL byte or a known binary header); the failure carries `size` and `fileType`. */
-	| "binary_file";
+	| "binary_file"
+	/** Browser control's own states: not installed, no attached browser, or the session is gone (browser.md §5). */
+	| BrowserExecutionError;
 export type ConnectorCommandResult =
 	| { ok: true; result: ConnectorResult }
 	| {

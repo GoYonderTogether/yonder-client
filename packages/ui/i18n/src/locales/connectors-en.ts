@@ -134,6 +134,13 @@ export const connectorMessagesEn = {
 		scope:
 			"Your Bot can see this device's screen and operate the mouse and keyboard. It works in the background by default without taking window focus; it only uses the foreground (moving the real cursor) when needed, and each run's steps note when it did. After you allow it, no action asks again until you revoke it.",
 	},
+	browser: {
+		name: "Browser control",
+		description: "Your Bot can open pages, click and type in your browser.",
+		install: "Install browser control",
+		installing: "Installing…",
+		installFailed: "Could not install browser control. Try again, or install it from a terminal.",
+	},
 	appleCalendar: {
 		iosPermissionDenied:
 			"Set Calendar to Full Access in Settings. If access hasn’t updated, quit and reopen Yonder, then connect again.",

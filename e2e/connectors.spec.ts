@@ -123,7 +123,7 @@ for (const platform of ["macos", "ios"] as const) {
 		const target = device("dev_apple", isMac ? "MacBook Pro" : "iPhone", platform, true);
 		const instance: ConnectorInstance = {
 			...grant("con_apple", connector, target),
-			capabilities: { fileTools: false, terminal: false },
+			capabilities: { fileTools: false, terminal: false, browser: false },
 			currentDevice: true,
 			status: "offline",
 		};
