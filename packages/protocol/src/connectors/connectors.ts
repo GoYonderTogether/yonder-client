@@ -26,6 +26,7 @@ export interface ConnectorDefinition {
 	name: string;
 	description: string;
 	platforms: DeviceInfo["platform"][];
+	brand?: import("../brands.ts").BrandId;
 }
 
 export type ConnectorScope = "folder" | "device";
