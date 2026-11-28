@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112808] - 2026-11-28
+
+### Added
+
+- memory：a small dashed arrow to the next node of a thing when it is on another day
+
 ## [0.3.26112807] - 2026-11-28
 
 ### Fixed
