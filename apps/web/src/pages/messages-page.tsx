@@ -37,7 +37,7 @@ import { useLocation, useNavigate } from "react-router";
 import { isForeground, useForeground } from "../lib/foreground.ts";
 import { BotWaitingBubble } from "./bot-waiting-bubble.tsx";
 import { ChatActions } from "./chat-actions/index.tsx";
-import { ConversationAgentHeader } from "./conversation-agent-header.tsx";
+import { ConversationAgentHeader, ConversationAgentStatus } from "./conversation-agent-header.tsx";
 import {
 	ConversationAvatar,
 	conversationPeer,
@@ -303,26 +303,36 @@ export function ConversationPage({
 				: undefined;
 	const openPeer = peer && onOpenMember ? () => onOpenMember(peer.memberId) : undefined;
 	const openSettings = conversation.kind === "group" ? onOpenGroup : openPeer;
+	const agentHeader =
+		agent && showAgentIdentity ? (
+			<ConversationAgentHeader
+				agent={agent}
+				conversation={conversation}
+				ownedAgent={ownedAgent}
+				title={title}
+				statusText={item ? undefined : statusText}
+				onOpen={mobileBotHeader ? openPeer : undefined}
+				inline={Boolean(item)}
+			/>
+		) : null;
 
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
 			<PageFrame
 				floatingHeader={floatingHeader}
 				conversationHeader
-				title={item ? item.title : agent ? null : title}
-				titleAlign={agent && !item ? "center" : "start"}
-				afterTopBar={
-					agent && showAgentIdentity ? (
-						<ConversationAgentHeader
-							agent={agent}
-							conversation={conversation}
-							ownedAgent={ownedAgent}
-							title={title}
-							statusText={statusText}
-							onOpen={mobileBotHeader ? openPeer : undefined}
-						/>
-					) : null
+				title={
+					item ? (
+						<div className="flex min-w-0 items-center gap-[var(--spacing-2)]">
+							{agentHeader}
+							{item.title}
+						</div>
+					) : agent ? null : (
+						title
+					)
 				}
+				titleAlign={agent && !item ? "center" : "start"}
+				afterTopBar={item ? agentHeader && statusText && <ConversationAgentStatus text={statusText} /> : agentHeader}
 				action={
 					item ? (
 						item.action

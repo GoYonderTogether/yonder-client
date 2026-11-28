@@ -458,6 +458,18 @@ for (const layout of ["desktop", "mobile"] as const) {
 					"9999px",
 				);
 				await expect(identity.locator("[data-chat-agent-name]")).toHaveCSS("box-shadow", /rgba?\(/);
+				const topBar = header.locator("[data-shell-topbar]");
+				const [avatarBox, nameBox, titleBox, timeBox] = await Promise.all([
+					topBar.locator("[data-chat-agent-avatar]").boundingBox(),
+					topBar.locator("[data-chat-agent-name]").boundingBox(),
+					title.boundingBox(),
+					topBar.locator("time").first().boundingBox(),
+				]);
+				assert(avatarBox && nameBox && titleBox && timeBox);
+				expect(avatarBox.x + avatarBox.width).toBeLessThanOrEqual(nameBox.x);
+				expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(titleBox.x);
+				expect(titleBox.x + titleBox.width).toBeLessThan(timeBox.x);
+				expect(Math.abs(avatarBox.y + avatarBox.height / 2 - (timeBox.y + timeBox.height / 2))).toBeLessThan(2);
 			} else {
 				await expect(identity).toHaveCount(0);
 			}
