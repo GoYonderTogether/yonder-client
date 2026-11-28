@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112803] - 2026-11-28
+
+### Fixed
+
+- devices：a window binds its own device from its own session
+
 ## [0.3.26112802] - 2026-11-28
 
 ### Added
