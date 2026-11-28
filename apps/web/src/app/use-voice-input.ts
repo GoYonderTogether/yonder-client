@@ -1,20 +1,19 @@
 import { useApi } from "@yonder/ui-data";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { voiceWorklet } from "../lib/voice-input.ts";
+import { voiceMicrophone, voiceWorklet } from "../lib/voice-input.ts";
+import { startVoiceTranscript } from "../lib/voice-transcript.ts";
+
+const MAX_LISTENING_MS = 120_000;
+const FLUSH_MS = 250;
 
 type Session = {
-	socket?: WebSocket;
+	transcript?: ReturnType<typeof startVoiceTranscript>;
 	stream?: MediaStream;
 	context?: AudioContext;
 	node?: AudioWorkletNode;
-	active: boolean;
 	finishing: boolean;
-	ready: boolean;
 	resolve: () => void;
 	done: Promise<void>;
-	onText: (text: string) => void;
-	sentences: Map<string, string>;
-	finalized: Set<string>;
 	timer?: ReturnType<typeof setTimeout>;
 	cleanup?: () => void;
 };
@@ -22,7 +21,10 @@ type Session = {
 const releaseAudio = (s: Session) => {
 	s.node?.disconnect();
 	delete s.node;
-	for (const track of s.stream?.getTracks() ?? []) track.stop();
+	for (const track of s.stream?.getTracks() ?? []) {
+		track.onended = null;
+		track.stop();
+	}
 	delete s.stream;
 	if (s.context) void s.context.close().catch(() => {});
 	delete s.context;
@@ -34,25 +36,19 @@ export function useVoiceInput(scope: string) {
 	const [error, setError] = useState("");
 	const current = useRef<Session | null>(null);
 
-	const end = useCallback((s: Session, failed = false) => {
-		if (!s.active) return;
-		s.active = false;
+	const end = useCallback((s: Session, error?: string) => {
+		if (current.current !== s) return;
+		current.current = null;
 		clearTimeout(s.timer);
 		s.cleanup?.();
 		releaseAudio(s);
-		if (s.socket && s.socket.readyState < 2) s.socket.close();
-		if (current.current === s) {
-			current.current = null;
-			setListening(false);
-			if (failed) setError("chat.voiceFailed");
-		}
+		s.transcript?.stop();
+		setListening(false);
+		if (error) setError(error);
 		s.resolve();
 	}, []);
 	const cancel = useCallback(() => {
-		const s = current.current;
-		if (!s) return;
-		if (s.socket?.readyState === 1) s.socket.send(JSON.stringify({ type: "cancel" }));
-		end(s);
+		if (current.current) end(current.current);
 	}, [end]);
 	useEffect(() => {
 		if (!scope) return;
@@ -65,139 +61,78 @@ export function useVoiceInput(scope: string) {
 		s.finishing = true;
 		setListening(false);
 		clearTimeout(s.timer);
-		s.timer = setTimeout(() => end(s, true), 10000);
-		for (const track of s.stream?.getTracks() ?? []) track.stop();
-		if (!s.ready || !s.node || s.socket?.readyState !== 1) {
-			end(s);
-			return s.done;
+		if (!s.node) end(s);
+		else {
+			// Keep the source alive until the worklet flushes its last PCM frame.
+			s.timer = setTimeout(() => end(s, "chat.voiceFailed"), FLUSH_MS);
+			s.node.port.postMessage("flush");
 		}
-		s.node.port.postMessage("flush");
 		return s.done;
 	}, [end]);
 	const start = useCallback(
 		async (onText: (text: string) => void) => {
 			if (current.current) return;
 			let resolve = () => {};
-			const done = new Promise<void>((r) => {
-				resolve = r;
+			const done = new Promise<void>((settle) => {
+				resolve = settle;
 			});
-			const s: Session = {
-				active: true,
-				finishing: false,
-				ready: false,
-				resolve,
-				done,
-				onText,
-				sentences: new Map(),
-				finalized: new Set(),
-			};
+			const s: Session = { finishing: false, resolve, done };
 			current.current = s;
 			setListening(true);
 			setError("");
+			const fail = () => end(s, "chat.voiceFailed");
 			try {
-				if (!navigator.mediaDevices?.getUserMedia || !globalThis.AudioContext) throw new Error("unsupported");
+				if (!navigator.mediaDevices?.getUserMedia || !globalThis.AudioContext || !globalThis.AudioWorkletNode)
+					throw new Error("unsupported");
 				const context = new AudioContext();
 				s.context = context;
-				void context.resume().catch(() => end(s, true));
 				const hide = () => {
-					if (document.visibilityState === "hidden") end(s, true);
+					if (document.hidden) fail();
 				};
-				const pagehide = () => end(s, true);
 				document.addEventListener("visibilitychange", hide);
-				window.addEventListener("pagehide", pagehide);
+				window.addEventListener("pagehide", fail);
 				s.cleanup = () => {
 					document.removeEventListener("visibilitychange", hide);
-					window.removeEventListener("pagehide", pagehide);
+					window.removeEventListener("pagehide", fail);
 				};
-				const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-				if (!s.active || s.finishing) {
-					for (const track of stream.getTracks()) track.stop();
-					return;
-				}
-				s.stream = stream;
-				for (const track of stream.getAudioTracks()) track.onended = () => end(s, true);
-				s.timer = setTimeout(() => end(s, true), 10000);
-				const sessionId = crypto.randomUUID();
-				const socket = api.openVoiceSocket();
-				s.socket = socket;
-				socket.onopen = () => {
-					if (s.active) socket.send(JSON.stringify({ type: "start", sessionId, format: "pcm", sampleRate: 16000 }));
+				const blob = URL.createObjectURL(new Blob([voiceWorklet], { type: "text/javascript" }));
+				const microphone = navigator.mediaDevices.getUserMedia({ audio: voiceMicrophone }).then((stream) => {
+					if (current.current === s) s.stream = stream;
+					else for (const track of stream.getTracks()) track.stop();
+					return stream;
+				});
+				const [stream] = await Promise.all([
+					microphone,
+					context.resume(),
+					context.audioWorklet.addModule(blob).finally(() => URL.revokeObjectURL(blob)),
+				]);
+				if (current.current !== s) return;
+				for (const track of stream.getAudioTracks()) track.onended = fail;
+				context.onstatechange = () => {
+					if (context.state === "suspended" && !s.finishing) fail();
 				};
-				socket.onerror = () => end(s, true);
-				socket.onclose = () => end(s, s.active);
-				socket.onmessage = (event) => {
-					if (!s.active) return;
-					try {
-						const message = JSON.parse(event.data);
-						if (message.type === "ready" && !s.ready) {
-							s.ready = true;
-							clearTimeout(s.timer);
-							s.timer = setTimeout(() => end(s, true), 120000);
-							void capture();
-						} else if (
-							message.type === "transcript" &&
-							message.sessionId === sessionId &&
-							typeof message.text === "string"
-						) {
-							const id = String(message.sentenceId);
-							if (!s.finalized.has(id)) {
-								s.sentences.set(id, message.text);
-								if (message.final) s.finalized.add(id);
-								s.onText(
-									[...s.sentences.entries()]
-										.sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-										.map(([, text]) => text)
-										.join(""),
-								);
-							}
-						} else if (message.type === "done") end(s);
-						else if (message.type === "error") end(s, true);
-					} catch {
-						end(s, true);
+				const node = new AudioWorkletNode(context, "voice-input");
+				s.node = node;
+				const transcript = startVoiceTranscript(api.openVoiceSocket, onText);
+				s.transcript = transcript;
+				void transcript.result.then((text) => {
+					if (text !== undefined) end(s);
+					else fail();
+				});
+				node.port.onmessage = ({ data }: MessageEvent<ArrayBuffer | "flushed">) => {
+					if (current.current !== s) return;
+					if (data !== "flushed") transcript.frame(data);
+					else if (s.finishing) {
+						clearTimeout(s.timer);
+						releaseAudio(s);
+						void transcript.finish();
 					}
 				};
-				async function capture() {
-					try {
-						const blob = URL.createObjectURL(new Blob([voiceWorklet], { type: "text/javascript" }));
-						try {
-							await context.audioWorklet.addModule(blob);
-						} finally {
-							URL.revokeObjectURL(blob);
-						}
-						if (!s.active || s.finishing) return;
-						const node = new AudioWorkletNode(context, "voice-input");
-						s.node = node;
-						node.port.onmessage = (event) => {
-							if (!s.active) return;
-							if (event.data === "flushed") {
-								if (s.finishing && socket.readyState === 1) {
-									releaseAudio(s);
-									socket.send(JSON.stringify({ type: "finish" }));
-								}
-								return;
-							}
-							if (socket.readyState !== 1 || socket.bufferedAmount > 32000) {
-								end(s, true);
-								return;
-							}
-							socket.send(event.data);
-						};
-						context.createMediaStreamSource(stream).connect(node).connect(context.destination);
-						context.onstatechange = () => {
-							if (context.state === "suspended" && s.active && !s.finishing) end(s, true);
-						};
-					} catch (err) {
-						if (s.active && err instanceof DOMException && err.name === "NotAllowedError") {
-							setError("chat.microphoneDenied");
-							end(s);
-						} else end(s, true);
-					}
-				}
-			} catch (err) {
-				if (s.active && err instanceof DOMException && err.name === "NotAllowedError") {
-					setError("chat.microphoneDenied");
-					end(s);
-				} else end(s, true);
+				s.timer = setTimeout(fail, MAX_LISTENING_MS);
+				context.createMediaStreamSource(stream).connect(node).connect(context.destination);
+			} catch (error) {
+				if (error instanceof DOMException && error.name === "NotAllowedError") end(s, "chat.microphoneDenied");
+				else fail();
 			}
 		},
 		[api, end],

@@ -279,8 +279,8 @@ export function uploadAttachment(
 	});
 }
 
-export function transcribeAudio(filePath: string): Promise<{ text: string }> {
-	return client.request("/v1/audio/transcriptions", { raw: { bytes: localFile(filePath) } });
+export function transcribeAudio(filePath: string, signal: AbortSignal): Promise<{ text: string }> {
+	return client.request("/v1/audio/transcriptions", { raw: { bytes: localFile(filePath) }, signal });
 }
 
 export async function uploadAvatar(file: ChosenImage): Promise<MeResponse> {

@@ -1,3 +1,6 @@
+/** Preferred parameters so hosts without processing can still grant microphone access. */
+export const voiceMicrophone = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+
 // The worklet averages each source interval into 16 kHz samples and emits 100 ms PCM frames.
 export const voiceWorklet = `
 class VoiceProcessor extends AudioWorkletProcessor {

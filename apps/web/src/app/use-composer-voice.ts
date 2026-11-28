@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { TextEditRange } from "./completion/bindings.ts";
 import { useVoiceInput } from "./use-voice-input.ts";
 
@@ -105,11 +106,9 @@ export function useComposerVoice({
 			current.text = text;
 			current.expectedStart = current.expectedEnd = current.end;
 			latestDraft.current = next;
-			onDraftChange(next, edit);
-			// React may commit later; preserve the insertion point after the controlled value updates.
-			requestAnimationFrame(() => {
-				if (session.current === current && editor.current) editor.current.setSelectionRange(current.end, current.end);
-			});
+			// Restore the caret before the browser reports the controlled value's selection change.
+			flushSync(() => onDraftChange(next, edit));
+			if (session.current === current) editor.current?.setSelectionRange(current.end, current.end);
 		});
 	}
 	function pauseVoice() {

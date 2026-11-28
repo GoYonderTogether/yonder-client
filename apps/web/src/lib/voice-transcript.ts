@@ -1,8 +1,9 @@
 const SAMPLE_RATE = 16_000;
 const STARTUP_MS = 5_000;
+const FINISH_MS = 3_000;
 const MAX_BACKLOG_BYTES = (SAMPLE_RATE * 2 * STARTUP_MS) / 1000;
 
-type PreviewEvent = {
+type TranscriptEvent = {
 	type?: unknown;
 	sessionId?: unknown;
 	sentenceId?: unknown;
@@ -10,25 +11,36 @@ type PreviewEvent = {
 	final?: unknown;
 };
 
-/** Streams PCM from the active recorder for preview only. The recorder owns the audio and its lifetime. */
+/** The recorder retains its audio until a complete transcript is acknowledged. */
 export function startVoiceTranscript(openSocket: () => WebSocket, onText: (text: string) => void) {
+	let resolve: (text: string | undefined) => void = () => {};
+	const result = new Promise<string | undefined>((settle) => {
+		resolve = settle;
+	});
 	let socket: WebSocket;
 	let sessionId: string;
 	try {
 		sessionId = crypto.randomUUID();
 		socket = openSocket();
 	} catch {
-		return { frame: (_data: ArrayBuffer) => {}, stop: () => {} };
+		resolve(undefined);
+		return { frame: (_data: ArrayBuffer) => {}, stop: () => {}, finish: () => result, result };
 	}
 
 	let closed = false;
 	let ready = false;
+	let finishing = false;
+	let text = "";
 	const pending: ArrayBuffer[] = [];
 	let pendingBytes = 0;
 	const sentences = new Map<number, { text: string; final: boolean }>();
-	const timeout = setTimeout(stop, STARTUP_MS);
+	let timeout = setTimeout(stop, STARTUP_MS);
 
 	function stop() {
+		complete(undefined);
+	}
+
+	function complete(finalText: string | undefined) {
 		if (closed) return;
 		closed = true;
 		clearTimeout(timeout);
@@ -36,6 +48,7 @@ export function startVoiceTranscript(openSocket: () => WebSocket, onText: (text:
 		sentences.clear();
 		socket.onopen = socket.onmessage = socket.onclose = socket.onerror = null;
 		if (socket.readyState < WebSocket.CLOSING) socket.close();
+		resolve(finalText);
 	}
 
 	function send(data: string | ArrayBuffer) {
@@ -57,7 +70,7 @@ export function startVoiceTranscript(openSocket: () => WebSocket, onText: (text:
 	socket.onmessage = (event) => {
 		if (closed) return;
 		try {
-			const message: PreviewEvent | null = JSON.parse(event.data);
+			const message: TranscriptEvent | null = JSON.parse(event.data);
 			if (message?.type === "error") {
 				stop();
 				return;
@@ -65,9 +78,14 @@ export function startVoiceTranscript(openSocket: () => WebSocket, onText: (text:
 			if (message?.sessionId !== sessionId) return;
 			if (message.type === "ready" && !ready) {
 				ready = true;
-				clearTimeout(timeout);
+				if (!finishing) clearTimeout(timeout);
 				for (const data of pending) send(data);
 				pending.length = 0;
+				if (finishing) send(JSON.stringify({ type: "finish" }));
+				return;
+			}
+			if (message.type === "done" && finishing && ready) {
+				complete([...sentences.values()].every((sentence) => sentence.final) ? text.trim() : undefined);
 				return;
 			}
 			if (
@@ -80,7 +98,7 @@ export function startVoiceTranscript(openSocket: () => WebSocket, onText: (text:
 			)
 				return;
 			sentences.set(message.sentenceId, { text: message.text, final: message.final === true });
-			const text = [...sentences]
+			text = [...sentences]
 				.sort(([left], [right]) => left - right)
 				.map(([, sentence]) => sentence.text)
 				.join("");
@@ -92,7 +110,7 @@ export function startVoiceTranscript(openSocket: () => WebSocket, onText: (text:
 
 	return {
 		frame(data: ArrayBuffer) {
-			if (closed || data.byteLength === 0) return;
+			if (closed || finishing || data.byteLength === 0) return;
 			if (ready) {
 				send(data);
 				return;
@@ -101,6 +119,16 @@ export function startVoiceTranscript(openSocket: () => WebSocket, onText: (text:
 			if (pendingBytes > MAX_BACKLOG_BYTES) stop();
 			else pending.push(data);
 		},
+		finish() {
+			if (!finishing && !closed) {
+				finishing = true;
+				clearTimeout(timeout);
+				timeout = setTimeout(stop, FINISH_MS);
+				if (ready) send(JSON.stringify({ type: "finish" }));
+			}
+			return result;
+		},
 		stop,
+		result,
 	};
 }

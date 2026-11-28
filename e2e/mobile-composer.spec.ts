@@ -114,19 +114,26 @@ async function wav(request: Request) {
 	return { bytes, name: file.name };
 }
 
-async function mockVoicePreview(page: Page) {
+async function mockVoicePreview(page: Page, finalText?: string) {
 	await page.routeWebSocket(
 		(url) => url.pathname === "/v1/audio/transcriptions/realtime",
 		(socket) => {
+			let sessionId: string;
 			socket.onMessage((message) => {
 				if (typeof message !== "string") return;
-				const start = JSON.parse(message);
-				if (start.type !== "start") return;
-				socket.send(JSON.stringify({ type: "ready", sessionId: start.sessionId }));
+				const event = JSON.parse(message);
+				if (event.type === "finish" && finalText) {
+					socket.send(JSON.stringify({ type: "transcript", sessionId, sentenceId: 1, text: finalText, final: true }));
+					socket.send(JSON.stringify({ type: "done", sessionId }));
+					return;
+				}
+				if (event.type !== "start") return;
+				sessionId = event.sessionId;
+				socket.send(JSON.stringify({ type: "ready", sessionId }));
 				socket.send(
 					JSON.stringify({
 						type: "transcript",
-						sessionId: start.sessionId,
+						sessionId,
 						sentenceId: 1,
 						text: words,
 					}),
@@ -589,7 +596,8 @@ test("a right swipe edits the transcript and leaves sending up to the user", asy
 
 test("a tap still focuses the empty editor, while a hold dictates without sending", async ({ page }, info) => {
 	const wire = await speechWire(page);
-	await mockVoicePreview(page);
+	const finalText = `${words}，不要遗漏尾句。`;
+	await mockVoicePreview(page, finalText);
 	await page.goto("/messages/main");
 	const composer = page.locator(".composer-box");
 	const input = composer.getByRole("textbox");
@@ -610,9 +618,9 @@ test("a tap still focuses the empty editor, while a hold dictates without sendin
 	await expect(page.locator(".composer-recording-transcript")).toHaveText(words);
 	await page.screenshot({ path: info.outputPath("03-text-recording.png"), scale: "css" });
 	await held.release();
-	await expect(input).toHaveValue(words);
+	await expect(input).toHaveValue(finalText);
 	await page.screenshot({ path: info.outputPath("04-text-draft.png"), scale: "css" });
-	expect(wire.recognized).toHaveLength(1);
+	expect(wire.recognized).toHaveLength(0);
 	expect(wire.sent).toHaveLength(0);
 });
 

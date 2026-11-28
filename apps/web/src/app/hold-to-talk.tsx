@@ -119,7 +119,11 @@ export function HoldToTalk({
 		wasSaved.current = saved;
 	}, [saved]);
 
-	async function transcribe(recording: ChatVoice, signal: AbortSignal) {
+	async function transcribe(recording: ChatVoice, signal: AbortSignal, liveText?: string) {
+		if (liveText) {
+			onText(liveText);
+			return;
+		}
 		if (!transcription) throw new Error("voice_text_unavailable");
 		const parts: string[] = [];
 		for (const file of voiceFiles(recording, 60_000)) {

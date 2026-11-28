@@ -265,9 +265,11 @@ async function start(ownerId: string, args: Record<string, unknown>, resumed?: M
 				.request(LOCK, { ifAvailable: true }, async (lock) => {
 					if (!lock) throw "recording_busy";
 					requireOwner(ownerId);
-					const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch((cause) => {
-						throw cause?.name === "NotAllowedError" ? "permission_denied" : "audio_unavailable";
-					});
+					const stream = await navigator.mediaDevices
+						.getUserMedia({ audio: { echoCancellation: true } })
+						.catch((cause) => {
+							throw cause?.name === "NotAllowedError" ? "permission_denied" : "audio_unavailable";
+						});
 					await new Promise<void>((release, fail) => {
 						const record: MeetingRecording = resumed ?? {
 							id: crypto.randomUUID(),

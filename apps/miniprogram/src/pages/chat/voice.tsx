@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui";
 import { t } from "../../lib/i18n";
 import { transcribeAudio } from "../../lib/runtime";
+import { uploadCancellation } from "./upload-cancel";
 
 export function VoiceInput({
 	onText,
@@ -18,47 +19,63 @@ export function VoiceInput({
 	const recorder = useRef<ReturnType<typeof Taro.getRecorderManager>>();
 	const callbacks = useRef({ onText, onError });
 	callbacks.current = { onText, onError };
-	const cancelled = useRef(false);
+	const lifetime = useRef<ReturnType<typeof uploadCancellation>>();
+	const requested = useRef(false);
 	useEffect(() => {
 		if (process.env.TARO_ENV === "h5") return;
-		cancelled.current = false;
+		const controller = uploadCancellation();
+		const { signal } = controller;
+		lifetime.current = controller;
 		const manager = Taro.getRecorderManager();
 		recorder.current = manager;
-		manager.onStart(() => setState("recording"));
+		manager.onStart(() => {
+			if (!signal.aborted && requested.current) setState("recording");
+		});
 		manager.onStop((result) => {
-			if (cancelled.current) return;
+			if (signal.aborted || !requested.current) return;
+			requested.current = false;
 			setState("transcribing");
-			void transcribeAudio(result.tempFilePath)
+			void transcribeAudio(result.tempFilePath, signal)
 				.then((value) => {
-					if (!cancelled.current) callbacks.current.onText(value.text);
+					if (!signal.aborted) callbacks.current.onText(value.text);
 				})
 				.catch((error) => {
-					if (!cancelled.current) callbacks.current.onError(error instanceof Error ? error.message : String(error));
+					if (!signal.aborted) callbacks.current.onError(error instanceof Error ? error.message : String(error));
 				})
 				.finally(() => {
-					if (!cancelled.current) setState("idle");
+					if (!signal.aborted) setState("idle");
 				});
 		});
 		manager.onError((error) => {
-			if (!cancelled.current) {
+			if (!signal.aborted && requested.current) {
+				requested.current = false;
 				setState("idle");
 				callbacks.current.onError(error.errMsg);
 			}
 		});
 		return () => {
-			cancelled.current = true;
-			manager.stop();
+			controller.abort();
+			if (requested.current) manager.stop();
+			requested.current = false;
+			recorder.current = undefined;
 		};
 	}, []);
 	const toggle = async () => {
+		if (state === "transcribing") return;
 		if (state === "recording") {
 			recorder.current?.stop();
 			return;
 		}
+		const signal = lifetime.current?.signal;
+		if (!signal || signal.aborted || requested.current) return;
+		requested.current = true;
 		try {
 			await Taro.authorize({ scope: "scope.record" });
-			recorder.current?.start({ duration: 60000, format: "mp3", sampleRate: 16000, numberOfChannels: 1 });
+			if (signal.aborted) return;
+			recorder.current?.start({ duration: 60000, format: "wav", sampleRate: 16000, numberOfChannels: 1 });
 		} catch {
+			if (signal.aborted) return;
+			requested.current = false;
 			callbacks.current.onError(
 				t("请在小程序设置中允许使用麦克风", "Allow microphone access in mini program settings"),
 			);

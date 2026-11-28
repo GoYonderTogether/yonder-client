@@ -75,3 +75,40 @@ test("an unavailable preview abandons its audio buffer without surfacing a recor
 	}, onText);
 	expect(() => unavailable.frame(first)).not.toThrow();
 });
+
+test("finish flushes startup PCM before sending finish and requires a complete matching result", async () => {
+	const socket = new TestSocket();
+	const stream = startVoiceTranscript(() => socket as unknown as WebSocket, vi.fn());
+	const head = new ArrayBuffer(3200);
+	const tail = new ArrayBuffer(40);
+	stream.frame(head);
+	socket.open();
+	const start = JSON.parse(socket.send.mock.calls[0]?.[0] as string);
+	stream.frame(tail);
+	const final = stream.finish();
+	expect(stream.finish()).toBe(final);
+	socket.receive({ type: "ready", sessionId: start.sessionId });
+	expect(socket.send.mock.calls.slice(1)).toEqual([[head], [tail], [JSON.stringify({ type: "finish" })]]);
+	const transcript = { type: "transcript", sessionId: start.sessionId, sentenceId: 1 };
+	socket.receive({ ...transcript, text: "暂定" });
+	socket.receive({ type: "done", sessionId: "other" });
+	socket.receive({ ...transcript, text: "最终结果", final: true });
+	socket.receive({ type: "done", sessionId: start.sessionId });
+	await expect(final).resolves.toBe("最终结果");
+	expect(socket.close).toHaveBeenCalledOnce();
+});
+
+test.each(["partial", "timeout", "closed"] as const)("finish falls back after a %s result", async (failure) => {
+	vi.useFakeTimers();
+	const socket = new TestSocket();
+	const stream = startVoiceTranscript(() => socket as unknown as WebSocket, vi.fn());
+	socket.open();
+	const { sessionId } = JSON.parse(socket.send.mock.calls[0]?.[0] as string);
+	socket.receive({ type: "ready", sessionId });
+	socket.receive({ type: "transcript", sessionId, sentenceId: 1, text: "还没有说完" });
+	const final = stream.finish();
+	if (failure === "partial") socket.receive({ type: "done", sessionId });
+	else if (failure === "timeout") vi.advanceTimersByTime(3000);
+	else socket.onclose?.();
+	await expect(final).resolves.toBeUndefined();
+});

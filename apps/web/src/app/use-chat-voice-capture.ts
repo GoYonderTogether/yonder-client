@@ -8,7 +8,7 @@ import {
 	voiceBytes,
 	voiceDuration,
 } from "../lib/chat-voice.ts";
-import { voiceWorklet } from "../lib/voice-input.ts";
+import { voiceMicrophone, voiceWorklet } from "../lib/voice-input.ts";
 import { startVoiceTranscript } from "../lib/voice-transcript.ts";
 
 type Phase = "loading" | "idle" | "starting" | "held" | "locked" | "saved" | "sending" | "transcribing";
@@ -16,6 +16,7 @@ type Capture = {
 	recording: ChatVoice;
 	generation: number;
 	bytes: number;
+	resumed: boolean;
 	pending: ArrayBuffer[];
 	pendingBytes: number;
 	path: string;
@@ -28,7 +29,6 @@ type Capture = {
 };
 
 function release(capture: Capture) {
-	capture.preview?.stop();
 	capture.stream?.getTracks().forEach((track) => {
 		track.onended = null;
 		track.stop();
@@ -101,6 +101,7 @@ export function useChatVoiceCapture({
 			if (current.current !== capture) return;
 			current.current = null;
 			capture.flush?.();
+			capture.preview?.stop();
 			release(capture);
 			callbacks.current.onActivityChange?.(false);
 			if (keep && capture.bytes >= VOICE_MIN_BYTES) {
@@ -177,16 +178,21 @@ export function useChatVoiceCapture({
 			return;
 		}
 		const recording = (resume && restored.current) || { nonce: crypto.randomUUID(), parts: [] };
+		const bytes = voiceBytes(recording);
 		const capture: Capture = {
 			recording,
 			generation: chatCacheGeneration(),
-			bytes: voiceBytes(recording),
+			bytes,
+			resumed: bytes > 0,
 			pending: [],
 			pendingBytes: 0,
 			path: window.location.pathname,
 			locked: resume,
 		};
-		if (recording.frozen || capture.bytes >= VOICE_MAX_BYTES) return;
+		if (recording.frozen || capture.bytes >= VOICE_MAX_BYTES) {
+			void preparedContext?.close().catch(() => {});
+			return;
+		}
 		current.current = capture;
 		setDuration(voiceDuration(recording));
 		setPreview("");
@@ -204,7 +210,7 @@ export function useChatVoiceCapture({
 			const microphone = (async () => {
 				await pendingPermission();
 				if (current.current !== capture) return;
-				const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+				const stream = await navigator.mediaDevices.getUserMedia({ audio: voiceMicrophone });
 				if (current.current !== capture) {
 					for (const track of stream.getTracks()) track.stop();
 					return;
@@ -252,7 +258,11 @@ export function useChatVoiceCapture({
 			};
 			context.createMediaStreamSource(stream).connect(node).connect(context.destination);
 			if (!capture.locked) setPhase("held");
-			if (openVoiceSocket) capture.preview = startVoiceTranscript(openVoiceSocket, setPreview);
+			if (openVoiceSocket) {
+				capture.preview = startVoiceTranscript(openVoiceSocket, (text) => {
+					if (current.current === capture) setPreview(text);
+				});
+			}
 		} catch (error) {
 			if (current.current !== capture) return;
 			onError(
@@ -277,7 +287,7 @@ export function useChatVoiceCapture({
 	}, [acceptedRecording, discard]);
 
 	async function finish(
-		action: (recording: ChatVoice, signal: AbortSignal) => Promise<unknown>,
+		action: (recording: ChatVoice, signal: AbortSignal, liveText?: string) => Promise<unknown>,
 		destination: "send" | "text" = "send",
 	) {
 		const capture = current.current;
@@ -291,13 +301,16 @@ export function useChatVoiceCapture({
 		operation.current = controller;
 		setPhase(destination === "text" ? "transcribing" : "sending");
 		const generation = capture?.generation ?? chatCacheGeneration();
+		const stopPreview = capture?.preview?.stop;
+		if (stopPreview) controller.signal.addEventListener("abort", stopPreview, { once: true });
 		try {
+			let flushed = false;
 			if (capture?.node) {
-				await new Promise<void>((resolve) => {
-					const fallback = setTimeout(resolve, 250);
+				flushed = await new Promise<boolean>((resolve) => {
+					const fallback = setTimeout(() => resolve(false), 250);
 					capture.flush = () => {
 						clearTimeout(fallback);
-						resolve();
+						resolve(true);
 					};
 					capture.node?.port.postMessage("flush");
 				});
@@ -314,18 +327,24 @@ export function useChatVoiceCapture({
 				await discard(recording, generation);
 				return;
 			}
+			// A resumed draft includes PCM from before this socket opened.
+			const final = destination === "text" && flushed && !capture?.resumed ? capture?.preview?.finish() : undefined;
+			if (!final) stopPreview?.();
 			const frozen = destination === "send" ? { ...recording, frozen: true as const } : recording;
 			restored.current = frozen;
 			const saved = await persist(frozen, generation);
 			if (saved?.nonce !== frozen.nonce) throw new Error("voice_draft_changed");
+			const liveText = final ? await final : undefined;
 			controller.signal.throwIfAborted();
 			if (chatCacheGeneration() !== generation) return;
-			await action(frozen, controller.signal);
+			await action(frozen, controller.signal, liveText);
 			await discard(frozen, generation);
 		} catch {
 			if (mounted.current && !controller.signal.aborted)
 				callbacks.current.onError(destination === "text" ? "chat.voiceFailed" : "chat.sendPreserved");
 		} finally {
+			if (stopPreview) controller.signal.removeEventListener("abort", stopPreview);
+			stopPreview?.();
 			if (operation.current === controller) operation.current = undefined;
 			if (mounted.current && !current.current) setPhase(restored.current ? "saved" : "idle");
 		}
