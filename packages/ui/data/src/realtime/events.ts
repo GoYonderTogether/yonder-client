@@ -8,6 +8,7 @@ import type { ItemSessionResponse, Member, QuotaConfigResponse, ServerEvent } fr
 import { writeAgentCard } from "../query/agent-cards.ts";
 import { keys } from "../query/keys.ts";
 import { invalidateMemoryFiles } from "../query/memory-files.ts";
+import { timelineSnapshot } from "../query/timeline-snapshot.ts";
 import { writeFriendRequest } from "./friend-request-cache.ts";
 import { removeConversation, removeMember, writeConversation, writeMember } from "./member-cache.ts";
 import { applyChatHistoryClear, updateMessage, updateRun } from "./message-cache.ts";
@@ -187,8 +188,10 @@ export function applyServerEvent(queryClient: QueryClient, event: ServerEvent, h
 			break;
 		}
 		case "memory.changed": {
-			// The timeline is one paged query, and the event may name a new day.
-			if (event.dates?.length) void queryClient.invalidateQueries({ queryKey: keys.memory.days() });
+			const queryKey = keys.memory.days();
+			const oldest = timelineSnapshot(queryClient.getQueryData(queryKey))?.pages.at(-1)?.nextCursor;
+			// A day before the loaded cursor will be fresh when the user fetches that page.
+			if (event.dates?.some((date) => !oldest || date >= oldest)) void queryClient.invalidateQueries({ queryKey });
 			if (event.paths?.length) void invalidateMemoryFiles(queryClient, event.paths);
 			void queryClient.invalidateQueries({ queryKey: keys.memory.organization() });
 			break;

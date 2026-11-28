@@ -1,5 +1,7 @@
 import { Image, Text, View } from "@tarojs/components";
 import { botFacePaths, firstCharacter, tintFor } from "@yonder/chat-model";
+import { useAvatarPath } from "../../components/remote-avatar";
+import { useVisibleImage } from "../../components/visible-image";
 
 const face = botFacePaths(1);
 const maskImage = `url("data:image/svg+xml,${encodeURIComponent(
@@ -19,6 +21,8 @@ export function ChatAvatar({
 	color?: string | null;
 	size?: number;
 }) {
+	const { id, visible } = useVisibleImage(Boolean(src));
+	const path = useAvatarPath(src, visible);
 	const tint =
 		color && /^[1-6]$/.test(color)
 			? { background: `var(--color-avatar-${color}-bg)`, foreground: `var(--color-avatar-${color}-fg)` }
@@ -27,11 +31,12 @@ export function ChatAvatar({
 				: tintFor(name);
 	return (
 		<View
+			id={id}
 			className={`mini-chat-avatar mini-chat-avatar-${kind}`}
 			style={{ width: `${size}px`, height: `${size}px`, backgroundColor: tint.background, color: tint.foreground }}
 		>
-			{src ? (
-				<Image className="mini-chat-avatar-image" src={src} mode="aspectFill" />
+			{path ? (
+				<Image className="mini-chat-avatar-image" src={path} mode="aspectFill" />
 			) : kind === "bot" ? (
 				<View
 					className="mini-chat-avatar-bot-face"

@@ -193,6 +193,15 @@ describe("applyServerEvent", () => {
 		queryClient.setQueryData(keys.memory.days(), { pages: [] });
 		reconcileRealtime(queryClient);
 		expect(queryClient.getQueryState(keys.memory.days())?.isInvalidated).toBe(true);
+		const key = keys.memory.days();
+		queryClient.setQueryData(key, { pages: [{ items: [], nextCursor: "2026-11-16" }], pageParams: [undefined] });
+		applyServerEvent(queryClient, {
+			type: "memory.changed",
+			eventId: "memory-before-cursor",
+			at: "2026-11-27T00:00:00Z",
+			dates: ["2026-11-15"],
+		});
+		expect(queryClient.getQueryState(key)?.isInvalidated).toBe(false);
 	});
 	test("a member update replaces the cached profile in place, with no request", () => {
 		const queryClient = new QueryClient();

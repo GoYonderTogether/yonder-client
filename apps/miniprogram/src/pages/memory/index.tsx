@@ -1,10 +1,12 @@
 import { Button as NativeButton, Text, View } from "@tarojs/components";
-import type { MemoryBlock, MemoryDay, MemoryEntry, MemoryVisibility } from "@yonder/protocol";
+import type { MemoryBlock, MemoryDay, MemoryDayPage, MemoryEntry, MemoryVisibility } from "@yonder/protocol";
 import { useEffect, useRef, useState } from "react";
 import { Button, Page, State } from "../../components/ui";
 import { useResource } from "../../components/use-resource";
 import { t, useLocale } from "../../lib/i18n";
-import { api, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
+import { metadataKey, readSnapshot, timelinePageAffected } from "../../lib/metadata-cache";
+import { api, invalidateImages, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
+import { MessageAttachment } from "../chat/attachment";
 import { MessageBody } from "../chat/markdown";
 import { affectsMemory } from "./realtime";
 import "./style.scss";
@@ -44,8 +46,27 @@ function MemorySections() {
 	);
 }
 
-function useMemoryResource<T>(load: () => Promise<T>, path?: string) {
-	const resource = useResource(load);
+function useMemoryResource<T>(
+	load: () => Promise<T>,
+	{
+		path,
+		cursor,
+		timeZone,
+		reconcile,
+	}: {
+		path?: string;
+		cursor?: string | undefined;
+		timeZone?: string | undefined;
+		reconcile?: (before: T, after: T) => void;
+	},
+) {
+	const { memberId } = useSession();
+	const key = memberId
+		? path
+			? metadataKey(memberId, "memory", path)
+			: metadataKey(memberId, "timeline", timeZone, cursor)
+		: undefined;
+	const resource = useResource(load, key, reconcile);
 	const { reload } = resource;
 	const revision = useRealtimeRevision();
 	const seenRevision = useRef(revision);
@@ -57,9 +78,14 @@ function useMemoryResource<T>(load: () => Promise<T>, path?: string) {
 	useEffect(
 		() =>
 			subscribeEvents((event) => {
-				if (affectsMemory(event, path)) void reload();
+				if (!affectsMemory(event, path)) return;
+				if (cursor && key && event.type === "memory.changed" && event.dates) {
+					const current = readSnapshot<MemoryDayPage>(key);
+					if (current && !timelinePageAffected(current.data, event.dates, false)) return;
+				}
+				void reload();
 			}),
-		[path, reload],
+		[cursor, key, path, reload],
 	);
 	return resource;
 }
@@ -75,14 +101,14 @@ function Visibility({ value }: { value?: MemoryVisibility | undefined }) {
 }
 
 function MemoryFile({ path, label }: { path: string; label: string }) {
-	const { data, loading, error, reload } = useMemoryResource(() => api.memoryFile(path), path);
+	const { data, loading, error, reload } = useMemoryResource(() => api.memoryFile(path), { path });
 	return (
 		<View className="mini-card">
 			<View className="mini-memory-heading">
 				<Text className="mini-memory-title">{label}</Text>
 				<Visibility value={error ? undefined : data?.visibility} />
 			</View>
-			{data && !error ? (
+			{data ? (
 				<MessageBody body={data.content} />
 			) : (
 				<State loading={loading} error={error} retry={() => void reload()} />
@@ -121,7 +147,12 @@ function TimelinePage({
 	onNewer: (() => void) | undefined;
 	onOlder: (cursor: string) => void;
 }) {
-	const { data, loading, error, reload } = useMemoryResource(() => api.memoryDays(cursor, deviceTimeZone()));
+	const timeZone = deviceTimeZone();
+	const { data, loading, error, reload } = useMemoryResource(() => api.memoryDays(cursor, timeZone), {
+		cursor,
+		timeZone,
+		reconcile: reconcileTimelineImages,
+	});
 	const [now, setNow] = useState(() => new Date());
 	const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString();
 	const today = local.slice(0, 10);
@@ -143,7 +174,7 @@ function TimelinePage({
 		void reload();
 	}, [today, reload]);
 
-	const items = error ? [] : (data?.items ?? []);
+	const items = data?.items ?? [];
 	const current: MemoryDay = items.find((day) => day.date === today) ?? {
 		date: today,
 		state: "ready",
@@ -192,14 +223,14 @@ function TimelinePage({
 					</View>
 				);
 			})}
-			{onNewer || (nextCursor && !error) ? (
+			{onNewer || nextCursor ? (
 				<View className="actions">
 					{onNewer ? (
 						<Button secondary onClick={onNewer}>
 							{t("较新的记忆", "Newer memories")}
 						</Button>
 					) : null}
-					{nextCursor && !error ? (
+					{nextCursor ? (
 						<Button secondary onClick={() => onOlder(nextCursor)}>
 							{t("更早的记忆", "Older memories")}
 						</Button>
@@ -208,6 +239,20 @@ function TimelinePage({
 			) : null}
 		</>
 	);
+}
+
+function timelineImages(page: MemoryDayPage) {
+	return page.items.flatMap((day) =>
+		day.blocks
+			.flatMap((block) => (block.type === "entry" ? [block.entry] : block.stay.entries))
+			.flatMap((entry) => entry.media.map(({ attachment }) => attachment.id)),
+	);
+}
+
+function reconcileTimelineImages(before: MemoryDayPage, after: MemoryDayPage) {
+	const current = new Set(timelineImages(after));
+	const days = before.items.filter((day) => timelinePageAffected(after, [day.date], false));
+	invalidateImages(timelineImages({ ...before, items: days }).filter((id) => !current.has(id)));
 }
 
 function TimelineBlock({ block, now }: { block: MemoryBlock; now: number | undefined }) {
@@ -242,6 +287,12 @@ function TimelineCard({ entry, now }: { entry: MemoryEntry; now: number | undefi
 			</View>
 			{upcoming ? <Text className="mini-muted">{t("计划", "Planned")}</Text> : null}
 			{content ? <MessageBody body={content} /> : null}
+			{entry.media
+				.filter(({ attachment }) => attachment.kind === "image")
+				.slice(0, 4)
+				.map(({ attachment }) => (
+					<MessageAttachment key={attachment.id} file={attachment} timeline />
+				))}
 			{sources.length ? <Text className="mini-muted">{sources.join(t("、", ", "))}</Text> : null}
 		</View>
 	);

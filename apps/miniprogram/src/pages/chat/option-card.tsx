@@ -2,20 +2,27 @@ import { Image, Button as NativeButton, ScrollView, Text, View } from "@tarojs/c
 import { InteractionCard } from "@yonder/chat-presentation";
 import type { Attachment } from "@yonder/protocol";
 import { useEffect, useState } from "react";
+import { useVisibleImage } from "../../components/visible-image";
 import { PREVIEW_MAX_LINES, previewHeightLines } from "../../lib/agent-card-view";
 import { t } from "../../lib/i18n";
-import { downloadAttachment } from "../../lib/runtime";
+import { downloadAttachmentImage, useSession } from "../../lib/runtime";
 import { ChatView } from "./host";
 import { MessageBody } from "./markdown";
 
 export function OptionImage({ file }: { file: Attachment }) {
-	const [path, setPath] = useState("");
+	const [loaded, setLoaded] = useState<{ fileId: string; owner: string; path: string }>();
 	const [failed, setFailed] = useState(false);
+	const { memberId } = useSession();
+	const { id: fileId, kind, name } = file;
+	const path = loaded && loaded.owner === memberId && loaded.fileId === fileId ? loaded.path : "";
+	const { id, visible } = useVisibleImage(true, ".mini-message-list");
 	useEffect(() => {
+		if (!visible || !memberId) return;
 		let active = true;
-		void downloadAttachment(file.id).then(
+		setFailed(false);
+		void downloadAttachmentImage({ id: fileId, kind, name }, "thumb").then(
 			(value) => {
-				if (active) setPath(value);
+				if (active) setLoaded({ fileId, owner: memberId, path: value });
 			},
 			() => {
 				if (active) setFailed(true);
@@ -24,18 +31,22 @@ export function OptionImage({ file }: { file: Attachment }) {
 		return () => {
 			active = false;
 		};
-	}, [file.id]);
-	return path && !failed ? (
-		<Image
-			className="message-option-image"
-			mode="aspectFit"
-			src={path}
-			ariaLabel={file.name}
-			onError={() => setFailed(true)}
-		/>
-	) : (
-		<View className="message-option-image">
-			<Text>{failed ? t("附件加载失败", "Could not load the attachment") : t("正在加载…", "Loading…")}</Text>
+	}, [fileId, kind, memberId, name, visible]);
+	return (
+		<View id={id}>
+			{path && !failed ? (
+				<Image
+					className="message-option-image"
+					mode="aspectFit"
+					src={path}
+					ariaLabel={file.name}
+					onError={() => setFailed(true)}
+				/>
+			) : (
+				<View className="message-option-image">
+					<Text>{failed ? t("附件加载失败", "Could not load the attachment") : t("正在加载…", "Loading…")}</Text>
+				</View>
+			)}
 		</View>
 	);
 }

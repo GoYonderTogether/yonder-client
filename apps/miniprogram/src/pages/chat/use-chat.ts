@@ -1,11 +1,19 @@
 import Taro, { useDidShow } from "@tarojs/taro";
 import { ApiError } from "@yonder/api-client";
 import { chatHistoryTimeOffset, isNewChatHistoryCutoff } from "@yonder/chat-model";
-import type { Attachment, ChatHistoryCutoff, Conversation, Message, SendMessageRequest } from "@yonder/protocol";
+import type {
+	Attachment,
+	ChatHistoryCutoff,
+	Conversation,
+	Message,
+	MessagePage,
+	SendMessageRequest,
+} from "@yonder/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../lib/i18n";
 import { patchConversation } from "../../lib/member-cache";
-import { api, newNonce, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
+import { METADATA_FRESH_MS, metadataKey, readSnapshot, updateSnapshots, writeSnapshot } from "../../lib/metadata-cache";
+import { api, invalidateImages, newNonce, subscribeEvents, useRealtimeRevision, useSession } from "../../lib/runtime";
 import { type ChatMessage, mergeMessages, updateRun } from "./model";
 import { closureText } from "./sentences";
 import { isVisitErrorCode, visitErrorSentence } from "./visits";
@@ -14,13 +22,15 @@ export function useChat(id: string) {
 	const { me, memberId, status } = useSession();
 	const revision = useRealtimeRevision();
 	const outboxKey = `yonder.mini.outbox.${memberId ?? ""}.${id}`;
+	const historyKey = memberId ? metadataKey(memberId, "messages", id) : "";
 	const messagesOwner = useRef(outboxKey);
 	const [messages, setMessages] = useState<ChatMessage[]>(() => {
 		try {
 			const stored = memberId ? Taro.getStorageSync(outboxKey) : [];
-			return Array.isArray(stored)
+			const drafts = Array.isArray(stored)
 				? stored.map((message: ChatMessage) => ({ ...message, pending: false, sendFailed: true }))
 				: [];
+			return mergeMessages(drafts, (historyKey && readSnapshot<MessagePage>(historyKey)?.data.items) || []);
 		} catch {
 			return [];
 		}
@@ -58,23 +68,36 @@ export function useChat(id: string) {
 	const latestLoad = useRef<{ scope: string; promise: Promise<boolean> } | null>(null);
 	const olderLoad = useRef<{ scope: string; cursor: string; promise: Promise<boolean> } | null>(null);
 	const historyCutoff = useRef<ChatHistoryCutoff>();
-	const applyHistoryCutoff = useCallback((cutoff: ChatHistoryCutoff | undefined): boolean => {
-		if (!cutoff || !isNewChatHistoryCutoff(cutoff, historyCutoff.current)) return false;
-		historyCutoff.current = cutoff;
-		latestLoad.current = null;
-		olderLoad.current = null;
-		cursorRef.current = null;
-		setCursor(null);
-		setHasFullHistory(false);
-		setOlderLoading(false);
-		setOlderError(false);
-		setMessages((current) =>
-			current.filter(
-				(message) => message.pending || message.sendFailed || chatHistoryTimeOffset(message.createdAt, cutoff) > 0,
-			),
-		);
-		return true;
-	}, []);
+	const applyHistoryCutoff = useCallback(
+		(cutoff: ChatHistoryCutoff | undefined): boolean => {
+			if (!cutoff || !isNewChatHistoryCutoff(cutoff, historyCutoff.current)) return false;
+			historyCutoff.current = cutoff;
+			if (historyKey)
+				updateSnapshots<MessagePage>(historyKey, (page) => {
+					if (!isNewChatHistoryCutoff(cutoff, page.historyClearedThrough)) return page;
+					invalidateImages(
+						page.items
+							.filter((message) => chatHistoryTimeOffset(message.createdAt, cutoff) <= 0)
+							.flatMap((message) => message.attachments.map(({ id }) => id)),
+					);
+					return undefined;
+				});
+			latestLoad.current = null;
+			olderLoad.current = null;
+			cursorRef.current = null;
+			setCursor(null);
+			setHasFullHistory(false);
+			setOlderLoading(false);
+			setOlderError(false);
+			setMessages((current) =>
+				current.filter(
+					(message) => message.pending || message.sendFailed || chatHistoryTimeOffset(message.createdAt, cutoff) > 0,
+				),
+			);
+			return true;
+		},
+		[historyKey],
+	);
 	useEffect(() => {
 		active.current = Boolean(id && memberId);
 		historyCutoff.current = undefined;
@@ -97,11 +120,12 @@ export function useChat(id: string) {
 		messagesOwner.current = outboxKey;
 		try {
 			const stored = memberId ? Taro.getStorageSync(outboxKey) : [];
-			setMessages(
-				Array.isArray(stored)
-					? stored.map((message: ChatMessage) => ({ ...message, pending: false, sendFailed: true }))
-					: [],
-			);
+			const drafts = Array.isArray(stored)
+				? stored.map((message: ChatMessage) => ({ ...message, pending: false, sendFailed: true }))
+				: [];
+			const cached = historyKey ? readSnapshot<MessagePage>(historyKey)?.data : undefined;
+			setMessages(mergeMessages(drafts, cached?.items ?? []));
+			if (cached) setLoading(false);
 		} catch {
 			setMessages([]);
 			setError(t("无法读取待发送消息", "Could not read pending messages."));
@@ -110,18 +134,40 @@ export function useChat(id: string) {
 			active.current = false;
 			epoch.current++;
 		};
-	}, [id, memberId, outboxKey]);
+	}, [id, memberId, outboxKey, historyKey]);
 	const load = useCallback(
-		(older = false): Promise<boolean> => {
+		(older = false, force = true): Promise<boolean> => {
 			if (!id || status !== "signed-in" || messagesOwner.current !== outboxKey) return Promise.resolve(false);
 			const pageCursor = older ? cursorRef.current : null;
 			if (older && !pageCursor) return Promise.resolve(false);
-			if (older && olderLoad.current?.scope === outboxKey && olderLoad.current.cursor === pageCursor)
-				return olderLoad.current.promise;
+			if (older && olderLoad.current?.scope === outboxKey) return olderLoad.current.promise;
 			if (!older && latestLoad.current?.scope === outboxKey) return latestLoad.current.promise;
 			const ticket = epoch.current;
 			let cutoff = historyCutoff.current;
 			const currentRequest = () => active.current && ticket === epoch.current && cutoff === historyCutoff.current;
+			const pageKey = historyKey
+				? `${historyKey}${pageCursor ? encodeURIComponent(pageCursor).replaceAll(".", "%2E") : ""}`
+				: "";
+			const snapshot = pageKey ? readSnapshot<MessagePage>(pageKey) : undefined;
+			const cached =
+				snapshot && (!cutoff || !isNewChatHistoryCutoff(cutoff, snapshot.data.historyClearedThrough))
+					? snapshot
+					: undefined;
+			const applyPage = (page: MessagePage) => {
+				applyHistoryCutoff(page.historyClearedThrough);
+				cutoff = historyCutoff.current;
+				setMessages((current) => mergeMessages(current, page.items));
+				if (older || cursorRef.current === null) {
+					cursorRef.current = page.nextCursor;
+					setCursor(page.nextCursor);
+					if (page.nextCursor === null) setHasFullHistory(true);
+				}
+			};
+			if (cached) {
+				applyPage(cached.data);
+				setLoading(false);
+				if ((!force || older) && Date.now() - cached.savedAt < METADATA_FRESH_MS) return Promise.resolve(true);
+			}
 			if (older) {
 				setOlderError(false);
 				setOlderLoading(true);
@@ -129,24 +175,47 @@ export function useChat(id: string) {
 			const promise = (async () => {
 				try {
 					let page = await api.messages(id, pageCursor ?? undefined, { markRead: false });
+					let writeKey = pageKey;
 					if (!currentRequest()) return false;
 					if (older && page.historyClearedThrough && isNewChatHistoryCutoff(page.historyClearedThrough, cutoff)) {
 						// An older cursor from before the clear cannot tell us where current history begins.
 						page = await api.messages(id, undefined, { markRead: false });
+						writeKey = historyKey;
 						if (!currentRequest()) return false;
 					}
 					if (cutoff && isNewChatHistoryCutoff(cutoff, page.historyClearedThrough)) return false;
-					applyHistoryCutoff(page.historyClearedThrough);
-					cutoff = historyCutoff.current;
-					setMessages((current) => mergeMessages(current, page.items));
-					if (older || cursorRef.current === null) {
-						cursorRef.current = page.nextCursor;
-						setCursor(page.nextCursor);
-						if (page.nextCursor === null) setHasFullHistory(true);
+					if (cached && writeKey === pageKey) {
+						const currentIds = new Set(page.items.map((message) => message.id));
+						const oldest = page.items[0];
+						const removed = cached.data.items.filter(
+							(message) =>
+								!currentIds.has(message.id) &&
+								(older ||
+									!page.nextCursor ||
+									(oldest &&
+										(message.createdAt > oldest.createdAt ||
+											(message.createdAt === oldest.createdAt && message.id >= oldest.id)))),
+						);
+						if (removed.length) {
+							const missing = new Set(removed.map((message) => message.id));
+							setMessages((current) => current.filter((message) => !missing.has(message.id)));
+							invalidateImages(removed.flatMap((message) => message.attachments.map(({ id }) => id)));
+						}
 					}
+					applyPage(page);
+					if (writeKey) writeSnapshot(writeKey, page);
 					return true;
-				} catch {
+				} catch (cause) {
 					if (currentRequest()) {
+						if (historyKey && cause instanceof ApiError && [401, 403, 404].includes(cause.status)) {
+							updateSnapshots<MessagePage>(historyKey, (page) => {
+								invalidateImages(page.items.flatMap((message) => message.attachments.map(({ id }) => id)));
+								return undefined;
+							});
+							setMessages((current) => current.filter((message) => message.pending || message.sendFailed));
+							cursorRef.current = null;
+							setCursor(null);
+						}
 						if (older) setOlderError(true);
 						else setError(t("消息加载失败，请重试", "Could not load messages. Try again."));
 					}
@@ -171,7 +240,7 @@ export function useChat(id: string) {
 			}
 			return promise;
 		},
-		[id, status, outboxKey, applyHistoryCutoff],
+		[id, status, outboxKey, historyKey, applyHistoryCutoff],
 	);
 	const acceptConversation = useCallback(
 		(next: Conversation | undefined) => {
@@ -212,17 +281,19 @@ export function useChat(id: string) {
 		acceptMessage(card);
 		if (reply && reply.conversationId === id) acceptMessage(reply);
 	};
+	const seenRevision = useRef(revision);
 	useEffect(() => {
-		void revision;
-		void load();
+		const reconnected = seenRevision.current !== revision;
+		seenRevision.current = revision;
+		void load(false, reconnected);
 	}, [revision, load]);
 	useDidShow(() => {
 		if (status === "signed-out") void Taro.reLaunch({ url: "/pages/sign-in/index" });
-		else void load();
+		else void load(false, false);
 	});
 	useEffect(() => {
 		if (status !== "signed-in") return;
-		void load();
+		void load(false, false);
 		void refresh();
 		return subscribeEvents((event) => {
 			if ((event.type === "message.created" || event.type === "message.updated") && event.message.conversationId === id)

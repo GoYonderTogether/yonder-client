@@ -1,10 +1,11 @@
-import { Image, Switch, Text, View } from "@tarojs/components";
+import { Switch, Text, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import { botRoleProblem } from "@yonder/chat-model";
 import type { Member } from "@yonder/protocol";
 import { useEffect, useState } from "react";
 import { FriendRequestCard } from "../../components/friend-request-card";
 import { qrTarget } from "../../components/qr-target";
+import { RemoteAvatar } from "../../components/remote-avatar";
 import { action, Button, Field, go, Page, State } from "../../components/ui";
 import { useFriendRequests } from "../../components/use-friend-requests";
 import { useResource } from "../../components/use-resource";
@@ -77,12 +78,7 @@ export default function Contacts() {
 				/>
 				{data?.items.map((member) => (
 					<View className="mini-row" key={member.id}>
-						{member.avatarUrl && (
-							<Image
-								src={member.avatarUrl.startsWith("/") ? `${client.baseUrl}${member.avatarUrl}` : member.avatarUrl}
-								className="mini-avatar"
-							/>
-						)}
+						{member.avatarUrl && <RemoteAvatar src={member.avatarUrl} />}
 						<View
 							className="mini-row-main"
 							onClick={() => void action(async () => open((await api.addContact(member.id)).conversation.id))}

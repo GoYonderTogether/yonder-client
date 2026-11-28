@@ -101,6 +101,7 @@ export function DataProvider({
 			...(refreshAccessToken ? { refreshAccessToken } : {}),
 			onSessionLost: () => {
 				void onSessionChange?.();
+				void clearChatCache().catch(() => {});
 				if (clientKind === "web") storage.set(WEB_SESSION_EXPIRY, "0");
 				queryClient.removeQueries({ queryKey: keys.memory.all() });
 				queryClient.removeQueries({ queryKey: keys.agentCards.all() });

@@ -5,6 +5,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { createMemoryStorage } from "../storage/index.ts";
 import { CACHE_STORAGE_KEY, CACHE_VERSION, createPersister, createQueryClient, dehydrateOptions } from "./client.ts";
 import { keys } from "./keys.ts";
+import { deviceTimeZone } from "./timeline-snapshot.ts";
 
 afterEach(() => vi.useRealTimers());
 
@@ -47,6 +48,77 @@ test("does not persist private content and skips legacy cached cards on restore"
 	expect(restored).not.toContainEqual(keys.memberProfile("friend"));
 	expect(restored).not.toContainEqual(keys.publicMemberProfile("friend"));
 	client.clear();
+});
+
+test("restores a loaded timeline page and cursor without secret entries and links", async () => {
+	const client = createQueryClient();
+	const storage = createMemoryStorage();
+	const persister = createPersister(storage);
+	const key = keys.memory.days();
+	const secret = { id: "redacted", visibility: "secret", title: "secret-title", mediaCount: 1 };
+	const cacheTimeZone = deviceTimeZone() ?? null;
+	const safe = {
+		id: "visible",
+		visibility: "private",
+		title: "offline-card-title",
+		links: [{ entryId: secret.id, label: "secret-link-label" }],
+		mediaCount: 0,
+	};
+	client.setQueryData(key, {
+		pages: [
+			{
+				nextCursor: "2026-11-18",
+				cacheTimeZone,
+				items: [
+					{
+						date: "2026-11-18",
+						digest: { photos: 1 },
+						blocks: [
+							{ type: "entry", entry: safe },
+							{ type: "entry", entry: secret },
+						],
+					},
+				],
+			},
+		],
+		pageParams: [undefined],
+	});
+	await persister.persistClient({
+		buster: CACHE_VERSION,
+		timestamp: Date.now(),
+		clientState: dehydrate(client, dehydrateOptions),
+	});
+	persister.flush();
+	const saved = storage.get(CACHE_STORAGE_KEY);
+	expect(saved).toContain("offline-card-title");
+	expect(saved).not.toContain("secret-title");
+	expect(saved).not.toContain("secret-link-label");
+	const restored = createQueryClient();
+	await persistQueryClientRestore({ queryClient: restored, persister, buster: CACHE_VERSION });
+	expect(restored.getQueryData(key)).toEqual({
+		pages: [
+			{
+				nextCursor: "2026-11-18",
+				cacheTimeZone,
+				items: [
+					{
+						date: "2026-11-18",
+						digest: { photos: 0 },
+						blocks: [{ type: "entry", entry: { ...safe, links: [] } }],
+					},
+				],
+			},
+		],
+		pageParams: [null],
+	});
+	if (!saved) throw new Error("Timeline was not persisted");
+	const outOfZone = JSON.parse(saved);
+	outOfZone.clientState.queries[0].state.data.pages[0].cacheTimeZone =
+		cacheTimeZone === "America/New_York" ? "Asia/Singapore" : "America/New_York";
+	storage.set(CACHE_STORAGE_KEY, JSON.stringify(outOfZone));
+	expect((await persister.restoreClient())?.clientState.queries).toEqual([]);
+	client.clear();
+	restored.clear();
 });
 
 test("skips old connector request cards and restores current cards and their device lists", async () => {

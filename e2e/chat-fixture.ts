@@ -93,6 +93,8 @@ export async function isolateChat(
 	);
 	await page.route("**/v1/**", async (route) => {
 		const path = new URL(route.request().url()).pathname;
+		if (/^\/v1\/(?:attachments\/[^/]+|meetings\/[^/]+\/live\/photos\/[^/]+)\/download$/.test(path))
+			return route.fulfill({ json: { url: null } });
 		if (path.endsWith("/messages") && route.request().method() === "POST") {
 			const payload = route.request().postDataJSON();
 			sent.push(payload);

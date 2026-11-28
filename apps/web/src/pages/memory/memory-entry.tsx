@@ -121,7 +121,12 @@ function EntryBody({ entry, time }: { entry: Entry; time: React.ReactNode }) {
 				{shown.length ? (
 					<span className={cn("memory-mosaic", shown.length > 3 && "memory-mosaic-4")}>
 						{shown.map((media, index) => (
-							<MemoryThumb key={media.attachment.id} media={media} more={index === shown.length - 1 ? extra : 0} />
+							<MemoryThumb
+								key={media.attachment.id}
+								media={media}
+								more={index === shown.length - 1 ? extra : 0}
+								persistent={entry.visibility !== "secret"}
+							/>
 						))}
 					</span>
 				) : null}
@@ -172,7 +177,12 @@ function EntryBody({ entry, time }: { entry: Entry; time: React.ReactNode }) {
 			{entry.size === "media" && shown.length ? (
 				<span className="memory-thumbs">
 					{shown.map((media, index) => (
-						<MemoryThumb key={media.attachment.id} media={media} more={index === shown.length - 1 ? extra : 0} />
+						<MemoryThumb
+							key={media.attachment.id}
+							media={media}
+							more={index === shown.length - 1 ? extra : 0}
+							persistent={entry.visibility !== "secret"}
+						/>
 					))}
 				</span>
 			) : null}

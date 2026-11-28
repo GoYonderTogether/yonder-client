@@ -80,10 +80,15 @@ export function meetingEndpoints(client: ApiClient) {
 				...(signal ? { signal } : {}),
 			});
 		},
-		meetingPhoto(id: string, photoId: string, signal: AbortSignal): Promise<Blob> {
+		meetingPhoto(id: string, photoId: string, signal?: AbortSignal): Promise<Blob> {
 			return client.request(
 				`/v1/meetings/${encodeURIComponent(id)}/live/photos/${encodeURIComponent(photoId)}/content`,
-				{ responseType: "blob", signal },
+				{ responseType: "blob", ...(signal ? { signal } : {}) },
+			);
+		},
+		meetingPhotoDownload(id: string, photoId: string, variant: "thumb" | "original"): Promise<{ url: string | null }> {
+			return client.request(
+				`/v1/meetings/${encodeURIComponent(id)}/live/photos/${encodeURIComponent(photoId)}/download?variant=${variant}`,
 			);
 		},
 		deleteMeeting(id: string): Promise<{ ok: true }> {

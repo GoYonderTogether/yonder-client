@@ -41,15 +41,19 @@ function MessageAttachment({
 	const { t } = useTranslation();
 	const labels = usePreviewTranslation();
 	const original = useAttachmentBlob(attachment);
+	const thumbnail = useAttachmentBlob(attachment, "thumb");
 	const { load } = original;
 	const downloadLabel = t("landingPage.nav.download");
 	const card = useRef<HTMLDivElement>(null);
 	const [visible, setVisible] = useState(false);
 	const [display, setDisplay] = useState<Blob>();
 	const kind = previewKind(attachment);
+	const inlineImage =
+		kind === "image" && attachment.mimeType.startsWith("image/") && attachment.mimeType !== "image/svg+xml";
+	const visual = inlineImage ? thumbnail : original;
 	const poster = useVideoPoster(kind === "video" ? original.blob : undefined);
 	const url = useObjectUrl(kind === "video" ? poster : display);
-	const media = !original.error && (kind === "image" || (kind === "video" && !!url));
+	const media = !visual.error && ((inlineImage && (!original.error || !!url)) || (kind === "video" && !!url));
 	const extension = /\.([a-z0-9]{1,8})$/i.exec(attachment.name)?.[1]?.toUpperCase() ?? attachment.mimeType;
 
 	useLayoutEffect(() => {
@@ -71,23 +75,22 @@ function MessageAttachment({
 		};
 	}, [attachment, downloadLabel, load, loaders]);
 	useEffect(() => {
-		const observer = new IntersectionObserver((entries) => setVisible(entries.some((entry) => entry.isIntersecting)), {
-			rootMargin: "300px",
-		});
+		if (typeof IntersectionObserver === "undefined") return setVisible(true);
+		const observer = new IntersectionObserver((entries) => setVisible(entries.some((entry) => entry.isIntersecting)));
 		if (card.current) observer.observe(card.current);
 		return () => observer.disconnect();
 	}, []);
 	useEffect(() => {
 		if (!visible) return;
-		if (kind === "image") void original.load();
+		if (inlineImage) void thumbnail.load();
 		// The sending flow may already have cached an original. Peeking never fetches or parses it.
 		else void original.loadCached();
-	}, [visible, kind, original.load, original.loadCached]);
+	}, [visible, inlineImage, thumbnail.load, original.loadCached]);
 	useEffect(() => {
 		let active = true;
 		setDisplay(undefined);
-		if (original.blob && kind === "image")
-			void ensureDisplayBlob(original.blob, attachment.name)
+		if (thumbnail.blob && inlineImage)
+			void ensureDisplayBlob(thumbnail.blob, attachment.name)
 				.then((blob) => {
 					if (active) setDisplay(blob);
 				})
@@ -95,7 +98,7 @@ function MessageAttachment({
 		return () => {
 			active = false;
 		};
-	}, [original.blob, kind, attachment.name]);
+	}, [thumbnail.blob, inlineImage, attachment.name]);
 	return (
 		<AttachmentTile as="div" elementRef={card} id={attachment.id}>
 			<button
@@ -118,7 +121,7 @@ function MessageAttachment({
 								<Play size={24} fill="currentColor" />
 							</span>
 						) : null}
-						{original.loading ? (
+						{visual.loading ? (
 							<span className="message-attachment-overlay">
 								<LoaderCircle className="animate-spin" size={20} aria-label={t("app.loading")} />
 							</span>
@@ -131,7 +134,7 @@ function MessageAttachment({
 								{attachment.name}
 							</span>
 							<small>
-								{original.error
+								{visual.error || original.error
 									? `${t("chat.attachmentFailed")} · ${t("app.retry")}`
 									: `${extension} · ${Math.ceil(attachment.size / 1024)} KB`}
 							</small>
@@ -160,7 +163,7 @@ function MessageAttachment({
 						</span>
 					</>
 				)}
-				{original.cacheError ? (
+				{visual.cacheError || original.cacheError ? (
 					<span role="status" className="message-attachment-cache-error" title={t("chat.cacheFailed")}>
 						<CircleAlert size={14} aria-label={t("chat.cacheFailed")} />
 					</span>

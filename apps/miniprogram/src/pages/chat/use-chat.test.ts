@@ -35,6 +35,7 @@ vi.mock("../../lib/runtime", () => ({
 		sendMessage: mock.send,
 	},
 	newNonce: () => "nonce",
+	invalidateImages() {},
 	subscribeEvents: mock.subscribe,
 	useRealtimeRevision: () => 0,
 	useSession: () => ({ status: "signed-in", me: null, memberId: mock.owner }),
@@ -75,6 +76,35 @@ test("a stored member ID restores the local outbox while the profile is offline"
 	expect(state.me).toBeNull();
 	expect(state.messages).toEqual([{ ...row, pending: false, sendFailed: true }]);
 	await act(async () => root.unmount());
+});
+
+test("reopens previously loaded history pages from storage without repeating page requests", async () => {
+	mock.owner = "a";
+	mock.store.clear();
+	mock.conversations.mockResolvedValue({ items: [] });
+	const older = { ...row, id: "older", createdAt: "2025-01-01" };
+	mock.messages
+		.mockReset()
+		.mockResolvedValueOnce({ items: [row], nextCursor: "older-page" })
+		.mockResolvedValueOnce({ items: [older], nextCursor: null });
+	const first = createRoot(document.createElement("div"));
+	await act(async () => first.render(createElement(Probe, { id: "one" })));
+	await act(async () => {
+		await state.load(true);
+	});
+	expect(state.messages.map(({ id }) => id)).toEqual(["older", "old"]);
+	expect(mock.messages).toHaveBeenCalledTimes(2);
+	await act(async () => first.unmount());
+
+	const reopened = createRoot(document.createElement("div"));
+	await act(async () => reopened.render(createElement(Probe, { id: "one" })));
+	expect(state.messages.map(({ id }) => id)).toEqual(["old"]);
+	await act(async () => {
+		await state.load(true);
+	});
+	expect(state.messages.map(({ id }) => id)).toEqual(["older", "old"]);
+	expect(mock.messages).toHaveBeenCalledTimes(2);
+	await act(async () => reopened.unmount());
 });
 
 test("coalesces initial history and ignores a late result from the old scope", async () => {

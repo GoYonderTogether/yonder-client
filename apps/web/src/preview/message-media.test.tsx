@@ -17,6 +17,22 @@ vi.mock("@yonder/ui-data", () => ({
 	chatCacheGeneration: () => 0,
 	readChatCache,
 	writeChatCache: async (key: string, blob: Blob) => cached.set(key, blob),
+	onImageInvalidated: () => () => {},
+	loadImage: async (
+		_owner: string,
+		{ attachmentId }: { attachmentId: string },
+		variant: "thumb" | "original",
+		sign: () => Promise<{ url: string | null }>,
+		local: () => Promise<Blob>,
+	) => {
+		const key = `${variant}:${attachmentId}`;
+		const existing = cached.get(key);
+		if (existing) return { blob: existing };
+		expect(await sign()).toEqual({ url: null });
+		const blob = await local();
+		cached.set(key, blob);
+		return { blob };
+	},
 }));
 vi.mock("react-i18next", () => ({
 	useTranslation: () => ({
@@ -28,7 +44,7 @@ vi.mock("../lib/image-display.ts", () => ({
 	ensureDisplayBlob: async (blob: Blob) => blob,
 }));
 
-const api = { attachmentContent: fetchContent };
+const api = { attachmentContent: fetchContent, attachmentDownload: vi.fn().mockResolvedValue({ url: null }) };
 const file: Attachment = { id: "report", name: "report.txt", kind: "file", mimeType: "text/plain", size: 4096 };
 const first: Attachment = { ...file, id: "first", name: "first.png", mimeType: "image/png" };
 const second: Attachment = { ...first, id: "second", name: "second.png" };
@@ -37,6 +53,7 @@ const download = vi.fn<(name: string, url: string) => void>();
 beforeEach(() => {
 	cached.clear();
 	fetchContent.mockReset();
+	api.attachmentDownload.mockClear();
 	readChatCache.mockReset().mockImplementation(async (id: string) => cached.get(id));
 	download.mockClear();
 	vi.stubGlobal(
@@ -129,6 +146,7 @@ test("right-click bubbles and downloading from the second image uses only its or
 	expect(contextMenu).toHaveBeenCalledTimes(1);
 	await act(getAttachmentDownloadItem(target)?.run ?? (() => Promise.reject(new Error("Missing action"))));
 	expect(fetchContent).toHaveBeenCalledExactlyOnceWith(second.id);
+	expect(api.attachmentDownload).toHaveBeenCalledExactlyOnceWith(second.id, "original");
 	expect(download).toHaveBeenCalledExactlyOnceWith(second.name, "blob:original-6");
 });
 

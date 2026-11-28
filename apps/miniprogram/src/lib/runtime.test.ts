@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 const mock = vi.hoisted(() => ({
 	store: new Map<string, unknown>(),
+	files: new Map<string, number>(),
 	downloadFile: vi.fn(),
 	reLaunch: vi.fn(async () => {}),
 	unlink: vi.fn(),
@@ -16,7 +17,27 @@ vi.mock("@tarojs/taro", () => ({
 		removeStorageSync: (key: string) => mock.store.delete(key),
 		getStorageInfoSync: () => ({ keys: [...mock.store.keys()] }),
 		getSystemInfoSync: () => ({ language: "zh-CN", model: " iPhone  ", system: "iOS" }),
-		getFileSystemManager: () => ({ unlink: mock.unlink, readFileSync: () => new ArrayBuffer(1) }),
+		env: { USER_DATA_PATH: "/data" },
+		getFileSystemManager: () => ({
+			unlink: (options: { filePath: string }) => {
+				mock.files.delete(options.filePath);
+				mock.unlink(options);
+			},
+			unlinkSync: (path: string) => mock.files.delete(path),
+			readFileSync: () => new ArrayBuffer(1),
+			mkdirSync() {},
+			accessSync: (path: string) => {
+				if (!mock.files.has(path)) throw new Error("missing local file");
+			},
+			statSync: (path: string) => ({ size: mock.files.get(path) }),
+			saveFileSync: (source: string, target: string) => {
+				const size = mock.files.get(source);
+				if (size === undefined) throw new Error("missing temp file");
+				mock.files.set(target, size);
+				mock.files.delete(source);
+				return target;
+			},
+		}),
 		downloadFile: mock.downloadFile,
 		reLaunch: mock.reLaunch,
 	},
@@ -40,6 +61,8 @@ vi.mock("./realtime", () => ({
 beforeEach(() => {
 	vi.resetModules();
 	mock.store.clear();
+	mock.files.clear();
+	mock.downloadFile.mockReset();
 	mock.unlink.mockClear();
 	mock.fetch.mockResolvedValue({ status: 200, ok: true, json: async () => ({ ok: true }) });
 });
@@ -62,6 +85,42 @@ test("a previous account's late attachment is discarded and its temporary file r
 	expect(await pending).toMatchObject({ name: "AbortError" });
 	expect(mock.unlink).toHaveBeenCalledWith(expect.objectContaining({ filePath: "/tmp/old-account.png" }));
 	expect(runtime.client.accessToken).toBe("b");
+});
+
+test("downloads only the OSS thumbnail, reuses it across entry points and a restart, and clears it on sign-out", async () => {
+	const runtime = await import("./runtime");
+	await runtime.startSession({ accessToken: "a", refreshToken: "ra", me: me() });
+	mock.fetch.mockClear();
+	const thumbUrl = "https://media.example/attachment?thumb";
+	mock.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: thumbUrl }) });
+	mock.files.set("/tmp/thumb", 256);
+	mock.downloadFile.mockResolvedValueOnce({ statusCode: 200, tempFilePath: "/tmp/thumb" });
+	const file = { id: "att_image", name: "photo.jpg", kind: "image", mimeType: "image/jpeg", size: 80_000 } as const;
+	const requests = await Promise.all([
+		runtime.downloadAttachmentImage(file, "thumb"),
+		runtime.downloadAttachmentImage(file, "thumb"),
+	]);
+	expect(requests[0]).toContain("/data/yonder-images-v1/");
+	expect(requests[0]).toBe(requests[1]);
+	expect(mock.fetch).toHaveBeenCalledExactlyOnceWith(
+		expect.stringMatching(/\/v1\/attachments\/att_image\/download\?variant=thumb$/),
+		expect.objectContaining({ headers: expect.objectContaining({ authorization: "Bearer a" }) }),
+	);
+	expect(mock.downloadFile.mock.calls).toEqual([[{ url: thumbUrl, withCredentials: false }]]);
+	vi.resetModules();
+	const restarted = await import("./runtime");
+	expect(await restarted.downloadAttachmentImage(file, "thumb")).toBe(requests[0]);
+	expect(mock.fetch).toHaveBeenCalledTimes(1);
+	expect(mock.downloadFile).toHaveBeenCalledTimes(1);
+
+	const originalUrl = "https://media.example/attachment?original";
+	mock.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: originalUrl }) });
+	mock.files.set("/tmp/original", 80_000);
+	mock.downloadFile.mockResolvedValueOnce({ statusCode: 200, tempFilePath: "/tmp/original" });
+	expect(await restarted.downloadAttachmentImage(file, "original")).not.toBe(requests[0]);
+	expect(mock.downloadFile).toHaveBeenLastCalledWith({ url: originalUrl, withCredentials: false });
+	await restarted.signOut();
+	expect(mock.files.size).toBe(0);
 });
 
 test("offline startup retains the refresh credential and foreground retries after recovery", async () => {

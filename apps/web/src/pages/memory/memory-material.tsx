@@ -11,9 +11,11 @@ import { attachmentFile } from "./memory-media.tsx";
 export function Material({
 	material,
 	onPreview,
+	persistent,
 }: {
 	material: MemoryMaterial;
 	onPreview: (file: PreviewFile) => void;
+	persistent: boolean;
 }) {
 	const Icon = KIND_ICONS[material.kind];
 	const content = (
@@ -32,7 +34,12 @@ export function Material({
 	if (material.attachment)
 		return (
 			<li>
-				<AttachmentMaterial attachment={material.attachment} className={className} onPreview={onPreview}>
+				<AttachmentMaterial
+					attachment={material.attachment}
+					className={className}
+					onPreview={onPreview}
+					persistent={persistent}
+				>
 					{content}
 				</AttachmentMaterial>
 			</li>
@@ -56,15 +63,17 @@ function AttachmentMaterial({
 	attachment,
 	className,
 	onPreview,
+	persistent,
 	children,
 }: {
 	attachment: NonNullable<MemoryMaterial["attachment"]>;
 	className: string;
 	onPreview: (file: PreviewFile) => void;
+	persistent: boolean;
 	children: React.ReactNode;
 }) {
 	const { t } = useTranslation();
-	const blob = useAttachmentBlob(attachment);
+	const blob = useAttachmentBlob(attachment, "original", persistent);
 	return (
 		<>
 			<button

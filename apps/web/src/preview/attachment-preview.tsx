@@ -9,6 +9,7 @@ import { MediaPreview } from "./media-preview.tsx";
 import { PreviewBoundary } from "./preview-boundary.tsx";
 import { usePreviewTranslation } from "./preview-i18n.ts";
 import { TextPreview } from "./text-preview.tsx";
+import { useAttachmentImageRevoked } from "./use-image-blob.ts";
 import { usePreviewHistory } from "./use-preview-history.ts";
 import "./preview.css";
 
@@ -83,6 +84,13 @@ export function AttachmentReader({
 	const pane = useRef<HTMLElement>(null);
 	useImageKeys(pane, imageNavigation?.move);
 	const kind = previewKind(file);
+	const revoked = useAttachmentImageRevoked(kind === "image" ? file.id : undefined);
+	if (revoked)
+		return (
+			<p role="status" className="attachment-reader-notice">
+				{t("failed")}
+			</p>
+		);
 	let viewer: React.ReactNode;
 	if (kind === "image") viewer = <ImagePreview file={file} onClose={onClose} onSwipe={imageNavigation?.move} />;
 	else if (kind === "pdf") viewer = <PdfPreview file={file} />;
@@ -142,6 +150,11 @@ export function AttachmentPreview({
 	usePreviewHistory(onClose);
 	const layer = useRef<HTMLDivElement>(null);
 	useImageKeys(layer, imageNavigation?.move);
+	const revoked = useAttachmentImageRevoked(previewKind(file) === "image" ? file.id : undefined);
+	useEffect(() => {
+		if (revoked) onClose();
+	}, [revoked, onClose]);
+	if (revoked) return null;
 	return createPortal(
 		<div ref={layer} className="attachment-preview-layer">
 			<GesturePanel

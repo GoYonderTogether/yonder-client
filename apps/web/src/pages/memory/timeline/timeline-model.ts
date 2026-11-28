@@ -45,6 +45,7 @@ function stepsOf(entry: MemoryEntry): TimelineStep[] {
 				kind: "photo",
 				text: entry.text ?? "",
 				media: entry.media,
+				...(entry.visibility === "secret" ? { secretMedia: true } : {}),
 				photoCount: Math.max(entry.media.length, entry.mediaCount),
 				...(entry.place ? { photoNote: entry.place } : {}),
 			},

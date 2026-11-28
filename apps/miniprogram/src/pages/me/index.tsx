@@ -1,7 +1,8 @@
-import { Image, View } from "@tarojs/components";
+import { View } from "@tarojs/components";
+import { RemoteAvatar } from "../../components/remote-avatar";
 import { action, Button, go, Page, Row } from "../../components/ui";
 import { t, useLocale } from "../../lib/i18n";
-import { api, client, useSession } from "../../lib/runtime";
+import { api, useSession } from "../../lib/runtime";
 
 export default function Me() {
 	const { me, signOut } = useSession();
@@ -9,12 +10,7 @@ export default function Me() {
 	return (
 		<Page title={t("我", "Me")}>
 			<View className="mini-card">
-				{me?.member.avatarUrl && (
-					<Image
-						className="mini-avatar"
-						src={me.member.avatarUrl.startsWith("/") ? `${client.baseUrl}${me.member.avatarUrl}` : me.member.avatarUrl}
-					/>
-				)}
+				{me?.member.avatarUrl && <RemoteAvatar src={me.member.avatarUrl} />}
 				<Row title={me?.member.displayName || ""} detail={me?.member.handle} onClick={() => go("profile")} />
 			</View>
 			<View className="mini-card">

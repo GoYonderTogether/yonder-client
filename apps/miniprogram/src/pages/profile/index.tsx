@@ -1,10 +1,11 @@
-import { Image, View } from "@tarojs/components";
+import { View } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { ApiError } from "@yonder/api-client";
 import { useEffect, useRef, useState } from "react";
+import { RemoteAvatar } from "../../components/remote-avatar";
 import { action, Button, errorText, Field, Page } from "../../components/ui";
 import { t } from "../../lib/i18n";
-import { api, client, uploadAvatar, useSession } from "../../lib/runtime";
+import { api, uploadAvatar, useSession } from "../../lib/runtime";
 import { signInDestination } from "../sign-in/destination";
 
 /** The sentence for a refused handle change; the server's `message` is for developers. */
@@ -61,12 +62,7 @@ export default function Profile() {
 	return (
 		<Page title={t("个人资料", "Profile")}>
 			<View className="mini-card">
-				{me?.member.avatarUrl && (
-					<Image
-						src={me.member.avatarUrl.startsWith("/") ? `${client.baseUrl}${me.member.avatarUrl}` : me.member.avatarUrl}
-						className="mini-avatar"
-					/>
-				)}
+				{me?.member.avatarUrl && <RemoteAvatar src={me.member.avatarUrl} />}
 				<Button
 					secondary
 					onClick={() =>

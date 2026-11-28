@@ -12,7 +12,7 @@ import { MessageContent } from "./message-content.tsx";
 export function MessageCardImage({ file }: { file: Attachment }) {
 	const { t } = useTranslation();
 	const slot = useRef<HTMLSpanElement>(null);
-	const { blob, error, load } = useAttachmentBlob(file);
+	const { blob, error, load } = useAttachmentBlob(file, "thumb");
 	const [image, setImage] = useState<{ original: Blob; display: Blob | null }>();
 	const url = useObjectUrl(blob && image?.original === blob ? (image.display ?? undefined) : undefined);
 	useEffect(() => {

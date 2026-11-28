@@ -39,14 +39,24 @@ export function EntryDrawer({ entry, actions }: { entry: Entry; actions: EntryAc
 			{entry.media.length ? (
 				<div className={entry.media.length === 1 ? "memory-gallery memory-gallery-one" : "memory-gallery"}>
 					{entry.media.map((media) => (
-						<MemoryThumb key={media.attachment.id} media={media} onOpen={actions.onPreview} />
+						<MemoryThumb
+							key={media.attachment.id}
+							media={media}
+							onOpen={actions.onPreview}
+							persistent={entry.visibility !== "secret"}
+						/>
 					))}
 				</div>
 			) : null}
 			{entry.materials.length ? (
 				<ul className="memory-materials">
 					{entry.materials.map((material) => (
-						<Material key={material.id} material={material} onPreview={actions.onPreview} />
+						<Material
+							key={material.id}
+							material={material}
+							onPreview={actions.onPreview}
+							persistent={entry.visibility !== "secret"}
+						/>
 					))}
 				</ul>
 			) : null}

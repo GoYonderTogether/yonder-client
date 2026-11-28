@@ -269,7 +269,12 @@ export function MeetingReading({
 									<figcaption className="text-caption tabular-nums text-[var(--color-text-secondary)]">
 										{t("meetingRecorder.archivePhoto", { time })}
 									</figcaption>
-									<MeetingArchiveImage meetingId={meeting.id} photo={entry.photo} lazy={source !== id} />
+									<MeetingArchiveImage
+										meetingId={meeting.id}
+										photo={entry.photo}
+										original={source === id}
+										lazy={source !== id}
+									/>
 									{photos.length > 1 ? (
 										<div className="flex justify-between gap-[var(--spacing-2)]">
 											<Button

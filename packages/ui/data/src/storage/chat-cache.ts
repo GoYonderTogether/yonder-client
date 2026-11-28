@@ -4,7 +4,7 @@ let connection: Promise<IDBDatabase> | undefined;
 let generation = 0;
 export const chatCacheGeneration = () => generation;
 
-function open(): Promise<IDBDatabase> {
+export function openChatCache(): Promise<IDBDatabase> {
 	if (!globalThis.indexedDB) return Promise.reject(new Error("local_storage_unavailable"));
 	connection ??= new Promise<IDBDatabase>((resolve, reject) => {
 		const request = indexedDB.open(DATABASE, 1);
@@ -20,7 +20,7 @@ function open(): Promise<IDBDatabase> {
 }
 
 export async function readChatCache<T>(key: string): Promise<T | undefined> {
-	const db = await open();
+	const db = await openChatCache();
 	return new Promise((resolve, reject) => {
 		const request = db.transaction("records").objectStore("records").get(key);
 		request.onsuccess = () => resolve(request.result as T | undefined);
@@ -29,7 +29,7 @@ export async function readChatCache<T>(key: string): Promise<T | undefined> {
 }
 
 export async function writeChatCache(key: string, value: unknown, current = generation): Promise<void> {
-	const db = await open();
+	const db = await openChatCache();
 	if (generation !== current) return;
 	return new Promise((resolve, reject) => {
 		const transaction = db.transaction("records", "readwrite");
@@ -45,7 +45,7 @@ export async function updateChatCache<T>(
 	update: (value: T | undefined) => T | undefined,
 	current = generation,
 ): Promise<T | undefined> {
-	const db = await open();
+	const db = await openChatCache();
 	if (generation !== current) return;
 	return new Promise((resolve, reject) => {
 		const transaction = db.transaction("records", "readwrite");
@@ -65,7 +65,7 @@ export async function updateChatCache<T>(
 }
 
 export async function removeChatCache(key: string): Promise<void> {
-	const db = await open();
+	const db = await openChatCache();
 	return new Promise((resolve, reject) => {
 		const transaction = db.transaction("records", "readwrite");
 		transaction.objectStore("records").delete(key);
@@ -75,7 +75,7 @@ export async function removeChatCache(key: string): Promise<void> {
 }
 
 export async function listChatCache<T>(prefix: string): Promise<T[]> {
-	const db = await open();
+	const db = await openChatCache();
 	return new Promise((resolve, reject) => {
 		const request = db
 			.transaction("records")
@@ -87,7 +87,7 @@ export async function listChatCache<T>(prefix: string): Promise<T[]> {
 }
 
 export async function chatCacheKeys(prefix: string): Promise<string[]> {
-	const db = await open();
+	const db = await openChatCache();
 	return new Promise((resolve, reject) => {
 		const request = db
 			.transaction("records")
@@ -101,7 +101,7 @@ export async function chatCacheKeys(prefix: string): Promise<string[]> {
 export async function clearChatCache(): Promise<void> {
 	generation++;
 	if (!globalThis.indexedDB) return;
-	const db = await open();
+	const db = await openChatCache();
 	await new Promise<void>((resolve, reject) => {
 		const transaction = db.transaction("records", "readwrite");
 		transaction.objectStore("records").clear();

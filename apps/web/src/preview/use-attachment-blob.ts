@@ -2,18 +2,43 @@ import type { Attachment } from "@yonder/protocol";
 import {
 	attachmentCacheKey,
 	chatCacheGeneration,
+	type ImageVariant,
 	readChatCache,
 	useApi,
 	usePerson,
 	writeChatCache,
 } from "@yonder/ui-data";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useImageBlob } from "./use-image-blob.ts";
+
+export function useAttachmentBlob(attachment: Attachment, variant: ImageVariant = "original", persistent = true) {
+	const api = useApi();
+	const { id, mimeType } = attachment;
+	const privateImage = mimeType.toLowerCase().startsWith("image/") && mimeType !== "image/svg+xml";
+	const image = useImageBlob(
+		useMemo(
+			() =>
+				privateImage
+					? {
+							resource: { attachmentId: id },
+							variant,
+							persistent,
+							sign: () => api.attachmentDownload(id, variant),
+							local: () => api.attachmentContent(id),
+						}
+					: undefined,
+			[api, id, privateImage, persistent, variant],
+		),
+	);
+	const legacy = useLegacyAttachmentBlob(attachment, !privateImage, persistent);
+	return privateImage ? { ...legacy, ...image } : legacy;
+}
 
 /** Original bytes stay account-scoped; a late fetch cannot repopulate an exited account's cache. */
-export function useAttachmentBlob(attachment: Attachment) {
+function useLegacyAttachmentBlob(attachment: Attachment, enabled: boolean, persistent: boolean) {
 	const api = useApi();
 	const owner = usePerson()?.id;
-	const key = owner ? attachmentCacheKey(owner, attachment.id) : "";
+	const key = owner && enabled ? attachmentCacheKey(owner, attachment.id) : "";
 	const current = useRef(key);
 	current.current = key;
 	const mounted = useRef(true);
@@ -43,12 +68,12 @@ export function useAttachmentBlob(attachment: Attachment) {
 		setError(false);
 		const operation = (async () => {
 			try {
-				const cached = await readChatCache<Blob>(key).catch(() => undefined);
+				const cached = persistent ? await readChatCache<Blob>(key).catch(() => undefined) : undefined;
 				const content = cached ?? (await api.attachmentContent(attachment.id));
 				if (generation !== chatCacheGeneration() || current.current !== key) return;
 				loaded.current = { key, blob: content };
 				if (mounted.current) setBlob(content);
-				if (!cached)
+				if (persistent && !cached)
 					await writeChatCache(key, content, generation).catch(() => {
 						if (mounted.current) setCacheError(true);
 					});
@@ -62,21 +87,21 @@ export function useAttachmentBlob(attachment: Attachment) {
 		})();
 		pending.current = { key, promise: operation };
 		return operation;
-	}, [api, key, attachment.id]);
+	}, [api, key, attachment.id, persistent]);
 	const loadPart = async (id: string) => {
 		if (id === attachment.id) return load();
 		if (!owner) return;
 		const generation = chatCacheGeneration();
 		const partKey = attachmentCacheKey(owner, id);
-		const cached = await readChatCache<Blob>(partKey).catch(() => undefined);
+		const cached = persistent ? await readChatCache<Blob>(partKey).catch(() => undefined) : undefined;
 		if (generation !== chatCacheGeneration() || current.current !== key) return;
 		const content = cached ?? (await api.attachmentContent(id));
 		if (generation !== chatCacheGeneration() || current.current !== key) return;
-		if (!cached) void writeChatCache(partKey, content, generation).catch(() => {});
+		if (persistent && !cached) void writeChatCache(partKey, content, generation).catch(() => {});
 		return content;
 	};
 	const loadCached = useCallback(async () => {
-		if (!key) return;
+		if (!key || !persistent) return;
 		const generation = chatCacheGeneration();
 		const content =
 			loaded.current?.key === key ? loaded.current.blob : await readChatCache<Blob>(key).catch(() => undefined);
@@ -84,7 +109,7 @@ export function useAttachmentBlob(attachment: Attachment) {
 		loaded.current = { key, blob: content };
 		if (mounted.current) setBlob(content);
 		return content;
-	}, [key]);
+	}, [key, persistent]);
 	return {
 		blob: loaded.current?.key === key ? blob : undefined,
 		load,

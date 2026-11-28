@@ -18,9 +18,6 @@ function useNearScreen<T extends Element>() {
 		if (typeof IntersectionObserver === "undefined") return setNear(true);
 		const observer = new IntersectionObserver(
 			(entries) => entries.some((entry) => entry.isIntersecting) && setNear(true),
-			{
-				rootMargin: "400px",
-			},
 		);
 		observer.observe(element);
 		return () => observer.disconnect();
@@ -37,21 +34,25 @@ export function MemoryThumb({
 	more = 0,
 	onOpen,
 	className,
+	persistent = true,
 }: {
 	media: MemoryMedia;
 	more?: number;
 	onOpen?: ((file: PreviewFile) => void) | undefined;
 	className?: string;
+	persistent?: boolean;
 }) {
 	const { ref, near } = useNearScreen<HTMLSpanElement>();
-	const blob = useAttachmentBlob(media.attachment);
 	const video = media.attachment.mimeType.startsWith("video/");
-	const poster = useVideoPoster(video ? blob.blob : undefined);
-	const url = useObjectUrl(video ? poster : blob.blob);
-	const { load } = blob;
+	const original = useAttachmentBlob(media.attachment, "original", persistent);
+	const thumbnail = useAttachmentBlob(media.attachment, "thumb", persistent);
+	const poster = useVideoPoster(video ? original.blob : undefined);
+	const url = useObjectUrl(video ? poster : thumbnail.blob);
+	const { load: loadOriginal } = original;
+	const { load } = thumbnail;
 	useEffect(() => {
-		if (near) void load();
-	}, [near, load]);
+		if (near) void (video ? loadOriginal() : load());
+	}, [near, video, loadOriginal, load]);
 	const body = (
 		<>
 			{url ? <img src={url} alt="" draggable={false} /> : null}
@@ -64,7 +65,7 @@ export function MemoryThumb({
 			{more > 0 ? <span className="memory-thumb-more">+{more}</span> : null}
 		</>
 	);
-	const classes = cn("memory-thumb", blob.error && "memory-thumb-failed", className);
+	const classes = cn("memory-thumb", (video ? original.error : thumbnail.error) && "memory-thumb-failed", className);
 	if (!onOpen)
 		return (
 			<span ref={ref} className={classes} aria-hidden>
@@ -78,7 +79,7 @@ export function MemoryThumb({
 			className={classes}
 			aria-label={media.attachment.name}
 			onClick={async () => {
-				const content = blob.blob ?? (await load());
+				const content = await original.load();
 				if (content) onOpen(attachmentFile(media.attachment, content));
 			}}
 		>

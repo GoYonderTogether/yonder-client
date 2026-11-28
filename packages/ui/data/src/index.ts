@@ -163,6 +163,8 @@ export {
 	updateChatCache,
 	writeChatCache,
 } from "./storage/chat-cache.ts";
+export type { ImageResource, ImageVariant } from "./storage/image-cache.ts";
+export { loadImage, onImageInvalidated } from "./storage/image-cache.ts";
 export type { Storage } from "./storage/index.ts";
 export { createBrowserStorage, createDefaultStorage, createMemoryStorage } from "./storage/index.ts";
 export { clearInvite, readInvite, saveInvite } from "./storage/invite.ts";

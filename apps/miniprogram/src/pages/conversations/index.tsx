@@ -1,9 +1,10 @@
-import { Image, Input, Text, View } from "@tarojs/components";
+import { Input, Text, View } from "@tarojs/components";
 import Taro, { useDidShow, usePullDownRefresh } from "@tarojs/taro";
 import { conversationBotOwner, ownedBotFor, visitAvatarOverlay, visitBot } from "@yonder/chat-model";
 import type { Conversation } from "@yonder/protocol";
 import { useCallback, useEffect, useState } from "react";
 import { MiniBotName } from "../../components/bot-name";
+import { RemoteAvatar } from "../../components/remote-avatar";
 import { Button, go, Page, State } from "../../components/ui";
 import { t, useLocale } from "../../lib/i18n";
 import "./style.scss";
@@ -101,7 +102,7 @@ export default function Conversations({ visitsOnly = false }: { visitsOnly?: boo
 					{item?.visit && other ? (
 						<ChatAvatar name={name} kind={other.kind} src={avatarSource(other.avatarUrl)} size={40} />
 					) : other?.avatarUrl ? (
-						<Image className="mini-avatar" src={avatarSource(other.avatarUrl) ?? ""} />
+						<RemoteAvatar src={other.avatarUrl} />
 					) : (
 						<View className="mini-avatar">{name.slice(0, 1)}</View>
 					)}

@@ -157,7 +157,7 @@ export function ItemMeetingCard({ id, title }: { id: string; title: string }) {
 							onClick={() => read("original", `photo-${photo.clientPhotoId}`)}
 							className="flex size-[var(--control-lg)] shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-raised)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
 						>
-							<MeetingArchiveImage meetingId={id} photo={photo} thumb />
+							<MeetingArchiveImage meetingId={id} photo={photo} thumb lazy />
 						</button>
 					))}
 					{photos[3] ? (

@@ -132,6 +132,7 @@ export function MemoryTimeline() {
 					key={media.attachment.id}
 					more={index === shown.length - 1 ? Math.max(0, (step.photoCount ?? shown.length) - shown.length) : 0}
 					media={media}
+					persistent={!step.secretMedia}
 					onOpen={(file) => {
 						if (!openAttachment(file)) setPreview(file);
 					}}

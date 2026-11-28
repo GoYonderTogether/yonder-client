@@ -154,6 +154,10 @@ export function conversationEndpoints(client: ApiClient) {
 			return client.request(`/v1/attachments/${encodeURIComponent(id)}/content`, { responseType: "blob" });
 		},
 
+		attachmentDownload(id: string, variant: "thumb" | "original"): Promise<{ url: string | null }> {
+			return client.request(`/v1/attachments/${encodeURIComponent(id)}/download?variant=${variant}`);
+		},
+
 		/** A bounded thumbnail prefix; never store it as the complete attachment Blob. */
 		attachmentPrefix(id: string, maxBytes = 4096, signal?: AbortSignal): Promise<Blob> {
 			if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 4096)

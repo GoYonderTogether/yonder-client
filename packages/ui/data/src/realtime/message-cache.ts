@@ -1,12 +1,40 @@
 import type { InfiniteData, Query, QueryClient } from "@tanstack/react-query";
 import { chatHistoryTimeOffset, isNewChatHistoryCutoff, mergeMessage } from "@yonder/chat-model";
-import type { ChatHistoryCutoff, Conversation, Message, MessagePage, Run } from "@yonder/protocol";
+import type {
+	ChatHistoryCutoff,
+	Conversation,
+	MeetingRecord,
+	MeResponse,
+	Message,
+	MessagePage,
+	Run,
+} from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
+import { discardImages, type ImageResource } from "../storage/image-cache.ts";
 import type { CachedMessage } from "./cached-message.ts";
 
 type ConversationList = { items: Conversation[] };
 // Scope deleted ids to the cached history's lifetime so delayed events cannot restore the row.
 const deletedMessages = new WeakMap<Query, Set<string>>();
+
+export function discardMessageImages(
+	client: QueryClient,
+	messages: readonly Pick<Message, "attachments" | "meeting">[],
+) {
+	const owner = client.getQueryData<MeResponse>(keys.me())?.member.id;
+	if (!owner) return;
+	const resources: ImageResource[] = [];
+	for (const message of messages) {
+		for (const attachment of message.attachments)
+			if (attachment.mimeType.startsWith("image/")) resources.push({ attachmentId: attachment.id });
+		if (message.meeting) {
+			const meetingId = message.meeting.id;
+			const meeting = client.getQueryData<MeetingRecord>(keys.meetings.detail(meetingId));
+			for (const photo of meeting?.photos ?? []) resources.push({ meetingId, photoId: photo.clientPhotoId });
+		}
+	}
+	discardImages(owner, resources);
+}
 
 export function withFeedback(message: Message, value: Message["feedback"] | null): Message {
 	const { feedback: _feedback, ...rest } = message;
@@ -71,6 +99,7 @@ export function removeMessage(client: QueryClient, conversationId: string, messa
 	});
 
 	const removedAt = removed?.createdAt;
+	if (removed) discardMessageImages(client, [removed]);
 	client.setQueryData<ConversationList>(
 		keys.conversations.list(),
 		(current) =>
@@ -115,6 +144,15 @@ export function applyChatHistoryClear(client: QueryClient, id: string, cutoff: C
 	}
 	const current = client.getQueryData<InfiniteData<MessagePage>>(historyKey);
 	if (!isNewChatHistoryCutoff(cutoff, current?.pages[0]?.historyClearedThrough)) return;
+	discardMessageImages(
+		client,
+		(current?.pages ?? []).flatMap((page) =>
+			page.items.filter(
+				(message: CachedMessage) =>
+					!message.pending && !message.sendFailed && chatHistoryTimeOffset(message.createdAt, cutoff) <= 0,
+			),
+		),
+	);
 	void client.cancelQueries({ queryKey: historyKey });
 	// TanStack cancellation restores the fetch-start snapshot; clear the latest realtime state instead.
 	client.setQueryData<InfiniteData<MessagePage>>(historyKey, () => {
@@ -149,6 +187,7 @@ export function updateMessage(client: QueryClient, message: CachedMessage): void
 		.find((page) => page.items.some((item) => item.id === message.id))
 		?.items.find((item) => item.id === message.id);
 	if (previous && (previous.version > message.version || (previous.recalled && !message.recalled))) return;
+	if (previous && message.recalled && !previous.recalled) discardMessageImages(client, [previous]);
 	const cutoff = history?.pages[0]?.historyClearedThrough;
 	const listedCutoff = cachedConversation(client, message.conversationId)?.historyClearedThrough;
 	const latest = listedCutoff && isNewChatHistoryCutoff(listedCutoff, cutoff) ? listedCutoff : cutoff;

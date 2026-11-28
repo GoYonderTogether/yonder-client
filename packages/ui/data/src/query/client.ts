@@ -17,23 +17,24 @@ import {
 import type { PersistedClient, Persister } from "@tanstack/react-query-persist-client";
 import { ApiError, NetworkError } from "@yonder/api-client";
 import type { ConnectorRequestView } from "@yonder/protocol";
+import { deviceTimeZone, entrySnapshot, timelineSnapshot } from "./timeline-snapshot.ts";
 
 export const CACHE_STORAGE_KEY = "yonder.query-cache";
 export const CACHE_VERSION = "4";
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const isMessageHistory = (key: readonly unknown[]) => key[0] === "messages" && key.length === 3 && key[2] === "latest";
+const isTimeline = (key: readonly unknown[]) => key.length === 2 && key[0] === "memory" && key[1] === "days";
 
 export const dehydrateOptions: DehydrateOptions = {
-	// Memory can contain secret files, member cards have revocable visibility, and Agent cards are
-	// owner-only state that the server must re-authorize on every load.
+	// Persist the paged timeline only after removing secret entries. File bodies and revocable cards stay in memory.
 	shouldDehydrateQuery: (query) =>
 		!(query.queryKey[0] === "items" && query.queryKey[1] === "active-subtasks") &&
+		(query.queryKey[0] !== "memory" || (isTimeline(query.queryKey) && !!timelineSnapshot(query.state.data))) &&
 		![
 			"contact-search",
 			"channel-messages",
 			"channel-conversations",
-			"memory",
 			"member-profile",
 			"agent-card",
 			"provider-device-endpoints",
@@ -97,6 +98,13 @@ export function createPersister(
 			}
 		}
 	};
+	const safeTimeline = (query: PersistedClient["clientState"]["queries"][number]) => {
+		if (!isTimeline(query.queryKey)) return [query];
+		const data = timelineSnapshot(query.state.data);
+		if (!data || data.pages.some((page) => page.cacheTimeZone !== (deviceTimeZone() ?? null))) return [];
+		const snapshot = entrySnapshot(data);
+		return snapshot.pages.length ? [{ ...query, state: { ...query.state, data: snapshot } }] : [];
+	};
 	return {
 		persistClient: (client: PersistedClient) => {
 			if (!active) return;
@@ -105,7 +113,7 @@ export function createPersister(
 				...client,
 				clientState: {
 					...client.clientState,
-					queries: client.clientState.queries.map((query) =>
+					queries: client.clientState.queries.flatMap(safeTimeline).map((query) =>
 						isMessageHistory(query.queryKey) && query.state.status === "error" && query.state.data !== undefined
 							? {
 									...query,
@@ -132,8 +140,9 @@ export function createPersister(
 			if (!raw) return undefined;
 			try {
 				const client = JSON.parse(raw) as PersistedClient;
-				client.clientState.queries = client.clientState.queries.filter(({ queryKey, state }) => {
+				client.clientState.queries = client.clientState.queries.flatMap(safeTimeline).filter(({ queryKey, state }) => {
 					if (["member-profile", "social-library", "agent-card"].includes(String(queryKey[0]))) return false;
+					if (queryKey[0] === "memory" && !isTimeline(queryKey)) return false;
 					if (queryKey[0] !== "connector-request" || queryKey.length !== 2) return true;
 					// Legacy cards held one connectorId. Reload the current scopes before offering consent.
 					const request = state.data as Partial<ConnectorRequestView> | undefined;

@@ -5,10 +5,11 @@
  *
  * These are the only writers of that shape; the realtime events and the Bot hooks both call them.
  */
-import type { QueryClient } from "@tanstack/react-query";
+import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import { isNewChatHistoryCutoff } from "@yonder/chat-model";
-import type { Conversation, Member, MeResponse } from "@yonder/protocol";
+import type { Conversation, Member, MeResponse, MessagePage } from "@yonder/protocol";
 import { keys } from "../query/keys.ts";
+import { discardMessageImages } from "./message-cache.ts";
 
 type ConversationList = { items: Conversation[] };
 type ContactList = { items: Member[] };
@@ -92,6 +93,11 @@ export function writeConversation(client: QueryClient, conversation: Conversatio
 
 /** A conversation left the list: drop it and its history, so nothing can reopen a dead chat. */
 export function removeConversation(client: QueryClient, conversationId: string): void {
+	const history = client.getQueryData<InfiniteData<MessagePage>>(keys.messages.latest(conversationId));
+	discardMessageImages(
+		client,
+		(history?.pages ?? []).flatMap((page) => page.items),
+	);
 	client.setQueryData<ConversationList>(keys.conversations.list(), (current) =>
 		current ? { items: current.items.filter((item) => item.id !== conversationId) } : current,
 	);

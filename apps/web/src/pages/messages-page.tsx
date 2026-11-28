@@ -221,7 +221,6 @@ export function ConversationPage({
 	const agent = peer?.kind === "bot" ? peer : undefined;
 	const ownedAgent = agent && ownedBotFor(agent.memberId, person?.id, bot, contacts);
 	const mainBotHeader = mainBotHome && (!conversation || Boolean(agent));
-	const mobileBotHome = mainBotHeader && mode === "mobile";
 	const mobileBotHeader = mode === "mobile" && Boolean(agent && !item);
 	const floatingHeader = mainBotHeader || Boolean(agent && !item);
 	const showAgentIdentity = Boolean(agent && (!item || mode !== "mobile"));
@@ -229,7 +228,7 @@ export function ConversationPage({
 		item || conversation?.visit?.role === "visitor" ? undefined : agent?.memberId,
 	);
 	const quota = useQuota();
-	const messages = useMessages(conversationId, mobileBotHome || Boolean(item || conversation?.unreadCount));
+	const messages = useMessages(conversationId);
 	const { fetchNextPage } = messages;
 	const loadEarlier = useCallback(() => void fetchNextPage({ cancelRefetch: false }), [fetchNextPage]);
 	const actions = useRunActions();
