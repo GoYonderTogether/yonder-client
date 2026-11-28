@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112821] - 2026-11-28
+
+### Added
+
+- connectors：stream reader pages and verify private original downloads
+
 ## [0.3.26112820] - 2026-11-28
 
 ### Added
