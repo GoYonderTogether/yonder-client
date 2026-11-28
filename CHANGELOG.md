@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.3.26112820] - 2026-11-28
+
+### Added
+
+- protocol：face match types and the question card kind, as the server has them
+- connectors：confirm a custom connector at the proposal's own revision
+- connectors：run a Bot-written connector package on the device (pa-cc-desktop)
+- memory：entity links open a person's page with their own picture (pa-link)
+- icons：a brand registry, and BrandIcon draws by registry id
+
+### Fixed
+
+- release：select the intended TestFlight internal group
+
 ## [0.3.26112819] - 2026-11-28
 
 ### Fixed
