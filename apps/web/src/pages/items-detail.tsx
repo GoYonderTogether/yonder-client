@@ -2,7 +2,7 @@ import { MessageBubble, MessageRun, SystemNotice } from "@yonder/chat-presentati
 import type { ItemDetail } from "@yonder/protocol";
 import { Button, EmptyState, TaskGlyph } from "@yonder/ui-components";
 import { ApiError, useItem, useItemActions, type useItemSession } from "@yonder/ui-data";
-import { PageFrame } from "@yonder/ui-shell";
+import { PageFrame, useShellChrome } from "@yonder/ui-shell";
 import { CircleCheck, CircleX, Clock3, Ellipsis } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ItemMeetingCard } from "./item-meeting-card.tsx";
@@ -27,6 +27,7 @@ export function ItemDetailPage({
 	onOpenConversation: (id: string) => void;
 }) {
 	const { t, i18n } = useTranslation();
+	const { mode } = useShellChrome();
 	const query = useItem(itemId);
 	const actions = useItemActions();
 	const item = query.data;
@@ -57,14 +58,21 @@ export function ItemDetailPage({
 		);
 
 	const canRename = Boolean(session.data) && (item.source === "meeting" || item.source === "conversation");
-	const title = <ItemHeader item={item} locale={locale} t={t} canRename={canRename && !disconnected} />;
+	const mobile = mode === "mobile";
+	const timing = <ItemTiming item={item} locale={locale} t={t} />;
+	const title = (
+		<div className="flex min-w-0 flex-col gap-[calc(var(--spacing-1)/2)]">
+			<ItemSessionTitle key={item.id} id={item.id} title={item.title} canRename={canRename && !disconnected} />
+			{mobile ? timing : null}
+		</div>
+	);
 	const allowed = itemActions(item);
 	const busy = actions.cancel.isPending;
 	/**
 	 * Meta Muse is the reference (2026-11-24): a running item can be stopped; pausing, resuming and
 	 * handing off are the Bot's own tools, told in chat.
 	 */
-	const action = allowed.cancel ? (
+	const cancel = allowed.cancel ? (
 		<details className="relative z-10">
 			<summary
 				aria-label={t("tasks.itemActions")}
@@ -79,6 +87,12 @@ export function ItemDetailPage({
 			</div>
 		</details>
 	) : null;
+	const action = (
+		<>
+			{mobile ? null : <div className="min-w-0 max-w-[30vi]">{timing}</div>}
+			{cancel}
+		</>
+	);
 	const actionError = actions.cancel.isError ? "tasks.itemCancelFailed" : null;
 	const reason = actions.cancel.error;
 	const hasSeed =
@@ -133,16 +147,14 @@ export function ItemDetailPage({
 	);
 }
 
-function ItemHeader({
+function ItemTiming({
 	item,
 	locale,
 	t,
-	canRename,
 }: {
 	item: ItemDetail;
 	locale: string;
 	t: ReturnType<typeof useTranslation>["t"];
-	canRename: boolean;
 }) {
 	const Status =
 		item.state === "completed" ? CircleCheck : item.state === "failed" || item.state === "cancelled" ? CircleX : Clock3;
@@ -157,31 +169,28 @@ function ItemHeader({
 	const endDay = end && localDay(end) !== localDay(start) ? dates.format(end) : null;
 	const word = itemTrailingKey(item);
 	return (
-		<div className="flex min-w-0 flex-col gap-[calc(var(--spacing-1)/2)]">
-			<ItemSessionTitle key={item.id} id={item.id} title={item.title} canRename={canRename} />
-			<div className="flex min-w-0 items-center gap-[var(--spacing-1)] text-caption font-normal text-[var(--color-text-secondary)]">
-				<Status size={14} aria-hidden="true" className="shrink-0" />
-				{word ? (
+		<div className="flex min-w-0 items-center gap-[var(--spacing-1)] text-caption font-normal text-[var(--color-text-secondary)]">
+			<Status size={14} aria-hidden="true" className="shrink-0" />
+			{word ? (
+				<>
+					<span className="shrink-0">{t(word)}</span>
+					<span aria-hidden="true">·</span>
+				</>
+			) : null}
+			<span className="truncate">
+				<time dateTime={item.startedAt} title={t("tasks.itemStartedAt", { at: `${dates.format(start)} ${started}` })}>
+					{day} {started}
+				</time>
+				{item.endedAt && end && ended ? (
 					<>
-						<span className="shrink-0">{t(word)}</span>
-						<span aria-hidden="true">·</span>
+						<span aria-hidden="true"> – </span>
+						<time dateTime={item.endedAt} title={t("tasks.itemEndedAt", { at: `${dates.format(end)} ${ended}` })}>
+							{endDay ? `${endDay} ` : ""}
+							{ended}
+						</time>
 					</>
 				) : null}
-				<span className="truncate">
-					<time dateTime={item.startedAt} title={t("tasks.itemStartedAt", { at: `${dates.format(start)} ${started}` })}>
-						{day} {started}
-					</time>
-					{item.endedAt && end && ended ? (
-						<>
-							<span aria-hidden="true"> – </span>
-							<time dateTime={item.endedAt} title={t("tasks.itemEndedAt", { at: `${dates.format(end)} ${ended}` })}>
-								{endDay ? `${endDay} ` : ""}
-								{ended}
-							</time>
-						</>
-					) : null}
-				</span>
-			</div>
+			</span>
 		</div>
 	);
 }

@@ -135,6 +135,42 @@ async function isolateContact(page: Page, earlierRows = 0) {
 	);
 }
 
+for (const hasChat of [false, true]) {
+	test(`a private card reuses the friend row avatar (existing chat: ${hasChat})`, async ({ page }) => {
+		await page.setViewportSize({ width: 1440, height: 900 });
+		const avatarUrl = "/files/private-contact-avatar.png";
+		const contact = { ...person, id: "private-contact", handle: "privatefriend", displayName: "林晓", avatarUrl };
+		await isolateChat(page, {
+			...(hasChat && {
+				members: [
+					...conversation.members.filter((member) => member.memberId === person.id),
+					{ ...contact, memberId: contact.id },
+				],
+				items: [],
+			}),
+		});
+		await page.route("**/v1/contacts", (route) => route.fulfill({ json: { items: [contact] } }));
+		await page.route("**/v1/members/privatefriend", (route) =>
+			route.fulfill({
+				status: 404,
+				json: { error: { code: "not_found", details: { reason: "member_card_private" } } },
+			}),
+		);
+		await page.route(`**${avatarUrl}`, (route) => route.fulfill({ path: "apps/web/public/icon-192.png" }));
+		await page.goto("/contacts");
+		const row = page.getByRole("complementary").getByRole("button", { name: /林晓/ });
+		await expect(row.locator("img")).toHaveAttribute("src", avatarUrl);
+		await row.click();
+
+		if (hasChat) await page.getByRole("button", { name: "聊天设置", exact: true }).click();
+		const pane = hasChat ? page.locator("[data-detail-pane]") : page.getByRole("main");
+		await expect(pane.getByRole("heading", { name: "名片暂不可见" })).toBeVisible();
+		await expect(pane.locator(".grayscale img")).toHaveAttribute("src", avatarUrl);
+		await expect(pane.getByText("这个页面不存在")).toHaveCount(0);
+		await expect(pane.getByRole("button", { name: "回到应用" })).toHaveCount(0);
+	});
+}
+
 test("desktop Contacts keeps its selected tab across widths and navigation", async ({ page }, info) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await isolateContact(page);

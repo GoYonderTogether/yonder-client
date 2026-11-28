@@ -2,6 +2,7 @@ export const membersMessagesZhCN = {
 	botOf: "{{name}} 的 Bot",
 	openOwner: "打开 {{name}} 的资料",
 	card: {
+		private: "名片暂不可见",
 		title: "资料",
 		bots: "TA 的 Bot",
 		myBots: "我的 Bot",

@@ -7,6 +7,7 @@ export const membersMessagesEn = {
 	botOf: "{{name}}'s Bot",
 	openOwner: "Open {{name}}'s profile",
 	card: {
+		private: "Card unavailable",
 		title: "Profile",
 		bots: "Their Bots",
 		myBots: "My Bots",
