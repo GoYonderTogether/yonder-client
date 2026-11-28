@@ -277,7 +277,7 @@ test("the browser row grants the browser capability through its own switch", asy
 	expect(state.create).toHaveBeenCalledWith(
 		expect.objectContaining({
 			connectorId: "computer-control",
-			capabilities: { fileTools: false, terminal: false, browser: true },
+			capabilities: { fileTools: false, terminal: false, browser: true, desktop: false },
 		}),
 	);
 });
@@ -289,7 +289,7 @@ test("turning browser control off keeps the same grant's file tools and terminal
 			...base,
 			id: "con_b",
 			connectorId: "computer-control",
-			capabilities: { fileTools: true, terminal: true, browser: true },
+			capabilities: { fileTools: true, terminal: true, browser: true, desktop: false },
 		},
 	];
 	const native = adapter();
@@ -304,7 +304,7 @@ test("turning browser control off keeps the same grant's file tools and terminal
 		id: "con_b",
 		connectorId: "computer-control",
 		revision: 2,
-		capabilities: { fileTools: true, terminal: true, browser: false },
+		capabilities: { fileTools: true, terminal: true, browser: false, desktop: false },
 	});
 	show(native);
 	const dialog = openCard("Connected · Computer access");
@@ -314,7 +314,7 @@ test("turning browser control off keeps the same grant's file tools and terminal
 	expect(state.update).toHaveBeenCalledWith({
 		id: "con_b",
 		expectedRevision: 1,
-		capabilities: { fileTools: true, terminal: true, browser: false },
+		capabilities: { fileTools: true, terminal: true, browser: false, desktop: false },
 	});
 	expect(state.remove).not.toHaveBeenCalled();
 });
@@ -345,7 +345,7 @@ test("desktop control is one more member of the computer card, granted by its ow
 	expect(state.create).toHaveBeenCalledWith(
 		expect.objectContaining({
 			connectorId: "computer-control",
-			capabilities: { fileTools: false, terminal: false, desktop: true },
+			capabilities: { fileTools: false, terminal: false, desktop: true, browser: false },
 		}),
 	);
 	// The row states the consequence in full, in front of the switch.
@@ -359,7 +359,7 @@ test("turning desktop control off keeps the same grant's file tools and terminal
 			...base,
 			id: "con_b",
 			connectorId: "computer-control",
-			capabilities: { fileTools: true, terminal: true, desktop: true },
+			capabilities: { fileTools: true, terminal: true, desktop: true, browser: false },
 		},
 	];
 	const native = adapter();
@@ -368,7 +368,7 @@ test("turning desktop control off keeps the same grant's file tools and terminal
 		id: "con_b",
 		connectorId: "computer-control",
 		revision: 2,
-		capabilities: { fileTools: true, terminal: true, desktop: false },
+		capabilities: { fileTools: true, terminal: true, desktop: false, browser: false },
 	});
 	show(native);
 	const dialog = openCard("Connected · Computer access");
@@ -378,7 +378,7 @@ test("turning desktop control off keeps the same grant's file tools and terminal
 	expect(state.update).toHaveBeenCalledWith({
 		id: "con_b",
 		expectedRevision: 1,
-		capabilities: { fileTools: true, terminal: true, desktop: false },
+		capabilities: { fileTools: true, terminal: true, desktop: false, browser: false },
 	});
 	expect(state.remove).not.toHaveBeenCalled();
 });
@@ -392,7 +392,7 @@ test("the master switch leaves desktop control alone", async () => {
 	fireEvent.click(within(dialog).getByRole("switch", { name: "Windows PC" }));
 	await waitFor(() => expect(state.create).toHaveBeenCalledTimes(2));
 	expect(state.create).not.toHaveBeenCalledWith(
-		expect.objectContaining({ capabilities: { fileTools: false, terminal: false, desktop: true } }),
+		expect.objectContaining({ capabilities: { fileTools: false, terminal: false, desktop: true, browser: false } }),
 	);
 });
 

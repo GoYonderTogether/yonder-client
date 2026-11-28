@@ -27,7 +27,7 @@ const browser = {
 	revision: 3,
 	connectorId: "computer-control",
 	scope: "device",
-	capabilities: { fileTools: false, terminal: false, browser: true },
+	capabilities: { fileTools: false, terminal: false, browser: true, desktop: false },
 } as const;
 
 function command(overrides: Partial<ConnectorCommand> = {}): ConnectorCommand {
@@ -80,7 +80,12 @@ test("a browser command runs on the device and its result goes back unchanged", 
 
 test("a browser command on a grant without browser control is refused before the device is asked", async () => {
 	setup.connections.set([
-		{ ...browser, id: "con_write", capabilities: { fileTools: true, terminal: false, browser: false }, revision: 4 },
+		{
+			...browser,
+			id: "con_write",
+			capabilities: { fileTools: true, terminal: false, browser: false, desktop: false },
+			revision: 4,
+		},
 	]);
 	setup.invoke.mockImplementation(async (name: string) =>
 		name === "local_files_ready" ? [{ id: "con_write", revision: 4 }] : undefined,
@@ -90,7 +95,7 @@ test("a browser command on a grant without browser control is refused before the
 	dispatch(
 		command({
 			connectionId: "con_write",
-			capabilities: { fileTools: true, terminal: false, browser: false },
+			capabilities: { fileTools: true, terminal: false, browser: false, desktop: false },
 			revision: 4,
 		}),
 	);

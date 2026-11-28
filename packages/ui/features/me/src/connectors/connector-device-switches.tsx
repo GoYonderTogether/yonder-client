@@ -77,8 +77,7 @@ export function DeviceSwitches({
 		const capability = capabilityOf(member);
 		if (capability)
 			return instances.find(
-				(item) =>
-					item.connectorId === "computer-control" && item.scope === "device" && item.capabilities[capability],
+				(item) => item.connectorId === "computer-control" && item.scope === "device" && item.capabilities[capability],
 			);
 		return instances.find((item) => item.connectorId === member.id && item.scope === "device");
 	};
@@ -163,22 +162,27 @@ export function DeviceSwitches({
 			try {
 				await localFiles.authorize(saved);
 			} catch (failure) {
-				await Promise.allSettled([actions.remove.mutateAsync(saved.id), localFiles.revoke(saved.id, "computer-control")]);
+				await Promise.allSettled([
+					actions.remove.mutateAsync(saved.id),
+					localFiles.revoke(saved.id, "computer-control"),
+				]);
 				throw failure;
 			}
 			return;
 		}
+		// Past the capability branch, a member is a catalog connector and its id is a ConnectorId.
+		const connectorId = member.id as ConnectorId;
 		const saved = await actions.create.mutateAsync({
-			connectorId: member.id,
+			connectorId,
 			deviceId: device.id,
 			name: device.name,
 			scope: "device",
-			capabilities: { fileTools: member.id === "computer-control", terminal: false, desktop: false, browser: false },
+			capabilities: { fileTools: connectorId === "computer-control", terminal: false, desktop: false, browser: false },
 		});
 		try {
 			await localFiles.authorize(saved);
 		} catch (failure) {
-			await Promise.allSettled([actions.remove.mutateAsync(saved.id), localFiles.revoke(saved.id, member.id)]);
+			await Promise.allSettled([actions.remove.mutateAsync(saved.id), localFiles.revoke(saved.id, connectorId)]);
 			throw failure;
 		}
 	}
@@ -200,7 +204,8 @@ export function DeviceSwitches({
 				});
 		}
 		return (async () => {
-			const local = device.current && localFiles ? localFiles.revoke(grant.id, member.id as ConnectorId) : Promise.resolve();
+			const local =
+				device.current && localFiles ? localFiles.revoke(grant.id, member.id as ConnectorId) : Promise.resolve();
 			const results = await Promise.allSettled([local, actions.remove.mutateAsync(grant.id)]);
 			if (results.some((result) => result.status === "rejected")) throw new Error("disconnect_failed");
 		})();
@@ -225,7 +230,9 @@ export function DeviceSwitches({
 			const results = await Promise.allSettled(
 				granted.map(async (grant) => {
 					const local =
-						device.current && localFiles ? localFiles.revoke(grant.id, grant.connectorId).catch(() => {}) : Promise.resolve();
+						device.current && localFiles
+							? localFiles.revoke(grant.id, grant.connectorId).catch(() => {})
+							: Promise.resolve();
 					await Promise.all([local, actions.remove.mutateAsync(grant.id)]);
 				}),
 			);
@@ -268,7 +275,8 @@ export function DeviceSwitches({
 
 	function errorOf(id: string) {
 		if (error?.id !== id) return undefined;
-		const settings = error.key === "connectors.systemPermissionDenied" && device.current && localFiles?.openPermissionSettings;
+		const settings =
+			error.key === "connectors.systemPermissionDenied" && device.current && localFiles?.openPermissionSettings;
 		return (
 			<>
 				{t(error.key)}
@@ -382,14 +390,19 @@ export function DeviceSwitches({
 			) : null}
 			{waiting ? (
 				<li className={noteClass}>
-					<span className="min-w-0 flex-1">{slow ? t("connectors.sheet.waitingTimeout") : t("connectors.sheet.waitingAuth")}</span>
+					<span className="min-w-0 flex-1">
+						{slow ? t("connectors.sheet.waitingTimeout") : t("connectors.sheet.waitingAuth")}
+					</span>
 					<Button size="sm" disabled={busy !== null} onClick={() => void cancelAll()}>
 						{t("connectors.sheet.cancelWaiting")}
 					</Button>
 				</li>
 			) : null}
 			{error?.id === "cancel" ? (
-				<li role="alert" className="px-[var(--spacing-4)] pb-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
+				<li
+					role="alert"
+					className="px-[var(--spacing-4)] pb-[var(--spacing-2)] text-caption text-[var(--color-danger)]"
+				>
 					{t(error.key)}
 				</li>
 			) : null}
@@ -454,7 +467,10 @@ export function DeviceSwitches({
 					/>
 				</div>
 				{error?.id === "master" ? (
-					<p role="alert" className="px-[var(--spacing-4)] pb-[var(--spacing-2)] text-caption text-[var(--color-danger)]">
+					<p
+						role="alert"
+						className="px-[var(--spacing-4)] pb-[var(--spacing-2)] text-caption text-[var(--color-danger)]"
+					>
 						{errorOf("master")}
 					</p>
 				) : null}

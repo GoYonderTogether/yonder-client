@@ -125,7 +125,9 @@ export function masterState(
 	members: readonly MemberDefinition[],
 	instances: readonly ConnectorInstance[],
 ): SwitchState {
-	const covered = members.filter((member) => member.id !== TERMINAL_MEMBER && member.id !== DESKTOP_MEMBER && member.id !== BROWSER_MEMBER);
+	const covered = members.filter(
+		(member) => member.id !== TERMINAL_MEMBER && member.id !== DESKTOP_MEMBER && member.id !== BROWSER_MEMBER,
+	);
 	const granted = covered.filter((member) =>
 		instances.some((item) => item.connectorId === member.id && item.scope === "device"),
 	);

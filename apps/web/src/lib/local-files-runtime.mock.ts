@@ -162,11 +162,13 @@ export const grant = (
 		connectionId: string;
 		connectorId: "local-files" | "computer-control";
 		revision: number;
+		capabilities: { fileTools: boolean; terminal: boolean; desktop: boolean; browser: boolean };
 	}> = {},
 ) => ({
 	connectionId: "con_a",
 	connectorId: "local-files" as const,
 	scope: "device" as const,
 	revision: 2,
+	capabilities: { fileTools: false, terminal: false, desktop: false, browser: false },
 	...overrides,
 });

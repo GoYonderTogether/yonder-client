@@ -159,8 +159,8 @@ export type DesktopConnectorOperation = "desktop_windows" | "desktop_ax" | "desk
 export type ConnectorOperation =
 	| FileConnectorOperation
 	| TerminalConnectorOperation
-		| DesktopConnectorOperation
-		| BrowserConnectorOperation
+	| DesktopConnectorOperation
+	| BrowserConnectorOperation
 	| AppleConnectorOperation
 	| "asset_original"
 	| "file_preview";
@@ -230,8 +230,8 @@ export interface ConnectorCommandArgs {
 	elevated?: boolean;
 	/** `shell`: the question the owner answers in the elevation dialog. Present exactly when `elevated` is true. */
 	justification?: string;
-		/** `shell_job`: list | status | log | wait | write | kill. `desktop_input`: what the operation does. `browser_session`: start | stop | list. `browser_act`: click | fill | press | select | hover | scroll | screenshot. */
-		action?: ShellJobAction | DesktopInputAction | BrowserSessionAction | BrowserActAction;
+	/** `shell_job`: list | status | log | wait | write | kill. `desktop_input`: what the operation does. `browser_session`: start | stop | list. `browser_act`: click | fill | press | select | hover | scroll | screenshot. */
+	action?: ShellJobAction | DesktopInputAction | BrowserSessionAction | BrowserActAction;
 	/** `shell_job`: which job, by full id or an unambiguous prefix. */
 	jobId?: string;
 	/**
@@ -372,8 +372,8 @@ export type ConnectorFilePreviewResult =
 export type ConnectorResult =
 	| LocalFilesResult
 	| TerminalConnectorResult
-		| DesktopConnectorResult
-		| BrowserConnectorResult
+	| DesktopConnectorResult
+	| BrowserConnectorResult
 	| AppleConnectorResult
 	| ConnectorFilePreviewResult
 	| { kind: "asset_original"; attachment: Attachment };
