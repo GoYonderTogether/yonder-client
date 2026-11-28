@@ -1,5 +1,11 @@
 import type { DeviceInfo } from "../auth/auth.ts";
 import type { Attachment } from "../chat/chat.ts";
+import type { DesktopConnectorResult, DesktopInputAction } from "./desktop.ts";
+import type { ShellJobAction, TerminalConnectorResult } from "./terminal.ts";
+
+// Desktop and terminal shapes live in their own modules, re-exported here for one entry point.
+export * from "./desktop.ts";
+export * from "./terminal.ts";
 
 export type FileConnectorId = "local-files" | "computer-control";
 export type AppleConnectorId = "apple-calendar" | "apple-photos" | "apple-notes" | "apple-voice-memos";
@@ -22,6 +28,13 @@ export interface ConnectorCapabilities {
 	 * (TOOLS-V3 §4). Off by default.
 	 */
 	terminal: boolean;
+	/**
+	 * `computer-control` only: computer use — the Bot may see the screen and operate the mouse and
+	 * keyboard on this device (desktop control design §5). Its own capability, never implied by
+	 * `fileTools` or `terminal`; an existing grant does not gain it. Off by default. Carried only by
+	 * `computer-control`, and only on macOS and Windows builds.
+	 */
+	desktop: boolean;
 }
 
 export interface ConnectorInstance {
@@ -137,9 +150,12 @@ export type AppleConnectorOperation =
 	| "apple_voice_memos_transcribe";
 /** Shell on `computer-control` with `terminal`: start a command, or manage jobs it left running. */
 export type TerminalConnectorOperation = "shell" | "shell_job";
+/** Computer use on `computer-control` with `desktop` (design §5): windows, AX tree, shot, input. */
+export type DesktopConnectorOperation = "desktop_windows" | "desktop_ax" | "desktop_shot" | "desktop_input";
 export type ConnectorOperation =
 	| FileConnectorOperation
 	| TerminalConnectorOperation
+	| DesktopConnectorOperation
 	| AppleConnectorOperation
 	| "asset_original"
 	| "file_preview";
@@ -209,8 +225,8 @@ export interface ConnectorCommandArgs {
 	elevated?: boolean;
 	/** `shell`: the question the owner answers in the elevation dialog. Present exactly when `elevated` is true. */
 	justification?: string;
-	/** `shell_job`: list | status | log | wait | write | kill. */
-	action?: ShellJobAction;
+	/** `shell_job`: list | status | log | wait | write | kill. `desktop_input`: what the operation does. */
+	action?: ShellJobAction | DesktopInputAction;
 	/** `shell_job`: which job, by full id or an unambiguous prefix. */
 	jobId?: string;
 	/**
@@ -218,7 +234,7 @@ export interface ConnectorCommandArgs {
 	 * file `read`'s first line, interpreted per operation.
 	 */
 	// `offset` above is shared with file reads; shell_job reuses it as a byte offset.
-	/** `shell_job` `write`: text for the job's standard input. */
+	/** `shell_job` `write`: text for the job's standard input. `desktop_input` `type`: the text to type. */
 	text?: string;
 	/** `shell_job` `write`: close standard input after writing. */
 	eof?: boolean;
@@ -226,6 +242,28 @@ export interface ConnectorCommandArgs {
 	byteOffset?: number;
 	/** `grep`: `matches` (default) returns matching lines; `files` returns each matching file with its match count. */
 	output?: "matches" | "files";
+	/** `desktop_ax` / `desktop_input` / `desktop_shot`: which window, by id from `desktop_windows`. */
+	windowId?: string;
+	/** `desktop_ax`: how many levels of the accessibility tree to read (default 6, max 12). */
+	depth?: number;
+	/** `desktop_ax`: cap on returned nodes (default 400, max 2000). */
+	maxNodes?: number;
+	/** `desktop_input`: the opaque ref of an accessibility element, from a `desktop_ax` read in the same run. */
+	ref?: string;
+	/** `desktop_input`: window-relative x for a point action (click/drag). */
+	x?: number;
+	/** `desktop_input`: window-relative y for a point action. */
+	y?: number;
+	/** `desktop_input`: key or chord for `key`, e.g. `Return`, `cmd+s`. */
+	key?: string;
+	/** `desktop_input`: scroll amount for `scroll`; positive scrolls down. */
+	deltaY?: number;
+	/** `desktop_input`: window-relative drag target x. */
+	toX?: number;
+	/** `desktop_input`: window-relative drag target y. */
+	toY?: number;
+	/** `desktop_input`: `background` (default, does not take focus) or `foreground` (may take focus and move the cursor). */
+	delivery?: "background" | "foreground";
 }
 
 export interface ConnectorCommand {
@@ -305,51 +343,6 @@ export type LocalFilesResult =
 			replacements?: number;
 	  }
 	| { kind: "delete"; path: string; recoveryId: string };
-
-/** What `computer_shell_job` asks of one background job (TOOLS-V3 §4). */
-export type ShellJobAction = "list" | "status" | "log" | "wait" | "write" | "kill";
-
-/** One background job as `list`, `status` and `wait` report it. */
-export interface ShellJobSummary {
-	jobId: string;
-	/** The first few words of the command, for a human scanning the list. */
-	name: string;
-	status: "running" | "done" | "killed" | "lost";
-	/** Milliseconds since the process started. */
-	elapsedMs: number;
-	/** Present once the process has exited with a known code. */
-	exitCode?: number | null;
-	logPath: string;
-}
-
-export type TerminalConnectorResult =
-	| {
-			kind: "shell";
-			/** `running` means the foreground window ran out: the process continues as `jobId`. */
-			status: "done" | "running";
-			/** Exited: its exit code, or null when a signal ended it. Absent while running. */
-			exitCode?: number | null;
-			/** At most 65536 bytes: the first 16 KiB and the last 48 KiB, cut at a character boundary. */
-			output: string;
-			/** True when the log holds more than `output`. Read it through `outputPath`. */
-			truncated: boolean;
-			/** The full log; `read` pages through it. */
-			outputPath: string;
-			/** Present when `status` is `running`. */
-			jobId?: string;
-	  }
-	| {
-			kind: "shell_job";
-			jobs?: ShellJobSummary[];
-			output?: string;
-			/** The absolute offset `output` starts at. */
-			offset?: number;
-			/** The offset to pass next; below `offset` means that start was already discarded. */
-			next?: number;
-			truncated?: boolean;
-			running?: boolean;
-			exitCode?: number | null;
-	  };
 
 export interface AppleSourceIdentity {
 	globalId?: string;
@@ -440,6 +433,7 @@ export type ConnectorFilePreviewResult =
 export type ConnectorResult =
 	| LocalFilesResult
 	| TerminalConnectorResult
+	| DesktopConnectorResult
 	| AppleConnectorResult
 	| ConnectorFilePreviewResult
 	| { kind: "asset_original"; attachment: Attachment };
@@ -480,6 +474,12 @@ export type ConnectorExecutionError =
 	| "elevation_timeout"
 	/** The device cannot raise an administrator prompt (platform, permissions or session). */
 	| "elevation_unavailable"
+	/** Desktop control: a required system permission is missing; the failure carries `permission`. */
+	| "desktop_permission_required"
+	/** Desktop control: no window with that `windowId` exists now (it closed, or belongs to another read). */
+	| "window_not_found"
+	/** Desktop control: the `ref` names no element in this read (stale or from an earlier read). */
+	| "element_not_found"
 	| "operation_failed"
 	/** `read` met a binary file (a NUL byte or a known binary header); the failure carries `size` and `fileType`. */
 	| "binary_file";
@@ -493,4 +493,6 @@ export type ConnectorCommandResult =
 			size?: number;
 			/** `binary_file` only: the recognised kind (`sqlite`, `pdf`, `zip`, `gzip`, `png`, `jpeg`, `gif`) or `unknown`. */
 			fileType?: string;
+			/** `desktop_permission_required` only: which macOS permission is missing. */
+			permission?: "accessibility" | "screen_recording";
 	  };

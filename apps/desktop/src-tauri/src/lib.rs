@@ -33,6 +33,16 @@ mod desktop_tray;
 #[cfg(desktop)]
 mod connector_tools;
 #[cfg(desktop)]
+mod desktop;
+#[cfg(desktop)]
+mod desktop_command;
+#[cfg(target_os = "macos")]
+mod desktop_macos;
+#[cfg(desktop)]
+mod desktop_time;
+#[cfg(windows)]
+mod desktop_windows;
+#[cfg(desktop)]
 mod local_files;
 #[cfg(desktop)]
 mod local_files_access;
@@ -151,6 +161,7 @@ pub fn run() {
             local_files::local_files_execute,
             shell::shell_execute,
             shell::shell_cancel,
+            desktop_command::desktop_execute,
             provider_relay::provider_relay_bind,
             provider_relay::provider_relay_cancel,
             provider_relay::provider_relay_execute,

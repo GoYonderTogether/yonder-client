@@ -6103,7 +6103,7 @@ dependencies = [
 
 [[package]]
 name = "yonder-desktop"
-version = "0.3.26112802"
+version = "0.3.26112804"
 dependencies = [
  "cap-fs-ext",
  "cap-primitives",
@@ -6112,6 +6112,7 @@ dependencies = [
  "keyring",
  "libc",
  "objc2-app-kit",
+ "png",
  "regex",
  "reqwest",
  "rustls",
@@ -6128,6 +6129,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-updater",
  "tokio",
+ "windows 0.61.3",
  "windows-sys 0.61.2",
 ]
 

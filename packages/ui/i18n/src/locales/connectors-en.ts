@@ -112,6 +112,14 @@ export const connectorMessagesEn = {
 		scope:
 			"Your Bot can run any command on this device as your system user, including deleting files and using the network. After you allow it, no command asks again until you revoke it.",
 	},
+	desktop: {
+		name: "Desktop control",
+		description: "Your Bot can see the screen and operate the mouse and keyboard.",
+		trial:
+			"Tell me what you can help with through desktop control on “{{device}}” only. Do not touch the screen, mouse, or keyboard.",
+		scope:
+			"Your Bot can see this device's screen and operate the mouse and keyboard. It works in the background by default without taking window focus; it only uses the foreground (moving the real cursor) when needed, and each run's steps note when it did. After you allow it, no action asks again until you revoke it.",
+	},
 	appleCalendar: {
 		iosPermissionDenied:
 			"Set Calendar to Full Access in Settings. If access hasn’t updated, quit and reopen Yonder, then connect again.",

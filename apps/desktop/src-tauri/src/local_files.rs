@@ -106,6 +106,11 @@ pub async fn local_files_authorize(
     if caps.terminal && connector != "computer-control" {
         return Err("permission_denied".into());
     }
+    // Desktop control is likewise its own capability on `computer-control`, never carried by another
+    // connector (desktop control design §5).
+    if caps.desktop && connector != "computer-control" {
+        return Err("permission_denied".into());
+    }
     if connector == "local-files" && caps.file_tools {
         return Err("permission_denied".into());
     }

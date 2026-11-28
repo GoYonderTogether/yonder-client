@@ -86,6 +86,7 @@ export const setup = {
 	cancelApple: vi.fn(async () => undefined),
 	executeShell: vi.fn(),
 	cancelShell: vi.fn(async () => undefined),
+	executeDesktop: vi.fn(),
 	/** Set by a test to deliver a native `shell-job-finished` payload. */
 	shellFinished: undefined as ((job: unknown) => void) | undefined,
 	listenShellJobFinished: vi.fn(async (listener: (event: unknown) => void) => {
@@ -135,20 +136,23 @@ vi.mock("./terminal.ts", () => ({
 	cancelShell: setup.cancelShell,
 	listenShellJobFinished: setup.listenShellJobFinished,
 }));
+vi.mock("./desktop.ts", () => ({
+	executeDesktop: setup.executeDesktop,
+}));
 
 /** A `connector.grant.request` item; the server sends `local-files` without file tools. */
 export const grant = (
 	overrides: Partial<{
 		connectionId: string;
 		connectorId: "local-files" | "computer-control";
-		capabilities: { fileTools: boolean; terminal: boolean };
+		capabilities: { fileTools: boolean; terminal: boolean; desktop: boolean };
 		revision: number;
 	}> = {},
 ) => ({
 	connectionId: "con_a",
 	connectorId: "local-files" as const,
 	scope: "device" as const,
-	capabilities: { fileTools: false, terminal: false },
+	capabilities: { fileTools: false, terminal: false, desktop: false },
 	revision: 2,
 	...overrides,
 });

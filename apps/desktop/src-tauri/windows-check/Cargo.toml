@@ -1,0 +1,32 @@
+# Standalone compile check for the Windows desktop backend.
+#
+# `yonder-desktop` cannot be `cargo check`-ed for `x86_64-pc-windows-msvc` on a Mac: a transitive C
+# dependency (`ring`, via rustls) needs the MSVC toolchain. This tiny crate includes the exact same
+# `desktop.rs` (plain types) and `desktop_windows.rs` sources and builds them for Windows with only
+# the `windows` and `png` crates, so the Windows-only code is proven to compile — the last release
+# failed because Windows code was never compiled. See docs/specs/connectors/desktop.md.
+[package]
+name = "desktop-windows-check"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+serde_json = "=1.0.145"
+png = "=0.18.1"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "=0.61.3"
+features = [
+	"Win32_Foundation",
+	"Win32_Graphics_Gdi",
+	"Win32_Storage_Xps",
+	"Win32_System_Com",
+	"Win32_System_Threading",
+	"Win32_UI_Accessibility",
+	"Win32_UI_Input_KeyboardAndMouse",
+	"Win32_UI_WindowsAndMessaging",
+]

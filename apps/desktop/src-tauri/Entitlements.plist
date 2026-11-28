@@ -10,5 +10,11 @@
     <true/>
     <key>com.apple.security.personal-information.photos-library</key>
     <true/>
+    <!-- Desktop control (design 2026-11-28 §4): Accessibility reads and acts on controls; Screen
+         Recording captures a window. Both are requested at first use, never proactively. -->
+    <key>com.apple.security.accessibility</key>
+    <true/>
+    <key>com.apple.security.screen-recording</key>
+    <true/>
 </dict>
 </plist>

@@ -50,7 +50,7 @@ const base: ConnectorInstance = {
 	deviceName: "Windows PC",
 	name: "Windows PC",
 	scope: "device",
-	capabilities: { fileTools: false, terminal: false },
+	capabilities: { fileTools: false, terminal: false, desktop: false },
 	revision: 1,
 	status: "online",
 	currentDevice: true,
@@ -58,7 +58,12 @@ const base: ConnectorInstance = {
 };
 const both: ConnectorInstance[] = [
 	base,
-	{ ...base, id: "con_b", connectorId: "computer-control", capabilities: { fileTools: true, terminal: false } },
+	{
+		...base,
+		id: "con_b",
+		connectorId: "computer-control",
+		capabilities: { fileTools: true, terminal: false, desktop: false },
+	},
 ];
 const firstDevice: DeviceSummary = {
 	id: "dev_a",
@@ -112,11 +117,14 @@ test("the master switch grants every capability of the device", async () => {
 		expect.objectContaining({
 			connectorId: "local-files",
 			scope: "device",
-			capabilities: { fileTools: false, terminal: false },
+			capabilities: { fileTools: false, terminal: false, desktop: false },
 		}),
 	);
 	expect(state.create).toHaveBeenCalledWith(
-		expect.objectContaining({ connectorId: "computer-control", capabilities: { fileTools: true, terminal: false } }),
+		expect.objectContaining({
+			connectorId: "computer-control",
+			capabilities: { fileTools: true, terminal: false, desktop: false },
+		}),
 	);
 	expect(native.authorize).toHaveBeenCalledTimes(2);
 });
@@ -129,7 +137,10 @@ test("tapping the row opens its switches and one switch grants one capability", 
 	fireEvent.click(within(dialog).getByRole("switch", { name: /Modify files/ }));
 	await waitFor(() => expect(state.create).toHaveBeenCalledOnce());
 	expect(state.create).toHaveBeenCalledWith(
-		expect.objectContaining({ connectorId: "computer-control", capabilities: { fileTools: true, terminal: false } }),
+		expect.objectContaining({
+			connectorId: "computer-control",
+			capabilities: { fileTools: true, terminal: false, desktop: false },
+		}),
 	);
 });
 
@@ -155,7 +166,7 @@ test("the terminal is one more member of the computer card, granted by its own s
 	expect(state.create).toHaveBeenCalledWith(
 		expect.objectContaining({
 			connectorId: "computer-control",
-			capabilities: { fileTools: false, terminal: true },
+			capabilities: { fileTools: false, terminal: true, desktop: false },
 		}),
 	);
 	// The row states the consequence in full, in front of the switch.
@@ -173,7 +184,7 @@ test("turning the terminal off keeps the same grant's file tools", async () => {
 			...base,
 			id: "con_b",
 			connectorId: "computer-control",
-			capabilities: { fileTools: true, terminal: true },
+			capabilities: { fileTools: true, terminal: true, desktop: false },
 		},
 	];
 	const native = adapter();
@@ -182,7 +193,7 @@ test("turning the terminal off keeps the same grant's file tools", async () => {
 		id: "con_b",
 		connectorId: "computer-control",
 		revision: 2,
-		capabilities: { fileTools: true, terminal: false },
+		capabilities: { fileTools: true, terminal: false, desktop: false },
 	});
 	show(native);
 	const dialog = openCard("Connected · Computer access");
@@ -192,13 +203,13 @@ test("turning the terminal off keeps the same grant's file tools", async () => {
 	expect(state.update).toHaveBeenCalledWith({
 		id: "con_b",
 		expectedRevision: 1,
-		capabilities: { fileTools: true, terminal: false },
+		capabilities: { fileTools: true, terminal: false, desktop: false },
 	});
 	// Removing the grant would revoke the file tools too; the capability change is what is written.
 	expect(state.remove).not.toHaveBeenCalled();
 	// The device stores the changed grant again, so its local library matches the server.
 	expect(native.authorize).toHaveBeenCalledWith(
-		expect.objectContaining({ capabilities: { fileTools: true, terminal: false } }),
+		expect.objectContaining({ capabilities: { fileTools: true, terminal: false, desktop: false } }),
 	);
 });
 
@@ -211,7 +222,7 @@ test("the master switch leaves the terminal alone", async () => {
 	fireEvent.click(within(dialog).getByRole("switch", { name: "Windows PC" }));
 	await waitFor(() => expect(state.create).toHaveBeenCalledTimes(2));
 	expect(state.create).not.toHaveBeenCalledWith(
-		expect.objectContaining({ capabilities: { fileTools: false, terminal: true } }),
+		expect.objectContaining({ capabilities: { fileTools: false, terminal: true, desktop: false } }),
 	);
 });
 
@@ -228,6 +239,83 @@ test("a device platform without the terminal never shows the row", () => {
 	const dialog = openCard("Connect · Computer access");
 	fireEvent.click(within(dialog).getByRole("button", { name: /Windows PC/ }));
 	expect(within(dialog).queryByRole("switch", { name: /Terminal/ })).toBeNull();
+});
+
+test("desktop control is one more member of the computer card, granted by its own switch", async () => {
+	show(adapter());
+	const dialog = openCard("Connect · Computer access");
+	fireEvent.click(within(dialog).getByRole("button", { name: /Windows PC/ }));
+	const desktop = within(dialog).getByRole("switch", { name: /Desktop control/ });
+	await waitFor(() => expect(desktop).toBeEnabled());
+	fireEvent.click(desktop);
+	await waitFor(() => expect(state.create).toHaveBeenCalledOnce());
+	expect(state.create).toHaveBeenCalledWith(
+		expect.objectContaining({
+			connectorId: "computer-control",
+			capabilities: { fileTools: false, terminal: false, desktop: true },
+		}),
+	);
+	// The row states the consequence in full, in front of the switch.
+	expect(within(dialog).getByText("Your Bot can see the screen and operate the mouse and keyboard.")).toBeVisible();
+});
+
+test("turning desktop control off keeps the same grant's file tools and terminal", async () => {
+	state.instances = [
+		base,
+		{
+			...base,
+			id: "con_b",
+			connectorId: "computer-control",
+			capabilities: { fileTools: true, terminal: true, desktop: true },
+		},
+	];
+	const native = adapter();
+	state.update.mockResolvedValue({
+		...base,
+		id: "con_b",
+		connectorId: "computer-control",
+		revision: 2,
+		capabilities: { fileTools: true, terminal: true, desktop: false },
+	});
+	show(native);
+	const dialog = openCard("Connected · Computer access");
+	fireEvent.click(within(dialog).getByRole("button", { name: /Windows PC/ }));
+	fireEvent.click(within(dialog).getByRole("switch", { name: /Desktop control/ }));
+	await waitFor(() => expect(state.update).toHaveBeenCalledOnce());
+	expect(state.update).toHaveBeenCalledWith({
+		id: "con_b",
+		expectedRevision: 1,
+		capabilities: { fileTools: true, terminal: true, desktop: false },
+	});
+	expect(state.remove).not.toHaveBeenCalled();
+});
+
+test("the master switch leaves desktop control alone", async () => {
+	const native = adapter();
+	show(native);
+	const dialog = openCard("Connect · Computer access");
+	fireEvent.click(within(dialog).getByRole("button", { name: /Windows PC/ }));
+	// Granting every other capability does not grant desktop control: 2 creates, not 3.
+	fireEvent.click(within(dialog).getByRole("switch", { name: "Windows PC" }));
+	await waitFor(() => expect(state.create).toHaveBeenCalledTimes(2));
+	expect(state.create).not.toHaveBeenCalledWith(
+		expect.objectContaining({ capabilities: { fileTools: false, terminal: false, desktop: true } }),
+	);
+});
+
+test("desktop control never shows on a platform without a desktop backend", () => {
+	state.devices = [{ ...firstDevice, platform: "linux" }];
+	state.catalog = (["local-files", "computer-control"] as const).map((id) => ({
+		id,
+		name: id,
+		description: id,
+		kind: "device" as const,
+		platforms: ["windows", "linux"] as ("windows" | "linux")[],
+	}));
+	show(adapter());
+	const dialog = openCard("Connect · Computer access");
+	fireEvent.click(within(dialog).getByRole("button", { name: /Windows PC/ }));
+	expect(within(dialog).queryByRole("switch", { name: /Desktop control/ })).toBeNull();
 });
 
 test("an offline device says so once in its heading and greys its card", () => {

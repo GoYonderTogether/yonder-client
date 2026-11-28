@@ -4,10 +4,14 @@ fn main() {
         println!("cargo:rerun-if-changed=../apple/SelectedNote.mm");
         println!("cargo:rerun-if-changed=../apple/AppleVoiceMemos.mm");
         println!("cargo:rerun-if-changed=../apple/AppleResourceAttachment.h");
+        println!("cargo:rerun-if-changed=../apple/DesktopControl.mm");
         println!("cargo:rustc-link-lib=framework=AVFoundation");
         println!("cargo:rustc-link-lib=framework=CoreServices");
         println!("cargo:rustc-link-lib=framework=ServiceManagement");
         println!("cargo:rustc-link-lib=framework=UniformTypeIdentifiers");
+        println!("cargo:rustc-link-lib=framework=CoreGraphics");
+        println!("cargo:rustc-link-lib=framework=ApplicationServices");
+        println!("cargo:rustc-link-lib=framework=ImageIO");
         println!("cargo:rustc-link-lib=sqlite3");
         cc::Build::new()
             .cpp(true)
@@ -15,6 +19,7 @@ fn main() {
             .file("../apple/MacPermissions.mm")
             .file("../apple/SelectedNote.mm")
             .file("../apple/AppleVoiceMemos.mm")
+            .file("../apple/DesktopControl.mm")
             .compile("yonder_macos");
     }
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {

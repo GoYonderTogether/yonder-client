@@ -12,7 +12,7 @@ test("publishes one readiness snapshot and blocks stale or revoked Apple command
 		deviceId: "dev_a",
 		connectorId: "apple-calendar",
 		scope: "device",
-		capabilities: { fileTools: false, terminal: false },
+		capabilities: { fileTools: false, terminal: false, desktop: false },
 		revision: 2,
 	} as const;
 	setup.connections.set([file, apple]);
@@ -78,7 +78,7 @@ test("uploads Apple audio under its command and only submits the server attachme
 		deviceId: "dev_a",
 		connectorId: "apple-voice-memos",
 		scope: "device",
-		capabilities: { fileTools: false, terminal: false },
+		capabilities: { fileTools: false, terminal: false, desktop: false },
 		revision: 1,
 	} as const;
 	setup.connections.set([apple]);
@@ -121,7 +121,7 @@ test("a photo picture is encoded on the device, uploaded under its command, and 
 		deviceId: "dev_a",
 		connectorId: "apple-photos",
 		scope: "device",
-		capabilities: { fileTools: false, terminal: false },
+		capabilities: { fileTools: false, terminal: false, desktop: false },
 		revision: 2,
 	} as const;
 	setup.connections.set([apple]);
@@ -168,7 +168,7 @@ test("an iCloud-only photo reports its real code instead of a generic read failu
 		deviceId: "dev_a",
 		connectorId: "apple-photos",
 		scope: "device",
-		capabilities: { fileTools: false, terminal: false },
+		capabilities: { fileTools: false, terminal: false, desktop: false },
 		revision: 1,
 	} as const;
 	setup.connections.set([apple]);

@@ -73,3 +73,29 @@ features = [
 	"Win32_UI_Shell",
 	"Win32_UI_WindowsAndMessaging",
 ]
+
+# Desktop control on Windows (design 2026-11-28 §5): UI Automation reads and acts on the control
+# tree, GDI + PrintWindow captures a window, SendInput is the last-resort foreground path. The
+# `windows` crate (same major Tauri already pulls in) gives typed UIA interfaces; `png` is already in
+# the tree for encoding a capture, so it is pinned here the same way.
+[target.'cfg(windows)'.dependencies.windows]
+version = "=0.61.3"
+features = [
+	"Win32_Foundation",
+	"Win32_Graphics_Gdi",
+	"Win32_Storage_Xps",
+	"Win32_System_Com",
+	"Win32_System_Threading",
+	"Win32_UI_Accessibility",
+	"Win32_UI_Input_KeyboardAndMouse",
+	"Win32_UI_WindowsAndMessaging",
+]
+
+# Retina/scale-correct window capture on macOS (desktop control design §5): AXUIElement for reading
+# and acting on controls, CoreGraphics for window listing, screenshots and synthesized input. All of
+# it is Objective-C++ in `apple/DesktopControl.mm` behind a C ABI, so no extra Rust crate is needed —
+# the frameworks are linked in build.rs.
+
+# PNG encode for a Windows capture; already in the tree (objc/tray), pinned the same way.
+[target.'cfg(windows)'.dependencies.png]
+version = "=0.18.1"

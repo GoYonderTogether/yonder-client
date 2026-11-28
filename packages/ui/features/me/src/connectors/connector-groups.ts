@@ -11,17 +11,20 @@ export interface ConnectorGroup {
 /**
  * Entries drawn as one computer card; the catalog and the grants stay one row per entry.
  *
- * `terminal` is not a catalog entry: it is a capability of `computer-control`, so it is shown as a
- * removable member of the computer card. It appears only on a macOS or Windows desktop, because the
- * runner that executes commands ships in those builds and nowhere else.
+ * `terminal` and `desktop` are not catalog entries: they are capabilities of `computer-control`, so
+ * they are shown as removable members of the computer card. Each appears only on a macOS or Windows
+ * desktop, because the native runner/backend that executes them ships in those builds and nowhere
+ * else.
  */
 const COMPUTER: readonly ConnectorId[] = ["local-files", "computer-control"];
 
 /** The terminal member's id inside the computer card. It names no catalog connector or grant. */
 export const TERMINAL_MEMBER = "computer-control:terminal";
+/** The desktop-control member's id inside the computer card. It names no catalog connector or grant. */
+export const DESKTOP_MEMBER = "computer-control:desktop";
 /**
- * A member definition as the switches handle it: `ConnectorDefinition` plus the terminal member,
- * whose id is not one of the catalog's `ConnectorId`s.
+ * A member definition as the switches handle it: `ConnectorDefinition` plus the capability members,
+ * whose ids are not one of the catalog's `ConnectorId`s.
  */
 export type { MemberDefinition } from "./local-files-adapter.ts";
 
@@ -41,6 +44,21 @@ export function terminalMember(platform: DeviceSummary["platform"]): MemberDefin
 	};
 }
 
+/**
+ * The desktop-control member, built for one device's platform. `null` where it does not apply — only
+ * macOS and Windows have a desktop backend. Like the terminal, the catalog never lists it.
+ */
+export function desktopMember(platform: DeviceSummary["platform"]): MemberDefinition | null {
+	if (platform !== "macos" && platform !== "windows") return null;
+	return {
+		id: DESKTOP_MEMBER,
+		kind: "device",
+		name: "desktop",
+		description: "desktop",
+		platforms: ["macos", "windows"],
+	};
+}
+
 export function groupConnectors(
 	definitions: readonly ConnectorDefinition[],
 	platform?: DeviceSummary["platform"],
@@ -48,6 +66,8 @@ export function groupConnectors(
 	const computer: MemberDefinition[] = COMPUTER.flatMap((id) => definitions.filter((item) => item.id === id));
 	const terminal = platform ? terminalMember(platform) : null;
 	if (terminal && computer.length) computer.push(terminal);
+	const desktop = platform ? desktopMember(platform) : null;
+	if (desktop && computer.length) computer.push(desktop);
 	const groups: ConnectorGroup[] = [];
 	for (const definition of definitions) {
 		if (!COMPUTER.includes(definition.id)) groups.push({ id: definition.id, members: [definition] });
@@ -75,15 +95,16 @@ export type SwitchState = "on" | "off" | "mixed";
 /**
  * The master switch of one device: every member granted, none, or some of them.
  *
- * The terminal is left out on purpose. It is the one capability whose card says "run any command,
- * no confirmation", so it can only be granted by its own switch — a master switch that swept it in
- * would grant it without the row that explains it being read.
+ * The terminal and desktop control are left out on purpose. Each is the kind of capability whose card
+ * says "run any command" / "see the screen and operate the mouse and keyboard", so it can only be
+ * granted by its own switch — a master switch that swept it in would grant it without the row that
+ * explains it being read.
  */
 export function masterState(
 	members: readonly MemberDefinition[],
 	instances: readonly ConnectorInstance[],
 ): SwitchState {
-	const covered = members.filter((member) => member.id !== TERMINAL_MEMBER);
+	const covered = members.filter((member) => member.id !== TERMINAL_MEMBER && member.id !== DESKTOP_MEMBER);
 	const granted = covered.filter((member) =>
 		instances.some((item) => item.connectorId === member.id && item.scope === "device"),
 	);

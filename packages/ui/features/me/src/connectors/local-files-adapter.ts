@@ -1,11 +1,12 @@
 import type { ConnectorDefinition, ConnectorId, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 
 /**
- * A catalog entry or the terminal row. The terminal is `computer-control`'s capability rather than a
- * connector of its own, so its id has no catalog entry and no grant of its own.
+ * A catalog entry or one of the `computer-control` capability members (terminal, desktop control).
+ * Those two are capabilities rather than connectors of their own, so their ids have no catalog entry
+ * and no grant of their own.
  */
 export interface MemberDefinition {
-	id: ConnectorId | "computer-control:terminal";
+	id: ConnectorId | "computer-control:terminal" | "computer-control:desktop";
 	kind: ConnectorDefinition["kind"];
 	name: string;
 	description: string;
@@ -33,10 +34,10 @@ export function canConfigureConnector(
 	adapter?: LocalFilesAdapter,
 ): boolean {
 	const id = definition.id;
-	// The terminal is only offered where the runner exists; its platform list already says so, and it
-	// has no connector id to ask the adapter about.
+	// The capability members are only offered where the native side exists; their platform list
+	// already says so, and they have no connector id to ask the adapter about.
 	const supported =
-		id === "computer-control:terminal"
+		id === "computer-control:terminal" || id === "computer-control:desktop"
 			? adapter?.supported === true
 			: (adapter?.supports?.(id) ?? (!id.startsWith("apple-") && adapter?.supported === true));
 	return device.current && definition.platforms.includes(device.platform) && supported;

@@ -14,5 +14,6 @@
 //! | 5, 7   | the read tools' upgrade: byte-range reads, binary_file, grep offsets; this build reports 7 because the terminal took 6 first |
 //! | 6       | the terminal: `shell`, `shell_job`, `capabilities.terminal`              |
 //! | 8       | administrator execution: `computer_shell`'s `elevated`, `justification`  |
+//! | 9       | desktop control: `desktop_windows`, `desktop_ax`, `desktop_shot`, `desktop_input`, `capabilities.desktop` |
 
-pub const TOOLS_VERSION: u64 = 8;
+pub const TOOLS_VERSION: u64 = 9;

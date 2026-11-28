@@ -27,6 +27,9 @@ export const connectorPresentation = {
 /** The terminal row's copy and icon: a capability of `computer-control`, not a catalog connector. */
 export const terminalPresentation = { key: "terminal", Icon: TerminalIcon } as const;
 
+/** Desktop control's copy and icon: another capability of `computer-control`, not a catalog connector. */
+export const desktopPresentation = { key: "desktop", Icon: MonitorCog } as const;
+
 const folderGlyph = new URL("./assets/folder.svg", import.meta.url).href;
 const desktopGlyph = new URL("./assets/desktop.svg", import.meta.url).href;
 const laptopGlyph = new URL("./assets/laptop.svg", import.meta.url).href;

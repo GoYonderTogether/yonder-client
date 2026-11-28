@@ -16,5 +16,9 @@
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>Record meetings or turn your voice into an editable message / 录制会议或将语音转成可编辑的消息</string>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>See window controls and operate the mouse and keyboard when you turn on the Desktop control connector / 开启桌面控制连接器后读取窗口控件并操作鼠标键盘</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Capture the screen for a window the Bot is asked to look at when you turn on the Desktop control connector / 开启桌面控制连接器后截取 Bot 需要查看的窗口画面</string>
 </dict>
 </plist>

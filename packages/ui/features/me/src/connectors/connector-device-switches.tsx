@@ -5,8 +5,8 @@ import { ChevronDown } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deviceDisplayName } from "../components/device-display-name.ts";
-import { connectorPresentation, terminalPresentation } from "./connector-card.tsx";
-import { type MemberDefinition, masterState, TERMINAL_MEMBER } from "./connector-groups.ts";
+import { connectorPresentation, desktopPresentation, terminalPresentation } from "./connector-card.tsx";
+import { DESKTOP_MEMBER, type MemberDefinition, masterState, TERMINAL_MEMBER } from "./connector-groups.ts";
 import { canConfigureConnector, type LocalFilesAdapter } from "./local-files-adapter.ts";
 
 export interface DeviceSwitchesProps {
@@ -35,37 +35,43 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 	const [error, setError] = useState<{ id: string; key: string } | null>(null);
 	const state = masterState(members, instances);
 	/**
-	 * The grant behind one member. The terminal is not a connector: it is `computer-control`'s
-	 * `terminal` capability, so its switch reads that connection's grant and leaves `terminal` on
-	 * when it turns the same grant off — turning one capability off must not revoke the other.
+	 * The grant behind one member. The terminal and desktop control are not connectors: each is a
+	 * capability of `computer-control`, so its switch reads that connection's grant and leaves the
+	 * others on when it turns its own capability off — turning one capability off must not revoke
+	 * another.
 	 */
 	const grantOf = (member: MemberDefinition) => {
 		if (member.id === TERMINAL_MEMBER)
 			return instances.find(
 				(item) => item.connectorId === "computer-control" && item.scope === "device" && item.capabilities.terminal,
 			);
+		if (member.id === DESKTOP_MEMBER)
+			return instances.find(
+				(item) => item.connectorId === "computer-control" && item.scope === "device" && item.capabilities.desktop,
+			);
 		return instances.find((item) => item.connectorId === member.id && item.scope === "device");
 	};
 	const canGrant = (member: MemberDefinition) =>
 		device.status === "online" && canConfigureConnector(device, member, localFiles);
 	const addable = members.filter((member) => !grantOf(member) && canGrant(member));
-	// The master switch never touches the terminal (see `masterState`): it is granted or revoked only
-	// by the row that explains what it allows.
-	const sweepable = (member: MemberDefinition) => member.id !== TERMINAL_MEMBER;
+	// The master switch never touches the terminal or desktop control (see `masterState`): each is
+	// granted or revoked only by the row that explains what it allows.
+	const sweepable = (member: MemberDefinition) => member.id !== TERMINAL_MEMBER && member.id !== DESKTOP_MEMBER;
 
 	async function enable(member: MemberDefinition) {
 		if (!localFiles) throw new Error("permission_denied");
 		// The system's own permission prompt comes first; a refusal never creates a grant.
 		if (member.id.startsWith("apple-") && localFiles.prepare) await localFiles.prepare(member.id as ConnectorId);
-		if (member.id === TERMINAL_MEMBER) {
-			// An existing `computer-control` grant (whatever its file tools) is widened in place; there
-			// is no second connection for a capability of the same connector.
+		if (member.id === TERMINAL_MEMBER || member.id === DESKTOP_MEMBER) {
+			// An existing `computer-control` grant (whatever its other capabilities) is widened in place;
+			// there is no second connection for a capability of the same connector.
+			const capability = member.id === TERMINAL_MEMBER ? "terminal" : "desktop";
 			const existing = instances.find((item) => item.connectorId === "computer-control" && item.scope === "device");
 			if (existing) {
 				const saved = await actions.update.mutateAsync({
 					id: existing.id,
 					expectedRevision: existing.revision,
-					capabilities: { ...existing.capabilities, terminal: true },
+					capabilities: { ...existing.capabilities, [capability]: true },
 				});
 				try {
 					await localFiles.authorize(saved);
@@ -88,7 +94,11 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 				deviceId: device.id,
 				name: device.name,
 				scope: "device",
-				capabilities: { fileTools: false, terminal: true },
+				capabilities: {
+					fileTools: false,
+					terminal: member.id === TERMINAL_MEMBER,
+					desktop: member.id === DESKTOP_MEMBER,
+				},
 			});
 			try {
 				await localFiles.authorize(saved);
@@ -106,7 +116,7 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 			deviceId: device.id,
 			name: device.name,
 			scope: "device",
-			capabilities: { fileTools: member.id === "computer-control", terminal: false },
+			capabilities: { fileTools: member.id === "computer-control", terminal: false, desktop: false },
 		});
 		try {
 			await localFiles.authorize(saved);
@@ -119,13 +129,15 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 	function disable(member: MemberDefinition) {
 		const grant = grantOf(member);
 		if (!grant) return;
-		if (member.id === TERMINAL_MEMBER) {
-			// Only `terminal` goes off; the same grant's file tools and the rest of the connection stay.
+		if (member.id === TERMINAL_MEMBER || member.id === DESKTOP_MEMBER) {
+			// Only this capability goes off; the same grant's file tools, terminal and the rest of the
+			// connection stay.
+			const capability = member.id === TERMINAL_MEMBER ? "terminal" : "desktop";
 			return actions.update
 				.mutateAsync({
 					id: grant.id,
 					expectedRevision: grant.revision,
-					capabilities: { ...grant.capabilities, terminal: false },
+					capabilities: { ...grant.capabilities, [capability]: false },
 				})
 				.then(async (saved) => {
 					if (device.current && localFiles) await localFiles.authorize(saved);
@@ -193,8 +205,12 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 
 	/** One capability's switch. Alone in its connector, the row stands for the device and carries its name. */
 	function memberSwitch(member: MemberDefinition, alone = false) {
-		const terminal = member.id === TERMINAL_MEMBER;
-		const key = terminal ? terminalPresentation.key : connectorPresentation[member.id as ConnectorId].key;
+		const key =
+			member.id === TERMINAL_MEMBER
+				? terminalPresentation.key
+				: member.id === DESKTOP_MEMBER
+					? desktopPresentation.key
+					: connectorPresentation[member.id as ConnectorId].key;
 		const granted = Boolean(grantOf(member));
 		const hint =
 			!granted && !canGrant(member) && device.status === "online"
@@ -204,8 +220,9 @@ export function DeviceSwitches({ members, device, instances, localFiles }: Devic
 			<ListSwitch
 				key={member.id}
 				title={alone ? deviceDisplayName(device) : t(`connectors.${key}.name`)}
-				// The terminal's row carries the full consequence all the time, not only while it is
-				// off: it is the one grant that runs any command without asking again (TOOLS-V3 §4).
+				// The terminal's and desktop control's rows carry the full consequence all the time, not
+				// only while off: each is a capability that lets the Bot act on the device without asking
+				// again (TOOLS-V3 §4, desktop control design §5).
 				subtitle={hint ?? (alone ? deviceLine : t(`connectors.${key}.description`))}
 				checked={granted}
 				busy={busy === member.id}

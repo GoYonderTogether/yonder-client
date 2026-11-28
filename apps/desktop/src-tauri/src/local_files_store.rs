@@ -38,6 +38,13 @@ pub struct Capabilities {
     /// for it: a grant never widens silently into shell access.
     #[serde(default)]
     pub terminal: bool,
+    /// `computer-control` only: computer use — see and operate the screen (desktop control design §5).
+    ///
+    /// Its own capability, never implied by `file_tools` or `terminal`. Absent in an authorization
+    /// written before this field existed, and `false` is right for it: a grant never widens silently
+    /// into desktop control.
+    #[serde(default)]
+    pub desktop: bool,
 }
 
 #[derive(Clone, Deserialize, Serialize)]

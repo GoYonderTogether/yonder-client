@@ -14,6 +14,7 @@ import {
 	executeAppleResourceFile,
 	readyAppleResourceGrants,
 } from "./apple-resources.ts";
+import { executeDesktop } from "./desktop.ts";
 import { isForeground, subscribeForeground } from "./foreground.ts";
 import { executeLocalFilePreview } from "./local-file-preview.ts";
 import {
@@ -24,6 +25,7 @@ import {
 	resetAppleConnectors,
 	useLocalFilesContext,
 } from "./local-files.ts";
+import { CONNECTOR_ERRORS, grantError } from "./local-files-errors.ts";
 import { cancelShell, executeShell, listenShellJobFinished } from "./terminal.ts";
 import { beginTrayConnectorWork } from "./tray-bridge.ts";
 
@@ -31,46 +33,13 @@ type PendingCommand = {
 	cancelled: boolean;
 	apple: boolean;
 	terminal: boolean;
+	desktop: boolean;
 	connectionId: string;
 	revision: number;
 	upload?: AbortController;
 	tray?: ReturnType<typeof beginTrayConnectorWork>;
 };
-
-const ERRORS = new Set([
-	"permission_denied",
-	"not_found",
-	"path_invalid",
-	"unsupported_file",
-	"too_large",
-	"disconnected",
-	"cancelled",
-	"read_failed",
-	"conflict",
-	"already_exists",
-	"operation_failed",
-	// A photo whose pixels are only in iCloud, and an asset with no readable local copy: the real
-	// states the server and the model need, never collapsed into a generic read failure.
-	"icloud_only",
-	"unavailable",
-	// The terminal's own errors: a killed command, an unreadable log, a job id nothing matches, and
-	// a job whose process vanished across a restart. Each is a real state the model is told.
-	"timeout",
-	"output_unavailable",
-	"job_not_found",
-	"job_lost",
-	// The elevation answers from the device: the owner refused the system prompt, the prompt went
-	// unanswered, or this device cannot raise one. Each passes through so the model stops and asks.
-	"elevation_denied",
-	"elevation_timeout",
-	"elevation_unavailable",
-]);
-
-/** A native refusal is the real error code; anything else is a write that did not finish. */
-function grantError(error: unknown): string {
-	const code = error instanceof Error ? error.message : String(error);
-	return ERRORS.has(code) ? code : "operation_failed";
-}
+const DESKTOP_OPERATIONS = new Set(["desktop_windows", "desktop_ax", "desktop_shot", "desktop_input"]);
 
 /**
  * The main desktop webview provides local tools over its existing account socket. It also stores
@@ -138,25 +107,28 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			!revoked.has(connectionId) &&
 			(written.has(connectionId) || (connectionsRef.current ?? []).some((item) => item.id === connectionId));
 		/**
-		 * A terminal command is for one `computer-control` connection whose grant carries `terminal`,
-		 * for this device, with no expiry. Like the runtime's other checks it is a second look in front
-		 * of `shell_execute`, which re-checks the stored grant: the webview may be one list refresh stale.
+		 * A terminal or desktop command is for one `computer-control` connection whose grant carries
+		 * that capability, for this device. Like the runtime's other checks it is a second look in
+		 * front of `shell_execute` / `desktop_execute`, which re-check the stored grant: the webview
+		 * may be one list refresh stale.
 		 */
-		const eligibleTerminal = (command: ConnectorCommand) =>
+		const eligibleCapability = (command: ConnectorCommand, capability: "terminal" | "desktop") =>
 			files &&
 			!revoked.has(command.connectionId) &&
 			command.deviceId === context.deviceId &&
 			command.connectorId === "computer-control" &&
 			command.scope === "device" &&
-			command.capabilities.terminal === true &&
+			command.capabilities[capability] === true &&
 			(written.has(command.connectionId) ||
 				(connectionsRef.current ?? []).some(
 					(item) =>
 						item.id === command.connectionId &&
 						item.revision === command.revision &&
 						item.connectorId === "computer-control" &&
-						item.capabilities.terminal === true,
+						item.capabilities[capability] === true,
 				));
+		const eligibleTerminal = (command: ConnectorCommand) => eligibleCapability(command, "terminal");
+		const eligibleDesktop = (command: ConnectorCommand) => eligibleCapability(command, "desktop");
 		const eligibleApple = (command: ConnectorCommand) =>
 			apple &&
 			!revoked.has(command.connectionId) &&
@@ -261,10 +233,12 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 			if (!active || realtime.status !== "open" || pending.has(command.id)) return;
 			const appleCommand = command.connectorId?.startsWith("apple-") ?? false;
 			const terminalCommand = command.operation === "shell" || command.operation === "shell_job";
+			const desktopCommand = DESKTOP_OPERATIONS.has(command.operation);
 			const state: PendingCommand = {
 				cancelled: false,
 				apple: appleCommand,
 				terminal: terminalCommand && !appleCommand,
+				desktop: desktopCommand && !appleCommand,
 				connectionId: command.connectionId,
 				revision: command.revision,
 			};
@@ -279,6 +253,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 				)
 					result = { ok: false, error: "permission_denied" };
 				else if (terminalCommand && !eligibleTerminal(command)) result = { ok: false, error: "permission_denied" };
+				else if (desktopCommand && !eligibleDesktop(command)) result = { ok: false, error: "permission_denied" };
 				else if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) result = { ok: false, error: "cancelled" };
 				else {
 					const { origin, ...nativeCommand } = command;
@@ -349,6 +324,10 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 							// its job record; `shell_job` `wait` can take longer than a command's own
 							// expiry, so a finished answer is still accepted after it.
 							result = await executeShell<ConnectorCommandResult>(context, native);
+						} else if (!appleCommand && desktopCommand) {
+							// Desktop control answers its own `{ ok, error, permission? }` body, so a missing
+							// macOS permission carries which one through to the server unchanged.
+							result = await executeDesktop<ConnectorCommandResult>(context, native);
 						} else if (!appleCommand) {
 							result = await invokeLocalFiles<ConnectorCommandResult>("local_files_execute", {
 								context,
@@ -410,7 +389,7 @@ export function LocalFilesRuntime({ files = true, apple = false }: { files?: boo
 						const code = error instanceof Error ? error.message : String(error);
 						result = {
 							ok: false,
-							error: ERRORS.has(code) ? (code as "permission_denied") : "read_failed",
+							error: CONNECTOR_ERRORS.has(code) ? (code as "permission_denied") : "read_failed",
 						};
 					}
 				}
