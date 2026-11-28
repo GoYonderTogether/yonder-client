@@ -127,9 +127,10 @@ export function MemoryTimeline() {
 	);
 	const host: TimelineHost = {
 		photos: (step) => ({
-			nodes: (step.media ?? []).slice(0, 4).map((media) => (
+			nodes: (step.media ?? []).slice(0, 4).map((media, index, shown) => (
 				<MemoryThumb
 					key={media.attachment.id}
+					more={index === shown.length - 1 ? Math.max(0, (step.photoCount ?? shown.length) - shown.length) : 0}
 					media={media}
 					onOpen={(file) => {
 						if (!openAttachment(file)) setPreview(file);

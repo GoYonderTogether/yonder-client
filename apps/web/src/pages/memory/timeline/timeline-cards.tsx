@@ -309,18 +309,11 @@ function Step({ step }: { step: TimelineStep }) {
 	const { t } = useTranslation();
 	const host = useContext(HostContext);
 	if (step.kind === "photo") {
-		const { nodes, total } = host.photos(step);
+		const { nodes } = host.photos(step);
 		if (nodes.length) {
 			return (
 				<li className="tl-step tl-step-photo">
-					<div className={`tl-strip tl-strip-${Math.min(nodes.length, 4)}`}>
-						{nodes}
-						{total > nodes.length ? (
-							<span className="tl-strip-more" title={t("memory.photoCount", { count: total })}>
-								+{total - nodes.length}
-							</span>
-						) : null}
-					</div>
+					<div className={`tl-strip tl-strip-${Math.min(nodes.length, 4)}`}>{nodes}</div>
 				</li>
 			);
 		}

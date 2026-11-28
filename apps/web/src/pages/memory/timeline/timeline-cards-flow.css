@@ -121,33 +121,44 @@
 	margin-top: var(--spacing-2);
 }
 .tl-card:has(.tl-step-photo) .tl-strip {
-	display: flex;
+	display: grid;
 	gap: 3px;
 	width: 100%;
-	max-width: none;
-}
-.tl-card:has(.tl-step-photo) .tl-strip > * {
-	flex: 1 1 0;
-	min-width: 0;
-	height: 140px;
+	max-width: 22rem;
 	overflow: hidden;
 	border-radius: var(--radius-control);
+}
+.tl-card:has(.tl-step-photo) .tl-strip-1 {
+	grid-template-columns: minmax(0, 1fr);
+	max-width: 20rem;
+}
+.tl-card:has(.tl-step-photo) .tl-strip-2,
+.tl-card:has(.tl-step-photo) .tl-strip-4 {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.tl-card:has(.tl-step-photo) .tl-strip-3 {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-rows: none;
+}
+/* Every picture is a square tile, like a feed of photos; a single picture gets a 4:3 frame. The +N lives inside the last tile and fills it. */
+.tl-card:has(.tl-step-photo) .tl-strip .memory-thumb {
+	width: 100%;
+	height: auto;
+	aspect-ratio: 1;
+	border-radius: 0;
+}
+.tl-card:has(.tl-step-photo) .tl-strip-1 .memory-thumb {
+	aspect-ratio: 4 / 3;
 }
 .tl-card:has(.tl-step-photo) .tl-strip img {
 	width: 100%;
 	height: 100%;
+	aspect-ratio: auto;
+	grid-row: auto;
 	object-fit: cover;
 }
-.tl-card:has(.tl-step-photo) .tl-strip-more {
-	position: absolute;
-	right: var(--spacing-2);
-	bottom: var(--spacing-2);
-	padding: 2px 8px;
-	border-radius: var(--radius-full);
-	background: var(--color-bg-overlay);
-	color: var(--color-text-inverse);
-	font-size: var(--text-micro);
-	font-variant-numeric: tabular-nums;
+.tl-card:has(.tl-step-photo) .tl-strip .memory-thumb-more {
+	font-size: var(--text-h3);
 }
 
 /* The kind icon would sit on a line of its own inside the clamped text; the grey line is enough. */
