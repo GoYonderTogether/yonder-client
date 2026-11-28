@@ -1,0 +1,101 @@
+/* The arrow to the next node of the same thing, drawn only when that node is on another day. A small dashed icon at the card's corner: no row of its own. */
+.tl-card:has(> .tl-next) {
+	position: relative;
+}
+.tl-card:has(> .tl-next) .tl-body {
+	padding-right: var(--spacing-8);
+}
+.tl-next {
+	position: absolute;
+	top: var(--spacing-2);
+	right: var(--spacing-2);
+	display: grid;
+	place-items: center;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--color-text-tertiary);
+	font: inherit;
+	cursor: pointer;
+}
+/* A quiet line is one row of text: the arrow follows it on the same row and never wraps below it. */
+.tl-quiet li:has(> .tl-next) {
+	flex-wrap: nowrap;
+	align-items: baseline;
+}
+.tl-quiet li > .tl-quiet-open,
+.tl-quiet li > span {
+	min-width: 0;
+}
+.tl-quiet li > .tl-next {
+	position: relative;
+	flex: none;
+	margin-left: var(--spacing-2);
+}
+/* The card's own children are set to position: relative elsewhere; say it again here so the corner wins. */
+.tl-card[data-sky] > .tl-next {
+	position: absolute;
+}
+.tl-next svg {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.5;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+.tl-next-line {
+	stroke-dasharray: 3 3;
+}
+.tl-next[data-live] svg {
+	animation: tl-next-float 2.4s ease-in-out 2;
+}
+.tl-next[data-live] .tl-next-line {
+	animation: tl-next-march 1.2s linear 3;
+}
+/* The next node's title floats under the pointer, over the page, so it adds nothing to the layout. */
+.tl-next-tip {
+	position: absolute;
+	top: 100%;
+	right: 0;
+	z-index: 2;
+	display: none;
+	max-width: calc(var(--spacing-16) * 4);
+	margin-top: var(--spacing-1);
+	padding: var(--spacing-1) var(--spacing-2);
+	overflow: hidden;
+	border-radius: var(--radius-control);
+	background: var(--color-bg-raised);
+	box-shadow: var(--shadow-md);
+	color: var(--color-text-secondary);
+	font-size: var(--text-micro);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tl-next:hover .tl-next-tip,
+.tl-next:focus-visible .tl-next-tip {
+	display: block;
+}
+.tl-quiet li > .tl-next .tl-next-tip {
+	right: auto;
+	left: 0;
+}
+.tl-next:hover,
+.tl-next:focus-visible {
+	color: var(--color-accent-text);
+}
+@keyframes tl-next-float {
+	50% {
+		transform: translateY(2px);
+	}
+}
+@keyframes tl-next-march {
+	to {
+		stroke-dashoffset: -12;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.tl-next[data-live] svg,
+	.tl-next[data-live] .tl-next-line {
+		animation: none;
+	}
+}

@@ -64,6 +64,7 @@ export const memoryMessagesZhCN: { [K in keyof typeof memoryMessagesEn]: string 
 	dayMeta: "{{month}} 月 · 第 {{week}} 周 · {{weekday}}",
 	partSpan: "从{{from}}到{{to}}",
 	brandWechat: "微信",
+	nextNode: "下一个节点",
 	part_predawn: "凌晨",
 	part_dawn: "清晨",
 	part_morning: "上午",

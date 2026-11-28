@@ -4,7 +4,7 @@
 		"hex-color": 6,
 		"rgb-color": 0,
 		"text-px": 0,
-		"radius-raw": 6,
+		"radius-raw": 5,
 		"font-weight-number": 9,
 		"window-confirm": 3
 	},
@@ -24,9 +24,6 @@
 		},
 		"apps/web/src/preview/preview.css": {
 			"font-weight-number": 2
-		},
-		"packages/ui/auth-presentation/src/styles.css": {
-			"radius-raw": 1
 		},
 		"packages/ui/components/src/ambient/ambient-field.tsx": {
 			"hex-color": 6

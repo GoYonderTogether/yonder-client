@@ -62,6 +62,7 @@ export const memoryMessagesEn = {
 	dayMeta: "Week {{week}} · {{weekday}}",
 	partSpan: "{{from}} to {{to}}",
 	brandWechat: "WeChat",
+	nextNode: "Next step",
 	part_predawn: "Before dawn",
 	part_dawn: "Early morning",
 	part_morning: "Morning",

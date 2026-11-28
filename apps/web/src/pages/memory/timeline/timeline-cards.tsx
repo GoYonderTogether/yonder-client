@@ -8,6 +8,7 @@ import { dayName, daysAgo, memoryFormat } from "../memory-format.ts";
 import { isoWeek } from "./timeline-bands.tsx";
 import { KindIcon } from "./timeline-kinds.tsx";
 import { skyOfPart } from "./timeline-model.ts";
+import { NextArrow, type NextTarget } from "./timeline-next.tsx";
 import { PartIcon, partOfSky } from "./timeline-part-icons.tsx";
 import type { Sky } from "./timeline-sky.tsx";
 import type { DayPart, TimelineDay, TimelineEvent, TimelineStep } from "./timeline-types.ts";
@@ -24,6 +25,8 @@ export interface TimelineHost {
 	state?: ((event: TimelineEvent) => { open: boolean; flash: boolean }) | undefined;
 	/** False when an event has nothing behind it: its title is plain text, not a button. */
 	openable?: ((event: TimelineEvent) => boolean) | undefined;
+	/** The node this event leads to, when it is one of a chain. */
+	next?: ((event: TimelineEvent) => NextTarget | null) | undefined;
 }
 
 const HostContext = createContext<TimelineHost>({ photos: () => ({ nodes: [], total: 0 }), onMessage: () => {} });
@@ -188,6 +191,7 @@ function Card({ event }: { event: TimelineEvent }) {
 	const { t } = useTranslation();
 	const host = useContext(HostContext);
 	const state = host.state?.(event) ?? { open: false, flash: false };
+	const next = host.next?.(event);
 	const sky = skyOf(event);
 	const from = event.part ? t(`memory.part_${event.part}`) : "";
 	const to = event.endPart ? t(`memory.part_${event.endPart}`) : "";
@@ -254,6 +258,7 @@ function Card({ event }: { event: TimelineEvent }) {
 					</ol>
 				) : null}
 			</div>
+			{next ? <NextArrow target={next} /> : null}
 		</li>
 	);
 }
@@ -266,6 +271,7 @@ function Quiet({ events }: { events: TimelineEvent[] }) {
 			<ul>
 				{events.map((event, index) => {
 					const at = event.entry ? memoryFormat.time(event.entry.at, "en-GB") : (event.steps[0]?.at ?? "");
+					const next = host.next?.(event);
 					return (
 						<li
 							key={eventKey(event, index)}
@@ -290,6 +296,7 @@ function Quiet({ events }: { events: TimelineEvent[] }) {
 							) : (
 								<span>{event.headline}</span>
 							)}
+							{next ? <NextArrow target={next} /> : null}
 						</li>
 					);
 				})}

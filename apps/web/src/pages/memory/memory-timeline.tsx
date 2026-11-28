@@ -24,6 +24,7 @@ import "./timeline/timeline-cards-parts.css";
 import "./timeline/timeline-cards-drawer.css";
 import "./timeline/timeline-cards-tune.css";
 import "./timeline/timeline-cards-flow.css";
+import "./timeline/timeline-cards-next.css";
 import "./timeline/timeline-part-icons.css";
 
 /**
@@ -119,6 +120,11 @@ export function MemoryTimeline() {
 		deleteError: remove.error ? { id: remove.variables ?? "", error: remove.error } : null,
 	};
 	const view = toTimelineDays(days, now);
+	const byId = new Map(
+		days
+			.flatMap((day) => day.blocks.flatMap((block) => (block.type === "entry" ? [block.entry] : block.stay.entries)))
+			.map((entry) => [entry.id, entry] as const),
+	);
 	const host: TimelineHost = {
 		photos: (step) => ({
 			nodes: (step.media ?? []).slice(0, 4).map((media) => (
@@ -133,6 +139,16 @@ export function MemoryTimeline() {
 			total: step.photoCount ?? step.media?.length ?? 0,
 		}),
 		onMessage: () => {},
+		next: (event) => {
+			const from = event.entry;
+			const link = from?.links.find((candidate) => candidate.label === "next");
+			const target = link ? byId.get(link.entryId) : undefined;
+			if (!from || !link || !target) return null;
+			const gap = (Date.parse(link.date) - Date.parse(localDay(new Date(from.at)))) / 86_400_000;
+			// An arrow only where the next node lies on another day.
+			if (gap < 1) return null;
+			return { id: target.id, title: target.title };
+		},
 		state: (event) => ({ open: event.entry?.id === open, flash: event.entry?.id === flash }),
 		openable: (event) => {
 			const e = event.entry;
