@@ -376,6 +376,9 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await discover(page).click();
 	await expect(discoveredModel(page)).toHaveValue("fixture-model");
 	await expect(keyField).toHaveValue("synthetic-replacement-key");
+	await expect
+		.poll(() => requests.discovery)
+		.toEqual(Array.from({ length: 3 }, () => ({ protocol: "anthropic-messages", ...target })));
 	expect(registrations).toHaveLength(3);
 	expect(registrations.at(-1)).toEqual({
 		command: "device_model_set_key",
@@ -385,9 +388,6 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 			apiKey: "synthetic-replacement-key",
 		},
 	});
-	await expect
-		.poll(() => requests.discovery)
-		.toEqual(Array.from({ length: 3 }, () => ({ protocol: "anthropic-messages", ...target })));
 	expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain("synthetic-");
 	await page.getByRole("button", { name: "保存", exact: true }).click();
 	await expect

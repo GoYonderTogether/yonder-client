@@ -203,7 +203,10 @@ async function exerciseMemory(page: Page, testInfo: TestInfo, phone: boolean) {
 	}
 	// A private card carries no visibility mark.
 	await expect(page.getByRole("img", { name: "私人" })).toHaveCount(0);
-	await page.getByRole("button", { name: /会后决定/ }).click();
+	await page
+		.getByRole("region", { name: "时间线", exact: true })
+		.getByRole("button", { name: /会后决定/ })
+		.click();
 	await expect(page.getByText("接口在周五完成。")).toBeVisible();
 	const pane = phone ? page.locator('[data-page-layer="side"]') : page.locator("[data-detail-pane]");
 	const closePane = () => pane.getByRole("button", { name: phone ? "返回" : "关闭全部", exact: true }).click();

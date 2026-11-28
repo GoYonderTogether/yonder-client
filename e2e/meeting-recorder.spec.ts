@@ -17,7 +17,7 @@ for (const mobile of [false, true]) {
 						hasTouch: true,
 						userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
 					}
-				: {}),
+				: { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0)" }),
 		});
 		test("starts from the chat menu and stays available across app navigation", async ({ page }) => {
 			await isolateChat(page, { items: [] });
@@ -88,6 +88,10 @@ for (const mobile of [false, true]) {
 							transformCallback: () => 1,
 							unregisterCallback() {},
 							invoke: async (command: string, args: Record<string, unknown>) => {
+								if (command === "plugin:yonder-mac-permissions|permission_status") {
+									calls.push("permission_status");
+									return { microphone: "granted" };
+								}
 								if (!command.startsWith("plugin:meeting-recorder|")) return null;
 								const action = command.split("|")[1] ?? "";
 								calls.push(action);
@@ -155,11 +159,11 @@ for (const mobile of [false, true]) {
 			await expect.poll(() => accepted).toBe(true);
 			expect(
 				await page.evaluate(() =>
-					(window as unknown as { __meetingRecorderCalls: string[] }).__meetingRecorderCalls.filter(
-						(command) => command === "start" || command === "stop",
+					(window as unknown as { __meetingRecorderCalls: string[] }).__meetingRecorderCalls.filter((command) =>
+						["permission_status", "start", "stop"].includes(command),
 					),
 				),
-			).toEqual(["start"]);
+			).toEqual(mobile ? ["start"] : ["permission_status", "start"]);
 			await stop.click();
 			await expect(page.locator(".meeting-capsule")).toHaveCount(0);
 			await expect.poll(() => submitted).toBe(true);
