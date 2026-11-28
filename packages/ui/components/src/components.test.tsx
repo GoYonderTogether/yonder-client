@@ -3,7 +3,7 @@
  * Layer two's primitives: the states a unit test can hold — the avatar's fallback, the button's
  * loading state, and the empty state's structure.
  */
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Avatar, BOT_FACE_IDS, Button, botFaceFor, EmptyState, Logo } from "@yonder/ui-components";
 import { describe, expect, test } from "vitest";
 
@@ -13,12 +13,27 @@ describe("Avatar", () => {
 		expect(screen.getByText("A")).toBeInTheDocument();
 	});
 
-	test("shows the image when there is one", () => {
-		const { container } = render(<Avatar name="Aster" src="https://example.test/a.png?v=abc" />);
+	test("keeps the initial while an avatar is pending or fails, and shows a loaded replacement", () => {
+		const { container, rerender } = render(<Avatar name="Aster" src="https://example.test/a.png?v=abc" />);
 		const image = container.querySelector("img");
-		expect(image?.getAttribute("src")).toBe("https://example.test/a.png?v=abc");
+		if (!image) throw new Error("Expected an avatar image");
+		expect(image.getAttribute("src")).toBe("https://example.test/a.png?v=abc");
 		// The name is the accessible label on the surrounding control, not on the image itself.
-		expect(image?.getAttribute("alt")).toBe("");
+		expect(image.getAttribute("alt")).toBe("");
+		expect(screen.getByText("A")).toBeInTheDocument();
+		expect(image).toHaveClass("opacity-0");
+		fireEvent.error(image);
+		expect(screen.getByText("A")).toBeInTheDocument();
+		expect(container.querySelector("img")).toBe(image);
+
+		rerender(<Avatar name="Aster" src="https://example.test/a.png?v=def" />);
+		const replacement = container.querySelector("img");
+		if (!replacement) throw new Error("Expected a replacement avatar image");
+		expect(replacement).toHaveAttribute("src", "https://example.test/a.png?v=def");
+		expect(screen.getByText("A")).toBeInTheDocument();
+		fireEvent.load(replacement);
+		expect(screen.queryByText("A")).not.toBeInTheDocument();
+		expect(replacement).not.toHaveClass("opacity-0");
 	});
 
 	test("shows the Bot face instead of an initial for a Bot without an image", () => {
@@ -37,7 +52,11 @@ describe("Avatar", () => {
 
 	test("keeps a Bot's supplied image", () => {
 		const { container } = render(<Avatar name="Aster" kind="bot" src="https://example.test/bot.png" />);
-		expect(container.querySelector("img")).toHaveAttribute("src", "https://example.test/bot.png");
+		const image = container.querySelector("img");
+		if (!image) throw new Error("Expected a Bot avatar image");
+		expect(image).toHaveAttribute("src", "https://example.test/bot.png");
+		expect(container.querySelector("[data-bot-face]")).toBeInTheDocument();
+		fireEvent.load(image);
 		expect(container.querySelector("svg")).not.toBeInTheDocument();
 	});
 

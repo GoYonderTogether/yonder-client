@@ -21,6 +21,8 @@ export interface GesturePanelProps {
 	open: boolean;
 	inline?: boolean;
 	initial?: boolean;
+	/** Let a history-backed page exit immediately unless this panel already owns the drag. */
+	instantBack?: boolean;
 	active?: boolean;
 	side?: "left" | "right" | "bottom";
 	layerKey: string;
@@ -51,17 +53,16 @@ interface Drag {
 }
 
 /**
- * Shared navigation surface: a page that sits at its closing edge, follows a finger that starts
- * there 1:1, pushes the page beneath it aside, and settles wherever the release leaves it. With
- * `inline` it is the visible page itself, and back is a button.
+ * Shared navigation surface: a page follows a finger from its closing edge and settles where the
+ * release leaves it. With `inline` it is the visible page itself, and back is a button.
  *
- * Every number this file uses to decide a release lives in `back-gesture.ts`, so the feel can be
- * proven in a unit test rather than in a phone. The page beneath is `page-below.ts`.
+ * The release thresholds and their unit tests live alongside `back-gesture.ts`.
  */
 export function GesturePanel({
 	open,
 	inline = false,
 	initial = true,
+	instantBack = false,
 	active = true,
 	side = "right",
 	layerKey,
@@ -98,8 +99,11 @@ export function GesturePanel({
 	const size = useRef(0);
 	/** The page under this one, while a gesture or a transition shows it. */
 	const under = useRef<HTMLElement | null>(null);
-	/** The release speed an exit animation starts with, in the motion value's own units. */
-	const handoff = useRef(0);
+	/** A drag's release speed, including zero. Button and system Back have no drag to hand off. */
+	const handoff = useRef<number | null>(null);
+	const skipExit =
+		!shown &&
+		(!initialized.current || inline || reduced || handedOff.current || (instantBack && handoff.current === null));
 	const dragged = useRef(false);
 	const armed = useRef(false);
 	const dismiss = useRef(onBack);
@@ -122,12 +126,6 @@ export function GesturePanel({
 		},
 		[vertical],
 	);
-	// A page's entry animation runs before any gesture; it still has to know what it covers.
-	useEffect(() => {
-		if (!panel.current || inline) return;
-		attachUnder(panel.current);
-	}, [attachUnder, inline]);
-
 	function expansionRoom(element: HTMLElement, height: number) {
 		return Math.max(0, (element.parentElement?.clientHeight ?? height) - height - Math.min(0, x.get()));
 	}
@@ -154,25 +152,31 @@ export function GesturePanel({
 		size.current = width;
 		animation.current?.stop();
 		if (inline) {
+			hideUnder();
 			x.set(0);
 			setVisible(true);
 			initialized.current = true;
 			return;
 		}
+		if (skipExit) {
+			x.jump(direction * width);
+			hideUnder();
+			setVisible(false);
+			return;
+		}
 		attachUnder(element);
+		const velocity = shown ? x.getVelocity() : (handoff.current ?? x.getVelocity());
 		if (shown) {
 			setVisible(true);
 			if (!initialized.current) x.jump(reduced || !initial ? 0 : direction * width);
+			handoff.current = null;
 		}
 		initialized.current = true;
-		if (reduced || (!shown && handedOff.current)) {
-			x.set(shown ? 0 : direction * width);
+		if (reduced) {
+			x.set(0);
 			hideUnder();
-			if (!shown) setVisible(false);
 			return;
 		}
-		const velocity = handoff.current || x.getVelocity();
-		handoff.current = 0;
 		animation.current = animate(x, shown ? 0 : direction * width, {
 			type: "spring",
 			...SPRING.panel,
@@ -188,12 +192,12 @@ export function GesturePanel({
 			},
 		});
 		return () => animation.current?.stop();
-	}, [shown, inline, initial, direction, vertical, reduced, remove, x, attachUnder, hideUnder, showUnder]);
+	}, [shown, inline, initial, direction, vertical, reduced, remove, skipExit, x, attachUnder, hideUnder, showUnder]);
 
 	// Complete immediate exits after motion has committed its presence bookkeeping.
 	useEffect(() => {
-		if ((inline || reduced || handedOff.current) && !shown) remove?.();
-	}, [inline, reduced, shown, remove]);
+		if (skipExit) remove?.();
+	}, [skipExit, remove]);
 
 	useEffect(() => {
 		if (!shown || !active || role !== "dialog") return;
@@ -259,7 +263,7 @@ export function GesturePanel({
 				hideUnder();
 				return;
 			}
-			handoff.current = 0;
+			handoff.current = null;
 			animateTo(0, 0, hideUnder);
 		});
 	}
@@ -311,8 +315,6 @@ export function GesturePanel({
 						? event.clientX - rect.left
 						: rect.right - event.clientX;
 				if (edge > EDGE_WIDTH && !(vertical && onExpand)) return;
-				animation.current?.stop();
-				settle.current?.stop();
 				armed.current = false;
 				gesture.current = {
 					id: event.pointerId,

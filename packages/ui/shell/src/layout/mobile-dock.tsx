@@ -8,6 +8,9 @@ import { TAB_ICONS } from "./tab-icons.tsx";
 import { useChromeSize } from "./use-chrome-size.ts";
 
 export interface MobileDockProps {
+	/** Root tabs share the frame's dock. A pushed chat keeps its composer on its own page. */
+	root?: boolean;
+	inert?: boolean;
 	/** The composer, or nothing (「我」 and its settings have none). */
 	composer: ReactNode | null;
 	/** The tab bar is hidden while a detail is pushed; the composer stays. */
@@ -22,10 +25,11 @@ export interface MobileDockProps {
 }
 
 /**
- * The phone's bottom container: composer above, tabs below, one translucent surface. It stays
- * mounted while the tabs change, so a half-typed message survives a tab switch (11 第三节第 2 条).
+ * The phone's bottom container: composer above, tabs below, one translucent surface.
  */
 export function MobileDock({
+	root = false,
+	inert,
 	composer,
 	showTabs,
 	current,
@@ -36,12 +40,13 @@ export function MobileDock({
 	messagesUnread,
 	onHeightChange,
 }: MobileDockProps) {
-	const ref = useChromeSize("--native-dock-height", true, onHeightChange);
+	const ref = useChromeSize(root ? "--native-root-dock-height" : "--native-dock-height", true, onHeightChange);
 	const badgeId = useId();
 	if (!composer && !showTabs)
 		return (
 			<div
 				data-mobile-dock
+				data-mobile-dock-root={root || undefined}
 				ref={ref}
 				className="shrink-0"
 				style={{ height: "var(--dock-bottom-inset, var(--safe-area-bottom, env(safe-area-inset-bottom)))" }}
@@ -50,6 +55,9 @@ export function MobileDock({
 	return (
 		<div
 			data-mobile-dock
+			data-mobile-dock-root={root || undefined}
+			inert={inert}
+			aria-hidden={inert || undefined}
 			ref={ref}
 			className="relative z-20 shrink-0 material material-regular material-bar"
 			style={{ paddingBottom: "var(--dock-bottom-inset, var(--safe-area-bottom, env(safe-area-inset-bottom)))" }}

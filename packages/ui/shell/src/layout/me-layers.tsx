@@ -52,6 +52,7 @@ export function MeLayers({
 		<GesturePanel
 			open
 			inline={floating}
+			instantBack={mode === "mobile"}
 			active={!covered && (!desktop || present)}
 			side="left"
 			layerKey="me"
@@ -130,6 +131,7 @@ export function MeLayers({
 								key={page.key}
 								open
 								initial={!entering.current}
+								instantBack={mode === "mobile"}
 								active={present && !covered && index === me.pages.length - 1}
 								layerKey={page.key}
 								onBack={onBack}

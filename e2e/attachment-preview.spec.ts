@@ -279,7 +279,7 @@ test.describe("phone attachment readers", () => {
 		await page.goto("/messages");
 		await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "mobile");
 		await expect(page.locator("[data-mobile-dock] nav")).toBeVisible();
-		await expect(page.locator(".yonder-chrome > div > nav")).toHaveCount(0);
+		await expect(page.getByRole("navigation")).toHaveCount(1);
 		await page.screenshot({ path: `${evidence}/mobile-message-list.png` });
 		await page.goto(`/messages/${conversation.id}`);
 		await expect(page.locator("[data-layout-mode]")).toHaveAttribute("data-layout-mode", "mobile");

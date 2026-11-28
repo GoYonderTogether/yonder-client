@@ -1,6 +1,6 @@
 import { ComposerFrame, ComposerLayout } from "@yonder/chat-presentation";
 import { ArrowUp, Keyboard, Mic, Plus, Square } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { haptic } from "../lib/haptics.ts";
@@ -60,6 +60,7 @@ export function Composer({
 	onRetryFile,
 	onOriginalFileChange,
 	mobilePicker = false,
+	onAttachmentPanelChange,
 	onMeeting,
 	scope = "composer",
 	error,
@@ -223,6 +224,13 @@ export function Composer({
 				onClose={() => setMenuScope(undefined)}
 			/>
 		) : null;
+	const showAttachmentGrid = mobilePicker && !attachmentPickerBlocked && attachmentMenu !== null;
+	const attachmentPanelOpen = iosAttachments.open || showAttachmentGrid;
+	useLayoutEffect(() => {
+		if (!attachmentPanelOpen || !onAttachmentPanelChange) return;
+		onAttachmentPanelChange(true);
+		return () => onAttachmentPanelChange(false);
+	}, [attachmentPanelOpen, onAttachmentPanelChange]);
 	const addControl = (
 		<div ref={addMenu} className="composer-add">
 			<button
@@ -477,7 +485,7 @@ export function Composer({
 					</ComposerLayout>
 				</ComposerFrame>
 			</fieldset>
-			{mobilePicker && !attachmentPickerBlocked ? attachmentMenu : null}
+			{showAttachmentGrid ? attachmentMenu : null}
 			{iosAttachments.open ? (
 				<IosComposerAttachmentPanel key={scope} picker={iosAttachments} onMeeting={onMeeting} />
 			) : null}

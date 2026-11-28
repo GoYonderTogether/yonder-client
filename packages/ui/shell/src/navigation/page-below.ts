@@ -1,5 +1,5 @@
 /**
- * The page a sliding layer reveals while it is dragged, and how far it is held aside. This is the
+ * The page a sliding layer reveals in compact desktop mode, and how far it is held aside. This is the
  * system's page push: the page below is pushed a short way the other way and stays there while the
  * next page covers it, so a back gesture looks like a page lifting off a page rather than a card
  * appearing over a frozen screen.
@@ -35,10 +35,10 @@ export function pageBelow(element: HTMLElement): HTMLElement | null {
 	return null;
 }
 
-/** Whether the frame is laid out for a phone or a narrow window, where a push covers the page below. */
+/** Preserve the compact desktop transition. On phones the underlying page and its tabs stay fixed. */
 export function coversPageBelow(element: HTMLElement): boolean {
 	const mode = element.closest<HTMLElement>("[data-layout-mode]")?.dataset.layoutMode;
-	return mode === "mobile" || mode === "compact";
+	return mode === "compact";
 }
 
 /**

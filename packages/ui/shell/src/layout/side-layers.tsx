@@ -89,6 +89,7 @@ export function SideLayers({ side, mode, desktop }: { side: SideStack; mode: Lay
 				<GesturePanel
 					key="side"
 					open
+					instantBack={mode === "mobile"}
 					modal
 					layerKey="side"
 					onBack={side.onBack}

@@ -250,6 +250,7 @@ class MainActivity : TauriActivity() {
         if (document.documentElement) {
           Object.entries(${"$"}safeInsets).forEach(([side, value]) =>
             document.documentElement.style.setProperty('--native-safe-area-inset-' + side, value + 'px'));
+          document.documentElement.dataset.nativeKeyboard = '${"$"}{ime > 0}';
           window.dispatchEvent(new Event('native-insets-change'));
         }
       """.trimIndent(), null)

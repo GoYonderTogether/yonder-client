@@ -152,6 +152,14 @@ html[data-native-mobile="true"] :is([data-mobile-dock], [data-native-composer]) 
 	inset: auto 0 0;
 }
 
+html[data-native-mobile="true"] [data-mobile-dock-root] {
+	inset-inline: var(--safe-area-left) var(--safe-area-right);
+}
+
+html[data-native-mobile="true"] [data-mobile-root-surface] {
+	--native-dock-height: var(--native-root-dock-height, var(--safe-area-bottom));
+}
+
 /* Non-Bot phone conversations keep the message scroller entirely below the app bar. */
 html[data-native-mobile="true"]
 	:where([data-layout-mode="mobile"])

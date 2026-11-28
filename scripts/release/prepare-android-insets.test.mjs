@@ -54,6 +54,7 @@ test("Android preparation restores launcher branding, camera permission, and nat
 		assert.match(first, /@JavascriptInterface fun getInsets\(\): String = safeInsets/);
 		assert.match(first, /put\("top", bars\.top \/ density\)/);
 		assert.match(first, /put\("bottom", if \(ime > 0\) 0f else bars\.bottom \/ density\)/);
+		assert.match(first, /document\.documentElement\.dataset\.nativeKeyboard = '\$\{ime > 0\}'/);
 		assert.match(first, /native-insets-change/);
 		assert.match(first, /\.setInsets\(WindowInsetsCompat\.Type\.ime\(\), Insets\.NONE\)/);
 		assert.doesNotMatch(first, /maxOf\(bars\.bottom, ime\)/);

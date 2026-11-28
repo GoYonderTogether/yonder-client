@@ -67,6 +67,37 @@ type MotionCapture = Window & {
 	navigationCapture?: { frame: number; values: number[]; childValues: number[]; childWorld: number[] };
 };
 
+async function captureHorizontalOffsets(page: Page, selector: string) {
+	await page.evaluate((selector) => {
+		const capture: NonNullable<MotionCapture["navigationCapture"]> = {
+			frame: 0,
+			values: [],
+			childValues: [],
+			childWorld: [],
+		};
+		(window as MotionCapture).navigationCapture = capture;
+		const tick = () => {
+			const surfaces = document.querySelectorAll(selector);
+			if (surfaces.length)
+				capture.values.push(
+					Math.max(...Array.from(surfaces, (surface) => Math.abs(surface.getBoundingClientRect().x))),
+				);
+			capture.frame = requestAnimationFrame(tick);
+		};
+		capture.frame = requestAnimationFrame(tick);
+	}, selector);
+}
+
+async function expectStationarySurface(page: Page) {
+	const frameCount = await page.evaluate(() => ((window as MotionCapture).navigationCapture?.values.length ?? 0) + 8);
+	await page.waitForFunction(
+		(count) => ((window as MotionCapture).navigationCapture?.values.length ?? 0) >= count,
+		frameCount,
+	);
+	const { values } = await stopCapture(page);
+	expect(Math.max(...values)).toBeLessThan(1);
+}
+
 async function startCapture(page: Page, key: string, childKey?: string) {
 	await page.evaluate(
 		({ layerKey, childKey }) => {
@@ -470,6 +501,39 @@ test.describe("phone", () => {
 		hasTouch: true,
 	});
 
+	test("phone root tabs and their dock switch without a horizontal jump", async ({ page }) => {
+		await page.goto("/messages/main");
+		const navigation = page.getByRole("navigation", { name: "Main navigation" });
+		for (const [label, path] of [
+			["Messages", /\/messages$/],
+			["Tasks", /\/tasks$/],
+			["Memory", /\/memory$/],
+			["Test Bot", /\/messages\/main$/],
+		] as const) {
+			await captureHorizontalOffsets(page, "[data-mobile-dock] nav, aside[data-surface]");
+			await navigation.getByRole("button", { name: label, exact: true }).click();
+			await expect(page).toHaveURL(path);
+			await expect(navigation).toBeVisible();
+			await expectStationarySurface(page);
+		}
+	});
+
+	test("the memory list stays in place across timeline navigation and Back", async ({ page }) => {
+		await page.goto("/memory");
+		const timeline = page.getByRole("button", { name: "View the whole timeline" });
+		await captureHorizontalOffsets(page, "aside[data-surface]");
+		for (const back of [() => page.getByRole("button", { name: "Back", exact: true }).click(), () => page.goBack()]) {
+			await timeline.click();
+			await expect(page).toHaveURL(/\/memory\/timeline$/);
+			await settled(panel(page, "right"));
+			await back();
+			await expect(page).toHaveURL(/\/memory$/);
+			await expect(panel(page, "right")).not.toBeVisible();
+			await expect(timeline).toBeVisible();
+		}
+		await expectStationarySurface(page);
+	});
+
 	test("task and memory sections use their own row below the mobile top bar", async ({ page }, testInfo) => {
 		await page.goto("/tasks");
 		await page.getByRole("button", { name: "Me", exact: true }).click();
@@ -562,7 +626,9 @@ test.describe("phone", () => {
 		await expect(page).toHaveURL(/\/me$/);
 	});
 
-	test("avatar settings enter and exit left while child pages enter and exit right", async ({ page }, testInfo) => {
+	test("settings enter left, child pages enter right, and plain phone Back does not slide out", async ({
+		page,
+	}, testInfo) => {
 		await page.goto("/messages");
 		await startCapture(page, "me");
 		await page.getByRole("button", { name: "Me", exact: true }).click();
@@ -581,12 +647,12 @@ test.describe("phone", () => {
 		await page.getByRole("button", { name: "Back", exact: true }).click();
 		await expect(page.locator('[data-page-layer="/me/about"]')).not.toBeVisible();
 		const childExit = await stopCapture(page);
-		expect(Math.max(...childExit.values)).toBeGreaterThan(20);
+		expect(Math.max(0, ...childExit.values.map(Math.abs))).toBeLessThan(1);
 		await startCapture(page, "me");
 		await page.keyboard.press("Escape");
 		await expect(page.locator('[data-page-layer="me"]')).not.toBeVisible();
 		const meExit = await stopCapture(page);
-		expect(Math.min(...meExit.values)).toBeLessThan(-20);
+		expect(Math.max(0, ...meExit.values.map(Math.abs))).toBeLessThan(1);
 		const capturePath = testInfo.outputPath("actual-transform-frames.json");
 		await writeFile(capturePath, JSON.stringify({ meEntry, childEntry, childExit, meExit }));
 		await testInfo.attach("actual-transform-frames", { path: capturePath, contentType: "application/json" });

@@ -76,6 +76,7 @@ export function AppFrame() {
 	const contacts = useContacts();
 	const [layoutMode, setLayoutMode] = useState<LayoutMode | null>(null);
 	const [sideCover, setSideCover] = useState(false);
+	const [composerAttachmentOpen, setComposerAttachmentOpen] = useState(false);
 	const [chatOpen, setChatOpen] = useState(0);
 	const phone = !desktop && (layoutMode === "mobile" || layoutMode === null);
 	const previousLocation = useRef("/messages");
@@ -353,6 +354,7 @@ export function AppFrame() {
 			onOriginalFileChange={draft.toggleOriginal}
 			scope={`${person?.id}:${chat.scope}`}
 			mobilePicker={!desktop}
+			onAttachmentPanelChange={mobileBot && !preset.drawerOpen ? setComposerAttachmentOpen : undefined}
 			onMeeting={recordingConversation ? () => recordingSurface.start(recordingConversation) : undefined}
 			error={draft.error || chat.directAttachments.error}
 			disabled={chat.blocked || disconnected}
@@ -457,6 +459,7 @@ export function AppFrame() {
 						}
 						detailOpen={detailOpen}
 						composer={preset.drawerOpen ? null : dock}
+						composerAttachmentOpen={composerAttachmentOpen}
 						status={preset.drawerOpen ? null : recordingSurface.status}
 						titlebarInset={isMacDesktopShell()}
 						brand={<Logo size={32} title="Yonder" />}

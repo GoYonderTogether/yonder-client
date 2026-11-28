@@ -81,13 +81,17 @@ test("the page below is held a share of the way aside while the layer covers it"
 	expect(below.style.willChange).toBe("");
 });
 
-test("only a frame that pushes over its list is given a page behind it", () => {
+test("only a compact desktop frame shifts the page behind it", () => {
 	const mobile = document.createElement("div");
 	mobile.dataset.layoutMode = "mobile";
+	const compact = document.createElement("div");
+	compact.dataset.layoutMode = "compact";
 	const wide = document.createElement("div");
 	wide.dataset.layoutMode = "wide";
 	const child = document.createElement("div");
 	mobile.append(child);
+	expect(coversPageBelow(child)).toBe(false);
+	compact.append(child);
 	expect(coversPageBelow(child)).toBe(true);
 	wide.append(child);
 	expect(coversPageBelow(child)).toBe(false);

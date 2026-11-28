@@ -1,4 +1,5 @@
 import { firstCharacter, tintFor } from "@yonder/chat-model";
+import { useState } from "react";
 import { cn } from "../cn.ts";
 import { BotFace, type BotFaceId } from "./bot-face.tsx";
 
@@ -33,10 +34,13 @@ const PIXELS: Record<AvatarSize, string> = {
 };
 
 /**
- * A person or a Bot. Without an image people show their initial on a stable colour derived from
- * the name; Bots show their face (two flat-topped eyes, `bot-face.tsx`).
+ * A person or a Bot. Until its image loads, a person shows their initial and a Bot shows its face.
  */
-export function Avatar({
+export function Avatar(props: AvatarProps) {
+	return <AvatarSurface key={props.src ?? ""} {...props} />;
+}
+
+function AvatarSurface({
 	name,
 	src,
 	size = 32,
@@ -46,6 +50,7 @@ export function Avatar({
 	interactive = false,
 	className,
 }: AvatarProps) {
+	const [loaded, setLoaded] = useState(false);
 	const initial = firstCharacter(name);
 	// A Bot without its own picture is an ink tile with a face: it reads as a character, not a person.
 	const tint =
@@ -66,17 +71,23 @@ export function Avatar({
 					"ring-2 ring-transparent transition-shadow duration-[var(--duration-fast)] hover:ring-[var(--color-border-strong)]",
 				className,
 			)}
-			style={src ? undefined : { backgroundColor: tint.background, color: tint.foreground }}
+			style={loaded ? undefined : { backgroundColor: tint.background, color: tint.foreground }}
 			aria-hidden="true"
-			data-avatar-fallback={src ? undefined : "true"}
+			data-avatar-fallback={loaded ? undefined : "true"}
 		>
+			{!loaded && (kind === "bot" ? <BotFace id={face} /> : initial)}
 			{src ? (
-				<img src={src} alt="" className="size-full object-cover" loading="lazy" decoding="async" draggable={false} />
-			) : kind === "bot" ? (
-				<BotFace id={face} />
-			) : (
-				initial
-			)}
+				<img
+					src={src}
+					alt=""
+					className={cn("absolute inset-0 size-full object-cover", !loaded && "opacity-0")}
+					loading="lazy"
+					decoding="async"
+					draggable={false}
+					onLoad={() => setLoaded(true)}
+					onError={() => setLoaded(false)}
+				/>
+			) : null}
 		</span>
 	);
 }

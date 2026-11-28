@@ -62,6 +62,7 @@ export interface AppShellProps {
 	content: ReactNode;
 	detailOpen: boolean;
 	composer: ReactNode | null;
+	composerAttachmentOpen?: boolean;
 	status?: ReactNode;
 	titlebarInset: boolean;
 	brand: ReactNode;
@@ -96,6 +97,7 @@ export function AppShell({
 	content,
 	detailOpen,
 	composer,
+	composerAttachmentOpen = false,
 	status,
 	titlebarInset,
 	labels,
@@ -126,6 +128,12 @@ export function AppShell({
 	const overDock =
 		!meOpen && !sideCover && (phone || (Boolean(composer) && (wide ? !listCollapsed : detailOpen || !list)));
 	const keyboard = useVisualViewport(container, phone);
+	const rootDock = phone && !meOpen && (mainBotOpen || (!covering && Boolean(list)));
+	const statusBottom = phone
+		? rootDock
+			? "var(--native-root-dock-height, 0px)"
+			: dockHeight
+		: `calc(${dockHeight}px + var(--spacing-4))`;
 	useKeyboardDismiss(container, keyboard);
 	useEffect(() => onModeChange?.(mode), [mode, onModeChange]);
 	useEffect(() => onSideCoverChange?.(sideCover), [onSideCoverChange, sideCover]);
@@ -235,7 +243,7 @@ export function AppShell({
 			className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden"
 			style={{ top: "var(--app-offset-top, 0px)" }}
 		>
-			<div className="yonder-chrome relative flex h-full w-full">
+			<div className={cn("yonder-chrome relative flex h-full w-full", phone && "flex-col")}>
 				{!phone ? (
 					<div
 						inert={desktopSettingsOpen || sideCover}
@@ -262,13 +270,14 @@ export function AppShell({
 						/>
 					</div>
 				) : null}
-				<div ref={pane.panes} className="flex min-w-0 flex-1">
+				<div ref={pane.panes} className="flex min-h-0 min-w-0 flex-1">
 					<div className="relative flex min-w-0 flex-1">
 						{list ? (
 							<aside
 								inert={meOpen || covering || sideCover}
 								aria-hidden={meOpen || covering || sideCover || undefined}
 								data-surface="chrome"
+								data-mobile-root-surface={(rootDock && !mainBotOpen) || undefined}
 								className={cn(
 									"relative flex h-full shrink-0 flex-col",
 									foldedList &&
@@ -290,19 +299,6 @@ export function AppShell({
 										label={labels.resizeList}
 									/>
 								) : null}
-								{phone && !covering && !meOpen && !sideCover && !keyboard ? (
-									<MobileDock
-										composer={null}
-										onHeightChange={setDockHeight}
-										showTabs
-										current={tab.current}
-										onSelect={tab.onSelect}
-										labels={tab.labels}
-										ariaLabel={tab.ariaLabel}
-										botTab={tab.mobileBot}
-										messagesUnread={tab.messagesUnread}
-									/>
-								) : null}
 							</aside>
 						) : null}
 						{/* The main Bot tab is a root, not the pushed detail that animates on exit. */}
@@ -310,6 +306,7 @@ export function AppShell({
 							key={mainBotOpen ? "main-bot-tab" : "detail"}
 							open={detailOpen || !list}
 							inline={wide || mainBotOpen}
+							instantBack={phone}
 							active={!meOpen && !sideCover && (wide ? !listCollapsed : detailOpen || !list)}
 							layerKey="detail"
 							onBack={onBack}
@@ -317,6 +314,7 @@ export function AppShell({
 							className={cn("z-10", listCollapsed && "hidden", !phone && workspaceCardInset)}
 						>
 							<main
+								data-mobile-root-surface={(rootDock && mainBotOpen) || undefined}
 								className={cn(
 									"relative flex min-h-0 flex-1 flex-col",
 									phone ? "bg-[var(--color-bg-base)]" : workspaceCardSurface,
@@ -332,11 +330,11 @@ export function AppShell({
 										<div className="mx-auto w-full max-w-[760px]">{composer}</div>
 									</div>
 								) : null}
-								{phone && !meOpen && (detailOpen || !list) ? (
+								{phone && !mainBotOpen && !meOpen && (detailOpen || !list) ? (
 									<MobileDock
 										composer={composer}
 										onHeightChange={setDockHeight}
-										showTabs={mainBotOpen && !keyboard}
+										showTabs={false}
 										current={tab.current}
 										onSelect={tab.onSelect}
 										labels={tab.labels}
@@ -361,9 +359,7 @@ export function AppShell({
 								style={{
 									insetInlineStart: overDock && wide && list && !foldedList ? pane.width : 0,
 									bottom: overDock
-										? phone
-											? dockHeight
-											: `calc(${dockHeight}px + var(--spacing-4))`
+										? statusBottom
 										: "calc(var(--dock-bottom-inset, var(--safe-area-bottom, env(safe-area-inset-bottom))) + var(--spacing-2))",
 								}}
 							>
@@ -425,6 +421,21 @@ export function AppShell({
 						</div>
 					) : null}
 				</div>
+				{rootDock ? (
+					<MobileDock
+						root
+						inert={sideCover}
+						composer={mainBotOpen ? composer : null}
+						onHeightChange={setDockHeight}
+						showTabs={!sideCover && !keyboard && !composerAttachmentOpen}
+						current={tab.current}
+						onSelect={tab.onSelect}
+						labels={tab.labels}
+						ariaLabel={tab.ariaLabel}
+						botTab={tab.mobileBot}
+						messagesUnread={tab.messagesUnread}
+					/>
+				) : null}
 				<AnimatePresence>
 					{meOpen && me ? (
 						<MeLayers

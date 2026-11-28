@@ -10,6 +10,7 @@ vi.mock("./use-voice-input.ts", () => ({ useVoiceInput: () => ({ isListening: fa
 
 test.each([false, true])("own Bot attachment menu opens before a picker (mobile=%s)", (mobilePicker) => {
 	const meeting = vi.fn();
+	const attachmentPanel = vi.fn();
 	const picker = vi.spyOn(HTMLInputElement.prototype, "click");
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
@@ -23,6 +24,7 @@ test.each([false, true])("own Bot attachment menu opens before a picker (mobile=
 				disconnected={false}
 				sendOnEnter={!mobilePicker}
 				mobilePicker={mobilePicker}
+				onAttachmentPanelChange={attachmentPanel}
 				onMeeting={meeting}
 			/>
 		</I18nextProvider>,
@@ -31,10 +33,12 @@ test.each([false, true])("own Bot attachment menu opens before a picker (mobile=
 	expect(picker).not.toHaveBeenCalled();
 	expect(Boolean(screen.queryByRole("button", { name: "Album" }))).toBe(mobilePicker);
 	expect(Boolean(screen.queryByRole("button", { name: "Camera" }))).toBe(mobilePicker);
+	expect(attachmentPanel.mock.calls).toEqual(mobilePicker ? [[true]] : []);
 	const recording = screen.getByRole("button", { name: /record/i });
 	expect(recording).toHaveAccessibleName("Recording notes");
 	fireEvent.click(recording);
 	expect(meeting).toHaveBeenCalledOnce();
+	expect(attachmentPanel.mock.calls).toEqual(mobilePicker ? [[true], [false]] : []);
 	expect(picker).not.toHaveBeenCalled();
 	fireEvent.click(screen.getByRole("button", { name: "Attach" }));
 	fireEvent.click(screen.getByRole("button", { name: "Upload files" }));

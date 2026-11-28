@@ -194,6 +194,59 @@ test("the main Bot is a tab root: the account avatar on the left, the tab bar be
 	expect(screen.getByRole("button", { name: "Yonder" })).toHaveAttribute("aria-current", "page");
 });
 
+test("the same dock owns root navigation and restores it after attachments close", () => {
+	viewport(390);
+	const { rerender } = render(<AppShell {...props} />);
+	const tabs = screen.getByRole("navigation", { name: "Tabs" });
+	const dock = tabs.closest("[data-mobile-dock]");
+	expect(tabs.closest("[data-page-layer]")).toBeNull();
+
+	rerender(<AppShell {...mainBot()} />);
+	expect(screen.getByRole("navigation", { name: "Tabs" })).toBe(tabs);
+	const composer = screen.getByRole("textbox", { name: "Message" });
+	expect(dock).toContainElement(composer);
+
+	rerender(<AppShell {...mainBot()} composerAttachmentOpen />);
+	expect(screen.queryByRole("navigation", { name: "Tabs" })).not.toBeInTheDocument();
+	expect(screen.getByRole("textbox", { name: "Message" })).toBe(composer);
+
+	rerender(<AppShell {...mainBot()} />);
+	expect(dock).toContainElement(screen.getByRole("navigation", { name: "Tabs" }));
+
+	rerender(
+		<AppShell
+			{...mainBot()}
+			side={{
+				tabs: [{ key: "attachment", pages: [{ key: "attachment", title: "Attachment", content: "Preview" }] }],
+				active: "attachment",
+				expanded: true,
+				onActivate() {},
+				onMove() {},
+				onBack() {},
+				onClose() {},
+				onCloseAll() {},
+				onCollapse() {},
+				labels: {
+					pane: "Details",
+					back: "Back",
+					close: "Close",
+					closeTab: (title) => `Close ${title}`,
+					closeAll: "Close all",
+					collapse: "Collapse",
+					expand: "Expand",
+					resize: "Resize",
+				},
+			}}
+		/>,
+	);
+	expect(dock?.querySelector("nav")).toBeNull();
+	expect(dock).toContainElement(composer);
+	expect(dock).toHaveAttribute("inert");
+
+	rerender(<AppShell {...mainBot()} />);
+	expect(dock).toContainElement(screen.getByRole("navigation", { name: "Tabs" }));
+});
+
 test("switching tabs plays one selection haptic; tapping the open tab plays none", () => {
 	viewport(390);
 	const played = vi.fn();
