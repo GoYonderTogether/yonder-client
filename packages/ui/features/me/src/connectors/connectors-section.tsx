@@ -217,6 +217,10 @@ export function ConnectorsSection({ localFiles, onOpenDevices, onAddDevice, onTr
 					instances={instances}
 					localFiles={localFiles}
 					onTry={onTryConnector}
+					onRetry={() => {
+						void connections.refetch();
+						void devices.refetch();
+					}}
 					onClose={() => setSelected(null)}
 				/>
 			) : null}

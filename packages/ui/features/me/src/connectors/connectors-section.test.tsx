@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ConnectorDefinition, ConnectorInstance, DeviceSummary } from "@yonder/protocol";
 import { createI18n } from "@yonder/ui-i18n";
 import { I18nextProvider } from "react-i18next";
@@ -15,6 +15,7 @@ const state = vi.hoisted(() => ({
 	create: vi.fn(),
 	update: vi.fn(),
 	remove: vi.fn(),
+	refetch: vi.fn(),
 }));
 vi.mock("@yonder/ui-data", () => ({
 	useConnectorCatalog: () => ({
@@ -31,8 +32,8 @@ vi.mock("@yonder/ui-data", () => ({
 						})),
 		},
 	}),
-	useConnectors: () => ({ data: { items: state.instances } }),
-	useDevices: () => ({ data: { items: state.devices } }),
+	useConnectors: () => ({ data: { items: state.instances }, refetch: state.refetch }),
+	useDevices: () => ({ data: { items: state.devices }, refetch: state.refetch }),
 	useConnectorActions: () => ({
 		create: { mutateAsync: state.create },
 		update: { mutateAsync: state.update },
@@ -81,15 +82,15 @@ function adapter(): LocalFilesAdapter {
 		revoke: vi.fn().mockResolvedValue(undefined),
 	};
 }
-function show(localFiles?: LocalFilesAdapter) {
+function show(localFiles?: LocalFilesAdapter, onTryConnector?: (draft: string) => void) {
 	render(
 		<I18nextProvider i18n={createI18n("en")}>
-			<ConnectorsSection localFiles={localFiles} />
+			<ConnectorsSection localFiles={localFiles} onTryConnector={onTryConnector} />
 		</I18nextProvider>,
 	);
 }
 function openCard(name: string) {
-	fireEvent.click(screen.getByRole("button", { name }));
+	fireEvent.click(screen.getAllByRole("button", { name })[0] as HTMLElement);
 	return screen.getByRole("dialog", { name: "Computer access" });
 }
 beforeEach(() => {
@@ -99,6 +100,7 @@ beforeEach(() => {
 	state.create.mockReset().mockImplementation(async (body) => ({ ...base, ...body }));
 	state.update.mockReset();
 	state.remove.mockReset().mockResolvedValue({ ok: true });
+	state.refetch.mockReset();
 });
 
 test("reading and modifying files are one computer card per device", () => {
@@ -342,4 +344,97 @@ test("shows the empty state when no signed-in device can connect", () => {
 	show();
 	expect(screen.queryByRole("navigation", { name: "Device" })).toBeNull();
 	expect(screen.getByText("No connectors available")).toBeVisible();
+});
+
+const secondDevice: DeviceSummary = { ...firstDevice, id: "dev_b", name: "Office PC", current: false };
+const secondGrants: ConnectorInstance[] = both.map((item) => ({
+	...item,
+	id: `${item.id}_b`,
+	deviceId: "dev_b",
+	deviceName: "Office PC",
+	currentDevice: false,
+}));
+
+test("a device with nothing granted offers a connect button that grants it", async () => {
+	const native = adapter();
+	show(native);
+	const dialog = openCard("Connect · Computer access");
+	fireEvent.click(within(dialog).getByRole("button", { name: "Connect" }));
+	await waitFor(() => expect(state.create).toHaveBeenCalledTimes(2));
+	expect(native.authorize).toHaveBeenCalledTimes(2);
+});
+
+test("an offline device shows a dropped-connection mark on the card and a retry in the panel", () => {
+	state.devices = [{ ...firstDevice, current: false, status: "offline" }];
+	state.instances = both.map((item) => ({ ...item, status: "offline" as const, currentDevice: false }));
+	show(adapter());
+	const card = screen.getByRole("button", { name: "Connected · Device offline · Computer access" });
+	expect(within(card).getByTestId("connector-offline-icon")).toBeInTheDocument();
+	const dialog = openCard("Connected · Device offline · Computer access");
+	fireEvent.click(within(dialog).getByRole("button", { name: "Retry" }));
+	expect(state.refetch).toHaveBeenCalled();
+});
+
+test("a grant waiting for authorization can be cancelled and says so when it takes long", async () => {
+	vi.useFakeTimers({ shouldAdvanceTime: true });
+	try {
+		state.instances = both.map((item) => ({ ...item, status: "offline" as const }));
+		const native = adapter();
+		show(native);
+		const dialog = openCard("Connected · Not ready · Computer access");
+		expect(within(dialog).getByText("Waiting for authorization…")).toBeVisible();
+		await act(async () => {
+			vi.advanceTimersByTime(61_000);
+		});
+		expect(within(dialog).getByText(/Still not authorized/)).toBeVisible();
+		fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+		await waitFor(() => expect(state.remove).toHaveBeenCalledTimes(2));
+		expect(native.revoke).toHaveBeenCalledWith("con_a", "local-files");
+	} finally {
+		vi.useRealTimers();
+	}
+});
+
+test("closing one device leaves the other device's grants alone", async () => {
+	state.devices = [{ ...firstDevice }, secondDevice];
+	state.instances = [...both, ...secondGrants];
+	show(adapter());
+	const dialog = openCard("Connected · Computer access");
+	fireEvent.click(within(dialog).getByRole("switch", { name: "Windows PC" }));
+	await waitFor(() => expect(state.remove).toHaveBeenCalledTimes(2));
+	expect(state.remove).not.toHaveBeenCalledWith("con_a_b");
+	expect(state.remove).not.toHaveBeenCalledWith("con_b_b");
+});
+
+test("close on all devices asks first, then removes every device's grants", async () => {
+	state.devices = [{ ...firstDevice }, secondDevice];
+	state.instances = [...both, ...secondGrants];
+	const native = adapter();
+	show(native);
+	const dialog = openCard("Connected · Computer access");
+	fireEvent.click(within(dialog).getByRole("button", { name: "Close on all devices" }));
+	expect(state.remove).not.toHaveBeenCalled();
+	fireEvent.click(await screen.findByRole("button", { name: "Close all" }));
+	await waitFor(() => expect(state.remove).toHaveBeenCalledTimes(4));
+	expect(native.revoke).toHaveBeenCalledTimes(2);
+});
+
+test("try it names the device when two are ready", () => {
+	const tried = vi.fn();
+	state.devices = [{ ...firstDevice }, secondDevice];
+	state.instances = [...both, ...secondGrants];
+	show(adapter(), tried);
+	const dialog = openCard("Connected · Computer access");
+	fireEvent.click(within(dialog).getByRole("button", { name: "Try it · Office PC" }));
+	expect(tried).toHaveBeenCalledOnce();
+	expect(tried.mock.calls[0]?.[0]).toContain("Office PC");
+});
+
+test("try it is disabled with a reason when no connected device is online", () => {
+	state.devices = [{ ...firstDevice, current: false, status: "offline" }];
+	state.instances = both.map((item) => ({ ...item, status: "offline" as const, currentDevice: false }));
+	show(adapter(), vi.fn());
+	const dialog = openCard("Connected · Device offline · Computer access");
+	expect(within(dialog).getByRole("button", { name: "Try it" })).toBeDisabled();
+	expect(within(dialog).getByText(/No connected device is online/)).toBeVisible();
 });

@@ -10,6 +10,7 @@ import {
 	NotebookPen,
 	Plus,
 	SquareTerminal as TerminalIcon,
+	WifiOff,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { type ConnectorGroup, groupKey } from "./connector-groups.ts";
@@ -108,7 +109,7 @@ export interface ConnectorCardProps {
 
 /**
  * One connector on one device: logo, name, one line of what it does, and one icon for where it
- * stands (plus, check, spinner). The whole card opens the connector. An offline device greys its
+ * stands (plus, check, spinner, or a dropped-connection mark when the device is offline). The whole card opens the connector. An offline device greys its
  * cards; the device group's heading says so once, the card never repeats it in words.
  */
 export function ConnectorCard({ group, device, instances, onOpen }: ConnectorCardProps) {
@@ -133,9 +134,17 @@ export function ConnectorCard({ group, device, instances, onOpen }: ConnectorCar
 			</span>
 			<span
 				aria-hidden
-				className={`grid size-8 shrink-0 place-items-center rounded-[var(--radius-full)] bg-[var(--color-bg-subtle)] ${status === "connected" ? "text-[var(--color-success)]" : "text-[var(--color-text-primary)]"}`}
+				className={`grid size-8 shrink-0 place-items-center rounded-[var(--radius-full)] bg-[var(--color-bg-subtle)] ${status === "connected" && device.status === "online" ? "text-[var(--color-success)]" : "text-[var(--color-text-primary)]"}`}
 			>
-				{status === "none" ? <Plus size={18} /> : status === "waiting" ? <Loader size={18} /> : <Check size={18} />}
+				{status === "none" ? (
+					<Plus size={18} />
+				) : device.status === "offline" ? (
+					<WifiOff size={18} data-testid="connector-offline-icon" />
+				) : status === "waiting" ? (
+					<Loader size={18} />
+				) : (
+					<Check size={18} />
+				)}
 			</span>
 		</button>
 	);
