@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112801] - 2026-11-28
+
+### Added
+
+- meetings：play and scrub original recordings in the reader
+
 ## [0.3.26112725] - 2026-11-27
 
 ### Fixed
