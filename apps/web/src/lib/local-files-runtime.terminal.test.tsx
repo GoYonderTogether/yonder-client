@@ -86,7 +86,12 @@ test("a shell command goes to the native runner and its result goes back unchang
 
 test("a shell command on a grant without terminal is refused before the device is asked", async () => {
 	setup.connections.set([
-		{ ...shell, id: "con_write", capabilities: { fileTools: true, terminal: false, desktop: false, browser: false }, revision: 4 },
+		{
+			...shell,
+			id: "con_write",
+			capabilities: { fileTools: true, terminal: false, desktop: false, browser: false },
+			revision: 4,
+		},
 	]);
 	setup.invoke.mockImplementation(async (name: string) =>
 		name === "local_files_ready" ? [{ id: "con_write", revision: 4 }] : undefined,
