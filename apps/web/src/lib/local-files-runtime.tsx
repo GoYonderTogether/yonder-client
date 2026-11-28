@@ -59,6 +59,11 @@ const ERRORS = new Set([
 	"output_unavailable",
 	"job_not_found",
 	"job_lost",
+	// The elevation answers from the device: the owner refused the system prompt, the prompt went
+	// unanswered, or this device cannot raise one. Each passes through so the model stops and asks.
+	"elevation_denied",
+	"elevation_timeout",
+	"elevation_unavailable",
 ]);
 
 /** A native refusal is the real error code; anything else is a write that did not finish. */

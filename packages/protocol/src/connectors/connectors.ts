@@ -205,6 +205,10 @@ export interface ConnectorCommandArgs {
 	notify?: boolean;
 	/** `shell`: open a standard-input pipe the Bot can write to. Default false: no TTY, no stdin. */
 	stdin?: boolean;
+	/** `shell`: run this one command with administrator rights, approved by the owner at that computer. */
+	elevated?: boolean;
+	/** `shell`: the question the owner answers in the elevation dialog. Present exactly when `elevated` is true. */
+	justification?: string;
 	/** `shell_job`: list | status | log | wait | write | kill. */
 	action?: ShellJobAction;
 	/** `shell_job`: which job, by full id or an unambiguous prefix. */
@@ -470,6 +474,12 @@ export type ConnectorExecutionError =
 	| "job_not_found"
 	/** The job's process is gone with no `.exit` record: it died across a client restart. */
 	| "job_lost"
+	/** The owner refused an elevated command's administrator prompt; stop and ask, never retry another way. */
+	| "elevation_denied"
+	/** The administrator prompt went unanswered for too long; the command did not run. */
+	| "elevation_timeout"
+	/** The device cannot raise an administrator prompt (platform, permissions or session). */
+	| "elevation_unavailable"
 	| "operation_failed"
 	/** `read` met a binary file (a NUL byte or a known binary header); the failure carries `size` and `fileType`. */
 	| "binary_file";

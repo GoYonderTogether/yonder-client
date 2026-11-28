@@ -37,6 +37,14 @@ pub struct Job {
     pub stdin: bool,
     /// The connection the command ran under; the completion event goes to that connection.
     pub connection_id: String,
+    /// Whether this command ran with administrator rights (supplement §2). Absent in a record written
+    /// before elevation existed, and `false` is exactly right for it.
+    #[serde(default)]
+    pub elevated: bool,
+    /// The user-facing question the owner answered in the system prompt, kept for the run step that
+    /// records what was shown (`None` for an ordinary command).
+    #[serde(default)]
+    pub justification: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -96,7 +104,9 @@ impl Jobs {
     /// Read `jobs.json`. A missing file is an empty list; a corrupt one is too: the records protect
     /// running work, and a failed parse must not stop the client from starting.
     pub fn load(file: &Path) -> Jobs {
-        let items = fs::read(file).map(|bytes| parse(&bytes)).unwrap_or_default();
+        let items = fs::read(file)
+            .map(|bytes| parse(&bytes))
+            .unwrap_or_default();
         Jobs { items }
     }
 
@@ -112,9 +122,7 @@ impl Jobs {
             options.mode(0o600);
         }
         let result = (|| {
-            let mut output = options
-                .open(&temp)
-                .map_err(|_| "read_failed".to_string())?;
+            let mut output = options.open(&temp).map_err(|_| "read_failed".to_string())?;
             let bytes = serde_json::to_vec(&self.items).map_err(|_| "read_failed".to_string())?;
             output
                 .write_all(&bytes)

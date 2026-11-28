@@ -70,3 +70,20 @@ pub const SHELL_LOG_BYTES: usize = SHELL_OUTPUT_BYTES;
 /// A hard `timeoutMs` is clamped here. Above one hour a command is a daemon the user did not ask the
 /// Bot to watch, and the tool has `kill` for the ones that run forever.
 pub const SHELL_TIMEOUT_MAX_MS: u64 = 60 * 60 * 1000;
+
+/// How long an elevated command's **administrator prompt** may stay unanswered before it becomes
+/// `elevation_timeout`, two minutes.
+///
+/// This is not the command's runtime and not the 15 s foreground window: it starts when the device
+/// raises the system prompt and ends when the owner approves (the elevated wrapper then writes its
+/// `elevated.started` marker) or the window passes. Two minutes is enough for someone to walk back to
+/// the computer and type a password, and short enough that a Bot that ignored the "the owner must be
+/// at the computer" rule fails with a clear code instead of hanging until the server's own backstop.
+/// A command that has already started is never limited by this — only the prompt is.
+pub const SHELL_ELEVATION_PROMPT_MS: u64 = 2 * 60 * 1000;
+
+/// Longest `justification` accepted by the device, in characters, the same 300 the server bound.
+///
+/// It is a sentence the owner reads, not a note; the device refuses one the server would have refused
+/// so a hand-built command cannot carry a justification no dialog could show.
+pub const SHELL_JUSTIFICATION_CHARS: usize = 300;

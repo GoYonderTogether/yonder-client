@@ -13,5 +13,6 @@
 //! | 4       | command-bound file and directory preview (`asset_original`, `file_preview`) |
 //! | 5, 7   | the read tools' upgrade: byte-range reads, binary_file, grep offsets; this build reports 7 because the terminal took 6 first |
 //! | 6       | the terminal: `shell`, `shell_job`, `capabilities.terminal`              |
+//! | 8       | administrator execution: `computer_shell`'s `elevated`, `justification`  |
 
-pub const TOOLS_VERSION: u64 = 7;
+pub const TOOLS_VERSION: u64 = 8;

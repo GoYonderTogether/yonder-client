@@ -2,9 +2,7 @@
 //! three outcomes, the completion notice's exactly-once rule, retention, and cancellation by the
 //! command id. The runner's own spawning and foreground window are in `shell_runner_test.rs`.
 
-use crate::shell_job::{
-    cancel as cancel_command, event, resume, settle_all, wait,
-};
+use crate::shell_job::{cancel as cancel_command, event, resume, settle_all};
 use crate::shell_jobs::{Job, JobStatus, Jobs};
 use crate::shell_limits::SHELL_MAX_FINISHED_JOBS;
 use crate::shell_runner::{Notify, Runner};
@@ -56,6 +54,8 @@ fn restart_marks_a_vanished_process_lost_with_no_exit_code() {
         exit_code: None,
         stdin: false,
         connection_id: "con_shell".into(),
+        elevated: false,
+        justification: None,
     });
     jobs.save(&root.join("jobs.json")).unwrap();
     let restored = Runner::new(root.join("jobs.json"), root.join("jobs"));
@@ -67,7 +67,16 @@ fn restart_marks_a_vanished_process_lost_with_no_exit_code() {
     assert_eq!(job.exit_code, None);
     drop(state);
     // The completion event says lost, and does not invent a code.
-    let event = event(&restored.state.lock().unwrap().jobs.get("job-dead").unwrap().clone());
+    let event = event(
+        &restored
+            .state
+            .lock()
+            .unwrap()
+            .jobs
+            .get("job-dead")
+            .unwrap()
+            .clone(),
+    );
     assert_eq!(event["status"], "lost");
     assert!(event["exitCode"].is_null());
     let _ = std::fs::remove_dir_all(root);
@@ -95,6 +104,8 @@ fn restart_reads_the_exit_file_for_a_job_that_ended_while_the_client_was_away() 
         exit_code: None,
         stdin: false,
         connection_id: "con_shell".into(),
+        elevated: false,
+        justification: None,
     });
     jobs.save(&root.join("jobs.json")).unwrap();
     let restored = Runner::new(root.join("jobs.json"), root.join("jobs"));
@@ -151,6 +162,8 @@ fn retention_keeps_running_jobs_and_drops_the_oldest_finished_ones() {
                 exit_code: Some(0),
                 stdin: false,
                 connection_id: "con_shell".into(),
+                elevated: false,
+                justification: None,
             });
         }
         let running = root.join("jobs/job-running");
@@ -169,8 +182,12 @@ fn retention_keeps_running_jobs_and_drops_the_oldest_finished_ones() {
             exit_code: None,
             stdin: false,
             connection_id: "con_shell".into(),
+            elevated: false,
+            justification: None,
         });
-        let dropped = state.jobs.prune(SHELL_MAX_FINISHED_JOBS, &root.join("jobs"));
+        let dropped = state
+            .jobs
+            .prune(SHELL_MAX_FINISHED_JOBS, &root.join("jobs"));
         assert_eq!(dropped.len(), 5);
         assert!(dropped.contains(&"job-0".to_string()));
         assert!(state.jobs.get("job-running").is_some());
@@ -191,7 +208,12 @@ fn retention_keeps_running_jobs_and_drops_the_oldest_finished_ones() {
 #[test]
 fn a_command_id_maps_to_the_job_so_a_late_cancel_still_reaches_it() {
     let (runner, root) = sandbox("cancel");
-    let result = run_shell(&runner, "sleep 30; echo never", args(json!({"background": true}))).unwrap();
+    let result = run_shell(
+        &runner,
+        "sleep 30; echo never",
+        args(json!({"background": true})),
+    )
+    .unwrap();
     assert_eq!(result["status"], "running");
     assert!(cancel_command(&runner, "cmd_1"));
     {
@@ -205,7 +227,12 @@ fn a_command_id_maps_to_the_job_so_a_late_cancel_still_reaches_it() {
 #[test]
 fn restart_adopts_a_live_process_and_notes_its_completion() {
     let (runner, root) = sandbox("restart-adopt");
-    let result = run_shell(&runner, "sleep 5", args(json!({"background": true, "notify": false}))).unwrap();
+    let result = run_shell(
+        &runner,
+        "sleep 5",
+        args(json!({"background": true, "notify": false})),
+    )
+    .unwrap();
     let id = result["jobId"].as_str().unwrap().to_owned();
     // A second runner on the same jobs file is what the next client start builds: it holds no child
     // handle, only the record, and has to decide from pid plus start token.

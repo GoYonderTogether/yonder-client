@@ -12,6 +12,76 @@
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::time::Duration;
+
+/// A process the runner tracks: an ordinary command is a [`Child`] this process owns; an elevated
+/// Windows command is a pid the OS started through `ShellExecuteExW`, for which no `Child` handle
+/// exists. Both are polled and killed the same way by the runner, so it never needs to know which.
+pub enum Running {
+    /// A child spawned and owned here (an ordinary command, or the `osascript` launcher on macOS).
+    Child(Child),
+    /// A process started by the OS (Windows elevation). Only its pid and start token are known.
+    /// Not constructed on other platforms, where elevation is an `osascript` child instead.
+    #[cfg_attr(not(windows), allow(dead_code))]
+    Pid { pid: u32, token: String },
+}
+
+impl Running {
+    pub fn pid(&self) -> u32 {
+        match self {
+            Running::Child(child) => child.id(),
+            Running::Pid { pid, .. } => *pid,
+        }
+    }
+
+    /// Still running → `None`; gone → `Some(code)`. The inner `Option` is the code the OS reported,
+    /// `None` when it cannot report one (a pid-only process). The caller then reads the `.exit` file.
+    pub fn poll(&mut self) -> io::Result<Option<Option<i64>>> {
+        match self {
+            Running::Child(child) => {
+                Ok(child.try_wait()?.map(|status| status.code().map(i64::from)))
+            }
+            Running::Pid { pid, token } => Ok(if alive(*pid, token) { None } else { Some(None) }),
+        }
+    }
+
+    /// End the whole tree and confirm it is gone. A `Child` is killed through its process group or
+    /// job object; a pid-only elevated process goes through `taskkill /T`, which fails when the
+    /// elevated process outranks this one — the `false` return is that honest failure, never faked.
+    pub fn kill(&mut self) -> bool {
+        match self {
+            Running::Child(child) => {
+                kill_tree(child);
+                let _ = child.wait();
+                true
+            }
+            Running::Pid { pid, token } => {
+                kill_pid(*pid);
+                for _ in 0..20 {
+                    if !alive(*pid, token) {
+                        return true;
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+                !alive(*pid, token)
+            }
+        }
+    }
+
+    /// The writable stdin pipe, only for an owned child; an elevated process has none.
+    pub fn take_stdin(&mut self) -> Option<std::process::ChildStdin> {
+        match self {
+            Running::Child(child) => child.stdin.take(),
+            Running::Pid { .. } => None,
+        }
+    }
+
+    pub fn restore_stdin(&mut self, stdin: std::process::ChildStdin) {
+        if let Running::Child(child) = self {
+            child.stdin = Some(stdin);
+        }
+    }
+}
 
 /// Where the command's own shell and exit wrapper are laid out for one spawn.
 pub struct Launch {
@@ -86,7 +156,10 @@ pub fn launch(job_dir: &Path, command: &str, shell: &str, exit_path: &Path) -> i
 /// writes it, even if the client dies in between. `stdin` is `null` unless the caller asked for a
 /// pipe: a command that wants a terminal fails, which the tool description says.
 pub fn spawn(launch: &Launch, workdir: &Path, log: &Path, stdin: bool) -> io::Result<Child> {
-    let output = std::fs::OpenOptions::new().create(true).append(true).open(log)?;
+    let output = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log)?;
     let errors = output.try_clone()?;
     let mut command = Command::new(&launch.program);
     command
@@ -227,7 +300,16 @@ pub fn alive(pid: u32, token: &str) -> bool {
         return false;
     }
     #[cfg(unix)]
-    let exists = unsafe { libc::kill(pid as i32, 0) == 0 };
+    let exists = unsafe {
+        if libc::kill(pid as i32, 0) == 0 {
+            true
+        } else {
+            // An elevated command runs as root (macOS elevation goes through the security agent), and
+            // signalling a root process from this user's session returns EPERM — which means the
+            // process *exists*, we just may not signal it. Only ESRCH ("no such process") is gone.
+            std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+        }
+    };
     #[cfg(windows)]
     let exists = crate::shell_process_windows::alive(pid);
     #[cfg(not(any(unix, windows)))]
@@ -246,9 +328,9 @@ fn zombie(pid: u32) -> bool {
     #[cfg(target_os = "linux")]
     {
         let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap_or_default();
-        let state = stat.rsplit_once(')').and_then(|(_, tail)| {
-            tail.split_whitespace().next().map(str::to_owned)
-        });
+        let state = stat
+            .rsplit_once(')')
+            .and_then(|(_, tail)| tail.split_whitespace().next().map(str::to_owned));
         return state.as_deref() == Some("Z");
     }
     #[cfg(target_os = "macos")]

@@ -64,7 +64,11 @@ pub fn job(
             .collect::<Vec<_>>();
         return Ok(json!({"kind": "shell_job", "jobs": jobs}));
     }
-    let id = state.jobs.find(requested.ok_or("path_invalid")?)?.id.clone();
+    let id = state
+        .jobs
+        .find(requested.ok_or("path_invalid")?)?
+        .id
+        .clone();
     match action {
         "status" => {
             settle(&mut state, &id, &runner.jobs_file);
@@ -106,7 +110,7 @@ pub fn job(
             }
             let live = state.live.get(&id).ok_or("job_not_found")?;
             let mut child = live.child.lock().map_err(|_| "operation_failed")?;
-            let Some(mut input) = child.stdin.take() else {
+            let Some(mut input) = child.take_stdin() else {
                 return Err("job_lost");
             };
             use std::io::Write;
@@ -118,7 +122,7 @@ pub fn job(
                 // Closing the pipe is what ends a `read`; dropping the handle does that.
                 drop(input);
             } else {
-                child.stdin = Some(input);
+                child.restore_stdin(input);
             }
             drop(child);
             written?;
@@ -132,7 +136,7 @@ pub fn job(
         "kill" => {
             let killed = kill_live(&mut state, &id);
             let _ = state.jobs.save(&runner.jobs_file);
-            if !killed {
+            if killed.is_none() {
                 // Taken over after a restart: the process is not ours to wait on, but the tree is
                 // still killable by pid.
                 let job = state.jobs.get_mut(&id).ok_or("job_not_found")?;
@@ -149,6 +153,10 @@ pub fn job(
                         job.status = JobStatus::Lost;
                     }
                 }
+            } else if killed == Some(false) {
+                // The tree could not be confirmed gone (an elevated process this client cannot kill).
+                // Say so rather than reporting a stop that did not happen.
+                return Err("operation_failed");
             }
             let job = state.jobs.get(&id).ok_or("job_not_found")?;
             Ok(json!({
@@ -173,8 +181,7 @@ pub(crate) fn settle(state: &mut State, id: &str, jobs_file: &Path) {
         if live.deadline.is_some_and(|at| now_ms() >= at) {
             let live = state.live.remove(id).expect("checked above");
             if let Ok(mut child) = live.child.lock() {
-                shell_process::kill_tree(&mut child);
-                let _ = child.wait();
+                child.kill();
             }
             if let Some(job) = state.jobs.get_mut(id) {
                 job.status = JobStatus::Killed;
@@ -186,11 +193,16 @@ pub(crate) fn settle(state: &mut State, id: &str, jobs_file: &Path) {
                 .child
                 .lock()
                 .ok()
-                .and_then(|mut child| child.try_wait().ok().flatten())
-                .map(|status| status.code().map(i64::from));
+                .and_then(|mut child| child.poll().ok().flatten());
             if let Some(code) = exited {
                 state.live.remove(id);
-                let exit = code.or_else(|| exit_path.as_deref().and_then(shell_output::exit_code));
+                // The `.exit` file is authoritative: on macOS the tracked child is `osascript`, whose
+                // code is not the command's; the file holds the real one. Absent (a signal), the child
+                // code or `None` stands.
+                let exit = exit_path
+                    .as_deref()
+                    .and_then(shell_output::exit_code)
+                    .or(code);
                 if let Some(job) = state.jobs.get_mut(id) {
                     job.status = JobStatus::Done;
                     job.exit_code = exit;
@@ -248,10 +260,10 @@ pub fn cancel(runner: &Runner, command_id: &str) -> bool {
         return false;
     };
     let killed = kill_live(&mut state, &id);
-    if killed {
+    if killed.is_some() {
         let _ = state.jobs.save(&runner.jobs_file);
     }
-    killed
+    killed.is_some()
 }
 
 /// What the background watcher does for every job whose notice is still owed: record the code,
@@ -267,7 +279,8 @@ pub fn settle_all(runner: &Runner, notify: &Notify) {
         // A running job may have just ended; a finished one may have been settled by `wait` or
         // `status` before this tick, and its notice is still owed (`notified` says so).
         .filter(|job| {
-            job.status == JobStatus::Running || (job.status.finished() && job.notify && !job.notified)
+            job.status == JobStatus::Running
+                || (job.status.finished() && job.notify && !job.notified)
         })
         .map(|job| job.id.clone())
         .collect();

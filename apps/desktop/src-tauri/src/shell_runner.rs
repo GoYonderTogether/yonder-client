@@ -14,28 +14,30 @@
 //! checked that the connection is `computer-control`, carries `terminal: true`, is the current
 //! account/device/session, and has not expired.
 
+use crate::local_files_text::now_ms;
+use crate::shell_elevation::{self, Outcome};
 use crate::shell_jobs::{Job, JobStatus, Jobs};
 use crate::shell_limits::{
     SHELL_COMMAND_BYTES, SHELL_FOREGROUND_MS, SHELL_MAX_RUNNING, SHELL_TIMEOUT_MAX_MS,
     SHELL_WORKDIR_BYTES,
 };
 use crate::shell_output;
-use crate::shell_process;
-use crate::local_files_text::now_ms;
+use crate::shell_process::{self, Running};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
-use std::process::Child;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-/// One job that has a live child handle in this process.
+/// One job that has a live process handle in this process.
 ///
-/// The child sits behind its own lock so a foreground `shell` waiting out its 15 seconds does not
+/// The process sits behind its own lock so a foreground `shell` waiting out its 15 seconds does not
 /// hold the runner's state: a `shell_job` call for another job, or a cancel, must not wait behind it.
-/// Lock order is always state → child, never the other way.
+/// Lock order is always state → child, never the other way. An elevated command's process is a
+/// [`Running::Pid`] on Windows and an [`Running::Child`] (the `osascript` launcher) on macOS; either way
+/// [`Running`] is what the runner polls and kills.
 pub struct Live {
-    pub child: Mutex<Child>,
+    pub child: Mutex<Running>,
     /// A hard timeout the caller asked for; the job is killed when it passes.
     pub deadline: Option<u64>,
 }
@@ -155,6 +157,12 @@ pub fn start(
         Some(_) => return Err("path_invalid"),
     };
     let stdin = flag(args, "stdin")?;
+    let elevated = shell_elevation::args(args)?;
+    // The justification is only present with an elevated command; the device validated that pair above.
+    let justification = args
+        .get("justification")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
     let timeout = match args.get("timeoutMs") {
         None | Some(Value::Null) => None,
         Some(value) => match value.as_u64() {
@@ -163,10 +171,14 @@ pub fn start(
         },
     };
 
-    let mut state = runner
-        .state
-        .lock()
-        .map_err(|_| "operation_failed")?;
+    // An elevated command is a different animal: it opens a system prompt and cannot use a pipe, so
+    // `stdin` has no meaning there. Refuse the combination instead of silently dropping the pipe — the
+    // Bot must not think it can feed an elevated command.
+    if elevated && stdin {
+        return Err("path_invalid");
+    }
+
+    let mut state = runner.state.lock().map_err(|_| "operation_failed")?;
     if cancelled.load(Ordering::SeqCst) || now_ms() >= expires {
         return Err("cancelled");
     }
@@ -179,17 +191,49 @@ pub fn start(
     std::fs::create_dir_all(&dir).map_err(|_| "operation_failed")?;
     let log = dir.join("output.log");
     let exit_path = dir.join("output.exit");
-    let launch = shell_process::launch(&dir, command, &shell_process::default_shell(), &exit_path)
-        .map_err(|_| "operation_failed")?;
-    let child =
-        shell_process::spawn(&launch, &cwd, &log, stdin).map_err(|_| "operation_failed")?;
-    let pid = child.id();
+
+    // Take the process. An ordinary command spawns the wrapper child under the lock (the cap was just
+    // checked). An elevated one raises the owner's approval first — which waits for a human — so the
+    // lock is released for its duration and retaken afterwards.
+    let running = if elevated {
+        let request = shell_elevation::Request {
+            job_dir: &dir,
+            command,
+            cwd: &cwd,
+            justification: justification.as_deref().unwrap_or_default(),
+        };
+        drop(state);
+        let outcome = shell_elevation::launch(&request);
+        match outcome {
+            Outcome::Started(running) => {
+                state = runner.state.lock().map_err(|_| "operation_failed")?;
+                running
+            }
+            Outcome::Denied => return Err("elevation_denied"),
+            Outcome::Timeout => return Err("elevation_timeout"),
+            Outcome::Unavailable => return Err("elevation_unavailable"),
+        }
+    } else {
+        let launch =
+            shell_process::launch(&dir, command, &shell_process::default_shell(), &exit_path)
+                .map_err(|_| "operation_failed")?;
+        let child =
+            shell_process::spawn(&launch, &cwd, &log, stdin).map_err(|_| "operation_failed")?;
+        Running::Child(child)
+    };
+    // A cancellation or expiry may have landed while the process started; end it rather than orphan it.
+    if cancelled.load(Ordering::SeqCst) || now_ms() >= expires {
+        let mut running = running;
+        running.kill();
+        return Err("cancelled");
+    }
+    let pid = running.pid();
     let token = shell_process::start_token(pid);
     let deadline = timeout.map(|ms| now + ms);
     state.live.insert(
         id.clone(),
         Live {
-            child: Mutex::new(child),
+            child: Mutex::new(running),
             deadline,
         },
     );
@@ -208,6 +252,8 @@ pub fn start(
         exit_code: None,
         stdin,
         connection_id: connection_id.to_owned(),
+        elevated,
+        justification,
     };
     state.jobs.items.push(job);
     if let Err(error) = state.jobs.save(&runner.jobs_file) {
@@ -241,16 +287,17 @@ pub fn start(
             // the command no longer has an outcome of its own to report.
             return Err("cancelled");
         };
-        let timed_out = {
+        let polled = {
             let mut child = live.child.lock().map_err(|_| "operation_failed")?;
-            match child.try_wait().map_err(|_| "operation_failed")? {
-                Some(status) => Some(status.code()),
-                None => {
-                    if live.deadline.is_some_and(|at| now_ms() >= at) {
-                        Some(None)
-                    } else {
-                        None
-                    }
+            child.poll().map_err(|_| "operation_failed")?
+        };
+        let timed_out = match polled {
+            Some(code) => Some(code),
+            None => {
+                if live.deadline.is_some_and(|at| now_ms() >= at) {
+                    Some(None)
+                } else {
+                    None
                 }
             }
         };
@@ -262,8 +309,7 @@ pub fn start(
             if hit_deadline {
                 if let Some(live) = state.live.remove(&id) {
                     if let Ok(mut child) = live.child.lock() {
-                        shell_process::kill_tree(&mut child);
-                        let _ = child.wait();
+                        child.kill();
                     }
                 }
                 if let Some(job) = state.jobs.get_mut(&id) {
@@ -274,7 +320,13 @@ pub fn start(
                 return Err("timeout");
             }
             state.live.remove(&id);
-            let exit = code.map(i64::from).or_else(|| shell_output::exit_code(&exit_path));
+            // The `.exit` file is the command's own code and is written before the tracked process
+            // exits. It must win over the child's code: on macOS the tracked child is `osascript`,
+            // whose exit code (0/1) is not the command's, while the file holds the real code the
+            // elevated wrapper recorded. For an ordinary command the two agree (the wrapper exits with
+            // the same code it wrote). Only when the file is absent (killed by a signal) does the
+            // child's code, or `None`, stand.
+            let exit = shell_output::exit_code(&exit_path).or(code);
             if let Some(job) = state.jobs.get_mut(&id) {
                 job.status = JobStatus::Done;
                 finished_status(job, exit);
@@ -304,19 +356,39 @@ pub fn start(
 }
 
 /// Kill one live job tree and record it. Used by `kill`, by cancellation, and by the timeout path.
-pub(crate) fn kill_live(state: &mut State, id: &str) -> bool {
-    let Some(live) = state.live.remove(id) else {
-        return false;
+///
+/// Returns `None` when there is no live handle (a job adopted after a restart, killed by pid
+/// elsewhere), `Some(true)` when the process is confirmed gone, and `Some(false)` when the kill could
+/// not be confirmed — an elevated process this client cannot outrank. The caller reports that honestly
+/// rather than claiming the tree ended.
+pub(crate) fn kill_live(state: &mut State, id: &str) -> Option<bool> {
+    let live = state.live.remove(id)?;
+    let killed = match live.child.lock() {
+        Ok(mut child) => child.kill(),
+        Err(_) => false,
     };
-    if let Ok(mut child) = live.child.lock() {
-        shell_process::kill_tree(&mut child);
-        let _ = child.wait();
+    // An elevated command's real process is root (macOS) or in another integrity level (Windows): the
+    // launcher `child.kill()` reaches is not it. Kill the recorded elevated pid too, and report honestly
+    // if it is still there — this client may not outrank it.
+    let elevated_pid = match state.jobs.get(id) {
+        Some(job) if job.elevated => job
+            .log_path
+            .parent()
+            .and_then(shell_elevation::recorded_pid),
+        _ => None,
+    };
+    if let Some(pid) = elevated_pid.filter(|pid| shell_process::alive(*pid, "")) {
+        shell_process::kill_pid(pid);
     }
+    let still_there = elevated_pid.is_some_and(|pid| shell_process::alive(pid, ""));
+    let confirmed = killed && !still_there;
     if let Some(job) = state.jobs.get_mut(id) {
+        // A hard kill the owner refused to let us finish still *ends the record* as killed: the Bot
+        // asked to stop it. The `false` return is what a `kill` call surfaces as a real error.
         job.status = JobStatus::Killed;
         job.exit_code = None;
     }
-    true
+    Some(confirmed)
 }
 
 #[cfg(test)]

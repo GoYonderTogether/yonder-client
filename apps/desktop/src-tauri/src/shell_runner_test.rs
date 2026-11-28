@@ -4,8 +4,7 @@
 //! commands that finish fast, so the suite stays inside the pre-release time budget.
 
 use super::*;
-use crate::shell_job::{self as ops, wait};
-use crate::shell_jobs::JobStatus;
+use crate::shell_job as ops;
 use crate::shell_limits::{
     SHELL_FOREGROUND_MS, SHELL_OUTPUT_BYTES, SHELL_OUTPUT_HEAD_BYTES, SHELL_TIMEOUT_MAX_MS,
 };
@@ -39,7 +38,11 @@ fn workdir_must_be_absolute_and_defaults_to_the_home_directory() {
         Err("path_invalid")
     );
     assert_eq!(
-        run_shell(&runner, "pwd", args(json!({"workdir": "/definitely/not/a/directory"}))),
+        run_shell(
+            &runner,
+            "pwd",
+            args(json!({"workdir": "/definitely/not/a/directory"}))
+        ),
         Err("not_found")
     );
     let home = crate::local_files_operations::home().unwrap();
@@ -116,7 +119,10 @@ fn the_foreground_window_hands_a_long_command_to_a_job_instead_of_killing_it() {
     let result = run_shell(
         &runner,
         // A second past the window, so the foreground gives up first and the command still ends.
-        &format!("sleep {}; printf late", (SHELL_FOREGROUND_MS + 1000) as f64 / 1000.0),
+        &format!(
+            "sleep {}; printf late",
+            (SHELL_FOREGROUND_MS + 1000) as f64 / 1000.0
+        ),
         args(json!({})),
     )
     .unwrap();
@@ -154,7 +160,11 @@ fn a_hard_timeout_kills_the_command_and_reports_timeout() {
 fn a_timeout_above_the_cap_is_clamped_not_rejected() {
     let (runner, root) = sandbox("clamp");
     // The clamp only matters for absurd values; the command itself must still start.
-    let result = run_shell(&runner, "printf ok", args(json!({"timeoutMs": SHELL_TIMEOUT_MAX_MS * 10})));
+    let result = run_shell(
+        &runner,
+        "printf ok",
+        args(json!({"timeoutMs": SHELL_TIMEOUT_MAX_MS * 10})),
+    );
     assert_eq!(result.unwrap()["status"], "done");
     let _ = std::fs::remove_dir_all(root);
 }
@@ -173,9 +183,18 @@ fn the_result_has_no_separate_stderr_stream_because_both_go_to_the_log() {
 fn mismatched_command_argument_is_refused_before_anything_runs() {
     let (_runner, root) = sandbox("refuse");
     // The command comes only from `args.command`; a non-string there is refused before any spawn.
-    let (runner, root) = (super::Runner::new(root.join("jobs.json"), root.join("jobs")), root);
-    assert_eq!(run_shell(&runner, "printf a", args(json!({"command": 7}))), Err("path_invalid"));
-    assert_eq!(run_shell(&runner, "", args(json!({"command": ""}))), Err("path_invalid"));
+    let (runner, root) = (
+        super::Runner::new(root.join("jobs.json"), root.join("jobs")),
+        root,
+    );
+    assert_eq!(
+        run_shell(&runner, "printf a", args(json!({"command": 7}))),
+        Err("path_invalid")
+    );
+    assert_eq!(
+        run_shell(&runner, "", args(json!({"command": ""}))),
+        Err("path_invalid")
+    );
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -188,7 +207,12 @@ fn a_job_id_prefix_selects_one_job_and_an_ambiguous_prefix_is_an_error() {
     assert_eq!(b["status"], "done");
     let jobs = {
         let state = runner.state.lock().unwrap();
-        state.jobs.items.iter().map(|job| job.id.clone()).collect::<Vec<_>>()
+        state
+            .jobs
+            .items
+            .iter()
+            .map(|job| job.id.clone())
+            .collect::<Vec<_>>()
     };
     // The full id always works; a prefix of it works when only one job starts with it.
     let full = run_job(&runner, "status", args(json!({"jobId": jobs[0]}))).unwrap();
@@ -246,8 +270,18 @@ fn write_reaches_standard_input_only_when_it_was_requested() {
     )
     .unwrap();
     let id = opened["jobId"].as_str().unwrap().to_owned();
-    run_job(&runner, "write", args(json!({"jobId": id, "text": "hello"}))).unwrap();
-    run_job(&runner, "write", args(json!({"jobId": id, "text": "", "eof": true}))).unwrap();
+    run_job(
+        &runner,
+        "write",
+        args(json!({"jobId": id, "text": "hello"})),
+    )
+    .unwrap();
+    run_job(
+        &runner,
+        "write",
+        args(json!({"jobId": id, "text": "", "eof": true})),
+    )
+    .unwrap();
     let ended = wait_done(&runner, &id);
     assert_eq!(ended["output"], "hello");
 
@@ -255,7 +289,11 @@ fn write_reaches_standard_input_only_when_it_was_requested() {
     let bare = run_shell(&runner, "sleep 0.1", args(json!({"background": true}))).unwrap();
     let bare_id = bare["jobId"].as_str().unwrap().to_owned();
     assert_eq!(
-        run_job(&runner, "write", args(json!({"jobId": bare_id, "text": "x"}))),
+        run_job(
+            &runner,
+            "write",
+            args(json!({"jobId": bare_id, "text": "x"}))
+        ),
         Err("permission_denied")
     );
     let _ = wait_done(&runner, &bare_id);
@@ -306,7 +344,10 @@ fn another_call_is_not_blocked_while_a_foreground_command_waits() {
     let listed = run_job(&runner, "list", args(json!({}))).unwrap();
     assert_eq!(listed["jobs"].as_array().unwrap().len(), 1);
     // Well under the 15 s window: the state lock is released between checks, not held for the wait.
-    assert!(started.elapsed() < Duration::from_secs(2), "list waited behind the foreground command");
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "list waited behind the foreground command"
+    );
     let _ = ops::cancel(&runner, "cmd_1");
     let result = foreground.join().unwrap();
     assert_eq!(result, Err("cancelled"));

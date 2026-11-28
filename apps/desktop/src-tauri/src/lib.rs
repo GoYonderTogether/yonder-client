@@ -68,6 +68,10 @@ mod local_files_text;
 #[cfg(desktop)]
 mod shell;
 #[cfg(desktop)]
+mod shell_elevation;
+#[cfg(windows)]
+mod shell_elevation_windows;
+#[cfg(desktop)]
 mod shell_job;
 #[cfg(desktop)]
 mod shell_jobs;
