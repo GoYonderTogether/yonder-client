@@ -20,7 +20,7 @@ const providerList = {
 			name: "我的网关",
 			baseUrl: "http://127.0.0.1:8080/v1",
 			protocol: "openai",
-			models: ["local-model"],
+			models: ["local-older", "local-model"],
 			keyConfigured: true,
 			enabled: true,
 			isDefault: false,
@@ -33,27 +33,35 @@ const providerList = {
 
 test.use({ viewport: { width: 1280, height: 900 } });
 
-test("the main model is one list, and a Bot can pick its own model or follow the main one", async ({
+test("the account chooses a provider model, and a Bot can pick a provider or follow the main model", async ({
 	page,
 }, testInfo) => {
 	await isolateChat(page, { items: [] });
 	let current: { modelChoice: string | null } = { modelChoice: null };
 	const patches: unknown[] = [];
-	const defaults: string[] = [];
-	// The list the server returns follows the account's default once it is set.
+	const defaults: Array<{ action: string; id: string; body: unknown }> = [];
+	// The server stores the selected provider and the exact model it should answer with.
 	let defaultId = "mdl_plat";
+	let providerModel = "local-older";
 	await page.route("**/v1/providers", (route) =>
 		route.fulfill({
 			json: {
 				platformModels: providerList.platformModels.map((model) => ({ ...model, isDefault: model.id === defaultId })),
-				items: providerList.items.map((item) => ({ ...item, isDefault: item.id === defaultId })),
+				items: providerList.items.map((item) => ({
+					...item,
+					defaultModel: providerModel,
+					isDefault: item.id === defaultId,
+				})),
 			},
 		}),
 	);
-	await page.route("**/v1/providers/*/default", (route) => {
-		const id = new URL(route.request().url()).pathname.split("/").at(-2) ?? "";
-		defaults.push(id);
-		defaultId = id;
+	await page.route(/\/v1\/providers\/[^/]+\/default(?:-model)?$/, (route) => {
+		expect(route.request().method()).toBe("POST");
+		const [, , , id, action] = new URL(route.request().url()).pathname.split("/");
+		const body = route.request().postDataJSON() as { model?: string };
+		defaults.push({ id: id ?? "", action: action ?? "", body });
+		if (action === "default-model" && body.model) providerModel = body.model;
+		if (action === "default" && id) defaultId = id;
 		return route.fulfill({ json: { ok: true } });
 	});
 	await page.route("**/v1/contacts", (route) =>
@@ -66,22 +74,30 @@ test("the main model is one list, and a Bot can pick its own model or follow the
 		return route.fulfill({ json: { ...helper, ...current, version: 2 } });
 	});
 
-	// The account's main model: platform models and own providers in one radio list.
 	await page.goto("/me/models");
-	const main = page.getByRole("radio");
-	await expect(main.nth(0)).toHaveAccessibleName("DeepSeek-V4.1-Flash-1017");
-	await expect(main.nth(0)).toBeChecked();
-	await expect(main.nth(1)).toHaveAccessibleName("我的网关");
-	await expect(page.getByText("经 工作室 Mac 转发")).toBeVisible();
+	const official = page.getByRole("heading", { name: "官方模型", exact: true }).locator("..");
+	const custom = page.getByRole("heading", { name: "自定义供应商", exact: true }).locator("..");
+	const platform = official.getByRole("radio", { name: "DeepSeek-V4.1-Flash-1017", exact: true });
+	const local = custom.getByRole("radio", { name: "local-model", exact: true });
+	await expect(platform).toBeChecked();
+	await expect(custom.getByText("我的网关", { exact: true })).toBeVisible();
+	await expect(local).not.toBeChecked();
 	await page.screenshot({ path: testInfo.outputPath("main-model.png") });
-	await main.nth(1).click();
-	await expect.poll(() => defaults).toEqual(["prv_mine"]);
-	await expect(main.nth(1)).toBeChecked();
-	await expect(main.nth(0)).not.toBeChecked();
+	await local.click();
+	await expect
+		.poll(() => defaults)
+		.toEqual([
+			{ action: "default-model", id: "prv_mine", body: { model: "local-model" } },
+			{ action: "default", id: "prv_mine", body: {} },
+		]);
+	await expect(local).toBeChecked();
+	await expect(custom.getByRole("radio", { name: "local-older", exact: true })).not.toBeChecked();
+	await expect(platform).not.toBeChecked();
 
 	// One Bot's own model: follow the main model, pick one, clear it again.
 	await page.goto(`/me/bots/${helper.id}/model`);
 	await expect(page.getByRole("radio", { name: "跟随主模型" })).toBeChecked();
+	await expect(page.getByText("经 工作室 Mac 转发")).toBeVisible();
 	await page.getByRole("radio", { name: "我的网关" }).click();
 	await expect(page.getByRole("radio", { name: "我的网关" })).toBeChecked();
 	await page.screenshot({ path: testInfo.outputPath("bot-model.png") });

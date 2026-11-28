@@ -67,7 +67,7 @@ for (const locale of ["zh-CN", "en"] as const) {
 		await page.routeWebSocket("**/v1/realtime*", (socket) => socket.onMessage(() => undefined));
 		await page.goto("/me/models");
 		const defaults = page
-			.getByRole("heading", { name: locale === "zh-CN" ? "主模型" : "Main model", exact: true })
+			.getByRole("heading", { name: locale === "zh-CN" ? "官方模型" : "Official models", exact: true })
 			.locator("..");
 		const custom = page
 			.getByRole("heading", { name: locale === "zh-CN" ? "自定义供应商" : "Custom provider", exact: true })
@@ -80,7 +80,8 @@ for (const locale of ["zh-CN", "en"] as const) {
 		await expect(matching).toBeVisible();
 		await expect(unmatched).toBeVisible();
 		await expect(glm).toBeVisible();
-		await expect(glm.locator("..").getByRole("button")).toHaveCount(0);
+		await expect(defaults.getByRole("radio", { name: "glm-5.3-flash", exact: true })).toBeChecked();
+		await expect(defaults.getByRole("button")).toHaveCount(0);
 		await expect(page.getByText(/RightCode|private-upstream|平台供应商|Platform provider/)).toHaveCount(0);
 		const searchLabel = locale === "zh-CN" ? "搜索模型或供应商" : "Search models or providers";
 		const search = page.getByRole("searchbox", { name: searchLabel });

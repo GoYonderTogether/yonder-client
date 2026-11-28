@@ -151,9 +151,15 @@ test("one editor selects Cloud or an approved Desktop, and Web sends only the ex
 				...expectedTarget,
 			},
 		]);
-	await expect(page.getByText("工作 Mac · 在线", { exact: true })).toBeVisible();
-	await expect(page.getByText("密钥未配置", { exact: true })).toHaveCount(0);
+	const bound = page.getByRole("listitem").filter({
+		has: page.getByText("本机模型 Vol.1", { exact: true }),
+	});
+	await expect(bound.locator("svg.lucide-laptop")).toBeVisible();
+	await expect(bound.getByText("密钥未配置", { exact: true })).toHaveCount(0);
 	await capture(page, "provider-web-list-device");
+	await bound.getByRole("button", { name: "编辑供应商", exact: true }).click();
+	await expect(location(page)).toBeDisabled();
+	await expect(location(page)).toHaveText("工作 Mac · 在线");
 	await page.setViewportSize({ width: 1280, height: 900 });
 	await start(page);
 	await location(page).click();
@@ -307,18 +313,17 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	expect(checks).toBeGreaterThan(1);
 	const target = { origin: "device", deviceId: device.id, endpointId: "00000000-0000-4000-8000-000000000005" } as const;
 	expect(requests.discovery).toEqual([{ protocol: "anthropic-messages", ...target }]);
-	expect(registrations).toEqual([
-		{
-			command: "device_model_register",
-			args: expect.objectContaining({
-				context: { ownerId: "chat-person", deviceId: device.id, sessionId: "local-browser-session" },
-				baseUrl: "http://127.0.0.1:8788/v1",
-				protocol: "anthropic-messages",
-				apiKey: "synthetic-local-key",
-			}),
-		},
-	]);
-	await expect(keyField).toHaveValue("");
+	const registerLocal = {
+		command: "device_model_register",
+		args: expect.objectContaining({
+			context: { ownerId: "chat-person", deviceId: device.id, sessionId: "local-browser-session" },
+			baseUrl: "http://127.0.0.1:8788/v1",
+			protocol: "anthropic-messages",
+			apiKey: "synthetic-local-key",
+		}),
+	};
+	expect(registrations).toEqual([registerLocal]);
+	await expect(keyField).toHaveValue("synthetic-local-key");
 	const effort = page.getByRole("button", { name: "思考档位", exact: true }).first();
 	await effort.click();
 	const menu = page.getByRole("menu", { name: "思考档位" });
@@ -347,6 +352,7 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 		});
 	expect(requests.saves.at(-1)).not.toHaveProperty("baseUrl");
 	expect(requests.saves.at(-1)).not.toHaveProperty("apiKey");
+	expect(registrations).toEqual([registerLocal, registerLocal]);
 	await expect(page.getByRole("button", { name: "编辑供应商", exact: true })).toBeVisible();
 	await page.getByRole("button", { name: "编辑供应商", exact: true }).click();
 	await expect(location(page)).toBeDisabled();
@@ -365,12 +371,12 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 	await expect.poll(() => requests.discovery).toHaveLength(2);
 	await expect(effort).toContainText("low");
 	await expect(effort).toContainText("high");
-	expect(registrations).toHaveLength(1);
+	expect(registrations).toHaveLength(2);
 	await keyField.fill("synthetic-replacement-key");
 	await discover(page).click();
 	await expect(discoveredModel(page)).toHaveValue("fixture-model");
-	await expect(keyField).toHaveValue("");
-	expect(registrations).toHaveLength(2);
+	await expect(keyField).toHaveValue("synthetic-replacement-key");
+	expect(registrations).toHaveLength(3);
 	expect(registrations.at(-1)).toEqual({
 		command: "device_model_set_key",
 		args: {
@@ -396,7 +402,8 @@ test("desktop shell uses the same editor and keeps localhost in the current-devi
 				metadata: { "fixture-model": { name: "fixture-model", contextLength: 4096, efforts: ["low", "high"] } },
 			},
 		]);
-	expect(registrations).toHaveLength(2);
+	expect(registrations).toHaveLength(4);
+	expect(registrations.at(-1)).toEqual(registrations.at(-2));
 });
 
 test("existing relay providers retain device identity and can be tested, but never open a cloud key form", async ({
@@ -421,13 +428,16 @@ test("existing relay providers retain device identity and can be tested, but nev
 			},
 		}),
 	);
-	await page.route("**/v1/providers/prv_00000000000000000000000003/test", (route) =>
-		route.fulfill({ json: { ok: true } }),
-	);
+	await page.route("**/v1/providers/prv_00000000000000000000000003/test", (route) => {
+		expect(route.request().method()).toBe("POST");
+		expect(route.request().postDataJSON()).toEqual({});
+		return route.fulfill({ json: { ok: true } });
+	});
 	await page.goto("/me/models");
 	const custom = page.getByRole("heading", { name: "自定义供应商", exact: true }).locator("..");
 	await expect(custom.getByText("既有设备供应商", { exact: true })).toBeVisible();
-	await expect(custom.getByText("工作 Mac · 在线", { exact: true })).toBeVisible();
+	await expect(custom.locator("svg.lucide-laptop")).toBeVisible();
+	await expect(custom.locator("svg.lucide-cloud")).toHaveCount(0);
 	await expect(custom.getByRole("button", { name: "编辑供应商" })).toHaveCount(0);
 	await expect(page.getByText("http://127.0.0.1:9012/v1", { exact: true })).toHaveCount(0);
 	await custom.getByRole("button", { name: "更多操作", exact: true }).click();

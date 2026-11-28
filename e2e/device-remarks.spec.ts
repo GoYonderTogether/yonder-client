@@ -45,7 +45,8 @@ test("device cards keep web separate and sign-out requires confirmation for remo
 	await expect(page.getByRole("heading", { level: 2 })).toHaveText(["macOS", "iOS", "网页"]);
 	await page.screenshot({ path: info.outputPath("device-groups.png"), animations: "disabled" });
 	const signOut = (name: string) => page.getByRole("button", { name: `下线 ${name}`, exact: true });
-	const dialog = page.getByRole("dialog", { name: "下线设备", exact: true });
+	const confirmation = (name: string) => page.getByRole("dialog", { name: `下线「${name}」？`, exact: true });
+	const dialog = confirmation(iphone.name);
 	const confirm = dialog.getByRole("button", { name: "下线", exact: true });
 	await expect(
 		page
@@ -69,8 +70,9 @@ test("device cards keep web separate and sign-out requires confirmation for remo
 	await expect(signOut(browser.name)).toBeVisible();
 	await expect(page).toHaveURL(/\/me\/devices$/);
 	await signOut(mac.name).click();
-	await expect(dialog.getByText(`“${mac.name}”上的所有登录会话都会退出，你将返回登录页。`)).toBeVisible();
-	await confirm.click();
+	const currentDialog = confirmation(mac.name);
+	await expect(currentDialog.getByText(`“${mac.name}”上的所有登录会话都会退出，你将返回登录页。`)).toBeVisible();
+	await currentDialog.getByRole("button", { name: "下线", exact: true }).click();
 	await expect(page).toHaveURL(/\/sign-in(?:\?|$)/);
 	expect(requests).toEqual([iphone.id, iphone.id, mac.id]);
 });

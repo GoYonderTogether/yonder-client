@@ -20,8 +20,8 @@ const quota = {
 	},
 	overflow: {
 		main: { overflow: false, rate: 1, floor: null },
-		background: { overflow: true, rate: 1, floor: 13_000_000 },
-		coding: { overflow: true, rate: 1.2, floor: 13_000_000 },
+		background: { overflow: true, rate: 1, floor: null },
+		coding: { overflow: true, rate: 1.2, floor: null },
 		external: { overflow: false, rate: 1, floor: null },
 		tools: { overflow: false, rate: 1, floor: null },
 	},
@@ -234,7 +234,9 @@ for (const dark of [false, true]) {
 		await page.goto("/me/quota");
 		const main = page.getByRole("button", { name: "查看主额度详情" });
 		await expect(main).toContainText("41.2M");
-		await expect(main).toContainText("底线 13M");
+		await expect(main).toContainText("本月 65M");
+		await expect(main).toContainText("剩 63%");
+		await expect(main).toContainText("补充 20M");
 		await expect(page.getByText("1M 额度 = ¥1，约 标准 1M 输入 token")).toBeVisible();
 		await expect(page.getByText(/^共 [0-9.]+M$/)).toBeVisible();
 		await page.screenshot({ path: info.outputPath("desktop-quota.png"), fullPage: true });
