@@ -24,6 +24,7 @@ import "./timeline/timeline-cards-parts.css";
 import "./timeline/timeline-cards-drawer.css";
 import "./timeline/timeline-cards-tune.css";
 import "./timeline/timeline-cards-flow.css";
+import "./timeline/timeline-part-icons.css";
 
 /**
  * Days newest first, each with its entries on one spine. A pinned

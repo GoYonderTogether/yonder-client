@@ -1,0 +1,192 @@
+/* The part-of-day marks: a small sky tile in that part's own colours with a flat scene on it. Every colour is a token. The motion is slow and loops every few seconds; it plays only while the mark is on screen (data-live) and not at all when the reader asks for less motion. */
+.tl-part-mark {
+	display: inline-grid;
+	flex: none;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	overflow: hidden;
+	border-radius: var(--radius-control-sm);
+	background: linear-gradient(160deg, var(--part-top), var(--part-bottom));
+	box-shadow: inset 0 0 0 0.5px var(--material-edge);
+}
+.pi {
+	display: block;
+}
+.pi-sun {
+	fill: var(--color-part-sun);
+}
+.pi-sun-warm {
+	fill: var(--color-part-sun-warm);
+}
+.pi-sunrise {
+	fill: var(--color-part-sun-rise);
+}
+.pi-moon {
+	fill: var(--color-part-moon);
+}
+.pi-star {
+	fill: var(--color-part-star);
+}
+.pi-cloud {
+	fill: var(--color-part-cloud);
+	opacity: 0.95;
+}
+.pi-hill-far {
+	fill: var(--color-part-hill-far);
+}
+.pi-hill-near {
+	fill: var(--color-part-hill-near);
+}
+.pi-ray {
+	fill: none;
+	stroke: var(--color-part-sun);
+	stroke-width: 1.5;
+	stroke-linecap: round;
+}
+.pi-glow {
+	fill: var(--color-part-sun);
+	opacity: 0.26;
+}
+.pi-glow-warm {
+	fill: var(--color-part-sun-warm);
+}
+.pi-glow-moon {
+	fill: var(--color-part-moon);
+	opacity: 0.18;
+}
+
+.pi-twinkle,
+.pi-spin,
+.pi-pulse,
+.pi-rise,
+.pi-sink,
+.pi-drift,
+.pi-glow {
+	transform-box: fill-box;
+	transform-origin: center;
+}
+.pi-twinkle {
+	animation: pi-twinkle 3.2s ease-in-out infinite;
+}
+.pi-spin {
+	animation: pi-spin 24s linear infinite;
+}
+.pi-pulse {
+	animation: pi-pulse 2.6s ease-in-out infinite;
+}
+.pi-rise {
+	animation: pi-rise 6s ease-in-out infinite;
+}
+.pi-sink {
+	animation: pi-sink 7s ease-in-out infinite;
+}
+.pi-drift {
+	animation: pi-drift 7s ease-in-out infinite;
+}
+.pi-glow {
+	animation: pi-breathe 4.4s ease-in-out infinite;
+}
+@keyframes pi-twinkle {
+	0%,
+	100% {
+		opacity: 0.25;
+		transform: scale(0.7);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.15);
+	}
+}
+@keyframes pi-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+@keyframes pi-pulse {
+	0%,
+	100% {
+		opacity: 0.5;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+@keyframes pi-rise {
+	0%,
+	100% {
+		transform: translateY(2px);
+	}
+	50% {
+		transform: translateY(-0.6px);
+	}
+}
+@keyframes pi-sink {
+	0%,
+	100% {
+		transform: translateY(-0.8px);
+	}
+	50% {
+		transform: translateY(1.6px);
+	}
+}
+@keyframes pi-drift {
+	0%,
+	100% {
+		transform: translateX(-1.2px);
+	}
+	50% {
+		transform: translateX(1.2px);
+	}
+}
+@keyframes pi-breathe {
+	0%,
+	100% {
+		transform: scale(1);
+		opacity: 0.18;
+	}
+	50% {
+		transform: scale(1.12);
+		opacity: 0.34;
+	}
+}
+
+/* Off screen the loops are held still, so a long timeline does not animate what nobody sees. */
+.tl-part-mark:not([data-live]) .pi * {
+	animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+	.pi * {
+		animation: none;
+	}
+}
+
+.pi-crater {
+	fill: var(--color-part-hill-near);
+	opacity: 0.28;
+}
+.pi-horizon {
+	fill: var(--color-part-sun-rise);
+	opacity: 0.6;
+}
+.pi-bird {
+	fill: none;
+	stroke: var(--color-part-hill-near);
+	stroke-width: 1.1;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+.pi-flap {
+	transform-box: fill-box;
+	transform-origin: center;
+	animation: pi-flap 1.8s ease-in-out infinite;
+}
+@keyframes pi-flap {
+	0%,
+	100% {
+		transform: scaleY(1);
+	}
+	50% {
+		transform: scaleY(0.4);
+	}
+}

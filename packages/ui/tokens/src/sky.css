@@ -1,4 +1,4 @@
-/* Sky colours for the timeline cards, one top and bottom stop for each of the eight parts of the day. */
+/* Sky colours for the timeline, one top and bottom stop for each of the eight parts of the day, and the colours the part-of-day marks are drawn with. */
 :root,
 [data-theme="light"] {
 	--color-sky-part-predawn-top: #1f2a5a;
@@ -17,6 +17,14 @@
 	--color-sky-part-evening-bottom: #6a7bc4;
 	--color-sky-part-night-top: #121a3d;
 	--color-sky-part-night-bottom: #2a3170;
+	--color-part-sun: #ffd23f;
+	--color-part-sun-warm: #ff8f2e;
+	--color-part-sun-rise: #ff7a59;
+	--color-part-moon: #fff1c1;
+	--color-part-star: #ffffff;
+	--color-part-cloud: #ffffff;
+	--color-part-hill-far: #b894d6;
+	--color-part-hill-near: #6b4f9a;
 }
 [data-theme="dark"] {
 	--color-sky-part-predawn-top: #0f1630;
@@ -35,4 +43,12 @@
 	--color-sky-part-evening-bottom: #2f3f80;
 	--color-sky-part-night-top: #0a0f28;
 	--color-sky-part-night-bottom: #1a2050;
+	--color-part-sun: #ffcf3a;
+	--color-part-sun-warm: #ff9a3c;
+	--color-part-sun-rise: #ff8566;
+	--color-part-moon: #fff0bd;
+	--color-part-star: #f5f7ff;
+	--color-part-cloud: #e6ebf7;
+	--color-part-hill-far: #5a4380;
+	--color-part-hill-near: #2b2150;
 }

@@ -1,15 +1,16 @@
 import { BrandIcon, cn } from "@yonder/ui-components";
 import { Footprints, Images, MapPin } from "lucide-react";
 import type { ReactNode } from "react";
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DaySummary } from "../memory-day-summary.tsx";
 import { dayName, daysAgo, memoryFormat } from "../memory-format.ts";
 import { isoWeek } from "./timeline-bands.tsx";
 import { KindIcon } from "./timeline-kinds.tsx";
 import { skyOfPart } from "./timeline-model.ts";
+import { PartIcon, partOfSky } from "./timeline-part-icons.tsx";
 import type { Sky } from "./timeline-sky.tsx";
-import type { TimelineDay, TimelineEvent, TimelineStep } from "./timeline-types.ts";
+import type { DayPart, TimelineDay, TimelineEvent, TimelineStep } from "./timeline-types.ts";
 
 /** What the page around the cards supplies: how a step's pictures are drawn, and what a message or a card opens. */
 export interface TimelineHost {
@@ -48,12 +49,18 @@ const isMajor = (event: TimelineEvent) =>
 				step.photos?.length || step.media?.length || step.from || step.kind === "decision" || step.kind === "recording",
 		));
 
-type Block = { card: TimelineEvent } | { quiet: TimelineEvent[] };
+type Block = { card: TimelineEvent } | { quiet: TimelineEvent[] } | { part: string };
 
 /** Time order is kept: neighbouring small things share one quiet list, big things break it. */
 export const blocksOf = (events: TimelineEvent[]): Block[] => {
 	const out: Block[] = [];
+	let part = "";
 	for (const event of events) {
+		const next = event.marker ?? event.part ?? "";
+		if (next && next !== part) {
+			part = next;
+			out.push({ part: next });
+		}
 		if (isMajor(event)) {
 			out.push({ card: event });
 			continue;
@@ -143,6 +150,10 @@ export function TimelineDaySection({ day, now, after }: { day: TimelineDay; now?
 				{blocksOf(past).map((block, index) =>
 					"card" in block ? (
 						<Card key={eventKey(block.card, index)} event={block.card} />
+					) : "part" in block ? (
+						<li key={`part-${block.part}`} className="tl-part">
+							<PartHead part={block.part} />
+						</li>
 					) : (
 						<Quiet key={eventKey(block.quiet[0] as TimelineEvent, index)} events={block.quiet} />
 					),
@@ -158,6 +169,10 @@ export function TimelineDaySection({ day, now, after }: { day: TimelineDay; now?
 					{blocksOf(ahead).map((block, index) =>
 						"card" in block ? (
 							<Card key={eventKey(block.card, index)} event={block.card} />
+						) : "part" in block ? (
+							<li key={`part-${block.part}`} className="tl-part">
+								<PartHead part={block.part} />
+							</li>
 						) : (
 							<Quiet key={eventKey(block.quiet[0] as TimelineEvent, index)} events={block.quiet} />
 						),
@@ -193,7 +208,8 @@ function Card({ event }: { event: TimelineEvent }) {
 			id={event.entry ? `memory-entry-${event.entry.id}` : undefined}
 		>
 			<time className="tl-at" title={label}>
-				{event.entry ? memoryFormat.time(event.entry.at, "en-GB") : (event.steps[0]?.at ?? "")}
+				<b>{event.entry ? memoryFormat.time(event.entry.at, "en-GB") : (event.steps[0]?.at ?? "")}</b>
+				{from ? <small>{label}</small> : null}
 			</time>
 			<div className="tl-body">
 				<h3 className="tl-card-title">
@@ -329,5 +345,41 @@ function Step({ step }: { step: TimelineStep }) {
 				{step.detail ? <p className="tl-step-detail">{step.detail}</p> : null}
 			</div>
 		</li>
+	);
+}
+
+const PART_NAMES = ["predawn", "dawn", "morning", "noon", "afternoon", "dusk", "evening", "night"];
+
+/** The head of a part-of-day group: a small coloured scene for that part, moving only while it is on screen, then its name. */
+function PartHead({ part }: { part: string }) {
+	const { t } = useTranslation();
+	const named = PART_NAMES.includes(part);
+	const kind = named ? (part as DayPart) : partOfSky[skyOfMarker(part)];
+	const mark = useRef<HTMLSpanElement>(null);
+	const [live, setLive] = useState(false);
+	useEffect(() => {
+		const element = mark.current;
+		if (!element || typeof IntersectionObserver === "undefined") return;
+		const observer = new IntersectionObserver((entries) => setLive(entries.some((entry) => entry.isIntersecting)));
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, []);
+	return (
+		<>
+			<span
+				ref={mark}
+				className="tl-part-mark"
+				data-live={live || undefined}
+				style={
+					{
+						"--part-top": `var(--color-sky-part-${kind}-top)`,
+						"--part-bottom": `var(--color-sky-part-${kind}-bottom)`,
+					} as React.CSSProperties
+				}
+			>
+				<PartIcon part={kind} size={22} />
+			</span>
+			{named ? t(`memory.part_${part}`) : part}
+		</>
 	);
 }

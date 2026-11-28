@@ -28,11 +28,47 @@
 	box-shadow: none;
 }
 .tl-at {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
 	padding-top: var(--spacing-2);
 	font-size: var(--text-micro);
 	line-height: 1.6;
 	font-variant-numeric: tabular-nums;
 	color: var(--color-text-tertiary);
+}
+.tl-at b {
+	font-weight: var(--font-weight-medium);
+	color: var(--color-text-secondary);
+}
+.tl-at small {
+	font-size: var(--text-micro);
+	color: var(--color-text-tertiary);
+}
+/* C: a part of the day heads its own group once, and the cards under it carry only the exact minute. */
+.tl-at small {
+	display: none;
+}
+.tl-blocks {
+	gap: var(--spacing-1);
+}
+.tl-part {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-1);
+	margin: var(--spacing-3) 0 var(--spacing-1);
+	font-size: var(--text-micro);
+	color: var(--color-text-secondary);
+}
+.tl-part::after {
+	flex: 1;
+	height: 1px;
+	margin-left: var(--spacing-2);
+	background: linear-gradient(to right, var(--color-border-default), transparent);
+	content: "";
+}
+.tl-card {
+	grid-template-columns: 3rem minmax(0, 1fr);
 }
 .tl-body {
 	min-width: 0;
