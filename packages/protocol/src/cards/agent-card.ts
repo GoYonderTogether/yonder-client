@@ -1,6 +1,12 @@
 import type { MemberCard } from "../member/member.ts";
 
-export type AgentCardKind = "card_draft" | "confirm" | "digest";
+export type AgentCardKind =
+	| "card_draft"
+	| "confirm"
+	| "digest"
+	// A question asked by a server tool that must run its answer itself (a face-match question),
+	// rather than the `options` tool's chat message. Same choices body as any question card.
+	| "question";
 
 export type AgentCardState = "open" | "working" | "done" | "dismissed" | "expired" | "failed";
 

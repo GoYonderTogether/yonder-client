@@ -291,6 +291,7 @@ export type {
 	EntitySummary,
 	EntityType,
 } from "./memory/entities.ts";
+export type { FaceMatchOwnerResult, FaceMatchResult, FaceMatchVerdict } from "./memory/face.ts";
 export type {
 	MemoryFileAuthor,
 	MemoryFileContent,
