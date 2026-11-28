@@ -8,7 +8,7 @@ import {
 	plainDeviceFileReference,
 	quotedDeviceFiles,
 } from "@yonder/chat-model";
-import { type ChatTextHost, mapMessageText, parseMessage, StreamingText } from "@yonder/chat-presentation";
+import { mapMessageText, parseMessage } from "@yonder/chat-presentation";
 import { type MarkdownToJSX, RuleType } from "markdown-to-jsx";
 import { createContext, Fragment, type ReactNode, useContext, useMemo } from "react";
 import { openDeviceFile } from "../../lib/device-file-navigation";
@@ -48,25 +48,23 @@ function QuotedPaths({ value }: { value: string }) {
 	);
 }
 
-function Nodes({ nodes, streaming = false }: { nodes: Node[]; streaming?: boolean }) {
+function Nodes({ nodes }: { nodes: Node[] }) {
 	return (
 		<>
 			{nodes.map((node, index) => (
 				<Fragment key={nodeKey(node, index)}>
-					<MarkdownNode node={node} streaming={streaming} />
+					<MarkdownNode node={node} />
 				</Fragment>
 			))}
 		</>
 	);
 }
 
-function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
-	const deviceFiles = useContext(DeviceFiles) && !streaming;
+function MarkdownNode({ node }: { node: Node }) {
+	const deviceFiles = useContext(DeviceFiles);
 	switch (node.type) {
 		case RuleType.text:
-			return streaming ? (
-				<StreamingText as={Text as unknown as ChatTextHost} text={node.text} />
-			) : deviceFiles ? (
+			return deviceFiles ? (
 				<QuotedPaths value={node.text} />
 			) : (
 				<Text selectable userSelect>
@@ -76,19 +74,19 @@ function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
 		case RuleType.paragraph:
 			return (
 				<View className="message-content-paragraph message-content-block">
-					<Nodes nodes={node.children} streaming={streaming} />
+					<Nodes nodes={node.children} />
 				</View>
 			);
 		case RuleType.heading:
 			return (
 				<View className={`message-content-heading message-content-heading-${node.level} message-content-block`}>
-					<Nodes nodes={node.children} streaming={streaming} />
+					<Nodes nodes={node.children} />
 				</View>
 			);
 		case RuleType.textFormatted:
 			return (
 				<Text className={`message-content-${node.tag}`}>
-					<Nodes nodes={node.children} streaming={streaming} />
+					<Nodes nodes={node.children} />
 				</Text>
 			);
 		case RuleType.codeInline: {
@@ -121,7 +119,7 @@ function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
 		case RuleType.blockQuote:
 			return (
 				<View className="message-content-blockquote message-content-block">
-					<Nodes nodes={node.children} streaming={streaming} />
+					<Nodes nodes={node.children} />
 				</View>
 			);
 		case RuleType.breakLine:
@@ -133,7 +131,7 @@ function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
 			const reference = deviceFiles && linkedDeviceFileReference(target);
 			const label = (
 				<DeviceFiles.Provider value={false}>
-					<Nodes nodes={node.children} streaming={streaming} />
+					<Nodes nodes={node.children} />
 				</DeviceFiles.Provider>
 			);
 			if (reference) return <FileLink reference={reference}>{label}</FileLink>;
@@ -159,7 +157,7 @@ function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
 								{node.type === RuleType.orderedList ? `${(node.start ?? 1) + index}.` : "•"}
 							</Text>
 							<View className="message-content-list-body">
-								<Nodes nodes={item} streaming={streaming} />
+								<Nodes nodes={item} />
 							</View>
 						</View>
 					))}
@@ -175,7 +173,7 @@ function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
 									className="message-content-table-cell message-content-table-head"
 									key={positionKey("header", index)}
 								>
-									<Nodes nodes={cell} streaming={streaming} />
+									<Nodes nodes={cell} />
 								</View>
 							))}
 						</View>
@@ -183,7 +181,7 @@ function MarkdownNode({ node, streaming }: { node: Node; streaming: boolean }) {
 							<View className="message-content-table-row" key={positionKey("row", index)}>
 								{row.map((cell, column) => (
 									<View className="message-content-table-cell" key={positionKey("cell", column)}>
-										<Nodes nodes={cell} streaming={streaming} />
+										<Nodes nodes={cell} />
 									</View>
 								))}
 							</View>
@@ -207,18 +205,19 @@ export function MessageBody({
 	streaming?: boolean;
 	allowDeviceFiles?: boolean;
 }) {
+	const deviceFiles = allowDeviceFiles && !streaming;
 	const nodes = useMemo(() => {
 		const parsed = parseMessage(body);
-		return allowDeviceFiles && !streaming
+		return deviceFiles
 			? mapMessageText(parsed, (text, inlineCode) => [
 					inlineCode ? { type: RuleType.codeInline, text } : { type: RuleType.text, text },
 				])
 			: parsed;
-	}, [allowDeviceFiles, body, streaming]);
+	}, [body, deviceFiles]);
 	return (
 		<View className="message-content">
-			<DeviceFiles.Provider value={allowDeviceFiles}>
-				<Nodes nodes={nodes} streaming={streaming} />
+			<DeviceFiles.Provider value={deviceFiles}>
+				<Nodes nodes={nodes} />
 			</DeviceFiles.Provider>
 		</View>
 	);

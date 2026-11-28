@@ -4,7 +4,6 @@ import "./option-card.css";
 import "./interaction-card.css";
 
 export { InteractionCard, InteractionCardActions, useQuestionCountdown } from "./interaction-card.tsx";
-export { type ChatTextHost, StreamingText } from "./streaming-text.tsx";
 
 import { type MarkdownToJSX, parser, RuleType } from "markdown-to-jsx";
 import { type ComponentType, type JSX, type ReactNode, type Ref, useEffect, useReducer } from "react";

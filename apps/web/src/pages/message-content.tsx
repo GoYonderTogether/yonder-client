@@ -6,7 +6,7 @@ import {
 	plainDeviceFileReference,
 	quotedDeviceFiles,
 } from "@yonder/chat-model";
-import { mapMessageText, messageMarkdownOptions, parseMessage, StreamingText } from "@yonder/chat-presentation";
+import { mapMessageText, messageMarkdownOptions, parseMessage } from "@yonder/chat-presentation";
 import Markdown, { astToJSX, type MarkdownToJSX, RuleType } from "markdown-to-jsx/react";
 import { Fragment, type ReactNode } from "react";
 import { DeviceFileLink } from "./device-file-link.tsx";
@@ -118,7 +118,6 @@ export function MessageContent({
 				<span key={state.key}>{label}</span>
 			);
 		}
-		if (streaming && node.type === RuleType.text) return <StreamingText key={state.key} as="span" text={node.text} />;
 		if (
 			node.type === RuleType.link &&
 			node.target?.startsWith("/files/") &&

@@ -4,12 +4,8 @@
  */
 
 :root {
-	--stream-blur: 6px;
 	--system-bar-blur: 20px;
 	--color-mask-solid: #000;
-	--stream-duration: 90ms;
-	--stream-stagger: 30ms;
-	--ease-stream: cubic-bezier(0.215, 0.61, 0.355, 1);
 	--feedback-duration: 600ms;
 	--feedback-reset: 2500ms;
 	/* Unit-mass underdamped spring samples: stiffness 380, damping 18. */
@@ -53,8 +49,6 @@
    file, so the media query that zeroes them lives here too. */
 @media (prefers-reduced-motion: reduce) {
 	:root {
-		--stream-duration: 0ms;
-		--stream-stagger: 0ms;
 		--feedback-duration: 0ms;
 		--duration-fast: 0ms;
 		--duration-base: 0ms;

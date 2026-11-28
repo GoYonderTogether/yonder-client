@@ -253,24 +253,3 @@
 	height: 1px;
 	background: var(--color-border-default);
 }
-
-.stream-character {
-	animation: stream-reveal var(--stream-duration) var(--ease-stream) both;
-	animation-delay: calc(var(--batch-delay) + var(--character-index) * var(--stream-stagger));
-}
-
-@keyframes stream-reveal {
-	from {
-		filter: blur(var(--stream-blur));
-		opacity: 0;
-	}
-	to {
-		filter: blur(0);
-		opacity: 1;
-	}
-}
-@media (prefers-reduced-motion: reduce) {
-	.stream-character {
-		animation: none;
-	}
-}

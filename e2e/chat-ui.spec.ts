@@ -260,7 +260,7 @@ test("desktop avatar selection, hover, keyboard focus and action icons keep thei
 	await capture(page, testInfo, "desktop-me-hover");
 });
 
-test("actual conversation hides the empty Bot reply and shows reply text and proactive messages through realtime", async ({
+test("actual conversation shows each realtime reply chunk immediately and receives proactive messages", async ({
 	page,
 }, testInfo) => {
 	await page.setViewportSize({ width: 1180, height: 760 });
@@ -280,10 +280,15 @@ test("actual conversation hides the empty Bot reply and shows reply text and pro
 	await expect(page.locator('[data-message-id="message-02"]')).toHaveCount(0);
 	await expect(page.locator('[data-message-id="message-03"]')).toHaveCount(0);
 	await capture(page, testInfo, "desktop-waiting-for-reply");
-	api.update({ ...reply, body: bodies.answer, version: 2 });
+	api.update({ ...reply, body: bodies.answer.split("\n\n")[0] ?? "", version: 2 });
 	await expect(bubble).toContainText("双方都保留独立气泡");
-	api.update({ ...reply, body: bodies.answer, version: 3, streaming: false });
-	await expect(bubble.locator(".stream-character")).toHaveCount(0);
+	const content = bubble.locator(".message-content");
+	expect(await content.evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0);
+	api.update({ ...reply, body: bodies.answer, version: 3 });
+	await expect(bubble).toContainText("接下来确认手机输入区与顶部面板。");
+	expect(await content.evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0);
+	await capture(page, testInfo, "desktop-reply-still-streaming");
+	api.update({ ...reply, body: bodies.answer, version: 4, streaming: false });
 	await assertBubbles(page);
 	const proactive = message("message-04", "定时任务已完成，整理结果可以查看了。");
 	api.create(proactive);

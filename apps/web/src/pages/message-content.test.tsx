@@ -152,24 +152,17 @@ test("keeps Markdown tables semantic and keyboard focusable", () => {
 	expect(getByRole("cell", { name: "目标" })).toBeTruthy();
 });
 
-test("animates only incoming stream text and settles old glyphs without changing Markdown semantics", () => {
-	vi.useFakeTimers();
-	try {
-		const { container, rerender } = render(<MessageContent body="**你好**" streaming />);
-		expect(container.querySelector("strong")?.textContent).toBe("你好");
-		expect(container.querySelectorAll(".stream-character")).toHaveLength(2);
-		act(() => vi.advanceTimersByTime(120));
-		expect(container.querySelectorAll(".stream-character")).toHaveLength(0);
-		rerender(<MessageContent body="**你好呀**" streaming />);
-		expect(container.querySelector("strong")?.textContent).toBe("你好呀");
-		expect([...container.querySelectorAll(".stream-character")].map((node) => node.textContent)).toEqual(["呀"]);
-		act(() => vi.advanceTimersByTime(90));
-		expect(container.querySelectorAll(".stream-character")).toHaveLength(0);
-		rerender(<MessageContent body="**你好呀**" />);
-		expect(container.querySelector("strong")?.textContent).toBe("你好呀");
-	} finally {
-		vi.useRealTimers();
-	}
+test("renders the complete received text immediately with Markdown formatting", () => {
+	const { container, rerender } = render(<MessageContent body="**你好👨**" streaming />);
+	expect(container.querySelector("strong")?.firstChild).toMatchObject({
+		nodeType: Node.TEXT_NODE,
+		textContent: "你好👨",
+	});
+	const text = "你好👨‍👩‍👧‍👦é";
+	rerender(<MessageContent body={`**${text}**`} streaming />);
+	expect(container.querySelector("strong")?.firstChild).toMatchObject({ nodeType: Node.TEXT_NODE, textContent: text });
+	rerender(<MessageContent body={`**${text}**`} />);
+	expect(container.querySelector("strong")?.textContent).toBe(text);
 });
 
 test("retains file extensions, full accessible names and destinations without changing ordinary links", () => {
@@ -212,48 +205,6 @@ test("copies only code, resets success after 2.5 seconds and reports clipboard f
 		expect(vi.getTimerCount()).toBe(0);
 	} finally {
 		vi.unstubAllGlobals();
-		vi.useRealTimers();
-	}
-});
-
-test("staggering continues across stream chunks and never splits a grapheme", () => {
-	vi.useFakeTimers();
-	try {
-		const { container, rerender } = render(<MessageContent body="你" streaming />);
-		const original = container.querySelector(".stream-character");
-		act(() => vi.advanceTimersByTime(5));
-		rerender(<MessageContent body="你好👨‍👩‍👧‍👦é" streaming />);
-		const characters = [...container.querySelectorAll<HTMLElement>(".stream-character")];
-		expect(characters[0]).toBe(original);
-		expect(characters.map((node) => node.textContent)).toEqual(["你", "好", "👨‍👩‍👧‍👦", "é"]);
-		expect(characters[1]?.style.getPropertyValue("--batch-delay")).toBe("25ms");
-		expect(characters[2]?.style.getPropertyValue("--character-index")).toBe("1");
-		act(() => vi.advanceTimersByTime(85));
-		expect(container.querySelector(".stream-character")).toBe(characters[1]);
-		act(() => vi.advanceTimersByTime(90));
-		expect(container.querySelectorAll(".stream-character")).toHaveLength(0);
-		expect(container.textContent).toBe("你好👨‍👩‍👧‍👦é");
-	} finally {
-		vi.useRealTimers();
-	}
-});
-
-test.each([
-	["e", "é"],
-	["👨", "👨‍👩‍👧‍👦"],
-])("joins a partial streamed grapheme %s without splitting or replaying it", (start, complete) => {
-	vi.useFakeTimers();
-	try {
-		const { container, rerender } = render(<MessageContent body={start} streaming />);
-		const character = container.querySelector(".stream-character");
-		rerender(<MessageContent body={complete} streaming />);
-		expect(container.querySelectorAll(".stream-character")).toHaveLength(1);
-		expect(container.querySelector(".stream-character")).toBe(character);
-		expect(character?.textContent).toBe(complete);
-		act(() => vi.advanceTimersByTime(90));
-		expect(container.querySelectorAll(".stream-character")).toHaveLength(0);
-		expect(container.textContent).toBe(complete);
-	} finally {
 		vi.useRealTimers();
 	}
 });
