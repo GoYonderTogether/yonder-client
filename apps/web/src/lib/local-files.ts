@@ -130,8 +130,11 @@ export function useLocalFilesContext(): LocalFilesContext | null {
 	const devices = useDevices({ enabled });
 	const sessions = useSessions({ enabled });
 	const ownerId = me.data?.member.id;
-	const deviceId = devices.data?.items.find((device) => device.current)?.id;
-	const sessionId = sessions.data?.items.find((session) => session.current)?.id;
+	// This window's own device, taken from its own session: the account's "current" device is the
+	// newest session's, which in another window or on another device may not be this one at all.
+	const currentSession = sessions.data?.items.find((session) => session.current);
+	const deviceId = currentSession?.deviceId ?? devices.data?.items.find((device) => device.current)?.id;
+	const sessionId = currentSession?.id;
 	return useMemo(
 		() => (enabled && ownerId && deviceId && sessionId ? { ownerId, deviceId, sessionId } : null),
 		[enabled, ownerId, deviceId, sessionId],
