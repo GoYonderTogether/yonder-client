@@ -224,6 +224,11 @@ export interface Message {
 	connectorRequestId?: string;
 	/** An owner-only Agent card, loaded separately. */
 	cardId?: string;
+	/**
+	 * A member's namecard shared into this chat. Only the handle is stored: the card is read again
+	 * for each viewer, so a closed switch or an edited card applies to messages already sent.
+	 */
+	memberCard?: { handle: string };
 	reaction?: string;
 	outwardRequest?: import("./outward.ts").OutwardRequestCard;
 	channelAttemptId?: string;

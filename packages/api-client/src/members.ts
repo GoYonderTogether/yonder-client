@@ -11,6 +11,8 @@ import type {
 	MemberProfileResponse,
 	PrivacySettings,
 	ReceptionSetting,
+	SendMessageResponse,
+	ShareMemberCardRequest,
 	SocialLibrary,
 	SocialLibraryChange,
 	StartVisitRequest,
@@ -171,6 +173,11 @@ export function memberEndpoints(client: ApiClient) {
 		},
 		saveBotSocial(id: string, content: string): Promise<{ content: string }> {
 			return client.request(`/v1/bots/${encodeURIComponent(id)}/social`, { method: "PUT", body: { content } });
+		},
+
+		/** Send a member's card into a conversation. The message stores only the handle. */
+		shareMemberCard(handle: string, body: ShareMemberCardRequest): Promise<SendMessageResponse> {
+			return client.request(`/v1/members/${encodeURIComponent(handle)}/share`, { body });
 		},
 
 		/** A card read by someone signed in: carries the relation and the ids the page acts on. */

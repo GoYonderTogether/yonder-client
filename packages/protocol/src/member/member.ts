@@ -99,12 +99,37 @@ export interface PrivacySettings {
 /** `PATCH /v1/me/privacy`. Only the switches present change. */
 export type UpdatePrivacyRequest = Partial<PrivacySettings>;
 
-/** Optional owner-approved additions to a person's visitor namecard. */
+/**
+ * What a person's namecard says beyond who they are. The name, handle, avatar and one-line bio
+ * belong to the member and are never stored here a second time. Every field is optional, and the
+ * owner approves each one before it is published.
+ */
 export interface NamecardFields {
-	displayName?: string;
-	bio?: string;
-	projects?: string[];
+	/** One short paragraph, read on the card's own page. 300 characters is one screen. */
+	about?: string;
 	city?: string;
+	/** Titles only, at most five. The small card shows the first three. */
+	projects?: string[];
+	/** An image attachment id owned by the person. */
+	coverId?: string;
+}
+
+/** The two audiences a namecard has. Friends are two saved contacts, one in each direction. */
+export type NamecardAudience = "stranger" | "friend";
+
+/** What the owner publishes: the friend tier is laid over the stranger tier, never the other way. */
+export interface NamecardTiers {
+	stranger: NamecardFields;
+	friend: NamecardFields;
+}
+
+/**
+ * `POST /v1/members/:handle/share`: send a member's card into a conversation as a card message.
+ * The same send path as a forward, so the target must be a chat the caller may write to.
+ */
+export interface ShareMemberCardRequest {
+	conversationId: string;
+	clientNonce: string;
 }
 
 /** What a visitor can see on a person's or Bot's card. */
