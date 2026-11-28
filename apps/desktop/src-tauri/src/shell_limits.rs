@@ -72,15 +72,19 @@ pub const SHELL_LOG_BYTES: usize = SHELL_OUTPUT_BYTES;
 pub const SHELL_TIMEOUT_MAX_MS: u64 = 60 * 60 * 1000;
 
 /// How long an elevated command's **administrator prompt** may stay unanswered before it becomes
-/// `elevation_timeout`, two minutes.
+/// `elevation_timeout`, one minute.
 ///
 /// This is not the command's runtime and not the 15 s foreground window: it starts when the device
-/// raises the system prompt and ends when the owner approves (the elevated wrapper then writes its
-/// `elevated.started` marker) or the window passes. Two minutes is enough for someone to walk back to
-/// the computer and type a password, and short enough that a Bot that ignored the "the owner must be
-/// at the computer" rule fails with a clear code instead of hanging until the server's own backstop.
-/// A command that has already started is never limited by this — only the prompt is.
-pub const SHELL_ELEVATION_PROMPT_MS: u64 = 2 * 60 * 1000;
+/// raises the system prompt and ends when the owner approves (the elevated runner then writes its
+/// `elevated.marker`) or the window passes. One minute is enough for someone already at their desk
+/// to type a password or touch the sensor.
+///
+/// It must stay **below the server's 90 s chat-idle watchdog** (`chatIdleTimeoutMs`, default
+/// 90 000, `apps/cloud/src/runtime-config.ts`): a tool call produces no progress fragments while the
+/// prompt is up, so a two-minute wait would let the watchdog kill the whole turn before the device
+/// could return `elevation_timeout`, and the Bot would never learn why. A command that has already
+/// started is never limited by this — only the prompt is.
+pub const SHELL_ELEVATION_PROMPT_MS: u64 = 60_000;
 
 /// Longest `justification` accepted by the device, in characters, the same 300 the server bound.
 ///

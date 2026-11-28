@@ -12,7 +12,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use windows_sys::Win32::Foundation::{CloseHandle, FILETIME, HANDLE, STILL_ACTIVE};
+use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, FILETIME, HANDLE, STILL_ACTIVE};
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, TerminateJobObject,
 };
@@ -52,7 +52,9 @@ pub fn assign(pid: u32) -> Result<(), ()> {
             return Err(());
         }
         CloseHandle(process);
-        jobs().get_or_insert_with(HashMap::new).insert(pid, Job(job));
+        jobs()
+            .get_or_insert_with(HashMap::new)
+            .insert(pid, Job(job));
         Ok(())
     }
 }
@@ -69,12 +71,17 @@ pub fn terminate(pid: u32) -> bool {
     }
 }
 
-/// Whether a process exists and, if asked, is still the one recorded.
+/// Whether a process exists.
+///
+/// `ACCESS_DENIED` from `OpenProcess` is a **yes**: the process exists and has a higher integrity
+/// level than this client, which is exactly an elevated command the terminal started. Reporting it
+/// gone would make the runner settle an elevated job the moment it starts, with no exit code. Only
+/// an invalid pid or a process that has already exited is gone.
 pub fn alive(pid: u32) -> bool {
     unsafe {
         let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
         if process.is_null() {
-            return false;
+            return GetLastError() == ERROR_ACCESS_DENIED;
         }
         let mut code = 0u32;
         let ok = GetExitCodeProcess(process, &mut code);
@@ -82,6 +89,9 @@ pub fn alive(pid: u32) -> bool {
         ok != 0 && code == STILL_ACTIVE as u32
     }
 }
+
+/// `ERROR_ACCESS_DENIED`: the process exists but this client may not inspect it.
+const ERROR_ACCESS_DENIED: u32 = 5;
 
 /// `creation.100ns` for the process start time, the pid-reuse guard. Windows reports both the
 /// creation and exit times in one call; only creation is wanted.

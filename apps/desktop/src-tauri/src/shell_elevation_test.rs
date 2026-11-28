@@ -178,3 +178,124 @@ impl Elevate for Fake {
         }
     }
 }
+
+// ---------------------------------------------------------------------------------------------------
+// The macOS wrapper, run by `/bin/sh`: the part a unit test can prove without a dialog.
+// ---------------------------------------------------------------------------------------------------
+#[cfg(target_os = "macos")]
+fn run_wrapper(dir: &std::path::Path, command: &str) -> std::process::Command {
+    std::fs::write(dir.join("command.sh"), command).unwrap();
+    let request = Request {
+        job_dir: dir,
+        command,
+        cwd: dir,
+        justification: "install into /usr/local?",
+    };
+    let wrapper = dir.join("elevated.sh");
+    std::fs::write(&wrapper, wrapper_body(&request)).unwrap();
+    let mut runner = std::process::Command::new("/bin/sh");
+    runner.arg(&wrapper);
+    runner
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn the_wrapper_streams_output_to_the_log_and_records_the_exit_code() {
+    // The landed wrapper first ran the command without redirection, so `do shell script` swallowed its
+    // output and the model got an empty `output`; this test holds the log contract the terminal needs.
+    let dir = std::env::temp_dir().join(format!("yonder-wrap-output-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let status = run_wrapper(&dir, "printf 'one\\n'; printf 'err\\n' >&2; exit 5")
+        .status()
+        .unwrap();
+    assert_eq!(status.code(), Some(5));
+    let log = std::fs::read_to_string(dir.join("output.log")).unwrap();
+    assert!(log.contains("one"), "command stdout is in the log: {log:?}");
+    assert!(log.contains("err"), "command stderr is in the log: {log:?}");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("output.exit")).unwrap(),
+        "5"
+    );
+    assert!(
+        dir.join("elevated.marker").exists(),
+        "approval marker is written"
+    );
+    assert!(
+        dir.join("elevated.pid").exists(),
+        "the command's pid is recorded"
+    );
+    let group: u32 = std::fs::read_to_string(dir.join("elevated.group"))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    assert!(group > 1, "a process group is recorded for kill");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn the_wrapper_writes_the_log_while_the_command_runs() {
+    // A long command must show output in `shell`'s 15 s foreground window, not only at the end.
+    let dir = std::env::temp_dir().join(format!("yonder-wrap-live-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut child = run_wrapper(&dir, "printf first; sleep 3; printf second")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut seen = String::new();
+    for _ in 0..20 {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        seen = std::fs::read_to_string(dir.join("output.log")).unwrap_or_default();
+        if seen.contains("first") {
+            break;
+        }
+    }
+    assert!(
+        seen.contains("first"),
+        "output is readable while the command runs: {seen:?}"
+    );
+    assert!(!seen.contains("second"), "the command has not finished yet");
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn the_kill_marker_ends_the_command_and_its_children() {
+    let dir = std::env::temp_dir().join(format!("yonder-wrap-kill-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut child = run_wrapper(&dir, "sleep 30 & sleep 30; printf never")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    // Wait for both the wrapper and the command to be up, then leave the marker the client writes.
+    for _ in 0..50 {
+        if dir.join("elevated.group").exists() && dir.join("elevated.marker").exists() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert!(dir.join("elevated.group").exists());
+    std::fs::write(dir.join("elevation.kill"), b"").unwrap();
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while child.try_wait().unwrap().is_none() && std::time::Instant::now() < until {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let status = child.try_wait().unwrap();
+    assert!(status.is_some(), "the wrapper ended after the kill marker");
+    assert!(!std::fs::read_to_string(dir.join("output.log"))
+        .unwrap_or_default()
+        .contains("never"));
+    // The command's own group is gone, which is what `kill` promises.
+    if let Some(group) = recorded_group(&dir) {
+        let alive = unsafe { libc::kill(group as i32, 0) } == 0;
+        assert!(!alive, "the command group is gone");
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}

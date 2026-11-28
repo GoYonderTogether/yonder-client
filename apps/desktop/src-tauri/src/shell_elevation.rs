@@ -21,7 +21,10 @@
 //!   owner answers. The runner waits at most [`SHELL_ELEVATION_PROMPT_MS`] for this marker, then reports
 //!   `elevation_timeout` and ends the launcher, which cancels the pending prompt.
 //! * `elevated.pid` — the elevated command's own pid, written before it runs the real command. `kill`
-//!   reads it to end that exact tree, not just the launcher that has already exited.
+//!   reads it to end that exact tree, not just the launcher that has already exited. macOS also writes
+//!   `elevated.group`, the command's own process group, and watches `elevation.kill`: the unprivileged
+//!   client may not signal a root process, but it may write a file, and the privileged wrapper turns
+//!   that marker into the group kill from where the privilege lives.
 //!
 //! The command is never re-quoted into a shell word or an AppleScript string: it is written to a file
 //! (`command.sh` / `command.ps1`) and run by path, so the bytes the model wrote are the bytes that run.
@@ -168,6 +171,14 @@ pub fn recorded_pid(job_dir: &Path) -> Option<u32> {
         .and_then(|text| text.trim().parse().ok())
 }
 
+/// The command's process-group id, read from `elevated.group` (the macOS wrapper gives the command its
+/// own group with `set -m`, so this group reaches the command's descendants). Windows has no such file.
+pub fn recorded_group(job_dir: &Path) -> Option<u32> {
+    std::fs::read_to_string(job_dir.join("elevated.group"))
+        .ok()
+        .and_then(|text| text.trim().parse().ok())
+}
+
 /// A platform with no administrator prompt in this build.
 #[cfg(not(any(target_os = "macos", windows)))]
 struct UnsupportedElevate;
@@ -182,6 +193,51 @@ impl Elevate for UnsupportedElevate {
 // ---------------------------------------------------------------------------------------------------
 // macOS: `osascript … with administrator privileges`
 // ---------------------------------------------------------------------------------------------------
+/// The privileged wrapper `osascript` runs. Split out so a test can generate the exact bytes and run
+/// them as `/bin/sh` (unprivileged, no dialog), proving what the real flow depends on: the command's
+/// output goes to `output.log` while it runs, the exit code lands in `output.exit`, and
+/// `elevation.kill` ends the whole group.
+///
+/// `set -m` gives the command its own process group; the recorded group is what `kill` reaches. The
+/// watcher subshell turns the client's kill *file* into a group kill *here*, where the privilege is:
+/// the unprivileged client may not signal a root process, but it may write a file beside its log.
+#[cfg(target_os = "macos")]
+fn wrapper_body(request: &Request<'_>) -> String {
+    let log = request.log();
+    let group = request.job_dir.join("elevated.group");
+    let kill_marker = request.job_dir.join("elevation.kill");
+    format!(
+        "umask 022\n\
+         cd {cwd} || exit 1\n\
+         printf '%s' $$ > {pid}\n\
+         touch {marker}\n\
+         set -m\n\
+         {{ {shell} {script}\n}} >> {log} 2>&1 &\n\
+         child=$!\n\
+         printf '%s' \"$child\" > {group}\n\
+         (\n\
+         \twhile [ ! -e {kill} ]; do sleep 0.2; done\n\
+         \tkill -KILL -\"$child\" 2>/dev/null\n\
+         \tkill -KILL \"$child\" 2>/dev/null\n\
+         ) &\n\
+         watcher=$!\n\
+         wait \"$child\"\n\
+         code=$?\n\
+         kill -KILL \"$watcher\" 2>/dev/null\n\
+         printf '%s' \"$code\" > {exit}\n\
+         exit \"$code\"\n",
+        cwd = sh_quote(request.cwd.to_string_lossy()),
+        pid = sh_quote(request.pid_file().to_string_lossy()),
+        marker = sh_quote(request.marker().to_string_lossy()),
+        shell = sh_quote(crate::shell_process::default_shell()),
+        script = sh_quote(request.job_dir.join("command.sh").to_string_lossy()),
+        log = sh_quote(log.to_string_lossy()),
+        group = sh_quote(group.to_string_lossy()),
+        kill = sh_quote(kill_marker.to_string_lossy()),
+        exit = sh_quote(request.exit().to_string_lossy()),
+    )
+}
+
 #[cfg(target_os = "macos")]
 struct MacElevate;
 
@@ -189,17 +245,25 @@ struct MacElevate;
 impl Elevate for MacElevate {
     fn elevate(&self, request: &Request<'_>) -> Outcome {
         // The elevated /bin/sh records its own pid, marks approval, runs the command from its file in
-        // the requested directory, and records the exit code — the same `.exit` contract the ordinary
-        // wrapper uses. Paths are single-quoted literals baked in at generation time.
-        let body = format!(
-            "cd {cwd} || exit 1\nprintf '%s' $$ > {pid}\ntouch {marker}\n{shell} {script}\ncode=$?\nprintf '%s' \"$code\" > {exit}\nexit \"$code\"\n",
-            cwd = sh_quote(request.cwd.to_string_lossy()),
-            pid = sh_quote(request.pid_file().to_string_lossy()),
-            marker = sh_quote(request.marker().to_string_lossy()),
-            shell = sh_quote(crate::shell_process::default_shell()),
-            script = sh_quote(request.job_dir.join("command.sh").to_string_lossy()),
-            exit = sh_quote(request.exit().to_string_lossy()),
-        );
+        // the requested directory **with both streams appended to the job's log**, and records the exit
+        // code — the same `output.log` / `output.exit` contract the ordinary wrapper uses.
+        //
+        // The redirection is not optional: `do shell script` captures the wrapper's stdout and returns
+        // it to `osascript` as the AppleScript result, which this client discards. Without `>>` the
+        // command's output would never reach the log at all, so `shell` would return empty output and
+        // `shell_job log` would have nothing to page. `>/dev/null 2>&1` on the `do shell script` call in
+        // [`Self::script`] closes the remaining door: the wrapper's own noise also stays out.
+        //
+        // The command runs in the background with a group of its own (`set -m`) and the wrapper waits for
+        // it, so the log grows while it runs rather than only at the end, and the recorded group reaches
+        // its descendants.
+        //
+        // `kill` is the `elevation.kill` marker, not a signal: this is the privileged process, and the
+        // unprivileged client may not signal it. A watcher subshell turns the marker into a group kill
+        // from here, where the privilege lives; `wait` returns at once when the command ends, so a
+        // one-second command is noticed immediately and a long one costs no spinning. The client's own
+        // `kill_pid` is the fallback for a wrapper that died before its watcher could act.
+        let body = wrapper_body(request);
         let wrapper = request.job_dir.join("elevated.sh");
         // The command is written verbatim; it is run by path, never spliced into a shell word.
         if std::fs::write(request.job_dir.join("command.sh"), request.command).is_err()
@@ -208,8 +272,11 @@ impl Elevate for MacElevate {
             return Outcome::Unavailable;
         }
 
+        // The command's output is the file's; the wrapper must print nothing into the AppleScript
+        // result, which is discarded anyway. `</dev/null` keeps a command that reads stdin from
+        // hanging on the terminal-less session.
         let script = format!(
-            "do shell script \"/bin/sh {wrapper}\" with administrator privileges with prompt \"{prompt}\"",
+            "do shell script \"/bin/sh {wrapper} >/dev/null 2>&1 </dev/null\" with administrator privileges with prompt \"{prompt}\"",
             wrapper = escape_apple(&sh_quote(wrapper.to_string_lossy())),
             prompt = escape_apple(&prompt_text(request)),
         );

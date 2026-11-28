@@ -49,12 +49,12 @@
 普通终端没有管理员权限，`sudo` 在没有终端的环境里会失败；要提权就用 `elevated`（补充方案第二节）。设备端实现：
 
 - **参数校验**：`elevated` 必须是布尔；`elevated:true` 时 `justification` 必填、非空（去空白后）、不超过 300 字符、无 NUL；`elevated` 缺省或为 `false` 时不得带 `justification`。不符一律 `path_invalid`，在弹窗之前拒绝，服务端已经查过一次，设备端再查一次互不信任。`elevated:true` 与 `stdin:true` 不能同时用（提权进程不继承管道），同样 `path_invalid`。
-- **macOS**：`osascript` 的 `do shell script … with administrator privileges with prompt "…"`，由系统弹管理员授权对话框，用户在这台电脑上输密码或 Touch ID；`justification` 作为对话框里的原因。Yonder 不保存、不经手密码。命令原文写进 `command.sh` 按路径执行，从不拼进 shell 词或 AppleScript 字符串。
-- **Windows**：`ShellExecuteExW` 的 `runas` 动词（UAC）；命令写进 `command.ps1`（UTF-8 BOM）由 PowerShell `-File` 按路径执行，`elevated.cmd` 把 `%ERRORLEVEL%` 写进 `.exit`、退出 0。提权进程不继承管道，输出重定向到 `output.log`——沿用普通终端的 jobs 日志和 `.exit` 机制。
+- **macOS**：`osascript` 的 `do shell script … with administrator privileges with prompt "…"`，由系统弹管理员授权对话框，用户在这台电脑上输密码或 Touch ID；`justification` 作为对话框里的原因。Yonder 不保存、不经手密码。命令原文写进 `command.sh` 按路径执行，从不拼进 shell 词或 AppleScript 字符串。提权包装器把命令放进自己的进程组（`set -m`，组号记进 `elevated.group`），**两个输出流都追加进 `output.log`**——这是必须的：`do shell script` 会把包装器的 stdout 当 AppleScript 结果拿走且被客户端丢弃，不重定向就会一条输出也留不下。
+- **Windows**：`ShellExecuteExW` 的 `runas` 动词（UAC）；命令写进 `command.ps1`（UTF-8 BOM）由 PowerShell `-File` 按路径执行，`elevated.cmd` 把 `%ERRORLEVEL%` 写进 `.exit`、退出 0。提权进程不继承管道，输出重定向到 `output.log`——沿用普通终端的 jobs 日志和 `.exit` 机制。`kill` 走 `taskkill /T / PID`（提权进程的 `cmd.exe` 与 PowerShell 子进程一起结束）；客户端权限不足时如实返回错误，不谎报已停。
 - **授权一次的证明**：启动器无法区分「已批准」与「还在等批准」（`osascript` 阻塞在授权对话框里），所以提权进程自己第一步写 `elevated.marker`（macOS 的 `elevated.pid` 还记自己的 pid 供 `kill` 用）。设备端最多等 `SHELL_ELEVATION_PROMPT_MS` 看这个标记，超时即 `elevation_timeout` 并结束启动器（取消待决对话框）。
 - **错误码**：用户拒绝 → `elevation_denied`；等标记超时 → `elevation_timeout`；非 macOS/Windows 平台或无法弹窗（无图形会话、`osascript`/`cmd.exe` 启动失败）→ `elevation_unavailable`。都不重试、不换方式、不降级为无权限运行。
-- **与普通命令一致**：提权命令同样走 15 秒前台转后台、`jobs.json` 记录、完成事件、`shell_job`。`kill` 先结束启动器，再按 `elevated.pid` 结束提权进程本身；权限不足、结束不掉时如实返回 `operation_failed`，不谎报已停。
-- **运行步骤**：`elevated:true` 的 `shell` 步骤记录命令原文、`elevated: true` 和用户看到的 `justification`（存在 `jobs.json` 的 `elevated`、`justification` 字段里）。
+- **与普通命令一致**：提权命令同样走 15 秒前台转后台、`jobs.json` 记录、完成事件、`shell_job`。`kill` 在 macOS 写 `elevation.kill`，让提权包装器自己结束它的整棵进程组，再按 `elevated.pid`、`elevated.group` 兜底；Windows 走 `taskkill /T /F`。等一秒后进程仍在，如实返回 `operation_failed`，不谎报已停。
+- **运行步骤**：`elevated:true` 的 `shell` 步骤记录命令原文、`elevated: true` 和用户看到的 `justification`（存在 `jobs.json` 的 `elevated`、`justification` 字段里）。结果结构不变。
 - **可替换的提权接口**：`Elevate` trait 与 `set_test_elevator` 测试入口让单元测试用假实现覆盖拒绝/超时/成功，绝不弹系统对话框。
 
 ## 五、任务记录与重启核对
@@ -82,7 +82,7 @@
 | `SHELL_STDIN_BYTES`         | 65536 B    | 一次 `write` 与一个工具输入的上限一致                                                                                                          |
 | `SHELL_LOG_BYTES`           | 65536 B    | 一页 `log` 与一个结果同量级                                                                                                                    |
 | `SHELL_TIMEOUT_MAX_MS`      | 3600000 ms | 超过一小时的是用户没让 Bot 盯的常驻进程；需要常驻就用后台加 `kill`                                                                             |
-| `SHELL_ELEVATION_PROMPT_MS` | 120000 ms  | 提权命令的**授权对话框**等待上限，两分钟：够用户走回电脑输密码，又短于服务端兜底；对话批准、提权进程写标记后才开始计时，已启动的命令不受它限制 |
+| `SHELL_ELEVATION_PROMPT_MS` | 60000 ms  | 提权命令的**授权对话框**等待上限，一分钟：够用户走到电脑前输密码或按 Touch ID，又必须短于服务端 90 s 的对话停滞窗口（`chatIdleTimeoutMs`），否则设备还没回 `elevation_timeout` 整轮就先被看门狗杀掉；对话批准、提权进程写标记后才开始计时，已启动的命令不受它限制 |
 | `SHELL_JUSTIFICATION_CHARS` | 300        | `justification` 的字符上限，与服务端同值；是一句给用户看的话，不是备注；设备端拒绝服务端也会拒绝的手工构造命令                                 |
 
 ## 七、不做

@@ -368,19 +368,50 @@ pub(crate) fn kill_live(state: &mut State, id: &str) -> Option<bool> {
         Err(_) => false,
     };
     // An elevated command's real process is root (macOS) or in another integrity level (Windows): the
-    // launcher `child.kill()` reaches is not it. Kill the recorded elevated pid too, and report honestly
-    // if it is still there — this client may not outrank it.
-    let elevated_pid = match state.jobs.get(id) {
-        Some(job) if job.elevated => job
-            .log_path
-            .parent()
-            .and_then(shell_elevation::recorded_pid),
+    // launcher `child.kill()` reaches is not it. Two routes, and the privileged one comes first:
+    //
+    // * macOS: the privileged wrapper watches `elevation.kill`, a file the client may write even though
+    //   it may not signal the process, and kills the command's whole group from inside. Writing that
+    //   file and waiting is what lets an unprivileged client actually end an elevated tree.
+    // * Both: `kill_pid` on the recorded pid, which `taskkill /T` backs on Windows and which works on
+    //   macOS only when the client happens to outrank the process.
+    //
+    // If the process is still there afterwards, the answer is `false`: this client could not end it, and
+    // the caller reports that rather than pretending.
+    let job_dir = match state.jobs.get(id) {
+        Some(job) if job.elevated => job.log_path.parent().map(Path::to_path_buf),
         _ => None,
     };
+    let elevated_pid = job_dir.as_deref().and_then(shell_elevation::recorded_pid);
+    let group = job_dir.as_deref().and_then(shell_elevation::recorded_group);
+    if let Some(dir) = job_dir.as_deref() {
+        let _ = std::fs::write(dir.join("elevation.kill"), b"");
+    }
     if let Some(pid) = elevated_pid.filter(|pid| shell_process::alive(*pid, "")) {
         shell_process::kill_pid(pid);
     }
-    let still_there = elevated_pid.is_some_and(|pid| shell_process::alive(pid, ""));
+    // The wrapper's own group kill is the reliable route; this reaches the same group from here in
+    // case the watcher has not run yet. Windows has no process-group signal, so the field is unused
+    // there and the wrapper's own loop is the only route.
+    #[cfg(unix)]
+    if let Some(group) = group.filter(|group| *group > 1) {
+        unsafe {
+            libc::kill(-(group as i32), libc::SIGKILL);
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = group;
+    // Give the wrapper a moment to act on the marker before judging the result.
+    let still_there = match elevated_pid {
+        Some(pid) => {
+            let until = now_ms() + 1_000;
+            while now_ms() < until && shell_process::alive(pid, "") {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+            shell_process::alive(pid, "")
+        }
+        None => false,
+    };
     let confirmed = killed && !still_there;
     if let Some(job) = state.jobs.get_mut(id) {
         // A hard kill the owner refused to let us finish still *ends the record* as killed: the Bot
