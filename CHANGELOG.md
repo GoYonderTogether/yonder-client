@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26112816] - 2026-11-28
+
+### Fixed
+
+- speech：reuse finalized live transcripts
+
 ## [0.3.26112815] - 2026-11-28
 
 ### Added
