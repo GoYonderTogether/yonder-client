@@ -270,7 +270,7 @@ for (const platform of ["macos", "ios"] as const) {
 		await expect.poll(() => ready).toBe(true);
 		await expect(dialog.getByRole("button", { name: "试试看" })).toBeVisible();
 		await page.screenshot({ path: info.outputPath(`${platform}-apple-on.png`), animations: "disabled" });
-		await dialog.getByRole("button", { name: "关闭" }).click();
+		await dialog.getByRole("button", { name: "关闭", exact: true }).click();
 		await expect(section.getByRole("button", { name: `已接入 · ${name}`, exact: true })).toBeVisible();
 
 		const command: ConnectorCommand = {

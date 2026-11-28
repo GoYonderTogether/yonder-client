@@ -41,7 +41,7 @@ test("computer access only changes the selected device and permission", async ({
 					connectorId: "local-files",
 					name: target.name,
 					scope: "device",
-					capabilities: { fileTools: false, terminal: false },
+					capabilities: { fileTools: false, terminal: false, desktop: false },
 				});
 				grant = {
 					...input,
