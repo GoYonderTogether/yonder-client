@@ -13,6 +13,7 @@ import { AgentCardMessage } from "./agent-card-message.tsx";
 import { ConnectorIntakeMessageCard } from "./connector-intake-card.tsx";
 import { ConnectorRequestCard } from "./connector-request-card.tsx";
 import { MeetingMessageCard } from "./meeting-message-card.tsx";
+import { MemberCardMessage } from "./member-card-message.tsx";
 import { getAttachmentDownloadItem, MessageAttachments } from "./message-attachments.tsx";
 import { MessageContent } from "./message-content.tsx";
 import type { MessageMenuItem, MessageMenuTarget } from "./message-menu.tsx";
@@ -156,6 +157,7 @@ export function MessageEntry({
 			<MessageSources run={message.run} />
 			{message.connectorRequestId ? <ConnectorRequestCard id={message.connectorRequestId} /> : null}
 			{message.cardId ? <AgentCardMessage id={message.cardId} disconnected={disconnected} /> : null}
+			{message.memberCard ? <MemberCardMessage handle={message.memberCard.handle} /> : null}
 			{meeting && onOpenMeeting ? <MeetingMessageCard meeting={meeting} onOpen={onOpenMeeting} /> : null}
 			{message.taskSession && onOpenMeeting && !message.connectorIntake ? (
 				<MeetingMessageCard meeting={message.taskSession} task onOpen={onOpenMeeting} />
